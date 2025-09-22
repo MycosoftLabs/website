@@ -1,215 +1,147 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import Link from "next/link"
-import Image from "next/image"
-import { useTheme } from "next-themes"
-import { MouseIcon as Mushroom, FileText, FlaskRoundIcon as Flask, Microscope, AlertCircle } from "lucide-react"
 import type React from "react"
-import { useSearch } from "./search/use-search"
-import { SearchErrorBoundary } from "@/components/search/error-boundary"
-import { EnhancedSearch } from "./enhanced-search"
+
+import { useState } from "react"
+import { Search, Sparkles, Database, Microscope } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
+import { motion } from "framer-motion"
+import { useRouter } from "next/navigation"
 
 export function SearchSection() {
-  const { query, setQuery, suggestions, isLoading, error, fetchSuggestions } = useSearch()
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const router = useRouter()
-  const searchRef = useRef<HTMLDivElement>(null)
-  const theme = useTheme()
-
-  useEffect(() => {
-    if (!query.trim()) {
-      setShowSuggestions(true) // Show popular/featured items
-      return
-    }
-
-    const controller = new AbortController()
-    fetchSuggestions(query, controller)
-
-    return () => controller.abort()
-  }, [query, fetchSuggestions])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (query.trim()) {
-      setShowSuggestions(false)
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
     }
   }
 
+  const quickSearches = [
+    { label: "Amanita muscaria", icon: "🍄" },
+    { label: "Psilocybe", icon: "🧠" },
+    { label: "Penicillium", icon: "🔬" },
+    { label: "Cordyceps", icon: "🐛" },
+  ]
+
   return (
-    <section className="pt-8 pb-16 md:pb-24 flex flex-col items-center gap-8">
-      <SearchErrorBoundary>
-        <div className="w-full max-w-2xl relative" ref={searchRef}>
-          <div
-            className="relative px-4 md:px-8"
-            style={{
-              padding: "6rem 1rem",
-              paddingBottom: "8rem",
-              "@media (minWidth: 768px)": {
-                padding: "10rem 2rem",
-              },
-            }}
-          >
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover rounded-xl"
-              style={{ filter: "brightness(0.5)" }}
-            >
-              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] rounded-xl" />
-            <div className="relative z-10 flex flex-col items-center gap-6 md:gap-8">
-              <div className="flex flex-col items-center gap-2 md:gap-4">
-                <div className="flex items-center gap-2 md:gap-4">
-                  <div className="w-12 h-12 md:w-16 md:h-16">
-                    <Image
-                      src={
-                        theme.theme === "dark"
-                          ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
-                          : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
-                      }
-                      alt="Mycosoft Logo"
-                      width={64}
-                      height={64}
-                      className="object-contain"
-                      priority
-                    />
-                  </div>
-                  <span className="text-3xl md:text-6xl font-bold">Mycosoft</span>
-                </div>
-                <p className="text-base md:text-xl text-muted-foreground text-center">
-                  The Fungal Intelligence Platform
-                </p>
-              </div>
+    <section className="py-20 px-4">
+      <div className="max-w-4xl mx-auto text-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Explore the Fungal Kingdom
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Discover, identify, and research fungi with our comprehensive database powered by advanced AI and scientific
+            expertise.
+          </p>
+        </motion.div>
 
-              {/* Enhanced Search - Hidden on mobile */}
-              <div className="hidden md:block w-full">
-                <EnhancedSearch />
-              </div>
-
-              {/* Legacy Search Form - Hidden on desktop, visible on mobile */}
-              <form onSubmit={handleSearch} className="w-full md:hidden">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.target.value)
-                      setShowSuggestions(true)
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    placeholder="Search fungi..."
-                    className="pl-10 h-12 transition-all duration-200 hover:shadow-lg focus:shadow-xl"
-                    aria-expanded={showSuggestions}
-                    aria-controls="search-suggestions"
-                    aria-label="Search fungi and compounds"
-                    aria-busy={isLoading}
-                    aria-invalid={!!error}
-                    aria-errormessage={error || undefined}
-                  />
-                  {isLoading && (
-                    <div className="absolute right-3 top-3">
-                      <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                    </div>
-                  )}
-                </div>
-              </form>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-8"
+        >
+          <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl mx-auto">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Search species, compounds, or research papers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 text-lg"
+              />
             </div>
+            <Button type="submit" size="lg" className="h-12 px-8">
+              <Search className="mr-2 h-4 w-4" />
+              Search
+            </Button>
+          </form>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-12"
+        >
+          <p className="text-sm text-muted-foreground mb-4">Popular searches:</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {quickSearches.map((search, index) => (
+              <Button
+                key={search.label}
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery(search.label)
+                  router.push(`/search?q=${encodeURIComponent(search.label)}`)
+                }}
+                className="text-sm"
+              >
+                <span className="mr-2">{search.icon}</span>
+                {search.label}
+              </Button>
+            ))}
           </div>
+        </motion.div>
 
-          {/* Suggestions dropdown - Only for mobile */}
-          {showSuggestions && (query.trim() || suggestions.length > 0) && (
-            <Card className="absolute w-full -mt-1 border-t-0 rounded-t-none z-50 max-h-[400px] overflow-auto shadow-xl md:hidden">
-              <div className="p-2">
-                {error ? (
-                  <div className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 text-destructive mb-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <p className="font-medium">Error</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{error}</p>
-                    <Button variant="ghost" size="sm" className="mt-2" onClick={() => fetchSuggestions(query)}>
-                      Try again
-                    </Button>
-                  </div>
-                ) : isLoading ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                    Loading suggestions...
-                  </div>
-                ) : suggestions.length > 0 ? (
-                  <div className="divide-y">
-                    {suggestions.map((suggestion) => (
-                      <Link
-                        key={suggestion.id}
-                        href={suggestion.url}
-                        className="flex items-center gap-4 p-3 hover:bg-muted rounded-lg transition-colors"
-                        onClick={() => setShowSuggestions(false)}
-                      >
-                        <div className="shrink-0">
-                          {suggestion.type === "fungi" && <Mushroom className="h-5 w-5 text-primary" />}
-                          {suggestion.type === "article" && <FileText className="h-5 w-5 text-primary" />}
-                          {suggestion.type === "compound" && <Flask className="h-5 w-5 text-primary" />}
-                          {suggestion.type === "research" && <Microscope className="h-5 w-5 text-primary" />}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">{suggestion.title}</div>
-                          {suggestion.scientificName && (
-                            <div className="text-sm text-muted-foreground">{suggestion.scientificName}</div>
-                          )}
-                          <div className="text-xs text-muted-foreground capitalize flex items-center gap-1">
-                            <span>{suggestion.type}</span>
-                            {suggestion.date && (
-                              <>
-                                <span>•</span>
-                                <span>{suggestion.date}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  query.trim() && <div className="p-4 text-center text-muted-foreground">No suggestions found</div>
-                )}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="grid md:grid-cols-3 gap-6"
+        >
+          <Card
+            className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
+            onClick={() => router.push("/fungal-database")}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="mb-4 mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <Database className="h-6 w-6 text-green-600" />
               </div>
-            </Card>
-          )}
-        </div>
-      </SearchErrorBoundary>
+              <h3 className="font-semibold mb-2">Fungal Database</h3>
+              <p className="text-sm text-muted-foreground">
+                Comprehensive collection of fungal species with detailed taxonomic information
+              </p>
+            </CardContent>
+          </Card>
 
-      <div className="flex flex-wrap gap-4 justify-center text-sm text-muted-foreground px-4">
-        <span>Trending:</span>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=lions+mane+research">Lion's Mane Research</Link>
-        </Button>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=bioremediation">Bioremediation</Link>
-        </Button>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=cordyceps+studies">Cordyceps Studies</Link>
-        </Button>
+          <Card
+            className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
+            onClick={() => router.push("/myca-ai")}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="mb-4 mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                <Sparkles className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="font-semibold mb-2">MYCA AI Assistant</h3>
+              <p className="text-sm text-muted-foreground">
+                AI-powered identification and research assistance for mycological studies
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="group hover:shadow-lg transition-all duration-300 cursor-pointer"
+            onClick={() => router.push("/compounds")}
+          >
+            <CardContent className="p-6 text-center">
+              <div className="mb-4 mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <Microscope className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="font-semibold mb-2">Compound Library</h3>
+              <p className="text-sm text-muted-foreground">
+                Explore bioactive compounds and their molecular structures
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </section>
   )

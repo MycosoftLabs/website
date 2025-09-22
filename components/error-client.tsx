@@ -12,7 +12,6 @@ export default function ErrorClient({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // Side-effect: log to your monitoring service
   useEffect(() => {
     console.error("Application error:", error)
   }, [error])
