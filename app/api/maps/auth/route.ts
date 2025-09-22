@@ -2,22 +2,16 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
-    // In a real implementation, you would generate a proper Azure Maps token
-    // For now, we'll return the subscription key as the token
-    const subscriptionKey = process.env.NEXT_PUBLIC_AZURE_MAPS_KEY
+    // In a real application, you would fetch a token from Azure Maps
+    // For now, we'll return a mock token structure
+    const token = process.env.NEXT_PUBLIC_AZURE_MAPS_KEY || "mock-token"
 
-    if (!subscriptionKey) {
-      return NextResponse.json({ error: "Azure Maps subscription key not configured" }, { status: 500 })
-    }
-
-    // Return the subscription key as token
-    // In production, you might want to generate a proper SAS token
     return NextResponse.json({
-      token: subscriptionKey,
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+      token,
+      expires: Date.now() + 3600000, // 1 hour from now
     })
   } catch (error) {
-    console.error("Azure Maps auth error:", error)
-    return NextResponse.json({ error: "Failed to generate authentication token" }, { status: 500 })
+    console.error("Error getting Azure Maps token:", error)
+    return NextResponse.json({ error: "Failed to get authentication token" }, { status: 500 })
   }
 }

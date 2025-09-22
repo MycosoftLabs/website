@@ -1,114 +1,254 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { AzureMap } from "@/components/maps/azure-map"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { CardDescription } from "@/components/ui/card"
+
+import { CardContent } from "@/components/ui/card"
+
+import { CardTitle } from "@/components/ui/card"
+
+import { CardHeader } from "@/components/ui/card"
+
+import { useEffect, useRef, useState } from "react"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MapPin, Activity, TrendingUp, Zap, Wind, Thermometer, Layers, RotateCw } from "lucide-react"
-import type { DeviceLocation, SporeDataPoint } from "@/lib/types"
+import { MapPin, Activity, TrendingUp, Zap, Wind, Thermometer, RotateCw, Droplets } from "lucide-react"
+import type { SporeDataPoint } from "@/lib/types"
+import type { SporeDetector } from "@/components/apps/spore-tracker/spore-map"
+import { atlas } from "azure-maps-control"
 
 interface SporeMapProps {
   className?: string
+  mapType: "satellite" | "topographic" | "street"
+  showWindOverlay: boolean
+  showSporeDetectors: boolean
+  showHeatmap: boolean
+  selectedRegion: string | null
+  zoomLevel: number
+  onZoomChange: (zoom: number) => void
+  onRegionSelect: (region: string | null) => void
 }
 
-export function SporeMap({ className }: SporeMapProps) {
-  const [selectedDevice, setSelectedDevice] = useState<DeviceLocation | null>(null)
-  const [sporeData, setSporeData] = useState<SporeDataPoint[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [mapStyle, setMapStyle] = useState<"road" | "satellite" | "hybrid">("road")
-  const [showHeatmap, setShowHeatmap] = useState(false)
-  const [showWindOverlay, setShowWindOverlay] = useState(false)
+const mockDetectors: SporeDetector[] = [
+  {
+    id: "det-001",
+    name: "Pacific Northwest Station",
+    lat: 47.6062,
+    lng: -122.3321,
+    sporeCount: 1250,
+    temperature: 18,
+    humidity: 75,
+    windSpeed: 12,
+    status: "active",
+  },
+  {
+    id: "det-002",
+    name: "Great Lakes Monitor",
+    lat: 41.8781,
+    lng: -87.6298,
+    sporeCount: 890,
+    temperature: 22,
+    humidity: 68,
+    windSpeed: 8,
+    status: "active",
+  },
+  {
+    id: "det-003",
+    name: "Appalachian Tracker",
+    lat: 35.7796,
+    lng: -78.6382,
+    sporeCount: 1450,
+    temperature: 25,
+    humidity: 82,
+    windSpeed: 6,
+    status: "active",
+  },
+  {
+    id: "det-004",
+    name: "Rocky Mountain Station",
+    lat: 39.7392,
+    lng: -104.9903,
+    sporeCount: 720,
+    temperature: 15,
+    humidity: 45,
+    windSpeed: 15,
+    status: "maintenance",
+  },
+  {
+    id: "det-005",
+    name: "California Coastal",
+    lat: 34.0522,
+    lng: -118.2437,
+    sporeCount: 980,
+    temperature: 21,
+    humidity: 70,
+    windSpeed: 10,
+    status: "active",
+  },
+]
 
-  // Mock spore data - replace with actual API call
-  const mockDevices: DeviceLocation[] = [
-    {
-      id: "spore-1",
-      name: "Golden Gate Spore Station",
-      location: [-122.4194, 37.7749], // [longitude, latitude]
-      status: "active",
-      sporeCount: 1245,
-    },
-    {
-      id: "spore-2",
-      name: "Central Park Monitor",
-      location: [-73.9712, 40.7831],
-      status: "active",
-      sporeCount: 987,
-    },
-    {
-      id: "spore-3",
-      name: "Hyde Park Sensor",
-      location: [-0.1656, 51.5074],
-      status: "inactive",
-      sporeCount: 0,
-    },
-    {
-      id: "spore-4",
-      name: "Tokyo Bay Collector",
-      location: [139.7594, 35.6762],
-      status: "active",
-      sporeCount: 2156,
-    },
-    {
-      id: "spore-5",
-      name: "Sydney Harbor Station",
-      location: [151.2093, -33.8688],
-      status: "active",
-      sporeCount: 1432,
-    },
-    {
-      id: "spore-6",
-      name: "Berlin Forest Monitor",
-      location: [13.405, 52.52],
-      status: "active",
-      sporeCount: 876,
-    },
-    {
-      id: "spore-7",
-      name: "Amazon Basin Sensor",
-      location: [-60.0261, -3.4653],
-      status: "active",
-      sporeCount: 3421,
-    },
-    {
-      id: "spore-8",
-      name: "Yellowstone Detector",
-      location: [-110.5885, 44.428],
-      status: "active",
-      sporeCount: 1654,
-    },
-  ]
+export function SporeMap({
+  className,
+  mapType,
+  showWindOverlay,
+  showSporeDetectors,
+  showHeatmap,
+  selectedRegion,
+  zoomLevel,
+  onZoomChange,
+  onRegionSelect,
+}: SporeMapProps) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const [map, setMap] = useState<any>(null)
+  const [selectedDetector, setSelectedDetector] = useState<SporeDetector | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [sporeData, setSporeData] = useState<SporeDataPoint[]>([])
+  const [mapStyle, setMapStyle] = useState<"road" | "satellite" | "hybrid">("road")
+  const [showHeatmapState, setShowHeatmapState] = useState(showHeatmap)
+  const [showWindOverlayState, setShowWindOverlayState] = useState(showWindOverlay)
 
   useEffect(() => {
-    // Simulate loading spore data
-    const loadSporeData = async () => {
-      setIsLoading(true)
+    let isMounted = true
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+    const initializeMap = async () => {
+      try {
+        if (!mapRef.current) return
 
-      // Generate mock spore data points
-      const mockSporeData: SporeDataPoint[] = mockDevices.map((device) => ({
-        id: `data-${device.id}`,
-        speciesName: `Species ${Math.floor(Math.random() * 100)}`,
-        latitude: device.location[1],
-        longitude: device.location[0],
-        concentration: device.sporeCount || 0,
-        timestamp: new Date().toISOString(),
-        status: device.status,
-      }))
+        // Load Azure Maps SDK dynamically
+        const script = document.createElement("script")
+        script.src = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"
+        script.async = true
 
-      setSporeData(mockSporeData)
-      setIsLoading(false)
+        script.onload = async () => {
+          if (!isMounted) return
+
+          // Load CSS
+          const link = document.createElement("link")
+          link.rel = "stylesheet"
+          link.href = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css"
+          document.head.appendChild(link)
+
+          // Get auth token
+          const authResponse = await fetch("/api/maps/auth")
+          const { token } = await authResponse.json()
+
+          if (!isMounted) return
+
+          // Initialize map
+          const mapInstance = new atlas.Map(mapRef.current, {
+            center: [-98.5795, 39.8283], // Center of US
+            zoom: zoomLevel,
+            style: mapType === "satellite" ? "satellite" : mapType === "topographic" ? "grayscale_light" : "road",
+            authOptions: {
+              authType: atlas.AuthenticationType.anonymous,
+              clientId: process.env.NEXT_PUBLIC_AZURE_MAPS_CLIENT_ID,
+              getToken: () => Promise.resolve(token),
+            },
+          })
+
+          mapInstance.events.add("ready", () => {
+            if (!isMounted) return
+
+            setMap(mapInstance)
+            setIsLoading(false)
+
+            // Add data sources and layers
+            const dataSource = new atlas.source.DataSource()
+            mapInstance.sources.add(dataSource)
+
+            // Add spore detectors
+            if (showSporeDetectors) {
+              mockDetectors.forEach((detector) => {
+                const point = new atlas.data.Point([detector.lng, detector.lat])
+                const feature = new atlas.data.Feature(point, {
+                  id: detector.id,
+                  name: detector.name,
+                  sporeCount: detector.sporeCount,
+                  temperature: detector.temperature,
+                  humidity: detector.humidity,
+                  windSpeed: detector.windSpeed,
+                  status: detector.status,
+                })
+                dataSource.add(feature)
+              })
+
+              // Add symbol layer
+              const symbolLayer = new atlas.layer.SymbolLayer(dataSource, null, {
+                iconOptions: {
+                  image: "pin-blue",
+                  allowOverlap: true,
+                  anchor: "center",
+                  size: 0.8,
+                },
+                textOptions: {
+                  textField: ["get", "name"],
+                  color: "#000000",
+                  offset: [0, -2],
+                  size: 12,
+                },
+              })
+              mapInstance.layers.add(symbolLayer)
+
+              // Add click event
+              mapInstance.events.add("click", symbolLayer, (e: any) => {
+                if (e.shapes && e.shapes.length > 0) {
+                  const properties = e.shapes[0].getProperties()
+                  const detector = mockDetectors.find((d) => d.id === properties.id)
+                  if (detector) {
+                    setSelectedDetector(detector)
+                    onRegionSelect(detector.name)
+                  }
+                }
+              })
+            }
+
+            // Add heatmap if enabled
+            if (showHeatmapState) {
+              const heatmapLayer = new atlas.layer.HeatMapLayer(dataSource, null, {
+                radius: 50,
+                opacity: 0.6,
+                intensity: 0.8,
+                weight: ["get", "sporeCount"],
+              })
+              mapInstance.layers.add(heatmapLayer)
+            }
+          })
+
+          mapInstance.events.add("zoom", () => {
+            if (isMounted) {
+              onZoomChange(mapInstance.getCamera().zoom || 2)
+            }
+          })
+        }
+
+        document.head.appendChild(script)
+      } catch (error) {
+        console.error("Error initializing map:", error)
+        setIsLoading(false)
+      }
     }
 
-    loadSporeData()
-  }, [])
+    initializeMap()
 
-  const handleDeviceClick = (device: DeviceLocation) => {
-    setSelectedDevice(device)
+    return () => {
+      isMounted = false
+      if (map) {
+        map.dispose()
+      }
+    }
+  }, [mapType, showSporeDetectors, showHeatmapState, showWindOverlayState, zoomLevel])
+
+  const handleDetectorClick = (detector: SporeDetector) => {
+    setSelectedDetector(detector)
+    onRegionSelect(detector.name)
+
+    if (map) {
+      map.setCamera({
+        center: [detector.lng, detector.lat],
+        zoom: Math.max(zoomLevel, 8),
+      })
+    }
   }
 
   const handleRefreshData = () => {
@@ -117,17 +257,28 @@ export function SporeMap({ className }: SporeMapProps) {
     setTimeout(() => {
       setIsLoading(false)
       // Update spore counts with random values
-      mockDevices.forEach((device) => {
-        if (device.status === "active") {
-          device.sporeCount = Math.floor(Math.random() * 4000) + 500
+      mockDetectors.forEach((detector) => {
+        if (detector.status === "active") {
+          detector.sporeCount = Math.floor(Math.random() * 4000) + 500
         }
       })
     }, 1500)
   }
 
-  const activeDevices = mockDevices.filter((d) => d.status === "active")
-  const totalSpores = mockDevices.reduce((sum, d) => sum + (d.sporeCount || 0), 0)
-  const averageSpores = Math.round(totalSpores / activeDevices.length)
+  const activeDetectors = mockDetectors.filter((d) => d.status === "active")
+  const totalSpores = mockDetectors.reduce((sum, d) => sum + (d.sporeCount || 0), 0)
+  const averageSpores = Math.round(totalSpores / activeDetectors.length)
+
+  if (isLoading) {
+    return (
+      <div className="h-[600px] flex items-center justify-center bg-muted rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading interactive map...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -140,14 +291,18 @@ export function SporeMap({ className }: SporeMapProps) {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant={showHeatmap ? "default" : "outline"} size="sm" onClick={() => setShowHeatmap(!showHeatmap)}>
+          <Button
+            variant={showHeatmapState ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowHeatmapState(!showHeatmapState)}
+          >
             <Thermometer className="h-4 w-4 mr-2" />
             Heatmap
           </Button>
           <Button
-            variant={showWindOverlay ? "default" : "outline"}
+            variant={showWindOverlayState ? "default" : "outline"}
             size="sm"
-            onClick={() => setShowWindOverlay(!showWindOverlay)}
+            onClick={() => setShowWindOverlayState(!showWindOverlayState)}
           >
             <Wind className="h-4 w-4 mr-2" />
             Wind
@@ -167,8 +322,8 @@ export function SporeMap({ className }: SporeMapProps) {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeDevices.length}</div>
-            <p className="text-xs text-muted-foreground">{mockDevices.length - activeDevices.length} offline</p>
+            <div className="text-2xl font-bold">{activeDetectors.length}</div>
+            <p className="text-xs text-muted-foreground">{mockDetectors.length - activeDetectors.length} offline</p>
           </CardContent>
         </Card>
 
@@ -209,53 +364,105 @@ export function SporeMap({ className }: SporeMapProps) {
       {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Map */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Global Spore Detection Network</CardTitle>
-                  <CardDescription>Real-time monitoring of fungal spore concentrations worldwide</CardDescription>
+        <div className="lg:col-span-2 relative h-[600px] rounded-lg overflow-hidden">
+          <div ref={mapRef} className="w-full h-full" />
+
+          {/* Wind overlay indicator */}
+          {showWindOverlayState && (
+            <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Wind className="h-4 w-4 text-blue-500" />
+                <span>Wind Overlay Active</span>
+              </div>
+            </div>
+          )}
+
+          {/* Detector list */}
+          {showSporeDetectors && (
+            <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg p-4 max-w-xs">
+              <h3 className="font-semibold mb-2">Spore Detectors</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {mockDetectors.map((detector) => (
+                  <Button
+                    key={detector.id}
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start p-2 h-auto"
+                    onClick={() => handleDetectorClick(detector)}
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <MapPin className="h-3 w-3" />
+                      <div className="flex-1 text-left">
+                        <div className="text-xs font-medium">{detector.name}</div>
+                        <div className="text-xs text-muted-foreground">{detector.sporeCount} spores/m³</div>
+                      </div>
+                      <Badge
+                        variant={
+                          detector.status === "active"
+                            ? "default"
+                            : detector.status === "maintenance"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                        className="text-xs"
+                      >
+                        {detector.status}
+                      </Badge>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected detector info */}
+          {selectedDetector && (
+            <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg p-4 min-w-64">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold">{selectedDetector.name}</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDetector(null)
+                    onRegionSelect(null)
+                  }}
+                >
+                  ×
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  <span>{selectedDetector.sporeCount} spores/m³</span>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <Layers className="h-4 w-4 text-muted-foreground" />
-                  <Button
-                    variant={mapStyle === "road" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setMapStyle("road")}
-                  >
-                    Road
-                  </Button>
-                  <Button
-                    variant={mapStyle === "satellite" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setMapStyle("satellite")}
-                  >
-                    Satellite
-                  </Button>
-                  <Button
-                    variant={mapStyle === "hybrid" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setMapStyle("hybrid")}
-                  >
-                    Hybrid
-                  </Button>
+                <div className="flex items-center gap-1">
+                  <Thermometer className="h-3 w-3" />
+                  <span>{selectedDetector.temperature}°C</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Droplets className="h-3 w-3" />
+                  <span>{selectedDetector.humidity}%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Wind className="h-3 w-3" />
+                  <span>{selectedDetector.windSpeed} km/h</span>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <AzureMap
-                devices={mockDevices}
-                height="600px"
-                zoom={2}
-                center={[0, 20]}
-                onDeviceClick={handleDeviceClick}
-                mapStyle={mapStyle}
-                showHeatmap={showHeatmap}
-                showWindOverlay={showWindOverlay}
-              />
-            </CardContent>
-          </Card>
+              <Badge
+                variant={
+                  selectedDetector.status === "active"
+                    ? "default"
+                    : selectedDetector.status === "maintenance"
+                      ? "secondary"
+                      : "destructive"
+                }
+                className="mt-2"
+              >
+                {selectedDetector.status}
+              </Badge>
+            </div>
+          )}
         </div>
 
         {/* Side Panel */}
@@ -306,11 +513,11 @@ export function SporeMap({ className }: SporeMapProps) {
                       <span className="text-sm">Spore Heatmap</span>
                     </div>
                     <Button
-                      variant={showHeatmap ? "default" : "outline"}
+                      variant={showHeatmapState ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setShowHeatmap(!showHeatmap)}
+                      onClick={() => setShowHeatmapState(!showHeatmapState)}
                     >
-                      {showHeatmap ? "On" : "Off"}
+                      {showHeatmapState ? "On" : "Off"}
                     </Button>
                   </div>
                   <div className="flex items-center justify-between">
@@ -319,11 +526,11 @@ export function SporeMap({ className }: SporeMapProps) {
                       <span className="text-sm">Wind Patterns</span>
                     </div>
                     <Button
-                      variant={showWindOverlay ? "default" : "outline"}
+                      variant={showWindOverlayState ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setShowWindOverlay(!showWindOverlay)}
+                      onClick={() => setShowWindOverlayState(!showWindOverlayState)}
                     >
-                      {showWindOverlay ? "On" : "Off"}
+                      {showWindOverlayState ? "On" : "Off"}
                     </Button>
                   </div>
                 </div>
@@ -349,22 +556,30 @@ export function SporeMap({ className }: SporeMapProps) {
             <CardHeader>
               <CardTitle>Station Details</CardTitle>
               <CardDescription>
-                {selectedDevice ? "Selected station information" : "Click a station on the map"}
+                {selectedDetector ? "Selected station information" : "Click a station on the map"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {selectedDevice ? (
+              {selectedDetector ? (
                 <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{selectedDevice.name}</h3>
-                    <p className="text-sm text-muted-foreground">ID: {selectedDevice.id}</p>
+                    <h3 className="font-semibold text-lg">{selectedDetector.name}</h3>
+                    <p className="text-sm text-muted-foreground">ID: {selectedDetector.id}</p>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Badge variant={selectedDevice.status === "active" ? "default" : "secondary"}>
-                      {selectedDevice.status}
+                    <Badge
+                      variant={
+                        selectedDetector.status === "active"
+                          ? "default"
+                          : selectedDetector.status === "maintenance"
+                            ? "secondary"
+                            : "destructive"
+                      }
+                    >
+                      {selectedDetector.status}
                     </Badge>
-                    {selectedDevice.status === "active" && (
+                    {selectedDetector.status === "active" && (
                       <Badge variant="outline" className="text-green-600">
                         Online
                       </Badge>
@@ -375,14 +590,14 @@ export function SporeMap({ className }: SporeMapProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">Spore Count:</span>
                       <span className="text-lg font-bold text-primary">
-                        {selectedDevice.sporeCount?.toLocaleString() || 0}
+                        {selectedDetector.sporeCount?.toLocaleString() || 0}
                       </span>
                     </div>
 
                     <div className="flex justify-between">
                       <span className="text-sm">Coordinates:</span>
                       <span className="text-sm font-mono">
-                        {selectedDevice.location[1].toFixed(4)}, {selectedDevice.location[0].toFixed(4)}
+                        {selectedDetector.lat.toFixed(4)}, {selectedDetector.lng.toFixed(4)}
                       </span>
                     </div>
 
@@ -404,15 +619,15 @@ export function SporeMap({ className }: SporeMapProps) {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex justify-between">
                         <span>Temperature:</span>
-                        <span>23.5°C</span>
+                        <span>{selectedDetector.temperature}°C</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Humidity:</span>
-                        <span>67%</span>
+                        <span>{selectedDetector.humidity}%</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Wind Speed:</span>
-                        <span>12 km/h</span>
+                        <span>{selectedDetector.windSpeed} km/h</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Pressure:</span>
@@ -440,19 +655,19 @@ export function SporeMap({ className }: SporeMapProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockDevices.slice(0, 4).map((device, index) => (
-                  <div key={device.id} className="flex items-center justify-between py-2">
+                {mockDetectors.slice(0, 4).map((detector, index) => (
+                  <div key={detector.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-2 h-2 rounded-full ${device.status === "active" ? "bg-green-500" : "bg-red-500"}`}
+                        className={`w-2 h-2 rounded-full ${detector.status === "active" ? "bg-green-500" : "bg-red-500"}`}
                       />
                       <div>
-                        <p className="text-sm font-medium">{device.name}</p>
+                        <p className="text-sm font-medium">{detector.name}</p>
                         <p className="text-xs text-muted-foreground">{Math.floor(Math.random() * 60)} minutes ago</p>
                       </div>
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {device.sporeCount?.toLocaleString() || 0}
+                      {detector.sporeCount?.toLocaleString() || 0}
                     </Badge>
                   </div>
                 ))}
@@ -501,13 +716,15 @@ export function SporeMap({ className }: SporeMapProps) {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Overlays:{" "}
-                  {showHeatmap && (
+                  {showHeatmapState && (
                     <Badge variant="outline" className="mr-1">
                       Heatmap
                     </Badge>
                   )}
-                  {showWindOverlay && <Badge variant="outline">Wind</Badge>}
-                  {!showHeatmap && !showWindOverlay && <span className="text-muted-foreground">None active</span>}
+                  {showWindOverlayState && <Badge variant="outline">Wind</Badge>}
+                  {!showHeatmapState && !showWindOverlayState && (
+                    <span className="text-muted-foreground">None active</span>
+                  )}
                 </p>
               </div>
             </TabsContent>
@@ -549,7 +766,7 @@ export function SporeMap({ className }: SporeMapProps) {
                     <p className="text-xs text-muted-foreground">Tokyo Bay Collector - 4 hours ago</p>
                   </div>
                 </div>
-                {showHeatmap && (
+                {showHeatmapState && (
                   <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-orange-500" />
                     <div className="flex-1">
@@ -558,7 +775,7 @@ export function SporeMap({ className }: SporeMapProps) {
                     </div>
                   </div>
                 )}
-                {showWindOverlay && (
+                {showWindOverlayState && (
                   <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
                     <div className="flex-1">
