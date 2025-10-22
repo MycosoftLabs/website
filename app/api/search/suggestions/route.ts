@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { SearchSuggestion } from "@/types/search"
-import { searchFungi } from "@/lib/services/inaturalist"
+import { comprehensiveSearch } from "@/lib/services/comprehensive-search"
 
 export async function GET(request: Request) {
   try {
@@ -38,7 +38,9 @@ export async function GET(request: Request) {
         const { data: speciesResults, error: speciesError } = await supabase
           .from("species")
           .select("id, scientific_name, common_names, inaturalist_id")
-          .or(`scientific_name.ilike.%${query}%,common_names.cs.{${query}}`)
+          .or(
+            `scientific_name.ilike.%${query}%,common_names.cs.{${query}},scientific_name.ilike.${query}%,common_names.cs.{${query.split(" ")[0]}}`,
+          )
           .limit(8)
 
         if (!speciesError && speciesResults && speciesResults.length > 0) {
@@ -89,24 +91,6 @@ export async function GET(request: Request) {
             }
           }
 
-          const { data: directPaperResults } = await supabase
-            .from("research_papers")
-            .select("id, title, year")
-            .ilike("title", `%${query}%`)
-            .limit(4)
-
-          if (directPaperResults) {
-            paperSuggestions.push(
-              ...directPaperResults.map((paper) => ({
-                id: paper.id,
-                title: paper.title,
-                type: "article" as const,
-                url: `/papers/${paper.id}`,
-                date: paper.year?.toString(),
-              })),
-            )
-          }
-
           suggestions.push(...paperSuggestions)
 
           const uniqueSuggestions = suggestions.filter(
@@ -120,19 +104,20 @@ export async function GET(request: Request) {
         }
       }
     } catch (dbError) {
-      console.log("[v0] Database not ready, using external APIs")
+      console.log("[v0] Database not ready, using comprehensive search")
     }
 
-    console.log("[v0] Using iNaturalist API for suggestions")
+    console.log("[v0] Using comprehensive search for suggestions")
 
     if (!query.trim()) {
-      // Return featured species from iNaturalist
+      // Return featured species
       const featuredSpecies = [
         { id: "48250", name: "Agaricus bisporus", commonName: "Button Mushroom" },
         { id: "47348", name: "Pleurotus ostreatus", commonName: "Oyster Mushroom" },
         { id: "48715", name: "Lentinula edodes", commonName: "Shiitake" },
         { id: "54743", name: "Amanita muscaria", commonName: "Fly Agaric" },
         { id: "48701", name: "Ganoderma lucidum", commonName: "Reishi" },
+        { id: "121657", name: "Hericium erinaceus", commonName: "Lion's Mane" },
       ]
 
       const suggestions: SearchSuggestion[] = featuredSpecies.map((species) => ({
@@ -146,21 +131,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ suggestions })
     }
 
-    const iNatResults = await searchFungi(query).catch((err) => {
-      console.error("[v0] iNaturalist search error:", err)
-      return { results: [] }
-    })
+    const searchResults = await comprehensiveSearch(query, limit)
 
-    // Access the results array from the response object
-    const resultsArray = iNatResults.results || []
-
-    const suggestions: SearchSuggestion[] = resultsArray.slice(0, limit).map((result: any) => ({
-      id: result.id.toString(),
-      title: result.preferred_common_name || result.name,
+    const suggestions: SearchSuggestion[] = searchResults.map((result) => ({
+      id: result.id,
+      title: result.commonName,
       type: "fungi" as const,
-      scientificName: result.name,
+      scientificName: result.scientificName,
       url: `/species/${result.id}`,
-      description: result.wikipedia_summary?.substring(0, 100),
+      description: result.description,
     }))
 
     if (suggestions.length === 0) {
