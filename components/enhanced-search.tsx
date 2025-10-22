@@ -5,15 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  Search,
-  Send,
-  MouseIcon as Mushroom,
-  FileText,
-  FlaskRoundIcon as Flask,
-  Microscope,
-  AlertCircle,
-} from "lucide-react"
+import { Search, Send, BusFront as Mushroom, FileText, Flag as Flask, Microscope, AlertCircle } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -42,7 +34,7 @@ export function EnhancedSearch() {
     e.preventDefault()
     if (query.trim()) {
       setShowSuggestions(false)
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+      router.push(`/species/search?q=${encodeURIComponent(query.trim())}`)
     }
   }
 
@@ -206,7 +198,12 @@ export function EnhancedSearch() {
                             {suggestion.scientificName && (
                               <div className="text-sm text-muted-foreground italic">{suggestion.scientificName}</div>
                             )}
-                            <div className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                            {suggestion.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                                {suggestion.description}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground capitalize flex items-center gap-1 mt-1">
                               <span>{suggestion.type}</span>
                               {suggestion.date && (
                                 <>

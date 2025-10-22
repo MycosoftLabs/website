@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { searchFungi } from "@/lib/services/inaturalist"
 import { searchElsevierArticles } from "@/lib/services/elsevier"
+import { searchPapersBySpecies } from "@/lib/services/research-papers"
 import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
 import { searchCompounds } from "@/lib/data/compounds"
 import type { SearchSuggestion } from "@/types/search"
 
-// Update the GET function to include compound search
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -29,7 +29,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ suggestions: featuredSuggestions })
     }
 
-    // Search in parallel from multiple sources
     const [localResults, iNaturalistResults, elsevierResults, compoundResults] = await Promise.allSettled([
       // Local species search
       Promise.resolve(
@@ -50,10 +49,10 @@ export async function GET(request: Request) {
             }),
           ),
       ),
-      // iNaturalist search - now returns empty results on error instead of throwing
+      // iNaturalist search
       searchFungi(query),
       // Elsevier articles search
-      searchElsevierArticles(query).catch(() => []), // Return empty array on error
+      searchElsevierArticles(query).catch(() => []),
       // Compound search
       Promise.resolve(
         searchCompounds(query).map(
@@ -69,32 +68,74 @@ export async function GET(request: Request) {
     ])
 
     const suggestions: SearchSuggestion[] = []
+    const speciesForPaperSearch: Array<{ scientificName: string; commonName: string }> = []
 
-    // Add local results first - these should always be available
+    // Add local results first
     if (localResults.status === "fulfilled") {
       suggestions.push(...localResults.value)
+      localResults.value.forEach((s) => {
+        if (s.scientificName) {
+          speciesForPaperSearch.push({
+            scientificName: s.scientificName,
+            commonName: s.title,
+          })
+        }
+      })
     }
 
-    // Add iNaturalist results if available
+    // Add iNaturalist results
     if (iNaturalistResults.status === "fulfilled" && iNaturalistResults.value?.results) {
-      suggestions.push(
-        ...iNaturalistResults.value.results
-          .filter((result: any) => result.iconic_taxon_name === "Fungi")
-          .map(
-            (result: any): SearchSuggestion => ({
-              id: result.id.toString(),
-              title: result.preferred_common_name || result.name,
-              type: "fungi",
-              scientificName: result.name,
-              url: `/species/${result.id}`,
-            }),
-          ),
-      )
+      const inatSuggestions = iNaturalistResults.value.results
+        .filter((result: any) => result.iconic_taxon_name === "Fungi")
+        .map(
+          (result: any): SearchSuggestion => ({
+            id: result.id.toString(),
+            title: result.preferred_common_name || result.name,
+            type: "fungi",
+            scientificName: result.name,
+            url: `/species/${result.id}`,
+          }),
+        )
+
+      suggestions.push(...inatSuggestions)
+
+      inatSuggestions.forEach((s) => {
+        if (s.scientificName) {
+          speciesForPaperSearch.push({
+            scientificName: s.scientificName,
+            commonName: s.title,
+          })
+        }
+      })
     }
 
-    // Add article results if available
+    const paperSuggestions: SearchSuggestion[] = []
+    if (speciesForPaperSearch.length > 0) {
+      // Take top 3 species to search papers for
+      const topSpecies = speciesForPaperSearch.slice(0, 3)
+
+      for (const species of topSpecies) {
+        try {
+          const papers = await searchPapersBySpecies(species.scientificName, species.commonName)
+          paperSuggestions.push(
+            ...papers.slice(0, 2).map((paper) => ({
+              id: paper.id,
+              title: paper.title,
+              type: "article" as const,
+              url: `/papers/${encodeURIComponent(paper.doi || paper.id)}`,
+              date: paper.year.toString(),
+              description: `Related to ${species.commonName}`,
+            })),
+          )
+        } catch (error) {
+          console.error(`Error fetching papers for ${species.scientificName}:`, error)
+        }
+      }
+    }
+
+    // Add article results from direct search
     if (elsevierResults.status === "fulfilled") {
-      suggestions.push(
+      paperSuggestions.push(
         ...elsevierResults.value.map(
           (article: any): SearchSuggestion => ({
             id: article.doi,
@@ -107,17 +148,18 @@ export async function GET(request: Request) {
       )
     }
 
-    // Add compound results if available
+    // Add compound results
     if (compoundResults.status === "fulfilled") {
       suggestions.push(...compoundResults.value)
     }
+
+    suggestions.push(...paperSuggestions)
 
     // Remove duplicates and limit results
     const uniqueSuggestions = suggestions.filter(
       (suggestion, index, self) => index === self.findIndex((s) => s.id === suggestion.id),
     )
 
-    // If we have no results at all, provide a helpful message
     if (uniqueSuggestions.length === 0) {
       return NextResponse.json({
         suggestions: [],
@@ -132,8 +174,6 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("Search suggestions error:", error)
-    // Return a minimal response with no suggestions but no error status
-    // This prevents the UI from breaking when search fails
     return NextResponse.json({
       suggestions: [],
       error: error instanceof Error ? error.message : "Failed to get suggestions",

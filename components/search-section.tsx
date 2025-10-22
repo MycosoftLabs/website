@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import Link from "next/link"
 import Image from "next/image"
 import { useTheme } from "next-themes"
-import { MouseIcon as Mushroom, FileText, FlaskRoundIcon as Flask, Microscope, AlertCircle } from "lucide-react"
+import { BusFront as Mushroom, FileText, Flag as Flask, Microscope, AlertCircle } from "lucide-react"
 import type React from "react"
 import { useSearch } from "./search/use-search"
 import { SearchErrorBoundary } from "@/components/search/error-boundary"
@@ -24,7 +24,7 @@ export function SearchSection() {
 
   useEffect(() => {
     if (!query.trim()) {
-      setShowSuggestions(true) // Show popular/featured items
+      setShowSuggestions(true)
       return
     }
 
@@ -49,7 +49,7 @@ export function SearchSection() {
     e.preventDefault()
     if (query.trim()) {
       setShowSuggestions(false)
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+      router.push(`/species/search?q=${encodeURIComponent(query.trim())}`)
     }
   }
 
@@ -102,12 +102,10 @@ export function SearchSection() {
                 </p>
               </div>
 
-              {/* Enhanced Search - Hidden on mobile */}
               <div className="hidden md:block w-full">
                 <EnhancedSearch />
               </div>
 
-              {/* Legacy Search Form - Hidden on desktop, visible on mobile */}
               <form onSubmit={handleSearch} className="w-full md:hidden">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -137,7 +135,6 @@ export function SearchSection() {
             </div>
           </div>
 
-          {/* Suggestions dropdown - Only for mobile */}
           {showSuggestions && (query.trim() || suggestions.length > 0) && (
             <Card className="absolute w-full -mt-1 border-t-0 rounded-t-none z-50 max-h-[400px] overflow-auto shadow-xl md:hidden">
               <div className="p-2">
@@ -175,7 +172,10 @@ export function SearchSection() {
                         <div className="flex-1">
                           <div className="font-medium">{suggestion.title}</div>
                           {suggestion.scientificName && (
-                            <div className="text-sm text-muted-foreground">{suggestion.scientificName}</div>
+                            <div className="text-sm text-muted-foreground italic">{suggestion.scientificName}</div>
+                          )}
+                          {suggestion.description && (
+                            <div className="text-xs text-muted-foreground line-clamp-1">{suggestion.description}</div>
                           )}
                           <div className="text-xs text-muted-foreground capitalize flex items-center gap-1">
                             <span>{suggestion.type}</span>
@@ -202,13 +202,13 @@ export function SearchSection() {
       <div className="flex flex-wrap gap-4 justify-center text-sm text-muted-foreground px-4">
         <span>Trending:</span>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=lions+mane+research">Lion's Mane Research</Link>
+          <Link href="/species/search?q=lions+mane">Lion's Mane Research</Link>
         </Button>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=bioremediation">Bioremediation</Link>
+          <Link href="/species/search?q=bioremediation">Bioremediation</Link>
         </Button>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=cordyceps+studies">Cordyceps Studies</Link>
+          <Link href="/species/search?q=cordyceps">Cordyceps Studies</Link>
         </Button>
       </div>
     </section>
