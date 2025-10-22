@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get("q") || ""
 
+    console.log("[v0] Species search API called with query:", query)
+
     if (!query.trim()) {
       return NextResponse.json({
         species: [],
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
 
       // If no error and we have results, use Supabase data
       if (!speciesError && speciesResults && speciesResults.length > 0) {
+        console.log("[v0] Using database results:", speciesResults.length)
+
         const matchedSpecies = speciesResults.map((s) => ({
           id: s.id,
           scientificName: s.scientific_name,
@@ -118,12 +122,18 @@ export async function GET(request: Request) {
     console.log("[v0] Using external APIs for search:", query)
 
     const [iNatResults, wikiResults] = await Promise.all([
-      searchSpecies(query).catch(() => []),
-      searchWikipedia(query).catch(() => []),
+      searchSpecies(query).catch((err) => {
+        console.error("[v0] iNaturalist search error:", err)
+        return []
+      }),
+      searchWikipedia(query).catch((err) => {
+        console.error("[v0] Wikipedia search error:", err)
+        return []
+      }),
     ])
 
     const species = iNatResults.slice(0, 10).map((result: any) => ({
-      id: result.id,
+      id: result.id.toString(),
       scientificName: result.name,
       commonName: result.preferred_common_name || result.name,
       description: result.wikipedia_summary || "",
@@ -135,10 +145,10 @@ export async function GET(request: Request) {
     if (species.length > 0) {
       const mainGenus = species[0].scientificName.split(" ")[0]
       const related = iNatResults
-        .filter((r: any) => r.name.startsWith(mainGenus) && r.id !== species[0].id)
+        .filter((r: any) => r.name.startsWith(mainGenus) && r.id.toString() !== species[0].id)
         .slice(0, 5)
         .map((result: any) => ({
-          id: result.id,
+          id: result.id.toString(),
           scientificName: result.name,
           commonName: result.preferred_common_name || result.name,
           description: result.wikipedia_summary || "",
@@ -178,7 +188,7 @@ export async function GET(request: Request) {
         papers: [],
         error: error instanceof Error ? error.message : "Search failed",
       },
-      { status: 500 },
+      { status: 200 }, // Return 200 with error in body instead of 500
     )
   }
 }
