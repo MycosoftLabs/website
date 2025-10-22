@@ -1,335 +1,255 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Card, Badge } from "@/components/ui/card"
-import { MapPin, AlertCircle } from "lucide-react"
-import type { DeviceLocation } from "@/lib/types"
+import { Card } from "@/components/ui/card"
+import { Loader2 } from "lucide-react"
 
-interface AzureMapProps {
-  devices: DeviceLocation[]
-  height?: string
-  zoom?: number
-  center?: [number, number] // [longitude, latitude]
-  onDeviceClick?: (device: DeviceLocation) => void
-  mapStyle?: "road" | "satellite" | "hybrid"
-  showHeatmap?: boolean
-  showWindOverlay?: boolean
+interface DeviceLocation {
+  id: string
+  name: string
+  location: [number, number] // [longitude, latitude]
+  status: "active" | "inactive"
 }
 
+interface AzureMapProps {
+  className?: string
+  deviceLocations?: DeviceLocation[]
+  onDeviceClick?: (deviceId: string) => void
+}
+
+const defaultDevices: DeviceLocation[] = [
+  {
+    id: "device-1",
+    name: "Mushroom 1 - SF",
+    location: [-122.4194, 37.7749], // San Francisco
+    status: "active",
+  },
+  {
+    id: "device-2",
+    name: "SporeBase - NYC",
+    location: [-74.006, 40.7128], // New York
+    status: "active",
+  },
+  {
+    id: "device-3",
+    name: "TruffleBot - Austin",
+    location: [-97.7431, 30.2672], // Austin
+    status: "inactive",
+  },
+]
+
+// Declare global atlas type
 declare global {
   interface Window {
     atlas: any
   }
 }
 
-export function AzureMap({
-  devices,
-  height = "400px",
-  zoom = 2,
-  center = [0, 20],
-  onDeviceClick,
-  mapStyle = "road",
-  showHeatmap = false,
-  showWindOverlay = false,
-}: AzureMapProps) {
+export function AzureMap({ className, deviceLocations = defaultDevices, onDeviceClick }: AzureMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const dataSourceRef = useRef<any>(null)
+  const [map, setMap] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [authToken, setAuthToken] = useState<string | null>(null)
+  const [authInfo, setAuthInfo] = useState<{ clientId: string; expiry: number } | null>(null)
 
-  // Fetch authentication token
+  // Fetch authentication token from our secure API endpoint
   useEffect(() => {
-    const fetchAuthToken = async () => {
+    async function fetchAuthInfo() {
       try {
         const response = await fetch("/api/maps/auth")
         if (!response.ok) {
           throw new Error("Failed to fetch authentication token")
         }
         const data = await response.json()
-        setAuthToken(data.token)
+        setAuthInfo(data)
       } catch (err) {
-        console.error("Auth token fetch error:", err)
+        console.error("Error fetching auth token:", err)
         setError("Failed to authenticate with Azure Maps")
+        setIsLoading(false)
       }
     }
 
-    fetchAuthToken()
+    fetchAuthInfo()
   }, [])
 
-  // Load Azure Maps SDK and initialize map
   useEffect(() => {
-    if (!authToken || !mapRef.current) return
-
-    const loadAzureMaps = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        // Check if Azure Maps is already loaded
-        if (window.atlas) {
-          initializeMap()
-          return
-        }
-
-        // Load Azure Maps CSS
-        const cssLink = document.createElement("link")
-        cssLink.rel = "stylesheet"
-        cssLink.href = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css"
-        document.head.appendChild(cssLink)
-
-        // Load Azure Maps JavaScript SDK
-        const script = document.createElement("script")
-        script.src = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"
-        script.async = true
-        script.onload = () => {
+    if (!mapRef.current || map || !authInfo || typeof window === "undefined" || !window.atlas) {
+      // If atlas is not loaded yet, wait for it
+      if (typeof window !== "undefined" && !window.atlas) {
+        const checkAtlas = setInterval(() => {
           if (window.atlas) {
-            initializeMap()
-          } else {
-            setError("Failed to load Azure Maps SDK")
-            setIsLoading(false)
+            clearInterval(checkAtlas)
+            // Trigger re-render
+            setIsLoading(true)
           }
-        }
-        script.onerror = () => {
-          setError("Failed to load Azure Maps SDK")
-          setIsLoading(false)
-        }
-        document.head.appendChild(script)
-      } catch (err) {
-        console.error("Azure Maps loading error:", err)
-        setError("Failed to load Azure Maps")
-        setIsLoading(false)
+        }, 100)
+
+        // Clear interval after 10 seconds
+        setTimeout(() => clearInterval(checkAtlas), 10000)
       }
+      return
     }
 
-    const initializeMap = () => {
-      try {
-        if (!mapRef.current || mapInstanceRef.current) return
+    try {
+      if (!authInfo.clientId) {
+        throw new Error("Azure Maps authentication information is missing")
+      }
 
-        // Initialize the map
-        const map = new window.atlas.Map(mapRef.current, {
-          center: center,
-          zoom: zoom,
-          style: getAzureMapStyle(mapStyle),
-          authOptions: {
-            authType: window.atlas.AuthenticationType.subscriptionKey,
-            subscriptionKey: process.env.NEXT_PUBLIC_AZURE_MAPS_KEY,
-          },
-        })
+      const atlas = window.atlas
 
-        mapInstanceRef.current = map
-
-        // Wait for map to be ready
-        map.events.add("ready", () => {
-          try {
-            // Create data source for markers
-            const dataSource = new window.atlas.source.DataSource()
-            dataSourceRef.current = dataSource
-            map.sources.add(dataSource)
-
-            // Create symbol layer for device markers
-            const symbolLayer = new window.atlas.layer.SymbolLayer(dataSource, null, {
-              iconOptions: {
-                image: "pin-red",
-                anchor: "center",
-                allowOverlap: true,
-                size: 0.8,
-              },
-              textOptions: {
-                textField: ["get", "title"],
-                color: "#000000",
-                offset: [0, -2],
-                size: 12,
-              },
-            })
-
-            map.layers.add(symbolLayer)
-
-            // Add click event for markers
-            map.events.add("click", symbolLayer, (e: any) => {
-              if (e.shapes && e.shapes.length > 0) {
-                const properties = e.shapes[0].getProperties()
-                const device = devices.find((d) => d.id === properties.id)
-                if (device && onDeviceClick) {
-                  onDeviceClick(device)
-                }
+      // Initialize map with anonymous authentication
+      const newMap = new atlas.Map(mapRef.current, {
+        authOptions: {
+          authType: "anonymous",
+          clientId: authInfo.clientId,
+          getToken: async () => {
+            try {
+              // Fetch token from our secure API
+              const response = await fetch("/api/maps/auth")
+              if (!response.ok) {
+                throw new Error(`Failed to get map authentication: ${response.status}`)
               }
-            })
-
-            // Add hover effect
-            map.events.add("mouseenter", symbolLayer, () => {
-              map.getCanvasContainer().style.cursor = "pointer"
-            })
-
-            map.events.add("mouseleave", symbolLayer, () => {
-              map.getCanvasContainer().style.cursor = "grab"
-            })
-
-            // Add devices to map
-            updateDeviceMarkers()
-            setIsLoading(false)
-          } catch (err) {
-            console.error("Map initialization error:", err)
-            setError("Failed to initialize map features")
-            setIsLoading(false)
-          }
-        })
-
-        map.events.add("error", (e: any) => {
-          console.error("Map error:", e)
-          setError("Map encountered an error")
-          setIsLoading(false)
-        })
-      } catch (err) {
-        console.error("Map creation error:", err)
-        setError("Failed to create map")
-        setIsLoading(false)
-      }
-    }
-
-    loadAzureMaps()
-
-    // Cleanup function
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.dispose()
-        mapInstanceRef.current = null
-      }
-    }
-  }, [authToken, center, zoom])
-
-  // Update map style when mapStyle prop changes
-  useEffect(() => {
-    if (mapInstanceRef.current && window.atlas) {
-      try {
-        mapInstanceRef.current.setStyle({
-          style: getAzureMapStyle(mapStyle),
-        })
-      } catch (err) {
-        console.error("Failed to update map style:", err)
-      }
-    }
-  }, [mapStyle])
-
-  // Update device markers when devices change
-  useEffect(() => {
-    updateDeviceMarkers()
-  }, [devices])
-
-  // Handle overlay toggles
-  useEffect(() => {
-    if (!mapInstanceRef.current || !window.atlas) return
-
-    try {
-      // Handle heatmap overlay
-      if (showHeatmap) {
-        // Add heatmap layer logic here
-        console.log("Heatmap overlay enabled")
-      } else {
-        // Remove heatmap layer logic here
-        console.log("Heatmap overlay disabled")
-      }
-
-      // Handle wind overlay
-      if (showWindOverlay) {
-        // Add wind overlay logic here
-        console.log("Wind overlay enabled")
-      } else {
-        // Remove wind overlay logic here
-        console.log("Wind overlay disabled")
-      }
-    } catch (err) {
-      console.error("Failed to update overlays:", err)
-    }
-  }, [showHeatmap, showWindOverlay])
-
-  const getAzureMapStyle = (style: string) => {
-    switch (style) {
-      case "satellite":
-        return "satellite"
-      case "hybrid":
-        return "satellite_road_labels"
-      case "road":
-      default:
-        return "road"
-    }
-  }
-
-  const updateDeviceMarkers = () => {
-    if (!dataSourceRef.current || !window.atlas) return
-
-    try {
-      // Clear existing markers
-      dataSourceRef.current.clear()
-
-      // Add device markers
-      const features = devices.map((device) => {
-        const point = new window.atlas.data.Feature(new window.atlas.data.Point(device.location), {
-          id: device.id,
-          title: device.name,
-          status: device.status,
-          sporeCount: device.sporeCount || 0,
-        })
-        return point
+              const authData = await response.json()
+              return authData.clientId
+            } catch (error) {
+              console.error("Map authentication error:", error)
+              throw error
+            }
+          },
+        },
+        center: [-95.7129, 37.0902], // Center of US
+        zoom: 3,
+        style: "night",
+        view: "Auto",
       })
 
-      dataSourceRef.current.add(features)
-    } catch (err) {
-      console.error("Failed to update device markers:", err)
-    }
-  }
+      // Wait for the map to load
+      newMap.events.add("ready", () => {
+        setIsLoading(false)
 
-  if (error) {
-    return (
-      <Card className="p-8 text-center" style={{ height }}>
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Map Error</h3>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Badge variant="destructive">Azure Maps Unavailable</Badge>
-      </Card>
-    )
-  }
+        // Create a data source for devices
+        const source = new atlas.source.DataSource()
+        newMap.sources.add(source)
+
+        // Add device points to the map
+        deviceLocations.forEach((device) => {
+          const point = new atlas.data.Point(device.location)
+          const feature = new atlas.data.Feature(point, {
+            id: device.id,
+            name: device.name,
+            status: device.status,
+          })
+          source.add(feature)
+        })
+
+        // Add a symbol layer for active device markers
+        newMap.layers.add(
+          new atlas.layer.SymbolLayer(source, undefined, {
+            iconOptions: {
+              image: "marker-blue",
+              size: 0.8,
+              allowOverlap: true,
+            },
+            filter: ["==", ["get", "status"], "active"],
+          }),
+        )
+
+        // Add a symbol layer for inactive devices
+        newMap.layers.add(
+          new atlas.layer.SymbolLayer(source, undefined, {
+            iconOptions: {
+              image: "marker-red",
+              size: 0.8,
+              allowOverlap: true,
+            },
+            filter: ["==", ["get", "status"], "inactive"],
+          }),
+        )
+
+        // Add a glow effect for devices
+        newMap.layers.add(
+          new atlas.layer.BubbleLayer(source, undefined, {
+            radius: 20,
+            color: ["case", ["==", ["get", "status"], "active"], "rgba(0, 150, 255, 0.2)", "rgba(255, 0, 0, 0.2)"],
+            blur: 1,
+            strokeWidth: 0,
+            filter: ["has", "status"],
+          }),
+        )
+
+        // Add click event
+        newMap.events.add("click", (e: any) => {
+          const features = newMap.layers.getRenderedShapes(e.position, "symbol")
+          if (features.length > 0) {
+            const feature = features[0]
+            const deviceId = feature.getProperties().id
+            onDeviceClick?.(deviceId)
+          }
+        })
+
+        // Add hover popup
+        const popup = new atlas.Popup({
+          pixelOffset: [0, -30],
+          closeButton: false,
+        })
+
+        newMap.events.add("mouseover", (e: any) => {
+          const features = newMap.layers.getRenderedShapes(e.position, "symbol")
+          if (features.length > 0) {
+            const feature = features[0]
+            const properties = feature.getProperties()
+            const coordinates = feature.getCoordinates()
+
+            popup.setOptions({
+              content: `<div style="padding: 8px;">
+                <p style="font-weight: bold; margin: 0;">${properties.name}</p>
+                <p style="margin: 4px 0 0 0; font-size: 0.875rem; color: ${properties.status === "active" ? "#10b981" : "#ef4444"};">
+                  ${properties.status === "active" ? "Active" : "Inactive"}
+                </p>
+              </div>`,
+              position: coordinates,
+            })
+
+            popup.open(newMap)
+          }
+        })
+
+        newMap.events.add("mouseout", () => {
+          popup.close()
+        })
+      })
+
+      setMap(newMap)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to initialize map")
+      setIsLoading(false)
+    }
+
+    return () => {
+      if (map) {
+        map.dispose()
+      }
+    }
+  }, [map, deviceLocations, onDeviceClick, authInfo])
 
   return (
-    <div className="relative" style={{ height }}>
-      <div ref={mapRef} className="w-full h-full rounded-lg overflow-hidden" />
-
-      {isLoading && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-sm text-muted-foreground">Loading Azure Maps...</p>
+    <Card className={className}>
+      <div className="relative w-full h-[400px] bg-zinc-900 rounded-lg overflow-hidden">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+            <Loader2 className="size-8 animate-spin text-primary" />
           </div>
-        </div>
-      )}
-
-      {/* Map Controls Overlay */}
-      <div className="absolute top-4 right-4 space-y-2">
-        <Badge variant="outline" className="bg-background/90 backdrop-blur-sm">
-          <MapPin className="h-3 w-3 mr-1" />
-          {devices.filter((d) => d.status === "active").length} Active
-        </Badge>
-
-        {showHeatmap && (
-          <Badge variant="outline" className="bg-background/90 backdrop-blur-sm text-orange-600">
-            Heatmap On
-          </Badge>
         )}
-
-        {showWindOverlay && (
-          <Badge variant="outline" className="bg-background/90 backdrop-blur-sm text-blue-600">
-            Wind Data On
-          </Badge>
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+            <div className="text-center space-y-2 p-4">
+              <p className="text-destructive font-semibold">Failed to load map</p>
+              <p className="text-sm text-muted-foreground">{error}</p>
+            </div>
+          </div>
         )}
+        <div ref={mapRef} className="w-full h-full [&_.azure-maps-control-container]:!hidden" />
       </div>
-
-      {/* Device Count Overlay */}
-      <div className="absolute bottom-4 left-4">
-        <Badge variant="outline" className="bg-background/90 backdrop-blur-sm">
-          {devices.length} Stations Total
-        </Badge>
-      </div>
-    </div>
+    </Card>
   )
 }

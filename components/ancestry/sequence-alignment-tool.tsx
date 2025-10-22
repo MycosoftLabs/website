@@ -1,3 +1,4 @@
+// components/ancestry/sequence-alignment-tool.tsx
 "use client"
 
 import { Input } from "@/components/ui/input"

@@ -31,25 +31,19 @@ export default function AncestryLayout({
             <h1 className="text-xl font-bold text-foreground">Fungal Ancestry</h1>
           </div>
           <nav className="hidden md:flex items-center gap-6">
-            <a href="/natureos" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              NatureOS
+            <a href="/ancestry" className="text-sm font-medium text-foreground/80 hover:text-green-600">
+              Home
             </a>
-            <a href="/ancestry/fungal-database" className="text-sm font-medium text-foreground/80 hover:text-green-600">
+            <a href="/ancestry/explorer" className="text-sm font-medium text-foreground/80 hover:text-green-600">
               Explorer
             </a>
-            <a
-              href="/ancestry/phylogeny-viewer"
-              className="text-sm font-medium text-foreground/80 hover:text-green-600"
-            >
+            <a href="/ancestry/phylogeny" className="text-sm font-medium text-foreground/80 hover:text-green-600">
               Phylogeny
             </a>
-            <a href="/ancestry/fungal-database" className="text-sm font-medium text-foreground/80 hover:text-green-600">
+            <a href="/ancestry/database" className="text-sm font-medium text-foreground/80 hover:text-green-600">
               Database
             </a>
-            <a
-              href="/natureos/apps/ancestry?tab=tools"
-              className="text-sm font-medium text-foreground/80 hover:text-green-600"
-            >
+            <a href="/ancestry/tools" className="text-sm font-medium text-foreground/80 hover:text-green-600">
               Tools
             </a>
           </nav>
