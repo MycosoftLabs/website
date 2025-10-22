@@ -34,7 +34,7 @@ export function EnhancedSearch() {
     e.preventDefault()
     if (query.trim()) {
       setShowSuggestions(false)
-      router.push(`/species/search?q=${encodeURIComponent(query.trim())}`)
+      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
     }
   }
 

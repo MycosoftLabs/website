@@ -49,7 +49,7 @@ export function SearchSection() {
     e.preventDefault()
     if (query.trim()) {
       setShowSuggestions(false)
-      router.push(`/species/search?q=${encodeURIComponent(query.trim())}`)
+      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
     }
   }
 
@@ -67,16 +67,7 @@ export function SearchSection() {
               },
             }}
           >
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover rounded-xl"
-              style={{ filter: "brightness(0.5)" }}
-            >
-              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
-            </video>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-background rounded-xl" />
             <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] rounded-xl" />
             <div className="relative z-10 flex flex-col items-center gap-6 md:gap-8">
               <div className="flex flex-col items-center gap-2 md:gap-4">
@@ -202,13 +193,13 @@ export function SearchSection() {
       <div className="flex flex-wrap gap-4 justify-center text-sm text-muted-foreground px-4">
         <span>Trending:</span>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/species/search?q=lions+mane">Lion's Mane Research</Link>
+          <Link href="/search?q=lions+mane">Lion's Mane Research</Link>
         </Button>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/species/search?q=bioremediation">Bioremediation</Link>
+          <Link href="/search?q=bioremediation">Bioremediation</Link>
         </Button>
         <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/species/search?q=cordyceps">Cordyceps Studies</Link>
+          <Link href="/search?q=cordyceps">Cordyceps Studies</Link>
         </Button>
       </div>
     </section>
