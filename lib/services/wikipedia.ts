@@ -66,3 +66,52 @@ export async function getWikipediaData(speciesName: string): Promise<any | null>
     return null
   }
 }
+
+export async function searchWikipedia(query: string): Promise<any[]> {
+  try {
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(
+      query + " fungus mushroom",
+    )}&srlimit=10&origin=*`
+
+    const searchResponse = await fetch(searchUrl)
+    const searchData = await searchResponse.json()
+
+    if (!searchData.query?.search) {
+      return []
+    }
+
+    // Get extracts for each result
+    const results = await Promise.all(
+      searchData.query.search.map(async (result: any) => {
+        try {
+          const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&pageids=${result.pageid}&origin=*`
+          const extractResponse = await fetch(extractUrl)
+          const extractData = await extractResponse.json()
+          const page = extractData.query?.pages?.[result.pageid]
+
+          return {
+            type: "article",
+            title: result.title,
+            extract: page?.extract || result.snippet,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(result.title)}`,
+            pageId: result.pageid,
+          }
+        } catch (error) {
+          console.error("Error fetching Wikipedia extract:", error)
+          return {
+            type: "article",
+            title: result.title,
+            extract: result.snippet,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(result.title)}`,
+            pageId: result.pageid,
+          }
+        }
+      }),
+    )
+
+    return results
+  } catch (error) {
+    console.error("Error searching Wikipedia:", error)
+    return []
+  }
+}

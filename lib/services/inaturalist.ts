@@ -336,3 +336,13 @@ export async function searchFungi(query: string, retries = 3): Promise<any> {
   // Fallback to empty results if all retries fail
   return { results: [] }
 }
+
+export async function searchSpecies(query: string): Promise<INaturalistTaxon[]> {
+  try {
+    const result = await searchFungi(query)
+    return result.results || []
+  } catch (error) {
+    console.error("Error searching species:", error)
+    return []
+  }
+}

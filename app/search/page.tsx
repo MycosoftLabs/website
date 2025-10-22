@@ -33,8 +33,20 @@ export default function SearchPage() {
       setError(null)
 
       try {
+        console.log("[v0] Fetching search results for:", query)
         const response = await fetch(`/api/species/search?q=${encodeURIComponent(query)}`)
+
+        if (!response.ok) {
+          throw new Error(`Search failed with status ${response.status}`)
+        }
+
+        const contentType = response.headers.get("content-type")
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Invalid response format from server")
+        }
+
         const data = await response.json()
+        console.log("[v0] Search results received:", data)
 
         if (data.error) {
           setError(data.error)
@@ -42,8 +54,8 @@ export default function SearchPage() {
           setResults(data)
         }
       } catch (err) {
-        setError("Failed to fetch search results")
-        console.error(err)
+        console.error("[v0] Search error:", err)
+        setError(err instanceof Error ? err.message : "Failed to fetch search results")
       } finally {
         setIsLoading(false)
       }
