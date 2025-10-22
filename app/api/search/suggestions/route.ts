@@ -120,7 +120,7 @@ export async function GET(request: Request) {
         }
       }
     } catch (dbError) {
-      console.log("[v0] Database not ready, using external APIs:", dbError)
+      console.log("[v0] Database not ready, using external APIs")
     }
 
     console.log("[v0] Using iNaturalist API for suggestions")
@@ -146,13 +146,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ suggestions })
     }
 
-    // Search iNaturalist for species
     const iNatResults = await searchFungi(query).catch((err) => {
       console.error("[v0] iNaturalist search error:", err)
-      return []
+      return { results: [] }
     })
 
-    const suggestions: SearchSuggestion[] = iNatResults.slice(0, limit).map((result: any) => ({
+    // Access the results array from the response object
+    const resultsArray = iNatResults.results || []
+
+    const suggestions: SearchSuggestion[] = resultsArray.slice(0, limit).map((result: any) => ({
       id: result.id.toString(),
       title: result.preferred_common_name || result.name,
       type: "fungi" as const,
@@ -180,7 +182,7 @@ export async function GET(request: Request) {
         suggestions: [],
         error: error instanceof Error ? error.message : "Failed to get suggestions",
       },
-      { status: 200 }, // Return 200 with error in body instead of 500
+      { status: 200 },
     )
   }
 }
