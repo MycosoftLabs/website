@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server"
-import { searchFungi } from "@/lib/services/inaturalist"
-import { searchElsevierArticles } from "@/lib/services/elsevier"
-import { searchPapersBySpecies } from "@/lib/services/research-papers"
-import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
-import { searchCompounds } from "@/lib/data/compounds"
+import { createClient } from "@/lib/supabase/server"
 import type { SearchSuggestion } from "@/types/search"
 
 export async function GET(request: Request) {
@@ -12,145 +8,97 @@ export async function GET(request: Request) {
     const query = searchParams.get("q") || ""
     const limit = Number(searchParams.get("limit")) || 10
 
+    const supabase = await createClient()
+
     if (!query.trim()) {
-      // Return popular/featured items when no query
-      const featuredSuggestions = Object.values(SPECIES_MAPPING)
-        .slice(0, 5)
-        .map(
+      const { data: featuredSpecies } = await supabase
+        .from("species")
+        .select("id, scientific_name, common_names, inaturalist_id")
+        .limit(5)
+
+      const featuredSuggestions =
+        featuredSpecies?.map(
           (species): SearchSuggestion => ({
-            id: species.iNaturalistId,
-            title: species.commonNames[0],
+            id: species.id,
+            title: species.common_names?.[0] || species.scientific_name,
             type: "fungi",
-            scientificName: species.scientificName,
-            url: `/species/${species.iNaturalistId}`,
+            scientificName: species.scientific_name,
+            url: `/species/${species.inaturalist_id || species.id}`,
           }),
-        )
+        ) || []
 
       return NextResponse.json({ suggestions: featuredSuggestions })
     }
 
-    const [localResults, iNaturalistResults, elsevierResults, compoundResults] = await Promise.allSettled([
-      // Local species search
-      Promise.resolve(
-        Object.values(SPECIES_MAPPING)
-          .filter(
-            (species) =>
-              species.commonNames.some((name) => name.toLowerCase().includes(query.toLowerCase())) ||
-              species.scientificName.toLowerCase().includes(query.toLowerCase()) ||
-              species.searchTerms?.some((term) => term.toLowerCase().includes(query.toLowerCase())),
-          )
-          .map(
-            (species): SearchSuggestion => ({
-              id: species.iNaturalistId,
-              title: species.commonNames[0],
-              type: "fungi",
-              scientificName: species.scientificName,
-              url: `/species/${species.iNaturalistId}`,
-            }),
-          ),
-      ),
-      // iNaturalist search
-      searchFungi(query),
-      // Elsevier articles search
-      searchElsevierArticles(query).catch(() => []),
-      // Compound search
-      Promise.resolve(
-        searchCompounds(query).map(
-          (compound): SearchSuggestion => ({
-            id: compound.id,
-            title: compound.name,
-            type: "compound",
-            description: `${compound.chemicalClass} - ${compound.description}`,
-            url: `/compounds/${compound.id}`,
-          }),
-        ),
-      ),
-    ])
+    const { data: speciesResults } = await supabase
+      .from("species")
+      .select("id, scientific_name, common_names, inaturalist_id")
+      .or(`scientific_name.ilike.%${query}%,common_names.cs.{${query}}`)
+      .limit(8)
 
-    const suggestions: SearchSuggestion[] = []
-    const speciesForPaperSearch: Array<{ scientificName: string; commonName: string }> = []
-
-    // Add local results first
-    if (localResults.status === "fulfilled") {
-      suggestions.push(...localResults.value)
-      localResults.value.forEach((s) => {
-        if (s.scientificName) {
-          speciesForPaperSearch.push({
-            scientificName: s.scientificName,
-            commonName: s.title,
-          })
-        }
-      })
-    }
-
-    // Add iNaturalist results
-    if (iNaturalistResults.status === "fulfilled" && iNaturalistResults.value?.results) {
-      const inatSuggestions = iNaturalistResults.value.results
-        .filter((result: any) => result.iconic_taxon_name === "Fungi")
-        .map(
-          (result: any): SearchSuggestion => ({
-            id: result.id.toString(),
-            title: result.preferred_common_name || result.name,
-            type: "fungi",
-            scientificName: result.name,
-            url: `/species/${result.id}`,
-          }),
-        )
-
-      suggestions.push(...inatSuggestions)
-
-      inatSuggestions.forEach((s) => {
-        if (s.scientificName) {
-          speciesForPaperSearch.push({
-            scientificName: s.scientificName,
-            commonName: s.title,
-          })
-        }
-      })
-    }
+    const suggestions: SearchSuggestion[] =
+      speciesResults?.map(
+        (species): SearchSuggestion => ({
+          id: species.id,
+          title: species.common_names?.[0] || species.scientific_name,
+          type: "fungi",
+          scientificName: species.scientific_name,
+          url: `/species/${species.inaturalist_id || species.id}`,
+        }),
+      ) || []
 
     const paperSuggestions: SearchSuggestion[] = []
-    if (speciesForPaperSearch.length > 0) {
-      // Take top 3 species to search papers for
-      const topSpecies = speciesForPaperSearch.slice(0, 3)
+    if (speciesResults && speciesResults.length > 0) {
+      const speciesIds = speciesResults.slice(0, 3).map((s) => s.id)
 
-      for (const species of topSpecies) {
-        try {
-          const papers = await searchPapersBySpecies(species.scientificName, species.commonName)
-          paperSuggestions.push(
-            ...papers.slice(0, 2).map((paper) => ({
-              id: paper.id,
-              title: paper.title,
-              type: "article" as const,
-              url: `/papers/${encodeURIComponent(paper.doi || paper.id)}`,
-              date: paper.year.toString(),
-              description: `Related to ${species.commonName}`,
-            })),
+      const { data: paperResults } = await supabase
+        .from("species_papers")
+        .select(
+          `
+          research_papers (
+            id,
+            title,
+            year
+          ),
+          species!inner (
+            common_names,
+            scientific_name
           )
-        } catch (error) {
-          console.error(`Error fetching papers for ${species.scientificName}:`, error)
-        }
+        `,
+        )
+        .in("species_id", speciesIds)
+        .limit(6)
+
+      if (paperResults) {
+        paperSuggestions.push(
+          ...paperResults.map((result: any) => ({
+            id: result.research_papers.id,
+            title: result.research_papers.title,
+            type: "article" as const,
+            url: `/papers/${result.research_papers.id}`,
+            date: result.research_papers.year?.toString(),
+            description: `Related to ${result.species.common_names?.[0] || result.species.scientific_name}`,
+          })),
+        )
       }
     }
 
-    // Add article results from direct search
-    if (elsevierResults.status === "fulfilled") {
-      paperSuggestions.push(
-        ...elsevierResults.value.map(
-          (article: any): SearchSuggestion => ({
-            id: article.doi,
-            title: article.title,
-            type: "article",
-            url: `/papers/${encodeURIComponent(article.doi)}`,
-            date: new Date(article.publicationDate).getFullYear().toString(),
-          }),
-        ),
-      )
-    }
+    const { data: directPaperResults } = await supabase
+      .from("research_papers")
+      .select("id, title, year")
+      .ilike("title", `%${query}%`)
+      .limit(4)
 
-    // Add compound results
-    if (compoundResults.status === "fulfilled") {
-      suggestions.push(...compoundResults.value)
+    if (directPaperResults) {
+      paperSuggestions.push(
+        ...directPaperResults.map((paper) => ({
+          id: paper.id,
+          title: paper.title,
+          type: "article" as const,
+          url: `/papers/${paper.id}`,
+          date: paper.year?.toString(),
+        })),
+      )
     }
 
     suggestions.push(...paperSuggestions)

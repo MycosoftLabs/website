@@ -15,7 +15,7 @@ interface SearchResults {
   query: string
 }
 
-export default function SpeciesSearchPage() {
+export default function SearchPage() {
   const searchParams = useSearchParams()
   const query = searchParams.get("q") || ""
   const [results, setResults] = useState<SearchResults | null>(null)
@@ -128,7 +128,7 @@ export default function SpeciesSearchPage() {
                     </CardTitle>
                     <CardDescription className="text-base italic">{species.scientificName}</CardDescription>
                   </div>
-                  <Badge variant="secondary">{species.source}</Badge>
+                  <Badge variant="secondary">Mycosoft</Badge>
                 </div>
               </CardHeader>
               {species.description && (
