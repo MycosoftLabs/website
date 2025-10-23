@@ -132,3 +132,5 @@ export async function searchWikipedia(query: string): Promise<any[]> {
     return []
   }
 }
+
+export const getWikipediaArticle = getWikipediaData
