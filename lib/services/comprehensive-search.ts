@@ -1,5 +1,6 @@
 import { searchFungi } from "./inaturalist"
 import { searchWikipedia } from "./wikipedia"
+import { searchLocalSpecies } from "@/lib/data/local-species-db"
 
 export interface ComprehensiveSearchResult {
   id: string
@@ -127,56 +128,76 @@ export async function comprehensiveSearch(query: string, limit = 10): Promise<Co
   console.log("[v0] Comprehensive search for:", query)
   console.log("[v0] Expanded queries:", expandedQueries)
 
-  // Search iNaturalist with all query variations
-  for (const expandedQuery of expandedQueries) {
-    try {
-      const iNatResponse = await searchFungi(expandedQuery)
-      const iNatResults = iNatResponse.results || []
+  const localResults = searchLocalSpecies(query, limit)
+  localResults.forEach((species) => {
+    results.push({
+      id: species.id,
+      scientificName: species.scientificName,
+      commonName: species.commonName,
+      source: "local",
+      score: 0.95, // High score for local matches
+      thumbnail: species.thumbnail,
+      description: species.description,
+    })
+  })
 
-      iNatResults.forEach((result: any) => {
-        const commonName = result.preferred_common_name || result.name
-        const scientificName = result.name
+  if (results.length < limit) {
+    // Search iNaturalist with all query variations
+    for (const expandedQuery of expandedQueries.slice(0, 2)) {
+      // Limit to 2 queries to avoid rate limiting
+      try {
+        const iNatResponse = await searchFungi(expandedQuery)
+        const iNatResults = iNatResponse.results || []
 
-        // Calculate relevance score
-        const commonScore = calculateSimilarity(query, commonName)
-        const scientificScore = calculateSimilarity(query, scientificName)
-        const score = Math.max(commonScore, scientificScore)
+        iNatResults.forEach((result: any) => {
+          const commonName = result.preferred_common_name || result.name
+          const scientificName = result.name
 
-        if (score > 0.3) {
-          results.push({
-            id: result.id.toString(),
-            scientificName,
-            commonName,
-            source: "inaturalist",
-            score,
-            thumbnail: result.default_photo?.medium_url,
-            description: result.wikipedia_summary?.substring(0, 150),
-          })
-        }
-      })
-    } catch (error) {
-      console.error(`[v0] iNaturalist search failed for "${expandedQuery}":`, error)
+          // Calculate relevance score
+          const commonScore = calculateSimilarity(query, commonName)
+          const scientificScore = calculateSimilarity(query, scientificName)
+          const score = Math.max(commonScore, scientificScore)
+
+          if (score > 0.3) {
+            results.push({
+              id: result.id.toString(),
+              scientificName,
+              commonName,
+              source: "inaturalist",
+              score,
+              thumbnail: result.default_photo?.medium_url,
+              description: result.wikipedia_summary?.substring(0, 150),
+            })
+          }
+        })
+
+        if (results.length >= limit) break
+      } catch (error) {
+        console.error(`[v0] iNaturalist search failed for "${expandedQuery}":`, error)
+      }
     }
   }
 
   // Search Wikipedia for additional results
-  try {
-    const wikiResults = await searchWikipedia(query)
-    wikiResults.forEach((result: any) => {
-      const score = calculateSimilarity(query, result.title)
-      if (score > 0.3) {
-        results.push({
-          id: `wiki-${result.pageid}`,
-          scientificName: result.title,
-          commonName: result.title,
-          source: "wikipedia",
-          score: score * 0.8, // Slightly lower priority for Wikipedia
-          description: result.extract,
-        })
-      }
-    })
-  } catch (error) {
-    console.error("[v0] Wikipedia search failed:", error)
+  if (results.length < limit) {
+    try {
+      const wikiResults = await searchWikipedia(query)
+      wikiResults.forEach((result: any) => {
+        const score = calculateSimilarity(query, result.title)
+        if (score > 0.3) {
+          results.push({
+            id: `wiki-${result.pageid}`,
+            scientificName: result.title,
+            commonName: result.title,
+            source: "wikipedia",
+            score: score * 0.8, // Slightly lower priority for Wikipedia
+            description: result.extract,
+          })
+        }
+      })
+    } catch (error) {
+      console.error("[v0] Wikipedia search failed:", error)
+    }
   }
 
   // Remove duplicates and sort by score

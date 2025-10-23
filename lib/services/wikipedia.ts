@@ -73,7 +73,16 @@ export async function searchWikipedia(query: string): Promise<any[]> {
       query + " fungus mushroom",
     )}&srlimit=10&origin=*`
 
-    const searchResponse = await fetch(searchUrl)
+    const searchResponse = await fetch(searchUrl, {
+      signal: AbortSignal.timeout(5000),
+    })
+
+    const contentType = searchResponse.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      console.warn("Wikipedia returned non-JSON response")
+      return []
+    }
+
     const searchData = await searchResponse.json()
 
     if (!searchData.query?.search) {
@@ -82,10 +91,18 @@ export async function searchWikipedia(query: string): Promise<any[]> {
 
     // Get extracts for each result
     const results = await Promise.all(
-      searchData.query.search.map(async (result: any) => {
+      searchData.query.search.slice(0, 5).map(async (result: any) => {
         try {
           const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&pageids=${result.pageid}&origin=*`
-          const extractResponse = await fetch(extractUrl)
+          const extractResponse = await fetch(extractUrl, {
+            signal: AbortSignal.timeout(5000),
+          })
+
+          const extractContentType = extractResponse.headers.get("content-type")
+          if (!extractContentType || !extractContentType.includes("application/json")) {
+            throw new Error("Non-JSON response")
+          }
+
           const extractData = await extractResponse.json()
           const page = extractData.query?.pages?.[result.pageid]
 

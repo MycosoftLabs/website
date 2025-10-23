@@ -314,26 +314,40 @@ export async function searchFungi(query: string, retries = 3): Promise<any> {
 
       clearTimeout(timeoutId)
 
+      const contentType = response.headers.get("content-type")
+
       if (!response.ok) {
+        // Check if it's a rate limit error
+        if (response.status === 429) {
+          console.warn(`iNaturalist rate limited on attempt ${attempt + 1}`)
+          if (attempt < retries) {
+            await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)))
+            continue
+          }
+        }
         console.warn(`iNaturalist API error on attempt ${attempt + 1}: ${response.status}`)
-        // Do not throw error, return empty results
         return { results: [] }
       }
 
-      const data = await response.json()
-      return { results: data.results || [] }
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json()
+        return { results: data.results || [] }
+      } else {
+        // Non-JSON response (likely error message)
+        const text = await response.text()
+        console.warn(`Non-JSON response from iNaturalist: ${text.substring(0, 100)}`)
+        return { results: [] }
+      }
     } catch (error) {
       console.error(`iNaturalist search failed (attempt ${attempt + 1}):`, error)
       if (attempt === retries) {
         console.error("iNaturalist search failed after multiple retries:", error)
         return { results: [] }
       }
-      // Wait before retry
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
     }
   }
 
-  // Fallback to empty results if all retries fail
   return { results: [] }
 }
 
