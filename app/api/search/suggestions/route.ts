@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { mindexClient } from "@/lib/services/mindex-client"
 import type { SearchSuggestion } from "@/types/search"
 import { comprehensiveSearch } from "@/lib/services/comprehensive-search"
 
@@ -12,112 +12,92 @@ export async function GET(request: Request) {
     console.log("[v0] Suggestions API called with query:", query)
 
     try {
-      const supabase = await createClient()
+      await mindexClient.connect()
 
-      if (!query.trim()) {
-        const { data: featuredSpecies, error: featuredError } = await supabase
-          .from("species")
-          .select("id, scientific_name, common_names, inaturalist_id")
-          .limit(5)
+      if (mindexClient.isConnected()) {
+        console.log("[v0] Using MINDEX for suggestions")
 
-        if (!featuredError && featuredSpecies && featuredSpecies.length > 0) {
-          const featuredSuggestions =
-            featuredSpecies?.map(
-              (species): SearchSuggestion => ({
-                id: species.id,
-                title: species.common_names?.[0] || species.scientific_name,
-                type: "fungi",
-                scientificName: species.scientific_name,
-                url: `/species/${species.inaturalist_id || species.id}`,
-              }),
-            ) || []
+        if (!query.trim()) {
+          // Return featured species from MINDEX
+          const featuredSpecies = await mindexClient
+            .getCollection("species")
+            ?.find({ featured: true })
+            .limit(6)
+            .toArray()
 
-          return NextResponse.json({ suggestions: featuredSuggestions })
-        }
-      } else {
-        const { data: speciesResults, error: speciesError } = await supabase
-          .from("species")
-          .select("id, scientific_name, common_names, inaturalist_id")
-          .or(
-            `scientific_name.ilike.%${query}%,common_names.cs.{${query}},scientific_name.ilike.${query}%,common_names.cs.{${query.split(" ")[0]}}`,
-          )
-          .limit(8)
+          if (featuredSpecies && featuredSpecies.length > 0) {
+            const suggestions: SearchSuggestion[] = featuredSpecies.map((species: any) => ({
+              id: species.inaturalistId || species.id,
+              title: species.commonNames?.[0] || species.scientificName,
+              type: "fungi",
+              scientificName: species.scientificName,
+              url: `/species/${species.inaturalistId || species.id}`,
+              image: species.images?.[0]?.url,
+            }))
 
-        if (!speciesError && speciesResults && speciesResults.length > 0) {
-          const suggestions: SearchSuggestion[] =
-            speciesResults?.map(
-              (species): SearchSuggestion => ({
-                id: species.id,
-                title: species.common_names?.[0] || species.scientific_name,
-                type: "fungi",
-                scientificName: species.scientific_name,
-                url: `/species/${species.inaturalist_id || species.id}`,
-              }),
-            ) || []
-
-          const paperSuggestions: SearchSuggestion[] = []
-          if (speciesResults && speciesResults.length > 0) {
-            const speciesIds = speciesResults.slice(0, 3).map((s) => s.id)
-
-            const { data: paperResults } = await supabase
-              .from("species_papers")
-              .select(
-                `
-                research_papers (
-                  id,
-                  title,
-                  year
-                ),
-                species!inner (
-                  common_names,
-                  scientific_name
-                )
-              `,
-              )
-              .in("species_id", speciesIds)
-              .limit(6)
-
-            if (paperResults) {
-              paperSuggestions.push(
-                ...paperResults.map((result: any) => ({
-                  id: result.research_papers.id,
-                  title: result.research_papers.title,
-                  type: "article" as const,
-                  url: `/papers/${result.research_papers.id}`,
-                  date: result.research_papers.year?.toString(),
-                  description: `Related to ${result.species.common_names?.[0] || result.species.scientific_name}`,
-                })),
-              )
-            }
+            return NextResponse.json({ suggestions })
           }
+        } else {
+          // Search MINDEX for species
+          const speciesResults = await mindexClient.searchSpecies(query, 8)
 
-          suggestions.push(...paperSuggestions)
+          if (speciesResults && speciesResults.length > 0) {
+            const suggestions: SearchSuggestion[] = speciesResults.map((species: any) => ({
+              id: species.inaturalistId || species.id,
+              title: species.commonNames?.[0] || species.scientificName,
+              type: "fungi",
+              scientificName: species.scientificName,
+              url: `/species/${species.inaturalistId || species.id}`,
+              image: species.images?.[0]?.url,
+            }))
 
-          const uniqueSuggestions = suggestions.filter(
-            (suggestion, index, self) => index === self.findIndex((s) => s.id === suggestion.id),
-          )
+            // Add related papers from MINDEX
+            const paperSuggestions: SearchSuggestion[] = []
+            for (const species of speciesResults.slice(0, 3)) {
+              const papers = await mindexClient.searchPapers(query, species.id, 2)
 
-          return NextResponse.json({
-            suggestions: uniqueSuggestions.slice(0, limit),
-            query,
-          })
+              if (papers && papers.length > 0) {
+                paperSuggestions.push(
+                  ...papers.map((paper: any) => ({
+                    id: paper.id,
+                    title: paper.title,
+                    type: "article" as const,
+                    url: `/papers/${paper.id}`,
+                    date: paper.year?.toString(),
+                    description: `Related to ${species.commonNames?.[0] || species.scientificName}`,
+                  })),
+                )
+              }
+            }
+
+            suggestions.push(...paperSuggestions)
+
+            const uniqueSuggestions = suggestions.filter(
+              (suggestion, index, self) => index === self.findIndex((s) => s.id === suggestion.id),
+            )
+
+            return NextResponse.json({
+              suggestions: uniqueSuggestions.slice(0, limit),
+              query,
+            })
+          }
         }
       }
-    } catch (dbError) {
-      console.log("[v0] Database not ready, using comprehensive search")
+    } catch (mindexError) {
+      console.log("[v0] MINDEX not available, using fallback:", mindexError)
     }
+    // </CHANGE>
 
     console.log("[v0] Using comprehensive search for suggestions")
 
     if (!query.trim()) {
-      // Return featured species
       const featuredSpecies = [
         { id: "48250", name: "Agaricus bisporus", commonName: "Button Mushroom" },
         { id: "47348", name: "Pleurotus ostreatus", commonName: "Oyster Mushroom" },
         { id: "48715", name: "Lentinula edodes", commonName: "Shiitake" },
-        { id: "54743", name: "Amanita muscaria", commonName: "Fly Agaric" },
-        { id: "48701", name: "Ganoderma lucidum", commonName: "Reishi" },
         { id: "121657", name: "Hericium erinaceus", commonName: "Lion's Mane" },
+        { id: "48701", name: "Ganoderma lucidum", commonName: "Reishi" },
+        { id: "54743", name: "Amanita muscaria", commonName: "Fly Agaric" },
       ]
 
       const suggestions: SearchSuggestion[] = featuredSpecies.map((species) => ({
@@ -141,14 +121,7 @@ export async function GET(request: Request) {
       url: `/species/${result.id}`,
       description: result.description,
     }))
-
-    if (suggestions.length === 0) {
-      return NextResponse.json({
-        suggestions: [],
-        query,
-        message: "No results found. Try a different search term.",
-      })
-    }
+    // </CHANGE>
 
     return NextResponse.json({
       suggestions,
