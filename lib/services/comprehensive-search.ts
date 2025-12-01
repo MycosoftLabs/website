@@ -141,10 +141,8 @@ export async function comprehensiveSearch(query: string, limit = 10): Promise<Co
     })
   })
 
-  if (results.length < limit) {
-    // Search iNaturalist with all query variations
-    for (const expandedQuery of expandedQueries.slice(0, 2)) {
-      // Limit to 2 queries to avoid rate limiting
+  if (results.length < 5) {
+    for (const expandedQuery of expandedQueries.slice(0, 1)) {
       try {
         const iNatResponse = await searchFungi(expandedQuery)
         const iNatResults = iNatResponse.results || []
@@ -178,8 +176,7 @@ export async function comprehensiveSearch(query: string, limit = 10): Promise<Co
     }
   }
 
-  // Search Wikipedia for additional results
-  if (results.length < limit) {
+  if (results.length < 3) {
     try {
       const wikiResults = await searchWikipedia(query)
       wikiResults.forEach((result: any) => {
