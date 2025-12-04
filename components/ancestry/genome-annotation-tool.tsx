@@ -1,3 +1,4 @@
+// components/ancestry/genome-annotation-tool.tsx
 "use client"
 
 import { Input } from "@/components/ui/input"

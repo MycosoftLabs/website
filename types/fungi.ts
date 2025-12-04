@@ -42,5 +42,21 @@ export interface FungiSpecies {
   conservationStatus?: string
   wikipedia_summary?: string
   iNaturalistId?: string
-  type?: string
+  dnaData?: DnaData[] // Add DNA data field
+  gbifId?: string // Add GBIF ID field
+  gbifUrl?: string // Add GBIF URL field
+  gbifDescription?: string // Add GBIF Description field
+  gbifImages?: Array<{
+    // Add GBIF Images field
+    url: string
+    attribution: string
+  }>
+}
+
+export interface DnaData {
+  accession: string
+  sequence: string
+  database: string
+  gene: string
+  source: string
 }

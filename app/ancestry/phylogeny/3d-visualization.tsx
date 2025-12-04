@@ -82,8 +82,7 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
       const response = await fetch(`/api/ancestry/tree/${rootId}`)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`API returned ${response.status}: ${response.statusText} - ${errorText}`)
+        throw new Error(`API returned ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()

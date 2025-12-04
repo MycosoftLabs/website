@@ -1,44 +1,16 @@
-import { neon } from "@neondatabase/serverless"
+import { createClient } from "@vercel/postgres"
+import { drizzle } from "drizzle-orm/vercel-postgres"
+import { fungi } from "@/schema/fungi"
 
-let db: any = null
+// Create database client
+export const client = createClient()
+export const db = drizzle(client)
 
-export function getDatabase() {
-  if (db) {
-    return db
-  }
-
-  const databaseUrl = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL
-
-  if (!databaseUrl) {
-    console.warn("No database URL found. Running in mock mode.")
-    return null
-  }
-
-  try {
-    db = neon(databaseUrl)
-    console.log("Database connection established")
-    return db
-  } catch (error) {
-    console.error("Failed to connect to database:", error)
-    return null
-  }
-}
-
-export async function testConnection() {
-  const database = getDatabase()
-
-  if (!database) {
-    return { isConnected: false, error: "No database URL configured" }
-  }
-
-  try {
-    await database`SELECT 1`
-    return { isConnected: true }
-  } catch (error) {
-    console.error("Database connection test failed:", error)
-    return {
-      isConnected: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    }
-  }
+// Type-safe database operations
+export async function searchFungi(query: string) {
+  return await db
+    .select()
+    .from(fungi)
+    .where(sql`name ILIKE ${`%${query}%`}`)
+    .limit(20)
 }

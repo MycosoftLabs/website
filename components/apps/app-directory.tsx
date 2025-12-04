@@ -9,37 +9,37 @@ const apps = [
     title: "Petri Dish Simulator",
     description: "Simulate and analyze fungal growth patterns",
     icon: PetriDish,
-    href: "/natureos/apps/petri-dish-sim",
+    href: "/apps/petri-dish-sim",
   },
   {
     title: "Mushroom Simulator",
     description: "3D visualization of mushroom development",
     icon: Microscope,
-    href: "/natureos/apps/mushroom-sim",
+    href: "/apps/mushroom-sim",
   },
   {
     title: "Compound Analyzer",
     description: "Analyze fungal compounds and interactions",
     icon: Flask,
-    href: "/natureos/apps/compound-sim",
+    href: "/apps/compound-sim",
   },
   {
     title: "Spore Tracker",
     description: "Track global spore distribution patterns",
     icon: Globe,
-    href: "/natureos/apps/spore-tracker",
+    href: "/apps/spore-tracker",
   },
   {
     title: "Ancestry Database",
     description: "Explore fungal genealogy and relationships",
     icon: Database,
-    href: "/natureos/apps/ancestry",
+    href: "/ancestry",
   },
   {
     title: "Growth Analytics",
     description: "Advanced metrics for fungal development",
     icon: LineChart,
-    href: "/natureos/apps/growth-analytics",
+    href: "/apps/growth-analytics",
   },
 ]
 
