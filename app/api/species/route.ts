@@ -1,102 +1,73 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { NextResponse } from "next/server"
+import { find, findOne } from "@/lib/mongodb"
 
-// Initialize the SQL client with the database URL
-const sql = neon(process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "")
-
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get("id")
 
     if (id) {
       // Get a single species by ID
-      const species = await sql`
-        SELECT * FROM species WHERE id = ${Number.parseInt(id, 10)}
-      `
+      const species = await findOne("species", { id })
 
-      if (species.length === 0) {
+      if (!species) {
         return NextResponse.json({ error: "Species not found" }, { status: 404 })
       }
 
-      return NextResponse.json(species[0])
-    }
-
-    // For listing/searching species
-    const search = searchParams.get("search") || ""
-    const sort = searchParams.get("sort") || "scientific_name"
-    const page = Number.parseInt(searchParams.get("page") || "1", 10)
-    const limit = Number.parseInt(searchParams.get("limit") || "9", 10)
-    const offset = (page - 1) * limit
-
-    // Count total matching species
-    const searchPattern = `%${search}%`
-    const countResult = await sql`
-      SELECT COUNT(*) as total
-      FROM species
-      WHERE 
-        scientific_name ILIKE ${searchPattern} OR
-        common_name ILIKE ${searchPattern} OR
-        family ILIKE ${searchPattern} OR
-        description ILIKE ${searchPattern}
-    `
-
-    const total = Number.parseInt(countResult[0].total, 10)
-
-    // Get species with pagination
-    let sortField = "scientific_name"
-    if (sort === "common_name") sortField = "common_name"
-    else if (sort === "family") sortField = "family"
-
-    // Using tagged template syntax for dynamic sorting
-    let species
-    if (sortField === "scientific_name") {
-      species = await sql`
-        SELECT *
-        FROM species
-        WHERE 
-          scientific_name ILIKE ${searchPattern} OR
-          common_name ILIKE ${searchPattern} OR
-          family ILIKE ${searchPattern} OR
-          description ILIKE ${searchPattern}
-        ORDER BY scientific_name ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `
-    } else if (sortField === "common_name") {
-      species = await sql`
-        SELECT *
-        FROM species
-        WHERE 
-          scientific_name ILIKE ${searchPattern} OR
-          common_name ILIKE ${searchPattern} OR
-          family ILIKE ${searchPattern} OR
-          description ILIKE ${searchPattern}
-        ORDER BY common_name ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      return NextResponse.json(species)
     } else {
-      species = await sql`
-        SELECT *
-        FROM species
-        WHERE 
-          scientific_name ILIKE ${searchPattern} OR
-          common_name ILIKE ${searchPattern} OR
-          family ILIKE ${searchPattern} OR
-          description ILIKE ${searchPattern}
-        ORDER BY family ASC
-        LIMIT ${limit} OFFSET ${offset}
-      `
+      // Get all species with optional filtering
+      const filter: Record<string, any> = {}
+
+      // Add any search filters from query params
+      const name = searchParams.get("name")
+      if (name) {
+        filter.$or = [
+          { commonName: { $regex: name, $options: "i" } },
+          { scientificName: { $regex: name, $options: "i" } },
+        ]
+      }
+
+      const type = searchParams.get("type")
+      if (type) {
+        filter.type = type
+      }
+
+      const species = await find("species", filter)
+      return NextResponse.json(species)
+    }
+  } catch (error) {
+    console.error("Species API error:", error)
+    return NextResponse.json({ error: "Failed to fetch species data" }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const action = searchParams.get("action")
+
+    if (!action) {
+      return NextResponse.json({ error: "Action parameter is required" }, { status: 400 })
     }
 
-    return NextResponse.json({
-      species,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    })
+    switch (action) {
+      case "search":
+        const { query } = await request.json()
+        const results = await find("species", {
+          $or: [
+            { commonName: { $regex: query, $options: "i" } },
+            { scientificName: { $regex: query, $options: "i" } },
+            { description: { $regex: query, $options: "i" } },
+          ],
+        })
+        return NextResponse.json(results)
+
+      default:
+        return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+    }
   } catch (error) {
-    console.error("Error fetching species:", error)
-    return NextResponse.json({ error: "Failed to fetch species data" }, { status: 500 })
+    console.error("Species API error:", error)
+    return NextResponse.json({ error: "Failed to process request" }, { status: 500 })
   }
 }

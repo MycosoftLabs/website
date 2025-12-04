@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { SporeMap } from "@/components/apps/spore-tracker/spore-map"
+import { SporeTrackerApp } from "@/components/apps/spore-tracker/spore-tracker-app"
 
 export const metadata: Metadata = {
   title: "Spore Tracker - Mycosoft",
@@ -7,9 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function SporeTrackerPage() {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <SporeMap />
-    </div>
-  )
+  return <SporeTrackerApp />
 }

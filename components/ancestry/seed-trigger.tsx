@@ -1,41 +1,46 @@
-// components/ancestry/seed-trigger.tsx
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { toast } from "@/components/ui/use-toast"
 
 export function SeedTrigger() {
-  const [isSeeding, setIsSeeding] = useState(false)
-  const [seedMessage, setSeedMessage] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSeed = async () => {
-    setIsSeeding(true)
-    setSeedMessage(null)
-
     try {
+      setIsLoading(true)
       const response = await fetch("/api/ancestry/seed", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
       })
 
       const data = await response.json()
-      setSeedMessage(data.message)
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start seeding process")
+      }
+
+      toast({
+        title: "Seeding Process Started",
+        description: data.message,
+      })
     } catch (error) {
       console.error("Error triggering seed:", error)
-      setSeedMessage("Failed to trigger seed process.")
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to start seeding process",
+        variant: "destructive",
+      })
     } finally {
-      setIsSeeding(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <div>
-      <Button onClick={handleSeed} disabled={isSeeding}>
-        {isSeeding ? "Seeding..." : "Seed Database"}
+    <div className="flex items-center justify-end mb-4">
+      <Button variant="outline" size="sm" onClick={handleSeed} disabled={isLoading} className="text-xs">
+        {isLoading ? "Processing..." : "Refresh Species Database"}
       </Button>
-      {seedMessage && <p className="mt-2 text-sm text-muted-foreground">{seedMessage}</p>}
     </div>
   )
 }

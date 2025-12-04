@@ -1,154 +1,139 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Search, User, Bell, Settings } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Chat } from "@/components/chat/chat"
+import Image from "next/image"
+import { useTheme } from "next-themes"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
-const navigation = [
-  { name: "Home", href: "/" },
-  { name: "Database", href: "/fungal-database" },
-  { name: "Research", href: "/papers" },
-  { name: "Compounds", href: "/compounds" },
-  { name: "Apps", href: "/apps" },
-  { name: "NatureOS", href: "/natureos" },
-]
+import { useAuth } from "@/contexts/auth-context"
+import { useRouter } from "next/navigation"
+import { MobileNav } from "@/components/mobile-nav"
 
 export function Header() {
-  const [isOpen, setIsOpen] = useState(false)
-  const pathname = usePathname()
+  const { theme } = useTheme()
+  const { user, signOut } = useAuth()
+  const router = useRouter()
+
+  const handleSignOut = () => {
+    signOut()
+    router.push("/")
+  }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
-        <div className="mr-4 hidden md:flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">M</span>
+    <header className="border-b bg-background sticky top-0 z-40">
+      <div className="container flex h-14 items-center justify-between">
+        <div className="flex items-center gap-2 font-semibold">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <div className="relative h-8 w-8">
+              <Image
+                src={
+                  theme === "dark"
+                    ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
+                    : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
+                }
+                alt="Mycosoft Logo"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
-            <span className="hidden font-bold sm:inline-block">Mycosoft</span>
+            <span>Mycosoft</span>
           </Link>
-          <nav className="flex items-center space-x-6 text-sm font-medium">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`transition-colors hover:text-foreground/80 ${
-                  pathname === item.href ? "text-foreground" : "text-foreground/60"
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </nav>
         </div>
 
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              className="mr-2 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 md:hidden"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="pr-0">
-            <Link href="/" className="flex items-center space-x-2" onClick={() => setIsOpen(false)}>
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
-              </div>
-              <span className="font-bold">Mycosoft</span>
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-2 mx-auto">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">
+              <Search className="h-4 w-4 mr-2" />
+              Search
             </Link>
-            <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
-              <div className="flex flex-col space-y-3">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`transition-colors hover:text-foreground/80 ${
-                      pathname === item.href ? "text-foreground" : "text-foreground/60"
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/natureos">
+              <Cloud className="h-4 w-4 mr-2" />
+              NatureOS
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/devices">
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Devices
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/apps">
+              <Apps className="h-4 w-4 mr-2" />
+              Apps
+            </Link>
+          </Button>
+        </nav>
 
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <div className="w-full flex-1 md:w-auto md:flex-none">
-            <Link href="/search">
-              <Button
-                variant="outline"
-                className="inline-flex items-center whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input hover:bg-accent hover:text-accent-foreground px-4 py-2 relative h-8 w-full justify-start rounded-[0.5rem] bg-background text-sm font-normal text-muted-foreground shadow-none sm:pr-12 md:w-40 lg:w-64"
-              >
-                <Search className="mr-2 h-4 w-4" />
-                <span className="hidden lg:inline-flex">Search fungi...</span>
-                <span className="inline-flex lg:hidden">Search...</span>
-              </Button>
-            </Link>
+        {/* Right side controls - visible on all screen sizes */}
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Bot className="h-5 w-5" />
+                  <span className="sr-only">Myca AI Assistant</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl h-[80vh]">
+                <Chat />
+              </DialogContent>
+            </Dialog>
           </div>
-          <nav className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/notifications" className="relative">
-                <Bell className="h-4 w-4" />
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs">3</Badge>
-              </Link>
-            </Button>
-            <ModeToggle />
+
+          <ModeToggle />
+
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder-user.jpg" alt="User" />
-                    <AvatarFallback>U</AvatarFallback>
+                <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarFallback>{user.name[0]}</AvatarFallback>
                   </Avatar>
+                  <span className="hidden md:inline-block">{user.name}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Research User</p>
-                    <p className="text-xs leading-none text-muted-foreground">user@mycosoft.org</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
+              <DropdownMenuContent align="end" className="bg-popover border bg-background">
                 <DropdownMenuItem asChild>
-                  <Link href="/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
+                  <Link href="/profile">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </Link>
+                  <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <span>Log out</span>
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>Sign Out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </nav>
+          ) : (
+            <div className="hidden md:flex">
+              <Button variant="default" size="sm" className="mr-2" asChild>
+                <Link href="/login">
+                  <User2 className="h-4 w-4 mr-2" />
+                  Sign In
+                </Link>
+              </Button>
+            </div>
+          )}
+          {/* Mobile Navigation */}
+          <div className="md:hidden">
+            <MobileNav />
+          </div>
         </div>
       </div>
     </header>

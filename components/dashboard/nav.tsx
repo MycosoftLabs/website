@@ -1,195 +1,98 @@
 "use client"
 
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from "@/components/ui/sidebar"
+import {
+  Home,
+  FlaskConical,
+  Microscope,
+  Database,
+  Globe,
+  LineChart,
+  Network,
+  Bot,
+  Boxes,
+  Activity,
+  PipetteIcon,
+  Code,
+  Cpu,
+  Workflow,
+  Binary,
+  Braces,
+  Terminal,
+  Cloud,
+  Layers,
+  Settings,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  BarChart3,
-  Bug,
-  Cloud,
-  Code,
-  Database,
-  FileText,
-  Gauge,
-  Globe,
-  Home,
-  LineChart,
-  Microscope,
-  MouseIcon,
-  Network,
-  PipetteIcon,
-  Settings,
-  Zap,
-} from "lucide-react"
-import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar"
+import { useSidebar } from "@/components/ui/sidebar"
+
+const navItems = {
+  apps: [
+    { title: "Overview", href: "/natureos", icon: Home },
+    { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: PipetteIcon },
+    { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope },
+    { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
+    { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Globe },
+    { title: "Ancestry Database", href: "/ancestry", icon: Database },
+    { title: "Growth Analytics", href: "/apps/growth-analytics", icon: LineChart },
+  ],
+  ai: [
+    { title: "Myca AI Studio", href: "/natureos/ai-studio", icon: Bot },
+    { title: "Model Training", href: "/natureos/model-training", icon: Cpu },
+    { title: "Workflows", href: "/natureos/workflows", icon: Workflow },
+  ],
+  development: [
+    { title: "API Gateway", href: "/natureos/api", icon: Code },
+    { title: "Functions", href: "/natureos/functions", icon: Binary },
+    { title: "SDK", href: "/natureos/sdk", icon: Braces },
+    { title: "Cloud Shell", href: "/natureos/shell", icon: Terminal },
+  ],
+  infrastructure: [
+    { title: "Device Network", href: "/natureos/devices", icon: Network },
+    { title: "Storage", href: "/natureos/storage", icon: Database },
+    { title: "Containers", href: "/natureos/containers", icon: Boxes },
+    { title: "Monitoring", href: "/natureos/monitoring", icon: Activity },
+  ],
+  platform: [
+    { title: "Cloud Services", href: "/natureos/cloud", icon: Cloud },
+    { title: "Integration Hub", href: "/natureos/integrations", icon: Layers },
+    { title: "Settings", href: "/natureos/settings", icon: Settings },
+  ],
+}
 
 export function DashboardNav() {
   const pathname = usePathname()
-  const isOpen = true // Assuming isOpen is always true for this example.  In a real scenario, this would be managed by state.
-
-  const isActive = (path: string) => {
-    return pathname === path
-  }
+  const { isOpen } = useSidebar()
 
   return (
-    <div className="flex flex-col gap-4 py-2">
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild isActive={isActive("/natureos")} tooltip="Home">
-            <Link href="/natureos">
-              <Home className="h-4 w-4" />
-              <span className="transition-all duration-300">{isOpen ? "Home" : ""}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild isActive={isActive("/natureos/mycelium-network")} tooltip="Mycelium Network">
-            <Link href="/natureos/mycelium-network">
-              <Network className="h-4 w-4" />
-              <span className="transition-all duration-300">{isOpen ? "Mycelium Network" : ""}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild isActive={isActive("/natureos/devices")} tooltip="Devices">
-            <Link href="/natureos/devices">
-              <MouseIcon className="h-4 w-4" />
-              <span className="transition-all duration-300">{isOpen ? "Devices" : ""}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild isActive={isActive("/natureos/analytics")} tooltip="Analytics">
-            <Link href="/natureos/analytics">
-              <BarChart3 className="h-4 w-4" />
-              <span className="transition-all duration-300">{isOpen ? "Analytics" : ""}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-
-      <div className="px-3 py-2">
-        <h3 className="mb-2 text-xs font-medium text-gray-400">Applications</h3>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive("/natureos/apps/petri-dish-sim")}
-              tooltip="Petri Dish Simulator"
-            >
-              <Link href="/natureos/apps/petri-dish-sim">
-                <PipetteIcon className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Petri Dish Simulator" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/apps/fungal-database")} tooltip="Fungal Database">
-              <Link href="/natureos/apps/fungal-database">
-                <Database className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Fungal Database" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/apps/mushroom-sim")} tooltip="Mushroom Simulator">
-              <Link href="/natureos/apps/mushroom-sim">
-                <Microscope className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Mushroom Simulator" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/apps/compound-sim")} tooltip="Compound Analyzer">
-              <Link href="/natureos/apps/compound-sim">
-                <Bug className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Compound Analyzer" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/apps/spore-tracker")} tooltip="Spore Tracker">
-              <Link href="/natureos/apps/spore-tracker">
-                <Globe className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Spore Tracker" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/apps/ancestry")} tooltip="Ancestry Database">
-              <Link href="/natureos/apps/ancestry">
-                <Database className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Ancestry Database" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive("/natureos/apps/growth-analytics")}
-              tooltip="Growth Analytics"
-            >
-              <Link href="/natureos/apps/growth-analytics">
-                <LineChart className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Growth Analytics" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </div>
-
-      <div className="px-3 py-2">
-        <h3 className="mb-2 text-xs font-medium text-gray-400">System</h3>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/api-console")} tooltip="API Console">
-              <Link href="/natureos/api-console">
-                <Code className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "API Console" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/cloud-storage")} tooltip="Cloud Storage">
-              <Link href="/natureos/cloud-storage">
-                <Cloud className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Cloud Storage" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/performance")} tooltip="Performance">
-              <Link href="/natureos/performance">
-                <Gauge className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Performance" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/energy")} tooltip="Energy Usage">
-              <Link href="/natureos/energy">
-                <Zap className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Energy Usage" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/documentation")} tooltip="Documentation">
-              <Link href="/natureos/documentation">
-                <FileText className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Documentation" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive("/natureos/settings")} tooltip="Settings">
-              <Link href="/natureos/settings">
-                <Settings className="h-4 w-4" />
-                <span className="transition-all duration-300">{isOpen ? "Settings" : ""}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </div>
+    <div className="h-full py-4">
+      {(Object.keys(navItems) as Array<keyof typeof navItems>).map((section) => (
+        <SidebarGroup key={section}>
+          {isOpen && <SidebarGroupLabel>{section.charAt(0).toUpperCase() + section.slice(1)}</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems[section].map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.title}>
+                    <Link href={item.href} className="flex items-center">
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {isOpen && <span className="truncate">{item.title}</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ))}
     </div>
   )
 }

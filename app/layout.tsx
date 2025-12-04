@@ -1,53 +1,15 @@
 import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
+import { GeistSans } from "geist/font/sans"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/contexts/auth-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { Toaster } from "@/components/ui/toaster"
+import "./globals.css"
+import Script from "next/script"
 
-const inter = Inter({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Mycosoft - Advanced Mycological Research Platform",
-  description:
-    "Explore the world of fungi with our comprehensive database, AI-powered identification tools, and cutting-edge research platform.",
-  keywords: "mycology, fungi, mushrooms, research, identification, database, AI",
-  authors: [{ name: "Mycosoft Research Team" }],
-  openGraph: {
-    title: "Mycosoft - Advanced Mycological Research Platform",
-    description: "Explore the world of fungi with our comprehensive database and AI-powered tools.",
-    url: "https://mycosoft.com",
-    siteName: "Mycosoft",
-    images: [
-      {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Mycosoft - Mycological Research Platform",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Mycosoft - Advanced Mycological Research Platform",
-    description: "Explore the world of fungi with our comprehensive database and AI-powered tools.",
-    images: ["/og-image.jpg"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
+export const metadata = {
+  title: "Mycosoft - The Fungal Intelligence Platform",
+  description: "Search engine and tools for mycology research and fungal intelligence",
     generator: 'v0.app'
 }
 
@@ -58,14 +20,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <div className="min-h-screen bg-background flex flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
-          <Toaster />
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css"
+          type="text/css"
+        />
+      </head>
+      <body className={GeistSans.className}>
+        <Script
+          src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"
+          strategy="beforeInteractive"
+        />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <div className="min-h-screen flex flex-col relative overflow-hidden">
+              <Header />
+              <main className="flex-1 relative">{children}</main>
+              <Footer />
+            </div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
