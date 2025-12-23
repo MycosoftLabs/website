@@ -3,8 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
-import * as atlas from "azure-maps-control"
-import "azure-maps-control/dist/atlas.min.css"
+
+// Declare global atlas type
+declare global {
+  interface Window {
+    atlas: typeof import("azure-maps-control")
+  }
+}
 
 interface SporeLocation {
   id: string
@@ -45,10 +50,42 @@ const defaultLocations: SporeLocation[] = [
 
 export function SporeMap({ locations = defaultLocations, onLocationClick }: SporeMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
-  const [map, setMap] = useState<atlas.Map | null>(null)
+  const [map, setMap] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [authInfo, setAuthInfo] = useState<{ clientId: string } | null>(null)
+  const [atlasReady, setAtlasReady] = useState(false)
+
+  useEffect(() => {
+    const checkAtlas = () => {
+      if (typeof window !== "undefined" && window.atlas) {
+        setAtlasReady(true)
+        return true
+      }
+      return false
+    }
+
+    if (checkAtlas()) return
+
+    const interval = setInterval(() => {
+      if (checkAtlas()) {
+        clearInterval(interval)
+      }
+    }, 100)
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval)
+      if (!window.atlas) {
+        setError("Azure Maps SDK failed to load")
+        setIsLoading(false)
+      }
+    }, 10000)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [])
 
   // Fetch authentication token from our secure API endpoint
   useEffect(() => {
@@ -72,7 +109,9 @@ export function SporeMap({ locations = defaultLocations, onLocationClick }: Spor
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current || map || !authInfo) return
+    if (!mapRef.current || map || !authInfo || !atlasReady) return
+
+    const atlas = window.atlas
 
     try {
       if (!authInfo.clientId) {
@@ -82,17 +121,16 @@ export function SporeMap({ locations = defaultLocations, onLocationClick }: Spor
       // Initialize map with anonymous authentication
       const newMap = new atlas.Map(mapRef.current, {
         authOptions: {
-          authType: "anonymous",
+          authType: "anonymous" as any,
           clientId: authInfo.clientId,
           getToken: async () => {
             try {
-              // Fetch token from our secure API
               const response = await fetch("/api/maps/auth")
               if (!response.ok) {
                 throw new Error(`Failed to get map authentication: ${response.status}`)
               }
               const authData = await response.json()
-              return authData.clientId // Use the client ID for anonymous auth
+              return authData.clientId
             } catch (error) {
               console.error("Map authentication error:", error)
               throw error
@@ -157,7 +195,7 @@ export function SporeMap({ locations = defaultLocations, onLocationClick }: Spor
         )
 
         // Add click event for spore locations
-        newMap.events.add("click", "spore-locations", (e) => {
+        newMap.events.add("click", "spore-locations", (e: any) => {
           if (e.shapes && e.shapes[0]) {
             const properties = e.shapes[0].getProperties()
             onLocationClick?.(properties.id)
@@ -170,12 +208,11 @@ export function SporeMap({ locations = defaultLocations, onLocationClick }: Spor
           closeButton: false,
         })
 
-        newMap.events.add("mouseover", "spore-locations", (e) => {
+        newMap.events.add("mouseover", "spore-locations", (e: any) => {
           if (e.shapes && e.shapes[0]) {
             const shape = e.shapes[0]
             const properties = shape.getProperties()
 
-            // Show popup
             popup.setOptions({
               content: `<div style="padding: 12px; min-width: 200px;">
                 <p style="font-weight: bold; margin: 0; color: #22c55e;">${properties.name}</p>
@@ -209,7 +246,7 @@ export function SporeMap({ locations = defaultLocations, onLocationClick }: Spor
         map.dispose()
       }
     }
-  }, [locations, onLocationClick, map, authInfo])
+  }, [locations, onLocationClick, map, authInfo, atlasReady])
 
   return (
     <Card className="w-full">
