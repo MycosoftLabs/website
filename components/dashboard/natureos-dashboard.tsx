@@ -34,6 +34,17 @@ import { Badge } from "@/components/ui/badge"
 import dynamic from "next/dynamic"
 import type { CircularProgressProps } from "@/components/dashboard/circular-progress"
 
+import {
+  useSystemMetrics,
+  useMyceliumNetwork,
+  useDeviceTelemetry,
+  useRecentActivity,
+  mockSystemMetrics,
+  mockMyceliumNetwork,
+  mockDeviceTelemetry,
+  mockRecentActivity,
+} from "@/lib/natureos-api"
+
 const AzureMap = dynamic(() => import("@/components/maps/azure-map").then((mod) => mod.AzureMap), {
   ssr: false,
   loading: () => <p>Loading map...</p>,
@@ -49,6 +60,39 @@ const CircularProgressComponent = dynamic<CircularProgressProps>(
 
 export function NatureOSDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
+
+  const { metrics, isLoading: metricsLoading, isError: metricsError } = useSystemMetrics()
+  const { network, isLoading: networkLoading, isError: networkError } = useMyceliumNetwork()
+  const { devices, isLoading: devicesLoading, isError: devicesError } = useDeviceTelemetry()
+  const { activities, isLoading: activitiesLoading, isError: activitiesError } = useRecentActivity(5)
+
+  // Use real data if available, otherwise fall back to mock data
+  const systemMetrics = metrics || mockSystemMetrics
+  const myceliumNetwork = network || mockMyceliumNetwork
+  const deviceTelemetry = devices || mockDeviceTelemetry
+  const recentActivity = activities || mockRecentActivity
+
+  // Device locations for map
+  const deviceLocations = deviceTelemetry
+    .map((device) => ({
+      id: device.deviceId,
+      name: `${device.deviceType} - ${device.location?.latitude.toFixed(2) || "Unknown"}`,
+      location: device.location
+        ? ([device.location.longitude, device.location.latitude] as [number, number])
+        : ([0, 0] as [number, number]),
+      status: device.status,
+    }))
+    .filter((d) => d.location[0] !== 0 && d.location[1] !== 0)
+
+  // Status icon mapping
+  const activityIcons = {
+    ai_training: Bot,
+    network_event: Network,
+    deployment: Cloud,
+    backup: Database,
+    alert: AlertCircle,
+    anomaly: Bug,
+  }
 
   return (
     <div className="flex flex-col gap-5 w-full">
@@ -80,10 +124,12 @@ export function NatureOSDashboard() {
                 <Network className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2,345</div>
-                <p className="text-xs text-muted-foreground">+180 from last hour</p>
+                <div className="text-2xl font-bold">{myceliumNetwork.activeNodes.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">
+                  +{myceliumNetwork.totalNodes - myceliumNetwork.activeNodes} from last hour
+                </p>
                 <div className="mt-4">
-                  <Progress value={65} />
+                  <Progress value={(myceliumNetwork.activeNodes / myceliumNetwork.totalNodes) * 100} />
                 </div>
               </CardContent>
             </Card>
@@ -93,10 +139,12 @@ export function NatureOSDashboard() {
                 <Code className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1.2M</div>
-                <p className="text-xs text-muted-foreground">23k requests/min</p>
+                <div className="text-2xl font-bold">{(systemMetrics.apiRequests.total / 1000000).toFixed(1)}M</div>
+                <p className="text-xs text-muted-foreground">
+                  {(systemMetrics.apiRequests.perMinute / 1000).toFixed(0)}k requests/min
+                </p>
                 <div className="mt-4">
-                  <Progress value={78} />
+                  <Progress value={systemMetrics.apiRequests.successRate} />
                 </div>
               </CardContent>
             </Card>
@@ -106,10 +154,10 @@ export function NatureOSDashboard() {
                 <Bot className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">845k</div>
-                <p className="text-xs text-muted-foreground">98.2% success rate</p>
+                <div className="text-2xl font-bold">{(systemMetrics.aiOperations.total / 1000).toFixed(0)}k</div>
+                <p className="text-xs text-muted-foreground">{systemMetrics.aiOperations.successRate}% success rate</p>
                 <div className="mt-4">
-                  <Progress value={98} />
+                  <Progress value={systemMetrics.aiOperations.successRate} />
                 </div>
               </CardContent>
             </Card>
@@ -119,10 +167,10 @@ export function NatureOSDashboard() {
                 <Database className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1.8TB</div>
-                <p className="text-xs text-muted-foreground">of 2.5TB total</p>
+                <div className="text-2xl font-bold">{systemMetrics.storage.used.toFixed(1)}TB</div>
+                <p className="text-xs text-muted-foreground">of {systemMetrics.storage.total}TB total</p>
                 <div className="mt-4">
-                  <Progress value={72} />
+                  <Progress value={systemMetrics.storage.percentage} />
                 </div>
               </CardContent>
             </Card>
@@ -136,53 +184,7 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="h-[400px]">
-                  <AzureMap
-                    className="rounded-none border-0"
-                    deviceLocations={[
-                      {
-                        id: "device-1",
-                        name: "Mushroom 1 - SF",
-                        location: [-122.4194, 37.7749], // San Francisco
-                        status: "active",
-                      },
-                      {
-                        id: "device-2",
-                        name: "SporeBase - NYC",
-                        location: [-74.006, 40.7128], // New York
-                        status: "active",
-                      },
-                      {
-                        id: "device-3",
-                        name: "TruffleBot - Austin",
-                        location: [-97.7431, 30.2672], // Austin
-                        status: "inactive",
-                      },
-                      {
-                        id: "device-4",
-                        name: "Mushroom 1 - London",
-                        location: [-0.1278, 51.5074], // London
-                        status: "active",
-                      },
-                      {
-                        id: "device-5",
-                        name: "SporeBase - Tokyo",
-                        location: [139.6503, 35.6762], // Tokyo
-                        status: "active",
-                      },
-                      {
-                        id: "device-6",
-                        name: "MycoTenna - Berlin",
-                        location: [13.405, 52.52], // Berlin
-                        status: "active",
-                      },
-                      {
-                        id: "device-7",
-                        name: "ALARM - Sydney",
-                        location: [151.2093, -33.8688], // Sydney
-                        status: "active",
-                      },
-                    ]}
-                  />
+                  <AzureMap className="rounded-none border-0" deviceLocations={deviceLocations} />
                 </div>
               </CardContent>
             </Card>
@@ -193,9 +195,17 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <CircularProgressComponent value={78} icon={LineChart} label="Growth Rate" />
-                  <CircularProgressComponent value={92} icon={Network} label="Network Health" />
-                  <CircularProgressComponent value={64} icon={Activity} label="Active Nodes" />
+                  <CircularProgressComponent value={myceliumNetwork.growthRate} icon={LineChart} label="Growth Rate" />
+                  <CircularProgressComponent
+                    value={myceliumNetwork.networkHealth}
+                    icon={Network}
+                    label="Network Health"
+                  />
+                  <CircularProgressComponent
+                    value={(myceliumNetwork.activeNodes / myceliumNetwork.totalNodes) * 100}
+                    icon={Activity}
+                    label="Active Nodes"
+                  />
                   <CircularProgressComponent value={45} icon={Zap} label="Energy Usage" />
                 </div>
               </CardContent>
@@ -211,11 +221,36 @@ export function NatureOSDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { name: "Mushroom 1", count: 1245, status: "Operational", icon: MouseIcon },
-                    { name: "SporeBase", count: 879, status: "Operational", icon: Database },
-                    { name: "TruffleBot", count: 432, status: "Maintenance", icon: Bug },
-                    { name: "ALARM", count: 2156, status: "Operational", icon: AlertCircle },
-                    { name: "Petreus", count: 78, status: "Testing", icon: PipetteIcon },
+                    {
+                      name: "Mushroom 1",
+                      count: systemMetrics.devices.byType.mushroom1 || 1245,
+                      status: "Operational",
+                      icon: MouseIcon,
+                    },
+                    {
+                      name: "SporeBase",
+                      count: systemMetrics.devices.byType.sporebase || 879,
+                      status: "Operational",
+                      icon: Database,
+                    },
+                    {
+                      name: "TruffleBot",
+                      count: systemMetrics.devices.byType.trufflebot || 432,
+                      status: "Maintenance",
+                      icon: Bug,
+                    },
+                    {
+                      name: "ALARM",
+                      count: systemMetrics.devices.byType.alarm || 2156,
+                      status: "Operational",
+                      icon: AlertCircle,
+                    },
+                    {
+                      name: "Petreus",
+                      count: systemMetrics.devices.byType.petreus || 78,
+                      status: "Testing",
+                      icon: PipetteIcon,
+                    },
                   ].map((device) => (
                     <div key={device.name} className="flex items-center">
                       <div className="mr-4 rounded-md bg-primary/10 p-2">
@@ -238,29 +273,28 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { icon: Bot, text: "AI Model training completed", time: "2m ago", status: "success" },
-                    { icon: AlertCircle, text: "High network load detected", time: "5m ago", status: "warning" },
-                    { icon: Cloud, text: "New node cluster deployed", time: "15m ago", status: "success" },
-                    { icon: Database, text: "Database backup completed", time: "1h ago", status: "success" },
-                    { icon: Bug, text: "Anomaly detected in sector 7", time: "2h ago", status: "warning" },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                      <div
-                        className={`p-2 rounded-full ${
-                          item.status === "success" ? "bg-green-500/20" : "bg-yellow-500/20"
-                        }`}
-                      >
-                        <item.icon
-                          className={`h-4 w-4 ${item.status === "success" ? "text-green-500" : "text-yellow-500"}`}
-                        />
+                  {recentActivity.map((item) => {
+                    const Icon = activityIcons[item.type] || AlertCircle
+                    const timeAgo = new Date(item.timestamp).toLocaleTimeString()
+
+                    return (
+                      <div key={item.id} className="flex items-center gap-4">
+                        <div
+                          className={`p-2 rounded-full ${
+                            item.status === "success" ? "bg-green-500/20" : "bg-yellow-500/20"
+                          }`}
+                        >
+                          <Icon
+                            className={`h-4 w-4 ${item.status === "success" ? "text-green-500" : "text-yellow-500"}`}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm">{item.message}</p>
+                          <p className="text-xs text-muted-foreground">{timeAgo}</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm">{item.text}</p>
-                        <p className="text-xs text-muted-foreground">{item.time}</p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -271,23 +305,23 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-2">
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Bot className="mr-2 h-4 w-4" />
                     Launch AI Studio
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Globe className="mr-2 h-4 w-4" />
                     View Global Network
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Code className="mr-2 h-4 w-4" />
                     API Documentation
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button className="w-full justify-start bg-transparent" variant="outline">
                     <Cloud className="mr-2 h-4 w-4" />
                     Deploy New Node
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button className="w-full justify-start bg-transparent" variant="outline">
                     <PipetteIcon className="mr-2 h-4 w-4" />
                     Open Petri Simulator
                   </Button>
@@ -323,24 +357,24 @@ export function NatureOSDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium leading-none">Signal Strength</p>
-                      <p className="text-sm text-muted-foreground">87% optimal</p>
+                      <p className="text-sm text-muted-foreground">{myceliumNetwork.signalStrength}% optimal</p>
                     </div>
                     <div className="text-right">
-                      <Badge>Strong</Badge>
+                      <Badge>{myceliumNetwork.signalStrength > 80 ? "Strong" : "Normal"}</Badge>
                     </div>
                   </div>
-                  <Progress value={87} />
+                  <Progress value={myceliumNetwork.signalStrength} />
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium leading-none">Growth Rate</p>
-                      <p className="text-sm text-muted-foreground">23% above baseline</p>
+                      <p className="text-sm text-muted-foreground">{myceliumNetwork.growthRate}% above baseline</p>
                     </div>
                     <div className="text-right">
                       <Badge>Excellent</Badge>
                     </div>
                   </div>
-                  <Progress value={78} />
+                  <Progress value={myceliumNetwork.growthRate} />
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -351,7 +385,7 @@ export function NatureOSDashboard() {
                       <Badge>Normal</Badge>
                     </div>
                   </div>
-                  <Progress value={92} />
+                  <Progress value={myceliumNetwork.nutrientFlow} />
                 </div>
               </CardContent>
             </Card>
@@ -363,7 +397,7 @@ export function NatureOSDashboard() {
                 <CardTitle className="text-sm font-medium">Mycelium Density</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1.87 g/cm³</div>
+                <div className="text-2xl font-bold">{myceliumNetwork.density.toFixed(2)} g/cm³</div>
                 <p className="text-xs text-muted-foreground">+0.12 from last week</p>
                 <div className="mt-4 h-[60px]">
                   <div className="h-full w-full rounded-md bg-muted/50"></div>
@@ -375,7 +409,7 @@ export function NatureOSDashboard() {
                 <CardTitle className="text-sm font-medium">Network Connections</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12,543</div>
+                <div className="text-2xl font-bold">{myceliumNetwork.connections.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">+2,345 from last week</p>
                 <div className="mt-4 h-[60px]">
                   <div className="h-full w-full rounded-md bg-muted/50"></div>
@@ -387,7 +421,7 @@ export function NatureOSDashboard() {
                 <CardTitle className="text-sm font-medium">Signal Propagation</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3.2 cm/s</div>
+                <div className="text-2xl font-bold">{myceliumNetwork.propagationSpeed.toFixed(1)} cm/s</div>
                 <p className="text-xs text-muted-foreground">+0.5 from baseline</p>
                 <div className="mt-4 h-[60px]">
                   <div className="h-full w-full rounded-md bg-muted/50"></div>
@@ -399,7 +433,7 @@ export function NatureOSDashboard() {
                 <CardTitle className="text-sm font-medium">Bioelectric Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">78 mV</div>
+                <div className="text-2xl font-bold">{myceliumNetwork.bioelectricActivity} mV</div>
                 <p className="text-xs text-muted-foreground">+12 from baseline</p>
                 <div className="mt-4 h-[60px]">
                   <div className="h-full w-full rounded-md bg-muted/50"></div>
@@ -431,7 +465,7 @@ export function NatureOSDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Deployed</span>
-                      <span>1,245 units</span>
+                      <span>{systemMetrics.devices.byType.mushroom1 || 1245} units</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Signal</span>
@@ -445,7 +479,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -471,7 +505,7 @@ export function NatureOSDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Deployed</span>
-                      <span>2,156 units</span>
+                      <span>{systemMetrics.devices.byType.alarm || 2156} units</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Alerts</span>
@@ -485,7 +519,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -511,7 +545,7 @@ export function NatureOSDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Deployed</span>
-                      <span>879 units</span>
+                      <span>{systemMetrics.devices.byType.sporebase || 879} units</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Data</span>
@@ -525,7 +559,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -551,7 +585,7 @@ export function NatureOSDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Deployed</span>
-                      <span>432 units</span>
+                      <span>{systemMetrics.devices.byType.trufflebot || 432} units</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Findings</span>
@@ -565,7 +599,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -591,7 +625,7 @@ export function NatureOSDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Deployed</span>
-                      <span>78 units</span>
+                      <span>{systemMetrics.devices.byType.petreus || 78} units</span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">Experiments</span>
@@ -605,7 +639,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -645,7 +679,7 @@ export function NatureOSDashboard() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full bg-transparent">
                   View Details
                 </Button>
               </CardFooter>
@@ -654,45 +688,32 @@ export function NatureOSDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-5">
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="col-span-2">
+          <div className="grid gap-5 md:grid-cols-2">
+            <Card>
               <CardHeader>
-                <CardTitle>Network Growth Trends</CardTitle>
-                <CardDescription>Mycelial network expansion over time</CardDescription>
+                <CardTitle>Performance Analytics</CardTitle>
+                <CardDescription>System-wide performance metrics</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[300px] rounded-md border bg-muted/50 flex items-center justify-center">
                   <div className="text-center">
                     <BarChart3 className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">Growth Analytics Visualization</p>
+                    <p className="text-muted-foreground">Analytics Dashboard</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Key Metrics</CardTitle>
-                <CardDescription>Performance indicators</CardDescription>
+                <CardTitle>Network Growth</CardTitle>
+                <CardDescription>Historical network expansion</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { label: "Network Efficiency", value: "92%", change: "+5%" },
-                    { label: "Data Processing", value: "1.8TB", change: "+0.3TB" },
-                    { label: "Signal Strength", value: "87%", change: "+12%" },
-                    { label: "Node Connectivity", value: "99.2%", change: "+0.7%" },
-                    { label: "Response Time", value: "42ms", change: "-8ms" },
-                  ].map((metric, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">{metric.label}</p>
-                        <p className="text-sm text-muted-foreground">{metric.value}</p>
-                      </div>
-                      <div className={`text-sm ${metric.change.startsWith("+") ? "text-green-500" : "text-red-500"}`}>
-                        {metric.change}
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-[300px] rounded-md border bg-muted/50 flex items-center justify-center">
+                  <div className="text-center">
+                    <LineChart className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Growth Trends</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -778,7 +799,7 @@ export function NatureOSDashboard() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full bg-transparent">
                 View All Publications
               </Button>
             </CardFooter>

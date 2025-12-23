@@ -1,11 +1,16 @@
 import type React from "react"
-import { GeistSans } from "geist/font/sans"
+import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import "./globals.css"
 import Script from "next/script"
+
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+})
 
 export const metadata = {
   title: "Mycosoft - The Fungal Intelligence Platform",
@@ -27,7 +32,7 @@ export default function RootLayout({
           type="text/css"
         />
       </head>
-      <body className={GeistSans.className}>
+      <body className={geistSans.className}>
         <Script
           src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"
           strategy="beforeInteractive"
