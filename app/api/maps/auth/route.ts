@@ -7,7 +7,14 @@ export async function GET() {
     const clientId = process.env.AZURE_MAPS_CLIENT_ID
 
     if (!azureMapsKey || !clientId) {
-      throw new Error("Azure Maps credentials not configured")
+      // Local dev default: don't hard-fail the dashboard; let the UI render a graceful fallback.
+      return NextResponse.json(
+        {
+          enabled: false,
+          reason: "Azure Maps credentials not configured",
+        },
+        { status: 200 },
+      )
     }
 
     // Create a token with expiration (1 hour from now)
@@ -15,6 +22,7 @@ export async function GET() {
 
     // Return only the client ID and expiry, not the actual key
     return NextResponse.json({
+      enabled: true,
       clientId,
       expiry,
       tokenType: "anonymous",

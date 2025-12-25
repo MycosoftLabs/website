@@ -61,6 +61,13 @@ export function AzureMap({ className, deviceLocations = defaultDevices, onDevice
           throw new Error("Failed to fetch authentication token")
         }
         const data = await response.json()
+
+        if (data?.enabled === false) {
+          setError("Failed to authenticate with Azure Maps")
+          setIsLoading(false)
+          return
+        }
+
         setAuthInfo(data)
       } catch (err) {
         console.error("Error fetching auth token:", err)
