@@ -143,12 +143,9 @@ const mockTreeData: Record<string, any> = {
   },
 }
 
-export async function GET(
-  request: NextRequest, 
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const id = params.id
 
     // In a real application, we would query the database here
     // For now, we'll use mock data based on the ID

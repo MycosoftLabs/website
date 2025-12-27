@@ -1,19 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable standalone output for Docker deployment
-  output: 'standalone',
-  // Skip TypeScript errors during build (pre-existing Next.js 15 type issues)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Skip ESLint during build
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // Force dynamic rendering for all pages (avoid SSG issues with client components)
-  experimental: {
-    // This will make all pages dynamic by default
-  },
   images: {
     remotePatterns: [
       {
