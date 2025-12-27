@@ -1,10 +1,22 @@
-"use client"
-
 import type React from "react"
 import { DashboardNav } from "@/components/dashboard/nav"
 import { TopNav } from "@/components/dashboard/top-nav"
-import { NavigationTitle } from "@/components/dashboard/navigation-title"
-import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
+
+// Create a new component for the animated navigation title
+function NavigationTitle() {
+  const { isOpen } = useSidebar()
+
+  return (
+    <span
+      className={`font-semibold text-sm transition-all duration-300 ${
+        isOpen ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
+      }`}
+    >
+      Navigation
+    </span>
+  )
+}
 
 export default function NatureOSLayout({
   children,

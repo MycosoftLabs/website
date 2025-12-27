@@ -1,13 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAncestryById, getSpeciesById, getSpeciesChildren, getAncestryTree } from "@/lib/services/ancestry-service"
 
-export async function GET(
-  request: NextRequest, 
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: idParam } = await params
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(idParam)
+    const id = Number.parseInt(params.id)
     if (isNaN(id)) {
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
     }
@@ -35,7 +31,7 @@ export async function GET(
       return NextResponse.json({ ancestry })
     }
   } catch (error) {
-    console.error(`Error in ancestry/${idParam} API:`, error)
+    console.error(`Error in ancestry/${params.id} API:`, error)
     return NextResponse.json({ error: "Failed to fetch ancestry data" }, { status: 500 })
   }
 }
