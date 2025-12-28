@@ -32,8 +32,19 @@ export type Species = {
   habitat: string | null
 }
 
-// Create a SQL client using the Neon connection
-const sql = neon(process.env.NEON_DATABASE_URL!)
+// Lazy SQL client (prevents build-time crashes when env is missing)
+let sqlClient: ReturnType<typeof neon> | null = null
+
+function getSqlClient() {
+  const url = process.env.NEON_DATABASE_URL
+  if (!url) throw new Error("No database connection string was provided to `neon()`.")
+  if (!sqlClient) sqlClient = neon(url)
+  return sqlClient
+}
+
+// Proxy wrapper to keep template usage unchanged
+const sql: any = (...args: any[]) => (getSqlClient() as any)(...args)
+sql.query = (...args: any[]) => (getSqlClient() as any).query(...args)
 
 // Get all ancestry records
 export const getAllAncestryRecords = cache(async (): Promise<FungalAncestry[]> => {

@@ -87,6 +87,45 @@ export default function AncestryPage() {
             </CardFooter>
           </Card>
         </div>
+
+        {/* Additional Tools Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Analysis Tools</CardTitle>
+              <CardDescription>Professional-grade bioinformatics tools</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground/70">
+                Access our suite of analysis tools including DNA sequencing, sequence alignment, genome annotation, 
+                and interaction prediction for your research.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Link href="/ancestry/tools" className="text-green-600 hover:underline">
+                Explore Tools →
+              </Link>
+            </CardFooter>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Species Index</CardTitle>
+              <CardDescription>Global fungal species database</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground/70">
+                Browse the Mycosoft Index (MIndex) - a comprehensive collection of fungal species with detailed 
+                information, images, and observations from around the world.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Link href="/mindex" className="text-green-600 hover:underline">
+                Visit MIndex →
+              </Link>
+            </CardFooter>
+          </Card>
+        </div>
       </section>
 
       {/* Stats Section */}

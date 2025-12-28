@@ -2,6 +2,8 @@ import { notFound } from "next/navigation"
 import { SpeciesTemplate } from "@/components/templates/species-template"
 import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
 import { getFungiDetails } from "@/lib/services/inaturalist"
+import { env } from "@/lib/env"
+import { getTaxonById } from "@/lib/integrations/mindex"
 
 interface SpeciesPageProps {
   params: {
@@ -16,7 +18,49 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       return notFound()
     }
 
-    // First check our known species mapping
+    // 1) Try MINDEX first (when enabled)
+    if (env.integrationsEnabled) {
+      try {
+        const taxon = await getTaxonById(params.id)
+        return (
+          <SpeciesTemplate
+            species={{
+              id: taxon.id,
+              commonName: taxon.commonName || taxon.scientificName,
+              scientificName: taxon.scientificName,
+              description: taxon.description || "",
+              taxonomy: {
+                kingdom: taxon.kingdom || "Fungi",
+                phylum: taxon.phylum || "",
+                class: taxon.class || "",
+                order: taxon.order || "",
+                family: taxon.family || "",
+                genus: taxon.genus || "",
+                species: taxon.species || "",
+              },
+              characteristics: {
+                edibility: taxon.edibility,
+              },
+              compounds: [],
+              images: [],
+              references: [
+                { title: "View on iNaturalist", url: `https://www.inaturalist.org/taxa/${params.id}`, type: "database" },
+                {
+                  title: "Search on MycoBank",
+                  url: `https://www.mycobank.org/page/Basic%20names/search?searchKey=${encodeURIComponent(taxon.scientificName)}`,
+                  type: "database",
+                },
+              ],
+              lastUpdated: new Date().toISOString(),
+            }}
+          />
+        )
+      } catch {
+        // Fallback to mapping/iNaturalist below
+      }
+    }
+
+    // 2) First check our known species mapping
     const knownSpecies = Object.values(SPECIES_MAPPING).find((species) => species.iNaturalistId === params.id)
 
     let speciesData

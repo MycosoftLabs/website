@@ -15,8 +15,8 @@
 
 import useSWR from "swr"
 
-// API Configuration
-const NATUREOS_API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.mycosoft.org/v1"
+// API Configuration - Use local API routes that proxy to MAS
+const NATUREOS_API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/natureos"
 const API_TIMEOUT = 30000
 
 // Types based on NatureOS architecture
