@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { signIn } from "next-auth/react"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -45,6 +46,44 @@ export default function LoginPage() {
           <CardDescription>Enter your email and password to access your account</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="grid gap-2 mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={async () => {
+                setIsLoading(true)
+                setError("")
+                try {
+                  await signIn("google", { callbackUrl: "/profile" })
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Failed to sign in with Google")
+                } finally {
+                  setIsLoading(false)
+                }
+              }}
+            >
+              Continue with Google
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={async () => {
+                setIsLoading(true)
+                setError("")
+                try {
+                  await signIn("github", { callbackUrl: "/profile" })
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Failed to sign in with GitHub")
+                } finally {
+                  setIsLoading(false)
+                }
+              }}
+            >
+              Continue with GitHub
+            </Button>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <Alert variant="destructive">

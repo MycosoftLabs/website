@@ -1,4 +1,10 @@
+"use client"
+
 import type React from "react"
+import { DashboardNav } from "@/components/dashboard/nav"
+import { TopNav } from "@/components/dashboard/top-nav"
+import { NavigationTitle } from "@/components/dashboard/navigation-title"
+import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger } from "@/components/ui/sidebar"
 
 export default function AncestryLayout({
   children,
@@ -6,85 +12,26 @@ export default function AncestryLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background border-b shadow-sm dark:border-gray-800">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-600 text-white p-2 rounded-md">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
+    <div className="min-h-screen flex flex-col bg-[#0A1929] text-white">
+      <TopNav />
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex flex-1 h-[calc(100vh-3.5rem)] transition-all duration-300">
+          <Sidebar className="border-r border-gray-800 md:sticky md:top-14 h-full">
+            <div className="flex items-center justify-between p-2">
+              <NavigationTitle />
+              <SidebarTrigger />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Fungal Ancestry</h1>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="/ancestry" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              Home
-            </a>
-            <a href="/ancestry/explorer" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              Explorer
-            </a>
-            <a href="/ancestry/phylogeny" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              Phylogeny
-            </a>
-            <a href="/ancestry/database" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              Database
-            </a>
-            <a href="/ancestry/tools" className="text-sm font-medium text-foreground/80 hover:text-green-600">
-              Tools
-            </a>
-          </nav>
-          <button className="md:hidden p-2 text-foreground">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      </header>
-      <main>{children}</main>
-      <footer className="bg-background border-t py-6 dark:border-gray-800">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-foreground/70">© {new Date().getFullYear()} Mycosoft Fungal Ancestry</p>
-            <div className="flex gap-4 mt-4 md:mt-0">
-              <a href="#" className="text-sm text-foreground/70 hover:text-green-600">
-                Privacy
-              </a>
-              <a href="#" className="text-sm text-foreground/70 hover:text-green-600">
-                Terms
-              </a>
-              <a href="#" className="text-sm text-foreground/70 hover:text-green-600">
-                Contact
-              </a>
-            </div>
+            <SidebarContent className="h-full">
+              <div className="overflow-y-auto h-full">
+                <DashboardNav />
+              </div>
+            </SidebarContent>
+          </Sidebar>
+          <div className="flex-1 overflow-auto transition-all duration-300">
+            <main className="w-full">{children}</main>
           </div>
         </div>
-      </footer>
+      </SidebarProvider>
     </div>
   )
 }

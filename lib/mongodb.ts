@@ -1,22 +1,22 @@
-if (!process.env.MONGODB_ENDPOINT_URL) {
-  throw new Error("Please add MONGODB_ENDPOINT_URL to your environment variables")
-}
+function getMongoConfig() {
+  const endpoint = process.env.MONGODB_ENDPOINT_URL
+  const apiKey = process.env.MONGODB_API_KEY
 
-if (!process.env.MONGODB_API_KEY) {
-  throw new Error("Please add MONGODB_API_KEY to your environment variables")
-}
+  if (!endpoint) throw new Error("Please add MONGODB_ENDPOINT_URL to your environment variables")
+  if (!apiKey) throw new Error("Please add MONGODB_API_KEY to your environment variables")
 
-const MONGODB_ENDPOINT_URL = process.env.MONGODB_ENDPOINT_URL
-const MONGODB_API_KEY = process.env.MONGODB_API_KEY
+  return { endpoint, apiKey }
+}
 
 export async function fetchFromMongoDB(action: string, data: any) {
   try {
-    const response = await fetch(`${MONGODB_ENDPOINT_URL}/action/${action}`, {
+    const { endpoint, apiKey } = getMongoConfig()
+    const response = await fetch(`${endpoint}/action/${action}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Request-Headers": "*",
-        "api-key": MONGODB_API_KEY,
+        "api-key": apiKey,
       },
       body: JSON.stringify({
         ...data,

@@ -136,20 +136,20 @@ export function createHttpClient(options: HttpClientOptions) {
     throw lastError || new Error("Unknown error occurred")
   }
 
-  return {\
-    get: <T>(endpoint: string, options?: Omit<HttpRequestOptions, "method" | "body">) =>\
+  return {
+    get: <T>(endpoint: string, options?: Omit<HttpRequestOptions, "method" | "body">) =>
       request<T>(endpoint, { ...options, method: "GET" }),
-\
-    post: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>\
+
+    post: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>
       request<T>(endpoint, { ...options, method: "POST", body }),
-\
-    put: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>\
+
+    put: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>
       request<T>(endpoint, { ...options, method: "PUT", body }),
-\
-    patch: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>\
+
+    patch: <T>(endpoint: string, body?: unknown, options?: Omit<HttpRequestOptions, "method">) =>
       request<T>(endpoint, { ...options, method: "PATCH", body }),
-\
-    delete: <T>(endpoint: string, options?: Omit<HttpRequestOptions, "method" | "body">) =>\
+
+    delete: <T>(endpoint: string, options?: Omit<HttpRequestOptions, "method" | "body">) =>
       request<T>(endpoint, { ...options, method: "DELETE" }),
-  }\
+  }
 }

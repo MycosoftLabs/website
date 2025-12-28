@@ -159,6 +159,28 @@ export async function GET(request: Request) {
     // Remove duplicates by ID
     const uniqueResults = results.filter((result, index, self) => index === self.findIndex((r) => r.id === result.id))
 
+    // AI fallback when local + external sources return nothing
+    if (uniqueResults.length === 0) {
+      try {
+        const aiRes = await fetch(`${new URL(request.url).origin}/api/search/ai?q=${encodeURIComponent(query)}`, {
+          signal: AbortSignal.timeout(12000),
+        }).catch(() => null)
+        if (aiRes?.ok) {
+          const ai = await aiRes.json()
+          return NextResponse.json(
+            {
+              results: [],
+              query,
+              ai: ai?.result ?? null,
+            },
+            { status: 200, headers },
+          )
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     return NextResponse.json({ results: uniqueResults, query }, { status: 200, headers })
   } catch (error) {
     console.error("Search API error:", error)
