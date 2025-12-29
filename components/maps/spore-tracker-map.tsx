@@ -91,8 +91,21 @@ export function SporeTrackerMap() {
         // Small delay to ensure maps API is fully initialized
         if (mounted) {
           setTimeout(() => {
-            if (mounted) {
-              initializeMap()
+            if (mounted && mapContainerRef.current && !mapRef.current) {
+              const map = new google.maps.Map(mapContainerRef.current, {
+                center: { lat: 30, lng: -20 },
+                zoom: 2,
+                mapTypeId: google.maps.MapTypeId.HYBRID,
+                styles: darkMapStyles,
+                disableDefaultUI: false,
+                zoomControl: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true,
+                gestureHandling: "greedy",
+              })
+              mapRef.current = map
+              fetchData()
             }
           }, 100)
         }
@@ -110,7 +123,7 @@ export function SporeTrackerMap() {
     return () => {
       mounted = false
     }
-  }, [initializeMap])
+  }, [])
 
   const initializeMap = useCallback(() => {
     if (!mapContainerRef.current || mapRef.current) return

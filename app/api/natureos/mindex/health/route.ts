@@ -7,14 +7,14 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000/api/mindex"
+const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const url = `${MINDEX_API_URL}/health`
+    const url = `${MINDEX_API_URL}/api/mindex/health`
 
     const response = await fetch(url, {
       headers: {

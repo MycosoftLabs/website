@@ -182,11 +182,11 @@ export function DevicesPortal() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
         
-        <div className="container relative z-10 px-4">
+        <div className="container max-w-7xl mx-auto relative z-10 px-4">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl"
+            className="max-w-4xl mx-auto text-center"
           >
             <Badge className="mb-4">Hardware Platform</Badge>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
@@ -198,12 +198,12 @@ export function DevicesPortal() {
                 Sensing Hardware
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mb-8">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
               Purpose-built sensors and platforms for persistent environmental intelligence. 
               Defense-grade reliability with research-quality precision.
             </p>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Button size="lg">
                 Request Quote
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -219,7 +219,7 @@ export function DevicesPortal() {
 
       {/* Device Selection Grid */}
       <section className="py-16 bg-muted/30">
-        <div className="container px-4">
+        <div className="container px-4 max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-4 gap-4 mb-12">
             {devices.map((device, index) => (
               <motion.div
@@ -339,7 +339,7 @@ export function DevicesPortal() {
 
       {/* Applications Section */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container px-4 max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <Badge className="mb-4">Deployment</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -351,7 +351,7 @@ export function DevicesPortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {[
               {
                 icon: Shield,
@@ -390,7 +390,7 @@ export function DevicesPortal() {
 
       {/* Accessories Section */}
       <section className="py-24 bg-muted/30">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Accessories</Badge>
             <h2 className="text-4xl font-bold mb-6">
@@ -414,7 +414,7 @@ export function DevicesPortal() {
 
       {/* Support & Services */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container px-4 max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-3 gap-8">
             {[
               {
@@ -449,7 +449,7 @@ export function DevicesPortal() {
 
       {/* CTA Section */}
       <section className="py-24 bg-gradient-to-b from-muted/30 to-background">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Ready to Deploy?
@@ -475,6 +475,8 @@ export function DevicesPortal() {
     </div>
   )
 }
+
+
 
 
 

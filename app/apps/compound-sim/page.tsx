@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Atom, Search, Beaker, FlaskConical, Dna, Activity, Database, FileText, Download } from "lucide-react"
+import { Atom, Search, Beaker, FlaskConical, Dna, Activity, Database, FileText, Download, Loader2, AlertCircle, CheckCircle2, Save } from "lucide-react"
 
 const COMPOUNDS = [
   { id: "1", name: "Psilocybin", formula: "C12H17N2O4P", weight: 284.25, source: "Psilocybe cubensis", activity: ["Psychoactive", "Serotonergic"] },
@@ -19,14 +20,93 @@ const COMPOUNDS = [
   { id: "8", name: "Muscimol", formula: "C4H6N2O2", weight: 114.10, source: "Amanita muscaria", activity: ["GABAergic", "Psychoactive"] },
 ]
 
+interface MINDEXCompound {
+  id: string
+  name: string
+  formula: string
+  weight: number
+  source: string
+  activity: string[]
+  smiles?: string
+  cas?: string
+  pubchemId?: string
+}
+
 export default function CompoundSimPage() {
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState(COMPOUNDS[0])
+  const [mindexCompounds, setMindexCompounds] = useState<MINDEXCompound[]>([])
+  const [loadingMindex, setLoadingMindex] = useState(false)
+  const [mindexConnected, setMindexConnected] = useState(false)
+  const [simulationResults, setSimulationResults] = useState<any>(null)
+  const [simulating, setSimulating] = useState(false)
 
-  const filtered = COMPOUNDS.filter(c => 
+  // Fetch compounds from MINDEX
+  useEffect(() => {
+    const fetchMINDEXCompounds = async () => {
+      setLoadingMindex(true)
+      try {
+        const response = await fetch("/api/natureos/mindex/compounds")
+        if (response.ok) {
+          const data = await response.json()
+          setMindexCompounds(data.compounds || [])
+          setMindexConnected(true)
+        }
+      } catch (error) {
+        console.error("Failed to fetch MINDEX compounds:", error)
+        setMindexConnected(false)
+      } finally {
+        setLoadingMindex(false)
+      }
+    }
+    fetchMINDEXCompounds()
+  }, [])
+
+  const allCompounds = [...COMPOUNDS, ...mindexCompounds]
+  
+  const filtered = allCompounds.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     c.source.toLowerCase().includes(search.toLowerCase())
   )
+
+  const runSimulation = async () => {
+    setSimulating(true)
+    try {
+      const response = await fetch("/api/compounds/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compoundId: selected.id,
+          formula: selected.formula,
+          type: "binding",
+        }),
+      })
+      const data = await response.json()
+      setSimulationResults(data)
+    } catch (error) {
+      console.error("Simulation failed:", error)
+    } finally {
+      setSimulating(false)
+    }
+  }
+
+  const saveSimulation = async () => {
+    if (!simulationResults) return
+    try {
+      await fetch("/api/compounds/simulations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          compoundId: selected.id,
+          results: simulationResults,
+          timestamp: new Date().toISOString(),
+        }),
+      })
+      alert("Simulation saved to database for model training!")
+    } catch (error) {
+      console.error("Failed to save simulation:", error)
+    }
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -36,16 +116,38 @@ export default function CompoundSimPage() {
           <p className="text-muted-foreground">Explore bioactive compounds from fungi</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline"><Database className="h-4 w-4 mr-2" /> MINDEX Database</Button>
-          <Button><FlaskConical className="h-4 w-4 mr-2" /> Run Simulation</Button>
+          <Button variant="outline" asChild>
+            <Link href="/natureos/mindex">
+              <Database className="h-4 w-4 mr-2" />
+              MINDEX
+              {mindexConnected ? (
+                <CheckCircle2 className="h-3 w-3 ml-2 text-green-500" />
+              ) : (
+                <AlertCircle className="h-3 w-3 ml-2 text-yellow-500" />
+              )}
+            </Link>
+          </Button>
+          <Button onClick={runSimulation} disabled={simulating}>
+            {simulating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FlaskConical className="h-4 w-4 mr-2" />
+            )}
+            Run Simulation
+          </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Total Compounds</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold">{COMPOUNDS.length}</div></CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{allCompounds.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {COMPOUNDS.length} local + {mindexCompounds.length} MINDEX
+            </p>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Medicinal</CardTitle></CardHeader>
@@ -128,11 +230,70 @@ export default function CompoundSimPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button className="flex-1"><Beaker className="h-4 w-4 mr-2" /> Simulate Binding</Button>
-              <Button variant="outline" className="flex-1"><Dna className="h-4 w-4 mr-2" /> Gene Expression</Button>
-              <Button variant="outline" className="flex-1"><FileText className="h-4 w-4 mr-2" /> Research Papers</Button>
-            </div>
+            <Tabs defaultValue="structure" className="mt-6">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="structure">Structure</TabsTrigger>
+                <TabsTrigger value="simulation">Simulation</TabsTrigger>
+                <TabsTrigger value="research">Research</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="structure" className="space-y-4">
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={runSimulation} disabled={simulating}>
+                    <Beaker className="h-4 w-4 mr-2" /> Simulate Binding
+                  </Button>
+                  <Button variant="outline" className="flex-1">
+                    <Dna className="h-4 w-4 mr-2" /> Gene Expression
+                  </Button>
+                </div>
+                {selected.smiles && (
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">SMILES Notation:</p>
+                    <code className="text-sm">{selected.smiles}</code>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="simulation" className="space-y-4">
+                {simulationResults ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <h4 className="font-medium mb-2">Simulation Complete</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Binding Affinity</p>
+                          <p className="font-bold">{simulationResults.bindingAffinity} kcal/mol</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Stability</p>
+                          <p className="font-bold">{simulationResults.stability}%</p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button onClick={saveSimulation} className="w-full">
+                      <Save className="h-4 w-4 mr-2" /> Save to Database
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FlaskConical className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Run a simulation to see results</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="research" className="space-y-4">
+                <Button variant="outline" className="w-full">
+                  <FileText className="h-4 w-4 mr-2" /> Search PubMed
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <Database className="h-4 w-4 mr-2" /> View in MINDEX
+                </Button>
+                <Button variant="outline" className="w-full">
+                  <Download className="h-4 w-4 mr-2" /> Export Data
+                </Button>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

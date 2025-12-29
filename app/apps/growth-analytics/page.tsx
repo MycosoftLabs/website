@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { TrendingUp, Thermometer, Droplets, Sun, Wind, Activity, BarChart3, LineChart, Clock } from "lucide-react"
+import { TrendingUp, Thermometer, Droplets, Sun, Wind, Activity, BarChart3, LineChart, Clock, Database, Brain, Zap, CheckCircle2, AlertCircle } from "lucide-react"
 
 const GROWTH_DATA = {
   species: "Pleurotus ostreatus",
@@ -21,21 +22,100 @@ const GROWTH_DATA = {
   ]
 }
 
+interface MINDEXDataPoint {
+  timestamp: string
+  biomass: number
+  temperature: number
+  humidity: number
+  co2: number
+}
+
 export default function GrowthAnalyticsPage() {
   const [species, setSpecies] = useState("oyster")
   const [temp, setTemp] = useState([22])
   const [humidity, setHumidity] = useState([85])
+  const [mindexData, setMindexData] = useState<MINDEXDataPoint[]>([])
+  const [mindexConnected, setMindexConnected] = useState(false)
+  const [predictions, setPredictions] = useState<any>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+
+  // Fetch real data from MINDEX
+  useEffect(() => {
+    const fetchMINDEXData = async () => {
+      try {
+        const response = await fetch("/api/natureos/mindex/growth-data")
+        if (response.ok) {
+          const data = await response.json()
+          setMindexData(data.dataPoints || [])
+          setMindexConnected(true)
+        }
+      } catch (error) {
+        console.error("Failed to fetch MINDEX data:", error)
+        setMindexConnected(false)
+      }
+    }
+    fetchMINDEXData()
+  }, [])
+
+  // Run ML prediction
+  const runPrediction = async () => {
+    setAnalyzing(true)
+    try {
+      const response = await fetch("/api/growth/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          species,
+          currentConditions: {
+            temp: temp[0],
+            humidity: humidity[0],
+            co2: GROWTH_DATA.conditions.co2,
+          },
+          historicalData: mindexData,
+        }),
+      })
+      const data = await response.json()
+      setPredictions(data.predictions)
+    } catch (error) {
+      console.error("Prediction failed:", error)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
   
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Growth Analytics</h1>
-          <p className="text-muted-foreground">Analyze and predict mushroom growth patterns</p>
+          <p className="text-muted-foreground">ML-powered growth prediction with real MINDEX device data</p>
         </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          <Activity className="h-4 w-4 mr-2" /> Live Monitoring
-        </Badge>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/natureos/mindex">
+              <Database className="h-4 w-4 mr-2" />
+              MINDEX Data
+              {mindexConnected ? (
+                <CheckCircle2 className="h-3 w-3 ml-2 text-green-500" />
+              ) : (
+                <AlertCircle className="h-3 w-3 ml-2 text-yellow-500" />
+              )}
+            </Link>
+          </Button>
+          <Button onClick={runPrediction} disabled={analyzing}>
+            {analyzing ? (
+              <>
+                <Brain className="h-4 w-4 mr-2 animate-pulse" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Run AI Prediction
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Current Status */}

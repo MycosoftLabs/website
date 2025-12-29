@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000/api/mindex"
+const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export const dynamic = "force-dynamic"
@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const url = `${MINDEX_API_URL}/taxa/${params.id}`
+    const url = `${MINDEX_API_URL}/api/mindex/taxa/${params.id}`
 
     const response = await fetch(url, {
       headers: {

@@ -1,11 +1,10 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = {
   title: "Petri Dish Simulator - Mycosoft",
-  description: "Petri dish simulation (embed / scaffold)",
+  description: "Virtual mycelium growth simulator with environmental controls",
 }
 
 export default function PetriDishSimPage() {
@@ -15,7 +14,7 @@ export default function PetriDishSimPage() {
         <div>
           <h1 className="text-3xl font-bold">Petri Dish Simulator</h1>
           <p className="text-muted-foreground">
-            The Petri dish simulator is available as a standalone experience. This page embeds it.
+            Virtual mycelium growth simulator with realistic mycelial behavior
           </p>
         </div>
         <Button asChild variant="outline">
@@ -23,21 +22,31 @@ export default function PetriDishSimPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Embedded simulator</CardTitle>
-          <CardDescription>Source: `https://mycosoft.org/mycelium-sim`</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <iframe
-            title="Petri Dish Simulator"
-            src="https://mycosoft.org/mycelium-sim"
-            className="w-full h-[70vh] border-0 rounded-b-lg"
-            loading="lazy"
-          />
-        </CardContent>
-      </Card>
+      {/* Embed the actual simulator from GitHub */}
+      <div className="w-full">
+        <iframe
+          src="https://raw.githubusercontent.com/MycosoftLabs/myceliumsim/main/myceliumsim.html"
+          className="w-full h-[90vh] border-0 rounded-lg"
+          title="Mycelium Simulator"
+          sandbox="allow-scripts allow-same-origin allow-downloads"
+        />
+      </div>
+
+      <div className="text-sm text-muted-foreground text-center">
+        <p>
+          Source:{" "}
+          <a 
+            href="https://github.com/MycosoftLabs/myceliumsim" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            github.com/MycosoftLabs/myceliumsim
+          </a>
+        </p>
+      </div>
     </div>
   )
 }
+
 

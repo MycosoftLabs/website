@@ -94,7 +94,8 @@ const navSections: NavSection[] = [
     defaultOpen: false,
     items: [
       { title: "Device Network", href: "/natureos/devices", icon: Network },
-      { title: "Storage", href: "/natureos/storage", icon: Database },
+      { title: "MINDEX", href: "/natureos/mindex", icon: Database },
+      { title: "Storage", href: "/natureos/storage", icon: Layers },
       { title: "Containers", href: "/natureos/containers", icon: Boxes },
       { title: "Monitoring", href: "/natureos/monitoring", icon: Activity },
     ],
