@@ -42,24 +42,74 @@ interface APIEndpoint {
 }
 
 const API_ENDPOINTS: APIEndpoint[] = [
-  // MINDEX APIs
+  // MINDEX APIs (via NatureOS API Gateway)
+  { 
+    method: "GET", 
+    path: "/api/natureos/mindex/health", 
+    description: "MINDEX API health check and database status", 
+    category: "MINDEX",
+    realtime: true
+  },
+  { 
+    method: "GET", 
+    path: "/api/natureos/mindex/stats", 
+    description: "Get MINDEX database statistics and ETL sync status", 
+    category: "MINDEX",
+    realtime: true,
+    mycaIntegrated: true
+  },
+  { 
+    method: "GET", 
+    path: "/api/natureos/mindex/taxa", 
+    description: "Search fungal species database (5,500+ species, growing)", 
+    category: "MINDEX",
+    mycaIntegrated: true,
+    params: [
+      { name: "q", type: "string", description: "Search query (species name)" },
+      { name: "rank", type: "string", description: "Taxonomic rank filter" },
+      { name: "limit", type: "number", description: "Results per page (default: 25)" },
+      { name: "offset", type: "number", description: "Pagination offset" }
+    ]
+  },
+  { 
+    method: "GET", 
+    path: "/api/natureos/mindex/taxa/{id}", 
+    description: "Get single fungal species by ID with full details", 
+    category: "MINDEX",
+    mycaIntegrated: true
+  },
+  { 
+    method: "GET", 
+    path: "/api/natureos/mindex/observations", 
+    description: "Get fungal observations with locations and images (2,500+ records)", 
+    category: "MINDEX",
+    realtime: true,
+    mycaIntegrated: true,
+    params: [
+      { name: "taxon_id", type: "string", description: "Filter by species ID" },
+      { name: "start", type: "string", description: "Start date (ISO 8601)" },
+      { name: "end", type: "string", description: "End date (ISO 8601)" },
+      { name: "bbox", type: "string", description: "Bounding box: min_lon,min_lat,max_lon,max_lat" },
+      { name: "limit", type: "number", description: "Results per page" },
+      { name: "offset", type: "number", description: "Pagination offset" }
+    ]
+  },
+  // Legacy MINDEX routes (for backward compatibility)
   { 
     method: "GET", 
     path: "/api/mindex/species", 
-    description: "Search fungal species database (500k+ species)", 
+    description: "[Legacy] Search fungal species database", 
     category: "MINDEX",
     mycaIntegrated: true,
     params: [
       { name: "query", type: "string" },
-      { name: "limit", type: "number" },
-      { name: "edible", type: "boolean" },
-      { name: "medicinal", type: "boolean" }
+      { name: "limit", type: "number" }
     ]
   },
   { 
     method: "GET", 
     path: "/api/mindex/observations", 
-    description: "Get fungal observations from iNaturalist and GBIF", 
+    description: "[Legacy] Get fungal observations", 
     category: "MINDEX",
     realtime: true,
     params: [

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+// Port 8003 = MAS dual service (preferred), Port 8765 = legacy website service
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export const dynamic = "force-dynamic"
 
@@ -69,14 +70,17 @@ export async function POST(
 
     throw new Error("Command failed")
   } catch (error) {
-    // Mock success for development when service is not running
-    return NextResponse.json({
-      success: true,
-      peripheral,
-      action,
-      source: "mock",
-      note: "MycoBrain service not running - command simulated",
-      timestamp: new Date().toISOString(),
-    })
+    // Return error - no mock success
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to send command",
+        message: "MycoBrain service not available or device not connected",
+        peripheral,
+        action,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 503 }
+    )
   }
 }

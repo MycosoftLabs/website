@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useMycoBrain, getIAQLabel, formatUptime, formatGasResistance } from "@/hooks/use-mycobrain"
+import { FirmwareUpdater } from "./firmware-updater"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +41,7 @@ import {
   Usb,
   Power,
   AlertTriangle,
+  AlertCircle,
   CheckCircle,
   Clock,
   Plug,
@@ -56,10 +58,15 @@ interface SensorHistoryPoint {
   bme2_iaq: number
 }
 
-export function MycoBrainDeviceManager() {
+interface MycoBrainDeviceManagerProps {
+  initialPort?: string
+}
+
+export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerProps = {}) {
   const {
     devices,
     loading,
+    error,
     isConnected,
     lastUpdate,
     refresh,
@@ -72,7 +79,7 @@ export function MycoBrainDeviceManager() {
     sendControl,
   } = useMycoBrain(2000)
 
-  const [selectedPort, setSelectedPort] = useState<string | null>(null)
+  const [selectedPort, setSelectedPort] = useState<string | null>(initialPort || null)
   const [neopixelColor, setNeopixelColor] = useState({ r: 0, g: 255, b: 0 })
   const [neopixelBrightness, setNeopixelBrightness] = useState(128)
   const [buzzerFrequency, setBuzzerFrequency] = useState(1000)
@@ -82,12 +89,16 @@ export function MycoBrainDeviceManager() {
 
   const device = devices.find((d) => d.port === selectedPort) || devices[0]
 
-  // Select first device on load
+  // Select device on load - prefer initialPort, then first available device
   useEffect(() => {
-    if (devices.length > 0 && !selectedPort) {
-      setSelectedPort(devices[0].port)
+    if (devices.length > 0) {
+      if (initialPort && devices.find((d) => d.port === initialPort)) {
+        setSelectedPort(initialPort)
+      } else if (!selectedPort) {
+        setSelectedPort(devices[0].port)
+      }
     }
-  }, [devices, selectedPort])
+  }, [devices, selectedPort, initialPort])
 
   // Track sensor history
   useEffect(() => {
@@ -112,6 +123,10 @@ export function MycoBrainDeviceManager() {
     ])
   }
 
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<string | null>(null)
+  const [serviceStatus, setServiceStatus] = useState<"checking" | "online" | "offline">("checking")
+
   const handleCommand = async (name: string, action: () => Promise<unknown>) => {
     setCommandLoading(name)
     logToConsole(`> Sending ${name}...`)
@@ -125,12 +140,137 @@ export function MycoBrainDeviceManager() {
     }
   }
 
-  if (loading) {
+  // Check service status on mount and periodically
+  useEffect(() => {
+    const checkService = async () => {
+      try {
+        // First check the service status API
+        const statusRes = await fetch("/api/services/status", {
+          signal: AbortSignal.timeout(2000),
+        })
+        
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          const mycobrainService = statusData.services?.find((s: any) => s.id === "mycobrain")
+          if (mycobrainService && mycobrainService.status === "online") {
+            setServiceStatus("online")
+            return
+          }
+        }
+        
+        // Fallback: check mycobrain API directly
+        const res = await fetch("/api/mycobrain", {
+          signal: AbortSignal.timeout(3000),
+        })
+        const data = await res.json()
+        // Service is healthy if we get a response without the specific error
+        const isOnline = !data.error || data.error !== "MycoBrain service not running"
+        setServiceStatus(isOnline ? "online" : "offline")
+      } catch (error) {
+        console.error("Service check error:", error)
+        setServiceStatus("offline")
+      }
+    }
+    checkService()
+    const interval = setInterval(checkService, 10000) // Check every 10 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  if (loading && devices.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center py-12">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Loading devices...</p>
+        {error && (
+          <p className="text-sm text-red-500 mt-2">{error}</p>
+        )}
       </div>
     )
+  }
+
+  const handleScanForDevices = async () => {
+    setScanning(true)
+    setScanResult(null)
+    logToConsole("> Scanning for MycoBrain devices...")
+    
+    try {
+      // First check if service is running
+      const healthRes = await fetch("/api/mycobrain")
+      const healthData = await healthRes.json()
+      
+      if (healthData.error) {
+        setScanResult(`MycoBrain service not running: ${healthData.message}`)
+        logToConsole(`✗ Service error: ${healthData.error}`)
+        return
+      }
+      
+      // Get available ports
+      const portsRes = await fetch("/api/mycobrain/ports")
+      if (!portsRes.ok) {
+        const errorData = await portsRes.json().catch(() => ({}))
+        setScanResult(`Failed to scan ports: ${errorData.message || "Service unavailable"}`)
+        logToConsole("✗ Failed to get ports")
+        return
+      }
+      
+      const portsData = await portsRes.json()
+      const ports = portsData.ports || []
+      
+      logToConsole(`> Found ${ports.length} serial port(s)`)
+      
+      // Prioritize COM4, then any MycoBrain-like ports
+      const com4Port = ports.find((p: any) => p.port === "COM4")
+      const mycobrainPorts = ports.filter((p: any) => 
+        p.is_mycobrain || 
+        (p.port?.startsWith("COM") && p.port !== "COM4") ||
+        p.port?.startsWith("/dev/tty")
+      )
+      
+      const targetPorts = com4Port ? [com4Port, ...mycobrainPorts] : mycobrainPorts
+      
+      if (targetPorts.length === 0) {
+        setScanResult("No MycoBrain devices found. Make sure device is connected via USB.")
+        logToConsole("✗ No MycoBrain devices found")
+        return
+      }
+      
+      // Try to connect to each port (prioritize COM4)
+      for (const portInfo of targetPorts) {
+        const port = portInfo.port
+        logToConsole(`> Attempting to connect to ${port}...`)
+        
+        try {
+          const connectRes = await fetch("/api/mycobrain", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "connect", port }),
+          })
+          
+          const result = await connectRes.json()
+          
+          if (result.success) {
+            setScanResult(`Successfully connected to ${port}!`)
+            logToConsole(`✓ Connected to ${port}`)
+            // Wait a moment then refresh
+            await new Promise(resolve => setTimeout(resolve, 500))
+            await refresh()
+            return
+          } else {
+            logToConsole(`✗ Connection failed: ${result.message || result.error}`)
+          }
+        } catch (error) {
+          logToConsole(`✗ Failed to connect to ${port}: ${error}`)
+        }
+      }
+      
+      setScanResult("Found ports but could not connect. Check device is powered on and not in use by another application.")
+      logToConsole("✗ Could not connect to any device")
+    } catch (error) {
+      setScanResult(`Scan failed: ${error}`)
+      logToConsole(`✗ Scan error: ${error}`)
+    } finally {
+      setScanning(false)
+    }
   }
 
   if (!device) {
@@ -142,14 +282,102 @@ export function MycoBrainDeviceManager() {
           <p className="text-muted-foreground text-center mb-6 max-w-md">
             Connect a MycoBrain device via USB to monitor sensors, control peripherals, and view real-time data.
           </p>
+          
+          {/* Service Status */}
+          <div className={`mb-4 px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${
+            serviceStatus === "online" 
+              ? "bg-green-500/20 text-green-500 border border-green-500/50" 
+              : serviceStatus === "offline"
+              ? "bg-red-500/20 text-red-500 border border-red-500/50"
+              : "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+          }`}>
+            {serviceStatus === "online" ? (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                MycoBrain service is running
+              </>
+            ) : serviceStatus === "offline" ? (
+              <>
+                <AlertCircle className="h-4 w-4" />
+                MycoBrain service not running - Start: python services/mycobrain/mycobrain_service.py
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Checking service status...
+              </>
+            )}
+          </div>
+          
+          {error && (
+            <div className="mb-4 p-3 rounded-lg text-sm bg-red-500/20 text-red-500 border border-red-500/50">
+              <AlertCircle className="h-4 w-4 inline mr-2" />
+              {error}
+            </div>
+          )}
+          
+          {scanResult && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${
+              scanResult.includes("Successfully") 
+                ? "bg-green-500/20 text-green-500 border border-green-500/50" 
+                : "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+            }`}>
+              {scanResult}
+            </div>
+          )}
+          
           <div className="flex gap-3">
-            <Button onClick={refresh}>
+            <Button onClick={handleScanForDevices} disabled={scanning || serviceStatus === "offline"}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${scanning ? "animate-spin" : ""}`} />
+              {scanning ? "Scanning..." : "Scan for Devices"}
+            </Button>
+            <Button variant="outline" onClick={refresh}>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Scan for Devices
+              Refresh
             </Button>
-            <Button variant="outline" asChild>
-              <a href="/devices/mycobrain/integration">Setup Guide</a>
-            </Button>
+          </div>
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground mb-2">Quick connect to common ports:</p>
+            <div className="flex gap-2 flex-wrap justify-center">
+              {["COM4", "COM3", "COM5", "COM6"].map((port) => (
+                <Button
+                  key={port}
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setScanning(true)
+                    setScanResult(null)
+                    logToConsole(`> Connecting to ${port}...`)
+                    try {
+                      const res = await fetch("/api/mycobrain", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "connect", port }),
+                      })
+                      const result = await res.json()
+                      if (result.success) {
+                        setScanResult(`Successfully connected to ${port}!`)
+                        logToConsole(`✓ Connected to ${port}`)
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await refresh()
+                      } else {
+                        setScanResult(`Failed to connect to ${port}: ${result.message || result.error}`)
+                        logToConsole(`✗ Connection failed: ${result.message || result.error}`)
+                      }
+                    } catch (error) {
+                      setScanResult(`Error connecting to ${port}: ${error}`)
+                      logToConsole(`✗ Error: ${error}`)
+                    } finally {
+                      setScanning(false)
+                    }
+                  }}
+                  disabled={scanning || serviceStatus === "offline"}
+                >
+                  {port}
+                </Button>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -239,7 +467,7 @@ export function MycoBrainDeviceManager() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="sensors" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="sensors" className="gap-2">
             <Thermometer className="h-4 w-4" />
             <span className="hidden sm:inline">Sensors</span>
@@ -259,6 +487,10 @@ export function MycoBrainDeviceManager() {
           <TabsTrigger value="config" className="gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Config</span>
+          </TabsTrigger>
+          <TabsTrigger value="diagnostics" className="gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Diagnostics</span>
           </TabsTrigger>
         </TabsList>
 
@@ -675,28 +907,35 @@ export function MycoBrainDeviceManager() {
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("ping", () => sendControl(device.port, "command", "ping", { cmd_id: 1 }))}
+                  onClick={() => handleCommand("ping", () => sendControl(device.port, "command", "ping", { cmd_id: 1, dst: 0xA1, data: [] }))}
+                  disabled={commandLoading === "ping"}
                 >
-                  Ping
+                  {commandLoading === "ping" ? "..." : "Ping"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-sensors", () => sendControl(device.port, "command", "get_sensors", { cmd_id: 2 }))}
+                  onClick={() => handleCommand("get-sensors", () => sendControl(device.port, "command", "get_sensors", { cmd_id: 2, dst: 0xA1, data: [] }))}
+                  disabled={commandLoading === "get-sensors"}
                 >
-                  Get Sensors
+                  {commandLoading === "get-sensors" ? "..." : "Get Sensors"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("status", () => sendControl(device.port, "command", "status", { cmd_id: 3 }))}
+                  onClick={() => handleCommand("get-bme1", () => sendControl(device.port, "command", "get_bme1", { cmd_id: 30, dst: 0xA1, data: [] }))}
+                  disabled={commandLoading === "get-bme1"}
                 >
-                  Status
+                  {commandLoading === "get-bme1" ? "..." : "BME688-1"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("restart", () => sendControl(device.port, "command", "restart", { cmd_id: 99 }))}
+                  onClick={() => handleCommand("get-bme2", () => sendControl(device.port, "command", "get_bme2", { cmd_id: 31, dst: 0xA1, data: [] }))}
+                  disabled={commandLoading === "get-bme2"}
                 >
-                  Restart
+                  {commandLoading === "get-bme2" ? "..." : "BME688-2"}
                 </Button>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Raw MDP commands sent directly to device. Check console for responses.
               </div>
             </CardContent>
           </Card>
@@ -850,6 +1089,11 @@ export function MycoBrainDeviceManager() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Firmware Tab */}
+        <TabsContent value="firmware" className="space-y-4">
+          <FirmwareUpdater />
         </TabsContent>
       </Tabs>
     </div>

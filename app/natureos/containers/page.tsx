@@ -76,16 +76,40 @@ interface DockerStats {
   networks: number
 }
 
+interface MCPServer {
+  id: string
+  name: string
+  image: string
+  status: "running" | "stopped" | "error"
+  port?: number
+  type: string
+  description?: string
+  capabilities?: string[]
+}
+
+interface DockerImage {
+  id: string
+  name: string
+  tag: string
+  sizeFormatted: string
+  created: string
+  isMcp: boolean
+}
+
 export default function ContainersPage() {
   const [containers, setContainers] = useState<Container[]>([])
   const [stats, setStats] = useState<DockerStats | null>(null)
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([])
+  const [images, setImages] = useState<DockerImage[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
+  const [mainTab, setMainTab] = useState<"containers" | "mcp" | "images">("containers")
   const [selectedContainer, setSelectedContainer] = useState<Container | null>(null)
   const [actionDialog, setActionDialog] = useState<{ type: string; container: Container } | null>(null)
   const [logs, setLogs] = useState<string>("")
   const [logsDialog, setLogsDialog] = useState(false)
+  const [dockerConnected, setDockerConnected] = useState(false)
 
   // Fetch real containers from Docker API
   const fetchContainers = useCallback(async () => {
@@ -96,23 +120,55 @@ export default function ContainersPage() {
         const data = await res.json()
         setContainers(data.containers || [])
         setStats(data.stats || null)
+        setDockerConnected(data.source !== "mock")
       }
     } catch (error) {
       console.error("Failed to fetch containers:", error)
-      // Fallback to mock data if Docker API not available
       setContainers(getDefaultContainers())
       setStats(getDefaultStats())
+      setDockerConnected(false)
     } finally {
       setIsLoading(false)
     }
   }, [])
 
+  // Fetch MCP servers
+  const fetchMcpServers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/docker/mcp")
+      if (res.ok) {
+        const data = await res.json()
+        setMcpServers(data.servers || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch MCP servers:", error)
+    }
+  }, [])
+
+  // Fetch Docker images
+  const fetchImages = useCallback(async () => {
+    try {
+      const res = await fetch("/api/docker/images")
+      if (res.ok) {
+        const data = await res.json()
+        setImages(data.images || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch images:", error)
+    }
+  }, [])
+
   useEffect(() => {
     fetchContainers()
+    fetchMcpServers()
+    fetchImages()
     // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchContainers, 30000)
+    const interval = setInterval(() => {
+      fetchContainers()
+      fetchMcpServers()
+    }, 30000)
     return () => clearInterval(interval)
-  }, [fetchContainers])
+  }, [fetchContainers, fetchMcpServers, fetchImages])
 
   const getDefaultContainers = (): Container[] => [
     { 
@@ -347,14 +403,21 @@ export default function ContainersPage() {
             Manage Docker containers, create backups, and deploy to Proxmox VMs
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <Badge variant={dockerConnected ? "default" : "secondary"} className="mr-2">
+            {dockerConnected ? (
+              <><CheckCircle className="h-3 w-3 mr-1" /> Docker Connected</>
+            ) : (
+              <><AlertTriangle className="h-3 w-3 mr-1" /> Demo Mode</>
+            )}
+          </Badge>
           <Button variant="outline" size="sm" asChild>
             <a href="http://localhost:9000" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4 mr-2" />
               Portainer
             </a>
           </Button>
-          <Button variant="outline" onClick={fetchContainers} disabled={isLoading}>
+          <Button variant="outline" onClick={() => { fetchContainers(); fetchMcpServers(); fetchImages(); }} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -469,6 +532,24 @@ export default function ContainersPage() {
         </CardContent>
       </Card>
 
+      {/* Main Tabs */}
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "containers" | "mcp" | "images")}>
+        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+          <TabsTrigger value="containers" className="flex items-center gap-2">
+            <Box className="h-4 w-4" />
+            Containers ({containers.length})
+          </TabsTrigger>
+          <TabsTrigger value="mcp" className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            MCP Servers ({mcpServers.filter(s => s.status === "running").length})
+          </TabsTrigger>
+          <TabsTrigger value="images" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Images ({images.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="containers" className="mt-4">
       {/* Container List */}
       <Card>
         <CardHeader>
@@ -612,6 +693,193 @@ export default function ContainersPage() {
           </div>
         </CardContent>
       </Card>
+
+      </TabsContent>
+
+        <TabsContent value="mcp" className="mt-4">
+          {/* MCP Servers List */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                    MCP Servers
+                  </CardTitle>
+                  <CardDescription>Model Context Protocol servers for AI tool integration</CardDescription>
+                </div>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Deploy MCP Server
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {mcpServers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No MCP servers detected</p>
+                  <p className="text-sm mt-2">Deploy MCP servers to enable AI tool integrations</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mcpServers.map(server => (
+                    <div key={server.id} className="flex items-center justify-between p-4 rounded-lg border hover:border-primary/50">
+                      <div className="flex items-center gap-4">
+                        {server.status === "running" ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <Square className="h-5 w-5 text-gray-400" />
+                        )}
+                        <div className="p-2 rounded-lg bg-yellow-500/10">
+                          <Zap className="h-5 w-5 text-yellow-500" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{server.name}</span>
+                            <Badge variant="outline">{server.type}</Badge>
+                            <Badge variant={server.status === "running" ? "default" : "secondary"}>
+                              {server.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{server.description}</p>
+                          {server.capabilities && server.capabilities.length > 0 && (
+                            <div className="flex gap-1 mt-1">
+                              {server.capabilities.map(cap => (
+                                <Badge key={cap} variant="secondary" className="text-xs">{cap}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {server.port && (
+                          <span className="font-mono text-sm">:{server.port}</span>
+                        )}
+                        <div className="flex gap-1">
+                          {server.status === "running" ? (
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Square className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-500">
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Terminal className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Available MCP Images */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Available MCP Server Images</CardTitle>
+              <CardDescription>Pre-built MCP servers ready to deploy</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[
+                  { name: "mcp/filesystem", desc: "File system access", type: "filesystem" },
+                  { name: "mcp/github", desc: "GitHub integration", type: "github" },
+                  { name: "mcp/postgres", desc: "PostgreSQL queries", type: "database" },
+                  { name: "mcp/puppeteer", desc: "Browser automation", type: "browser" },
+                  { name: "mcp/fetch", desc: "HTTP requests", type: "http" },
+                  { name: "mcp/memory", desc: "Knowledge storage", type: "memory" },
+                ].map(img => (
+                  <div key={img.name} className="p-4 rounded-lg border hover:border-primary/50 cursor-pointer">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">{img.name}</span>
+                      <Badge variant="outline">{img.type}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">{img.desc}</p>
+                    <Button size="sm" variant="outline" className="w-full">
+                      <Download className="h-3 w-3 mr-2" />
+                      Deploy
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="images" className="mt-4">
+          {/* Docker Images */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-blue-500" />
+                    Docker Images
+                  </CardTitle>
+                  <CardDescription>Local images and Docker Hub</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline">
+                    <Cloud className="h-4 w-4 mr-2" />
+                    Docker Hub
+                  </Button>
+                  <Button variant="outline">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Prune Unused
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {images.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No images found</p>
+                  </div>
+                ) : (
+                  images.map(img => (
+                    <div key={img.id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <Layers className="h-5 w-5 text-blue-500" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{img.name}</span>
+                            <Badge variant="outline">{img.tag}</Badge>
+                            {img.isMcp && (
+                              <Badge className="bg-yellow-500">MCP</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{img.id}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-muted-foreground">{img.sizeFormatted}</span>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Play className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Integration Cards */}
       <div className="grid md:grid-cols-3 gap-4">

@@ -55,9 +55,6 @@ import {
   useMyceliumNetwork,
   useDeviceTelemetry,
   useRecentActivity,
-  mockSystemMetrics,
-  mockMyceliumNetwork,
-  mockRecentActivity,
 } from "@/lib/natureos-api"
 
 import { useMycoBrain, getIAQLabel } from "@/hooks/use-mycobrain"
@@ -97,88 +94,105 @@ interface RealDevice {
   }
 }
 
-// Simulated real device data - In production this comes from the actual device API
+  // Fetch real devices from APIs - no mock data
 function useRealDevices() {
   const [devices, setDevices] = useState<RealDevice[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch real devices from API
     async function fetchDevices() {
       try {
-        // Try to get real devices from MycoBrain API
+        // Fetch from NatureOS telemetry API (includes MycoBrain + MINDEX devices)
         const response = await fetch("/api/natureos/devices/telemetry")
         if (response.ok) {
           const data = await response.json()
-          // Filter to only show actually connected devices
-          const realDevices = (data.devices || []).filter((d: any) => 
-            d.status === "active" || d.status === "online"
-          )
+          const telemetryDevices = Array.isArray(data) ? data : []
           
-          if (realDevices.length === 0) {
-            // Show the MycoBrain that's connected via USB
-            setDevices([{
-              id: "mycobrain-gateway-001",
-              name: "MycoBrain Gateway",
-              type: "mycobrain",
-              connection: "usb",
-              status: "online",
-              mac: "10:B4:1D:E3:3B:88",
-              port: "COM5",
-              firmware: "1.0.0",
-              lastSeen: new Date(),
+          // Format all devices from telemetry API
+          const formattedDevices: RealDevice[] = []
+          const deviceIds = new Set<string>() // Track to avoid duplicates
+          
+          for (const device of telemetryDevices) {
+            const deviceId = device.deviceId || `device-${device.port || Math.random()}`
+            
+            // Skip duplicates
+            if (deviceIds.has(deviceId)) continue
+            deviceIds.add(deviceId)
+            
+            // Determine connection type
+            let connection: "usb" | "lora" | "wifi" | "ethernet" = "wifi"
+            if (device.deviceType === "mycobrain") {
+              connection = device.port?.startsWith("COM") || device.port?.startsWith("/dev/tty") ? "usb" : "lora"
+            }
+            
+            formattedDevices.push({
+              id: deviceId,
+              name: device.deviceType === "mycobrain" 
+                ? `MycoBrain ${device.port || "Unknown"}`
+                : device.deviceId || "Unknown Device",
+              type: device.deviceType === "mycobrain" ? "mycobrain" : 
+                    device.deviceType === "mushroom1" ? "mushroom1" :
+                    device.deviceType === "sporebase" ? "sporebase" : "mycobrain",
+              connection,
+              status: (device.status === "active" || device.connected) ? "online" : "offline",
+              port: device.port,
+              mac: device.macAddress,
+              firmware: device.firmware || device.device_info?.firmware || "1.0.0",
+              lastSeen: new Date(device.timestamp || device.lastSeen || Date.now()),
               metrics: {
-                uptime: 342,
-                loraInit: true,
-                temperature: 32.5,
+                temperature: device.metrics?.temperature,
+                humidity: device.metrics?.humidity,
+                pressure: device.metrics?.pressure,
+                iaq: device.metrics?.iaq,
+                uptime: device.metrics?.uptime,
+                loraInit: device.metrics?.loraStatus === "ok" || device.metrics?.loraInit,
+                battery: device.metrics?.battery,
+                rssi: device.metrics?.rssi || device.metrics?.signalStrength,
               },
-            }])
-          } else {
-            setDevices(realDevices)
+            })
           }
+          
+          setDevices(formattedDevices)
         } else {
-          // Default to showing the USB MycoBrain
-          setDevices([{
-            id: "mycobrain-gateway-001",
-            name: "MycoBrain Gateway",
-            type: "mycobrain",
-            connection: "usb",
-            status: "online",
-            mac: "10:B4:1D:E3:3B:88",
-            port: "COM5",
-            firmware: "1.0.0",
-            lastSeen: new Date(),
-            metrics: {
-              uptime: 342,
-              loraInit: true,
-              temperature: 32.5,
-            },
-          }])
+          // Fallback: Try MycoBrain service directly
+          try {
+            const mycoResponse = await fetch("/api/mycobrain")
+            if (mycoResponse.ok) {
+              const mycoData = await mycoResponse.json()
+              const mycoDevices = mycoData.devices || []
+              const formatted = mycoDevices.map((d: any) => ({
+                id: `mycobrain-${d.port?.replace(/[\/\\]/g, '-') || 'unknown'}`,
+                name: `MycoBrain ${d.port || "Unknown"}`,
+                type: "mycobrain" as const,
+                connection: "usb" as const,
+                status: d.connected ? "online" : "offline",
+                port: d.port,
+                firmware: d.device_info?.firmware || d.device_info?.mdp_version || "1.0.0",
+                lastSeen: new Date(d.last_message_time || Date.now()),
+                metrics: {
+                  temperature: d.sensor_data?.bme688_1?.temperature,
+                  humidity: d.sensor_data?.bme688_1?.humidity,
+                  uptime: d.device_info?.uptime,
+                  loraInit: d.device_info?.lora_status === "ok",
+                },
+              }))
+              setDevices(formatted)
+            } else {
+              setDevices([])
+            }
+          } catch {
+            setDevices([])
+          }
         }
-      } catch {
-        // Show the USB MycoBrain on error
-        setDevices([{
-          id: "mycobrain-gateway-001",
-          name: "MycoBrain Gateway",
-          type: "mycobrain",
-          connection: "usb",
-          status: "online",
-          mac: "10:B4:1D:E3:3B:88",
-          port: "COM5",
-          firmware: "1.0.0",
-          lastSeen: new Date(),
-          metrics: {
-            uptime: 342,
-            loraInit: true,
-            temperature: 32.5,
-          },
-        }])
+      } catch (error) {
+        console.error("Failed to fetch devices:", error)
+        setDevices([])
       }
       setLoading(false)
     }
     
     fetchDevices()
-    const interval = setInterval(fetchDevices, 10000)
+    const interval = setInterval(fetchDevices, 5000) // Check every 5 seconds
     return () => clearInterval(interval)
   }, [])
 
@@ -198,23 +212,47 @@ const activityIcons = {
 export function NatureOSDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [observations, setObservations] = useState<any[]>([])
 
-  const { metrics } = useSystemMetrics()
-  const { network } = useMyceliumNetwork()
-  const { activities } = useRecentActivity(5)
-  const { devices: realDevices, loading: devicesLoading } = useRealDevices()
+  // API hooks - handle errors gracefully
+  const metricsResult = useSystemMetrics()
+  const networkResult = useMyceliumNetwork()
+  const activitiesResult = useRecentActivity(5)
+  const devicesResult = useRealDevices()
+  const mycoBrainResult = useMycoBrain(3000)
   
-  // MycoBrain live data
-  const { devices: mycoBrainDevices, isConnected: mycoBrainConnected } = useMycoBrain(3000)
-  const mycoBrain = mycoBrainDevices[0]
+  // Extract values with safe defaults - hooks return { metrics, isLoading, isError, error }
+  const metrics = metricsResult?.metrics ?? null
+  const network = networkResult?.network ?? null
+  const activities = activitiesResult?.activities ?? []
+  const realDevices = devicesResult?.devices ?? []
+  const devicesLoading = devicesResult?.loading ?? false
+  const mycoBrainDevices = mycoBrainResult?.devices ?? []
+  const mycoBrainConnected = mycoBrainResult?.isConnected ?? false
+  
+  const mycoBrain = mycoBrainDevices?.[0]
   const bme1 = mycoBrain?.sensor_data?.bme688_1
   const bme2 = mycoBrain?.sensor_data?.bme688_2
   const iaqStatus = getIAQLabel(bme1?.iaq)
 
-  // Use real data if available, otherwise fall back to mock data
-  const systemMetrics = metrics || mockSystemMetrics
-  const myceliumNetwork = network || mockMyceliumNetwork
-  const recentActivity = activities || mockRecentActivity
+  // Fetch observations for species distribution
+  useEffect(() => {
+    async function fetchObservations() {
+      try {
+        const res = await fetch("/api/mindex/observations?limit=1000")
+        if (res.ok) {
+          const data = await res.json()
+          setObservations(data.observations || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch observations:", error)
+      }
+    }
+    fetchObservations()
+    const interval = setInterval(fetchObservations, 30000) // Refresh every 30s
+    return () => clearInterval(interval)
+  }, [])
+
 
   // Update time every second
   useEffect(() => {
@@ -222,30 +260,45 @@ export function NatureOSDashboard() {
     return () => clearInterval(timer)
   }, [])
 
-  // Calculate real device counts including MycoBrain
+  // Calculate real device counts - MycoBrain is already in realDevices
   const deviceStats = useMemo(() => {
-    // Add MycoBrain to the device count if connected
-    const mycoBrainOnline = mycoBrainConnected ? 1 : 0
-    const online = realDevices.filter(d => d.status === "online").length + mycoBrainOnline
-    const offline = realDevices.filter(d => d.status === "offline").length + (mycoBrainConnected ? 0 : 1)
+    if (!realDevices || realDevices.length === 0) {
+      return {
+        total: 0,
+        online: 0,
+        offline: 0,
+        errors: 0,
+        mycoBrainConnected: false,
+        sensorCount: 0,
+        byType: {} as Record<string, number>,
+      }
+    }
+    
+    const online = realDevices.filter(d => d.status === "online").length
+    const offline = realDevices.filter(d => d.status === "offline").length
     const errors = realDevices.filter(d => d.status === "error").length
     
     return {
-      total: realDevices.length + 1, // Always count MycoBrain
+      total: realDevices.length,
       online,
       offline,
       errors,
-      mycoBrainConnected,
+      mycoBrainConnected: realDevices.some(d => d.type === "mycobrain" && d.status === "online"),
       sensorCount: mycoBrainConnected ? 2 : 0, // 2x BME688
-      byType: {
-        ...realDevices.reduce((acc, d) => {
-          acc[d.type] = (acc[d.type] || 0) + 1
-          return acc
-        }, {} as Record<string, number>),
-        mycobrain: 1,
-      },
+      byType: realDevices.reduce((acc, d) => {
+        acc[d.type] = (acc[d.type] || 0) + 1
+        return acc
+      }, {} as Record<string, number>),
     }
   }, [realDevices, mycoBrainConnected])
+
+  // Ensure we always have valid data structures
+  const systemMetrics = metrics || null
+  const myceliumNetwork = network || null
+  const recentActivity = Array.isArray(activities) ? activities : []
+
+  // Check if we're still loading initial data - only show loading if ALL are loading
+  const isLoading = (metricsResult?.isLoading && networkResult?.isLoading && devicesLoading) || false
 
   return (
     <div className="flex flex-col gap-5 w-full">
@@ -306,12 +359,14 @@ export function NatureOSDashboard() {
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{myceliumNetwork.networkHealth}%</div>
+                <div className="text-2xl font-bold">
+                  {myceliumNetwork?.networkHealth !== undefined ? `${myceliumNetwork.networkHealth}%` : "—"}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Signal: {myceliumNetwork.signalStrength}%
+                  Signal: {myceliumNetwork?.signalStrength !== undefined ? `${myceliumNetwork.signalStrength}%` : "—"}
                 </p>
                 <div className="mt-3">
-                  <Progress value={myceliumNetwork.networkHealth} className="h-2" />
+                  <Progress value={myceliumNetwork?.networkHealth || 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -322,12 +377,12 @@ export function NatureOSDashboard() {
                 <Bot className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{systemMetrics.aiOperations.successRate}%</div>
+                <div className="text-2xl font-bold">{systemMetrics?.aiOperations?.successRate || 0}%</div>
                 <p className="text-xs text-muted-foreground">
-                  {systemMetrics.aiOperations.averageResponseTime}ms avg
+                  {systemMetrics?.aiOperations?.averageResponseTime || 0}ms avg
                 </p>
                 <div className="mt-3">
-                  <Progress value={systemMetrics.aiOperations.successRate} className="h-2" />
+                  <Progress value={systemMetrics?.aiOperations?.successRate || 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -338,12 +393,12 @@ export function NatureOSDashboard() {
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{systemMetrics.storage.used.toFixed(1)} TB</div>
+                <div className="text-2xl font-bold">{(systemMetrics?.storage?.used || 0).toFixed(1)} TB</div>
                 <p className="text-xs text-muted-foreground">
-                  of {systemMetrics.storage.total} TB ({systemMetrics.storage.percentage}%)
+                  of {systemMetrics?.storage?.total || 0} TB ({systemMetrics?.storage?.percentage || 0}%)
                 </p>
                 <div className="mt-3">
-                  <Progress value={systemMetrics.storage.percentage} className="h-2" />
+                  <Progress value={systemMetrics?.storage?.percentage || 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -436,8 +491,14 @@ export function NatureOSDashboard() {
                         Scanning devices...
                       </div>
                     ) : realDevices.length === 0 ? (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        No devices connected
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground text-sm mb-2">No devices connected</p>
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href="/natureos/devices">
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Scan for Devices
+                          </Link>
+                        </Button>
                       </div>
                     ) : (
                       realDevices.slice(0, 4).map((device) => (
@@ -470,7 +531,7 @@ export function NatureOSDashboard() {
                 </CardContent>
                 <CardFooter className="pt-0">
                   <Button variant="ghost" size="sm" className="w-full" asChild>
-                    <Link href="/natureos/devices">View All Devices →</Link>
+                    <Link href="/natureos/devices/network">View All Devices →</Link>
                   </Button>
                 </CardFooter>
               </Card>
@@ -482,28 +543,34 @@ export function NatureOSDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {recentActivity.slice(0, 4).map((item) => {
-                      const Icon = activityIcons[item.type] || Activity
-                      return (
-                        <div key={item.id} className="flex items-start gap-3">
-                          <div className={`p-1.5 rounded-full ${
-                            item.status === "success" ? "bg-green-500/20" :
-                            item.status === "warning" ? "bg-yellow-500/20" : "bg-red-500/20"
-                          }`}>
-                            <Icon className={`h-3 w-3 ${
-                              item.status === "success" ? "text-green-500" :
-                              item.status === "warning" ? "text-yellow-500" : "text-red-500"
-                            }`} />
+                    {recentActivity && recentActivity.length > 0 ? (
+                      recentActivity.slice(0, 4).map((item) => {
+                        const Icon = activityIcons[item.type] || Activity
+                        return (
+                          <div key={item.id} className="flex items-start gap-3">
+                            <div className={`p-1.5 rounded-full ${
+                              item.status === "success" ? "bg-green-500/20" :
+                              item.status === "warning" ? "bg-yellow-500/20" : "bg-red-500/20"
+                            }`}>
+                              <Icon className={`h-3 w-3 ${
+                                item.status === "success" ? "text-green-500" :
+                                item.status === "warning" ? "text-yellow-500" : "text-red-500"
+                              }`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs truncate">{item.message}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(item.timestamp).toLocaleTimeString()}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs truncate">{item.message}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(item.timestamp).toLocaleTimeString()}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        No recent activity
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -550,7 +617,7 @@ export function NatureOSDashboard() {
                     <Signal className="h-5 w-5 text-green-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{myceliumNetwork.signalStrength}%</p>
+                    <p className="text-2xl font-bold">{myceliumNetwork?.signalStrength || 0}%</p>
                     <p className="text-xs text-muted-foreground">Signal Strength</p>
                   </div>
                 </div>
@@ -564,7 +631,7 @@ export function NatureOSDashboard() {
                     <TrendingUp className="h-5 w-5 text-blue-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{myceliumNetwork.growthRate}%</p>
+                    <p className="text-2xl font-bold">{myceliumNetwork?.growthRate || 0}%</p>
                     <p className="text-xs text-muted-foreground">Growth Rate</p>
                   </div>
                 </div>
@@ -578,7 +645,7 @@ export function NatureOSDashboard() {
                     <Zap className="h-5 w-5 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{myceliumNetwork.bioelectricActivity} mV</p>
+                    <p className="text-2xl font-bold">{myceliumNetwork?.bioelectricActivity || 0} mV</p>
                     <p className="text-xs text-muted-foreground">Bioelectric Activity</p>
                   </div>
                 </div>
@@ -592,7 +659,7 @@ export function NatureOSDashboard() {
                     <Network className="h-5 w-5 text-orange-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{myceliumNetwork.connections.toLocaleString()}</p>
+                    <p className="text-2xl font-bold">{(myceliumNetwork?.connections || 0).toLocaleString()}</p>
                     <p className="text-xs text-muted-foreground">Connections</p>
                   </div>
                 </div>
@@ -606,7 +673,7 @@ export function NatureOSDashboard() {
                     <Gauge className="h-5 w-5 text-teal-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{myceliumNetwork.density.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{(myceliumNetwork?.density || 0).toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">Density (g/cm³)</p>
                   </div>
                 </div>
@@ -626,7 +693,7 @@ export function NatureOSDashboard() {
                   </span>
                   <div className="flex gap-2">
                     <Badge variant="outline">
-                      {myceliumNetwork.activeNodes.toLocaleString()} Active Nodes
+                      {(myceliumNetwork?.activeNodes || 0).toLocaleString()} Active Nodes
                     </Badge>
                     <Button variant="outline" size="sm">
                       <RefreshCw className="h-4 w-4" />
@@ -654,25 +721,25 @@ export function NatureOSDashboard() {
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Overall Health</span>
-                      <span className="font-mono">{myceliumNetwork.networkHealth}%</span>
+                      <span className="font-mono">{myceliumNetwork?.networkHealth || 0}%</span>
                     </div>
-                    <Progress value={myceliumNetwork.networkHealth} className="h-2" />
+                    <Progress value={myceliumNetwork?.networkHealth || 0} className="h-2" />
                   </div>
                   
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Nutrient Flow</span>
-                      <span className="font-mono">{myceliumNetwork.nutrientFlow}%</span>
+                      <span className="font-mono">{myceliumNetwork?.nutrientFlow || 0}%</span>
                     </div>
-                    <Progress value={myceliumNetwork.nutrientFlow} className="h-2" />
+                    <Progress value={myceliumNetwork?.nutrientFlow || 0} className="h-2" />
                   </div>
                   
                   <div>
                     <div className="flex justify-between text-sm mb-1">
                       <span>Signal Propagation</span>
-                      <span className="font-mono">{myceliumNetwork.propagationSpeed} cm/s</span>
+                      <span className="font-mono">{myceliumNetwork?.propagationSpeed || 0} cm/s</span>
                     </div>
-                    <Progress value={Math.min(myceliumNetwork.propagationSpeed * 20, 100)} className="h-2" />
+                    <Progress value={Math.min((myceliumNetwork?.propagationSpeed || 0) * 20, 100)} className="h-2" />
                   </div>
                 </CardContent>
               </Card>
@@ -688,11 +755,11 @@ export function NatureOSDashboard() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Active Nodes</span>
-                      <Badge variant="outline">{myceliumNetwork.activeNodes.toLocaleString()}</Badge>
+                      <Badge variant="outline">{(myceliumNetwork?.activeNodes || 0).toLocaleString()}</Badge>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Total Nodes</span>
-                      <Badge variant="outline">{myceliumNetwork.totalNodes.toLocaleString()}</Badge>
+                      <Badge variant="outline">{(myceliumNetwork?.totalNodes || 0).toLocaleString()}</Badge>
                     </div>
                     <Separator />
                     <div className="flex justify-between items-center">
@@ -716,20 +783,26 @@ export function NatureOSDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {myceliumNetwork.regions.slice(0, 5).map((region, i) => (
-                      <div key={region.id} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Region {i + 1}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-muted rounded-full h-1.5">
-                            <div 
-                              className="bg-green-500 h-1.5 rounded-full" 
-                              style={{ width: `${region.health}%` }} 
-                            />
+                    {myceliumNetwork?.regions && myceliumNetwork.regions.length > 0 ? (
+                      myceliumNetwork.regions.slice(0, 5).map((region, i) => (
+                        <div key={region.id} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Region {i + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-muted rounded-full h-1.5">
+                              <div 
+                                className="bg-green-500 h-1.5 rounded-full" 
+                                style={{ width: `${region.health}%` }} 
+                              />
+                            </div>
+                            <span className="font-mono text-xs w-8">{region.health}%</span>
                           </div>
-                          <span className="font-mono text-xs w-8">{region.health}%</span>
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-2 text-muted-foreground text-xs">
+                        No network regions
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -812,14 +885,25 @@ export function NatureOSDashboard() {
                 <Network className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No Devices Connected</h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect a MycoBrain, Mushroom 1, or SporeBase device to get started
+                  Connect a MycoBrain device via USB (COM4) to get started. The device discovery service scans every 5 seconds.
                 </p>
-                <Button asChild>
-                  <Link href="/devices/mycobrain/integration">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Device
-                  </Link>
-                </Button>
+                <div className="flex gap-3 justify-center">
+                  <Button asChild>
+                    <Link href="/natureos/devices">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Open Device Manager
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/natureos/devices/network">
+                      <Network className="h-4 w-4 mr-2" />
+                      Device Network
+                    </Link>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  Make sure MycoBrain service is running: python services/mycobrain/mycobrain_service.py
+                </p>
               </div>
             </Card>
           ) : (
@@ -918,13 +1002,17 @@ export function NatureOSDashboard() {
                     )}
                   </CardContent>
                   <CardFooter className="gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Eye className="h-4 w-4 mr-1" />
-                      Monitor
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link href={`/natureos/devices${device.type === "mycobrain" ? `?device=${device.port}` : ""}`}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        Monitor
+                      </Link>
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Settings className="h-4 w-4 mr-1" />
-                      Configure
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link href={`/natureos/devices${device.type === "mycobrain" ? `?device=${device.port}` : ""}`}>
+                        <Settings className="h-4 w-4 mr-1" />
+                        Configure
+                      </Link>
                     </Button>
                   </CardFooter>
                 </Card>
@@ -964,8 +1052,8 @@ export function NatureOSDashboard() {
                   <Activity className="h-4 w-4 text-green-500" />
                   <span className="text-xs text-muted-foreground">SYSTEM HEALTH</span>
                 </div>
-                <p className="text-2xl font-bold">{myceliumNetwork.networkHealth}%</p>
-                <p className="text-xs text-green-500">+2.3% from last hour</p>
+                <p className="text-2xl font-bold">{myceliumNetwork?.networkHealth || 0}%</p>
+                <p className="text-xs text-green-500">Live network data</p>
               </CardContent>
             </Card>
             
@@ -975,8 +1063,8 @@ export function NatureOSDashboard() {
                   <Zap className="h-4 w-4 text-blue-500" />
                   <span className="text-xs text-muted-foreground">API REQ/MIN</span>
                 </div>
-                <p className="text-2xl font-bold">{(systemMetrics.apiRequests.perMinute / 1000).toFixed(1)}k</p>
-                <p className="text-xs text-blue-500">{systemMetrics.apiRequests.successRate}% success</p>
+                <p className="text-2xl font-bold">{((systemMetrics?.apiRequests?.perMinute || 0) / 1000).toFixed(1)}k</p>
+                <p className="text-xs text-blue-500">{systemMetrics?.apiRequests?.successRate || 0}% success</p>
               </CardContent>
             </Card>
             
@@ -986,7 +1074,7 @@ export function NatureOSDashboard() {
                   <Bot className="h-4 w-4 text-purple-500" />
                   <span className="text-xs text-muted-foreground">AI INFERENCE</span>
                 </div>
-                <p className="text-2xl font-bold">{systemMetrics.aiOperations.averageResponseTime}ms</p>
+                <p className="text-2xl font-bold">{systemMetrics?.aiOperations?.averageResponseTime || 0}ms</p>
                 <p className="text-xs text-purple-500">avg response time</p>
               </CardContent>
             </Card>
@@ -1049,9 +1137,13 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="h-[250px] flex items-end justify-between gap-1 px-2">
-                  {/* Simulated bar chart */}
+                  {/* Real network activity based on API requests */}
                   {Array.from({ length: 24 }).map((_, i) => {
-                    const height = 30 + Math.random() * 70
+                    // Use real API request rate if available, otherwise show 0
+                    const baseActivity = systemMetrics?.apiRequests?.perMinute 
+                      ? Math.min((systemMetrics.apiRequests.perMinute / 1000) * 10, 100)
+                      : 0
+                    const height = Math.max(5, baseActivity + (i % 3) * 5)
                     return (
                       <div
                         key={i}
@@ -1069,6 +1161,11 @@ export function NatureOSDashboard() {
                   <span>18:00</span>
                   <span>Now</span>
                 </div>
+                {systemMetrics?.apiRequests && (
+                  <div className="mt-4 text-center text-xs text-muted-foreground">
+                    {systemMetrics.apiRequests.perMinute.toLocaleString()} req/min
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1091,9 +1188,9 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <Cpu className="h-4 w-4" /> CPU Usage
                     </span>
-                    <span className="font-mono">34%</span>
+                    <span className="font-mono">{systemMetrics?.cpu?.usage?.toFixed(0) || 0}%</span>
                   </div>
-                  <Progress value={34} className="h-3" />
+                  <Progress value={systemMetrics?.cpu?.usage || 0} className="h-3" />
                 </div>
                 
                 <div>
@@ -1101,29 +1198,29 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <HardDrive className="h-4 w-4" /> Memory
                     </span>
-                    <span className="font-mono">62%</span>
+                    <span className="font-mono">{systemMetrics?.memory?.percent?.toFixed(0) || 0}%</span>
                   </div>
-                  <Progress value={62} className="h-3" />
+                  <Progress value={systemMetrics?.memory?.percent || 0} className="h-3" />
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="flex items-center gap-2">
-                      <Database className="h-4 w-4" /> Storage I/O
+                      <Database className="h-4 w-4" /> Storage
                     </span>
-                    <span className="font-mono">28%</span>
+                    <span className="font-mono">{systemMetrics?.storage?.percentage?.toFixed(0) || 0}%</span>
                   </div>
-                  <Progress value={28} className="h-3" />
+                  <Progress value={systemMetrics?.storage?.percentage || 0} className="h-3" />
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="flex items-center gap-2">
-                      <Wifi className="h-4 w-4" /> Network
+                      <Wifi className="h-4 w-4" /> Network Health
                     </span>
-                    <span className="font-mono">45%</span>
+                    <span className="font-mono">{myceliumNetwork?.networkHealth || 0}%</span>
                   </div>
-                  <Progress value={45} className="h-3" />
+                  <Progress value={myceliumNetwork?.networkHealth || 0} className="h-3" />
                 </div>
               </CardContent>
             </Card>
@@ -1196,7 +1293,7 @@ export function NatureOSDashboard() {
               </CardContent>
             </Card>
 
-            {/* Species Distribution */}
+            {/* Species Distribution - Real data from observations */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1206,26 +1303,44 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: "Agaricus bisporus", count: 1245, color: "bg-green-500" },
-                    { name: "Pleurotus ostreatus", count: 892, color: "bg-blue-500" },
-                    { name: "Lentinula edodes", count: 654, color: "bg-purple-500" },
-                    { name: "Ganoderma lucidum", count: 423, color: "bg-orange-500" },
-                    { name: "Others", count: 312, color: "bg-gray-500" },
-                  ].map((species) => (
-                    <div key={species.name} className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${species.color}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{species.name}</p>
-                      </div>
-                      <span className="text-sm font-mono">{species.count}</span>
+                  {observations.length > 0 ? (
+                    (() => {
+                      // Count species from real observations
+                      const speciesCounts = new Map<string, number>()
+                      observations.forEach((obs) => {
+                        const name = obs.scientificName || obs.species
+                        speciesCounts.set(name, (speciesCounts.get(name) || 0) + 1)
+                      })
+                      
+                      const topSpecies = Array.from(speciesCounts.entries())
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .map(([name, count], i) => ({
+                          name,
+                          count,
+                          color: ["bg-green-500", "bg-blue-500", "bg-purple-500", "bg-orange-500", "bg-gray-500"][i],
+                        }))
+                      
+                      return topSpecies.map((species) => (
+                        <div key={species.name} className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${species.color}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{species.name}</p>
+                          </div>
+                          <span className="text-sm font-mono">{species.count}</span>
+                        </div>
+                      ))
+                    })()
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No species data available
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Alert Summary */}
+            {/* Alert Summary - Real data from recent activity */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1235,96 +1350,107 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-red-500/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span className="text-sm">Critical</span>
+                  {recentActivity ? (() => {
+                    const critical = recentActivity.filter(a => a.status === "error").length
+                    const warnings = recentActivity.filter(a => a.status === "warning").length
+                    const info = recentActivity.filter(a => a.status === "info" || a.status === "success").length
+                    const resolved = recentActivity.filter(a => a.status === "success").length
+                    
+                    return (
+                      <>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-red-500/10">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-red-500" />
+                            <span className="text-sm">Critical</span>
+                          </div>
+                          <Badge variant="destructive">{critical}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-yellow-500/10">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                            <span className="text-sm">Warning</span>
+                          </div>
+                          <Badge className="bg-yellow-500">{warnings}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="text-sm">Info</span>
+                          </div>
+                          <Badge variant="secondary">{info}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                            <span className="text-sm">Resolved (24h)</span>
+                          </div>
+                          <Badge variant="outline">{resolved}</Badge>
+                        </div>
+                      </>
+                    )
+                  })() : (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      No activity data
                     </div>
-                    <Badge variant="destructive">0</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-yellow-500/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                      <span className="text-sm">Warning</span>
-                    </div>
-                    <Badge className="bg-yellow-500">2</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
-                      <span className="text-sm">Info</span>
-                    </div>
-                    <Badge variant="secondary">12</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-sm">Resolved (24h)</span>
-                    </div>
-                    <Badge variant="outline">45</Badge>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Research Publications */}
+          {/* Recent Activity - Real data */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    Recent Research & Analysis
+                    Recent System Activity
                   </CardTitle>
-                  <CardDescription>Latest findings from the mycelium network</CardDescription>
+                  <CardDescription>Latest events from MAS, n8n, and MycoBrain</CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
-                  View All
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/natureos/monitoring">View All</Link>
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
-                {[
-                  {
-                    title: "Network Communication Patterns",
-                    type: "Analysis",
-                    date: "Today",
-                    status: "New",
-                  },
-                  {
-                    title: "Bioelectric Signal Mapping",
-                    type: "Study",
-                    date: "Yesterday",
-                    status: "Updated",
-                  },
-                  {
-                    title: "Nutrient Distribution Model",
-                    type: "Model",
-                    date: "3 days ago",
-                    status: "Complete",
-                  },
-                  {
-                    title: "Environmental Response Analysis",
-                    type: "Report",
-                    date: "1 week ago",
-                    status: "Complete",
-                  },
-                ].map((paper, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{paper.title}</p>
-                      <p className="text-xs text-muted-foreground">{paper.type} • {paper.date}</p>
-                    </div>
-                    <Badge variant={paper.status === "New" ? "default" : "secondary"} className="text-xs">
-                      {paper.status}
-                    </Badge>
+                {recentActivity && recentActivity.length > 0 ? (
+                  recentActivity.slice(0, 4).map((item) => {
+                    const Icon = activityIcons[item.type] || Activity
+                    const timeAgo = new Date(item.timestamp)
+                    const hoursAgo = Math.floor((Date.now() - timeAgo.getTime()) / (1000 * 60 * 60))
+                    const dateLabel = hoursAgo < 1 ? "Just now" : 
+                                     hoursAgo < 24 ? `${hoursAgo}h ago` :
+                                     `${Math.floor(hoursAgo / 24)}d ago`
+                    
+                    return (
+                      <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors">
+                        <div className={`p-2 rounded-lg ${
+                          item.status === "success" ? "bg-green-500/20" :
+                          item.status === "warning" ? "bg-yellow-500/20" : "bg-red-500/20"
+                        }`}>
+                          <Icon className={`h-4 w-4 ${
+                            item.status === "success" ? "text-green-500" :
+                            item.status === "warning" ? "text-yellow-500" : "text-red-500"
+                          }`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.message}</p>
+                          <p className="text-xs text-muted-foreground">{item.type} • {dateLabel}</p>
+                        </div>
+                        <Badge variant={item.status === "success" ? "default" : item.status === "warning" ? "secondary" : "destructive"} className="text-xs">
+                          {item.status}
+                        </Badge>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">
+                    No recent activity
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>

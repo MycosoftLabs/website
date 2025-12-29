@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
-import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2 } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Chat } from "@/components/chat/chat"
@@ -15,7 +15,13 @@ import { useTheme } from "next-themes"
 export function MobileNav() {
   const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { user, signOut } = useAuth()
+
+  // Prevent hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const toggleMenu = () => setIsOpen(!isOpen)
   const closeMenu = () => setIsOpen(false)
@@ -66,7 +72,7 @@ export function MobileNav() {
                 <div className="relative h-8 w-8">
                   <Image
                     src={
-                      theme === "dark"
+                      mounted && theme === "dark"
                         ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
                         : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
                     }
@@ -88,12 +94,16 @@ export function MobileNav() {
                   <Search className="h-5 w-5" />
                   Search
                 </Link>
+                <Link href="/defense" className="flex items-center gap-2 text-lg font-medium" onClick={closeMenu}>
+                  <Shield className="h-5 w-5" />
+                  Defense
+                </Link>
                 <Link href="/natureos" className="flex items-center gap-2 text-lg font-medium" onClick={closeMenu}>
                   <Cloud className="h-5 w-5" />
                   NatureOS
                 </Link>
                 <Link href="/devices" className="flex items-center gap-2 text-lg font-medium" onClick={closeMenu}>
-                  <ShoppingBag className="h-5 w-5" />
+                  <Cpu className="h-5 w-5" />
                   Devices
                 </Link>
                 <Link href="/apps" className="flex items-center gap-2 text-lg font-medium" onClick={closeMenu}>

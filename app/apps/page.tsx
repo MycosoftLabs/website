@@ -1,16 +1,11 @@
 import type { Metadata } from "next"
-import { AppDirectory } from "@/components/apps/app-directory"
+import { AppsPortal } from "@/components/apps/apps-portal"
 
 export const metadata: Metadata = {
-  title: "Apps - Mycosoft",
-  description: "Explore Mycosoft's suite of mycology research applications",
+  title: "Applications - Mycosoft",
+  description: "Mission-critical applications for environmental intelligence, mycology research, and defense operations",
 }
 
 export default function AppsPage() {
-  return (
-    <div className="container py-6 md:py-8">
-      <h1 className="text-3xl font-bold mb-8">Mycosoft Apps</h1>
-      <AppDirectory />
-    </div>
-  )
+  return <AppsPortal />
 }

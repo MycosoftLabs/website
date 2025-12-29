@@ -88,10 +88,32 @@ export function useMycoBrain(refreshInterval = 2000) {
 
   const fetchDevices = useCallback(async () => {
     try {
-      const response = await fetch("/api/mycobrain")
-      if (!response.ok) throw new Error("Failed to fetch devices")
+      const response = await fetch("/api/mycobrain", {
+        signal: AbortSignal.timeout(5000),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || errorData.error || "Failed to fetch devices")
+      }
 
       const data = await response.json()
+      
+      // Handle both error responses and successful responses
+      if (data.error) {
+        if (mountedRef.current) {
+          setState((prev) => ({
+            ...prev,
+            devices: [],
+            loading: false,
+            error: data.message || data.error,
+            lastUpdate: new Date(),
+            isConnected: false,
+          }))
+        }
+        return
+      }
+
       const devices: MycoBrainDevice[] = (data.devices || []).map((d: MycoBrainDevice) => ({
         ...d,
         capabilities: d.capabilities || {
@@ -126,6 +148,7 @@ export function useMycoBrain(refreshInterval = 2000) {
           ...prev,
           loading: false,
           error: error instanceof Error ? error.message : "Unknown error",
+          devices: prev.devices.length > 0 ? prev.devices : [], // Keep existing devices if any
         }))
       }
     }

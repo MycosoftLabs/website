@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { teamMembers } from "@/lib/team-data"
 import {
   ArrowRight,
   Brain,
@@ -44,6 +45,7 @@ import {
   Server,
   Satellite,
   Activity,
+  CheckCircle2,
 } from "lucide-react"
 
 // Company Statistics
@@ -163,18 +165,6 @@ const technologyPillars = [
     description: "Deploying fungi to break down pollutants, plastics, and hydrocarbons. Nature's solution to human contamination.",
     stats: "10+ Projects",
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hydrocarbon%20material%20science-wcEO75pjUfwXiebntL6AGEGvg4fPf2.webp",
-  },
-]
-
-// Leadership
-const leadership = [
-  {
-    name: "Morgan Rockwell",
-    role: "Founder & CEO",
-    bio: "Pioneer in fungal-computer integration. First to connect living mushrooms to digital systems using IoT and bioelectric sensors in 2014.",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/morgan-rockwell-mycosoft-founder.jpg",
-    linkedin: "#",
-    twitter: "#",
   },
 ]
 
@@ -314,7 +304,7 @@ export default function AboutPage() {
             </h2>
           </div>
 
-          <div className="relative">
+          <div className="relative mb-12">
             <Quote className="absolute -top-4 -left-4 h-12 w-12 text-green-500/20" />
             <blockquote className="text-2xl md:text-3xl font-light text-center leading-relaxed text-muted-foreground pl-8">
               "Nature has spent 3.8 billion years developing the most efficient computing systems on Earth. 
@@ -325,6 +315,132 @@ export default function AboutPage() {
               <p className="font-semibold">Morgan Rockwell</p>
               <p className="text-sm text-muted-foreground">Founder & CEO</p>
             </div>
+          </div>
+
+          <div className="prose prose-lg max-w-none text-center">
+            <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+              Mycosoft exists to bridge the gap between biological intelligence and digital technology. 
+              We believe that the future of computing lies not in replacing nature, but in integrating 
+              with it. Our mission is to develop technologies that work in harmony with Earth's natural 
+              systems, creating sustainable solutions that regenerate rather than deplete.
+            </p>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              We're building the world's first biological computer—a system where mycelium networks 
+              serve as processors, memory, and communication channels. This isn't science fiction; 
+              it's the next evolution of technology, and it's happening now.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Origin Story */}
+      <section className="py-24 bg-muted/30">
+        <div className="container max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <Badge variant="outline" className="mb-4">Our Origin</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              The Beginning of a Revolution
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="relative aspect-video rounded-lg overflow-hidden mb-6">
+                <Image
+                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/morgan-rockwell-mycosoft-founder.jpg"
+                  alt="Morgan Rockwell connecting fungi to computers"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-bold mb-4">2014: The First Connection</h3>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  In 2014, Morgan Rockwell made history by becoming one of the first researchers to 
+                  successfully connect living fungi to computers. Using IoT sensors and ECG technology, 
+                  he demonstrated that mycelial networks could communicate with digital systems, 
+                  opening entirely new frontiers in biological computing.
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  This breakthrough wasn't just a proof of concept—it was the foundation for an 
+                  entirely new field of research. Morgan's work showed that nature's most efficient 
+                  information processing systems could be integrated with modern technology, creating 
+                  possibilities that had never existed before.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold mb-4">From Research to Reality</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  What started as a research project in 2014 has grown into Mycosoft—a company 
+                  developing real products that bridge biological and digital worlds. From the 
+                  MycoBrain hardware platform to NatureOS and MYCA AI, we're building the 
+                  infrastructure for a new era of sustainable computing.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Founder Section */}
+      <section className="py-24">
+        <div className="container max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <Badge variant="outline" className="mb-4">The Founder</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Morgan Rockwell
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              Visionary, Pioneer, and Leader of the Fungal Intelligence Revolution
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            <Card className="p-6">
+              <div className="p-3 rounded-xl bg-green-500/10 w-fit mb-4">
+                <FlaskConical className="h-6 w-6 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Pioneer</h3>
+              <p className="text-muted-foreground">
+                First to connect living fungi to computers using IoT and bioelectric sensors in 2014
+              </p>
+            </Card>
+            <Card className="p-6">
+              <div className="p-3 rounded-xl bg-green-500/10 w-fit mb-4">
+                <Lightbulb className="h-6 w-6 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Innovator</h3>
+              <p className="text-muted-foreground">
+                Developed the first functional bioelectric interface between mycelium and digital systems
+              </p>
+            </Card>
+            <Card className="p-6">
+              <div className="p-3 rounded-xl bg-green-500/10 w-fit mb-4">
+                <Rocket className="h-6 w-6 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Leader</h3>
+              <p className="text-muted-foreground">
+                Founded Mycosoft Labs in 2018 and led the development of biological computing platforms
+              </p>
+            </Card>
+          </div>
+
+          <div className="prose prose-lg max-w-none">
+            <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+              Morgan Rockwell's vision extends far beyond technology. He sees a future where computing 
+              doesn't deplete the Earth but regenerates it. Where intelligence emerges from the same 
+              networks that have sustained life for billions of years. Where mycelium does for computing 
+              what silicon did in the 20th century—but sustainably, regeneratively, and in harmony with 
+              the planet.
+            </p>
+            <p className="text-lg text-muted-foreground leading-relaxed">
+              Under Morgan's leadership, Mycosoft has grown from a research project into a company 
+              developing the world's first biological computer. His groundbreaking work has opened 
+              new frontiers in biological computing, demonstrating that nature's most efficient 
+              information processing systems can be integrated with modern technology.
+            </p>
           </div>
         </div>
       </section>
@@ -429,11 +545,12 @@ export default function AboutPage() {
               What We Stand For
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Our principles guide every decision, from research priorities to product development.
+              Our principles guide every decision, from research priorities to product development. 
+              These values aren't just words—they're the foundation of everything we build.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {coreValues.map((value) => (
               <Card key={value.title} className="p-6 hover:border-green-500/50 transition-all duration-300">
                 <div className="p-3 rounded-xl bg-green-500/10 w-fit mb-4">
@@ -444,56 +561,74 @@ export default function AboutPage() {
               </Card>
             ))}
           </div>
+
+          <div className="max-w-4xl mx-auto">
+            <Card className="p-8 bg-background/50">
+              <h3 className="text-2xl font-bold mb-6 text-center">Living Our Values</h3>
+              <div className="space-y-4 text-muted-foreground">
+                <p className="leading-relaxed">
+                  At Mycosoft, our values aren't just posted on a wall—they're embedded in our code, 
+                  our research, and our products. Every line of code we write, every device we build, 
+                  and every decision we make is evaluated against these principles.
+                </p>
+                <p className="leading-relaxed">
+                  We measure success not just by technological achievement, but by environmental impact. 
+                  We pursue innovation that serves both humanity and the planet. We share knowledge 
+                  because we believe that solving the world's greatest challenges requires collaboration, 
+                  not competition.
+                </p>
+                <p className="leading-relaxed">
+                  These values have guided us from a research project in 2014 to a company developing 
+                  the world's first biological computer. They'll continue to guide us as we build the 
+                  future of sustainable computing.
+                </p>
+              </div>
+            </Card>
+          </div>
         </div>
       </section>
 
-      {/* Leadership */}
+      {/* Core Team */}
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">Leadership</Badge>
+            <Badge variant="outline" className="mb-4">Our Team</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Meet the Founder
+              Meet the Core Team
             </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              A world-class team of mycologists, engineers, and visionaries building the future of biological computing.
+            </p>
           </div>
 
-          <div className="max-w-4xl mx-auto">
-            {leadership.map((leader) => (
-              <Card key={leader.name} className="overflow-hidden">
-                <div className="grid md:grid-cols-[300px,1fr] gap-0">
-                  <div className="relative aspect-square md:aspect-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {teamMembers.map((member) => (
+              <Link key={member.slug} href={`/about/team/${member.slug}`}>
+                <Card className="group hover:border-green-500/50 transition-all duration-300 cursor-pointer overflow-hidden h-full">
+                  <div className="relative aspect-[4/5] overflow-hidden">
                     <Image
-                      src={leader.image}
-                      alt={leader.name}
+                      src={member.image}
+                      alt={member.name}
                       fill
-                      className="object-cover"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                  </div>
-                  <CardContent className="p-8 flex flex-col justify-center">
-                    <h3 className="text-3xl font-bold mb-1">{leader.name}</h3>
-                    <p className="text-green-500 font-medium mb-4">{leader.role}</p>
-                    <p className="text-lg text-muted-foreground mb-6">{leader.bio}</p>
-                    <div className="flex gap-3">
-                      <Button variant="outline" size="icon" asChild>
-                        <a href={leader.linkedin} target="_blank" rel="noopener noreferrer">
-                          <Linkedin className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="icon" asChild>
-                        <a href={leader.twitter} target="_blank" rel="noopener noreferrer">
-                          <Twitter className="h-4 w-4" />
-                        </a>
-                      </Button>
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                      <Badge className="mb-2 bg-green-500/20 text-green-400 border-green-500/30">
+                        {member.role}
+                      </Badge>
+                      <h3 className="text-2xl font-bold mb-2">{member.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{member.bio}</p>
                     </div>
-                  </CardContent>
-                </div>
-              </Card>
+                  </div>
+                </Card>
+              </Link>
             ))}
           </div>
 
           <div className="text-center mt-12">
             <p className="text-muted-foreground mb-4">
-              We're building a world-class team of mycologists, engineers, and visionaries.
+              We're always looking for talented individuals to join our mission.
             </p>
             <Button variant="outline" className="gap-2" asChild>
               <Link href="/careers">
@@ -505,22 +640,23 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Products Showcase */}
+      {/* Key Devices and Applications */}
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">Products</Badge>
+            <Badge variant="outline" className="mb-4">Our Products</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              The Mycosoft Ecosystem
+              Key Devices and Applications
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Hardware and software designed to bridge biological and digital worlds.
+              Hardware and software designed to bridge biological and digital worlds, enabling 
+              researchers, developers, and enthusiasts to explore fungal intelligence.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {products.map((product) => (
-              <Card key={product.name} className="p-6 hover:border-green-500/50 transition-all">
+              <Card key={product.name} className="p-6 hover:border-green-500/50 transition-all h-full flex flex-col">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-xl font-bold">{product.name}</h3>
                   <Badge 
@@ -530,9 +666,69 @@ export default function AboutPage() {
                     {product.status}
                   </Badge>
                 </div>
-                <p className="text-muted-foreground">{product.description}</p>
+                <p className="text-muted-foreground flex-grow">{product.description}</p>
+                <Button variant="ghost" className="mt-4 w-fit gap-2 p-0 h-auto text-green-500 hover:text-green-400" asChild>
+                  <Link href={`/devices${product.name === "MycoBrain" ? "/mycobrain" : ""}`}>
+                    Learn more <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </Card>
             ))}
+          </div>
+
+          {/* Applications Section */}
+          <div className="mt-16">
+            <h3 className="text-3xl font-bold mb-8 text-center">Applications & Use Cases</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <Microscope className="h-6 w-6 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-bold">Scientific Research</h4>
+                </div>
+                <p className="text-muted-foreground">
+                  Enable mycologists and researchers to study fungal networks, species identification, 
+                  and environmental monitoring with unprecedented precision and scale.
+                </p>
+              </Card>
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <Factory className="h-6 w-6 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-bold">Bioremediation</h4>
+                </div>
+                <p className="text-muted-foreground">
+                  Deploy fungi to break down pollutants, plastics, and hydrocarbons. Nature's solution 
+                  to human contamination, monitored and optimized through our technology.
+                </p>
+              </Card>
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <Activity className="h-6 w-6 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-bold">Environmental Monitoring</h4>
+                </div>
+                <p className="text-muted-foreground">
+                  Real-time monitoring systems that bridge biological sensors with satellite data for 
+                  unprecedented Earth observation and climate tracking.
+                </p>
+              </Card>
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-green-500/20">
+                    <CircuitBoard className="h-6 w-6 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-bold">Biological Computing</h4>
+                </div>
+                <p className="text-muted-foreground">
+                  Develop organic computing components from mycelium—capacitors, transistors, and 
+                  processors that grow rather than manufacture.
+                </p>
+              </Card>
+            </div>
           </div>
 
           <div className="text-center mt-12">
@@ -559,28 +755,197 @@ export default function AboutPage() {
               <br />
               <span className="text-green-500">Biological Computer</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8 leading-relaxed">
-              We envision a future where computing doesn't deplete the Earth but regenerates it. 
-              Where technology grows rather than manufactures. Where intelligence emerges from 
-              the same networks that have sustained life for billions of years.
-            </p>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              The biological computer isn't just our goal—it's the next step in the evolution of 
-              technology itself. Mycelium will do for computing what silicon did in the 20th century, 
-              but sustainably, regeneratively, and in harmony with the planet.
-            </p>
+            <div className="space-y-6 text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              <p>
+                We envision a future where computing doesn't deplete the Earth but regenerates it. 
+                Where technology grows rather than manufactures. Where intelligence emerges from 
+                the same networks that have sustained life for billions of years.
+              </p>
+              <p>
+                The biological computer isn't just our goal—it's the next step in the evolution of 
+                technology itself. Mycelium will do for computing what silicon did in the 20th century, 
+                but sustainably, regeneratively, and in harmony with the planet.
+              </p>
+              <p>
+                This vision drives everything we do. From the MycoBrain devices monitoring environmental 
+                conditions to NatureOS connecting biological and digital systems, from MYCA AI understanding 
+                mycological knowledge to MINDEX cataloging the world's fungal diversity—every product, 
+                every research project, every line of code brings us closer to this future.
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                We're not just building technology. We're building the foundation for a new era of 
+                sustainable computing that works in harmony with nature.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 bg-green-600">
-        <div className="container max-w-5xl mx-auto px-6 text-center">
+      {/* Technology Focus */}
+      <section className="py-24">
+        <div className="container max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <Badge variant="outline" className="mb-4">Technology Focus</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Where Biology Meets Technology
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Our research spans multiple domains, all converging on a single goal: creating 
+              sustainable technology that works in harmony with nature.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <Card className="p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-green-500/20">
+                  <Atom className="h-8 w-8 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Biological Computing</h3>
+                  <p className="text-sm text-muted-foreground">Growing organic processors</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                We're developing the world's first biological computer by growing organic capacitors, 
+                transistors, and processors from mycelium. This isn't just sustainable—it's regenerative. 
+                Our goal is to use mycelium as a sustainable alternative for building next-generation 
+                hardware that works in harmony with the planet.
+              </p>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>50+ patents filed in biological computing</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Active research in organic component development</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Partnerships with leading research institutions</span>
+                </li>
+              </ul>
+            </Card>
+
+            <Card className="p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-green-500/20">
+                  <Network className="h-8 w-8 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Mycelial Networks</h3>
+                  <p className="text-sm text-muted-foreground">Nature's internet</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                Mycelial networks are nature's internet—vast underground fungal networks that connect 
+                ecosystems globally. We're harnessing this natural infrastructure to create 
+                communication systems that work through soil and organic matter, enabling data 
+                transmission that's both low-energy and environmentally friendly.
+              </p>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>1M+ species indexed in MINDEX database</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Real-time monitoring of mycelial networks</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Encrypted data transmission through soil</span>
+                </li>
+              </ul>
+            </Card>
+
+            <Card className="p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-green-500/20">
+                  <Satellite className="h-8 w-8 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Environmental Intelligence</h3>
+                  <p className="text-sm text-muted-foreground">Earth observation systems</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                Our environmental monitoring systems bridge biological sensors with satellite data, 
+                creating unprecedented Earth observation capabilities. From climate tracking to 
+                ecosystem health monitoring, we're building the infrastructure for planetary-scale 
+                environmental intelligence.
+              </p>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Deployed in 25+ countries worldwide</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Real-time sensor data integration</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Satellite and ground sensor fusion</span>
+                </li>
+              </ul>
+            </Card>
+
+            <Card className="p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-green-500/20">
+                  <Beaker className="h-8 w-8 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold">Bioremediation</h3>
+                  <p className="text-sm text-muted-foreground">Nature's cleanup solution</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                We deploy fungi to break down pollutants, plastics, and hydrocarbons. This is nature's 
+                solution to human contamination, and we're using technology to optimize and scale it. 
+                Our bioremediation projects are cleaning up contaminated sites while advancing our 
+                understanding of fungal capabilities.
+              </p>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>10+ active bioremediation projects</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Plastic and hydrocarbon degradation</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span>Real-time monitoring and optimization</span>
+                </li>
+              </ul>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section - Invitation to Join */}
+      <section className="py-24 bg-green-600 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="container max-w-5xl mx-auto px-6 text-center relative z-10">
+          <Badge className="mb-6 bg-white/20 text-white border-white/30 hover:bg-white/30">
+            Join Us
+          </Badge>
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Join the Fungal Intelligence Revolution
           </h2>
-          <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
-            Whether you're a researcher, developer, investor, or enthusiast—there's a place for you in our mission.
+          <p className="text-xl text-green-100 mb-4 max-w-2xl mx-auto leading-relaxed">
+            We're building the future of sustainable computing, and we need passionate people to join us. 
+            Whether you're a researcher pushing the boundaries of biological computing, a developer 
+            building the infrastructure, an investor supporting innovation, or an enthusiast exploring 
+            fungal intelligence—there's a place for you in our mission.
+          </p>
+          <p className="text-lg text-green-50 mb-8 max-w-2xl mx-auto">
+            Together, we're creating technology that doesn't just work with nature—it grows from it. 
+            This is more than a company; it's a movement toward a sustainable, regenerative future.
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Button size="lg" variant="secondary" className="gap-2" asChild>
@@ -593,6 +958,12 @@ export default function AboutPage() {
               <Link href="/science">
                 Read Our Research
                 <ExternalLink className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="gap-2 bg-transparent text-white border-white hover:bg-white hover:text-green-600" asChild>
+              <Link href="/careers">
+                View Careers
+                <Users className="h-4 w-4" />
               </Link>
             </Button>
           </div>

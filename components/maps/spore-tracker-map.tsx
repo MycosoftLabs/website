@@ -80,33 +80,37 @@ export function SporeTrackerMap() {
   useEffect(() => {
     if (typeof window === "undefined") return
     
+    let mounted = true
+    
     const loadGoogleMaps = async () => {
-      if (window.google?.maps) {
-        initializeMap()
-        return
+      try {
+        // Use shared loader to prevent duplicate script loading
+        const { loadGoogleMaps: loadMaps } = await import("@/lib/google-maps-loader")
+        await loadMaps(["visualization"])
+        
+        // Small delay to ensure maps API is fully initialized
+        if (mounted) {
+          setTimeout(() => {
+            if (mounted) {
+              initializeMap()
+            }
+          }, 100)
+        }
+      } catch (error) {
+        console.error("Failed to load Google Maps:", error)
+        if (mounted) {
+          setIsLoading(false)
+          fetchData()
+        }
       }
-
-      if (!GOOGLE_MAPS_API_KEY) {
-        console.warn("Google Maps API key not set")
-        setIsLoading(false)
-        fetchData()
-        return
-      }
-
-      const script = document.createElement("script")
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=visualization&callback=initSporeMap`
-      script.async = true
-      script.defer = true
-      
-      window.initSporeMap = () => {
-        initializeMap()
-      }
-      
-      document.head.appendChild(script)
     }
 
     loadGoogleMaps()
-  }, [])
+    
+    return () => {
+      mounted = false
+    }
+  }, [initializeMap])
 
   const initializeMap = useCallback(() => {
     if (!mapContainerRef.current || mapRef.current) return

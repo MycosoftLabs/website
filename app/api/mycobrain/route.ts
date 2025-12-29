@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
 
 // MycoBrain service URL - can be local Python service or Docker container
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+// Port 8003 = MAS dual service (preferred), Port 8765 = legacy website service
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
+    // First check if service is running - try /devices endpoint as health check
+    const healthRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
+      signal: AbortSignal.timeout(2000),
+    }).catch(() => null)
+    
+    if (!healthRes?.ok) {
+      return NextResponse.json({
+        devices: [],
+        source: "api",
+        error: "MycoBrain service not running",
+        message: "Start the MycoBrain service: python services/mycobrain/mycobrain_service.py",
+        timestamp: new Date().toISOString(),
+        serviceUrl: MYCOBRAIN_SERVICE_URL,
+        serviceHealthy: false,
+      })
+    }
+    
     // Fetch all connected devices from the MycoBrain service
     const response = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
       signal: AbortSignal.timeout(5000),
@@ -14,49 +32,33 @@ export async function GET(request: NextRequest) {
     
     if (response.ok) {
       const data = await response.json()
+      
+      // Also get available ports to show discovery status
+      const portsRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, {
+        signal: AbortSignal.timeout(2000),
+      }).catch(() => null)
+      
+      const portsData = portsRes?.ok ? await portsRes.json() : { ports: [], discovery_running: false }
+      
       return NextResponse.json({
         ...data,
         source: "mycobrain-service",
+        availablePorts: portsData.ports || [],
+        discoveryRunning: portsData.discovery_running || false,
+        serviceHealthy: true,
       })
     }
     
     throw new Error("Service unavailable")
   } catch (error) {
-    // Fallback: Return mock device data for development
+    // Return empty devices array - no mock data
     return NextResponse.json({
-      devices: [
-        {
-          port: "COM4",
-          connected: true,
-          device_info: {
-            side: "gateway",
-            mdp_version: 1,
-            status: "ready",
-            lora_status: "ok",
-          },
-          sensor_data: {
-            bme688_1: {
-              temperature: 23.5,
-              humidity: 45.2,
-              pressure: 1013.25,
-              gas_resistance: 50000,
-              iaq: 85,
-            },
-            bme688_2: {
-              temperature: 24.1,
-              humidity: 44.8,
-              pressure: 1013.20,
-              gas_resistance: 48500,
-              iaq: 82,
-            },
-            last_update: new Date().toISOString(),
-          },
-          last_message_time: new Date().toISOString(),
-        },
-      ],
-      source: "mock",
-      note: "MycoBrain service not running. Start with: python services/mycobrain/mycobrain_service.py",
+      devices: [],
+      source: "api",
+      error: "MycoBrain service not available",
+      message: "Start the MycoBrain service to connect devices",
       timestamp: new Date().toISOString(),
+      serviceUrl: MYCOBRAIN_SERVICE_URL,
     })
   }
 }
@@ -88,6 +90,14 @@ export async function POST(request: NextRequest) {
       case "command":
         endpoint = `/devices/${encodeURIComponent(port)}/command`
         payload = body.data || { cmd_id: 0, dst: 0xA1, data: [] }
+        break
+      case "diagnostics":
+        endpoint = `/devices/${encodeURIComponent(port)}/diagnostics`
+        method = "GET"
+        break
+      case "sensors":
+        endpoint = `/devices/${encodeURIComponent(port)}/sensors`
+        method = "GET"
         break
       default:
         return NextResponse.json({ error: "Unknown action" }, { status: 400 })
