@@ -620,3 +620,4 @@ curl http://localhost:8000/api/mindex/stats
 **Last Updated**: December 29, 2025
 **Integration Status**: COMPLETE ✅
 **Data Status**: 5,529 taxa synced and growing
+

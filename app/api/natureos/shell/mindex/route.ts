@@ -184,3 +184,4 @@ async function executeETL(args: string[]) {
     return { error: "Usage: etl status | etl run" }
   }
 }
+

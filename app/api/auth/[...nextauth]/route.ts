@@ -176,7 +176,7 @@ export const authOptions: NextAuthOptions = {
         
         if (mycosoftUser) {
           // Map to Mycosoft user
-          token.id = mycosoftUser.id
+          token.userId = mycosoftUser.id
           token.role = mycosoftUser.role
           token.permissions = mycosoftUser.permissions
           token.title = mycosoftUser.title
@@ -184,12 +184,12 @@ export const authOptions: NextAuthOptions = {
           token.email = mycosoftUser.email
         } else if (user.email?.endsWith("@mycosoft.org")) {
           // New Mycosoft team member via OAuth
-          token.id = user.id
+          token.userId = String(user.id)
           token.role = "developer"
           token.permissions = ["dev"]
         } else {
           // External user (shouldn't happen with domain restriction)
-          token.id = user.id
+          token.userId = String(user.id)
           token.role = "user"
           token.permissions = []
         }
@@ -198,18 +198,20 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) { 
       if (session.user) { 
-        (session.user as any).id = token.id
-        (session.user as any).role = token.role
-        (session.user as any).permissions = token.permissions
-        (session.user as any).title = token.title
+        // Assign values directly from token to session.user
+        const sessionUser = session.user as any
+        sessionUser.id = token.userId || token.sub || ''
+        sessionUser.role = token.role || 'user'
+        sessionUser.permissions = token.permissions || []
+        sessionUser.title = token.title
         
         // Owner has all permissions
         if (token.role === "owner") {
-          (session.user as any).isOwner = true
-          (session.user as any).isAdmin = true
-          (session.user as any).isSuperAdmin = true
+          sessionUser.isOwner = true
+          sessionUser.isAdmin = true
+          sessionUser.isSuperAdmin = true
         } else if (token.role === "admin") {
-          (session.user as any).isAdmin = true
+          sessionUser.isAdmin = true
         }
       }
       return session 
