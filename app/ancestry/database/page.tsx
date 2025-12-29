@@ -47,11 +47,16 @@ export default function AncestryDatabasePage() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/ancestry")
+      const response = await fetch("/api/ancestry?limit=100")
       if (response.ok) {
         const data = await response.json()
         setSpecies(data.species || [])
-        setUsingFallback(data.source === "fallback")
+        // Show info banner if using external APIs instead of local MINDEX
+        setUsingFallback(data.source === "external_api" || data.source === "none")
+        
+        if (data.source === "none" && (!data.species || data.species.length === 0)) {
+          setError(data.message || "No species data available. Please start MINDEX service.")
+        }
       } else {
         throw new Error("Failed to fetch species")
       }
@@ -111,13 +116,14 @@ export default function AncestryDatabasePage() {
 
       {/* Status Banner */}
       {usingFallback && (
-        <div className="mb-6 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+        <div className="mb-6 rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+            <Database className="h-5 w-5 text-blue-500 mt-0.5" />
             <div>
-              <p className="font-medium text-yellow-600 dark:text-yellow-400">Using Sample Data</p>
+              <p className="font-medium text-blue-600 dark:text-blue-400">Data Source: External APIs</p>
               <p className="text-sm text-muted-foreground">
-                Database not configured. Showing sample species data.
+                Fetching real-time data from iNaturalist and GBIF. For faster local access, start MINDEX:
+                <code className="ml-2 px-2 py-0.5 bg-muted rounded text-xs">docker-compose -f docker-compose.mindex.yml up -d</code>
               </p>
             </div>
           </div>
