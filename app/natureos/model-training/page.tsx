@@ -124,11 +124,26 @@ export default function ModelTrainingPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsTraining(!isTraining)}>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsTraining(!isTraining)
+                  // TODO: Connect to real NLM training API when available
+                  console.log(`[NLM] Training ${!isTraining ? "resumed" : "paused"} (simulation)`)
+                }}
+                title="Simulation mode - Real training API coming soon"
+              >
                 {isTraining ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
                 {isTraining ? "Pause" : "Resume"}
               </Button>
-              <Button className="bg-gradient-to-r from-purple-600 to-green-600">
+              <Button 
+                className="bg-gradient-to-r from-purple-600 to-green-600"
+                onClick={() => {
+                  // TODO: Connect to real model export when NLM-Funga is ready
+                  alert("Model export will be available when NLM-Funga Phase 0 is complete.\n\nCurrent status: Foundations phase (0-6 months)")
+                }}
+                title="Export will be available when training is complete"
+              >
                 <Download className="h-4 w-4 mr-2" /> Export Model
               </Button>
             </div>
