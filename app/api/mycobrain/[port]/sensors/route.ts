@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+// Port 8003 = MAS dual service (preferred), Port 8765 = legacy website service
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export const dynamic = "force-dynamic"
 
@@ -23,31 +24,16 @@ export async function GET(
     
     throw new Error("Failed to get sensor data")
   } catch (error) {
-    // Return mock sensor data for development
-    return NextResponse.json({
-      port,
-      sensors: {
-        bme688_1: {
-          temperature: 23.5 + Math.random() * 2 - 1,
-          humidity: 45.2 + Math.random() * 5 - 2.5,
-          pressure: 1013.25 + Math.random() * 2 - 1,
-          gas_resistance: 50000 + Math.random() * 5000 - 2500,
-          iaq: Math.floor(85 + Math.random() * 10 - 5),
-          iaq_accuracy: 3,
-        },
-        bme688_2: {
-          temperature: 24.1 + Math.random() * 2 - 1,
-          humidity: 44.8 + Math.random() * 5 - 2.5,
-          pressure: 1013.20 + Math.random() * 2 - 1,
-          gas_resistance: 48500 + Math.random() * 5000 - 2500,
-          iaq: Math.floor(82 + Math.random() * 10 - 5),
-          iaq_accuracy: 3,
-        },
-        last_update: new Date().toISOString(),
+    // Return error - no mock data
+    return NextResponse.json(
+      {
+        port,
+        error: "Failed to fetch sensor data",
+        message: "MycoBrain service not available or device not connected",
+        timestamp: new Date().toISOString(),
       },
-      source: "mock",
-      timestamp: new Date().toISOString(),
-    })
+      { status: 503 }
+    )
   }
 }
 

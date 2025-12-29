@@ -97,8 +97,8 @@ export interface RecentActivity {
   metadata?: Record<string, any>
 }
 
-// API Fetcher with error handling
-async function fetcher<T>(url: string): Promise<T> {
+// API Fetcher with error handling - returns null on error instead of throwing
+async function fetcher<T>(url: string): Promise<T | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT)
 
@@ -113,7 +113,8 @@ async function fetcher<T>(url: string): Promise<T> {
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`)
+      console.warn(`API Error ${response.status}: ${response.statusText} for ${url}`)
+      return null
     }
 
     return await response.json()
@@ -122,11 +123,14 @@ async function fetcher<T>(url: string): Promise<T> {
 
     if (error instanceof Error) {
       if (error.name === "AbortError") {
-        throw new Error("Request timeout - NatureOS API not responding")
+        console.warn(`Request timeout for ${url}`)
+        return null
       }
-      throw error
+      console.warn(`Fetch error for ${url}:`, error.message)
+      return null
     }
-    throw new Error("Unknown error occurred")
+    console.warn(`Unknown error for ${url}`)
+    return null
   }
 }
 
@@ -175,15 +179,22 @@ export function useDeviceById(deviceId: string, refreshInterval = 5000) {
  * Get mycelium network data
  */
 export function useMyceliumNetwork(refreshInterval = 10000) {
-  const { data, error, isLoading } = useSWR<MyceliumNetworkData>(`${NATUREOS_API_BASE}/mycelium/network`, fetcher, {
-    refreshInterval,
-    revalidateOnFocus: true,
-  })
+  const { data, error, isLoading } = useSWR<MyceliumNetworkData | null>(
+    `${NATUREOS_API_BASE}/mycelium/network`, 
+    fetcher, 
+    {
+      refreshInterval,
+      revalidateOnFocus: true,
+      onError: (err) => {
+        console.warn("Mycelium network fetch error:", err)
+      },
+    }
+  )
 
   return {
-    network: data,
+    network: data || null,
     isLoading,
-    isError: error,
+    isError: !!error,
     error: error?.message,
   }
 }
@@ -192,15 +203,22 @@ export function useMyceliumNetwork(refreshInterval = 10000) {
  * Get system-wide metrics
  */
 export function useSystemMetrics(refreshInterval = 5000) {
-  const { data, error, isLoading } = useSWR<SystemMetrics>(`${NATUREOS_API_BASE}/system/metrics`, fetcher, {
-    refreshInterval,
-    revalidateOnFocus: true,
-  })
+  const { data, error, isLoading } = useSWR<SystemMetrics | null>(
+    `${NATUREOS_API_BASE}/system/metrics`, 
+    fetcher, 
+    {
+      refreshInterval,
+      revalidateOnFocus: true,
+      onError: (err) => {
+        console.warn("System metrics fetch error:", err)
+      },
+    }
+  )
 
   return {
-    metrics: data,
+    metrics: data || null,
     isLoading,
-    isError: error,
+    isError: !!error,
     error: error?.message,
   }
 }
@@ -209,19 +227,22 @@ export function useSystemMetrics(refreshInterval = 5000) {
  * Get recent activity feed
  */
 export function useRecentActivity(limit = 10, refreshInterval = 10000) {
-  const { data, error, isLoading } = useSWR<RecentActivity[]>(
+  const { data, error, isLoading } = useSWR<RecentActivity[] | null>(
     `${NATUREOS_API_BASE}/activity/recent?limit=${limit}`,
     fetcher,
     {
       refreshInterval,
       revalidateOnFocus: true,
+      onError: (err) => {
+        console.warn("Recent activity fetch error:", err)
+      },
     },
   )
 
   return {
-    activities: data,
+    activities: data || [],
     isLoading,
-    isError: error,
+    isError: !!error,
     error: error?.message,
   }
 }

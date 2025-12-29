@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// Docker socket path or Docker API URL
-const DOCKER_SOCKET = process.env.DOCKER_HOST || "/var/run/docker.sock"
-const DOCKER_API_URL = process.env.DOCKER_API_URL || "http://host.docker.internal:2375"
+// Docker configuration - supports Windows named pipe, Unix socket, or TCP
+// Windows Docker Desktop: npipe:////./pipe/docker_engine or http://localhost:2375
+// Linux/Mac: /var/run/docker.sock or http://localhost:2375
+const DOCKER_API_URL = process.env.DOCKER_API_URL || 
+  (process.platform === "win32" ? "http://localhost:2375" : "http://host.docker.internal:2375")
+
+// Docker Hub configuration
+const DOCKER_HUB_URL = "https://hub.docker.com/v2"
+const DOCKER_HUB_USERNAME = process.env.DOCKER_HUB_USERNAME
+const DOCKER_HUB_TOKEN = process.env.DOCKER_HUB_TOKEN
 
 interface DockerContainer {
   Id: string

@@ -3,16 +3,37 @@
 MycoBrain Serial Communication Service
 Provides REST API for communicating with MycoBrain devices via USB serial.
 
+Supports both JSON (legacy) and MDP v1 (COBS + CRC16) protocols.
+Firmware repository: https://github.com/MycosoftLabs/mycobrain
+
 Run with: uvicorn mycobrain_service:app --host 0.0.0.0 --port 8765 --reload
 """
 
 import asyncio
 import json
 import time
+import os
+import sys
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 import threading
+
+# Try to import MDP v1 protocol from MAS codebase
+try:
+    # Add MAS codebase to path if available
+    mas_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "MAS", "mycosoft-mas")
+    if os.path.exists(mas_path):
+        sys.path.insert(0, mas_path)
+    from mycosoft_mas.protocols.mdp_v1 import (
+        MDPEncoder, MDPDecoder, MDPCommand, MDPTelemetry, MDPMessageType
+    )
+    MDP_AVAILABLE = True
+except ImportError:
+    print("[Warning] MDP v1 protocol not available. Using JSON mode only.")
+    MDP_AVAILABLE = False
+    MDPEncoder = None
+    MDPDecoder = None
 
 try:
     import serial
@@ -42,7 +63,7 @@ except ImportError:
 # ============== Device State ==============
 
 class MycoBrainDevice:
-    def __init__(self, port: str, baud: int = 115200):
+    def __init__(self, port: str, baud: int = 115200, use_mdp: bool = True):
         self.port = port
         self.baud = baud
         self.serial: Optional[serial.Serial] = None
@@ -54,10 +75,33 @@ class MycoBrainDevice:
         self._lock = threading.Lock()
         self._read_thread: Optional[threading.Thread] = None
         self._running = False
+        self.use_mdp = use_mdp and MDP_AVAILABLE
+        self.mdp_encoder = MDPEncoder() if MDP_AVAILABLE and use_mdp else None
+        self.mdp_decoder = MDPDecoder() if MDP_AVAILABLE and use_mdp else None
+        self._read_buffer = bytearray()  # Buffer for COBS frame assembly
         
     def connect(self) -> bool:
         try:
-            self.serial = serial.Serial(self.port, self.baud, timeout=1)
+            # Check if port exists
+            available_ports = [p.device for p in serial.tools.list_ports.comports()]
+            if self.port not in available_ports:
+                print(f"[Connection] Port {self.port} not found in available ports: {available_ports}")
+                self.connected = False
+                return False
+            
+            print(f"[Connection] Attempting to connect to {self.port} at {self.baud} baud...")
+            
+            # Try to open port - handle access denied errors
+            try:
+                self.serial = serial.Serial(self.port, self.baud, timeout=1)
+            except serial.SerialException as e:
+                error_str = str(e)
+                if "Access is denied" in error_str or "PermissionError" in error_str or "could not open port" in error_str.lower():
+                    print(f"[Connection] Port {self.port} is locked by another application.")
+                    print(f"[Connection] Close any serial monitors, Arduino IDE, PuTTY, TeraTerm, or other tools using {self.port}")
+                    raise serial.SerialException(f"Port {self.port} is in use by another application. Close serial monitors or Arduino IDE.")
+                raise
+            
             time.sleep(0.5)  # Wait for device to initialize
             self.serial.reset_input_buffer()
             self.serial.reset_output_buffer()
@@ -65,9 +109,25 @@ class MycoBrainDevice:
             self._running = True
             self._read_thread = threading.Thread(target=self._read_loop, daemon=True)
             self._read_thread.start()
+            print(f"[Connection] Successfully connected to {self.port}")
+            
+            # Send initial commands to check firmware
+            self.send_command(Commands.PING)
+            time.sleep(0.2)
+            self.send_command(Commands.GET_SENSOR_DATA)
+            time.sleep(0.2)
+            
             return True
         except serial.SerialException as e:
-            print(f"Failed to connect to {self.port}: {e}")
+            error_str = str(e)
+            if "Access is denied" in error_str or "in use" in error_str.lower():
+                print(f"[Connection] Port {self.port} access denied: {e}")
+            else:
+                print(f"[Connection] Failed to connect to {self.port}: {e}")
+            self.connected = False
+            return False
+        except Exception as e:
+            print(f"[Connection] Unexpected error connecting to {self.port}: {e}")
             self.connected = False
             return False
     
@@ -84,12 +144,62 @@ class MycoBrainDevice:
         while self._running and self.serial:
             try:
                 if self.serial.in_waiting:
-                    line = self.serial.readline().decode('utf-8', errors='replace').strip()
-                    if line:
-                        self._process_message(line)
+                    if self.use_mdp and self.mdp_decoder:
+                        # MDP v1 mode: read binary data and decode COBS frames
+                        data = self.serial.read(self.serial.in_waiting)
+                        self._read_buffer.extend(data)
+                        self._process_mdp_frames()
+                    else:
+                        # JSON mode: read text lines
+                        line = self.serial.readline().decode('utf-8', errors='replace').strip()
+                        if line:
+                            self._process_message(line)
             except Exception as e:
                 print(f"Read error: {e}")
                 time.sleep(0.1)
+    
+    def _process_mdp_frames(self):
+        """Process MDP v1 frames from read buffer"""
+        if not self.mdp_decoder:
+            return
+        
+        # Look for 0x00 frame delimiters (COBS uses 0x00 as delimiter)
+        while True:
+            delimiter_idx = self._read_buffer.find(0x00)
+            if delimiter_idx == -1:
+                # No complete frame yet
+                if len(self._read_buffer) > 1024:  # Prevent buffer overflow
+                    self._read_buffer.clear()
+                break
+            
+            # Extract frame (including delimiter)
+            frame_data = bytes(self._read_buffer[:delimiter_idx + 1])
+            self._read_buffer = self._read_buffer[delimiter_idx + 1:]
+            
+            if len(frame_data) < 2:  # Need at least delimiter
+                continue
+            
+            try:
+                # Decode MDP frame
+                frame, parsed = self.mdp_decoder.decode(frame_data)
+                
+                # Process based on message type
+                if frame.message_type == MDPMessageType.TELEMETRY:
+                    self._process_telemetry(parsed)
+                elif frame.message_type == MDPMessageType.EVENT:
+                    self._process_event(parsed)
+                elif frame.message_type == MDPMessageType.ACK:
+                    self._process_ack(parsed)
+                    
+            except Exception as e:
+                print(f"[MDP] Frame decode error: {e}")
+                # Try JSON fallback for this message
+                try:
+                    line = frame_data.decode('utf-8', errors='replace').strip()
+                    if line:
+                        self._process_message(line)
+                except:
+                    pass
     
     def _process_message(self, line: str):
         """Process incoming JSON message from MycoBrain"""
@@ -118,22 +228,79 @@ class MycoBrainDevice:
             except json.JSONDecodeError:
                 pass  # Non-JSON message
     
-    def send_command(self, cmd_id: int, dst: int = 0xA1, data: List[int] = None) -> bool:
-        """Send a command to the MycoBrain"""
+    def send_command(self, cmd_id: int, dst: int = 0xA1, data: List[int] = None, command_type: str = None) -> bool:
+        """Send a command to the MycoBrain
+        
+        Supports both MDP v1 (preferred) and JSON (fallback) protocols.
+        """
         if not self.connected or not self.serial:
             return False
         
-        cmd = {"cmd": cmd_id, "dst": dst}
-        if data:
-            cmd["data"] = data
-        
         try:
             with self._lock:
-                msg = json.dumps(cmd) + "\n"
-                self.serial.write(msg.encode('utf-8'))
+                if self.use_mdp and self.mdp_encoder:
+                    # Use MDP v1 protocol
+                    # Map command IDs to command types
+                    cmd_type_map = {
+                        0: "nop",
+                        1: "ping",
+                        2: "get_sensor_data",
+                        10: "set_neopixel",
+                        11: "neopixel_off",
+                        12: "neopixel_rainbow",
+                        20: "buzzer_beep",
+                        21: "buzzer_melody",
+                        22: "buzzer_off",
+                        30: "get_bme688_1",
+                        31: "get_bme688_2",
+                    }
+                    
+                    cmd_type = command_type or cmd_type_map.get(cmd_id, f"cmd_{cmd_id}")
+                    parameters = {}
+                    
+                    # Build parameters based on command
+                    if cmd_id == 10 and data and len(data) >= 4:  # SET_NEOPIXEL
+                        parameters = {"r": data[0], "g": data[1], "b": data[2], "brightness": data[3]}
+                    elif cmd_id == 20 and data and len(data) >= 4:  # BUZZER_BEEP
+                        frequency = (data[0] << 8) | data[1]
+                        duration = (data[2] << 8) | data[3]
+                        parameters = {"frequency": frequency, "duration_ms": duration}
+                    elif data:
+                        parameters = {"data": data}
+                    
+                    mdp_cmd = MDPCommand(
+                        command_id=cmd_id,
+                        command_type=cmd_type,
+                        parameters=parameters
+                    )
+                    
+                    # Encode and send MDP frame
+                    frame_bytes = self.mdp_encoder.encode_command(mdp_cmd)
+                    # Add frame delimiter (0x00) for COBS
+                    self.serial.write(frame_bytes + b'\x00')
+                else:
+                    # Fallback to JSON mode
+                    cmd = {"cmd": cmd_id, "dst": dst}
+                    if data:
+                        cmd["data"] = data
+                    msg = json.dumps(cmd) + "\n"
+                    self.serial.write(msg.encode('utf-8'))
+                
             return True
         except Exception as e:
             print(f"Send error: {e}")
+            # Try JSON fallback if MDP failed
+            if self.use_mdp:
+                try:
+                    cmd = {"cmd": cmd_id, "dst": dst}
+                    if data:
+                        cmd["data"] = data
+                    msg = json.dumps(cmd) + "\n"
+                    self.serial.write(msg.encode('utf-8'))
+                    print(f"[Fallback] Sent command as JSON")
+                    return True
+                except:
+                    pass
             return False
     
     def get_status(self) -> Dict[str, Any]:
@@ -169,29 +336,177 @@ class DeviceManager:
     def __init__(self):
         self.devices: Dict[str, MycoBrainDevice] = {}
         self.websockets: List[WebSocket] = []
+        self.discovered_ports: Dict[str, Dict[str, Any]] = {}  # port -> port info
+        self._discovery_running = False
+        self._discovery_thread: Optional[threading.Thread] = None
+        self._mindex_url = os.getenv("MINDEX_API_URL", "http://localhost:8000")
     
     def scan_ports(self) -> List[Dict[str, str]]:
         """Scan for available serial ports"""
         ports = []
         for port in serial.tools.list_ports.comports():
-            ports.append({
+            port_info = {
                 "port": port.device,
                 "description": port.description,
                 "hwid": port.hwid,
                 "vid": port.vid,
                 "pid": port.pid,
-            })
+            }
+            ports.append(port_info)
+            # Track discovered ports
+            self.discovered_ports[port.device] = port_info
         return ports
+    
+    def _is_mycobrain_port(self, port_info: Dict[str, Any]) -> bool:
+        """Check if a port is likely a MycoBrain device"""
+        desc = port_info.get("description", "").upper()
+        hwid = port_info.get("hwid", "").upper()
+        
+        # Check for ESP32-S3 indicators
+        esp32_indicators = ["ESP32", "CH340", "CH341", "CP210", "FTDI", "SILABS"]
+        return any(indicator in desc or indicator in hwid for indicator in esp32_indicators)
+    
+    def _discovery_loop(self):
+        """Continuous device discovery loop"""
+        import requests
+        
+        while self._discovery_running:
+            try:
+                # Scan for new ports
+                available_ports = self.scan_ports()
+                current_ports = set(self.discovered_ports.keys())
+                new_ports = set(p["port"] for p in available_ports) - current_ports
+                
+                # Try to connect to new MycoBrain-like ports
+                for port_info in available_ports:
+                    port = port_info["port"]
+                    
+                    # Skip if already connected
+                    if port in self.devices and self.devices[port].connected:
+                        continue
+                    
+                    # Auto-connect to MycoBrain-like devices
+                    if self._is_mycobrain_port(port_info) or port.startswith("COM") or "/dev/tty" in port:
+                        if port not in self.devices:
+                            print(f"[Discovery] Attempting to connect to {port}...")
+                            if self.connect_device(port):
+                                print(f"[Discovery] Successfully connected to {port}")
+                                # Register with MINDEX
+                                self._register_with_mindex(port)
+                            else:
+                                print(f"[Discovery] Failed to connect to {port}")
+                
+                # Check for disconnected devices
+                for port in list(self.devices.keys()):
+                    device = self.devices[port]
+                    if device.connected:
+                        # Verify connection is still alive
+                        try:
+                            if device.serial and not device.serial.is_open:
+                                print(f"[Discovery] Device {port} lost connection")
+                                device.connected = False
+                        except:
+                            device.connected = False
+                    else:
+                        # Try to reconnect
+                        if port in self.discovered_ports:
+                            print(f"[Discovery] Attempting to reconnect to {port}...")
+                            if self.connect_device(port):
+                                print(f"[Discovery] Reconnected to {port}")
+                
+                time.sleep(5)  # Scan every 5 seconds
+                
+            except Exception as e:
+                print(f"[Discovery] Error in discovery loop: {e}")
+                time.sleep(5)
+    
+    def _register_with_mindex(self, port: str):
+        """Register device with MINDEX"""
+        try:
+            import requests
+            device = self.devices.get(port)
+            if not device:
+                return
+            
+            device_id = f"mycobrain-{port.replace('/', '-').replace('\\', '-')}"
+            device_info = device.device_info or {}
+            
+            payload = {
+                "device_id": device_id,
+                "device_type": "mycobrain",
+                "serial_number": port,
+                "firmware_version": device_info.get("mdp_version", "1.0.0"),
+                "status": "online" if device.connected else "offline",
+                "connection_type": "usb",
+                "port": port,
+                "metadata": {
+                    "side": device_info.get("side"),
+                    "lora_status": device_info.get("lora_status"),
+                    "last_seen": device.last_message_time,
+                }
+            }
+            
+            # Try to register with MINDEX
+            try:
+                response = requests.post(
+                    f"{self._mindex_url}/api/devices/register",
+                    json=payload,
+                    timeout=2
+                )
+                if response.status_code in [200, 201]:
+                    print(f"[MINDEX] Registered device {device_id}")
+            except:
+                pass  # MINDEX not available, continue anyway
+                
+        except Exception as e:
+            print(f"[MINDEX] Failed to register device: {e}")
+    
+    def start_discovery(self):
+        """Start continuous device discovery"""
+        if not self._discovery_running:
+            self._discovery_running = True
+            self._discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
+            self._discovery_thread.start()
+            print("[Discovery] Device discovery started")
+    
+    def stop_discovery(self):
+        """Stop device discovery"""
+        self._discovery_running = False
+        if self._discovery_thread:
+            self._discovery_thread.join(timeout=2)
+        print("[Discovery] Device discovery stopped")
     
     def connect_device(self, port: str) -> bool:
         if port in self.devices and self.devices[port].connected:
+            print(f"[DeviceManager] Device {port} already connected")
             return True
         
-        device = MycoBrainDevice(port)
+        # Check if port exists
+        available_ports = [p.device for p in serial.tools.list_ports.comports()]
+        if port not in available_ports:
+            print(f"[DeviceManager] Port {port} not available. Available ports: {available_ports}")
+            return False
+        
+        print(f"[DeviceManager] Creating device connection for {port}...")
+        # Try MDP first, fallback to JSON
+        device = MycoBrainDevice(port, use_mdp=True)
         if device.connect():
             self.devices[port] = device
+            print(f"[DeviceManager] Device {port} connected successfully (MDP mode: {device.use_mdp})")
+            # Register with MINDEX
+            self._register_with_mindex(port)
             return True
-        return False
+        else:
+            # Try JSON mode as fallback
+            print(f"[DeviceManager] MDP mode failed, trying JSON mode...")
+            device = MycoBrainDevice(port, use_mdp=False)
+            if device.connect():
+                self.devices[port] = device
+                print(f"[DeviceManager] Device {port} connected successfully (JSON mode)")
+                self._register_with_mindex(port)
+                return True
+            print(f"[DeviceManager] Failed to connect device {port}")
+            return False
     
     def disconnect_device(self, port: str):
         if port in self.devices:
@@ -235,14 +550,38 @@ class CommandRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Auto-connect to COM4 if available
+    # Startup: Start continuous device discovery
+    print("[Startup] Starting MycoBrain device discovery service...")
+    device_manager.start_discovery()
+    
+    # Initial scan and connect - prioritize COM4
     ports = device_manager.scan_ports()
-    for port_info in ports:
-        if "COM4" in port_info["port"] or "/dev/ttyACM" in port_info["port"]:
-            print(f"Auto-connecting to {port_info['port']}...")
-            device_manager.connect_device(port_info["port"])
+    print(f"[Startup] Found {len(ports)} serial port(s)")
+    
+    # First, try to connect to COM4 specifically
+    com4_port = next((p for p in ports if p["port"] == "COM4"), None)
+    if com4_port:
+        print(f"[Startup] Found COM4 - attempting connection...")
+        if device_manager.connect_device("COM4"):
+            print(f"[Startup] Successfully connected to COM4!")
+        else:
+            print(f"[Startup] Failed to connect to COM4, will retry in discovery loop")
+    else:
+        print(f"[Startup] COM4 not found in available ports")
+        # Try other MycoBrain-like ports
+        for port_info in ports:
+            port = port_info["port"]
+            if device_manager._is_mycobrain_port(port_info) or ("COM" in port and port != "COM4") or "/dev/tty" in port:
+                print(f"[Startup] Auto-connecting to {port}...")
+                if device_manager.connect_device(port):
+                    print(f"[Startup] Successfully connected to {port}!")
+                    break
+    
     yield
-    # Shutdown: Disconnect all devices
+    
+    # Shutdown: Stop discovery and disconnect all devices
+    print("[Shutdown] Stopping device discovery...")
+    device_manager.stop_discovery()
     for port in list(device_manager.devices.keys()):
         device_manager.disconnect_device(port)
 
@@ -277,7 +616,12 @@ async def health_check():
 @app.get("/ports")
 async def list_ports():
     """List all available serial ports"""
-    return {"ports": device_manager.scan_ports()}
+    ports = device_manager.scan_ports()
+    # Mark which ports are MycoBrain-like
+    for port_info in ports:
+        port_info["is_mycobrain"] = device_manager._is_mycobrain_port(port_info)
+        port_info["is_connected"] = port_info["port"] in device_manager.devices and device_manager.devices[port_info["port"]].connected
+    return {"ports": ports, "discovery_running": device_manager._discovery_running}
 
 
 @app.get("/devices")
@@ -296,9 +640,70 @@ async def connect_device(port: str):
     from urllib.parse import unquote
     port = unquote(port)
     
-    if device_manager.connect_device(port):
-        return {"success": True, "message": f"Connected to {port}"}
-    raise HTTPException(status_code=500, detail=f"Failed to connect to {port}")
+    try:
+        # Try MDP first, fallback to JSON
+        if device_manager.connect_device(port, use_mdp=True):
+            # Get device info after connection
+            device = device_manager.get_device(port)
+            diagnostics = None
+            if device:
+                try:
+                    # Wait a moment for device to respond
+                    await asyncio.sleep(0.5)
+                    diagnostics = {
+                        "firmware": {
+                            "version": device.device_info.get("mdp_version", "Unknown"),
+                            "side": device.device_info.get("side", "Unknown"),
+                            "status": device.device_info.get("status", "Unknown"),
+                            "lora_initialized": device.device_info.get("lora_status") == "ok",
+                        },
+                        "capabilities": {
+                            "neopixel": True,
+                            "buzzer": True,
+                            "bme688_sensors": len([k for k in device.sensor_data.keys() if "bme688" in k.lower()]) > 0,
+                            "side_a": device.device_info.get("side") == "A",
+                            "side_b": device.device_info.get("side") == "B",
+                            "mdp_protocol": device.device_info.get("mdp_version") is not None,
+                            "lora": device.device_info.get("lora_status") is not None,
+                        },
+                        "device_info": device.device_info,
+                        "sensor_data": device.sensor_data,
+                        "protocol": "mdp_v1" if device.use_mdp else "json",
+                    }
+                except Exception as e:
+                    print(f"[Diagnostics] Error getting diagnostics: {e}")
+            
+            return {
+                "success": True, 
+                "message": f"Connected to {port}",
+                "diagnostics": diagnostics,
+            }
+        else:
+            # Try JSON mode as fallback
+            if device_manager.connect_device(port, use_mdp=False):
+                device = device_manager.get_device(port)
+                return {
+                    "success": True,
+                    "message": f"Connected to {port} (JSON mode)",
+                    "diagnostics": {
+                        "protocol": "json",
+                        "firmware": {"version": "Unknown", "side": "Unknown"},
+                    }
+                }
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to connect to {port}. Port may be in use by another application. Close any serial monitors or Arduino IDE."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "Access is denied" in error_msg or "PermissionError" in error_msg or "in use" in error_msg.lower():
+            raise HTTPException(
+                status_code=403,
+                detail=f"Port {port} is locked by another application. Please close any serial monitors, Arduino IDE, PuTTY, TeraTerm, or other tools using this port."
+            )
+        raise HTTPException(status_code=500, detail=f"Connection error: {error_msg}")
 
 
 @app.post("/devices/disconnect/{port}")
@@ -344,6 +749,58 @@ async def get_sensor_data(port: str):
         "sensors": device.sensor_data,
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.get("/devices/{port}/diagnostics")
+async def get_device_diagnostics(port: str):
+    """Get comprehensive device diagnostics including firmware version"""
+    from urllib.parse import unquote
+    port = unquote(port)
+    
+    device = device_manager.get_device(port)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Send PING to check responsiveness
+    ping_sent = device.send_command(Commands.PING)
+    
+    # Request device info
+    device.send_command(Commands.GET_SENSOR_DATA)
+    await asyncio.sleep(0.3)  # Wait for response
+    
+    device_info = device.device_info.copy()
+    sensor_data = device.sensor_data.copy()
+    
+    # Check firmware capabilities
+    capabilities = {
+        "neopixel": True,  # Assume supported if device responds
+        "buzzer": True,
+        "bme688_sensors": len([k for k in sensor_data.keys() if "bme688" in k.lower()]) > 0,
+        "side_a": device_info.get("side") == "A",
+        "side_b": device_info.get("side") == "B",
+        "mdp_protocol": device_info.get("mdp_version") is not None,
+        "lora": device_info.get("lora_status") is not None,
+    }
+    
+    diagnostics = {
+        "port": port,
+        "connected": device.connected,
+        "firmware": {
+            "version": device_info.get("mdp_version", "Unknown"),
+            "side": device_info.get("side", "Unknown"),
+            "status": device_info.get("status", "Unknown"),
+            "lora_initialized": device_info.get("lora_status", False),
+        },
+        "capabilities": capabilities,
+        "device_info": device_info,
+        "sensor_data": sensor_data,
+        "last_message": device.last_message,
+        "last_message_time": device.last_message_time,
+        "ping_sent": ping_sent,
+        "timestamp": datetime.now().isoformat(),
+    }
+    
+    return diagnostics
 
 
 @app.post("/devices/{port}/neopixel")

@@ -1,62 +1,101 @@
 import { NextResponse } from "next/server"
 
-// Fetch real network data from local MAS
-async function fetchNetworkData() {
-  const unifiApiUrl = process.env.UNIFI_DASHBOARD_API_URL || "http://host.docker.internal:3003"
+export const dynamic = "force-dynamic"
+
+// Fetch real network data from MAS and topology
+async function fetchRealNetworkData() {
+  const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
+  
   try {
-    // Try to get real data from local network API
-    const networkRes = await fetch(`${unifiApiUrl}/api/network`, {
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => null)
+    // Fetch topology and agent registry from MAS
+    const [topologyRes, agentsRes, networkRes] = await Promise.allSettled([
+      fetch(`${masUrl}/api/mas/topology`, { signal: AbortSignal.timeout(3000) }),
+      fetch(`${masUrl}/agents/registry/`, { signal: AbortSignal.timeout(3000) }),
+      fetch(`${process.env.UNIFI_DASHBOARD_API_URL || "http://localhost:3100"}/api/network`, {
+        signal: AbortSignal.timeout(3000),
+      }),
+    ])
 
-    if (networkRes?.ok) {
-      const data = await networkRes.json()
-      const clientCount = data.clients?.length || 0
-      const deviceCount = data.devices?.length || 0
+    const topologyData = topologyRes.status === "fulfilled" && topologyRes.value.ok
+      ? await topologyRes.value.json()
+      : null
+    const agentsData = agentsRes.status === "fulfilled" && agentsRes.value.ok
+      ? await agentsRes.value.json()
+      : null
+    const networkData = networkRes.status === "fulfilled" && networkRes.value.ok
+      ? await networkRes.value.json()
+      : null
 
-      return {
-        totalNodes: Math.max(clientCount + deviceCount, 50) * 47,
-        activeNodes: Math.max(clientCount, 20) * 108,
-        networkHealth: data.health?.status === "healthy" ? 95 : 75,
-        signalStrength: 87,
-        growthRate: 78,
-        nutrientFlow: 92,
-        connections: Math.max(clientCount * 500, 12543),
-        density: 1.87,
-        propagationSpeed: 3.2,
-        bioelectricActivity: 78,
-        regions: [
-          { id: "region-1", location: [-122.4194, 37.7749], density: 0.92, health: 95 },
-          { id: "region-2", location: [-74.006, 40.7128], density: 0.88, health: 91 },
-          { id: "region-3", location: [-97.7431, 30.2672], density: 0.75, health: 87 },
-        ],
+    // Calculate real network metrics
+    const nodes = topologyData?.nodes || []
+    const connections = topologyData?.connections || []
+    const activeAgents = agentsData?.active_agents || 0
+    const totalAgents = agentsData?.total_agents || 0
+    const clients = networkData?.clients || []
+    const devices = networkData?.devices || []
+
+    const totalNodes = nodes.length + clients.length + devices.length
+    const activeNodes = nodes.filter((n: any) => n.status === "online").length + 
+                       clients.filter((c: any) => c.status === "online").length +
+                       devices.filter((d: any) => d.status === "online").length
+
+    // Calculate network health based on real data
+    const onlineRatio = totalNodes > 0 ? activeNodes / totalNodes : 0
+    const networkHealth = Math.round(onlineRatio * 100)
+    const signalStrength = networkData?.signalStrength || Math.round(onlineRatio * 100)
+
+    // Get MycoBrain devices for bioelectric activity
+    let mycoBrainDevices = 0
+    try {
+      const mycoRes = await fetch(`${process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"}/devices`, {
+        signal: AbortSignal.timeout(2000),
+      })
+      if (mycoRes.ok) {
+        const mycoData = await mycoRes.json()
+        mycoBrainDevices = (mycoData.devices || []).filter((d: any) => d.connected).length
       }
+    } catch {
+      // MycoBrain service not available
+    }
+
+    return {
+      totalNodes: Math.max(totalNodes, activeAgents),
+      activeNodes: Math.max(activeNodes, activeAgents),
+      networkHealth,
+      signalStrength,
+      growthRate: Math.round(onlineRatio * 100),
+      nutrientFlow: networkHealth,
+      connections: connections.length,
+      density: totalNodes > 0 ? (connections.length / totalNodes).toFixed(2) : 0,
+      propagationSpeed: activeAgents > 0 ? 3.5 : 0,
+      bioelectricActivity: mycoBrainDevices > 0 ? 75 : 0,
+      regions: nodes.slice(0, 5).map((node: any, i: number) => ({
+        id: node.id || `region-${i + 1}`,
+        location: node.location || [-122.4194 + i * 0.1, 37.7749 + i * 0.1],
+        density: node.density || 0.8,
+        health: node.status === "online" ? 95 : 70,
+      })),
     }
   } catch (error) {
-    console.error("Failed to fetch network data:", error)
-  }
-
-  // Fallback
-  return {
-    totalNodes: 2345,
-    activeNodes: 2165,
-    networkHealth: 92,
-    signalStrength: 87,
-    growthRate: 78,
-    nutrientFlow: 92,
-    connections: 12543,
-    density: 1.87,
-    propagationSpeed: 3.2,
-    bioelectricActivity: 78,
-    regions: [
-      { id: "region-1", location: [-122.4194, 37.7749], density: 0.92, health: 95 },
-      { id: "region-2", location: [-74.006, 40.7128], density: 0.88, health: 91 },
-      { id: "region-3", location: [-97.7431, 30.2672], density: 0.75, health: 87 },
-    ],
+    console.error("Failed to fetch real network data:", error)
+    // Return minimal real data - no mock fallback
+    return {
+      totalNodes: 0,
+      activeNodes: 0,
+      networkHealth: 0,
+      signalStrength: 0,
+      growthRate: 0,
+      nutrientFlow: 0,
+      connections: 0,
+      density: 0,
+      propagationSpeed: 0,
+      bioelectricActivity: 0,
+      regions: [],
+    }
   }
 }
 
 export async function GET() {
-  const network = await fetchNetworkData()
+  const network = await fetchRealNetworkData()
   return NextResponse.json(network)
 }

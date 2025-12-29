@@ -18,9 +18,15 @@ import { EnhancedSearch } from "./enhanced-search"
 export function SearchSection() {
   const { query, setQuery, suggestions, isLoading, error, fetchSuggestions } = useSearch()
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
-  const theme = useTheme()
+  const { theme } = useTheme()
+
+  // Prevent hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!query.trim()) {
@@ -84,7 +90,7 @@ export function SearchSection() {
                   <div className="w-12 h-12 md:w-16 md:h-16">
                     <Image
                       src={
-                        theme.theme === "dark"
+                        mounted && theme === "dark"
                           ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
                           : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
                       }

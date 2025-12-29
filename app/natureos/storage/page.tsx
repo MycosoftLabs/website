@@ -86,8 +86,19 @@ interface NASInfo {
     path: string
     used: number
     total: number
+    protocol?: string
   }[]
   status?: string
+  uptime?: string
+  temperature?: number
+  raidStatus?: string
+  dreamMachine?: {
+    connected: boolean
+    ip: string
+    model?: string
+    wanSpeed?: string
+    clients?: number
+  }
 }
 
 export default function StoragePage() {
@@ -290,6 +301,42 @@ export default function StoragePage() {
         </div>
       </div>
 
+      {/* Dream Machine Network Status */}
+      {nasInfo.dreamMachine && (
+        <Card className="border-purple-500/50 bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-purple-500/20">
+                  <Wifi className="h-6 w-6 text-purple-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg">UniFi Dream Machine</span>
+                    <Badge variant="default" className="bg-purple-500">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Network Controller
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {nasInfo.dreamMachine.ip} • {nasInfo.dreamMachine.model || "UDM"}
+                    {nasInfo.dreamMachine.clients && ` • ${nasInfo.dreamMachine.clients} clients`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`https://${nasInfo.dreamMachine.ip}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    UniFi Console
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Connection Status */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* UniFi NAS Card */}
@@ -311,11 +358,19 @@ export default function StoragePage() {
                 <Settings className="h-4 w-4" />
               </Button>
             </div>
-            <CardDescription className="flex items-center gap-4">
+            <CardDescription className="flex items-center gap-4 flex-wrap">
               <span className="flex items-center gap-1">
                 <Wifi className="h-3 w-3" /> {nasInfo.ip || "192.168.1.50"}
               </span>
               <span>{nasInfo.model || "Ubiquiti NAS"}</span>
+              {nasInfo.raidStatus && (
+                <Badge variant="outline" className="text-green-500 border-green-500/50">
+                  {nasInfo.raidStatus}
+                </Badge>
+              )}
+              {nasInfo.uptime && (
+                <span className="text-xs">Up: {nasInfo.uptime}</span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>

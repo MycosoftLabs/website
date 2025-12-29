@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2 } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2, Shield, Cpu } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -19,16 +19,28 @@ import {
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
+import { useEffect, useState } from "react"
 
 export function Header() {
   const { theme } = useTheme()
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering theme-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSignOut = () => {
     signOut()
     router.push("/")
   }
+
+  // Use default logo during SSR to prevent hydration mismatch
+  const logoSrc = mounted && theme === "dark"
+    ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
+    : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
     <header className="border-b bg-background sticky top-0 z-40">
@@ -37,11 +49,7 @@ export function Header() {
           <Link href="/" className="flex items-center gap-2 font-semibold">
             <div className="relative h-8 w-8">
               <Image
-                src={
-                  theme === "dark"
-                    ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
-                    : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
-                }
+                src={logoSrc}
                 alt="Mycosoft Logo"
                 fill
                 className="object-contain"
@@ -53,11 +61,17 @@ export function Header() {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-2 mx-auto">
+        <nav className="hidden md:flex items-center gap-1 mx-auto">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/">
               <Search className="h-4 w-4 mr-2" />
               Search
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/defense">
+              <Shield className="h-4 w-4 mr-2" />
+              Defense
             </Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
@@ -68,7 +82,7 @@ export function Header() {
           </Button>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/devices">
-              <ShoppingBag className="h-4 w-4 mr-2" />
+              <Cpu className="h-4 w-4 mr-2" />
               Devices
             </Link>
           </Button>

@@ -10,14 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
 import { signIn } from "next-auth/react"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
-  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -29,8 +27,21 @@ export default function LoginPage() {
     const password = formData.get("password") as string
 
     try {
-      await login(email, password)
-      router.push("/profile")
+      const result = await signIn("credentials", { 
+        email, 
+        password, 
+        redirect: false 
+      })
+      
+      if (result?.error) {
+        setError("Invalid email or password")
+      } else if (result?.ok) {
+        // Get callback URL from query params or default to /profile
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get("callbackUrl") || "/profile"
+        router.push(callbackUrl)
+        router.refresh()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign in")
     } finally {

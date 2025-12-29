@@ -83,37 +83,90 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
   const [mapType, setMapType] = useState<"satellite" | "terrain" | "roadmap">("satellite")
   const [stats, setStats] = useState({ total: 0, species: 0, regions: 0, verified: 0 })
 
-  // Load Google Maps script
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    
-    const loadGoogleMaps = async () => {
-      if (window.google?.maps) {
-        initializeMap()
-        return
-      }
+  const updateMapOverlays = useCallback((obs: MyceliumObservation[]) => {
+    if (!mapRef.current || !window.google?.maps) return
 
-      // Check if API key is available
-      if (!GOOGLE_MAPS_API_KEY) {
-        console.warn("Google Maps API key not set. Using fallback map.")
-        setIsLoading(false)
-        return
-      }
+    // Clear existing markers
+    markersRef.current.forEach((marker) => marker.setMap(null))
+    markersRef.current = []
 
-      const script = document.createElement("script")
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=visualization,places&callback=initMap`
-      script.async = true
-      script.defer = true
-      
-      window.initMap = () => {
-        initializeMap()
-      }
-      
-      document.head.appendChild(script)
+    // Clear existing heatmap
+    if (heatmapRef.current) {
+      heatmapRef.current.setMap(null)
+      heatmapRef.current = null
     }
 
-    loadGoogleMaps()
-  }, [])
+    if (!showMarkers && !showHeatmap) return
+
+    const heatmapData: google.maps.LatLng[] = []
+
+    obs.forEach((obs) => {
+      const position = new google.maps.LatLng(obs.lat, obs.lng)
+      heatmapData.push(position)
+
+      if (showMarkers) {
+        const marker = new google.maps.Marker({
+          position,
+          map: mapRef.current!,
+          title: `${obs.species} (${obs.scientificName})`,
+          icon: {
+            url: obs.verified
+              ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiMxMGI5ODEiLz4KPHBhdGggZD0iTTkgMTJMMTIgMTVNMTIgMTVMMTUgMTIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo="
+              : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiM2YjcyODAiLz4KPC9zdmc+Cg==",
+            scaledSize: new google.maps.Size(20, 20),
+          },
+        })
+
+        marker.addListener("click", () => {
+          setSelectedObs(obs)
+        })
+
+        markersRef.current.push(marker)
+      }
+    })
+
+    if (showHeatmap && heatmapData.length > 0 && window.google.maps.visualization) {
+      heatmapRef.current = new google.maps.visualization.HeatmapLayer({
+        data: heatmapData,
+        map: mapRef.current,
+        radius: 20,
+        opacity: 0.6,
+      })
+    }
+  }, [showMarkers, showHeatmap])
+
+  const fetchObservations = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch("/api/mindex/observations?limit=500")
+      const data = await res.json()
+      const obs = data.observations || []
+      setObservations(obs)
+      
+      const uniqueSpecies = new Set(obs.map((o: MyceliumObservation) => o.scientificName))
+      const regions = new Set(obs.map((o: MyceliumObservation) => `${Math.round(o.lat / 10)},${Math.round(o.lng / 10)}`))
+      
+      setStats({
+        total: obs.length,
+        species: uniqueSpecies.size,
+        regions: regions.size,
+        verified: obs.filter((o: MyceliumObservation) => o.verified).length,
+      })
+
+      // Update map markers and heatmap - ensure map is fully loaded
+      if (mapRef.current && window.google?.maps && mapLoaded) {
+        // Small delay to ensure map is fully initialized
+        setTimeout(() => {
+          if (mapRef.current && window.google?.maps) {
+            updateMapOverlays(obs)
+          }
+        }, 100)
+      }
+    } catch (err) {
+      console.error("Failed to fetch observations:", err)
+    }
+    setIsLoading(false)
+  }, [mapLoaded, updateMapOverlays])
 
   const initializeMap = useCallback(() => {
     if (!mapContainerRef.current || mapRef.current) return
@@ -134,58 +187,71 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
     mapRef.current = map
     setMapLoaded(true)
     fetchObservations()
-  }, [])
+  }, [fetchObservations])
 
-  const fetchObservations = async () => {
-    setIsLoading(true)
-    try {
-      const res = await fetch("/api/mindex/observations?limit=500")
-      const data = await res.json()
-      const obs = data.observations || []
-      setObservations(obs)
-      
-      const uniqueSpecies = new Set(obs.map((o: MyceliumObservation) => o.scientificName))
-      const regions = new Set(obs.map((o: MyceliumObservation) => `${Math.round(o.lat / 10)},${Math.round(o.lng / 10)}`))
-      
-      setStats({
-        total: obs.length,
-        species: uniqueSpecies.size,
-        regions: regions.size,
-        verified: obs.filter((o: MyceliumObservation) => o.verified).length,
-      })
-
-      // Update map markers and heatmap
-      if (mapRef.current && window.google) {
-        updateMapOverlays(obs)
+  // Load Google Maps script using shared loader
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    
+    let mounted = true
+    
+    const loadGoogleMaps = async () => {
+      try {
+        // Use shared loader to prevent duplicate script loading
+        const { loadGoogleMaps: loadMaps } = await import("@/lib/google-maps-loader")
+        await loadMaps(["visualization", "places"])
+        
+        // Small delay to ensure maps API is fully initialized
+        if (mounted) {
+          setTimeout(() => {
+            if (mounted && mapContainerRef.current && window.google?.maps) {
+              initializeMap()
+            }
+          }, 100)
+        }
+      } catch (error) {
+        console.error("Failed to load Google Maps:", error)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
-    } catch (err) {
-      console.error("Failed to fetch observations:", err)
     }
-    setIsLoading(false)
-  }
 
-  // Fetch MycoBrain devices
+    loadGoogleMaps()
+    
+    return () => {
+      mounted = false
+    }
+  }, [initializeMap])
+
+
+  // Fetch all devices (MycoBrain + MINDEX)
   const fetchDevices = async () => {
     try {
-      const res = await fetch("/api/mycobrain")
+      // Fetch from telemetry API which includes MycoBrain + MINDEX devices
+      const res = await fetch("/api/natureos/devices/telemetry")
       const data = await res.json()
-      const mycoBrainDevices: DeviceLocation[] = (data.devices || []).map((d: { port: string; connected: boolean; sensor_data?: { bme688_1?: { temperature?: number; humidity?: number; iaq?: number } }; location?: { lat: number; lng: number } }) => ({
-        id: d.port,
-        name: `MycoBrain ${d.port}`,
+      const allDevices = Array.isArray(data) ? data : []
+      
+      const deviceLocations: DeviceLocation[] = allDevices
+        .filter((d: any) => d.deviceType === "mycobrain" && (d.status === "active" || d.connected))
+        .map((d: { deviceId: string; port?: string; deviceType: string; location?: { latitude: number; longitude: number }; metrics?: { temperature?: number; humidity?: number; iaq?: number } }) => ({
+        id: d.deviceId || d.port || "unknown",
+        name: d.deviceType === "mycobrain" ? `MycoBrain ${d.port || "Unknown"}` : d.deviceId,
         type: "mycobrain" as const,
-        location: d.location || { lat: 40.7128, lng: -74.006 }, // Default to NYC if no GPS
-        status: d.connected ? "online" as const : "offline" as const,
+        location: d.location ? { lat: d.location.latitude, lng: d.location.longitude } : { lat: 40.7128, lng: -74.006 },
+        status: (d.status === "active" || d.connected) ? "online" as const : "offline" as const,
         sensors: {
-          temperature: d.sensor_data?.bme688_1?.temperature,
-          humidity: d.sensor_data?.bme688_1?.humidity,
-          iaq: d.sensor_data?.bme688_1?.iaq,
+          temperature: d.metrics?.temperature,
+          humidity: d.metrics?.humidity,
+          iaq: d.metrics?.iaq,
         },
       }))
-      setDevices(mycoBrainDevices)
+      setDevices(deviceLocations)
       
       // Update device markers on map
       if (mapRef.current && window.google && showDevices) {
-        updateDeviceMarkers(mycoBrainDevices)
+        updateDeviceMarkers(deviceLocations)
       }
     } catch (err) {
       console.error("Failed to fetch devices:", err)
@@ -194,50 +260,70 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
 
   // Update device markers on map
   const updateDeviceMarkers = (deviceList: DeviceLocation[]) => {
-    if (!mapRef.current || !window.google) return
+    // Ensure map is fully initialized and valid
+    if (!mapRef.current || !window.google?.maps || !mapLoaded) {
+      return
+    }
+
+    // Verify mapRef.current is a valid Map instance
+    if (!(mapRef.current instanceof google.maps.Map)) {
+      return
+    }
 
     // Clear existing device markers
-    deviceMarkersRef.current.forEach(marker => marker.setMap(null))
+    deviceMarkersRef.current.forEach(marker => {
+      try {
+        marker.setMap(null)
+      } catch (e) {
+        console.warn("Error clearing device marker:", e)
+      }
+    })
     deviceMarkersRef.current = []
 
     deviceList.forEach(device => {
-      const marker = new google.maps.Marker({
-        position: { lat: device.location.lat, lng: device.location.lng },
-        map: mapRef.current,
-        icon: {
-          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-          scale: 8,
-          fillColor: device.status === "online" ? "#22c55e" : "#ef4444",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        },
-        title: device.name,
-        zIndex: 1000, // Above observation markers
-      })
+      try {
+        const marker = new google.maps.Marker({
+          position: { lat: device.location.lat, lng: device.location.lng },
+          map: mapRef.current,
+          icon: {
+            path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+            scale: 8,
+            fillColor: device.status === "online" ? "#22c55e" : "#ef4444",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          title: device.name,
+          zIndex: 1000, // Above observation markers
+        })
 
-      // Create info window for device
-      const infoContent = `
-        <div style="padding: 8px; min-width: 180px;">
-          <h3 style="margin: 0 0 8px; font-weight: bold; color: ${device.status === 'online' ? '#22c55e' : '#ef4444'}">
-            ${device.name}
-          </h3>
-          <p style="margin: 4px 0; font-size: 12px;">Status: <strong>${device.status}</strong></p>
-          ${device.sensors?.temperature ? `<p style="margin: 4px 0; font-size: 12px;">Temp: <strong>${device.sensors.temperature.toFixed(1)}°C</strong></p>` : ''}
-          ${device.sensors?.humidity ? `<p style="margin: 4px 0; font-size: 12px;">Humidity: <strong>${device.sensors.humidity.toFixed(0)}%</strong></p>` : ''}
-          ${device.sensors?.iaq ? `<p style="margin: 4px 0; font-size: 12px;">IAQ: <strong>${device.sensors.iaq}</strong></p>` : ''}
-          <p style="margin: 8px 0 0; font-size: 10px; color: #888;">
-            ${device.location.lat.toFixed(4)}, ${device.location.lng.toFixed(4)}
-          </p>
-        </div>
-      `
+        // Create info window for device
+        const infoContent = `
+          <div style="padding: 8px; min-width: 180px;">
+            <h3 style="margin: 0 0 8px; font-weight: bold; color: ${device.status === 'online' ? '#22c55e' : '#ef4444'}">
+              ${device.name}
+            </h3>
+            <p style="margin: 4px 0; font-size: 12px;">Status: <strong>${device.status}</strong></p>
+            ${device.sensors?.temperature ? `<p style="margin: 4px 0; font-size: 12px;">Temp: <strong>${device.sensors.temperature.toFixed(1)}°C</strong></p>` : ''}
+            ${device.sensors?.humidity ? `<p style="margin: 4px 0; font-size: 12px;">Humidity: <strong>${device.sensors.humidity.toFixed(0)}%</strong></p>` : ''}
+            ${device.sensors?.iaq ? `<p style="margin: 4px 0; font-size: 12px;">IAQ: <strong>${device.sensors.iaq}</strong></p>` : ''}
+            <p style="margin: 8px 0 0; font-size: 10px; color: #888;">
+              ${device.location.lat.toFixed(4)}, ${device.location.lng.toFixed(4)}
+            </p>
+          </div>
+        `
 
-      const infoWindow = new google.maps.InfoWindow({ content: infoContent })
-      marker.addListener("click", () => {
-        infoWindow.open(mapRef.current, marker)
-      })
+        const infoWindow = new google.maps.InfoWindow({ content: infoContent })
+        marker.addListener("click", () => {
+          if (mapRef.current) {
+            infoWindow.open(mapRef.current, marker)
+          }
+        })
 
-      deviceMarkersRef.current.push(marker)
+        deviceMarkersRef.current.push(marker)
+      } catch (e) {
+        console.warn("Error creating device marker:", e)
+      }
     })
   }
 
@@ -250,78 +336,27 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
     }
   }, [mapLoaded, showDevices])
 
-  const updateMapOverlays = (obs: MyceliumObservation[]) => {
-    if (!mapRef.current || !window.google) return
-
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.setMap(null))
-    markersRef.current = []
-
-    // Clear existing heatmap
-    if (heatmapRef.current) {
-      heatmapRef.current.setMap(null)
-    }
-
-    // Create heatmap data
-    const heatmapData = obs.map(o => ({
-      location: new google.maps.LatLng(o.lat, o.lng),
-      weight: o.verified ? 2 : 1,
-    }))
-
-    // Create heatmap layer
-    heatmapRef.current = new google.maps.visualization.HeatmapLayer({
-      data: heatmapData,
-      map: showHeatmap ? mapRef.current : null,
-      radius: 30,
-      opacity: 0.7,
-      gradient: [
-        "rgba(0, 255, 0, 0)",
-        "rgba(0, 255, 0, 0.2)",
-        "rgba(34, 197, 94, 0.4)",
-        "rgba(74, 222, 128, 0.6)",
-        "rgba(134, 239, 172, 0.8)",
-        "rgba(187, 247, 208, 1)",
-      ],
-    })
-
-    // Create markers
-    if (showMarkers) {
-      obs.slice(0, 200).forEach(o => {
-        const marker = new google.maps.Marker({
-          position: { lat: o.lat, lng: o.lng },
-          map: mapRef.current,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: o.verified ? "#22c55e" : "#4ade80",
-            fillOpacity: 0.8,
-            strokeColor: "#16a34a",
-            strokeWeight: 2,
-          },
-          title: o.species,
-        })
-
-        marker.addListener("click", () => {
-          setSelectedObs(o)
-        })
-
-        markersRef.current.push(marker)
-      })
-    }
-  }
-
   // Update overlays when toggles change
   useEffect(() => {
-    if (mapRef.current && window.google && observations.length > 0) {
-      if (heatmapRef.current) {
-        heatmapRef.current.setMap(showHeatmap ? mapRef.current : null)
+    if (mapRef.current && window.google?.maps && mapLoaded && observations.length > 0) {
+      // Verify mapRef.current is a valid Map instance
+      if (!(mapRef.current instanceof google.maps.Map)) {
+        return
       }
-      
-      markersRef.current.forEach(marker => {
-        marker.setMap(showMarkers ? mapRef.current : null)
-      })
+
+      try {
+        if (heatmapRef.current) {
+          heatmapRef.current.setMap(showHeatmap && mapRef.current ? mapRef.current : null)
+        }
+        
+        markersRef.current.forEach(marker => {
+          marker.setMap(showMarkers && mapRef.current ? mapRef.current : null)
+        })
+      } catch (error) {
+        console.error("Error updating overlay visibility:", error)
+      }
     }
-  }, [showHeatmap, showMarkers, observations])
+  }, [showHeatmap, showMarkers, observations, mapLoaded])
 
   // Change map type
   useEffect(() => {

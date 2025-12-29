@@ -1,101 +1,141 @@
 import { NextResponse } from "next/server"
 
-// Fetch real device telemetry
-async function fetchDeviceTelemetry() {
-  const unifiApiUrl = process.env.UNIFI_DASHBOARD_API_URL || "http://host.docker.internal:3003"
+export const dynamic = "force-dynamic"
+
+// Fetch real device telemetry from MycoBrain, MINDEX, and network
+async function fetchRealDeviceTelemetry() {
+  const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+  const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
+  
   try {
-    // Try to get real device data from local network
-    const networkRes = await fetch(`${unifiApiUrl}/api/network`, {
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => null)
+    const devices: any[] = []
+    const deviceMap = new Map<string, any>() // deviceId -> device
 
-    if (networkRes?.ok) {
-      const data = await networkRes.json()
-      const devices = data.devices || []
-      const clients = data.clients || []
-
-      return [
-        ...devices.map((device: { name: string; ip: string; mac: string; status: string }) => ({
-          deviceId: device.mac || device.name,
-          deviceType: "mushroom1" as const,
-          timestamp: new Date().toISOString(),
-          location: {
-            latitude: 37.7749 + Math.random() * 10,
-            longitude: -122.4194 + Math.random() * 10,
-          },
-          status: device.status === "online" ? "active" : "inactive",
-          metrics: {
-            batteryLevel: 85 + Math.floor(Math.random() * 15),
-            signalStrength: 80 + Math.floor(Math.random() * 20),
-            temperature: 20 + Math.random() * 5,
-          },
-        })),
-        ...clients.slice(0, 5).map((client: { name: string; mac: string; ip: string }) => ({
-          deviceId: client.mac || client.name,
-          deviceType: "sporebase" as const,
-          timestamp: new Date().toISOString(),
-          location: {
-            latitude: 40.7128 + Math.random() * 5,
-            longitude: -74.006 + Math.random() * 5,
-          },
-          status: "active",
-          metrics: {
-            batteryLevel: 90 + Math.floor(Math.random() * 10),
-            sporeCount: 1000 + Math.floor(Math.random() * 500),
-            humidity: 60 + Math.floor(Math.random() * 20),
-          },
-        })),
-      ]
+    // 1. Fetch MycoBrain devices (real connected devices from service)
+    try {
+      const mycoRes = await fetch(`${mycoBrainUrl}/devices`, {
+        signal: AbortSignal.timeout(5000),
+      })
+      
+      if (mycoRes.ok) {
+        const mycoData = await mycoRes.json()
+        const mycoDevices = mycoData.devices || []
+        
+        for (const device of mycoDevices) {
+          const deviceId = `mycobrain-${device.port?.replace(/[\/\\]/g, '-') || 'unknown'}`
+          const bme1 = device.sensor_data?.bme688_1
+          const bme2 = device.sensor_data?.bme688_2
+          
+          const deviceData = {
+            deviceId,
+            deviceType: "mycobrain" as const,
+            timestamp: device.last_message_time || new Date().toISOString(),
+            location: device.location || { latitude: 40.7128, longitude: -74.006 },
+            status: device.connected ? "active" : "inactive",
+            metrics: {
+              temperature: bme1?.temperature,
+              humidity: bme1?.humidity,
+              pressure: bme1?.pressure,
+              iaq: bme1?.iaq,
+              gasResistance: bme1?.gas_resistance,
+              sensor2: bme2 ? {
+                temperature: bme2.temperature,
+                humidity: bme2.humidity,
+                pressure: bme2.pressure,
+                iaq: bme2.iaq,
+              } : null,
+              uptime: device.device_info?.uptime,
+              loraStatus: device.device_info?.lora_status,
+            },
+            port: device.port,
+            firmware: device.device_info?.firmware || device.device_info?.mdp_version,
+            connected: device.connected,
+            lastSeen: device.last_message_time,
+          }
+          
+          devices.push(deviceData)
+          deviceMap.set(deviceId, deviceData)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch MycoBrain devices:", error)
     }
+
+    // 2. Fetch registered devices from MINDEX (includes offline devices)
+    try {
+      const mindexRes = await fetch(`${mindexUrl}/api/devices?type=mycobrain`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      
+      if (mindexRes.ok) {
+        const mindexData = await mindexRes.json()
+        const mindexDevices = mindexData.data || mindexData.devices || []
+        
+        for (const device of mindexDevices) {
+          const deviceId = device.device_id || device.id
+          
+          // Skip if already added from MycoBrain service
+          if (!deviceMap.has(deviceId)) {
+            devices.push({
+              deviceId,
+              deviceType: device.device_type || "mycobrain",
+              timestamp: device.last_seen || device.timestamp || new Date().toISOString(),
+              location: device.location || { latitude: 40.7128, longitude: -74.006 },
+              status: device.status === "online" ? "active" : "inactive",
+              metrics: device.metrics || {},
+              port: device.port || device.serial_number,
+              firmware: device.firmware_version,
+              connected: device.status === "online",
+              lastSeen: device.last_seen,
+            })
+          }
+        }
+      }
+    } catch (error) {
+      // MINDEX not available - continue with MycoBrain devices only
+      console.error("Failed to fetch MINDEX devices:", error)
+    }
+
+    // Fetch network devices (if available)
+    try {
+      const networkRes = await fetch(`${process.env.UNIFI_DASHBOARD_API_URL || "http://localhost:3100"}/api/network`, {
+        signal: AbortSignal.timeout(2000),
+      })
+      
+      if (networkRes.ok) {
+        const networkData = await networkRes.json()
+        const networkDevices = networkData.devices || []
+        
+        for (const device of networkDevices) {
+          if (device.status === "online") {
+            devices.push({
+              deviceId: device.mac || device.name,
+              deviceType: "network" as const,
+              timestamp: new Date().toISOString(),
+              location: device.location || { latitude: 37.7749, longitude: -122.4194 },
+              status: "active",
+              metrics: {
+                signalStrength: device.signalStrength || 85,
+                ipAddress: device.ip,
+                macAddress: device.mac,
+              },
+            })
+          }
+        }
+      }
+    } catch (error) {
+      // Network API not available - continue with MycoBrain devices only
+    }
+
+    return devices
   } catch (error) {
     console.error("Failed to fetch device telemetry:", error)
+    // Return empty array - no mock fallback
+    return []
   }
-
-  // Fallback to mock data
-  return [
-    {
-      deviceId: "mushroom1-sf-001",
-      deviceType: "mushroom1",
-      timestamp: new Date().toISOString(),
-      location: { latitude: 37.7749, longitude: -122.4194 },
-      status: "active",
-      metrics: {
-        batteryLevel: 87,
-        signalStrength: 92,
-        temperature: 22.5,
-        soilMoisture: 45,
-        networkConnections: 12,
-      },
-    },
-    {
-      deviceId: "sporebase-nyc-001",
-      deviceType: "sporebase",
-      timestamp: new Date().toISOString(),
-      location: { latitude: 40.7128, longitude: -74.006 },
-      status: "active",
-      metrics: {
-        batteryLevel: 94,
-        sporeCount: 1245,
-        temperature: 18.3,
-        humidity: 65,
-      },
-    },
-    {
-      deviceId: "alarm-austin-001",
-      deviceType: "alarm",
-      timestamp: new Date().toISOString(),
-      location: { latitude: 30.2672, longitude: -97.7431 },
-      status: "active",
-      metrics: {
-        batteryLevel: 78,
-        airQuality: 92,
-        temperature: 24.1,
-      },
-    },
-  ]
 }
 
 export async function GET() {
-  const telemetry = await fetchDeviceTelemetry()
+  const telemetry = await fetchRealDeviceTelemetry()
   return NextResponse.json(telemetry)
 }
