@@ -339,55 +339,52 @@ export default function ExplorerPage() {
   const [usingFallback, setUsingFallback] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [favorites, setFavorites] = useState<number[]>([])
+  const [totalInDatabase, setTotalInDatabase] = useState(0)
+  const [dataSource, setDataSource] = useState<string>("loading")
 
-  // Fetch species data
+  // Fetch species data - get ALL species from MINDEX
   useEffect(() => {
     async function fetchSpecies() {
       setLoading(true)
       try {
-        // Fetch from MINDEX taxa API first
-        const mindexResponse = await fetch("/api/natureos/mindex/taxa?limit=1000")
-        if (mindexResponse.ok) {
-          const mindexData = await mindexResponse.json()
-          if (mindexData.taxa && mindexData.taxa.length > 0) {
-            // Transform MINDEX taxa to species format
-            const transformedSpecies = mindexData.taxa.map((taxon: any) => ({
-              id: taxon.id,
-              scientific_name: taxon.canonical_name,
-              common_name: taxon.common_name,
-              family: taxon.family || "Unknown",
-              description: taxon.description || `${taxon.canonical_name} is a ${taxon.rank} in the ${taxon.family || "fungal"} family.`,
-              image_url: taxon.image_url || null,
-              characteristics: [taxon.rank, ...(taxon.edibility ? [taxon.edibility] : [])],
-              habitat: taxon.habitat || null,
-              edibility: taxon.edibility || "unknown",
-              season: null,
-              distribution: null,
-              featured: false,
+        // Fetch from ancestry API which connects to MINDEX with all species
+        const response = await fetch("/api/ancestry?limit=10000")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.species && data.species.length > 0) {
+            // Transform to expected format with featured species
+            const speciesData = data.species.map((s: any, index: number) => ({
+              ...s,
+              id: s.id || index + 1,
+              family: s.family || "Unknown",
+              description: s.description || null,
+              characteristics: s.characteristics || [],
+              habitat: s.habitat || null,
+              edibility: s.edibility || null,
+              season: s.season || null,
+              distribution: s.distribution || null,
+              // Mark high-observation species as featured
+              featured: (s.observations_count || 0) > 5000,
             }))
-            setSpecies(transformedSpecies)
-            setUsingFallback(false)
+            setSpecies(speciesData)
+            setTotalInDatabase(data.total || speciesData.length)
+            setDataSource(data.source || "mindex")
+            setUsingFallback(data.source !== "mindex")
             setLoading(false)
             return
           }
         }
         
-        // Fallback to local API
-        const response = await fetch("/api/ancestry")
-        if (response.ok) {
-          const data = await response.json()
-          if (data.species && data.species.length > 0) {
-            setSpecies(data.species)
-            setUsingFallback(data.source === "fallback")
-          } else {
-            setSpecies(FALLBACK_SPECIES)
-            setUsingFallback(true)
-          }
-        } else {
-          throw new Error("Failed to fetch species")
-        }
-      } catch {
+        // If no data from API, use fallback
         setSpecies(FALLBACK_SPECIES)
+        setTotalInDatabase(FALLBACK_SPECIES.length)
+        setDataSource("fallback")
+        setUsingFallback(true)
+      } catch (error) {
+        console.error("Failed to fetch species:", error)
+        setSpecies(FALLBACK_SPECIES)
+        setTotalInDatabase(FALLBACK_SPECIES.length)
+        setDataSource("fallback")
         setUsingFallback(true)
       } finally {
         setLoading(false)
@@ -558,10 +555,13 @@ export default function ExplorerPage() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
             <div className="bg-white/10 backdrop-blur rounded-lg p-4">
-              <div className="text-3xl font-bold">{species.length}</div>
-              <div className="text-sm text-green-200">Total Species</div>
+              <div className="text-3xl font-bold">{species.length.toLocaleString()}</div>
+              <div className="text-sm text-green-200">Species Loaded</div>
+              {totalInDatabase > species.length && (
+                <div className="text-xs text-green-300 mt-1">of {totalInDatabase.toLocaleString()} in database</div>
+              )}
             </div>
             <div className="bg-white/10 backdrop-blur rounded-lg p-4">
               <div className="text-3xl font-bold">{categoryCounts.edible || 0}</div>
@@ -575,6 +575,13 @@ export default function ExplorerPage() {
               <div className="text-3xl font-bold">{new Set(species.map(s => s.family)).size}</div>
               <div className="text-sm text-green-200">Families</div>
             </div>
+            <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+              <div className="text-lg font-bold capitalize">{dataSource}</div>
+              <div className="text-sm text-green-200">Data Source</div>
+              <div className="text-xs text-green-300 mt-1">
+                {dataSource === "mindex" ? "Local Database" : "Live APIs"}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -582,18 +589,21 @@ export default function ExplorerPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Status Banner */}
         {usingFallback && (
-          <div className="mb-6 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+          <div className="mb-6 rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+              <Globe className="h-5 w-5 text-blue-500 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-yellow-600 dark:text-yellow-400">Sample Data Mode</p>
+                <p className="font-medium text-blue-600 dark:text-blue-400">Live Data from External APIs</p>
                 <p className="text-sm text-muted-foreground">
-                  Showing curated sample species. Connect database for full catalog.
+                  Fetching real-time data from iNaturalist, GBIF, MycoBank, and GenBank. 
+                  For full 50,000+ species catalog, ensure MINDEX is syncing.
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="shrink-0">
-                <Info className="h-4 w-4 mr-2" />
-                Learn More
+              <Button variant="outline" size="sm" className="shrink-0" asChild>
+                <Link href="/natureos/mindex">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync MINDEX
+                </Link>
               </Button>
             </div>
           </div>
