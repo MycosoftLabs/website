@@ -2,7 +2,7 @@
  * MINDEX Single Taxon API Route (BFF Proxy)
  * 
  * Proxies requests to MINDEX /api/mindex/taxa/{id} endpoint
- * Accessible at: /api/natureos/mindex/taxa/{id}
+ * Returns detailed information about a specific fungal species
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -17,9 +17,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params
+    const url = `${MINDEX_API_URL}/taxa/${params.id}`
 
-    const response = await fetch(`${MINDEX_API_URL}/taxa/${id}`, {
+    const response = await fetch(url, {
       headers: {
         "X-API-Key": MINDEX_API_KEY,
         "Content-Type": "application/json",

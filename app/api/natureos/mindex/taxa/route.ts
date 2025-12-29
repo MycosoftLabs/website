@@ -2,7 +2,7 @@
  * MINDEX Taxa API Route (BFF Proxy)
  * 
  * Proxies requests to MINDEX /api/mindex/taxa endpoint
- * Accessible at: /api/natureos/mindex/taxa
+ * Returns fungal species taxonomy data
  */
 
 import { NextRequest, NextResponse } from "next/server"

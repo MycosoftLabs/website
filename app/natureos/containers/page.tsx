@@ -42,8 +42,10 @@ import {
   MoreVertical,
   FlaskConical,
   Shield,
-  Save
+  Save,
+  Database
 } from "lucide-react"
+import { MINDEXDashboard } from "@/components/natureos/mindex-dashboard"
 
 interface Container {
   id: string
@@ -104,7 +106,7 @@ export default function ContainersPage() {
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("all")
-  const [mainTab, setMainTab] = useState<"containers" | "mcp" | "images">("containers")
+  const [mainTab, setMainTab] = useState<"containers" | "mcp" | "images" | "mindex">("containers")
   const [selectedContainer, setSelectedContainer] = useState<Container | null>(null)
   const [actionDialog, setActionDialog] = useState<{ type: string; container: Container } | null>(null)
   const [logs, setLogs] = useState<string>("")
@@ -533,8 +535,8 @@ export default function ContainersPage() {
       </Card>
 
       {/* Main Tabs */}
-      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "containers" | "mcp" | "images")}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "containers" | "mcp" | "images" | "mindex")}>
+        <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
           <TabsTrigger value="containers" className="flex items-center gap-2">
             <Box className="h-4 w-4" />
             Containers ({containers.length})
@@ -542,6 +544,10 @@ export default function ContainersPage() {
           <TabsTrigger value="mcp" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             MCP Servers ({mcpServers.filter(s => s.status === "running").length})
+          </TabsTrigger>
+          <TabsTrigger value="mindex" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            MINDEX
           </TabsTrigger>
           <TabsTrigger value="images" className="flex items-center gap-2">
             <Layers className="h-4 w-4" />
@@ -878,6 +884,10 @@ export default function ContainersPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="mindex" className="mt-4">
+          <MINDEXDashboard />
         </TabsContent>
       </Tabs>
 
