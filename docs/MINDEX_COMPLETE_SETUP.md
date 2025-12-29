@@ -702,3 +702,4 @@ curl http://localhost:3000/api/natureos/mindex/stats
 **Status**: ✅ COMPLETE  
 **Data Volume**: 5,529 taxa, 2,491 observations, growing daily  
 **Repository**: C:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website
+

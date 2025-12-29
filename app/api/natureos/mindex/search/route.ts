@@ -97,3 +97,4 @@ async function searchCompounds(query: string, limit: number) {
   // For now, return empty - will be populated as compound data is added to MINDEX
   return []
 }
+
