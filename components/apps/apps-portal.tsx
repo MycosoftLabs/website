@@ -198,7 +198,7 @@ export function AppsPortal() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
         
-        <div className="container relative z-10 px-4">
+        <div className="container max-w-7xl mx-auto relative z-10 px-4">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -239,7 +239,7 @@ export function AppsPortal() {
 
       {/* Apps Grid Section */}
       <section className="py-16 bg-muted/30">
-        <div className="container px-4">
+        <div className="container px-4 max-w-7xl mx-auto">
           <Tabs defaultValue="defense" className="w-full">
             <div className="flex justify-center mb-12">
               <TabsList className="grid grid-cols-3 w-full max-w-lg">
@@ -259,13 +259,13 @@ export function AppsPortal() {
             </div>
 
             <TabsContent value="defense">
-              <div className="mb-8">
+              <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Defense & Intelligence</h2>
                 <p className="text-muted-foreground">
                   Command and control applications for operational environmental intelligence.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 {defenseApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -273,13 +273,13 @@ export function AppsPortal() {
             </TabsContent>
 
             <TabsContent value="research">
-              <div className="mb-8">
+              <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Research & Analysis</h2>
                 <p className="text-muted-foreground">
                   Scientific applications for mycology research and environmental analysis.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
                 {researchApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -287,13 +287,13 @@ export function AppsPortal() {
             </TabsContent>
 
             <TabsContent value="developer">
-              <div className="mb-8">
+              <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Developer Tools</h2>
                 <p className="text-muted-foreground">
                   APIs, SDKs, and tools for building on the Nature Compute platform.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 {developerApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -305,7 +305,7 @@ export function AppsPortal() {
 
       {/* Featured Application */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container px-4 max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-primary/10 text-primary">Featured</Badge>
@@ -359,7 +359,7 @@ export function AppsPortal() {
 
       {/* Integration Section */}
       <section className="py-24 bg-muted/30">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Platform</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -405,6 +405,8 @@ export function AppsPortal() {
     </div>
   )
 }
+
+
 
 
 

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000/api/mindex"
+const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export const dynamic = "force-dynamic"
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Forward all query parameters to MINDEX
     const searchParams = request.nextUrl.searchParams
     const queryString = searchParams.toString()
-    const url = `${MINDEX_API_URL}/observations${queryString ? `?${queryString}` : ""}`
+    const url = `${MINDEX_API_URL}/api/mindex/observations${queryString ? `?${queryString}` : ""}`
 
     const response = await fetch(url, {
       headers: {

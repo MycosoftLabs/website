@@ -345,6 +345,34 @@ export default function ExplorerPage() {
     async function fetchSpecies() {
       setLoading(true)
       try {
+        // Fetch from MINDEX taxa API first
+        const mindexResponse = await fetch("/api/natureos/mindex/taxa?limit=1000")
+        if (mindexResponse.ok) {
+          const mindexData = await mindexResponse.json()
+          if (mindexData.taxa && mindexData.taxa.length > 0) {
+            // Transform MINDEX taxa to species format
+            const transformedSpecies = mindexData.taxa.map((taxon: any) => ({
+              id: taxon.id,
+              scientific_name: taxon.canonical_name,
+              common_name: taxon.common_name,
+              family: taxon.family || "Unknown",
+              description: taxon.description || `${taxon.canonical_name} is a ${taxon.rank} in the ${taxon.family || "fungal"} family.`,
+              image_url: taxon.image_url || null,
+              characteristics: [taxon.rank, ...(taxon.edibility ? [taxon.edibility] : [])],
+              habitat: taxon.habitat || null,
+              edibility: taxon.edibility || "unknown",
+              season: null,
+              distribution: null,
+              featured: false,
+            }))
+            setSpecies(transformedSpecies)
+            setUsingFallback(false)
+            setLoading(false)
+            return
+          }
+        }
+        
+        // Fallback to local API
         const response = await fetch("/api/ancestry")
         if (response.ok) {
           const data = await response.json()
@@ -810,7 +838,7 @@ export default function ExplorerPage() {
                       src={s.image_url || "/placeholder.svg?height=208&width=300"}
                       alt={s.common_name || s.scientific_name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      onError={(e) => {
+                  onError={(e) => {
                         e.currentTarget.src = "/placeholder.svg?height=208&width=300"
                       }}
                     />
@@ -838,7 +866,7 @@ export default function ExplorerPage() {
                     >
                       <Heart className={`h-4 w-4 ${favorites.includes(s.id) ? "fill-red-500 text-red-500" : ""}`} />
                     </Button>
-                  </div>
+              </div>
                 </Link>
                 
                 <CardContent className="p-4">
@@ -871,7 +899,7 @@ export default function ExplorerPage() {
                             : ""
                         }`}
                       >
-                        {char}
+                      {char}
                       </Badge>
                     ))}
                     {s.characteristics.length > 3 && (
@@ -925,8 +953,8 @@ export default function ExplorerPage() {
                   </CardContent>
                 </Card>
               </Link>
-            ))}
-          </div>
+                  ))}
+                </div>
         )}
 
         {/* List View */}
@@ -1008,8 +1036,8 @@ export default function ExplorerPage() {
                             {char}
                           </Badge>
                         ))}
-                      </div>
-                    </div>
+              </div>
+            </div>
                     
                     <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                   </div>

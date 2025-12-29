@@ -44,6 +44,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function DefensePortal() {
   const [activeCapability, setActiveCapability] = useState("oei")
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering diagram on client
+  useState(() => {
+    setIsMounted(true)
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -67,7 +73,7 @@ export function DefensePortal() {
           transition={{ duration: 10, repeat: Infinity }}
         />
 
-        <div className="container relative z-10 text-center px-4">
+        <div className="container max-w-7xl mx-auto relative z-10 text-center px-4">
           {/* Classification Banner */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -164,7 +170,7 @@ export function DefensePortal() {
 
       {/* Problem Statement Section */}
       <section className="py-24 bg-muted/30">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <Badge className="mb-4">The Challenge</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -233,7 +239,7 @@ export function DefensePortal() {
 
       {/* OEI Solution Section */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-primary/10 text-primary">The Solution</Badge>
@@ -276,75 +282,53 @@ export function DefensePortal() {
               </div>
             </div>
 
-            {/* OEI Diagram */}
+            {/* OEI Diagram - Client-only to prevent hydration mismatch */}
             <div className="relative">
               <div className="aspect-square bg-gradient-to-br from-primary/10 via-muted to-blue-500/10 rounded-3xl p-8">
                 <div className="h-full w-full border border-primary/20 rounded-2xl relative overflow-hidden">
                   {/* Central Node */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <motion.div 
-                      className="w-32 h-32 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center"
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                    >
+                    <div className="w-32 h-32 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
                       <div className="text-center">
                         <Eye className="h-8 w-8 mx-auto text-primary" />
                         <span className="text-xs font-bold mt-1 block">NatureOS</span>
                       </div>
-                    </motion.div>
+                    </div>
                   </div>
 
-                  {/* Orbital Nodes */}
-                  {[
-                    { icon: Microscope, label: "MycoNode", angle: 0 },
-                    { icon: Wind, label: "SporeBase", angle: 72 },
-                    { icon: AlertTriangle, label: "ALARM", angle: 144 },
-                    { icon: Radar, label: "Mushroom1", angle: 216 },
-                    { icon: Database, label: "MINDEX", angle: 288 }
-                  ].map((node, index) => {
-                    const radius = 140
-                    const x = Math.cos((node.angle * Math.PI) / 180) * radius
-                    const y = Math.sin((node.angle * Math.PI) / 180) * radius
-                    return (
-                      <motion.div
-                        key={node.label}
-                        className="absolute w-16 h-16 rounded-full bg-background border-2 border-muted-foreground/30 flex flex-col items-center justify-center text-center"
-                        style={{
-                          left: `calc(50% + ${x}px - 32px)`,
-                          top: `calc(50% + ${y}px - 32px)`
-                        }}
-                        animate={{ 
-                          scale: [1, 1.1, 1],
-                          borderColor: ["hsl(var(--muted-foreground) / 0.3)", "hsl(var(--primary))", "hsl(var(--muted-foreground) / 0.3)"]
-                        }}
-                        transition={{ duration: 4, delay: index * 0.5, repeat: Infinity }}
-                      >
-                        <node.icon className="h-5 w-5" />
-                        <span className="text-[8px] font-medium mt-1">{node.label}</span>
-                      </motion.div>
-                    )
-                  })}
+                  {/* Orbital Nodes - Simplified grid layout */}
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-primary/50 flex flex-col items-center justify-center text-center">
+                    <Microscope className="h-5 w-5 text-primary" />
+                    <span className="text-[8px] font-medium mt-1">MycoNode</span>
+                  </div>
+                  
+                  <div className="absolute top-1/2 -translate-y-1/2 right-4 w-16 h-16 rounded-full bg-background border-2 border-blue-500/50 flex flex-col items-center justify-center text-center">
+                    <Wind className="h-5 w-5 text-blue-500" />
+                    <span className="text-[8px] font-medium mt-1">SporeBase</span>
+                  </div>
+                  
+                  <div className="absolute bottom-4 right-1/4 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-destructive/50 flex flex-col items-center justify-center text-center">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <span className="text-[8px] font-medium mt-1">ALARM</span>
+                  </div>
+                  
+                  <div className="absolute bottom-4 left-1/4 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-orange-500/50 flex flex-col items-center justify-center text-center">
+                    <Radar className="h-5 w-5 text-orange-500" />
+                    <span className="text-[8px] font-medium mt-1">Mushroom1</span>
+                  </div>
+                  
+                  <div className="absolute top-1/2 -translate-y-1/2 left-4 w-16 h-16 rounded-full bg-background border-2 border-purple-500/50 flex flex-col items-center justify-center text-center">
+                    <Database className="h-5 w-5 text-purple-500" />
+                    <span className="text-[8px] font-medium mt-1">MINDEX</span>
+                  </div>
 
-                  {/* Connection Lines */}
-                  <svg className="absolute inset-0 w-full h-full">
-                    {[0, 72, 144, 216, 288].map((angle) => {
-                      const radius = 140
-                      const x = Math.cos((angle * Math.PI) / 180) * radius + 50 + "%"
-                      const y = Math.sin((angle * Math.PI) / 180) * radius + 50 + "%"
-                      return (
-                        <line 
-                          key={angle}
-                          x1="50%" 
-                          y1="50%" 
-                          x2={x} 
-                          y2={y}
-                          stroke="currentColor" 
-                          strokeWidth="1" 
-                          className="text-primary/30"
-                          strokeDasharray="4 4"
-                        />
-                      )
-                    })}
+                  {/* Connection Lines - Static positions */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    <line x1="50%" y1="50%" x2="50%" y2="10%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
+                    <line x1="50%" y1="50%" x2="90%" y2="50%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
+                    <line x1="50%" y1="50%" x2="75%" y2="90%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
+                    <line x1="50%" y1="50%" x2="25%" y2="90%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
+                    <line x1="50%" y1="50%" x2="10%" y2="50%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
                   </svg>
                 </div>
               </div>
@@ -355,7 +339,7 @@ export function DefensePortal() {
 
       {/* Products/Capabilities Section */}
       <section className="py-24 bg-muted/30">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Nature Compute System</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -546,7 +530,7 @@ export function DefensePortal() {
 
       {/* Use Cases / Vignettes Section */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Operational Vignettes</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -626,7 +610,7 @@ export function DefensePortal() {
 
       {/* Intelligence Products Section */}
       <section className="py-24 bg-muted/30">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Intelligence Products</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -656,7 +640,7 @@ export function DefensePortal() {
 
       {/* Integration Section */}
       <section className="py-24">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4">Integration</Badge>
@@ -730,7 +714,7 @@ export function DefensePortal() {
 
       {/* CTA Section */}
       <section className="py-24 bg-gradient-to-b from-muted/30 to-background">
-        <div className="container px-4">
+        <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <Badge className="mb-4">Get Started</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -781,6 +765,8 @@ export function DefensePortal() {
     </div>
   )
 }
+
+
 
 
 

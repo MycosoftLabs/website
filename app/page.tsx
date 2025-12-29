@@ -10,7 +10,7 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="container mx-auto px-4 relative">
+      <div className="container max-w-7xl mx-auto px-4 relative">
         <motion.div style={{ y }}>
           <SearchSection />
         </motion.div>

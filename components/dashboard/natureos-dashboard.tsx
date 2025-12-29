@@ -393,9 +393,9 @@ export function NatureOSDashboard() {
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(systemMetrics?.storage?.used || 0).toFixed(1)} TB</div>
+                <div className="text-2xl font-bold">{Number(systemMetrics?.storage?.used || 0).toFixed(1)} TB</div>
                 <p className="text-xs text-muted-foreground">
-                  of {systemMetrics?.storage?.total || 0} TB ({systemMetrics?.storage?.percentage || 0}%)
+                  of {Number(systemMetrics?.storage?.total || 0).toFixed(1)} TB ({Number(systemMetrics?.storage?.percentage || 0).toFixed(0)}%)
                 </p>
                 <div className="mt-3">
                   <Progress value={systemMetrics?.storage?.percentage || 0} className="h-2" />
@@ -673,7 +673,7 @@ export function NatureOSDashboard() {
                     <Gauge className="h-5 w-5 text-teal-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">{(myceliumNetwork?.density || 0).toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{Number(myceliumNetwork?.density || 0).toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground">Density (g/cm³)</p>
                   </div>
                 </div>
@@ -1063,8 +1063,8 @@ export function NatureOSDashboard() {
                   <Zap className="h-4 w-4 text-blue-500" />
                   <span className="text-xs text-muted-foreground">API REQ/MIN</span>
                 </div>
-                <p className="text-2xl font-bold">{((systemMetrics?.apiRequests?.perMinute || 0) / 1000).toFixed(1)}k</p>
-                <p className="text-xs text-blue-500">{systemMetrics?.apiRequests?.successRate || 0}% success</p>
+                <p className="text-2xl font-bold">{(Number(systemMetrics?.apiRequests?.perMinute || 0) / 1000).toFixed(1)}k</p>
+                <p className="text-xs text-blue-500">{Number(systemMetrics?.apiRequests?.successRate || 0).toFixed(0)}% success</p>
               </CardContent>
             </Card>
             
@@ -1163,7 +1163,7 @@ export function NatureOSDashboard() {
                 </div>
                 {systemMetrics?.apiRequests && (
                   <div className="mt-4 text-center text-xs text-muted-foreground">
-                    {systemMetrics.apiRequests.perMinute.toLocaleString()} req/min
+                    {Number(systemMetrics.apiRequests.perMinute || 0).toLocaleString()} req/min
                   </div>
                 )}
               </CardContent>
@@ -1188,7 +1188,7 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <Cpu className="h-4 w-4" /> CPU Usage
                     </span>
-                    <span className="font-mono">{systemMetrics?.cpu?.usage?.toFixed(0) || 0}%</span>
+                    <span className="font-mono">{Number(systemMetrics?.cpu?.usage || 0).toFixed(0)}%</span>
                   </div>
                   <Progress value={systemMetrics?.cpu?.usage || 0} className="h-3" />
                 </div>
@@ -1198,7 +1198,7 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <HardDrive className="h-4 w-4" /> Memory
                     </span>
-                    <span className="font-mono">{systemMetrics?.memory?.percent?.toFixed(0) || 0}%</span>
+                    <span className="font-mono">{Number(systemMetrics?.memory?.percent || 0).toFixed(0)}%</span>
                   </div>
                   <Progress value={systemMetrics?.memory?.percent || 0} className="h-3" />
                 </div>
@@ -1208,7 +1208,7 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <Database className="h-4 w-4" /> Storage
                     </span>
-                    <span className="font-mono">{systemMetrics?.storage?.percentage?.toFixed(0) || 0}%</span>
+                    <span className="font-mono">{Number(systemMetrics?.storage?.percentage || 0).toFixed(0)}%</span>
                   </div>
                   <Progress value={systemMetrics?.storage?.percentage || 0} className="h-3" />
                 </div>
