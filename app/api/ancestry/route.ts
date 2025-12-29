@@ -1,57 +1,72 @@
 import { NextResponse } from "next/server"
 
 const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 interface MINDEXTaxon {
-  id: number
+  id: string
   canonical_name: string
-  scientific_name: string
+  scientific_name?: string
   common_name: string | null
-  family: string
-  genus: string
+  family?: string
+  genus?: string
   rank: string
   source: string
-  phylum?: string
-  class?: string
-  order_name?: string
   description?: string
-  raw_data?: string
+  metadata?: {
+    inat_id?: number
+    ancestry?: string
+    parent_id?: number
+    wikipedia_url?: string
+    observations_count?: number
+    default_photo?: {
+      url?: string
+      medium_url?: string
+    }
+    photos?: Array<{ url: string }>
+    habitat?: string
+    edibility?: string
+  }
 }
 
 // Transform MINDEX taxon to ancestry species format
-function transformToSpecies(taxon: MINDEXTaxon) {
-  const rawData = taxon.raw_data ? JSON.parse(taxon.raw_data) : {}
+function transformToSpecies(taxon: MINDEXTaxon, index: number) {
+  const metadata = taxon.metadata || {}
   
-  // Extract characteristics from raw data
+  // Extract characteristics from metadata
   const characteristics: string[] = []
   if (taxon.rank) characteristics.push(taxon.rank)
-  if (rawData.is_active === false) characteristics.push("Inactive")
-  if (rawData.observations_count > 1000) characteristics.push("Common")
-  if (rawData.observations_count > 10000) characteristics.push("Very Common")
+  if (metadata.observations_count && metadata.observations_count > 1000) characteristics.push("Common")
+  if (metadata.observations_count && metadata.observations_count > 10000) characteristics.push("Very Common")
   if (taxon.source) characteristics.push(`Source: ${taxon.source}`)
   
-  // Try to get image from raw data
+  // Try to get image from metadata
   let imageUrl = null
-  if (rawData.default_photo?.medium_url) {
-    imageUrl = rawData.default_photo.medium_url
-  } else if (rawData.default_photo?.url) {
-    imageUrl = rawData.default_photo.url.replace("square", "medium")
-  } else if (rawData.photos && rawData.photos.length > 0) {
-    imageUrl = rawData.photos[0].url
+  if (metadata.default_photo?.medium_url) {
+    imageUrl = metadata.default_photo.medium_url
+  } else if (metadata.default_photo?.url) {
+    imageUrl = metadata.default_photo.url.replace("square", "medium")
+  } else if (metadata.photos && metadata.photos.length > 0) {
+    imageUrl = metadata.photos[0].url
   }
   
+  // Extract family from ancestry if not available
+  let family = taxon.family || "Unknown"
+  
   return {
-    id: taxon.id,
+    id: index + 1, // Use numeric ID for compatibility
+    uuid: taxon.id,
     scientific_name: taxon.scientific_name || taxon.canonical_name,
     common_name: taxon.common_name,
-    family: taxon.family || "Unknown",
-    description: rawData.wikipedia_summary || rawData.description || null,
+    family,
+    description: taxon.description || null,
     image_url: imageUrl,
     characteristics,
-    habitat: rawData.habitat || null,
-    edibility: rawData.edibility || null,
+    habitat: metadata.habitat || null,
+    edibility: metadata.edibility || null,
     source: taxon.source,
-    observations_count: rawData.observations_count || 0,
+    observations_count: metadata.observations_count || 0,
+    wikipedia_url: metadata.wikipedia_url || null,
   }
 }
 
@@ -74,6 +89,7 @@ export async function GET(request: Request) {
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": MINDEX_API_KEY,
       },
       next: { revalidate: 60 }, // Cache for 60 seconds
     })
@@ -92,7 +108,7 @@ export async function GET(request: Request) {
       }
 
       if (taxa.length > 0) {
-        let species = taxa.map(transformToSpecies)
+        let species = taxa.map((taxon, index) => transformToSpecies(taxon, index))
 
         // Apply filters
         if (filter && filter !== "All") {
