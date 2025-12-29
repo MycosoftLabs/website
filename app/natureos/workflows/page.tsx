@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RefreshCw, Play, Pause, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { RefreshCw, Play, Pause, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle, Brain, Zap, Shield, Mic, Settings, FileCode } from "lucide-react"
 
 interface Workflow {
   id: string
@@ -44,12 +44,27 @@ interface N8NStatus {
   }
 }
 
+interface KnownWorkflow {
+  id: string
+  name: string
+  description: string
+  category: "myca" | "native" | "ops" | "speech" | "defense" | "other"
+  file: string
+}
+
+interface WorkflowsList {
+  total: number
+  categories: Record<string, number>
+  workflows: KnownWorkflow[]
+}
+
 export default function WorkflowsPage() {
   const [status, setStatus] = useState<N8NStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("local")
   const [importing, setImporting] = useState(false)
   const [importMessage, setImportMessage] = useState<string>("")
+  const [knownWorkflows, setKnownWorkflows] = useState<WorkflowsList | null>(null)
 
   const fetchStatus = async () => {
     setLoading(true)
@@ -66,8 +81,21 @@ export default function WorkflowsPage() {
     }
   }
 
+  const fetchKnownWorkflows = async () => {
+    try {
+      const res = await fetch("/api/natureos/n8n/workflows-list")
+      if (res.ok) {
+        const data = await res.json()
+        setKnownWorkflows(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch known workflows:", error)
+    }
+  }
+
   useEffect(() => {
     fetchStatus()
+    fetchKnownWorkflows()
     const interval = setInterval(fetchStatus, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -293,6 +321,97 @@ export default function WorkflowsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Available Workflows in Repository */}
+        {knownWorkflows && (
+          <Card className="border-dashed">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileCode className="h-5 w-5" />
+                Available Workflows in MAS Repository
+              </CardTitle>
+              <CardDescription>
+                {knownWorkflows.total} workflow definitions available for import
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Category Stats */}
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-6">
+                <div className="text-center p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <Brain className="h-4 w-4 mx-auto mb-1 text-purple-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.myca || 0}</p>
+                  <p className="text-xs text-muted-foreground">MYCA</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <Zap className="h-4 w-4 mx-auto mb-1 text-blue-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.native || 0}</p>
+                  <p className="text-xs text-muted-foreground">Native</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                  <Settings className="h-4 w-4 mx-auto mb-1 text-orange-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.ops || 0}</p>
+                  <p className="text-xs text-muted-foreground">Ops</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <Mic className="h-4 w-4 mx-auto mb-1 text-green-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.speech || 0}</p>
+                  <p className="text-xs text-muted-foreground">Speech</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <Shield className="h-4 w-4 mx-auto mb-1 text-red-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.defense || 0}</p>
+                  <p className="text-xs text-muted-foreground">Defense</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-gray-500/10 border border-gray-500/20">
+                  <FileCode className="h-4 w-4 mx-auto mb-1 text-gray-500" />
+                  <p className="text-lg font-bold">{knownWorkflows.categories.other || 0}</p>
+                  <p className="text-xs text-muted-foreground">Other</p>
+                </div>
+              </div>
+
+              {/* Workflow List */}
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {knownWorkflows.workflows.map((wf) => {
+                  const categoryIcon = {
+                    myca: <Brain className="h-4 w-4 text-purple-500" />,
+                    native: <Zap className="h-4 w-4 text-blue-500" />,
+                    ops: <Settings className="h-4 w-4 text-orange-500" />,
+                    speech: <Mic className="h-4 w-4 text-green-500" />,
+                    defense: <Shield className="h-4 w-4 text-red-500" />,
+                    other: <FileCode className="h-4 w-4 text-gray-500" />,
+                  }[wf.category]
+                  
+                  return (
+                    <div 
+                      key={wf.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card/50 hover:bg-card transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {categoryIcon}
+                        <div>
+                          <p className="font-medium text-sm">{wf.name}</p>
+                          <p className="text-xs text-muted-foreground">{wf.description}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {wf.category}
+                      </Badge>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-4 pt-4 border-t text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  To import these workflows, start n8n and run:
+                </p>
+                <code className="text-xs bg-muted p-2 rounded block">
+                  cd n8n && .\scripts\import_all_workflows.ps1
+                </code>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardShell>
   )
