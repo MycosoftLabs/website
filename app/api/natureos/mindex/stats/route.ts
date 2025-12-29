@@ -1,8 +1,8 @@
 /**
- * MINDEX Stats API Route (BFF Proxy)
+ * MINDEX Statistics API Route (BFF Proxy)
  * 
  * Proxies requests to MINDEX /api/mindex/stats endpoint
- * Accessible at: /api/natureos/mindex/stats
+ * Returns database statistics and ETL sync status
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${MINDEX_API_URL}/stats`, {
+    const url = `${MINDEX_API_URL}/stats`
+
+    const response = await fetch(url, {
       headers: {
         "X-API-Key": MINDEX_API_KEY,
         "Content-Type": "application/json",
@@ -26,8 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { 
           error: "Failed to fetch MINDEX statistics", 
-          status: response.status,
-          message: await response.text().catch(() => "Unknown error")
+          status: response.status
         },
         { status: response.status }
       )

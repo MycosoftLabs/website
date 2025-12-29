@@ -2,19 +2,21 @@
  * MINDEX Health API Route (BFF Proxy)
  * 
  * Proxies requests to MINDEX /api/mindex/health endpoint
- * Accessible at: /api/natureos/mindex/health
+ * Returns API and database health status
  */
 
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000/api/mindex"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${MINDEX_API_URL}/health`, {
+    const url = `${MINDEX_API_URL}/health`
+
+    const response = await fetch(url, {
       headers: {
         "X-API-Key": MINDEX_API_KEY,
         "Content-Type": "application/json",
@@ -25,8 +27,9 @@ export async function GET() {
     if (!response.ok) {
       return NextResponse.json(
         { 
-          error: "MINDEX health check failed", 
-          status: response.status
+          status: "unhealthy",
+          error: "Failed to fetch MINDEX health", 
+          http_status: response.status
         },
         { status: response.status }
       )
@@ -39,7 +42,6 @@ export async function GET() {
     return NextResponse.json(
       { 
         status: "unhealthy",
-        service: "mindex",
         error: "MINDEX service unavailable",
         message: error instanceof Error ? error.message : "Unknown error"
       },
