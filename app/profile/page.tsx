@@ -12,12 +12,45 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Bell, User, Settings, Shield, LogOut, Crown, Key, Zap, Server, Database, Bot, Loader2 } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
+import { useUserSettings } from "@/hooks/use-user-settings"
+import { 
+  Bell, User, Settings, Shield, LogOut, Crown, Key, Zap, Server, 
+  Database, Bot, Loader2, Check, History, RefreshCw 
+} from "lucide-react"
 
 export default function ProfilePage() {
   const { data: session, status } = useSession()
-  const [isEditing, setIsEditing] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
+  const { 
+    settings, 
+    loading: settingsLoading, 
+    saving, 
+    lastSaved,
+    updateSetting,
+    updateSettings,
+    refreshSettings,
+    loadChangelog,
+    changelog,
+  } = useUserSettings()
+  
+  const [isEditing, setIsEditing] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    displayName: "",
+    bio: "",
+  })
+  const [showChangelog, setShowChangelog] = useState(false)
+
+  // Initialize form when settings load
+  useEffect(() => {
+    if (settings?.profile) {
+      setProfileForm({
+        displayName: settings.profile.displayName || "",
+        bio: settings.profile.bio || "",
+      })
+    }
+  }, [settings?.profile])
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -30,8 +63,55 @@ export default function ProfilePage() {
     await signOut({ callbackUrl: "/login" })
   }
 
+  // Handle notification toggle
+  const handleNotificationToggle = async (key: keyof NonNullable<typeof settings>["notifications"]) => {
+    if (!settings) return
+    const newValue = !settings.notifications[key]
+    const success = await updateSetting("notifications", key, newValue)
+    if (success) {
+      toast({
+        title: "Setting saved",
+        description: `${key.replace(/([A-Z])/g, ' $1').trim()} ${newValue ? 'enabled' : 'disabled'}`,
+      })
+    }
+  }
+
+  // Handle account toggle
+  const handleAccountToggle = async (key: keyof NonNullable<typeof settings>["account"]) => {
+    if (!settings) return
+    const currentValue = settings.account[key]
+    if (typeof currentValue !== 'boolean') return
+    
+    const newValue = !currentValue
+    const success = await updateSetting("account", key, newValue)
+    if (success) {
+      toast({
+        title: "Setting saved",
+        description: `${key.replace(/([A-Z])/g, ' $1').trim()} ${newValue ? 'enabled' : 'disabled'}`,
+      })
+    }
+  }
+
+  // Handle profile save
+  const handleProfileSave = async () => {
+    const success = await updateSettings({
+      profile: {
+        displayName: profileForm.displayName,
+        bio: profileForm.bio,
+        avatar: settings?.profile.avatar || "",
+      }
+    })
+    if (success) {
+      setIsEditing(false)
+      toast({
+        title: "Profile saved",
+        description: "Your profile has been updated",
+      })
+    }
+  }
+
   // Loading state
-  if (status === "loading") {
+  if (status === "loading" || (status === "authenticated" && settingsLoading)) {
     return (
       <div className="container py-8 flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -82,6 +162,23 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground">You have full super admin access to all Mycosoft systems</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Save indicator */}
+        {(saving || lastSaved) && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {saving ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : lastSaved && (
+              <>
+                <Check className="h-3 w-3 text-green-500" />
+                <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
+              </>
+            )}
           </div>
         )}
 
@@ -162,29 +259,50 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Name</Label>
-                  <Input id="name" defaultValue={user.name || ""} disabled={!isEditing} />
+                  <Input 
+                    id="name" 
+                    value={isEditing ? profileForm.displayName || user.name || "" : (user.name || "")}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, displayName: e.target.value }))}
+                    disabled={!isEditing} 
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" defaultValue={user.email || ""} disabled />
+                  <Input id="email" value={user.email || ""} disabled />
                 </div>
                 {user.title && (
                   <div className="grid gap-2">
                     <Label htmlFor="title">Title</Label>
-                    <Input id="title" defaultValue={user.title} disabled />
+                    <Input id="title" value={user.title} disabled />
                   </div>
                 )}
                 <div className="grid gap-2">
                   <Label htmlFor="bio">Bio</Label>
                   <Textarea 
                     id="bio" 
-                    placeholder="Tell us about yourself..." 
+                    placeholder="Tell us about yourself..."
+                    value={profileForm.bio}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))}
                     disabled={!isEditing} 
                   />
                 </div>
-                <Button onClick={() => setIsEditing(!isEditing)}>
-                  {isEditing ? "Save Changes" : "Edit Profile"}
-                </Button>
+                <div className="flex gap-2">
+                  {isEditing ? (
+                    <>
+                      <Button onClick={handleProfileSave} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                        Save Changes
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsEditing(false)}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={() => setIsEditing(true)}>
+                      Edit Profile
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -239,15 +357,58 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Manage how you receive notifications</CardDescription>
+                <CardDescription>Manage how you receive notifications. Changes are saved automatically.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {["Email notifications", "Push notifications", "Device alerts", "Weekly reports"].map((item) => (
-                  <div key={item} className="flex items-center justify-between py-2">
-                    <Label htmlFor={item}>{item}</Label>
-                    <Switch id={item} defaultChecked />
-                  </div>
-                ))}
+                {settings && (
+                  <>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="emailNotifications">Email notifications</Label>
+                      <Switch 
+                        id="emailNotifications"
+                        checked={settings.notifications.emailNotifications}
+                        onCheckedChange={() => handleNotificationToggle("emailNotifications")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="pushNotifications">Push notifications</Label>
+                      <Switch 
+                        id="pushNotifications"
+                        checked={settings.notifications.pushNotifications}
+                        onCheckedChange={() => handleNotificationToggle("pushNotifications")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="deviceAlerts">Device alerts</Label>
+                      <Switch 
+                        id="deviceAlerts"
+                        checked={settings.notifications.deviceAlerts}
+                        onCheckedChange={() => handleNotificationToggle("deviceAlerts")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="weeklyReports">Weekly reports</Label>
+                      <Switch 
+                        id="weeklyReports"
+                        checked={settings.notifications.weeklyReports}
+                        onCheckedChange={() => handleNotificationToggle("weeklyReports")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="securityAlerts">Security alerts</Label>
+                      <Switch 
+                        id="securityAlerts"
+                        checked={settings.notifications.securityAlerts}
+                        onCheckedChange={() => handleNotificationToggle("securityAlerts")}
+                        disabled={saving}
+                      />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -275,18 +436,106 @@ export default function ProfilePage() {
           <TabsContent value="settings" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Account Settings</CardTitle>
-                <CardDescription>Manage your account preferences</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Account Settings</CardTitle>
+                    <CardDescription>Manage your account preferences. Changes are saved automatically.</CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setShowChangelog(!showChangelog)
+                      if (!showChangelog) loadChangelog()
+                    }}
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    {showChangelog ? "Hide History" : "View History"}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {["Dark mode", "Compact view", "Beta features", "Analytics sharing"].map((item) => (
-                  <div key={item} className="flex items-center justify-between py-2">
-                    <Label htmlFor={item}>{item}</Label>
-                    <Switch id={item} />
-                  </div>
-                ))}
+                {settings && (
+                  <>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="darkMode">Dark mode</Label>
+                      <Switch 
+                        id="darkMode"
+                        checked={settings.account.darkMode}
+                        onCheckedChange={() => handleAccountToggle("darkMode")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="compactView">Compact view</Label>
+                      <Switch 
+                        id="compactView"
+                        checked={settings.account.compactView}
+                        onCheckedChange={() => handleAccountToggle("compactView")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="betaFeatures">Beta features</Label>
+                      <Switch 
+                        id="betaFeatures"
+                        checked={settings.account.betaFeatures}
+                        onCheckedChange={() => handleAccountToggle("betaFeatures")}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <Label htmlFor="analyticsSharing">Analytics sharing</Label>
+                      <Switch 
+                        id="analyticsSharing"
+                        checked={settings.account.analyticsSharing}
+                        onCheckedChange={() => handleAccountToggle("analyticsSharing")}
+                        disabled={saving}
+                      />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
+
+            {/* Settings Changelog */}
+            {showChangelog && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Settings History</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={loadChangelog}>
+                      <RefreshCw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {changelog.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
+                  ) : (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {changelog.map((change) => (
+                        <div key={change.id} className="text-sm border-b pb-2">
+                          <div className="flex justify-between items-start">
+                            <span className="font-medium">
+                              {change.category}.{change.key}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(change.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-muted-foreground">
+                            <span className="text-red-500">{String(change.oldValue)}</span>
+                            {" → "}
+                            <span className="text-green-500">{String(change.newValue)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {isAdmin && (
