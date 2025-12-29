@@ -75,11 +75,12 @@ export async function GET(request: Request) {
   const query = searchParams.get("query")?.toLowerCase()
   const filter = searchParams.get("filter")
   const category = searchParams.get("category")
-  const limit = parseInt(searchParams.get("limit") || "100")
+  const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 10000)
+  const page = parseInt(searchParams.get("page") || "1")
 
   try {
     // First, try to get data from MINDEX
-    let url = `${MINDEX_API_URL}/api/mindex/taxa?per_page=${limit}`
+    let url = `${MINDEX_API_URL}/api/mindex/taxa?per_page=${limit}&page=${page}`
     
     if (query) {
       // Use search endpoint for queries
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
       }
 
       if (taxa.length > 0) {
-        let species = taxa.map((taxon, index) => transformToSpecies(taxon, index))
+        let species = taxa.map((taxon, index) => transformToSpecies(taxon, (page - 1) * limit + index))
 
         // Apply filters
         if (filter && filter !== "All") {
@@ -135,8 +136,14 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
           species,
-          total: species.length,
+          total: data.total || species.length,
+          page,
+          pages: data.pages || Math.ceil((data.total || species.length) / limit),
           source: "mindex",
+          database_stats: {
+            total_taxa: data.total,
+            per_page: limit,
+          }
         })
       }
     }
