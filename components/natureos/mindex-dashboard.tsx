@@ -110,12 +110,29 @@ interface DockerContainer {
   health?: string
 }
 
+interface ETLStatus {
+  status: string
+  sync_interval_hours: number
+  max_records_per_source: number
+  recent_syncs: Array<{
+    source: string
+    data_type: string
+    records_count: number
+    errors_count: number
+    completed_at: string
+    status: string
+  }>
+  available_sources: string[]
+}
+
 export function MINDEXDashboard() {
   const [health, setHealth] = useState<MINDEXHealth | null>(null)
   const [stats, setStats] = useState<MINDEXStats | null>(null)
   const [taxa, setTaxa] = useState<Taxon[]>([])
   const [observations, setObservations] = useState<Observation[]>([])
   const [containers, setContainers] = useState<DockerContainer[]>([])
+  const [etlStatus, setEtlStatus] = useState<ETLStatus | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTaxon, setSelectedTaxon] = useState<Taxon | null>(null)
@@ -192,6 +209,46 @@ export function MINDEXDashboard() {
     }
   }, [])
 
+  // Fetch ETL status
+  const fetchETLStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/natureos/mindex/sync")
+      if (res.ok) {
+        const data = await res.json()
+        setEtlStatus(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch ETL status:", error)
+    }
+  }, [])
+
+  // Trigger sync
+  const triggerSync = useCallback(async (sources?: string[]) => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch("/api/natureos/mindex/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sources, limit: 10000 }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        // Refresh stats after a delay
+        setTimeout(() => {
+          fetchStats()
+          fetchETLStatus()
+          setIsSyncing(false)
+        }, 2000)
+      } else {
+        console.error("Sync failed:", data)
+        setIsSyncing(false)
+      }
+    } catch (error) {
+      console.error("Failed to trigger sync:", error)
+      setIsSyncing(false)
+    }
+  }, [fetchStats])
+
   // Initial load
   useEffect(() => {
     const loadAll = async () => {
@@ -201,7 +258,8 @@ export function MINDEXDashboard() {
         fetchStats(),
         fetchTaxa(),
         fetchObservations(),
-        fetchContainers()
+        fetchContainers(),
+        fetchETLStatus()
       ])
       setIsLoading(false)
     }
@@ -213,10 +271,11 @@ export function MINDEXDashboard() {
       fetchStats()
       fetchObservations()
       fetchContainers()
+      fetchETLStatus()
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [fetchHealth, fetchStats, fetchTaxa, fetchObservations, fetchContainers])
+  }, [fetchHealth, fetchStats, fetchTaxa, fetchObservations, fetchContainers, fetchETLStatus])
 
   // Search taxa
   useEffect(() => {
@@ -693,6 +752,82 @@ export function MINDEXDashboard() {
 
         {/* Data Pipeline Tab */}
         <TabsContent value="data" className="space-y-6">
+          {/* Sync Control Panel */}
+          <Card className="border-blue-500/50 bg-blue-500/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-blue-500" />
+                    Data Sync Control
+                  </CardTitle>
+                  <CardDescription>
+                    Trigger manual sync from external fungal databases
+                  </CardDescription>
+                </div>
+                <Button 
+                  onClick={() => triggerSync()}
+                  disabled={isSyncing}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isSyncing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync All Sources
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-5">
+                {(etlStatus?.available_sources || ["iNaturalist", "GBIF", "MycoBank", "FungiDB", "GenBank"]).map((source) => (
+                  <Button
+                    key={source}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => triggerSync([source])}
+                    disabled={isSyncing}
+                    className="justify-start"
+                  >
+                    <Globe className="h-4 w-4 mr-2" />
+                    {source}
+                  </Button>
+                ))}
+              </div>
+              {etlStatus?.recent_syncs && etlStatus.recent_syncs.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="text-sm font-medium mb-2">Recent Syncs</div>
+                  <div className="space-y-2">
+                    {etlStatus.recent_syncs.slice(0, 3).map((sync, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{sync.source}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {sync.records_count.toLocaleString()} records
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={sync.status === "completed" ? "default" : "secondary"}>
+                            {sync.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(sync.completed_at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -921,8 +1056,20 @@ export function MINDEXDashboard() {
                   </div>
                 ))}
                 {containers.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No MINDEX containers found
+                  <div className="text-center py-8 space-y-4">
+                    <div className="text-muted-foreground">
+                      No MINDEX containers found
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <p className="mb-2">Start MINDEX with Docker:</p>
+                      <code className="bg-muted px-3 py-2 rounded block max-w-md mx-auto">
+                        docker-compose -f docker-compose.mindex.yml up -d
+                      </code>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={fetchContainers}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Check Again
+                    </Button>
                   </div>
                 )}
               </div>
