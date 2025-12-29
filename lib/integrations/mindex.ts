@@ -19,11 +19,14 @@ import type {
 } from "./types"
 
 // Create MINDEX HTTP client
+// MINDEX uses X-API-Key header instead of Bearer token
 const mindexClient = createHttpClient({
   baseUrl: env.mindexApiBaseUrl,
-  apiKey: env.mindexApiKey,
   timeout: 15000,
   retries: 2,
+  headers: {
+    "X-API-Key": env.mindexApiKey || "",
+  },
 })
 
 // ============================================
