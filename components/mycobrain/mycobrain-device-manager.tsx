@@ -277,6 +277,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         const ports = portsData.ports || []
         
         // Find MycoBoard devices that aren't connected yet
+        // Be more permissive - try to connect to ANY serial port that's not already connected
         const mycoboardPorts = ports.filter((p: any) => {
           const portKey = p.path || p.port || p.id
           if (!portKey) return false
@@ -284,21 +285,27 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           // Check if already connected
           if (connectedDevicePorts.has(portKey)) return false
           
-          // Check if it's a MycoBoard device (USB-C, COM ports, ttyACM, etc.)
-          const isMycoBoard = 
+          // Accept ANY serial port - be very permissive for auto-discovery
+          // This will try to connect to any available port
+          const isSerialPort = 
             p.is_mycobrain ||
             portKey.startsWith("COM") ||
-            portKey.startsWith("/dev/ttyACM") ||
-            portKey.startsWith("/dev/ttyUSB") ||
+            portKey.startsWith("/dev/tty") ||
+            portKey.startsWith("/dev/cu.") ||
             (p.description && (
+              p.description.toLowerCase().includes("serial") ||
+              p.description.toLowerCase().includes("usb") ||
               p.description.toLowerCase().includes("ch340") ||
               p.description.toLowerCase().includes("cp210") ||
               p.description.toLowerCase().includes("ftdi") ||
               p.description.toLowerCase().includes("esp32") ||
-              p.description.toLowerCase().includes("mycoboard")
-            ))
+              p.description.toLowerCase().includes("mycoboard") ||
+              p.description.toLowerCase().includes("uart")
+            )) ||
+            // If no description, still try it if it looks like a serial port
+            (portKey.match(/^(COM\d+|tty[A-Z]+\d+|cu\.[a-z]+)/i))
           
-          return isMycoBoard
+          return isSerialPort
         })
         
         // Auto-connect to first unconnected MycoBoard device
@@ -309,12 +316,19 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           if (portKey && !connectedPortsRef.current.has(portKey)) {
             // Silently attempt connection (don't show scanning state)
             try {
+              // Try connecting via the API route
               const connectRes = await fetch("/api/mycobrain", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "connect", port: portKey }),
-                signal: AbortSignal.timeout(10000),
+                signal: AbortSignal.timeout(15000),
               })
+              
+              if (!connectRes.ok) {
+                // If connection failed, log for debugging but don't spam
+                console.debug(`Auto-connect attempt failed for ${portKey}: ${connectRes.status}`)
+                return
+              }
               
               const result = await connectRes.json()
               
@@ -323,9 +337,27 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                 connectedPortsRef.current.add(portKey)
                 await refresh()
                 logToConsole(`✓ Auto-connected to MycoBoard on ${portKey}`)
+                
+                // Also trigger auto-registration
+                try {
+                  await fetch(`/api/mycobrain/${encodeURIComponent(portKey)}/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      device_id: portKey,
+                      port: portKey,
+                      serial_number: `AUTO-${Date.now()}`,
+                      firmware_version: "1.0.0"
+                    }),
+                    signal: AbortSignal.timeout(5000),
+                  }).catch(() => {}) // Best effort
+                } catch {}
+              } else {
+                console.debug(`Connection result for ${portKey}:`, result.status || result.error)
               }
             } catch (error) {
               // Silently fail - port might be locked or device not ready
+              console.debug(`Auto-connect error for ${portKey}:`, error)
             }
           }
         }
