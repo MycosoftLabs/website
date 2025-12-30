@@ -166,6 +166,9 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     }
   }
 
+  // Track connected ports to avoid duplicate connections
+  const connectedPortsRef = useRef<Set<string>>(new Set())
+
   // Check service status and fetch available ports
   useEffect(() => {
     const checkService = async () => {
@@ -240,6 +243,106 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     const interval = setInterval(checkService, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
   }, [])
+
+  // Continuous auto-scanning for MycoBoard devices (every 5 seconds)
+  useEffect(() => {
+    if (serviceStatus !== "online") return // Only scan when service is online
+    
+    const autoScanAndConnect = async () => {
+      try {
+        // Get currently connected devices
+        const devicesRes = await fetch("/api/mycobrain/devices", {
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => null)
+        
+        const connectedDevicePorts = new Set<string>()
+        if (devicesRes?.ok) {
+          const devicesData = await devicesRes.json()
+          devicesData.devices?.forEach((d: any) => {
+            if (d.port) connectedDevicePorts.add(d.port)
+          })
+        }
+        
+        // Update connected ports ref
+        connectedPortsRef.current = connectedDevicePorts
+        
+        // Get available ports
+        const portsRes = await fetch("/api/mycobrain/ports", {
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => null)
+        
+        if (!portsRes?.ok) return
+        
+        const portsData = await portsRes.json()
+        const ports = portsData.ports || []
+        
+        // Find MycoBoard devices that aren't connected yet
+        const mycoboardPorts = ports.filter((p: any) => {
+          const portKey = p.path || p.port || p.id
+          if (!portKey) return false
+          
+          // Check if already connected
+          if (connectedDevicePorts.has(portKey)) return false
+          
+          // Check if it's a MycoBoard device (USB-C, COM ports, ttyACM, etc.)
+          const isMycoBoard = 
+            p.is_mycobrain ||
+            portKey.startsWith("COM") ||
+            portKey.startsWith("/dev/ttyACM") ||
+            portKey.startsWith("/dev/ttyUSB") ||
+            (p.description && (
+              p.description.toLowerCase().includes("ch340") ||
+              p.description.toLowerCase().includes("cp210") ||
+              p.description.toLowerCase().includes("ftdi") ||
+              p.description.toLowerCase().includes("esp32") ||
+              p.description.toLowerCase().includes("mycoboard")
+            ))
+          
+          return isMycoBoard
+        })
+        
+        // Auto-connect to first unconnected MycoBoard device
+        if (mycoboardPorts.length > 0 && !scanning) {
+          const targetPort = mycoboardPorts[0]
+          const portKey = targetPort.path || targetPort.port || targetPort.id
+          
+          if (portKey && !connectedPortsRef.current.has(portKey)) {
+            // Silently attempt connection (don't show scanning state)
+            try {
+              const connectRes = await fetch("/api/mycobrain", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "connect", port: portKey }),
+                signal: AbortSignal.timeout(10000),
+              })
+              
+              const result = await connectRes.json()
+              
+              if (result.success || result.status === "connected" || result.status === "already_connected") {
+                // Successfully connected - refresh device list
+                connectedPortsRef.current.add(portKey)
+                await refresh()
+                logToConsole(`✓ Auto-connected to MycoBoard on ${portKey}`)
+              }
+            } catch (error) {
+              // Silently fail - port might be locked or device not ready
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - this runs continuously
+      }
+    }
+    
+    // Initial scan after 2 seconds, then every 5 seconds
+    const initialTimeout = setTimeout(autoScanAndConnect, 2000)
+    const interval = setInterval(autoScanAndConnect, 5000)
+    
+    return () => {
+      clearTimeout(initialTimeout)
+      clearInterval(interval)
+    }
+  }, [serviceStatus, scanning, refresh])
 
   // Stream serial data when device is connected and monitoring is enabled
   useEffect(() => {
