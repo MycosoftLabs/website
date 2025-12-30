@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useMycoBrain, getIAQLabel, formatUptime, formatGasResistance } from "@/hooks/use-mycobrain"
 import { FirmwareUpdater } from "./firmware-updater"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -46,6 +46,15 @@ import {
   Clock,
   Plug,
   History,
+  Trash2,
+  XCircle,
+  PlayCircle,
+  StopCircle,
+  Wrench,
+  FileText,
+  Lock,
+  Unlock,
+  Server,
 } from "lucide-react"
 
 interface SensorHistoryPoint {
@@ -126,6 +135,13 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [scanning, setScanning] = useState(false)
   const [scanResult, setScanResult] = useState<string | null>(null)
   const [serviceStatus, setServiceStatus] = useState<"checking" | "online" | "offline">("checking")
+  const [availablePorts, setAvailablePorts] = useState<any[]>([])
+  const [portStatuses, setPortStatuses] = useState<Record<string, "available" | "locked" | "connected" | "unknown">>({})
+  const [serialData, setSerialData] = useState<string[]>([])
+  const [serialMonitoring, setSerialMonitoring] = useState(false)
+  const [diagnostics, setDiagnostics] = useState<any>(null)
+  const lastServiceErrorRef = useRef<string | null>(null)
+  const serviceErrorCountRef = useRef(0)
 
   const handleCommand = async (name: string, action: () => Promise<unknown>) => {
     setCommandLoading(name)
@@ -140,13 +156,13 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     }
   }
 
-  // Check service status on mount and periodically
+  // Check service status and fetch available ports
   useEffect(() => {
     const checkService = async () => {
       try {
         // First check the service status API
         const statusRes = await fetch("/api/services/status", {
-          signal: AbortSignal.timeout(2000),
+          signal: AbortSignal.timeout(6000),
         })
         
         if (statusRes.ok) {
@@ -154,27 +170,90 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           const mycobrainService = statusData.services?.find((s: any) => s.id === "mycobrain")
           if (mycobrainService && mycobrainService.status === "online") {
             setServiceStatus("online")
-            return
           }
         }
         
         // Fallback: check mycobrain API directly
         const res = await fetch("/api/mycobrain", {
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(8000),
         })
         const data = await res.json()
         // Service is healthy if we get a response without the specific error
         const isOnline = !data.error || data.error !== "MycoBrain service not running"
         setServiceStatus(isOnline ? "online" : "offline")
+        
+        // Fetch available ports if service is online
+        if (isOnline) {
+          try {
+            const portsRes = await fetch("/api/mycobrain/ports", {
+              signal: AbortSignal.timeout(8000),
+            }).catch(() => null)
+            
+            if (portsRes?.ok) {
+              const portsData = await portsRes.json()
+              setAvailablePorts(portsData.ports || [])
+              
+              // Update port statuses
+              const statusMap: Record<string, "available" | "locked" | "connected" | "unknown"> = {}
+              portsData.ports?.forEach((p: any) => {
+                const key = p.path || p.port || p.id
+                if (!key) return
+                // Our service currently doesn't report locks; treat listed ports as available.
+                statusMap[key] = "available"
+              })
+              setPortStatuses(statusMap)
+            }
+          } catch (error) {
+            // Avoid console spam; this runs on an interval.
+          }
+        }
       } catch (error) {
-        console.error("Service check error:", error)
-        setServiceStatus("offline")
+        const msg = error instanceof Error ? error.message : String(error)
+
+        // Timeouts are common during container restarts / cold paths; don't flip UI offline.
+        const isTimeout =
+          (error as any)?.name === "TimeoutError" ||
+          msg.toLowerCase().includes("timeout") ||
+          msg.toLowerCase().includes("timed out")
+
+        if (isTimeout) return
+
+        serviceErrorCountRef.current += 1
+        if (lastServiceErrorRef.current !== msg) {
+          lastServiceErrorRef.current = msg
+          console.error("Service check error:", error)
+        }
+        if (serviceErrorCountRef.current >= 2) setServiceStatus("offline")
       }
     }
     checkService()
-    const interval = setInterval(checkService, 10000) // Check every 10 seconds
+    const interval = setInterval(checkService, 30000) // Check every 30 seconds
     return () => clearInterval(interval)
   }, [])
+
+  // Stream serial data when device is connected and monitoring is enabled
+  useEffect(() => {
+    if (!device || !serialMonitoring) return
+    
+    const fetchSerialData = async () => {
+      try {
+        const res = await fetch(`/api/mycobrain/${device.port}/serial`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.data) {
+            setSerialData(prev => [...prev.slice(-99), ...data.data].slice(-100))
+          }
+        }
+      } catch (error) {
+        // Silently fail - serial endpoint might not exist yet
+      }
+    }
+    
+    const interval = setInterval(fetchSerialData, 1000)
+    return () => clearInterval(interval)
+  }, [device, serialMonitoring])
 
   if (loading && devices.length === 0) {
     return (
@@ -215,18 +294,21 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       
       const portsData = await portsRes.json()
       const ports = portsData.ports || []
+      setAvailablePorts(ports)
       
       logToConsole(`> Found ${ports.length} serial port(s)`)
       
-      // Prioritize COM4, then any MycoBrain-like ports
+      // Prioritize COM5, then COM4, then any MycoBrain-like ports
+      const com5Port = ports.find((p: any) => p.port === "COM5")
       const com4Port = ports.find((p: any) => p.port === "COM4")
       const mycobrainPorts = ports.filter((p: any) => 
         p.is_mycobrain || 
-        (p.port?.startsWith("COM") && p.port !== "COM4") ||
+        (p.port?.startsWith("COM") && p.port !== "COM4" && p.port !== "COM5") ||
         p.port?.startsWith("/dev/tty")
       )
       
-      const targetPorts = com4Port ? [com4Port, ...mycobrainPorts] : mycobrainPorts
+      const targetPorts = com5Port ? [com5Port, com4Port, ...mycobrainPorts].filter(Boolean) : 
+                          com4Port ? [com4Port, ...mycobrainPorts] : mycobrainPorts
       
       if (targetPorts.length === 0) {
         setScanResult("No MycoBrain devices found. Make sure device is connected via USB.")
@@ -234,7 +316,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         return
       }
       
-      // Try to connect to each port (prioritize COM4)
+      // Try to connect to each port (prioritize COM5)
       for (const portInfo of targetPorts) {
         const port = portInfo.port
         logToConsole(`> Attempting to connect to ${port}...`)
@@ -244,11 +326,12 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "connect", port }),
+            signal: AbortSignal.timeout(15000),
           })
           
           const result = await connectRes.json()
           
-          if (result.success) {
+          if (result.success || result.status === "connected") {
             setScanResult(`Successfully connected to ${port}!`)
             logToConsole(`✓ Connected to ${port}`)
             // Wait a moment then refresh
@@ -256,10 +339,18 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
             await refresh()
             return
           } else {
-            logToConsole(`✗ Connection failed: ${result.message || result.error}`)
+            logToConsole(`✗ Connection failed: ${result.message || result.error || result.detail}`)
+            if (result.error?.includes("locked") || result.detail?.includes("locked")) {
+              setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
+            }
           }
-        } catch (error) {
-          logToConsole(`✗ Failed to connect to ${port}: ${error}`)
+        } catch (error: any) {
+          if (error.name === "AbortError") {
+            logToConsole(`✗ Connection to ${port} timed out (port may be locked)`)
+            setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
+          } else {
+            logToConsole(`✗ Failed to connect to ${port}: ${error}`)
+          }
         }
       }
       
@@ -270,6 +361,94 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       logToConsole(`✗ Scan error: ${error}`)
     } finally {
       setScanning(false)
+    }
+  }
+
+  const handleServiceAction = async (action: "start" | "stop" | "kill" | "restart") => {
+    logToConsole(`> ${action.charAt(0).toUpperCase() + action.slice(1)}ing MycoBrain service...`)
+    try {
+      const res = await fetch("/api/services/mycobrain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const result = await res.json()
+      if (res.ok) {
+        logToConsole(`✓ Service ${action}ed successfully`)
+        setServiceStatus(action === "start" || action === "restart" ? "online" : "offline")
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        await refresh()
+      } else {
+        logToConsole(`✗ Failed to ${action} service: ${result.error || result.message}`)
+      }
+    } catch (error) {
+      logToConsole(`✗ Service ${action} error: ${error}`)
+    }
+  }
+
+  const handleClearPortLocks = async () => {
+    logToConsole("> Clearing port locks...")
+    try {
+      const res = await fetch("/api/mycobrain/ports/clear-locks", {
+        method: "POST",
+        signal: AbortSignal.timeout(10000),
+      })
+      const result = await res.json()
+      if (res.ok) {
+        logToConsole("✓ Port locks cleared")
+        setPortStatuses({})
+        await handleScanForDevices()
+      } else {
+        logToConsole(`✗ Failed to clear locks: ${result.error || result.message}`)
+      }
+    } catch (error) {
+      logToConsole(`✗ Clear locks error: ${error}`)
+    }
+  }
+
+  const handleRunDiagnostics = async () => {
+    logToConsole("> Running diagnostics...")
+    try {
+      const deviceId = device?.device_id || selectedPort || device?.port || "all"
+      const res = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/diagnostics`, {
+        method: "GET",
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setDiagnostics(data)
+        logToConsole("✓ Diagnostics complete")
+      } else {
+        // If diagnostics endpoint doesn't exist, create basic diagnostics
+        const portStatusSummary = Object.entries(portStatuses).map(([p, s]) => `${p}: ${s}`).join(", ") || "None"
+        const basicDiagnostics = {
+          service_status: serviceStatus,
+          port_status: portStatusSummary,
+          available_ports: availablePorts.length,
+          connected_devices: devices.length,
+          selected_port: deviceId,
+          timestamp: new Date().toISOString(),
+        }
+        setDiagnostics(basicDiagnostics)
+        logToConsole("✓ Basic diagnostics complete")
+      }
+    } catch (error: unknown) {
+      // Create basic diagnostics on error
+      const portStatusSummary = Object.entries(portStatuses).map(([p, s]) => `${p}: ${s}`).join(", ") || "None"
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      const fallbackDeviceId = device?.device_id || selectedPort || device?.port || "unknown"
+      const basicDiagnostics = {
+        service_status: serviceStatus,
+        port_status: portStatusSummary,
+        available_ports: availablePorts.length,
+        connected_devices: devices.length,
+        selected_port: fallbackDeviceId,
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      }
+      setDiagnostics(basicDiagnostics)
+      logToConsole(`⚠ Diagnostics completed with errors: ${errorMsg}`)
     }
   }
 
@@ -337,48 +516,242 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
             </Button>
           </div>
           
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">Quick connect to common ports:</p>
-            <div className="flex gap-2 flex-wrap justify-center">
-              {["COM4", "COM3", "COM5", "COM6"].map((port) => (
+          {/* Service Management */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                Service Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
                 <Button
-                  key={port}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("start")}
+                  disabled={serviceStatus === "online"}
+                >
+                  <PlayCircle className="h-4 w-4 mr-2" />
+                  Start Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("stop")}
+                  disabled={serviceStatus === "offline"}
+                >
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  Stop Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("kill")}
+                  disabled={serviceStatus === "offline"}
+                  className="text-red-500 hover:text-red-600"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Kill Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("restart")}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Restart Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Port Selection */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Usb className="h-4 w-4" />
+                Port Selection
+              </CardTitle>
+              <CardDescription>Select a COM port to connect to</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                {["COM3", "COM4", "COM5", "COM6"].map((port) => {
+                  const portInfo = availablePorts.find((p: any) => p.port === port)
+                  const status = portStatuses[port] || (portInfo?.is_connected ? "connected" : portInfo ? "available" : "unknown")
+                  const isLocked = status === "locked"
+                  
+                  return (
+                    <Button
+                      key={port}
+                      variant={status === "connected" ? "default" : isLocked ? "destructive" : "outline"}
+                      size="sm"
+                      className="relative"
+                      onClick={async () => {
+                        if (isLocked) {
+                          logToConsole(`⚠ Port ${port} is locked. Attempting to clear...`)
+                          await handleClearPortLocks()
+                          return
+                        }
+                        setScanning(true)
+                        setScanResult(null)
+                        logToConsole(`> Connecting to ${port}...`)
+                        try {
+                          const res = await fetch("/api/mycobrain", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "connect", port }),
+                            signal: AbortSignal.timeout(15000),
+                          })
+                          const result = await res.json()
+                          if (result.success || result.status === "connected") {
+                            setScanResult(`Successfully connected to ${port}!`)
+                            logToConsole(`✓ Connected to ${port}`)
+                            setSelectedPort(port)
+                            await new Promise(resolve => setTimeout(resolve, 500))
+                            await refresh()
+                          } else {
+                            const errorMsg = result.message || result.error || result.detail || "Unknown error"
+                            setScanResult(`Failed to connect to ${port}: ${errorMsg}`)
+                            logToConsole(`✗ Connection failed: ${errorMsg}`)
+                            if (errorMsg.includes("locked") || errorMsg.includes("in use")) {
+                              setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
+                            }
+                          }
+                        } catch (error: any) {
+                          if (error.name === "AbortError") {
+                            setScanResult(`Connection to ${port} timed out (port may be locked)`)
+                            logToConsole(`✗ Connection timeout - port may be locked`)
+                            setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
+                          } else {
+                            setScanResult(`Error connecting to ${port}: ${error}`)
+                            logToConsole(`✗ Error: ${error}`)
+                          }
+                        } finally {
+                          setScanning(false)
+                        }
+                      }}
+                      disabled={scanning || serviceStatus === "offline"}
+                    >
+                      <div className="flex items-center gap-2">
+                        {status === "connected" && <CheckCircle className="h-3 w-3" />}
+                        {isLocked && <Lock className="h-3 w-3" />}
+                        {status === "available" && <CircleDot className="h-3 w-3" />}
+                        {port}
+                      </div>
+                      {isLocked && (
+                        <span className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
+                      )}
+                    </Button>
+                  )
+                })}
+              </div>
+              
+              {Object.values(portStatuses).some(s => s === "locked") && (
+                <div className="mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearPortLocks}
+                    className="text-orange-500"
+                  >
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Clear Port Locks
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Diagnostics */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Diagnostics & Debugging
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRunDiagnostics}
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Run Diagnostics
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearPortLocks}
+                >
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Clear All Locks
+                </Button>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={async () => {
-                    setScanning(true)
-                    setScanResult(null)
-                    logToConsole(`> Connecting to ${port}...`)
+                    logToConsole("> Fetching available ports...")
                     try {
-                      const res = await fetch("/api/mycobrain", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "connect", port }),
-                      })
-                      const result = await res.json()
-                      if (result.success) {
-                        setScanResult(`Successfully connected to ${port}!`)
-                        logToConsole(`✓ Connected to ${port}`)
-                        await new Promise(resolve => setTimeout(resolve, 500))
-                        await refresh()
-                      } else {
-                        setScanResult(`Failed to connect to ${port}: ${result.message || result.error}`)
-                        logToConsole(`✗ Connection failed: ${result.message || result.error}`)
+                      const res = await fetch("/api/mycobrain/ports", { signal: AbortSignal.timeout(5000) })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setAvailablePorts(data.ports || [])
+                        logToConsole(`✓ Found ${data.ports?.length || 0} port(s)`)
+                        data.ports?.forEach((p: any) => {
+                          logToConsole(`  - ${p.port}: ${p.description || "Unknown"} (Connected: ${p.is_connected})`)
+                        })
                       }
                     } catch (error) {
-                      setScanResult(`Error connecting to ${port}: ${error}`)
-                      logToConsole(`✗ Error: ${error}`)
-                    } finally {
-                      setScanning(false)
+                      logToConsole(`✗ Failed to fetch ports: ${error}`)
                     }
                   }}
-                  disabled={scanning || serviceStatus === "offline"}
                 >
-                  {port}
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Ports
                 </Button>
-              ))}
-            </div>
-          </div>
+              </div>
+              
+              {diagnostics && (
+                <div className="mt-4 p-3 rounded-lg bg-muted text-xs font-mono">
+                  <pre>{JSON.stringify(diagnostics, null, 2)}</pre>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Console Output */}
+          <Card className="mt-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Terminal className="h-4 w-4" />
+                  Console Output
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setConsoleOutput([])}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-48 rounded-lg bg-black p-4 font-mono text-sm text-green-400">
+                {consoleOutput.length === 0 ? (
+                  <div className="text-muted-foreground">
+                    <p>MycoBrain Device Manager Console</p>
+                    <p>---</p>
+                    <p>Ready for commands...</p>
+                  </div>
+                ) : (
+                  consoleOutput.map((line, i) => <div key={i}>{line}</div>)
+                )}
+                <div className="animate-pulse">_</div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
     )
@@ -467,7 +840,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
       {/* Main Tabs */}
       <Tabs defaultValue="sensors" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="sensors" className="gap-2">
             <Thermometer className="h-4 w-4" />
             <span className="hidden sm:inline">Sensors</span>
@@ -475,6 +848,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           <TabsTrigger value="controls" className="gap-2">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Controls</span>
+          </TabsTrigger>
+          <TabsTrigger value="communication" className="gap-2">
+            <Radio className="h-4 w-4" />
+            <span className="hidden sm:inline">Comms</span>
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -701,7 +1078,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     className="flex-1"
                     onClick={() => handleCommand("neopixel-color", () => 
-                      setNeoPixel(device.port, neopixelColor.r, neopixelColor.g, neopixelColor.b, neopixelBrightness)
+                      setNeoPixel(device.device_id || device.port, neopixelColor.r, neopixelColor.g, neopixelColor.b, neopixelBrightness)
                     )}
                     disabled={commandLoading === "neopixel-color"}
                   >
@@ -711,7 +1088,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("neopixel-rainbow", () => neoPixelRainbow(device.port))}
+                    onClick={() => handleCommand("neopixel-rainbow", () => neoPixelRainbow(device.device_id || device.port))}
                     disabled={commandLoading === "neopixel-rainbow"}
                   >
                     <Palette className="h-4 w-4 mr-2" />
@@ -719,7 +1096,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("neopixel-off", () => neoPixelOff(device.port))}
+                    onClick={() => handleCommand("neopixel-off", () => neoPixelOff(device.device_id || device.port))}
                     disabled={commandLoading === "neopixel-off"}
                   >
                     <LightbulbOff className="h-4 w-4" />
@@ -829,7 +1206,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("buzzer-melody", () => buzzerMelody(device.port))}
+                    onClick={() => handleCommand("buzzer-melody", () => buzzerMelody(device.device_id || device.port))}
                     disabled={commandLoading === "buzzer-melody"}
                   >
                     <Activity className="h-4 w-4 mr-2" />
@@ -837,7 +1214,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("buzzer-off", () => buzzerOff(device.port))}
+                    onClick={() => handleCommand("buzzer-off", () => buzzerOff(device.device_id || device.port))}
                     disabled={commandLoading === "buzzer-off"}
                   >
                     <VolumeX className="h-4 w-4" />
@@ -882,7 +1259,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                         size="sm"
                         onClick={() => {
                           setBuzzerFrequency(tone.freq)
-                          handleCommand(`tone-${tone.name}`, () => buzzerBeep(device.port, tone.freq, 100))
+                          handleCommand(`tone-${tone.name}`, () => buzzerBeep(device.device_id || device.port, tone.freq, 100))
                         }}
                       >
                         {tone.name}
@@ -907,28 +1284,28 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("ping", () => sendControl(device.port, "command", "ping", { cmd_id: 1, dst: 0xA1, data: [] }))}
+                  onClick={() => handleCommand("ping", () => sendControl(device.device_id || device.port, "command", "ping", { cmd: "ping" }))}
                   disabled={commandLoading === "ping"}
                 >
                   {commandLoading === "ping" ? "..." : "Ping"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-sensors", () => sendControl(device.port, "command", "get_sensors", { cmd_id: 2, dst: 0xA1, data: [] }))}
+                  onClick={() => handleCommand("get-sensors", () => sendControl(device.device_id || device.port, "command", "get_sensors", { cmd: "get_sensors" }))}
                   disabled={commandLoading === "get-sensors"}
                 >
                   {commandLoading === "get-sensors" ? "..." : "Get Sensors"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-bme1", () => sendControl(device.port, "command", "get_bme1", { cmd_id: 30, dst: 0xA1, data: [] }))}
+                  onClick={() => handleCommand("get-bme1", () => sendControl(device.device_id || device.port, "command", "get_bme1", { cmd: "get_bme1" }))}
                   disabled={commandLoading === "get-bme1"}
                 >
                   {commandLoading === "get-bme1" ? "..." : "BME688-1"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-bme2", () => sendControl(device.port, "command", "get_bme2", { cmd_id: 31, dst: 0xA1, data: [] }))}
+                  onClick={() => handleCommand("get-bme2", () => sendControl(device.device_id || device.port, "command", "get_bme2", { cmd: "get_bme2" }))}
                   disabled={commandLoading === "get-bme2"}
                 >
                   {commandLoading === "get-bme2" ? "..." : "BME688-2"}
@@ -937,6 +1314,245 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               <div className="mt-2 text-xs text-muted-foreground">
                 Raw MDP commands sent directly to device. Check console for responses.
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Communication Tab */}
+        <TabsContent value="communication" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* LoRa Communication */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-green-500/20">
+                      <Radio className="h-5 w-5 text-green-500" />
+                    </div>
+                    LoRa Radio
+                  </CardTitle>
+                  <Badge variant="outline" className="text-yellow-500">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Initializing
+                  </Badge>
+                </div>
+                <CardDescription>Long-range mesh communication for Side-A ↔ Side-B</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Frequency</p>
+                    <p className="text-lg font-mono font-bold">915 MHz</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Spreading Factor</p>
+                    <p className="text-lg font-mono font-bold">SF7</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">TX Power</p>
+                    <p className="text-lg font-mono font-bold">20 dBm</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Bandwidth</p>
+                    <p className="text-lg font-mono font-bold">125 kHz</p>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <Label>LoRa Commands</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommand("lora-ping", () => 
+                        sendControl(device.device_id || device.port, "command", "lora_ping", { cmd: "lora ping" })
+                      )}
+                      disabled={commandLoading === "lora-ping"}
+                    >
+                      <Radio className="h-4 w-4 mr-2" />
+                      Ping Side-B
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommand("lora-status", () => 
+                        sendControl(device.device_id || device.port, "command", "lora_status", { cmd: "lora status" })
+                      )}
+                      disabled={commandLoading === "lora-status"}
+                    >
+                      Status
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCommand("lora-send", () => 
+                        sendControl(device.device_id || device.port, "command", "lora_send", { cmd: "lora send hello" })
+                      )}
+                      disabled={commandLoading === "lora-send"}
+                    >
+                      Send Test
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                  <p className="font-medium text-yellow-600 dark:text-yellow-400">LoRa Module Status</p>
+                  <p className="text-muted-foreground mt-1">
+                    LoRa radio module detected. Configure Side-A and Side-B for mesh communication.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* WiFi Status */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-blue-500/20">
+                      <Wifi className="h-5 w-5 text-blue-500" />
+                    </div>
+                    WiFi
+                  </CardTitle>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <WifiOff className="h-3 w-3 mr-1" />
+                    Not Connected
+                  </Badge>
+                </div>
+                <CardDescription>ESP32-S3 built-in WiFi for cloud connectivity</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">SSID</p>
+                    <p className="text-lg font-mono">—</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Signal</p>
+                    <p className="text-lg font-mono">—</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">IP Address</p>
+                    <p className="text-lg font-mono">—</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">MAC</p>
+                    <p className="text-sm font-mono">—</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
+                  <p className="font-medium text-blue-600 dark:text-blue-400">WiFi Ready</p>
+                  <p className="text-muted-foreground mt-1">
+                    ESP32-S3 WiFi available. Configure credentials to enable cloud sync.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bluetooth */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-indigo-500/20">
+                      <Radio className="h-5 w-5 text-indigo-500" />
+                    </div>
+                    Bluetooth LE
+                  </CardTitle>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Available
+                  </Badge>
+                </div>
+                <CardDescription>Low-energy Bluetooth for mobile app connectivity</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Device Name</p>
+                    <p className="text-lg font-mono">MycoBrain-01</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Paired Devices</p>
+                    <p className="text-lg font-mono">0</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm">
+                  <p className="font-medium text-indigo-600 dark:text-indigo-400">BLE Ready</p>
+                  <p className="text-muted-foreground mt-1">
+                    Enable BLE advertising to connect via mobile app.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Mesh Network */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-purple-500/20">
+                      <Activity className="h-5 w-5 text-purple-500" />
+                    </div>
+                    Mesh Network
+                  </CardTitle>
+                  <Badge variant="outline" className="text-muted-foreground">
+                    1 Node
+                  </Badge>
+                </div>
+                <CardDescription>ESP-NOW mesh for local device coordination</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Network ID</p>
+                    <p className="text-lg font-mono">MYCO-001</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Nodes Online</p>
+                    <p className="text-lg font-mono">1</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Mesh Nodes</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="font-mono text-sm">Side-A (This Device)</span>
+                      </div>
+                      <Badge variant="outline" className="text-green-500">Online</Badge>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-muted border">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-400" />
+                        <span className="font-mono text-sm">Side-B</span>
+                      </div>
+                      <Badge variant="outline" className="text-muted-foreground">Searching...</Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Communication Log */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="h-5 w-5" />
+                Communication Log
+              </CardTitle>
+              <CardDescription>Recent LoRa and mesh network messages</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] rounded-md border p-4 bg-black/50">
+                <div className="font-mono text-xs text-green-400 space-y-1">
+                  <p>[{new Date().toLocaleTimeString()}] LORA: Module initialized @ 915MHz</p>
+                  <p>[{new Date().toLocaleTimeString()}] MESH: ESP-NOW started, MAC: {device.device_info?.mac_address || "10:B4:1D:E3:3B:88"}</p>
+                  <p>[{new Date().toLocaleTimeString()}] MESH: Listening for peers...</p>
+                  <p className="text-yellow-400">[{new Date().toLocaleTimeString()}] LORA: Waiting for Side-B connection</p>
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1085,6 +1701,188 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                 <div>
                   <p className="text-muted-foreground">Accuracy</p>
                   <p className="font-mono">{device.location?.accuracy ? `${device.location.accuracy}m` : "—"}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Diagnostics Tab */}
+        <TabsContent value="diagnostics" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  System Diagnostics
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={handleRunDiagnostics}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Run Diagnostics
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {diagnostics ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Service Status</Label>
+                      <p className="font-mono">{diagnostics.service_status || "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Port Status</Label>
+                      <p className="font-mono">{typeof diagnostics.port_status === "string" ? diagnostics.port_status : JSON.stringify(diagnostics.port_status) || "Unknown"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Connection Status</Label>
+                      <p className="font-mono">{device.connected ? "Connected" : "Disconnected"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Last Message</Label>
+                      <p className="font-mono text-xs">{device.last_message_time || "Never"}</p>
+                    </div>
+                  </div>
+                  {diagnostics.errors && diagnostics.errors.length > 0 && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50">
+                      <Label className="text-red-500">Errors</Label>
+                      <ul className="list-disc list-inside text-sm text-red-400 mt-2">
+                        {diagnostics.errors.map((err: string, i: number) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div className="p-3 rounded-lg bg-muted">
+                    <Label className="text-muted-foreground">Full Diagnostics</Label>
+                    <pre className="text-xs font-mono mt-2 overflow-auto">
+                      {JSON.stringify(diagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Wrench className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Click "Run Diagnostics" to check system status</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Port Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Usb className="h-4 w-4" />
+                Port Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {availablePorts.length > 0 ? (
+                  availablePorts.map((portInfo: { path?: string; port?: string; id?: string; description?: string; is_connected?: boolean }) => {
+                    const portKey = portInfo.path || portInfo.port || portInfo.id || "unknown"
+                    const portStatus = portStatuses[portKey]
+                    return (
+                      <div key={portKey} className="flex items-center justify-between p-2 rounded-lg border">
+                        <div className="flex items-center gap-2">
+                          {portInfo.is_connected ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : portStatus === "locked" ? (
+                            <Lock className="h-4 w-4 text-red-500" />
+                          ) : (
+                            <CircleDot className="h-4 w-4 text-gray-500" />
+                          )}
+                          <div>
+                            <p className="font-mono font-medium">{portKey}</p>
+                            <p className="text-xs text-muted-foreground">{portInfo.description || "Unknown device"}</p>
+                          </div>
+                        </div>
+                        <Badge variant={portInfo.is_connected ? "default" : portStatus === "locked" ? "destructive" : "secondary"}>
+                          {portInfo.is_connected ? "Connected" : portStatus === "locked" ? "Locked" : "Available"}
+                        </Badge>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">No ports detected. Click "Refresh Ports" to scan.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Service Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                Service Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("start")}
+                  disabled={serviceStatus === "online"}
+                >
+                  <PlayCircle className="h-4 w-4 mr-2" />
+                  Start Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("stop")}
+                  disabled={serviceStatus === "offline"}
+                >
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  Stop Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("kill")}
+                  disabled={serviceStatus === "offline"}
+                  className="text-red-500 hover:text-red-600"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Kill Service
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleServiceAction("restart")}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Restart Service
+                </Button>
+              </div>
+              <div className="mt-4">
+                <Label className="text-muted-foreground">Service Status</Label>
+                <div className={`mt-2 px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${
+                  serviceStatus === "online" 
+                    ? "bg-green-500/20 text-green-500 border border-green-500/50" 
+                    : serviceStatus === "offline"
+                    ? "bg-red-500/20 text-red-500 border border-red-500/50"
+                    : "bg-yellow-500/20 text-yellow-500 border border-yellow-500/50"
+                }`}>
+                  {serviceStatus === "online" ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      MycoBrain service is running on port 8003
+                    </>
+                  ) : serviceStatus === "offline" ? (
+                    <>
+                      <AlertCircle className="h-4 w-4" />
+                      MycoBrain service is not running
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Checking service status...
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -320,3 +320,7 @@ Use the **Tailscale guide** in `REMOTE_ACCESS_SOLUTION.md` for easy remote acces
 **Total Time**: ~2 hours
 **Repository**: C:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website
 
+
+
+
+

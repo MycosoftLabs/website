@@ -27,7 +27,7 @@ async function fetchRealMetrics() {
     // Get MycoBrain device count
     let mycoBrainCount = 0
     try {
-      const mycoRes = await fetch(`${process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"}/devices`, {
+      const mycoRes = await fetch(`${process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"}/devices`, {
         signal: AbortSignal.timeout(2000),
       })
       if (mycoRes.ok) {

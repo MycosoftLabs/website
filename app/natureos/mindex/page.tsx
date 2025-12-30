@@ -10,3 +10,7 @@ export default function MINDEXPage() {
   return <MINDEXDashboard />
 }
 
+
+
+
+

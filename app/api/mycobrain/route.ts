@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { action, port = "COM4" } = body
+  const { action, port = "COM5" } = body
   
   try {
     let endpoint = ""
@@ -97,6 +97,10 @@ export async function POST(request: NextRequest) {
         break
       case "sensors":
         endpoint = `/devices/${encodeURIComponent(port)}/sensors`
+        method = "GET"
+        break
+      case "serial":
+        endpoint = `/devices/${encodeURIComponent(port)}/serial`
         method = "GET"
         break
       default:

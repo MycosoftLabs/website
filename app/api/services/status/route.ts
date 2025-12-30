@@ -6,12 +6,14 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export async function GET(request: NextRequest) {
   try {
+    const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003";
+    
     const services = [
       {
         id: "mycobrain",
         name: "MycoBrain Service",
-        url: "http://localhost:8765",
-        healthUrl: "http://localhost:8765/health",
+        url: MYCOBRAIN_SERVICE_URL,
+        healthUrl: `${MYCOBRAIN_SERVICE_URL}/health`,
       },
       // Add more services here
     ];
@@ -51,6 +53,10 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+
+
+
 
 
 

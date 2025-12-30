@@ -96,3 +96,7 @@ npm run dev
 - Never commit `.env.local` to git
 - Rotate secrets regularly
 - Use different credentials for production
+
+
+
+
