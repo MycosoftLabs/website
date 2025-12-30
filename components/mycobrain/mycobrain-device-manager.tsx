@@ -3,6 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useMycoBrain, getIAQLabel, formatUptime, formatGasResistance } from "@/hooks/use-mycobrain"
 import { FirmwareUpdater } from "./firmware-updater"
+// New NDJSON protocol widgets
+import {
+  LedControlWidget,
+  BuzzerControlWidget,
+  PeripheralGrid,
+  TelemetryChartWidget,
+  CommunicationPanel,
+} from "./widgets"
+import { MINDEXIntegrationWidget } from "./mindex-integration-widget"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -140,6 +149,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [serialData, setSerialData] = useState<string[]>([])
   const [serialMonitoring, setSerialMonitoring] = useState(false)
   const [diagnostics, setDiagnostics] = useState<any>(null)
+  const [machineModeActive, setMachineModeActive] = useState(false)
   const lastServiceErrorRef = useRef<string | null>(null)
   const serviceErrorCountRef = useRef(0)
 
@@ -609,6 +619,29 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                             setScanResult(`Successfully connected to ${port}!`)
                             logToConsole(`✓ Connected to ${port}`)
                             setSelectedPort(port)
+                            
+                            // Auto-register device with MINDEX, NatureOS, and MAS
+                            const deviceId = result.device_id || port
+                            try {
+                              const registerRes = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/register`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  device_id: deviceId,
+                                  port,
+                                  serial_number: deviceId,
+                                  firmware_version: "unknown",
+                                }),
+                                signal: AbortSignal.timeout(5000),
+                              })
+                              if (registerRes.ok) {
+                                const regResult = await registerRes.json()
+                                logToConsole(`✓ Device registered: MINDEX=${regResult.registrations?.mindex?.status || 'N/A'}, NatureOS=${regResult.registrations?.natureos?.status || 'N/A'}`)
+                              }
+                            } catch (regError) {
+                              logToConsole(`⚠ Registration failed (non-critical): ${regError}`)
+                            }
+                            
                             await new Promise(resolve => setTimeout(resolve, 500))
                             await refresh()
                           } else {
@@ -757,10 +790,6 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     )
   }
 
-  const bme1 = device.sensor_data?.bme688_1
-  const bme2 = device.sensor_data?.bme688_2
-  const iaq1 = getIAQLabel(bme1?.iaq)
-  const iaq2 = getIAQLabel(bme2?.iaq)
 
   return (
     <div className="space-y-6">
@@ -873,204 +902,126 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
         {/* Sensors Tab */}
         <TabsContent value="sensors" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* BME688 Sensor 1 */}
+          {/* Auto-Discovered Peripherals (Dynamic) */}
+          {device && (
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-blue-500/20">
-                      <CircleDot className="h-5 w-5 text-blue-500" />
-                    </div>
-                    BME688 Sensor 1
-                  </CardTitle>
-                  <Badge variant="outline" className="text-green-500">
-                    <Activity className="h-3 w-3 mr-1 animate-pulse" />
-                    Live
-                  </Badge>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <Plug className="h-5 w-5" />
+                  Discovered Peripherals
+                </CardTitle>
+                <CardDescription>
+                  Auto-detected I2C devices and peripherals via machine mode protocol
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Thermometer className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm text-muted-foreground">Temperature</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme1?.temperature?.toFixed(1) || "--"}°C</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Droplets className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm text-muted-foreground">Humidity</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme1?.humidity?.toFixed(1) || "--"}%</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Gauge className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm text-muted-foreground">Pressure</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme1?.pressure?.toFixed(0) || "--"}</p>
-                    <p className="text-xs text-muted-foreground">hPa</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${iaq1.bgColor} border`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className={`h-4 w-4 ${iaq1.color}`} />
-                      <span className="text-sm text-muted-foreground">Air Quality</span>
-                    </div>
-                    <p className={`text-3xl font-bold ${iaq1.color}`}>{bme1?.iaq || "--"}</p>
-                    <p className="text-xs text-muted-foreground">{iaq1.label}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Gas Resistance</span>
-                      <span className="font-mono">{formatGasResistance(bme1?.gas_resistance)}</span>
-                    </div>
-                    <Progress value={Math.min(((bme1?.gas_resistance || 0) / 500000) * 100, 100)} className="h-2" />
-                  </div>
-                </div>
+              <CardContent>
+                <PeripheralGrid 
+                  deviceId={device.device_id || device.port}
+                  sensorData={device.sensor_data}
+                />
               </CardContent>
             </Card>
-
-            {/* BME688 Sensor 2 */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-purple-500/20">
-                      <CircleDot className="h-5 w-5 text-purple-500" />
-                    </div>
-                    BME688 Sensor 2
-                  </CardTitle>
-                  <Badge variant="outline" className="text-green-500">
-                    <Activity className="h-3 w-3 mr-1 animate-pulse" />
-                    Live
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Thermometer className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm text-muted-foreground">Temperature</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme2?.temperature?.toFixed(1) || "--"}°C</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Droplets className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm text-muted-foreground">Humidity</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme2?.humidity?.toFixed(1) || "--"}%</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Gauge className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm text-muted-foreground">Pressure</span>
-                    </div>
-                    <p className="text-3xl font-bold">{bme2?.pressure?.toFixed(0) || "--"}</p>
-                    <p className="text-xs text-muted-foreground">hPa</p>
-                  </div>
-                  <div className={`p-4 rounded-lg ${iaq2.bgColor} border`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className={`h-4 w-4 ${iaq2.color}`} />
-                      <span className="text-sm text-muted-foreground">Air Quality</span>
-                    </div>
-                    <p className={`text-3xl font-bold ${iaq2.color}`}>{bme2?.iaq || "--"}</p>
-                    <p className="text-xs text-muted-foreground">{iaq2.label}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Gas Resistance</span>
-                      <span className="font-mono">{formatGasResistance(bme2?.gas_resistance)}</span>
-                    </div>
-                    <Progress value={Math.min(((bme2?.gas_resistance || 0) / 500000) * 100, 100)} className="h-2" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sensor Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Sensor Comparison</CardTitle>
-              <CardDescription>Real-time differential between both BME688 sensors</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center p-3 rounded-lg bg-muted">
-                  <p className="text-xs text-muted-foreground mb-1">ΔTemp</p>
-                  <p className="text-xl font-mono font-bold">
-                    {bme1 && bme2 ? `${Math.abs(bme1.temperature - bme2.temperature).toFixed(2)}°` : "—"}
-                  </p>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted">
-                  <p className="text-xs text-muted-foreground mb-1">ΔHumidity</p>
-                  <p className="text-xl font-mono font-bold">
-                    {bme1 && bme2 ? `${Math.abs(bme1.humidity - bme2.humidity).toFixed(1)}%` : "—"}
-                  </p>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted">
-                  <p className="text-xs text-muted-foreground mb-1">ΔPressure</p>
-                  <p className="text-xl font-mono font-bold">
-                    {bme1 && bme2 ? `${Math.abs(bme1.pressure - bme2.pressure).toFixed(1)}` : "—"}
-                  </p>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-muted">
-                  <p className="text-xs text-muted-foreground mb-1">ΔIAQ</p>
-                  <p className="text-xl font-mono font-bold">
-                    {bme1?.iaq && bme2?.iaq ? Math.abs(bme1.iaq - bme2.iaq) : "—"}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Future Sensors Placeholder */}
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plug className="h-5 w-5 text-muted-foreground" />
-                Additional Sensors
-              </CardTitle>
-              <CardDescription>
-                Connect more sensors to the I2C bus or analog/digital pins
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {["Soil Moisture", "CO2 Sensor", "Light Level", "pH Sensor"].map((sensor) => (
-                  <div key={sensor} className="p-4 rounded-lg border border-dashed text-center">
-                    <Plug className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">{sensor}</p>
-                    <p className="text-xs text-muted-foreground">Not connected</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          )}
         </TabsContent>
 
         {/* Controls Tab */}
         <TabsContent value="controls" className="space-y-6">
+          {/* Machine Mode Status */}
+          {device && (
+            <Card className="border-dashed">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    NDJSON Machine Mode Protocol
+                  </CardTitle>
+                  <Badge variant={machineModeActive ? "default" : "secondary"}>
+                    {machineModeActive ? "Active" : "Not Initialized"}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  {machineModeActive 
+                    ? "Machine mode is active. Use the widgets below for optical/acoustic modem and advanced controls."
+                    : "Click 'Initialize Machine Mode' below to enable NDJSON protocol features."}
+                </CardDescription>
+              </CardHeader>
+              {!machineModeActive && (
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      logToConsole("> Initializing machine mode...")
+                      try {
+                        const res = await fetch(`/api/mycobrain/${encodeURIComponent(device.device_id || device.port)}/machine-mode`, {
+                          method: "POST",
+                          signal: AbortSignal.timeout(10000),
+                        })
+                        const data = await res.json()
+                        if (data.success) {
+                          setMachineModeActive(true)
+                          logToConsole("✓ Machine mode initialized")
+                          // Trigger peripheral scan
+                          await fetch(`/api/mycobrain/${encodeURIComponent(device.device_id || device.port)}/peripherals`, {
+                            method: "POST",
+                          })
+                          logToConsole("✓ Peripheral scan triggered")
+                        } else {
+                          setMachineModeActive(false)
+                          logToConsole(`✗ Machine mode failed: ${data.error || "Unknown error"}`)
+                        }
+                      } catch (error) {
+                        setMachineModeActive(false)
+                        logToConsole(`✗ Machine mode error: ${error}`)
+                      }
+                    }}
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    Initialize Machine Mode
+                  </Button>
+                </CardContent>
+              )}
+            </Card>
+          )}
+          
+          {/* New NDJSON Protocol Widgets */}
+          {device && machineModeActive && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <LedControlWidget 
+                deviceId={device.device_id || device.port}
+                onCommand={logToConsole}
+              />
+              <BuzzerControlWidget 
+                deviceId={device.device_id || device.port}
+                onCommand={logToConsole}
+              />
+            </div>
+          )}
+          
+          {device && !machineModeActive && (
+            <Card className="border-yellow-500/50 bg-yellow-500/5">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                  <AlertTriangle className="h-5 w-5" />
+                  <p className="font-medium">Machine Mode Not Active</p>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Initialize machine mode in the Diagnostics tab to unlock advanced features:
+                  optical modem TX, acoustic modem TX, and automatic peripheral discovery.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Legacy Controls (kept for backward compatibility) */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* NeoPixel Controls */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Lightbulb className="h-5 w-5 text-yellow-500" />
-                  NeoPixel LED Control
+                  NeoPixel LED Control (Legacy)
                 </CardTitle>
-                <CardDescription>Control the RGB LED strip on MycoBrain</CardDescription>
+                <CardDescription>Legacy MDP protocol controls</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Quick Actions */}
@@ -1320,6 +1271,14 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
         {/* Communication Tab */}
         <TabsContent value="communication" className="space-y-6">
+          {/* New NDJSON Protocol Communication Panel */}
+          {device && (
+            <CommunicationPanel 
+              deviceId={device.device_id || device.port} 
+              onCommand={logToConsole}
+            />
+          )}
+          
           <div className="grid gap-6 lg:grid-cols-2">
             {/* LoRa Communication */}
             <Card>
@@ -1559,30 +1518,49 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Sensor History (Last {sensorHistory.length} readings)</CardTitle>
-              <CardDescription>Real-time sensor data trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {sensorHistory.length > 0 ? (
-                <div className="h-64 flex items-end gap-1">
-                  {sensorHistory.map((point, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 bg-gradient-to-t from-green-500 to-green-400 rounded-t"
-                      style={{ height: `${(point.bme1_temp / 50) * 100}%` }}
-                      title={`${point.bme1_temp.toFixed(1)}°C at ${point.timestamp.toLocaleTimeString()}`}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Collecting data...
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* MINDEX Integration */}
+          {device && (
+            <MINDEXIntegrationWidget 
+              deviceId={device.device_id || device.port}
+            />
+          )}
+          
+          {/* New NDJSON Protocol Telemetry Charts */}
+          {device && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <TelemetryChartWidget 
+                deviceId={device.device_id || device.port}
+                pollInterval={2000}
+                maxPoints={50}
+              />
+              
+              {/* Existing Sensor History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sensor History (Last {sensorHistory.length} readings)</CardTitle>
+                  <CardDescription>Real-time sensor data trends</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {sensorHistory.length > 0 ? (
+                    <div className="h-64 flex items-end gap-1">
+                      {sensorHistory.map((point, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 bg-gradient-to-t from-green-500 to-green-400 rounded-t"
+                          style={{ height: `${(point.bme1_temp / 50) * 100}%` }}
+                          title={`${point.bme1_temp.toFixed(1)}°C at ${point.timestamp.toLocaleTimeString()}`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-muted-foreground">
+                      Collecting data...
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         {/* Console Tab */}
