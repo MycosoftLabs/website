@@ -885,7 +885,7 @@ export function NatureOSDashboard() {
                 <Network className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No Devices Connected</h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect a MycoBrain device via USB (COM4) to get started. The device discovery service scans every 5 seconds.
+                  Connect a MycoBrain device via USB (COM5) to get started. The device discovery service scans every 5 seconds.
                 </p>
                 <div className="flex gap-3 justify-center">
                   <Button asChild>

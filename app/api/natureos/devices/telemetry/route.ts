@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 
 // Fetch real device telemetry from MycoBrain, MINDEX, and network
 async function fetchRealDeviceTelemetry() {
-  const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+  const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
   const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
   
   try {
@@ -96,36 +96,8 @@ async function fetchRealDeviceTelemetry() {
       console.error("Failed to fetch MINDEX devices:", error)
     }
 
-    // Fetch network devices (if available)
-    try {
-      const networkRes = await fetch(`${process.env.UNIFI_DASHBOARD_API_URL || "http://localhost:3100"}/api/network`, {
-        signal: AbortSignal.timeout(2000),
-      })
-      
-      if (networkRes.ok) {
-        const networkData = await networkRes.json()
-        const networkDevices = networkData.devices || []
-        
-        for (const device of networkDevices) {
-          if (device.status === "online") {
-            devices.push({
-              deviceId: device.mac || device.name,
-              deviceType: "network" as const,
-              timestamp: new Date().toISOString(),
-              location: device.location || { latitude: 37.7749, longitude: -122.4194 },
-              status: "active",
-              metrics: {
-                signalStrength: device.signalStrength || 85,
-                ipAddress: device.ip,
-                macAddress: device.mac,
-              },
-            })
-          }
-        }
-      }
-    } catch (error) {
-      // Network API not available - continue with MycoBrain devices only
-    }
+    // Network devices removed - only show real MycoBrain devices from service and MINDEX
+    // No fake/sample network devices
 
     return devices
   } catch (error) {

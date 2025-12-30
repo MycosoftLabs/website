@@ -232,3 +232,7 @@ ETL Pipeline ← iNaturalist, MycoBank, FungiDB, etc.
 - CORS policies
 - Authentication for write operations
 
+
+
+
+

@@ -36,6 +36,7 @@ export interface MycoBrainSensors {
 
 export interface MycoBrainDevice {
   port: string
+  device_id?: string  // Actual device ID from service (e.g., "mycobrain-side-a-COM5")
   connected: boolean
   device_info: {
     side?: string
@@ -104,18 +105,21 @@ export function useMycoBrain(refreshInterval = 2000) {
         if (mountedRef.current) {
           setState((prev) => ({
             ...prev,
-            devices: [],
             loading: false,
             error: data.message || data.error,
             lastUpdate: new Date(),
-            isConnected: false,
+            // Keep previous devices to prevent UI flicker on transient errors
+            devices: prev.devices,
+            isConnected: prev.devices.some((d) => d.connected),
           }))
         }
         return
       }
 
-      const devices: MycoBrainDevice[] = (data.devices || []).map((d: MycoBrainDevice) => ({
+      const devices: MycoBrainDevice[] = (data.devices || []).map((d: any) => ({
         ...d,
+        device_id: d.device_id || `mycobrain-${d.port?.replace(/[\/\\]/g, '-') || 'unknown'}`,
+        connected: d.connected ?? (d.status === "connected"),  // Map status to connected boolean
         capabilities: d.capabilities || {
           bme688_count: 2,
           has_lora: true,
@@ -154,9 +158,13 @@ export function useMycoBrain(refreshInterval = 2000) {
     }
   }, [])
 
-  const fetchSensors = useCallback(async (port: string) => {
+  const fetchSensors = useCallback(async (portOrDeviceId: string) => {
     try {
-      const response = await fetch(`/api/mycobrain/${encodeURIComponent(port)}/sensors`)
+      // Find device by port or device_id to get the correct identifier
+      const device = state.devices.find(d => d.port === portOrDeviceId || d.device_id === portOrDeviceId)
+      const identifierForApi = device?.device_id || portOrDeviceId
+      
+      const response = await fetch(`/api/mycobrain/${encodeURIComponent(identifierForApi)}/sensors`)
       if (!response.ok) throw new Error("Failed to fetch sensors")
 
       const data = await response.json()
@@ -165,7 +173,9 @@ export function useMycoBrain(refreshInterval = 2000) {
         setState((prev) => ({
           ...prev,
           devices: prev.devices.map((d) =>
-            d.port === port ? { ...d, sensor_data: { ...d.sensor_data, ...data.sensors } } : d
+            (d.port === portOrDeviceId || d.device_id === portOrDeviceId) 
+              ? { ...d, sensor_data: { ...d.sensor_data, ...data.sensors } } 
+              : d
           ),
           lastUpdate: new Date(),
         }))
@@ -173,15 +183,19 @@ export function useMycoBrain(refreshInterval = 2000) {
 
       return data.sensors
     } catch (error) {
-      console.error("Failed to fetch sensors:", error)
+      // Avoid spamming console on timeouts; UI keeps last known values.
       return null
     }
-  }, [])
+  }, [state.devices])
 
   const sendControl = useCallback(
     async (port: string, peripheral: string, action: string, data: Record<string, unknown> = {}) => {
       try {
-        const response = await fetch(`/api/mycobrain/${encodeURIComponent(port)}/control`, {
+        // Find device to get device_id
+        const device = state.devices.find(d => d.port === port)
+        const deviceId = device?.device_id || port
+        
+        const response = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/control`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ peripheral, action, ...data }),
@@ -191,11 +205,10 @@ export function useMycoBrain(refreshInterval = 2000) {
 
         return await response.json()
       } catch (error) {
-        console.error("Control failed:", error)
         throw error
       }
     },
-    []
+    [state.devices]
   )
 
   const setNeoPixel = useCallback(

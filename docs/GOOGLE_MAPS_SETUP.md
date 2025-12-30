@@ -73,3 +73,7 @@ This allows development without a Maps API key, but with reduced functionality.
 | "InvalidKeyMapError" | Verify the API key is correct |
 | Map loads but no satellite | Enable "Maps JavaScript API" in Google Cloud Console |
 | "This page can't load Google Maps correctly" | Check billing is enabled for your Google Cloud project |
+
+
+
+

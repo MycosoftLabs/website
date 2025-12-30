@@ -27,6 +27,7 @@ export default function DeviceNetworkPage() {
   const [devices, setDevices] = useState<DeviceInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
+  const [serviceStatus, setServiceStatus] = useState<"checking" | "online" | "offline">("checking")
 
   const fetchDevices = async () => {
     try {
@@ -51,12 +52,31 @@ export default function DeviceNetworkPage() {
   const handleScan = async () => {
     setScanning(true)
     try {
-      // Trigger scan by connecting to COM4
-      await fetch("/api/mycobrain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "connect", port: "COM4" }),
-      })
+      // First try to connect to COM5 (USB-C MycoBrain)
+      try {
+        const connectRes = await fetch("/api/mycobrain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "connect", port: "COM5" }),
+          signal: AbortSignal.timeout(15000), // 15 second timeout
+        })
+        
+        if (!connectRes.ok) {
+          const errorData = await connectRes.json().catch(() => ({}))
+          if (errorData.error?.includes("locked") || errorData.error?.includes("in use")) {
+            alert("COM5 is locked by another application. Please close the debugging agent, Arduino IDE, or serial monitor and try again.")
+            return
+          }
+        }
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          alert("Connection to COM5 timed out. The port may be locked or the device not responding.")
+          return
+        }
+        console.error("Connection error:", error)
+      }
+      
+      // Refresh device list after connection attempt
       await fetchDevices()
     } catch (error) {
       console.error("Scan failed:", error)
@@ -64,6 +84,25 @@ export default function DeviceNetworkPage() {
       setScanning(false)
     }
   }
+
+  // Check MycoBrain service status
+  useEffect(() => {
+    const checkService = async () => {
+      try {
+        const res = await fetch("/api/mycobrain", {
+          signal: AbortSignal.timeout(2000),
+        })
+        const data = await res.json()
+        const isOnline = !data.error || data.error !== "MycoBrain service not running"
+        setServiceStatus(isOnline ? "online" : "offline")
+      } catch {
+        setServiceStatus("offline")
+      }
+    }
+    checkService()
+    const interval = setInterval(checkService, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     fetchDevices()
@@ -82,6 +121,60 @@ export default function DeviceNetworkPage() {
       />
 
       <div className="space-y-6">
+        {/* Service Status */}
+        <Card className={serviceStatus === "online" ? "border-green-500/50 bg-green-500/5" : serviceStatus === "offline" ? "border-red-500/50 bg-red-500/5" : "border-yellow-500/50 bg-yellow-500/5"}>
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {serviceStatus === "online" ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : serviceStatus === "offline" ? (
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                ) : (
+                  <RefreshCw className="h-5 w-5 text-yellow-500 animate-spin" />
+                )}
+                <div>
+                  <div className="font-semibold">
+                    MycoBrain Service (Python)
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {serviceStatus === "online" 
+                      ? "Service is running on port 8003" 
+                      : serviceStatus === "offline"
+                      ? "Service is not running - Start: python services/mycobrain/mycobrain_service_standalone.py"
+                      : "Checking service status..."}
+                  </div>
+                </div>
+              </div>
+              <Badge variant={serviceStatus === "online" ? "default" : "destructive"}>
+                {serviceStatus === "online" ? "Online" : serviceStatus === "offline" ? "Offline" : "Checking"}
+              </Badge>
+            </div>
+            {serviceStatus === "offline" && (
+              <div className="mt-4 pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    // Trigger service start via API if available
+                    try {
+                      await fetch("/api/services/start?service=mycobrain", { method: "POST" })
+                    } catch {
+                      // Service start API might not exist, that's OK
+                    }
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Start Service
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Or run manually: <code className="bg-muted px-1 rounded">python services/mycobrain/mycobrain_service_standalone.py</code>
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -239,6 +332,10 @@ export default function DeviceNetworkPage() {
     </DashboardShell>
   )
 }
+
+
+
+
 
 
 

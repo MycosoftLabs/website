@@ -444,3 +444,7 @@ export async function GET(request: NextRequest) {
     total: Object.keys(SPECIES_GROWTH_PARAMS).length,
   })
 }
+
+
+
+
