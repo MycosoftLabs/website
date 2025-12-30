@@ -31,48 +31,83 @@ function parseSensorData(response: string): TelemetryEntry[] {
   const lines = response.split(/[\r\n]+/)
   
   for (const line of lines) {
-    // Parse lines like: "AMB addr=0x77 age=2042ms T=20.50C RH=40.29% P=705.71hPa..."
-    if (!line.includes("addr=0x") || (!line.includes("T=") && !line.includes("Gas="))) {
+    if (!line.trim() || !line.startsWith("{")) {
+      // Try legacy format parsing
+      if (line.includes("addr=0x") && (line.includes("T=") || line.includes("Gas="))) {
+        const sensor = line.startsWith("AMB") ? "amb" : line.startsWith("ENV") ? "env" : "unknown"
+        const data: Record<string, number | string> = {}
+        
+        const patterns: Record<string, RegExp> = {
+          address: /addr=(0x[0-9a-fA-F]+)/,
+          temperature: /T=([\d.]+)C/,
+          humidity: /RH=([\d.]+)%/,
+          pressure: /P=([\d.]+)hPa/,
+          gas_resistance: /Gas=(\d+)Ohm/,
+          iaq: /IAQ=([\d.]+)/,
+          iaq_accuracy: /acc=(\d+)/,
+          co2eq: /CO2eq=([\d.]+)/,
+          voc: /VOC=([\d.]+)/,
+          age_ms: /age=(\d+)ms/,
+        }
+        
+        for (const [field, pattern] of Object.entries(patterns)) {
+          const match = line.match(pattern)
+          if (match) {
+            const value = match[1]
+            if (value.includes(".")) {
+              data[field] = parseFloat(value)
+            } else if (value.startsWith("0x")) {
+              data[field] = value
+            } else {
+              data[field] = parseInt(value)
+            }
+          }
+        }
+        
+        if (Object.keys(data).length > 0) {
+          entries.push({
+            timestamp: new Date().toISOString(),
+            sensor,
+            data,
+          })
+        }
+      }
       continue
     }
     
-    const sensor = line.startsWith("AMB") ? "amb" : line.startsWith("ENV") ? "env" : "unknown"
-    const data: Record<string, number | string> = {}
-    
-    // Parse fields
-    const patterns: Record<string, RegExp> = {
-      address: /addr=(0x[0-9a-fA-F]+)/,
-      temperature: /T=([\d.]+)C/,
-      humidity: /RH=([\d.]+)%/,
-      pressure: /P=([\d.]+)hPa/,
-      gas_resistance: /Gas=(\d+)Ohm/,
-      iaq: /IAQ=([\d.]+)/,
-      iaq_accuracy: /acc=(\d+)/,
-      co2eq: /CO2eq=([\d.]+)/,
-      voc: /VOC=([\d.]+)/,
-      age_ms: /age=(\d+)ms/,
-    }
-    
-    for (const [field, pattern] of Object.entries(patterns)) {
-      const match = line.match(pattern)
-      if (match) {
-        const value = match[1]
-        if (value.includes(".")) {
-          data[field] = parseFloat(value)
-        } else if (value.startsWith("0x")) {
-          data[field] = value
-        } else {
-          data[field] = parseInt(value)
-        }
+    // Parse NDJSON format (firmware machine mode)
+    try {
+      const msg = JSON.parse(line)
+      
+      if (msg.type === "telemetry") {
+        // Extract sensor data from NDJSON telemetry
+        const data: Record<string, number | string> = {}
+        
+        // Map firmware fields to sensor data
+        if (msg.temperature !== undefined) data.temperature = msg.temperature
+        if (msg.humidity !== undefined) data.humidity = msg.humidity
+        if (msg.pressure !== undefined) data.pressure = msg.pressure
+        if (msg.gas_resistance !== undefined) data.gas_resistance = msg.gas_resistance
+        if (msg.ai1_voltage !== undefined) data.ai1_voltage = msg.ai1_voltage
+        if (msg.ai2_voltage !== undefined) data.ai2_voltage = msg.ai2_voltage
+        if (msg.ai3_voltage !== undefined) data.ai3_voltage = msg.ai3_voltage
+        if (msg.ai4_voltage !== undefined) data.ai4_voltage = msg.ai4_voltage
+        if (msg.board_id) data.board_id = msg.board_id
+        if (msg.firmware_version) data.firmware_version = msg.firmware_version
+        if (msg.uptime_seconds !== undefined) data.uptime_seconds = msg.uptime_seconds
+        
+        // Determine sensor type based on data
+        const sensor = msg.temperature !== undefined ? "bme688" : "analog"
+        
+        entries.push({
+          timestamp: msg.ts ? new Date(msg.ts).toISOString() : new Date().toISOString(),
+          sensor,
+          data,
+        })
       }
-    }
-    
-    if (Object.keys(data).length > 0) {
-      entries.push({
-        timestamp: new Date().toISOString(),
-        sensor,
-        data,
-      })
+    } catch {
+      // Not valid JSON, skip
+      continue
     }
   }
   
