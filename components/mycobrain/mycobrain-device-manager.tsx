@@ -366,12 +366,11 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       }
     }
     
-    // Initial scan after 2 seconds, then every 5 seconds
-    const initialTimeout = setTimeout(autoScanAndConnect, 2000)
-    const interval = setInterval(autoScanAndConnect, 5000)
+    // Initial scan immediately, then every 3 seconds (more frequent for better detection)
+    autoScanAndConnect() // Run immediately
+    const interval = setInterval(autoScanAndConnect, 3000) // Every 3 seconds
     
     return () => {
-      clearTimeout(initialTimeout)
       clearInterval(interval)
     }
   }, [serviceStatus, scanning, refresh])
