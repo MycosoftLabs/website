@@ -5,19 +5,14 @@ export const dynamic = "force-dynamic"
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 interface BuzzerCommand {
-  action: "preset" | "tone" | "acoustic_tx" | "stop"
+  action: "preset" | "tone" | "acoustic_tx" | "stop" | "acoustic_status"
   // Preset sounds
   preset?: "coin" | "bump" | "power" | "1up" | "morgio"
   // Custom tone
   hz?: number
   ms?: number
   // Acoustic modem TX params
-  profile?: string
   payload?: string
-  symbol_ms?: number
-  f0?: number
-  f1?: number
-  repeat?: number
 }
 
 async function sendCommand(deviceId: string, cmd: string): Promise<string | null> {
@@ -87,40 +82,31 @@ export async function POST(
       case "tone":
         const hz = Math.max(100, Math.min(10000, body.hz || 1000))
         const ms = Math.max(10, Math.min(5000, body.ms || 200))
-        cmd = `tone ${hz} ${ms}`
+        // Firmware uses "beep" command, not "tone"
+        cmd = `beep ${hz} ${ms}`
         response = await sendCommand(deviceId, cmd)
         break
         
       case "acoustic_tx":
-        // Acoustic modem transmission
-        const profile = body.profile || "simple_fsk"
+        // Acoustic modem transmission - send CLI command
         const payload = body.payload || ""
-        const symbolMs = body.symbol_ms || 100
-        const f0 = body.f0 || 1000
-        const f1 = body.f1 || 2000
-        const repeat = body.repeat || 1
-        // Encode payload to base64
-        const payloadB64 = Buffer.from(payload).toString("base64")
-        cmd = JSON.stringify({
-          cmd: "acoustic.tx.start",
-          profile,
-          payload: payloadB64,
-          symbol_ms: symbolMs,
-          f0,
-          f1,
-          repeat,
-        })
+        cmd = `aotx start ${payload}`
         response = await sendCommand(deviceId, cmd)
         break
         
       case "stop":
-        cmd = JSON.stringify({ cmd: "acoustic.tx.stop" })
+        cmd = "aotx stop"
+        response = await sendCommand(deviceId, cmd)
+        break
+        
+      case "acoustic_status":
+        cmd = "aotx status"
         response = await sendCommand(deviceId, cmd)
         break
         
       default:
         return NextResponse.json(
-          { error: "Invalid action", valid_actions: ["preset", "tone", "acoustic_tx", "stop"] },
+          { error: "Invalid action", valid_actions: ["preset", "tone", "acoustic_tx", "stop", "acoustic_status"] },
           { status: 400 }
         )
     }
@@ -145,4 +131,28 @@ export async function POST(
     )
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

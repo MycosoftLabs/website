@@ -69,7 +69,15 @@ export function MycoBrainOverviewWidget() {
             <div>
               <CardTitle className="text-sm font-medium">MycoBrain Gateway</CardTitle>
               <CardDescription className="text-green-100 text-xs">
-                {primaryDevice.port} • 2x BME688
+                {primaryDevice.port} • {(() => {
+                  if (bme1 && bme2) return "2x BME688"
+                  if (bme1) return "1x BME688"
+                  // Check I2C addresses for BME688 (0x76=118, 0x77=119)
+                  const i2cAddrs = primaryDevice.telemetry?.i2c_addresses || []
+                  const bmeCount = i2cAddrs.filter((addr: number) => addr === 0x76 || addr === 0x77 || addr === 118 || addr === 119).length
+                  if (bmeCount > 0) return `${bmeCount}x BME688`
+                  return "No sensors"
+                })()}
               </CardDescription>
             </div>
           </div>

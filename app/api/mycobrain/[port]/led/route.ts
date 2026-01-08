@@ -5,17 +5,15 @@ export const dynamic = "force-dynamic"
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 interface LedCommand {
-  action: "rgb" | "off" | "mode" | "pattern" | "optical_tx"
+  action: "rgb" | "off" | "mode" | "pattern" | "optical_tx" | "optical_stop" | "optical_status" | "brightness"
   r?: number
   g?: number
   b?: number
   mode?: string
   pattern?: string
+  value?: number  // For brightness 0-100
   // Optical modem TX params
-  profile?: string
   payload?: string
-  rate_hz?: number
-  repeat?: number
 }
 
 async function sendCommand(deviceId: string, cmd: string): Promise<string | null> {
@@ -89,33 +87,49 @@ export async function POST(
         break
         
       case "pattern":
-        // Pattern presets
-        const pattern = body.pattern || "solid"
+        // Pattern presets - map UI patterns to firmware patterns
+        const patternMap: Record<string, string> = {
+          solid: "solid",
+          blink: "blink", 
+          breathe: "breathe",
+          rainbow: "rainbow",
+          chase: "chase",
+          sparkle: "sparkle"
+        }
+        const pattern = patternMap[body.pattern || "solid"] || "solid"
         cmd = `led pattern ${pattern}`
         response = await sendCommand(deviceId, cmd)
         break
         
+      case "brightness":
+        // Set LED brightness 0-100
+        const brightness = Math.max(0, Math.min(100, body.value || 100))
+        cmd = `led brightness ${brightness}`
+        response = await sendCommand(deviceId, cmd)
+        break
+        
       case "optical_tx":
-        // Optical modem transmission
-        const profile = body.profile || "camera_ook"
+        // Optical modem transmission - send CLI command
         const payload = body.payload || ""
-        const rate = body.rate_hz || 10
-        const repeat = body.repeat || 1
-        // Encode payload to base64
-        const payloadB64 = Buffer.from(payload).toString("base64")
-        cmd = JSON.stringify({
-          cmd: "optical.tx.start",
-          profile,
-          payload: payloadB64,
-          rate_hz: rate,
-          repeat,
-        })
+        cmd = `optx start ${payload}`
+        response = await sendCommand(deviceId, cmd)
+        break
+        
+      case "optical_stop":
+        // Stop optical modem
+        cmd = "optx stop"
+        response = await sendCommand(deviceId, cmd)
+        break
+        
+      case "optical_status":
+        // Get optical modem status
+        cmd = "optx status"
         response = await sendCommand(deviceId, cmd)
         break
         
       default:
         return NextResponse.json(
-          { error: "Invalid action", valid_actions: ["rgb", "off", "mode", "pattern", "optical_tx"] },
+          { error: "Invalid action", valid_actions: ["rgb", "off", "mode", "pattern", "brightness", "optical_tx", "optical_stop", "optical_status"] },
           { status: 400 }
         )
     }
@@ -206,4 +220,28 @@ export async function GET(
     )
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -280,3 +280,27 @@ export function BuzzerControlWidget({ deviceId, onCommand }: BuzzerControlWidget
   )
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

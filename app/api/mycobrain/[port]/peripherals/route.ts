@@ -196,3 +196,27 @@ export async function POST(
   // Same as GET but explicitly triggers a new scan
   return GET(request, { params })
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
