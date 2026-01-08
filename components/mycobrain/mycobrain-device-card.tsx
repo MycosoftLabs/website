@@ -227,7 +227,17 @@ export function MycoBrainDeviceCard({ port = "COM4", onDeviceSelect }: MycoBrain
           <div className="bg-white/10 rounded-lg p-2 text-center">
             <Thermometer className="h-4 w-4 mx-auto mb-1" />
             <div className="text-xs opacity-80">Sensors</div>
-            <div className="text-sm font-medium">2x BME688</div>
+            <div className="text-sm font-medium">
+              {(() => {
+                if (bme1 && bme2) return "2x BME688"
+                if (bme1) return "1x BME688"
+                // Check I2C addresses for BME688 (0x76=118, 0x77=119)
+                const i2cAddrs = device.telemetry?.i2c_addresses || []
+                const bmeCount = i2cAddrs.filter((addr: number) => addr === 0x76 || addr === 0x77 || addr === 118 || addr === 119).length
+                if (bmeCount > 0) return `${bmeCount}x BME688`
+                return "None"
+              })()}
+            </div>
           </div>
           <div className="bg-white/10 rounded-lg p-2 text-center">
             <Zap className="h-4 w-4 mx-auto mb-1" />

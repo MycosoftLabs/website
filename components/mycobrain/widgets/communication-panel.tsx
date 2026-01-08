@@ -486,3 +486,27 @@ export function CommunicationPanel({ deviceId, onCommand }: CommunicationPanelPr
   )
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

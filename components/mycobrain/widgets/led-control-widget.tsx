@@ -86,14 +86,7 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
 
   const stopOpticalTx = async () => {
     setOpticalRunning(false)
-    // Send stop command
-    try {
-      await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/control`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ peripheral: "led", action: "optical_stop" }),
-      })
-    } catch { /* ignore */ }
+    await sendLedCommand("optical_stop", {})
   }
 
   return (
@@ -192,7 +185,10 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
               <Label>Brightness: {brightness}%</Label>
               <Slider
                 value={[brightness]}
-                onValueChange={([v]) => setBrightness(v)}
+                onValueChange={([v]) => {
+                  setBrightness(v)
+                  sendLedCommand("brightness", { value: v })
+                }}
                 max={100}
               />
             </div>
@@ -300,4 +296,28 @@ export function LedControlWidget({ deviceId, onCommand }: LedControlWidgetProps)
     </Card>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
