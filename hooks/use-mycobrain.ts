@@ -75,7 +75,7 @@ export interface MycoBrainState {
   isConnected: boolean
 }
 
-export function useMycoBrain(refreshInterval = 2000) {
+export function useMycoBrain(refreshInterval = 15000) {
   const [state, setState] = useState<MycoBrainState>({
     devices: [],
     loading: true,
@@ -121,8 +121,8 @@ export function useMycoBrain(refreshInterval = 2000) {
         device_id: d.device_id || `mycobrain-${d.port?.replace(/[\/\\]/g, '-') || 'unknown'}`,
         connected: d.connected ?? (d.status === "connected"),  // Map status to connected boolean
         capabilities: d.capabilities || {
-          bme688_count: 2,
-          has_lora: true,
+          bme688_count: 0,  // Default to 0 when no sensors detected
+          has_lora: false,  // Will be updated from firmware status
           has_neopixel: true,
           has_buzzer: true,
           i2c_bus: true,
@@ -160,11 +160,10 @@ export function useMycoBrain(refreshInterval = 2000) {
 
   const fetchSensors = useCallback(async (portOrDeviceId: string) => {
     try {
-      // Find device by port or device_id to get the correct identifier
-      const device = state.devices.find(d => d.port === portOrDeviceId || d.device_id === portOrDeviceId)
-      const identifierForApi = device?.device_id || portOrDeviceId
+      // Always use clean port name (strip mycobrain- prefix if present)
+      const cleanPort = portOrDeviceId.replace("mycobrain-", "")
       
-      const response = await fetch(`/api/mycobrain/${encodeURIComponent(identifierForApi)}/sensors`)
+      const response = await fetch(`/api/mycobrain/${encodeURIComponent(cleanPort)}/sensors`)
       if (!response.ok) throw new Error("Failed to fetch sensors")
 
       const data = await response.json()
@@ -191,11 +190,10 @@ export function useMycoBrain(refreshInterval = 2000) {
   const sendControl = useCallback(
     async (port: string, peripheral: string, action: string, data: Record<string, unknown> = {}) => {
       try {
-        // Find device to get device_id
-        const device = state.devices.find(d => d.port === port)
-        const deviceId = device?.device_id || port
+        // Always use clean port name (strip mycobrain- prefix if present)
+        const cleanPort = port.replace("mycobrain-", "")
         
-        const response = await fetch(`/api/mycobrain/${encodeURIComponent(deviceId)}/control`, {
+        const response = await fetch(`/api/mycobrain/${encodeURIComponent(cleanPort)}/control`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ peripheral, action, ...data }),
@@ -274,11 +272,8 @@ export function useMycoBrain(refreshInterval = 2000) {
     }
   }, [fetchDevices, refreshInterval])
 
-  // Also fetch sensors for connected devices
-  useEffect(() => {
-    const connectedDevices = state.devices.filter((d) => d.connected)
-    connectedDevices.forEach((d) => fetchSensors(d.port))
-  }, [state.devices.filter((d) => d.connected).length, fetchSensors])
+  // Sensor polling is handled by individual components that need it
+  // Removed automatic sensor polling for all devices to prevent resource exhaustion
 
   return {
     ...state,
