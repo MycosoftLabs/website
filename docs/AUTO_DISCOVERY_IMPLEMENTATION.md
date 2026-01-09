@@ -254,3 +254,27 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/mycobrain/ports"
 MycoBoard devices will now be automatically detected and connected when plugged in via USB-C, regardless of Cursor/IDE state.
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

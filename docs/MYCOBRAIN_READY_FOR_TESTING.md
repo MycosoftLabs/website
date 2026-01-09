@@ -245,3 +245,27 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/mycobrain/ttyACM0/telemetry?co
 All code is integrated, APIs are tested, and widgets are ready. Connect your physical MycoBoard device to test all new firmware features!
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

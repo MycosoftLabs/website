@@ -346,3 +346,27 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/mindex/telemetry?device_id=myc
 All MycoBrain features are now integrated across MINDEX, NatureOS, MAS, and the Website. Devices automatically register and telemetry flows to all systems.
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

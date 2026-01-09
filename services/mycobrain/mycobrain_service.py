@@ -303,6 +303,36 @@ class MycoBrainDevice:
                     pass
             return False
     
+    def send_plaintext_command(self, cmd: str) -> bool:
+        """Send a plaintext CLI command to the MycoBrain (December 29 firmware format)
+        
+        Supported commands:
+        - LED: led rgb <r> <g> <b>, led off
+        - Buzzer: coin, bump, power, 1up, morgio, buzzer beep, buzzer off
+        - Mode: mode machine, mode human, dbg on, dbg off, fmt json, fmt lines
+        - Sensors: status, scan, probe, live on, live off
+        """
+        if not self.connected or not self.serial:
+            return False
+        
+        try:
+            with self._lock:
+                # Ensure command ends with newline
+                if not cmd.endswith('\n'):
+                    cmd = cmd + '\n'
+                
+                print(f"[CLI] Sending plaintext command: {cmd.strip()}")
+                self.serial.write(cmd.encode('utf-8'))
+                self.serial.flush()
+                
+                # Give device time to process
+                time.sleep(0.05)
+                
+            return True
+        except Exception as e:
+            print(f"[CLI] Send error: {e}")
+            return False
+    
     def get_status(self) -> Dict[str, Any]:
         return {
             "connected": self.connected,
@@ -358,13 +388,31 @@ class DeviceManager:
         return ports
     
     def _is_mycobrain_port(self, port_info: Dict[str, Any]) -> bool:
-        """Check if a port is likely a MycoBrain device"""
+        """Check if a port is a MycoBrain device (ESP32-S3)"""
+        # ESP32-S3 VID:PID = 303A:1001 (decimal: 12346:4097)
+        vid = port_info.get("vid")
+        pid = port_info.get("pid")
+        
+        # Primary check: ESP32-S3 USB VID:PID
+        if vid == 12346 and pid == 4097:  # 0x303A:0x1001
+            return True
+        if vid == 0x303A and pid == 0x1001:
+            return True
+        
+        # Secondary check: description/hwid indicators
         desc = port_info.get("description", "").upper()
         hwid = port_info.get("hwid", "").upper()
         
-        # Check for ESP32-S3 indicators
-        esp32_indicators = ["ESP32", "CH340", "CH341", "CP210", "FTDI", "SILABS"]
-        return any(indicator in desc or indicator in hwid for indicator in esp32_indicators)
+        # Check for ESP32-S3 indicators in description
+        esp32_indicators = ["ESP32", "ESP32-S3", "303A"]
+        if any(indicator in desc or indicator in hwid for indicator in esp32_indicators):
+            return True
+        
+        # Exclude system COM ports (no VID/PID)
+        if vid is None and pid is None:
+            return False
+        
+        return False
     
     def _discovery_loop(self):
         """Continuous device discovery loop"""
@@ -377,7 +425,7 @@ class DeviceManager:
                 current_ports = set(self.discovered_ports.keys())
                 new_ports = set(p["port"] for p in available_ports) - current_ports
                 
-                # Try to connect to new MycoBrain-like ports
+                # Try to connect to new MycoBrain ESP32-S3 devices only
                 for port_info in available_ports:
                     port = port_info["port"]
                     
@@ -385,9 +433,10 @@ class DeviceManager:
                     if port in self.devices and self.devices[port].connected:
                         continue
                     
-                    # Auto-connect to MycoBrain-like devices
-                    if self._is_mycobrain_port(port_info) or port.startswith("COM") or "/dev/tty" in port:
+                    # Only auto-connect to actual MycoBrain ESP32-S3 devices
+                    if self._is_mycobrain_port(port_info):
                         if port not in self.devices:
+                            print(f"[Discovery] Found MycoBrain device at {port} (VID={port_info.get('vid')}, PID={port_info.get('pid')})")
                             print(f"[Discovery] Attempting to connect to {port}...")
                             if self.connect_device(port):
                                 print(f"[Discovery] Successfully connected to {port}")
@@ -476,7 +525,7 @@ class DeviceManager:
             self._discovery_thread.join(timeout=2)
         print("[Discovery] Device discovery stopped")
     
-    def connect_device(self, port: str) -> bool:
+    def connect_device(self, port: str, use_mdp: bool = True) -> bool:
         if port in self.devices and self.devices[port].connected:
             print(f"[DeviceManager] Device {port} already connected")
             return True
@@ -487,9 +536,21 @@ class DeviceManager:
             print(f"[DeviceManager] Port {port} not available. Available ports: {available_ports}")
             return False
         
-        print(f"[DeviceManager] Creating device connection for {port}...")
+        # Check if this is actually a MycoBrain device
+        port_info = self.discovered_ports.get(port, {})
+        if not port_info:
+            # Scan to get port info
+            self.scan_ports()
+            port_info = self.discovered_ports.get(port, {})
+        
+        if not self._is_mycobrain_port(port_info):
+            print(f"[DeviceManager] Port {port} is not a MycoBrain device (VID={port_info.get('vid')}, PID={port_info.get('pid')})")
+            print(f"[DeviceManager] Skipping non-MycoBrain port")
+            return False
+        
+        print(f"[DeviceManager] Creating device connection for {port} (MycoBrain ESP32-S3 detected)...")
         # Try MDP first, fallback to JSON
-        device = MycoBrainDevice(port, use_mdp=True)
+        device = MycoBrainDevice(port, use_mdp=use_mdp)
         if device.connect():
             self.devices[port] = device
             print(f"[DeviceManager] Device {port} connected successfully (MDP mode: {device.use_mdp})")
@@ -498,13 +559,14 @@ class DeviceManager:
             return True
         else:
             # Try JSON mode as fallback
-            print(f"[DeviceManager] MDP mode failed, trying JSON mode...")
-            device = MycoBrainDevice(port, use_mdp=False)
-            if device.connect():
-                self.devices[port] = device
-                print(f"[DeviceManager] Device {port} connected successfully (JSON mode)")
-                self._register_with_mindex(port)
-                return True
+            if use_mdp:
+                print(f"[DeviceManager] MDP mode failed, trying JSON mode...")
+                device = MycoBrainDevice(port, use_mdp=False)
+                if device.connect():
+                    self.devices[port] = device
+                    print(f"[DeviceManager] Device {port} connected successfully (JSON mode)")
+                    self._register_with_mindex(port)
+                    return True
             print(f"[DeviceManager] Failed to connect device {port}")
             return False
     
@@ -541,41 +603,39 @@ class BuzzerCommand(BaseModel):
     pattern: str = "beep"  # beep, melody, off
 
 class CommandRequest(BaseModel):
-    cmd_id: int
+    cmd_id: int = None
     dst: int = 0xA1
     data: List[int] = []
+    # Support for plaintext CLI commands (December 29 firmware format)
+    command: Optional[Dict[str, str]] = None  # {"cmd": "coin"} or {"cmd": "led rgb 255 0 0"}
 
 
 # ============== FastAPI App ==============
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start continuous device discovery
+    # Startup: Scan ports but don't auto-connect (let discovery loop handle it)
     print("[Startup] Starting MycoBrain device discovery service...")
-    device_manager.start_discovery()
     
-    # Initial scan and connect - prioritize COM4
+    # Initial scan - just identify devices
     ports = device_manager.scan_ports()
     print(f"[Startup] Found {len(ports)} serial port(s)")
     
-    # First, try to connect to COM4 specifically
-    com4_port = next((p for p in ports if p["port"] == "COM4"), None)
-    if com4_port:
-        print(f"[Startup] Found COM4 - attempting connection...")
-        if device_manager.connect_device("COM4"):
-            print(f"[Startup] Successfully connected to COM4!")
-        else:
-            print(f"[Startup] Failed to connect to COM4, will retry in discovery loop")
-    else:
-        print(f"[Startup] COM4 not found in available ports")
-        # Try other MycoBrain-like ports
+    # Find all MycoBrain ESP32-S3 devices (VID=303A, PID=1001)
+    mycobrain_ports = [p for p in ports if device_manager._is_mycobrain_port(p)]
+    print(f"[Startup] Found {len(mycobrain_ports)} MycoBrain ESP32-S3 device(s)")
+    
+    for port_info in mycobrain_ports:
+        print(f"  - {port_info['port']}: VID={port_info.get('vid')}, PID={port_info.get('pid')}, {port_info.get('description')}")
+    
+    if not mycobrain_ports:
+        print("[Startup] No MycoBrain devices found. Available ports:")
         for port_info in ports:
-            port = port_info["port"]
-            if device_manager._is_mycobrain_port(port_info) or ("COM" in port and port != "COM4") or "/dev/tty" in port:
-                print(f"[Startup] Auto-connecting to {port}...")
-                if device_manager.connect_device(port):
-                    print(f"[Startup] Successfully connected to {port}!")
-                    break
+            print(f"  - {port_info['port']}: VID={port_info.get('vid')}, PID={port_info.get('pid')}, {port_info.get('description')}")
+    
+    # Start background discovery (will connect to devices)
+    device_manager.start_discovery()
+    print("[Startup] Background device discovery started - devices will connect automatically")
     
     yield
     
@@ -851,7 +911,12 @@ async def control_buzzer(port: str, cmd: BuzzerCommand):
 
 @app.post("/devices/{port}/command")
 async def send_raw_command(port: str, cmd: CommandRequest):
-    """Send a raw command to the device"""
+    """Send a command to the device
+    
+    Supports two formats:
+    1. Plaintext CLI (December 29 firmware): {"command": {"cmd": "coin"}} or {"command": {"cmd": "led rgb 255 0 0"}}
+    2. MDP protocol (binary): {"cmd_id": 20, "data": [0, 0, 0, 100]}
+    """
     from urllib.parse import unquote
     port = unquote(port)
     
@@ -859,8 +924,29 @@ async def send_raw_command(port: str, cmd: CommandRequest):
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
     
-    success = device.send_command(cmd.cmd_id, cmd.dst, cmd.data)
-    return {"success": success}
+    # Check if this is a plaintext CLI command
+    if cmd.command and cmd.command.get("cmd"):
+        cli_cmd = cmd.command["cmd"]
+        print(f"[API] Received plaintext command for {port}: {cli_cmd}")
+        success = device.send_plaintext_command(cli_cmd)
+        
+        # Wait briefly and try to get response
+        await asyncio.sleep(0.2)
+        response = device.last_message
+        
+        return {
+            "success": success,
+            "command": cli_cmd,
+            "response": response,
+            "mode": "plaintext_cli"
+        }
+    
+    # Otherwise use MDP protocol
+    if cmd.cmd_id is not None:
+        success = device.send_command(cmd.cmd_id, cmd.dst, cmd.data)
+        return {"success": success, "mode": "mdp_binary"}
+    
+    return {"success": False, "error": "No valid command provided"}
 
 
 @app.websocket("/ws/{port}")

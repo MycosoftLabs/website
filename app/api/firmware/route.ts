@@ -211,3 +211,27 @@ function parseFirmwareList(output: string): Array<{ name: string; side: string; 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -182,3 +182,27 @@ if ($testsFailed -eq 0) {
 }
 
 Write-Host "`nNext: Test in browser at http://localhost:3000/natureos/devices" -ForegroundColor Cyan
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
