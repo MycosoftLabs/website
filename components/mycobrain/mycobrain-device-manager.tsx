@@ -88,6 +88,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     isConnected,
     lastUpdate,
     refresh,
+    fetchSensors,
     setNeoPixel,
     neoPixelRainbow,
     neoPixelOff,
@@ -95,7 +96,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     buzzerMelody,
     buzzerOff,
     sendControl,
-  } = useMycoBrain(2000)
+  } = useMycoBrain(15000)
 
   const [selectedPort, setSelectedPort] = useState<string | null>(initialPort || null)
   const [neopixelColor, setNeopixelColor] = useState({ r: 0, g: 255, b: 0 })
@@ -104,8 +105,39 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [commandLoading, setCommandLoading] = useState<string | null>(null)
   const [consoleOutput, setConsoleOutput] = useState<string[]>([])
   const [sensorHistory, setSensorHistory] = useState<SensorHistoryPoint[]>([])
+  
+  // Cache sensor count to prevent blinking during refreshes
+  const lastSensorCountRef = useRef<string | null>(null)
 
   const device = devices.find((d) => d.port === selectedPort) || devices[0]
+  
+  // Calculate and cache sensor count - never go back to "None" once we've detected sensors
+  const sensorCount = (() => {
+    let count: string | null = null
+    
+    // Check capabilities first
+    if (device?.capabilities?.bme688_count) {
+      count = `${device.capabilities.bme688_count}x BME688`
+    }
+    // Check sensor_data for legacy support
+    else if (device?.sensor_data?.bme688_1) {
+      count = device.sensor_data?.bme688_2 ? "2x BME688" : "1x BME688"
+    }
+    // Check I2C addresses for BME688 (0x76=118, 0x77=119)
+    else if (device?.telemetry?.i2c_addresses || device?.i2c_addresses) {
+      const i2cAddrs = device.telemetry?.i2c_addresses || device.i2c_addresses || []
+      const bmeCount = i2cAddrs.filter((addr: number) => addr === 0x76 || addr === 0x77 || addr === 118 || addr === 119).length
+      if (bmeCount > 0) count = `${bmeCount}x BME688`
+    }
+    
+    // Update cache if we have a valid count
+    if (count) {
+      lastSensorCountRef.current = count
+    }
+    
+    // Return cached value if current is null (prevents blinking)
+    return count || lastSensorCountRef.current || "None"
+  })()
 
   // Select device on load - prefer initialPort, then first available device
   useEffect(() => {
@@ -117,6 +149,22 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       }
     }
   }, [devices, selectedPort, initialPort])
+
+  // Poll sensors for selected device
+  useEffect(() => {
+    if (!device?.port || !device?.connected) return
+    
+    // Fetch sensors immediately and then every 15 seconds (offset from peripheral scan)
+    const initialDelay = setTimeout(() => fetchSensors(device.port), 500)
+    const interval = setInterval(() => {
+      fetchSensors(device.port)
+    }, 15000)
+    
+    return () => {
+      clearTimeout(initialDelay)
+      clearInterval(interval)
+    }
+  }, [device?.port, device?.connected, fetchSensors])
 
   // Track sensor history
   useEffect(() => {
@@ -997,22 +1045,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                 <span className="text-xs">Sensors</span>
               </div>
               <p className="text-lg font-bold">
-                {(() => {
-                  // Check capabilities first
-                  if (device.capabilities?.bme688_count) {
-                    return `${device.capabilities.bme688_count}x BME688`
-                  }
-                  // Check sensor_data for legacy support
-                  if (device.sensor_data?.bme688_1) {
-                    return device.sensor_data?.bme688_2 ? "2x BME688" : "1x BME688"
-                  }
-                  // Check I2C addresses for BME688 (0x76=118, 0x77=119)
-                  const i2cAddrs = device.telemetry?.i2c_addresses || device.i2c_addresses || []
-                  const bmeCount = i2cAddrs.filter((addr: number) => addr === 0x76 || addr === 0x77 || addr === 118 || addr === 119).length
-                  if (bmeCount > 0) return `${bmeCount}x BME688`
-                  // No sensors detected
-                  return "None"
-                })()}
+                {sensorCount}
               </p>
             </div>
             <div className="bg-white/10 rounded-lg p-3">
