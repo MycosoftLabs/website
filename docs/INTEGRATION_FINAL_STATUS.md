@@ -100,3 +100,27 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/mindex/telemetry?device_id=myc
 All code has been integrated. Containers are rebuilding. Once MINDEX is healthy, all features will be available.
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

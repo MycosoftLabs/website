@@ -310,3 +310,27 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/mindex/devices"
 All services verified. All endpoints tested. Ready for physical MycoBoard connection.
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

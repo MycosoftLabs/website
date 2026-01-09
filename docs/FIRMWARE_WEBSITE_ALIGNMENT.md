@@ -222,3 +222,27 @@ The firmware updates (Side-A Production and ScienceComms) are now fully aligned 
 The firmware updates and website integration are perfectly synchronized. All commands, formats, and protocols match. Ready for hardware testing!
 
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

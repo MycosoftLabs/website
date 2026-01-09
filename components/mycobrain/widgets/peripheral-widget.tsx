@@ -19,7 +19,11 @@ import {
   HelpCircle,
   RefreshCw,
   Loader2,
+  Wind,
+  FlaskConical,
 } from "lucide-react"
+import { SmellDetectionWidget } from "./smell-detection-widget"
+import { AQIComparisonWidget } from "./aqi-comparison-widget"
 
 interface PeripheralWidgetProps {
   deviceId: string
@@ -137,8 +141,14 @@ function EnvironmentalSensorWidget({
       </div>
       
       {/* VOC and CO2 - only show if available (requires BSEC library) */}
-      {(typeof data.voc === "number" || typeof data.co2eq === "number") && (
+      {(typeof data.voc === "number" || typeof data.co2eq === "number" || typeof data.bvoc === "number") && (
         <div className="flex gap-4 text-sm pt-2 border-t border-border/50">
+          {typeof data.bvoc === "number" && (
+            <div>
+              <span className="text-muted-foreground">bVOC:</span>{" "}
+              <span className="font-medium">{data.bvoc.toFixed(2)} ppm</span>
+            </div>
+          )}
           {typeof data.voc === "number" && (
             <div>
               <span className="text-muted-foreground">VOC:</span>{" "}
@@ -147,8 +157,30 @@ function EnvironmentalSensorWidget({
           )}
           {typeof data.co2eq === "number" && (
             <div>
-              <span className="text-muted-foreground">CO₂eq:</span>{" "}
+              <span className="text-muted-foreground">eCO₂:</span>{" "}
               <span className="font-medium">{data.co2eq.toFixed(0)} ppm</span>
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Smell Detection - BSEC2 gas classification */}
+      {typeof data.gas_class === "number" && data.gas_class >= 0 && (
+        <div className="pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2 mb-2">
+            <FlaskConical className="h-4 w-4 text-emerald-500" />
+            <span className="text-sm text-muted-foreground">Smell Detection</span>
+            <Badge variant="outline" className="text-xs text-emerald-500 border-emerald-500/50">
+              Class {data.gas_class}
+            </Badge>
+          </div>
+          {typeof data.gas_probability === "number" && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Confidence</span>
+                <span>{(data.gas_probability as number * 100).toFixed(0)}%</span>
+              </div>
+              <Progress value={(data.gas_probability as number) * 100} className="h-1.5" />
             </div>
           )}
         </div>

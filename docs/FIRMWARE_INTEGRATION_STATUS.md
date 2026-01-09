@@ -150,3 +150,27 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/mycobrain/ttyACM0/telemetry?co
 
 *Status: Ready for Hardware Testing*  
 *Last Updated: December 30, 2024*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
