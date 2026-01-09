@@ -67,8 +67,8 @@ function parseSensorData(response: string) {
             gas_resistance: data.bme1.gas_ohm ?? data.bme1.gas_resistance,
             iaq: data.bme1.iaq,
             iaq_accuracy: data.bme1.iaq_accuracy,
-            co2_equivalent: data.bme1.co2eq,
-            voc_equivalent: data.bme1.voc,
+            co2_equivalent: data.bme1.co2_equivalent ?? data.bme1.co2eq,
+            voc_equivalent: data.bme1.voc_equivalent ?? data.bme1.voc,
           }
         }
         if (data.bme2) {
@@ -79,8 +79,8 @@ function parseSensorData(response: string) {
             gas_resistance: data.bme2.gas_ohm ?? data.bme2.gas_resistance,
             iaq: data.bme2.iaq,
             iaq_accuracy: data.bme2.iaq_accuracy,
-            co2_equivalent: data.bme2.co2eq,
-            voc_equivalent: data.bme2.voc,
+            co2_equivalent: data.bme2.co2_equivalent ?? data.bme2.co2eq,
+            voc_equivalent: data.bme2.voc_equivalent ?? data.bme2.voc,
           }
         }
         sensors.last_update = new Date().toISOString()

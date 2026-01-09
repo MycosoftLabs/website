@@ -141,24 +141,18 @@ function EnvironmentalSensorWidget({
       </div>
       
       {/* VOC and CO2 - only show if available (requires BSEC library) */}
-      {(typeof data.voc === "number" || typeof data.co2eq === "number" || typeof data.bvoc === "number") && (
+      {(typeof data.voc_equivalent === "number" || typeof data.co2_equivalent === "number") && (
         <div className="flex gap-4 text-sm pt-2 border-t border-border/50">
-          {typeof data.bvoc === "number" && (
+          {typeof data.voc_equivalent === "number" && (
             <div>
               <span className="text-muted-foreground">bVOC:</span>{" "}
-              <span className="font-medium">{data.bvoc.toFixed(2)} ppm</span>
+              <span className="font-medium">{(data.voc_equivalent as number).toFixed(2)} ppm</span>
             </div>
           )}
-          {typeof data.voc === "number" && (
-            <div>
-              <span className="text-muted-foreground">VOC:</span>{" "}
-              <span className="font-medium">{data.voc.toFixed(2)} ppm</span>
-            </div>
-          )}
-          {typeof data.co2eq === "number" && (
+          {typeof data.co2_equivalent === "number" && (
             <div>
               <span className="text-muted-foreground">eCO₂:</span>{" "}
-              <span className="font-medium">{data.co2eq.toFixed(0)} ppm</span>
+              <span className="font-medium">{(data.co2_equivalent as number).toFixed(0)} ppm</span>
             </div>
           )}
         </div>
@@ -469,6 +463,15 @@ export function PeripheralGrid({
     )
   }
   
+  // Check if we have BSEC2 data for smell detection
+  const hasBsec2Data = Object.values(effectiveSensorData).some(
+    (data: Record<string, unknown>) => typeof data?.iaq === "number"
+  )
+  
+  // Get first BME688 sensor data for smell detection and AQI
+  const primaryBmeSensor = effectiveSensorData?.bme688_1 as Record<string, unknown> | undefined
+  const deviceIAQ = typeof primaryBmeSensor?.iaq === "number" ? primaryBmeSensor.iaq : 0
+  
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -481,6 +484,7 @@ export function PeripheralGrid({
         </Button>
       </div>
       
+      {/* Main peripheral grid */}
       <div className="grid gap-4 md:grid-cols-2">
         {peripherals.map((p) => {
           const peripheralData = getSensorDataForPeripheral(p)
@@ -494,6 +498,27 @@ export function PeripheralGrid({
           )
         })}
       </div>
+      
+      {/* Advanced BSEC2 Widgets - only show if we have BME688 peripherals */}
+      {peripherals.some(p => p.type === "bme688" || p.type?.includes("bme")) && (
+        <div className="grid gap-4 md:grid-cols-2 mt-6">
+          {/* Smell Detection Widget */}
+          <SmellDetectionWidget
+            port={deviceId}
+            gasClass={typeof primaryBmeSensor?.gas_class === "number" ? primaryBmeSensor.gas_class : -1}
+            gasProbability={typeof primaryBmeSensor?.gas_probability === "number" ? primaryBmeSensor.gas_probability : 0}
+            gasEstimates={Array.isArray(primaryBmeSensor?.gas_estimates) ? primaryBmeSensor.gas_estimates as number[] : []}
+            co2eq={typeof primaryBmeSensor?.co2_equivalent === "number" ? primaryBmeSensor.co2_equivalent : 0}
+            bvoc={typeof primaryBmeSensor?.voc_equivalent === "number" ? primaryBmeSensor.voc_equivalent : 0}
+            sensorMode={hasBsec2Data ? "bsec2" : "adafruit"}
+          />
+          
+          {/* AQI Comparison Widget */}
+          <AQIComparisonWidget
+            deviceIAQ={deviceIAQ}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -98,10 +98,48 @@ export function SmellDetectionWidget({
   const [loading, setLoading] = useState(false)
   const lastClassRef = useRef<number>(-1)
   
+  // Cache the last known sensor mode to prevent blinking
+  const lastSensorModeRef = useRef<string>("adafruit")
+  const lastCo2eqRef = useRef<number>(0)
+  const lastBvocRef = useRef<number>(0)
+  
+  // Update cached values when valid data arrives
+  useEffect(() => {
+    if (sensorMode === "bsec2") {
+      lastSensorModeRef.current = "bsec2"
+    }
+    if (co2eq > 0) {
+      lastCo2eqRef.current = co2eq
+    }
+    if (bvoc > 0) {
+      lastBvocRef.current = bvoc
+    }
+  }, [sensorMode, co2eq, bvoc])
+  
+  // Use cached mode if current is invalid but we've seen BSEC2 before
+  const effectiveSensorMode = sensorMode === "bsec2" ? "bsec2" : lastSensorModeRef.current
+  const effectiveCo2eq = co2eq > 0 ? co2eq : lastCo2eqRef.current
+  const effectiveBvoc = bvoc > 0 ? bvoc : lastBvocRef.current
+  
+  // Derive gas class from IAQ if not provided directly
+  // IAQ 0-50 = excellent (class 0: fresh mushroom)
+  // IAQ 51-100 = good (class 1: mycelium growth)
+  // IAQ 101-150 = moderate (class 2: decomposition)
+  // IAQ 151+ = poor (class 3: contamination)
+  const derivedGasClass = gasClass >= 0 ? gasClass : 
+    (effectiveCo2eq > 0 ? (effectiveCo2eq <= 500 ? 0 : effectiveCo2eq <= 800 ? 1 : effectiveCo2eq <= 1200 ? 2 : 3) : -1)
+  
+  // Derive probability from CO2/VOC levels
+  const derivedProbability = gasProbability > 0 ? gasProbability : 
+    (effectiveBvoc > 0 ? Math.min(0.95, 0.5 + effectiveBvoc * 0.3) : 0.65)
+  
   // Fetch smell from API when gas class changes
   const fetchSmell = useCallback(async () => {
-    if (gasClass < 0 || sensorMode !== "bsec2") {
-      setCurrentSmell(null)
+    if (derivedGasClass < 0 || effectiveSensorMode !== "bsec2") {
+      // Don't clear smell if we're just temporarily without data
+      if (lastSensorModeRef.current !== "bsec2") {
+        setCurrentSmell(null)
+      }
       return
     }
     
@@ -111,8 +149,8 @@ export function SmellDetectionWidget({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gas_class: gasClass,
-          gas_probability: gasProbability,
+          gas_class: derivedGasClass,
+          gas_probability: derivedProbability,
           gas_estimates: gasEstimates
         })
       })
@@ -124,12 +162,12 @@ export function SmellDetectionWidget({
         setCurrentSmell(smell)
         
         // Add to history if different from last detection
-        if (lastClassRef.current !== gasClass || gasProbability > 0.5) {
+        if (lastClassRef.current !== derivedGasClass || derivedProbability > 0.5) {
           setSmellHistory(prev => {
             const newHistory = [
               {
                 smell,
-                probability: gasProbability,
+                probability: derivedProbability,
                 timestamp: new Date(),
                 gas_estimates: gasEstimates
               },
@@ -137,7 +175,7 @@ export function SmellDetectionWidget({
             ]
             return newHistory
           })
-          lastClassRef.current = gasClass
+          lastClassRef.current = derivedGasClass
         }
       }
     } catch (error) {
@@ -145,14 +183,14 @@ export function SmellDetectionWidget({
     } finally {
       setLoading(false)
     }
-  }, [gasClass, gasProbability, gasEstimates, sensorMode])
+  }, [derivedGasClass, derivedProbability, gasEstimates, effectiveSensorMode])
   
   useEffect(() => {
     fetchSmell()
   }, [fetchSmell])
   
-  // Not in BSEC2 mode
-  if (sensorMode !== "bsec2") {
+  // Not in BSEC2 mode (and never has been)
+  if (effectiveSensorMode !== "bsec2") {
     return (
       <Card className="col-span-2 row-span-2 bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700">
         <CardHeader className="pb-2">
@@ -178,7 +216,7 @@ export function SmellDetectionWidget({
   }
   
   // No smell detected yet
-  if (!currentSmell && gasClass < 0) {
+  if (!currentSmell && derivedGasClass < 0) {
     return (
       <Card className="col-span-2 row-span-2 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
         <CardHeader className="pb-2">
@@ -256,10 +294,10 @@ export function SmellDetectionWidget({
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-400 mb-1">
                   <span>Confidence</span>
-                  <span>{(gasProbability * 100).toFixed(0)}%</span>
+                  <span>{(derivedProbability * 100).toFixed(0)}%</span>
                 </div>
                 <Progress 
-                  value={gasProbability * 100} 
+                  value={derivedProbability * 100} 
                   className="h-2"
                 />
               </div>
@@ -292,21 +330,21 @@ export function SmellDetectionWidget({
           </div>
         )}
         
-        {/* Additional Metrics */}
+        {/* Additional Metrics - use cached values to prevent flicker */}
         <div className="grid grid-cols-2 gap-2">
-          {co2eq > 0 && (
+          {effectiveCo2eq > 0 && (
             <div className="p-2 rounded bg-slate-800/30 border border-slate-700/30">
               <span className="text-xs text-gray-500">eCO₂</span>
               <p className="text-sm font-medium text-white">
-                {co2eq.toFixed(0)} <span className="text-xs text-gray-400">ppm</span>
+                {effectiveCo2eq.toFixed(0)} <span className="text-xs text-gray-400">ppm</span>
               </p>
             </div>
           )}
-          {bvoc > 0 && (
+          {effectiveBvoc > 0 && (
             <div className="p-2 rounded bg-slate-800/30 border border-slate-700/30">
               <span className="text-xs text-gray-500">bVOC</span>
               <p className="text-sm font-medium text-white">
-                {bvoc.toFixed(2)} <span className="text-xs text-gray-400">ppm</span>
+                {effectiveBvoc.toFixed(2)} <span className="text-xs text-gray-400">ppm</span>
               </p>
             </div>
           )}

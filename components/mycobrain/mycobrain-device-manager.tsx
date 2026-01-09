@@ -64,7 +64,10 @@ import {
   Lock,
   Unlock,
   Server,
+  ArrowLeft,
+  Network,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface SensorHistoryPoint {
   timestamp: Date
@@ -81,6 +84,7 @@ interface MycoBrainDeviceManagerProps {
 }
 
 export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerProps = {}) {
+  const router = useRouter()
   const {
     devices,
     loading,
@@ -777,7 +781,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                {["COM3", "COM4", "COM5", "COM6"].map((port) => {
+                {(availablePorts.length > 0 ? availablePorts.map((p: any) => p.port) : ["COM3", "COM4", "COM5", "COM6"]).map((port: string) => {
                   const portInfo = availablePorts.find((p: any) => p.port === port)
                   const status = portStatuses[port] || (portInfo?.is_connected ? "connected" : portInfo ? "available" : "unknown")
                   const isLocked = status === "locked"
@@ -805,7 +809,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                             signal: AbortSignal.timeout(15000),
                           })
                           const result = await res.json()
-                          if (result.success || result.status === "connected") {
+                          if (result.success || result.status === "connected" || result.status === "already_connected") {
                             setScanResult(`Successfully connected to ${port}!`)
                             logToConsole(`✓ Connected to ${port}`)
                             setSelectedPort(port)
@@ -983,6 +987,25 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
   return (
     <div className="space-y-6">
+      {/* Back Navigation */}
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push("/natureos/devices/network")}
+          className="gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Device Network
+        </Button>
+        {devices.length > 1 && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Network className="h-4 w-4" />
+            <span>{devices.length} devices connected</span>
+          </div>
+        )}
+      </div>
+
       {/* Device Header */}
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6">
