@@ -118,8 +118,23 @@ export function useMycoBrain(refreshInterval = 15000) {
 
       if (mountedRef.current) {
         setState((prev) => {
-          // Map new devices while preserving existing sensor_data to prevent blinking
-          const devices: MycoBrainDevice[] = (data.devices || []).map((d: any) => {
+          // Filter to only include verified MycoBrain devices
+          // Devices must be explicitly marked as MycoBrain or have verified=true
+          const rawDevices = (data.devices || []).filter((d: any) => {
+            // Include if explicitly verified as MycoBrain
+            if (d.verified === true || d.is_mycobrain === true) return true
+            // Include if device has MycoBrain-specific fields
+            if (d.device_info?.side || d.device_info?.mdp_version) return true
+            if (d.device_info?.bme688_count !== undefined) return true
+            // Include if already tracked (may have connected before verification was added)
+            const alreadyTracked = prev.devices.find((e) => e.port === d.port)
+            if (alreadyTracked?.connected) return true
+            // Exclude unverified devices
+            return false
+          })
+          
+          // Map filtered devices while preserving existing sensor_data to prevent blinking
+          const devices: MycoBrainDevice[] = rawDevices.map((d: any) => {
             // Find existing device to preserve its sensor_data
             const existing = prev.devices.find((e) => e.port === d.port || e.device_id === d.device_id)
             

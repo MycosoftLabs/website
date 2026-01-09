@@ -9,8 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Brain, Dna, Activity, Zap, Database, LineChart, Play, Pause, RefreshCw, Download, BookOpen, 
   Microscope, Leaf, Globe, FlaskConical, Network, Cpu, Layers, Shield, Target, ArrowRight,
-  Sparkles, TreeDeciduous, Bug, Bird, ChevronRight, ExternalLink, FileText, GitBranch
+  Sparkles, TreeDeciduous, Bug, Bird, ChevronRight, ExternalLink, FileText, GitBranch,
+  Wind, Beaker, Upload, BookMarked
 } from "lucide-react"
+import Link from "next/link"
 
 const TRAINING_PHASES = [
   { name: "Mycospeak Foundation", progress: 100, status: "complete", description: "Base fungal communication patterns" },
@@ -778,6 +780,80 @@ export default function ModelTrainingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Smell Training Apps */}
+      <Card className="border-green-500/30 bg-gradient-to-br from-green-950/20 to-transparent">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wind className="h-5 w-5 text-green-500" />
+            Smell Training Applications
+          </CardTitle>
+          <CardDescription>
+            BME688/690 gas sensor training for MINDEX fungal smell detection
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Smell Training Wizard */}
+            <Link href="/natureos/smell-training">
+              <Card className="h-full hover:border-green-500/50 hover:bg-green-500/5 transition-colors cursor-pointer group">
+                <CardContent className="p-4 flex flex-col items-center text-center">
+                  <div className="p-3 rounded-xl bg-green-500/20 group-hover:bg-green-500/30 transition-colors mb-3">
+                    <Beaker className="h-8 w-8 text-green-500" />
+                  </div>
+                  <h4 className="font-semibold">Smell Training Wizard</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Record fungal specimens and export training data for Bosch AI-Studio
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+            
+            {/* Blob Manager */}
+            <Link href="/natureos/smell-training?tab=blobs">
+              <Card className="h-full hover:border-amber-500/50 hover:bg-amber-500/5 transition-colors cursor-pointer group">
+                <CardContent className="p-4 flex flex-col items-center text-center">
+                  <div className="p-3 rounded-xl bg-amber-500/20 group-hover:bg-amber-500/30 transition-colors mb-3">
+                    <Upload className="h-8 w-8 text-amber-500" />
+                  </div>
+                  <h4 className="font-semibold">Blob Manager</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload and manage BSEC selectivity blobs for smell classification
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+            
+            {/* Smell Encyclopedia */}
+            <Link href="/natureos/mindex?tab=smells">
+              <Card className="h-full hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors cursor-pointer group">
+                <CardContent className="p-4 flex flex-col items-center text-center">
+                  <div className="p-3 rounded-xl bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors mb-3">
+                    <BookMarked className="h-8 w-8 text-purple-500" />
+                  </div>
+                  <h4 className="font-semibold">Smell Encyclopedia</h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Browse MINDEX smell signatures with fungal species and VOC profiles
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+          
+          {/* Training Status Summary */}
+          <div className="mt-4 p-3 rounded-lg bg-muted/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm">Smell Trainer Agent</span>
+              <Badge variant="outline" className="text-xs">Port 8042</Badge>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>BME688/690 Support</span>
+              <span>BSEC 2.x Compatible</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Research Papers */}
       <Card>

@@ -74,6 +74,8 @@ function parseI2CScan(response: string): Array<{
     if (line.startsWith("{")) {
       try {
         const data = JSON.parse(line)
+        
+        // Format 1: {"ok":true,"count":2,"i2c":[118,119]}
         if (data.i2c && Array.isArray(data.i2c)) {
           for (const addr of data.i2c) {
             const addrNum = typeof addr === "number" ? addr : parseInt(addr)
@@ -91,7 +93,42 @@ function parseI2CScan(response: string): Array<{
           continue
         }
         
-        // Also check for devices array format
+        // Format 2: {"ok":true,"bme688_count":2,"bme1":{...},"bme2":{...}}
+        // This is the BSEC2 firmware format
+        if (data.bme1 || data.bme2 || data.bme688_count !== undefined) {
+          // Handle bme1 (typically at 0x77)
+          if (data.bme1 && typeof data.bme1.address === "number") {
+            const addrNum = data.bme1.address
+            const addrHex = `0x${addrNum.toString(16).toUpperCase().padStart(2, "0")}`
+            const known = KNOWN_I2C_DEVICES[addrNum]
+            
+            devices.push({
+              address: addrHex,
+              device: known?.name || `BME688 (${data.bme1.label || "AMB"})`,
+              type: "bme688",
+              vendor: "Bosch",
+              widget: WIDGET_MAP.bme688,
+            })
+          }
+          
+          // Handle bme2 (typically at 0x76)
+          if (data.bme2 && typeof data.bme2.address === "number") {
+            const addrNum = data.bme2.address
+            const addrHex = `0x${addrNum.toString(16).toUpperCase().padStart(2, "0")}`
+            const known = KNOWN_I2C_DEVICES[addrNum]
+            
+            devices.push({
+              address: addrHex,
+              device: known?.name || `BME688 (${data.bme2.label || "ENV"})`,
+              type: "bme688",
+              vendor: "Bosch",
+              widget: WIDGET_MAP.bme688,
+            })
+          }
+          continue
+        }
+        
+        // Format 3: {"devices": [...]} - array format
         if (data.devices && Array.isArray(data.devices)) {
           for (const dev of data.devices) {
             const addrNum = typeof dev.address === "number" ? dev.address : parseInt(dev.address)
