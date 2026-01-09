@@ -116,35 +116,45 @@ export function useMycoBrain(refreshInterval = 15000) {
         return
       }
 
-      const devices: MycoBrainDevice[] = (data.devices || []).map((d: any) => ({
-        ...d,
-        device_id: d.device_id || `mycobrain-${d.port?.replace(/[\/\\]/g, '-') || 'unknown'}`,
-        connected: d.connected ?? (d.status === "connected"),  // Map status to connected boolean
-        capabilities: d.capabilities || {
-          bme688_count: 0,  // Default to 0 when no sensors detected
-          has_lora: false,  // Will be updated from firmware status
-          has_neopixel: true,
-          has_buzzer: true,
-          i2c_bus: true,
-          analog_inputs: 4,
-          digital_io: 4,
-        },
-        location: d.location || {
-          lat: 40.7128, // Default NYC for demo
-          lng: -74.006,
-          source: "manual" as const,
-        },
-      }))
-
       if (mountedRef.current) {
-        setState((prev) => ({
-          ...prev,
-          devices,
-          loading: false,
-          error: null,
-          lastUpdate: new Date(),
-          isConnected: devices.some((d) => d.connected),
-        }))
+        setState((prev) => {
+          // Map new devices while preserving existing sensor_data to prevent blinking
+          const devices: MycoBrainDevice[] = (data.devices || []).map((d: any) => {
+            // Find existing device to preserve its sensor_data
+            const existing = prev.devices.find((e) => e.port === d.port || e.device_id === d.device_id)
+            
+            return {
+              ...d,
+              device_id: d.device_id || `mycobrain-${d.port?.replace(/[\/\\]/g, '-') || 'unknown'}`,
+              connected: d.connected ?? (d.status === "connected"),  // Map status to connected boolean
+              // Preserve existing sensor_data if new data doesn't have it
+              sensor_data: d.sensor_data || existing?.sensor_data || {},
+              capabilities: d.capabilities || existing?.capabilities || {
+                bme688_count: 0,  // Default to 0 when no sensors detected
+                has_lora: false,  // Will be updated from firmware status
+                has_neopixel: true,
+                has_buzzer: true,
+                i2c_bus: true,
+                analog_inputs: 4,
+                digital_io: 4,
+              },
+              location: d.location || existing?.location || {
+                lat: 40.7128, // Default NYC for demo
+                lng: -74.006,
+                source: "manual" as const,
+              },
+            }
+          })
+          
+          return {
+            ...prev,
+            devices,
+            loading: false,
+            error: null,
+            lastUpdate: new Date(),
+            isConnected: devices.some((d) => d.connected),
+          }
+        })
       }
     } catch (error) {
       if (mountedRef.current) {

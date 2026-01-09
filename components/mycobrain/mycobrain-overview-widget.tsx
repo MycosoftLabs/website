@@ -22,7 +22,7 @@ import {
 import Link from "next/link"
 
 export function MycoBrainOverviewWidget() {
-  const { devices, loading, isConnected, lastUpdate, refresh } = useMycoBrain(3000)
+  const { devices, loading, isConnected, lastUpdate, refresh } = useMycoBrain(30000)
 
   const primaryDevice = devices[0]
   const bme1 = primaryDevice?.sensor_data?.bme688_1

@@ -24,7 +24,7 @@ const SENSOR_CACHE_TTL_MS = 1500
 const sensorCache = new Map<string, { at: number; payload: SensorsPayload }>()
 const inFlight = new Map<string, Promise<SensorsPayload>>()
 
-// Parse sensor data from board response
+// Parse sensor data from board response (supports both JSON and text formats)
 function parseSensorData(response: string) {
   const sensors: {
     bme688_1?: {
@@ -47,35 +47,80 @@ function parseSensorData(response: string) {
       co2_equivalent?: number
       voc_equivalent?: number
     }
+    last_update?: string
   } = {}
 
-  // Parse AMB sensor (BME688 #1 at 0x77)
-  const ambMatch = response.match(/AMB addr=0x77.*?T=([\d.]+)C RH=([\d.]+)% P=([\d.]+)hPa.*?Gas=(\d+)Ohm IAQ=([\d.]+) acc=(\d+).*?CO2eq=([\d.]+) VOC=([\d.]+)/i)
-  if (ambMatch) {
-    sensors.bme688_1 = {
-      temperature: parseFloat(ambMatch[1]),
-      humidity: parseFloat(ambMatch[2]),
-      pressure: parseFloat(ambMatch[3]),
-      gas_resistance: parseInt(ambMatch[4]),
-      iaq: parseFloat(ambMatch[5]),
-      iaq_accuracy: parseInt(ambMatch[6]),
-      co2_equivalent: parseFloat(ambMatch[7]),
-      voc_equivalent: parseFloat(ambMatch[8]),
+  // Try JSON format first (from our firmware)
+  const lines = response.split(/[\r\n]+/)
+  for (const line of lines) {
+    if (!line.trim() || !line.startsWith("{")) continue
+    try {
+      const data = JSON.parse(line)
+      
+      // Handle sensors command response: {"ok":true,"bme688_count":2,"bme1":{...},"bme2":{...}}
+      if (data.bme688_count !== undefined || data.bme1 || data.bme2) {
+        if (data.bme1) {
+          sensors.bme688_1 = {
+            temperature: data.bme1.temp_c ?? data.bme1.temperature,
+            humidity: data.bme1.humidity_pct ?? data.bme1.humidity,
+            pressure: data.bme1.pressure_hpa ?? data.bme1.pressure,
+            gas_resistance: data.bme1.gas_ohm ?? data.bme1.gas_resistance,
+            iaq: data.bme1.iaq,
+            iaq_accuracy: data.bme1.iaq_accuracy,
+            co2_equivalent: data.bme1.co2eq,
+            voc_equivalent: data.bme1.voc,
+          }
+        }
+        if (data.bme2) {
+          sensors.bme688_2 = {
+            temperature: data.bme2.temp_c ?? data.bme2.temperature,
+            humidity: data.bme2.humidity_pct ?? data.bme2.humidity,
+            pressure: data.bme2.pressure_hpa ?? data.bme2.pressure,
+            gas_resistance: data.bme2.gas_ohm ?? data.bme2.gas_resistance,
+            iaq: data.bme2.iaq,
+            iaq_accuracy: data.bme2.iaq_accuracy,
+            co2_equivalent: data.bme2.co2eq,
+            voc_equivalent: data.bme2.voc,
+          }
+        }
+        sensors.last_update = new Date().toISOString()
+        break // Found sensor data, no need to continue
+      }
+    } catch {
+      // Not JSON, continue
     }
   }
+  
+  // If no JSON data found, try legacy text format
+  if (!sensors.bme688_1 && !sensors.bme688_2) {
+    // Parse AMB sensor (BME688 #1 at 0x77)
+    const ambMatch = response.match(/AMB addr=0x77.*?T=([\d.]+)C RH=([\d.]+)% P=([\d.]+)hPa.*?Gas=(\d+)Ohm IAQ=([\d.]+) acc=(\d+).*?CO2eq=([\d.]+) VOC=([\d.]+)/i)
+    if (ambMatch) {
+      sensors.bme688_1 = {
+        temperature: parseFloat(ambMatch[1]),
+        humidity: parseFloat(ambMatch[2]),
+        pressure: parseFloat(ambMatch[3]),
+        gas_resistance: parseInt(ambMatch[4]),
+        iaq: parseFloat(ambMatch[5]),
+        iaq_accuracy: parseInt(ambMatch[6]),
+        co2_equivalent: parseFloat(ambMatch[7]),
+        voc_equivalent: parseFloat(ambMatch[8]),
+      }
+    }
 
-  // Parse ENV sensor (BME688 #2 at 0x76)
-  const envMatch = response.match(/ENV addr=0x76.*?T=([\d.]+)C RH=([\d.]+)% P=([\d.]+)hPa.*?Gas=(\d+)Ohm IAQ=([\d.]+) acc=(\d+).*?CO2eq=([\d.]+) VOC=([\d.]+)/i)
-  if (envMatch) {
-    sensors.bme688_2 = {
-      temperature: parseFloat(envMatch[1]),
-      humidity: parseFloat(envMatch[2]),
-      pressure: parseFloat(envMatch[3]),
-      gas_resistance: parseInt(envMatch[4]),
-      iaq: parseFloat(envMatch[5]),
-      iaq_accuracy: parseInt(envMatch[6]),
-      co2_equivalent: parseFloat(envMatch[7]),
-      voc_equivalent: parseFloat(envMatch[8]),
+    // Parse ENV sensor (BME688 #2 at 0x76)
+    const envMatch = response.match(/ENV addr=0x76.*?T=([\d.]+)C RH=([\d.]+)% P=([\d.]+)hPa.*?Gas=(\d+)Ohm IAQ=([\d.]+) acc=(\d+).*?CO2eq=([\d.]+) VOC=([\d.]+)/i)
+    if (envMatch) {
+      sensors.bme688_2 = {
+        temperature: parseFloat(envMatch[1]),
+        humidity: parseFloat(envMatch[2]),
+        pressure: parseFloat(envMatch[3]),
+        gas_resistance: parseInt(envMatch[4]),
+        iaq: parseFloat(envMatch[5]),
+        iaq_accuracy: parseInt(envMatch[6]),
+        co2_equivalent: parseFloat(envMatch[7]),
+        voc_equivalent: parseFloat(envMatch[8]),
+      }
     }
   }
 
@@ -125,13 +170,13 @@ export async function GET(
     }
 
     const fetchPromise = (async () => {
-      // Send "status" command to get sensor data (heavy)
+      // Send "sensors" command via CLI endpoint (works better for text commands)
       const response = await fetch(
-        `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
+        `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/cli`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: { cmd: "status" } }),
+          body: JSON.stringify({ command: "sensors" }),
           // Give serial a bit more time; cache keeps UI fast.
           signal: AbortSignal.timeout(12000),
         }
