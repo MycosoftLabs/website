@@ -14,6 +14,18 @@ const nextConfig = {
   experimental: {
     // This will make all pages dynamic by default
   },
+  // Configure webpack for Cesium
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      };
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       {

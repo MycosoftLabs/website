@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 
 interface Species {
-  id: number
+  id: number | string
   scientific_name: string
   common_name: string | null
   family: string
@@ -32,6 +32,19 @@ interface Species {
   image_url: string | null
   characteristics: string[]
   habitat: string | null
+  edibility?: string | null
+  season?: string | null
+  distribution?: string | null
+  observations_count?: number
+  wikipedia_url?: string | null
+  rank?: string
+  ancestry?: string
+  ancestors?: Array<{
+    id: number
+    name: string
+    rank: string
+    common_name?: string | null
+  }>
 }
 
 export default function SpeciesDetailPage() {
@@ -406,6 +419,33 @@ export default function SpeciesDetailPage() {
                   <div className="p-6 bg-muted rounded-lg">
                     <h4 className="font-medium mb-4">Taxonomic Classification</h4>
                     <div className="space-y-2 text-sm">
+                      {species.ancestors && species.ancestors.length > 0 ? (
+                        // Use real ancestry data from API
+                        <>
+                          {species.ancestors.map((ancestor, i) => (
+                            <div key={i} className="flex">
+                              <span className="w-24 text-muted-foreground capitalize">{ancestor.rank}:</span>
+                              <Link 
+                                href={`/ancestry/species/${ancestor.id}`}
+                                className="hover:text-green-600 hover:underline"
+                              >
+                                <span className={ancestor.rank === "genus" || ancestor.rank === "species" ? "italic" : ""}>
+                                  {ancestor.name}
+                                </span>
+                                {ancestor.common_name && (
+                                  <span className="text-muted-foreground ml-2">({ancestor.common_name})</span>
+                                )}
+                              </Link>
+                            </div>
+                          ))}
+                          <div className="flex">
+                            <span className="w-24 text-muted-foreground capitalize">{species.rank || "Species"}:</span>
+                            <span className="italic font-medium">{species.scientific_name}</span>
+                          </div>
+                        </>
+                      ) : (
+                        // Fallback static classification
+                        <>
                       <div className="flex">
                         <span className="w-24 text-muted-foreground">Kingdom:</span>
                         <span>Fungi</span>
@@ -434,6 +474,8 @@ export default function SpeciesDetailPage() {
                         <span className="w-24 text-muted-foreground">Species:</span>
                         <span className="italic">{species.scientific_name}</span>
                       </div>
+                        </>
+                      )}
                     </div>
                   </div>
 

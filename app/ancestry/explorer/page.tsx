@@ -315,6 +315,7 @@ const SORT_OPTIONS = [
 
 interface Species {
   id: number
+  uuid?: string
   scientific_name: string
   common_name: string | null
   family: string
@@ -341,14 +342,23 @@ export default function ExplorerPage() {
   const [favorites, setFavorites] = useState<number[]>([])
   const [totalInDatabase, setTotalInDatabase] = useState(0)
   const [dataSource, setDataSource] = useState<string>("loading")
+  const [dataset, setDataset] = useState<"popular" | "all_species" | "all_taxa">("popular")
+  const [page, setPage] = useState(1)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
-  // Fetch species data - get ALL species from MINDEX
+  function getDatasetParams(nextDataset: "popular" | "all_species" | "all_taxa") {
+    if (nextDataset === "popular") return { sort: "popular", rank: "species" }
+    if (nextDataset === "all_taxa") return { sort: "alphabetical", rank: "all" }
+    return { sort: "alphabetical", rank: "species" }
+  }
+
+  // Fetch first page (reset) when dataset changes
   useEffect(() => {
     async function fetchSpecies() {
       setLoading(true)
       try {
-        // Fetch from ancestry API which connects to MINDEX with all species
-        const response = await fetch("/api/ancestry?limit=10000")
+        const params = getDatasetParams(dataset)
+        const response = await fetch(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=1`)
         if (response.ok) {
           const data = await response.json()
           if (data.species && data.species.length > 0) {
@@ -367,6 +377,7 @@ export default function ExplorerPage() {
               featured: (s.observations_count || 0) > 5000,
             }))
             setSpecies(speciesData)
+            setPage(1)
             setTotalInDatabase(data.total || speciesData.length)
             setDataSource(data.source || "mindex")
             setUsingFallback(data.source !== "mindex")
@@ -391,7 +402,41 @@ export default function ExplorerPage() {
       }
     }
     fetchSpecies()
-  }, [])
+  }, [dataset])
+
+  async function loadMore() {
+    if (isLoadingMore) return
+    if (searchQuery.trim().length > 0) return
+    if (species.length >= totalInDatabase) return
+
+    setIsLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const params = getDatasetParams(dataset)
+      const response = await fetch(`/api/ancestry?limit=500&sort=${params.sort}&rank=${params.rank}&page=${nextPage}`)
+      if (!response.ok) return
+
+      const data = await response.json()
+      const nextItems = (data.species || []).map((s: any, index: number) => ({
+        ...s,
+        id: s.id || species.length + index + 1,
+        family: s.family || "Unknown",
+        description: s.description || null,
+        characteristics: s.characteristics || [],
+        habitat: s.habitat || null,
+        edibility: s.edibility || null,
+        season: s.season || null,
+        distribution: s.distribution || null,
+        featured: (s.observations_count || 0) > 5000,
+      })) as Species[]
+
+      if (typeof data.total === "number") setTotalInDatabase(data.total)
+      setSpecies((prev) => [...prev, ...nextItems])
+      setPage(nextPage)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -480,6 +525,11 @@ export default function ExplorerPage() {
 
   const featuredSpecies = useMemo(() => species.filter((s) => s.featured), [species])
 
+  function getSpeciesHref(s: Species) {
+    const stableId = s.uuid || String(s.id)
+    return `/ancestry/species/${encodeURIComponent(stableId)}`
+  }
+
   const toggleFavorite = (id: number) => {
     const newFavorites = favorites.includes(id)
       ? favorites.filter((f) => f !== id)
@@ -527,7 +577,7 @@ export default function ExplorerPage() {
                 Species Explorer
               </h1>
               <p className="text-lg text-green-100 max-w-2xl">
-                Discover the fascinating world of fungi. Browse {species.length}+ species with detailed information, 
+                Discover the fascinating world of fungi. Browse {totalInDatabase || species.length}+ species with detailed information, 
                 images, and scientific data.
               </p>
             </div>
@@ -624,7 +674,7 @@ export default function ExplorerPage() {
             <ScrollArea className="w-full whitespace-nowrap">
               <div className="flex gap-4 pb-4">
                 {featuredSpecies.map((s) => (
-                  <Link key={s.id} href={`/ancestry/species/${s.id}`} className="shrink-0 group">
+                  <Link key={s.uuid || s.id} href={getSpeciesHref(s)} className="shrink-0 group">
                     <Card className="w-72 overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500">
                       <div className="relative h-40 overflow-hidden">
                         <img
@@ -713,6 +763,25 @@ export default function ExplorerPage() {
 
               {/* Filters */}
               <div className="flex flex-wrap gap-2">
+                <Select
+                  value={dataset}
+                  onValueChange={(v) => {
+                    const next = v as "popular" | "all_species" | "all_taxa"
+                    setDataset(next)
+                    setSearchQuery("")
+                  }}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <Globe className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Dataset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="popular">Popular (iNaturalist)</SelectItem>
+                    <SelectItem value="all_species">All Species (All sources)</SelectItem>
+                    <SelectItem value="all_taxa">All Taxa (All ranks)</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <Select value={selectedFamily} onValueChange={setSelectedFamily}>
                   <SelectTrigger className="w-[180px]">
                     <Leaf className="h-4 w-4 mr-2" />
@@ -779,7 +848,8 @@ export default function ExplorerPage() {
             {/* Results count and active filters */}
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">
-                Showing <strong>{filteredSpecies.length}</strong> of {species.length} species
+                Showing <strong>{filteredSpecies.length}</strong> of {species.length} loaded
+                {totalInDatabase > species.length ? ` (of ${totalInDatabase} in database)` : ""}
               </span>
               
               {(searchQuery || selectedFamily !== "All Families" || selectedCategory !== "all") && (
@@ -841,8 +911,8 @@ export default function ExplorerPage() {
         {!loading && filteredSpecies.length > 0 && viewMode === "grid" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredSpecies.map((s) => (
-              <Card key={s.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500">
-                <Link href={`/ancestry/species/${s.id}`}>
+              <Card key={s.uuid || s.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-2 hover:border-green-500">
+                <Link href={getSpeciesHref(s)}>
                   <div className="relative h-52 overflow-hidden">
                     <img
                       src={s.image_url || "/placeholder.svg?height=208&width=300"}
@@ -880,7 +950,7 @@ export default function ExplorerPage() {
                 </Link>
                 
                 <CardContent className="p-4">
-                  <Link href={`/ancestry/species/${s.id}`}>
+                  <Link href={getSpeciesHref(s)}>
                     <h3 className="font-semibold text-lg group-hover:text-green-600 transition-colors line-clamp-1">
                       {s.scientific_name}
                     </h3>
@@ -921,7 +991,7 @@ export default function ExplorerPage() {
                 </CardContent>
                 
                 <CardFooter className="p-4 pt-0 flex justify-between items-center">
-                  <Link href={`/ancestry/species/${s.id}`} className="text-sm text-green-600 hover:underline font-medium">
+                  <Link href={getSpeciesHref(s)} className="text-sm text-green-600 hover:underline font-medium">
                     View Details →
                   </Link>
                   {s.habitat && (
@@ -940,7 +1010,7 @@ export default function ExplorerPage() {
         {!loading && filteredSpecies.length > 0 && viewMode === "compact" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredSpecies.map((s) => (
-              <Link key={s.id} href={`/ancestry/species/${s.id}`} className="group">
+              <Link key={s.uuid || s.id} href={getSpeciesHref(s)} className="group">
                 <Card className="overflow-hidden hover:shadow-lg transition-all hover:border-green-500">
                   <div className="relative aspect-square overflow-hidden">
                     <img
@@ -974,7 +1044,7 @@ export default function ExplorerPage() {
               <Card key={s.id} className="hover:shadow-md transition-all hover:border-green-500/50 group">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
-                    <Link href={`/ancestry/species/${s.id}`} className="shrink-0">
+                    <Link href={getSpeciesHref(s)} className="shrink-0">
                       <div className="relative h-24 w-24 rounded-lg overflow-hidden">
                         <img
                           src={s.image_url || "/placeholder.svg?height=96&width=96"}
@@ -991,7 +1061,7 @@ export default function ExplorerPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <Link href={`/ancestry/species/${s.id}`}>
+                          <Link href={getSpeciesHref(s)}>
                             <h3 className="font-semibold text-lg group-hover:text-green-600 transition-colors">
                               {s.scientific_name}
                             </h3>
@@ -1054,6 +1124,15 @@ export default function ExplorerPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Load more (disabled while searching to avoid confusing partial search results) */}
+        {!loading && searchQuery.trim().length === 0 && species.length < totalInDatabase && (
+          <div className="flex justify-center mt-10">
+            <Button type="button" variant="outline" onClick={loadMore} disabled={isLoadingMore}>
+              {isLoadingMore ? "Loading…" : `Load more (${species.length.toLocaleString()} / ${totalInDatabase.toLocaleString()})`}
+            </Button>
           </div>
         )}
 

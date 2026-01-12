@@ -72,6 +72,18 @@ const MyceliumMap = dynamic(() => import("@/components/maps/mycelium-map").then(
   ),
 })
 
+const EarthSimulatorContainer = dynamic(() => import("@/components/earth-simulator/earth-simulator-container").then((mod) => mod.EarthSimulatorContainer), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full flex items-center justify-center bg-black rounded-lg">
+      <div className="text-center">
+        <Globe className="h-8 w-8 animate-pulse mx-auto mb-2 text-green-500" />
+        <p className="text-sm text-white">Loading Earth Simulator...</p>
+      </div>
+    </div>
+  ),
+})
+
 // Real device interface for MycoBrain
 interface RealDevice {
   id: string
@@ -211,8 +223,9 @@ const activityIcons = {
 
 export function NatureOSDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [observations, setObservations] = useState<any[]>([])
+  const [mounted, setMounted] = useState(false)
 
   // API hooks - handle errors gracefully
   const metricsResult = useSystemMetrics()
@@ -235,6 +248,12 @@ export function NatureOSDashboard() {
   const bme2 = mycoBrain?.sensor_data?.bme688_2
   const iaqStatus = getIAQLabel(bme1?.iaq)
 
+  // Set mounted flag to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    setCurrentTime(new Date())
+  }, [])
+
   // Fetch observations for species distribution
   useEffect(() => {
     async function fetchObservations() {
@@ -254,11 +273,12 @@ export function NatureOSDashboard() {
   }, [])
 
 
-  // Update time every second
+  // Update time every second (only after mount to prevent hydration mismatch)
   useEffect(() => {
+    if (!mounted) return
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [mounted])
 
   // Calculate real device counts - MycoBrain is already in realDevices
   const deviceStats = useMemo(() => {
@@ -306,7 +326,8 @@ export function NatureOSDashboard() {
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="mycelium">Mycelium Network</TabsTrigger>
+            <TabsTrigger value="simulator">Earth Simulator</TabsTrigger>
+            <TabsTrigger value="petri-dish">Petri Dish Simulator</TabsTrigger>
             <TabsTrigger value="devices">
               Devices
               {deviceStats.online > 0 && (
@@ -319,7 +340,7 @@ export function NatureOSDashboard() {
           </TabsList>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-mono">
-              {currentTime.toLocaleTimeString()}
+              {mounted && currentTime ? currentTime.toLocaleTimeString() : "--:--:--"}
             </Badge>
             <Button variant="outline" size="sm" asChild>
               <Link href="/natureos/settings">
@@ -560,7 +581,7 @@ export function NatureOSDashboard() {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs truncate">{item.message}</p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(item.timestamp).toLocaleTimeString()}
+                                {item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "--:--:--"}
                               </p>
                             </div>
                           </div>
@@ -606,8 +627,34 @@ export function NatureOSDashboard() {
           </div>
         </TabsContent>
 
-        {/* ============ MYCELIUM NETWORK TAB ============ */}
-        <TabsContent value="mycelium" className="space-y-5">
+        {/* ============ EARTH SIMULATOR TAB ============ */}
+        <TabsContent value="simulator" className="space-y-5">
+          <div className="h-[calc(100vh-300px)] min-h-[600px]">
+            <EarthSimulatorContainer />
+          </div>
+        </TabsContent>
+
+        {/* ============ PETRI DISH SIMULATOR TAB ============ */}
+        <TabsContent value="petri-dish" className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>Petri Dish Simulator</CardTitle>
+              <CardDescription>
+                The Petri Dish Simulator allows you to simulate fungal growth patterns and conditions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link href="/apps/petri-dish-sim">
+                  Open Petri Dish Simulator
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ============ MYCELIUM NETWORK TAB (DEPRECATED - KEEP FOR REFERENCE) ============ */}
+        <TabsContent value="mycelium" className="space-y-5" style={{ display: 'none' }}>
           {/* Network Stats */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <Card>

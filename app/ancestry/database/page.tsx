@@ -23,6 +23,7 @@ import {
 
 interface Species {
   id: number
+  uuid?: string
   scientific_name: string
   common_name: string | null
   family: string
@@ -32,25 +33,42 @@ interface Species {
   habitat: string | null
 }
 
+function getSpeciesHref(s: Species) {
+  const stableId = s.uuid || String(s.id)
+  return `/ancestry/species/${encodeURIComponent(stableId)}`
+}
+
 export default function AncestryDatabasePage() {
   const [species, setSpecies] = useState<Species[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [usingFallback, setUsingFallback] = useState(false)
+  const [selectedLetter, setSelectedLetter] = useState("A")
+  const [letterTotal, setLetterTotal] = useState<number>(0)
+  const [letterOffset, setLetterOffset] = useState<number>(0)
 
   useEffect(() => {
     fetchSpecies()
-  }, [])
+  }, [selectedLetter, letterOffset])
 
   const fetchSpecies = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/ancestry?limit=100")
+      // Fetch alphabetically sorted species (default) - more species for browsing
+      const response = await fetch(
+        `/api/ancestry?limit=500&sort=alphabetical&prefix=${encodeURIComponent(selectedLetter)}&page=${Math.floor(letterOffset / 500) + 1}`
+      )
       if (response.ok) {
         const data = await response.json()
-        setSpecies(data.species || [])
+        const next = (data.species || []) as Species[]
+        setLetterTotal(typeof data.total === "number" ? data.total : next.length)
+
+        // When paginating, append; when starting a new letter, reset.
+        if (letterOffset === 0) setSpecies(next)
+        else setSpecies((prev) => [...prev, ...next])
+
         // Show info banner if using external APIs instead of local MINDEX
         setUsingFallback(data.source === "external_api" || data.source === "none")
         
@@ -138,6 +156,33 @@ export default function AncestryDatabasePage() {
         </TabsList>
 
         <TabsContent value="browse" className="space-y-4">
+          {/* Alphabetical browsing */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-sm text-muted-foreground">
+                  Browse by scientific name (A–Z). Current: <span className="font-medium text-foreground">{selectedLetter}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
+                    <Button
+                      key={letter}
+                      type="button"
+                      variant={selectedLetter === letter ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setSelectedLetter(letter)
+                        setLetterOffset(0)
+                      }}
+                    >
+                      {letter}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Search */}
           <Card>
             <CardContent className="pt-6">
@@ -182,7 +227,7 @@ export default function AncestryDatabasePage() {
               <CardHeader>
                 <CardTitle>Species Records</CardTitle>
                 <CardDescription>
-                  Showing {filteredSpecies.length} of {species.length} species
+                  Showing {filteredSpecies.length} of {letterTotal || species.length} species
                 </CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
@@ -202,7 +247,7 @@ export default function AncestryDatabasePage() {
                       <TableRow key={s.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">
                           <Link
-                            href={`/ancestry/species/${s.id}`}
+                            href={getSpeciesHref(s)}
                             className="text-green-600 hover:underline"
                           >
                             {s.scientific_name}
@@ -226,7 +271,7 @@ export default function AncestryDatabasePage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/ancestry/species/${s.id}`}>
+                            <Link href={getSpeciesHref(s)}>
                               View <ChevronRight className="h-4 w-4 ml-1" />
                             </Link>
                           </Button>
@@ -236,6 +281,17 @@ export default function AncestryDatabasePage() {
                   </TableBody>
                 </Table>
               </CardContent>
+              {searchQuery.trim().length === 0 && species.length < (letterTotal || 0) && (
+                <div className="p-4 pt-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setLetterOffset((v) => v + 500)}
+                  >
+                    Load more {selectedLetter}…
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
         </TabsContent>

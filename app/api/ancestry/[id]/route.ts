@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getSpeciesByUUID, isMINDEXAvailable } from "@/lib/services/mindex-service"
 
 // Extended fallback species data
 const FALLBACK_SPECIES = [
@@ -290,15 +291,35 @@ export async function GET(
 ) {
   const { id: idParam } = await params
   try {
-    const id = Number.parseInt(idParam)
-    if (isNaN(id)) {
-      return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
-    }
-
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get("type")
 
-    // Try to use the database first
+    // Check if ID is a UUID (MINDEX format) or integer (legacy format)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)
+    const id = isUUID ? 0 : Number.parseInt(idParam)
+
+    if (!isUUID && isNaN(id)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
+    }
+
+    // PRIORITY 1: Try MINDEX API first (UUID-based)
+    if (isUUID || type === "species") {
+      try {
+        const mindexAvailable = await isMINDEXAvailable()
+        if (mindexAvailable) {
+          if (isUUID) {
+            const species = await getSpeciesByUUID(idParam)
+            if (species) {
+              return NextResponse.json({ species, source: "mindex" })
+            }
+          }
+        }
+      } catch (mindexError) {
+        console.log("MINDEX not available:", mindexError instanceof Error ? mindexError.message : "Unknown")
+      }
+    }
+
+    // PRIORITY 2: Try local Neon database
     try {
       const { getAncestryById, getSpeciesById, getSpeciesChildren, getAncestryTree } = await import(
         "@/lib/services/ancestry-service"
@@ -325,19 +346,64 @@ export async function GET(
       console.log("Database not available, using fallback:", dbError instanceof Error ? dbError.message : "Unknown")
     }
 
-    // Fallback to static data
-    if (type === "species") {
+    // PRIORITY 3: Fallback to static data
+    if (type === "species" || !type) {
       const species = FALLBACK_SPECIES.find((s) => s.id === id)
       if (species) {
         return NextResponse.json({ species, source: "fallback" })
       }
+      
+      // PRIORITY 4: Try fetching from iNaturalist for external IDs
+      if (id > 20) {
+        try {
+          const inatResponse = await fetch(
+            `https://api.inaturalist.org/v1/taxa/${id}`,
+            { 
+              headers: { 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(5000)
+            }
+          )
+          if (inatResponse.ok) {
+            const inatData = await inatResponse.json()
+            if (inatData.results && inatData.results.length > 0) {
+              const taxon = inatData.results[0]
+              // Transform iNaturalist data to our species format
+              const inatSpecies = {
+                id: taxon.id,
+                scientific_name: taxon.name || "Unknown",
+                common_name: taxon.preferred_common_name || taxon.english_common_name || null,
+                family: taxon.iconic_taxon_name || "Fungi",
+                description: taxon.wikipedia_summary || `${taxon.name} is a species of ${taxon.iconic_taxon_name || 'fungus'}.`,
+                image_url: taxon.default_photo?.medium_url || taxon.default_photo?.url || null,
+                characteristics: [
+                  taxon.rank?.charAt(0).toUpperCase() + taxon.rank?.slice(1),
+                  taxon.observations_count > 1000 ? "Well documented" : "Rare",
+                  taxon.is_active ? "Active" : null
+                ].filter(Boolean),
+                habitat: taxon.conservation_status?.place?.display_name || null,
+                edibility: null,
+                season: null,
+                distribution: null,
+                observations_count: taxon.observations_count,
+                wikipedia_url: taxon.wikipedia_url,
+                rank: taxon.rank,
+                ancestry: taxon.ancestry,
+                ancestors: taxon.ancestors?.map((a: { id: number; name: string; rank: string; preferred_common_name?: string }) => ({
+                  id: a.id,
+                  name: a.name,
+                  rank: a.rank,
+                  common_name: a.preferred_common_name
+                }))
+              }
+              return NextResponse.json({ species: inatSpecies, source: "inaturalist" })
+            }
+          }
+        } catch (inatError) {
+          console.log("iNaturalist fetch failed:", inatError instanceof Error ? inatError.message : "Unknown")
+        }
+      }
+      
       return NextResponse.json({ error: "Species not found" }, { status: 404 })
-    }
-
-    // For default request without type, also try to find species
-    const species = FALLBACK_SPECIES.find((s) => s.id === id)
-    if (species) {
-      return NextResponse.json({ species, source: "fallback" })
     }
 
     // For other types, return empty/mock data

@@ -144,7 +144,22 @@ export function MINDEXDashboard() {
       const res = await fetch("/api/natureos/mindex/health")
       if (res.ok) {
         const data = await res.json()
-        setHealth(data)
+
+        // MINDEX returns { status: "ok", db: "ok", ... }.
+        // Normalize to the dashboard contract.
+        const isApiOk = data?.status === "ok" || data?.api === true || data?.status === "healthy"
+        const isDbOk = data?.db === "ok" || data?.database === true
+
+        const normalized: MINDEXHealth = {
+          status: isApiOk && isDbOk ? "healthy" : "degraded",
+          api: Boolean(isApiOk),
+          database: Boolean(isDbOk),
+          etl: data?.etl_status || data?.etl || "unknown",
+          version: data?.version,
+          uptime: data?.uptime,
+        }
+
+        setHealth(normalized)
       }
     } catch (error) {
       console.error("Failed to fetch MINDEX health:", error)
