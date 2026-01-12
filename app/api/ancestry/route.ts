@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-const MINDEX_API_URL = process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 interface MINDEXTaxon {
@@ -73,6 +73,10 @@ function transformToSpecies(taxon: MINDEXTaxon, index: number) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get("query")?.toLowerCase()
+  const sort = (searchParams.get("sort") || "alphabetical").toLowerCase()
+  const prefix = searchParams.get("prefix") || undefined
+  const sourceParam = (searchParams.get("source") || "").trim().toLowerCase()
+  const rankParam = (searchParams.get("rank") || "species").trim().toLowerCase()
   const filter = searchParams.get("filter")
   const category = searchParams.get("category")
   const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 10000)
@@ -80,11 +84,30 @@ export async function GET(request: Request) {
 
   try {
     // First, try to get data from MINDEX
-    let url = `${MINDEX_API_URL}/api/mindex/taxa?per_page=${limit}&page=${page}`
+    const offset = (page - 1) * limit
+    const orderBy = sort === "popular" ? "observations_count" : "canonical_name"
+    const order = sort === "popular" ? "desc" : "asc"
+    const defaultSource = sort === "popular" ? "inat" : undefined
+    const source =
+      sourceParam && sourceParam !== "all" ? sourceParam : defaultSource
+
+    const urlParams = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+      order_by: orderBy,
+      order,
+    })
+
+    // rank=all means "do not filter by rank"
+    if (rankParam && rankParam !== "all") urlParams.set("rank", rankParam)
+    if (source) urlParams.set("source", source)
+    if (prefix) urlParams.set("prefix", prefix)
+
+    let url = `${MINDEX_API_URL}/api/mindex/taxa?${urlParams.toString()}`
     
     if (query) {
       // Use search endpoint for queries
-      url = `${MINDEX_API_URL}/api/mindex/search?q=${encodeURIComponent(query)}&limit=${limit}`
+      url = `${MINDEX_API_URL}/api/mindex/taxa?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
     }
 
     const response = await fetch(url, {
@@ -134,14 +157,16 @@ export async function GET(request: Request) {
           })
         }
 
+        const total = data.pagination?.total || data.total || species.length
         return NextResponse.json({
           species,
-          total: data.total || species.length,
+          total,
           page,
-          pages: data.pages || Math.ceil((data.total || species.length) / limit),
+          pages: Math.ceil(total / limit),
           source: "mindex",
+          sort,
           database_stats: {
-            total_taxa: data.total,
+            total_taxa: total,
             per_page: limit,
           }
         })

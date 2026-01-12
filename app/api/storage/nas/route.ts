@@ -158,18 +158,24 @@ async function checkNASConnection(): Promise<NASStatus> {
     // MAS API not available, use defaults
   }
 
-  // Calculate total storage from all drives (26TB+16TB+16TB+13TB+2-5TB minimum)
-  // Default shares with realistic storage amounts
+  // Storage configuration based on actual hardware:
+  // - NAS: 2x 8TB drives = 16TB total
+  // - Dream Machine: 27TB drive connected
+  // - Proxmox: Additional server storage
+  // Values in GB for easier calculation
   const defaultShares: NASShare[] = [
-    { name: "Drive 1 (26TB)", path: `\\\\mycosoft-nas\\drive1`, used: 18500, total: 26000, available: 7500, protocol: "SMB" },
-    { name: "Drive 2 (16TB)", path: `\\\\mycosoft-nas\\drive2`, used: 11200, total: 16000, available: 4800, protocol: "SMB" },
-    { name: "Drive 3 (16TB)", path: `\\\\mycosoft-nas\\drive3`, used: 9800, total: 16000, available: 6200, protocol: "SMB" },
-    { name: "Drive 4 (13TB)", path: `\\\\mycosoft-nas\\drive4`, used: 8500, total: 13000, available: 4500, protocol: "SMB" },
-    { name: "Drive 5 (5TB)", path: `\\\\mycosoft-nas\\drive5`, used: 3200, total: 5000, available: 1800, protocol: "SMB" },
-    { name: "MINDEX Data", path: `\\\\mycosoft-nas\\mindex`, used: 850, total: 2048, available: 1198, protocol: "SMB" },
-    { name: "Backups", path: `\\\\mycosoft-nas\\backups`, used: 1500, total: 4096, available: 2596, protocol: "SMB" },
-    { name: "Media", path: `\\\\mycosoft-nas\\media`, used: 3200, total: 8192, available: 4992, protocol: "SMB" },
-    { name: "Research", path: `\\\\mycosoft-nas\\research`, used: 512, total: 2048, available: 1536, protocol: "SMB" },
+    // UniFi NAS (2x8TB drives in RAID)
+    { name: "NAS Drive 1 (8TB)", path: `\\\\mycosoft-nas\\volume1`, used: 5200 * 1024, total: 8000 * 1024, available: 2800 * 1024, protocol: "SMB" },
+    { name: "NAS Drive 2 (8TB)", path: `\\\\mycosoft-nas\\volume2`, used: 4800 * 1024, total: 8000 * 1024, available: 3200 * 1024, protocol: "SMB" },
+    // Dream Machine attached storage (27TB)
+    { name: "Dream Machine (27TB)", path: `\\\\dream-machine\\storage`, used: 18500 * 1024, total: 27000 * 1024, available: 8500 * 1024, protocol: "USB/Network" },
+    // Proxmox server storage
+    { name: "Proxmox VMs", path: `\\\\proxmox\\vms`, used: 450 * 1024, total: 2000 * 1024, available: 1550 * 1024, protocol: "NFS" },
+    { name: "Proxmox Backups", path: `\\\\proxmox\\backups`, used: 280 * 1024, total: 1000 * 1024, available: 720 * 1024, protocol: "NFS" },
+    // Logical shares
+    { name: "MINDEX Database", path: `\\\\mycosoft-nas\\mindex`, used: 15 * 1024, total: 500 * 1024, available: 485 * 1024, protocol: "SMB" },
+    { name: "Research Data", path: `\\\\mycosoft-nas\\research`, used: 320 * 1024, total: 1000 * 1024, available: 680 * 1024, protocol: "SMB" },
+    { name: "Firmware Images", path: `\\\\mycosoft-nas\\firmware`, used: 5 * 1024, total: 100 * 1024, available: 95 * 1024, protocol: "SMB" },
   ]
 
   // If we got real storage data from MAS, use it

@@ -59,6 +59,7 @@ const navSections: NavSection[] = [
     defaultOpen: true,
     items: [
       { title: "Overview", href: "/natureos", icon: Home },
+      { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
       { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: PipetteIcon },
       { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope },
       { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
