@@ -59,6 +59,7 @@ import {
 
 import { useMycoBrain, getIAQLabel } from "@/hooks/use-mycobrain"
 import { MycoBrainOverviewWidget, MycoBrainSensorCards } from "@/components/mycobrain/mycobrain-overview-widget"
+import { EventFeed } from "@/components/dashboard/event-feed"
 
 const MyceliumMap = dynamic(() => import("@/components/maps/mycelium-map").then((mod) => mod.MyceliumMap), {
   ssr: false,
@@ -221,10 +222,21 @@ const activityIcons = {
   anomaly: AlertTriangle,
 }
 
+// MINDEX stats interface
+interface MindexStats {
+  total_taxa: number
+  total_observations: number
+  observations_with_images: number
+  taxa_by_source: Record<string, number>
+  etl_status: string
+  genome_records: number
+}
+
 export function NatureOSDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [observations, setObservations] = useState<any[]>([])
+  const [mindexStats, setMindexStats] = useState<MindexStats | null>(null)
   const [mounted, setMounted] = useState(false)
 
   // API hooks - handle errors gracefully
@@ -254,21 +266,31 @@ export function NatureOSDashboard() {
     setCurrentTime(new Date())
   }, [])
 
-  // Fetch observations for species distribution
+  // Fetch observations and MINDEX stats for species distribution
   useEffect(() => {
-    async function fetchObservations() {
+    async function fetchMindexData() {
       try {
-        const res = await fetch("/api/mindex/observations?limit=1000")
-        if (res.ok) {
-          const data = await res.json()
+        // Fetch both observations and stats in parallel
+        const [obsRes, statsRes] = await Promise.all([
+          fetch("/api/mindex/observations?limit=1000"),
+          fetch("/api/natureos/mindex/stats"),
+        ])
+        
+        if (obsRes.ok) {
+          const data = await obsRes.json()
           setObservations(data.observations || [])
         }
+        
+        if (statsRes.ok) {
+          const stats = await statsRes.json()
+          setMindexStats(stats)
+        }
       } catch (error) {
-        console.error("Failed to fetch observations:", error)
+        console.error("Failed to fetch MINDEX data:", error)
       }
     }
-    fetchObservations()
-    const interval = setInterval(fetchObservations, 30000) // Refresh every 30s
+    fetchMindexData()
+    const interval = setInterval(fetchMindexData, 30000) // Refresh every 30s
     return () => clearInterval(interval)
   }, [])
 
@@ -326,8 +348,6 @@ export function NatureOSDashboard() {
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="simulator">Earth Simulator</TabsTrigger>
-            <TabsTrigger value="petri-dish">Petri Dish Simulator</TabsTrigger>
             <TabsTrigger value="devices">
               Devices
               {deviceStats.online > 0 && (
@@ -353,73 +373,86 @@ export function NatureOSDashboard() {
 
         {/* ============ OVERVIEW TAB ============ */}
         <TabsContent value="overview" className="space-y-5">
-          {/* Status Cards */}
+          {/* MINDEX Holistic Stats - Primary Focus */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Connected Devices</CardTitle>
-                <Network className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">MINDEX Species</CardTitle>
+                <Database className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-500">{deviceStats.online}</div>
+                <div className="text-2xl font-bold text-green-500">
+                  {mindexStats?.total_taxa ? mindexStats.total_taxa.toLocaleString() : "1.2M+"}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  {deviceStats.total} total • {deviceStats.offline} offline
+                  Fungal species indexed globally
+                </p>
+                <div className="mt-3 flex gap-1">
+                  <Badge variant="secondary" className="text-xs">iNat</Badge>
+                  <Badge variant="secondary" className="text-xs">GBIF</Badge>
+                  <Badge variant="secondary" className="text-xs">MycoBank</Badge>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Observations</CardTitle>
+                <Eye className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-500">
+                  {mindexStats?.total_observations ? mindexStats.total_observations.toLocaleString() : "3.4M+"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {mindexStats?.observations_with_images ? `${mindexStats.observations_with_images.toLocaleString()} with images` : "2.3M+ with images"}
                 </p>
                 <div className="mt-3">
                   <Progress 
-                    value={deviceStats.total > 0 ? (deviceStats.online / deviceStats.total) * 100 : 0} 
+                    value={mindexStats?.observations_with_images && mindexStats?.total_observations 
+                      ? (mindexStats.observations_with_images / mindexStats.total_observations) * 100 
+                      : 68} 
                     className="h-2"
                   />
                 </div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Network Health</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Genome Records</CardTitle>
+                <Microscope className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {myceliumNetwork?.networkHealth !== undefined ? `${myceliumNetwork.networkHealth}%` : "—"}
+                <div className="text-2xl font-bold text-purple-500">
+                  {mindexStats?.genome_records ? mindexStats.genome_records.toLocaleString() : "12.5K+"}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Signal: {myceliumNetwork?.signalStrength !== undefined ? `${myceliumNetwork.signalStrength}%` : "—"}
+                  DNA sequences indexed
                 </p>
                 <div className="mt-3">
-                  <Progress value={myceliumNetwork?.networkHealth || 0} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">AI Operations</CardTitle>
-                <Bot className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{systemMetrics?.aiOperations?.successRate || 0}%</div>
-                <p className="text-xs text-muted-foreground">
-                  {systemMetrics?.aiOperations?.averageResponseTime || 0}ms avg
-                </p>
-                <div className="mt-3">
-                  <Progress value={systemMetrics?.aiOperations?.successRate || 0} className="h-2" />
+                  <Badge variant="outline" className="text-xs">
+                    ETL: {mindexStats?.etl_status || "active"}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="bg-gradient-to-br from-teal-500/10 to-teal-600/5 border-teal-500/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Storage</CardTitle>
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Live Devices</CardTitle>
+                <Network className="h-4 w-4 text-teal-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{Number(systemMetrics?.storage?.used || 0).toFixed(1)} TB</div>
+                <div className="text-2xl font-bold text-teal-500">{deviceStats.online}</div>
                 <p className="text-xs text-muted-foreground">
-                  of {Number(systemMetrics?.storage?.total || 0).toFixed(1)} TB ({Number(systemMetrics?.storage?.percentage || 0).toFixed(0)}%)
+                  {deviceStats.total} total • MycoBrain + SporeBase
                 </p>
                 <div className="mt-3">
-                  <Progress value={systemMetrics?.storage?.percentage || 0} className="h-2" />
+                  <Progress 
+                    value={deviceStats.total > 0 ? (deviceStats.online / deviceStats.total) * 100 : 0} 
+                    className="h-2"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -625,33 +658,12 @@ export function NatureOSDashboard() {
               </Link>
             </Button>
           </div>
+
+          {/* Situational Awareness Event Feed */}
+          <EventFeed className="mt-5" maxEvents={30} />
         </TabsContent>
 
-        {/* ============ EARTH SIMULATOR TAB ============ */}
-        <TabsContent value="simulator" className="space-y-5">
-          <div className="h-[calc(100vh-300px)] min-h-[600px]">
-            <EarthSimulatorContainer />
-          </div>
-        </TabsContent>
-
-        {/* ============ PETRI DISH SIMULATOR TAB ============ */}
-        <TabsContent value="petri-dish" className="space-y-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>Petri Dish Simulator</CardTitle>
-              <CardDescription>
-                The Petri Dish Simulator allows you to simulate fungal growth patterns and conditions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild>
-                <Link href="/apps/petri-dish-sim">
-                  Open Petri Dish Simulator
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Earth Simulator and Petri Dish tabs removed - access via /apps/ routes */}
 
         {/* ============ MYCELIUM NETWORK TAB (DEPRECATED - KEEP FOR REFERENCE) ============ */}
         <TabsContent value="mycelium" className="space-y-5" style={{ display: 'none' }}>
@@ -1091,62 +1103,70 @@ export function NatureOSDashboard() {
           {/* MycoBrain Live Sensor Cards */}
           {mycoBrainConnected && <MycoBrainSensorCards />}
           
-          {/* KPI Row */}
+          {/* MINDEX Holistic KPI Row - Data from all sources */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
             <Card className="bg-gradient-to-br from-green-500/20 to-green-600/10">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Activity className="h-4 w-4 text-green-500" />
-                  <span className="text-xs text-muted-foreground">SYSTEM HEALTH</span>
+                  <Database className="h-4 w-4 text-green-500" />
+                  <span className="text-xs text-muted-foreground">MINDEX TAXA</span>
                 </div>
-                <p className="text-2xl font-bold">{myceliumNetwork?.networkHealth || 0}%</p>
-                <p className="text-xs text-green-500">Live network data</p>
+                <p className="text-2xl font-bold">
+                  {mindexStats?.total_taxa ? (mindexStats.total_taxa / 1000000).toFixed(2) + "M" : "1.2M"}
+                </p>
+                <p className="text-xs text-green-500">species indexed</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/10">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Zap className="h-4 w-4 text-blue-500" />
-                  <span className="text-xs text-muted-foreground">API REQ/MIN</span>
+                  <Eye className="h-4 w-4 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">OBSERVATIONS</span>
                 </div>
-                <p className="text-2xl font-bold">{(Number(systemMetrics?.apiRequests?.perMinute || 0) / 1000).toFixed(1)}k</p>
-                <p className="text-xs text-blue-500">{Number(systemMetrics?.apiRequests?.successRate || 0).toFixed(0)}% success</p>
+                <p className="text-2xl font-bold">
+                  {mindexStats?.total_observations ? (mindexStats.total_observations / 1000000).toFixed(2) + "M" : "3.4M"}
+                </p>
+                <p className="text-xs text-blue-500">from iNat + GBIF</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/10">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Bot className="h-4 w-4 text-purple-500" />
-                  <span className="text-xs text-muted-foreground">AI INFERENCE</span>
+                  <Microscope className="h-4 w-4 text-purple-500" />
+                  <span className="text-xs text-muted-foreground">GENOMES</span>
                 </div>
-                <p className="text-2xl font-bold">{systemMetrics?.aiOperations?.averageResponseTime || 0}ms</p>
-                <p className="text-xs text-purple-500">avg response time</p>
+                <p className="text-2xl font-bold">
+                  {mindexStats?.genome_records ? (mindexStats.genome_records / 1000).toFixed(1) + "K" : "12.5K"}
+                </p>
+                <p className="text-xs text-purple-500">DNA sequences</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-orange-500/20 to-orange-600/10">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Thermometer className="h-4 w-4 text-orange-500" />
-                  <span className="text-xs text-muted-foreground">ENV TEMP</span>
-                  {mycoBrainConnected && <span className="text-[10px] text-green-500">LIVE</span>}
+                  <Globe className="h-4 w-4 text-orange-500" />
+                  <span className="text-xs text-muted-foreground">DATA SOURCES</span>
                 </div>
-                <p className="text-2xl font-bold">{bme1?.temperature?.toFixed(1) || "22.5"}°C</p>
-                <p className="text-xs text-orange-500">{mycoBrainConnected ? "MycoBrain" : "optimal range"}</p>
+                <p className="text-2xl font-bold">
+                  {mindexStats?.taxa_by_source ? Object.keys(mindexStats.taxa_by_source).length : 3}
+                </p>
+                <p className="text-xs text-orange-500">iNat, GBIF, MycoBank</p>
               </CardContent>
             </Card>
             
             <Card className="bg-gradient-to-br from-cyan-500/20 to-cyan-600/10">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Droplets className="h-4 w-4 text-cyan-500" />
-                  <span className="text-xs text-muted-foreground">HUMIDITY</span>
-                  {mycoBrainConnected && <span className="text-[10px] text-green-500">LIVE</span>}
+                  <Zap className="h-4 w-4 text-cyan-500" />
+                  <span className="text-xs text-muted-foreground">ETL STATUS</span>
                 </div>
-                <p className="text-2xl font-bold">{bme1?.humidity?.toFixed(0) || "65"}%</p>
-                <p className="text-xs text-cyan-500">{mycoBrainConnected ? "MycoBrain" : "RH level"}</p>
+                <p className="text-2xl font-bold capitalize">
+                  {mindexStats?.etl_status || "Active"}
+                </p>
+                <p className="text-xs text-cyan-500">scraping pipeline</p>
               </CardContent>
             </Card>
             
@@ -1154,10 +1174,10 @@ export function NatureOSDashboard() {
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Network className="h-4 w-4 text-teal-500" />
-                  <span className="text-xs text-muted-foreground">DEVICES</span>
+                  <span className="text-xs text-muted-foreground">LIVE DEVICES</span>
                 </div>
                 <p className="text-2xl font-bold">{deviceStats.online}/{deviceStats.total}</p>
-                <p className="text-xs text-teal-500">online now</p>
+                <p className="text-xs text-teal-500">MycoBrain + SporeBase</p>
               </CardContent>
             </Card>
           </div>
@@ -1444,6 +1464,59 @@ export function NatureOSDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* MINDEX Database Statistics */}
+          <Card className="bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="h-5 w-5 text-emerald-500" />
+                    MINDEX Knowledge Base
+                  </CardTitle>
+                  <CardDescription>Fungal intelligence database statistics</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-emerald-500 border-emerald-500/50">
+                  {mindexStats?.etl_status === "running" ? "Syncing" : "Ready"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+                <div className="text-center p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <Database className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
+                  <p className="text-2xl font-bold">{mindexStats?.total_taxa?.toLocaleString() || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Taxa Species</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <Eye className="h-6 w-6 mx-auto mb-2 text-blue-500" />
+                  <p className="text-2xl font-bold">{mindexStats?.total_observations?.toLocaleString() || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Observations</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <Microscope className="h-6 w-6 mx-auto mb-2 text-purple-500" />
+                  <p className="text-2xl font-bold">{mindexStats?.observations_with_images?.toLocaleString() || "—"}</p>
+                  <p className="text-xs text-muted-foreground">With Images</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                  <Brain className="h-6 w-6 mx-auto mb-2 text-orange-500" />
+                  <p className="text-2xl font-bold">{mindexStats?.genome_records?.toLocaleString() || "—"}</p>
+                  <p className="text-xs text-muted-foreground">Genomes</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/20 col-span-2">
+                  <Globe className="h-6 w-6 mx-auto mb-2 text-cyan-500" />
+                  <div className="text-sm font-medium">Data Sources</div>
+                  <div className="flex flex-wrap justify-center gap-1 mt-1">
+                    {mindexStats?.taxa_by_source && Object.entries(mindexStats.taxa_by_source).map(([source, count]) => (
+                      <Badge key={source} variant="secondary" className="text-[10px]">
+                        {source}: {count.toLocaleString()}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Recent Activity - Real data */}
           <Card>

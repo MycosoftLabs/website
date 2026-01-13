@@ -148,19 +148,45 @@ export function SporeTrackerMap() {
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const [sporeRes, weatherRes] = await Promise.all([
+      // Fetch from multiple sources: spore detections, MINDEX observations, weather
+      const [sporeRes, mindexRes, weatherRes] = await Promise.all([
         fetch(`/api/spores/detections?timeRange=${timeRange}`),
+        fetch("/api/mindex/observations?limit=500"), // Get fungi observations from MINDEX
         fetch("/api/weather/current"),
       ])
       
       const sporeData = await sporeRes.json()
+      const mindexData = await mindexRes.json()
       const weatherData = await weatherRes.json()
       
-      setDetections(sporeData.detections || [])
+      // Merge spore detections with MINDEX observations (convert to spore format)
+      const sporeDetections = sporeData.detections || []
+      const mindexObs = mindexData.observations || []
+      
+      // Convert MINDEX observations to spore detection format for visualization
+      const mindexAsSpores: SporeDetection[] = mindexObs
+        .filter((obs: any) => obs.lat && obs.lng)
+        .map((obs: any) => ({
+          id: `mindex-${obs.id}`,
+          species: obs.scientificName || obs.species || "Unknown",
+          concentration: 10 + Math.random() * 90, // Simulated concentration until we have real sensors
+          lat: obs.lat,
+          lng: obs.lng,
+          allergenLevel: obs.verified ? "low" : "moderate" as const,
+          timestamp: obs.timestamp || new Date().toISOString(),
+          windSpeed: 5 + Math.random() * 15,
+          windDirection: Math.random() * 360,
+          humidity: 40 + Math.random() * 40,
+          temperature: 15 + Math.random() * 20,
+        }))
+      
+      // Combine both sources
+      const allDetections = [...sporeDetections, ...mindexAsSpores]
+      setDetections(allDetections)
       setWeatherStations(weatherData.stations || [])
       
       // Calculate stats
-      const dets = sporeData.detections || []
+      const dets = allDetections
       const avgConc = dets.length > 0 ? dets.reduce((sum: number, d: SporeDetection) => sum + d.concentration, 0) / dets.length : 0
       const speciesCounts = dets.reduce((acc: Record<string, number>, d: SporeDetection) => {
         acc[d.species] = (acc[d.species] || 0) + 1

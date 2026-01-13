@@ -3,6 +3,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Layers, 
+  TreePine, 
+  Thermometer, 
+  Bug, 
+  Cloud,
+  Radio,
+  MapPin,
+  Eye,
+  Leaf,
+  Wind,
+  Droplets,
+  Satellite,
+  Brain,
+} from "lucide-react";
 
 interface LayerControlsProps {
   layers: {
@@ -10,64 +27,131 @@ interface LayerControlsProps {
     heat: boolean;
     organisms: boolean;
     weather: boolean;
+    // New layers - prepared for future integration
+    devices?: boolean;
+    inat?: boolean;
+    wind?: boolean;
+    precipitation?: boolean;
+    ndvi?: boolean;
+    nlm?: boolean;
   };
   onLayersChange: (layers: LayerControlsProps["layers"]) => void;
 }
 
+const layerGroups = [
+  {
+    name: "Biological Data",
+    icon: Leaf,
+    layers: [
+      { key: "organisms", label: "iNaturalist Observations", icon: Eye, description: "Species sightings" },
+      { key: "mycelium", label: "Mycelium Networks", icon: TreePine, description: "Fungal distribution" },
+      { key: "heat", label: "Species Density", icon: Thermometer, description: "Heatmap overlay" },
+    ],
+  },
+  {
+    name: "Environmental",
+    icon: Cloud,
+    layers: [
+      { key: "weather", label: "Weather Conditions", icon: Cloud, description: "Temperature & conditions" },
+      { key: "wind", label: "Wind Patterns", icon: Wind, description: "Wind speed & direction" },
+      { key: "precipitation", label: "Precipitation", icon: Droplets, description: "Rain & moisture" },
+    ],
+  },
+  {
+    name: "Device Network",
+    icon: Radio,
+    layers: [
+      { key: "devices", label: "MycoBrain Sensors", icon: Radio, description: "IoT devices" },
+    ],
+  },
+  {
+    name: "AI/Analysis",
+    icon: Brain,
+    layers: [
+      { key: "nlm", label: "NLM Predictions", icon: Brain, description: "Nature Learning Model", comingSoon: true },
+      { key: "ndvi", label: "Vegetation Index", icon: Satellite, description: "NDVI from satellites", comingSoon: true },
+    ],
+  },
+];
+
 export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
-  const handleToggle = (layer: keyof typeof layers) => {
+  const handleToggle = (layer: string) => {
     onLayersChange({
       ...layers,
-      [layer]: !layers[layer],
+      [layer]: !layers[layer as keyof typeof layers],
     });
   };
 
+  const activeCount = Object.values(layers).filter(Boolean).length;
+
   return (
-    <Card className="w-64 bg-gray-900/90 backdrop-blur-sm border-gray-700">
-      <CardHeader>
-        <CardTitle className="text-sm text-white">Layers</CardTitle>
+    <Card className="w-72 bg-black/80 backdrop-blur-sm border-white/10 text-white">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-green-400" />
+            Data Layers
+          </span>
+          <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-400">
+            {activeCount} active
+          </Badge>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="mycelium" className="text-sm text-gray-300">
-            Mycelium
-          </Label>
-          <Switch
-            id="mycelium"
-            checked={layers.mycelium}
-            onCheckedChange={() => handleToggle("mycelium")}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="heat" className="text-sm text-gray-300">
-            Heat Map
-          </Label>
-          <Switch
-            id="heat"
-            checked={layers.heat}
-            onCheckedChange={() => handleToggle("heat")}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="organisms" className="text-sm text-gray-300">
-            Organisms
-          </Label>
-          <Switch
-            id="organisms"
-            checked={layers.organisms}
-            onCheckedChange={() => handleToggle("organisms")}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="weather" className="text-sm text-gray-300">
-            Weather
-          </Label>
-          <Switch
-            id="weather"
-            checked={layers.weather}
-            onCheckedChange={() => handleToggle("weather")}
-          />
-        </div>
+      <CardContent className="space-y-4 max-h-[400px] overflow-y-auto earth-sim-layer-scroll">
+        {layerGroups.map((group, groupIdx) => (
+          <div key={group.name}>
+            {groupIdx > 0 && <Separator className="mb-3 bg-white/10" />}
+            <div className="flex items-center gap-2 mb-2">
+              <group.icon className="h-3 w-3 text-gray-400" />
+              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                {group.name}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {group.layers.map((layer) => {
+                const isEnabled = layers[layer.key as keyof typeof layers] ?? false;
+                const LayerIcon = layer.icon;
+                
+                return (
+                  <div 
+                    key={layer.key}
+                    className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                      layer.comingSoon 
+                        ? "opacity-50 cursor-not-allowed" 
+                        : "hover:bg-white/5 cursor-pointer"
+                    }`}
+                    onClick={() => !layer.comingSoon && handleToggle(layer.key)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <LayerIcon className={`h-4 w-4 ${isEnabled ? "text-green-400" : "text-gray-500"}`} />
+                      <div>
+                        <Label 
+                          htmlFor={layer.key} 
+                          className={`text-sm cursor-pointer ${isEnabled ? "text-white" : "text-gray-300"}`}
+                        >
+                          {layer.label}
+                          {layer.comingSoon && (
+                            <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-yellow-500/50 text-yellow-500">
+                              Soon
+                            </Badge>
+                          )}
+                        </Label>
+                        <p className="text-[10px] text-gray-500">{layer.description}</p>
+                      </div>
+                    </div>
+                    <Switch
+                      id={layer.key}
+                      checked={isEnabled}
+                      onCheckedChange={() => !layer.comingSoon && handleToggle(layer.key)}
+                      disabled={layer.comingSoon}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
