@@ -168,37 +168,60 @@ const technologyPillars = [
   },
 ]
 
-// Products
+// Products - Prepared for image/icon customization
 const products = [
   {
-    name: "Mushroom 1",
-    description: "Smart cultivation system with integrated sensors",
-    status: "Shipping",
-  },
-  {
     name: "SporeBase",
-    description: "Professional-grade incubation platform",
+    description: "Professional-grade incubation platform with IoT integration for temperature, humidity, CO2, and growth monitoring. The cornerstone of automated cultivation.",
     status: "Shipping",
+    featured: true,
+    // Placeholder for Canva-derived images
+    imagePlaceholder: "/images/products/sporebase-hero.png",
+    iconColor: "emerald",
+    link: "/devices/sporebase",
   },
   {
     name: "MycoBrain",
-    description: "Edge computing for biological monitoring",
+    description: "Edge computing module with dual BME688 sensors for IAQ, eCO2, bVOC, and BSEC2-powered smell detection. The brain behind biological monitoring.",
     status: "Beta",
+    featured: true,
+    imagePlaceholder: "/images/products/mycobrain-hero.png",
+    iconColor: "blue",
+    link: "/devices/mycobrain",
+  },
+  {
+    name: "Mushroom 1",
+    description: "Smart cultivation system with integrated sensors for home and professional growers.",
+    status: "Shipping",
+    imagePlaceholder: "/images/products/mushroom1-hero.png",
+    iconColor: "green",
+    link: "/devices/mushroom1",
   },
   {
     name: "NatureOS",
-    description: "Operating system for Earth science",
+    description: "Operating system for Earth science with real-time data from satellites, sensors, and biological networks.",
     status: "Live",
+    featured: true,
+    imagePlaceholder: "/images/products/natureos-hero.png",
+    iconColor: "teal",
+    link: "/natureos",
   },
   {
     name: "MYCA AI",
-    description: "Mycological cognitive assistant",
+    description: "Mycological cognitive assistant powered by 42+ specialized agents working 24/7 on research, analysis, and automation.",
     status: "Live",
+    imagePlaceholder: "/images/products/myca-hero.png",
+    iconColor: "purple",
+    link: "/apps/myca",
   },
   {
     name: "MINDEX",
-    description: "Global fungal species database",
+    description: "Global fungal intelligence database with 1M+ species, genomes, observations, and taxonomic data from iNaturalist, GBIF, and more.",
     status: "Live",
+    featured: true,
+    imagePlaceholder: "/images/products/mindex-hero.png",
+    iconColor: "amber",
+    link: "/search",
   },
 ]
 
@@ -654,22 +677,55 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {products.map((product) => (
-              <Card key={product.name} className="p-6 hover:border-green-500/50 transition-all h-full flex flex-col">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-xl font-bold">{product.name}</h3>
+          {/* Featured Products - Large Cards */}
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            {products.filter(p => p.featured).slice(0, 2).map((product) => (
+              <Card key={product.name} className={`p-6 hover:border-${product.iconColor}-500/50 transition-all h-full flex flex-col relative overflow-hidden group`}>
+                {/* Placeholder for parallax background image */}
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity product-bg-placeholder" />
+                
+                <div className="flex items-start justify-between mb-3 relative z-10">
+                  <div className="flex items-center gap-3">
+                    {/* Icon placeholder - ready for custom SVG/image */}
+                    <div className={`p-2 rounded-lg bg-${product.iconColor}-500/20`}>
+                      <Server className={`h-6 w-6 text-${product.iconColor}-500`} />
+                    </div>
+                    <h3 className="text-2xl font-bold">{product.name}</h3>
+                  </div>
                   <Badge 
                     variant={product.status === "Shipping" ? "default" : product.status === "Live" ? "secondary" : "outline"}
-                    className={product.status === "Shipping" ? "bg-green-500" : ""}
+                    className={product.status === "Shipping" ? "bg-green-500" : product.status === "Beta" ? "bg-blue-500" : ""}
                   >
                     {product.status}
                   </Badge>
                 </div>
-                <p className="text-muted-foreground flex-grow">{product.description}</p>
-                <Button variant="ghost" className="mt-4 w-fit gap-2 p-0 h-auto text-green-500 hover:text-green-400" asChild>
-                  <Link href={`/devices${product.name === "MycoBrain" ? "/mycobrain" : ""}`}>
+                <p className="text-muted-foreground flex-grow relative z-10">{product.description}</p>
+                <Button variant="ghost" className="mt-4 w-fit gap-2 p-0 h-auto text-green-500 hover:text-green-400 relative z-10" asChild>
+                  <Link href={product.link}>
                     Learn more <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </Card>
+            ))}
+          </div>
+
+          {/* Other Products - Smaller Grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+            {products.filter(p => !p.featured || products.filter(x => x.featured).indexOf(p) >= 2).map((product) => (
+              <Card key={product.name} className="p-4 hover:border-green-500/50 transition-all h-full flex flex-col">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-lg font-bold">{product.name}</h3>
+                  <Badge 
+                    variant={product.status === "Shipping" ? "default" : product.status === "Live" ? "secondary" : "outline"}
+                    className={`text-xs ${product.status === "Shipping" ? "bg-green-500" : product.status === "Beta" ? "bg-blue-500" : ""}`}
+                  >
+                    {product.status}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground flex-grow line-clamp-2">{product.description}</p>
+                <Button variant="ghost" className="mt-3 w-fit gap-1 p-0 h-auto text-green-500 hover:text-green-400 text-sm" asChild>
+                  <Link href={product.link}>
+                    Learn more <ChevronRight className="h-3 w-3" />
                   </Link>
                 </Button>
               </Card>
