@@ -96,7 +96,32 @@ import {
   Anchor,
   Plane,
   Car,
-  Ship
+  Ship,
+  Factory,
+  Siren,
+  Container,
+  Gauge,
+  Shield as ShieldIcon,
+  Crosshair as CrosshairIcon,
+  Bomb,
+  Truck as TruckIcon,
+  Bike,
+  Train,
+  Rocket,
+  Skull,
+  Radiation,
+  Baby,
+  Fuel,
+  CircleAlert,
+  Timer,
+  Signal,
+  Building2,
+  Warehouse,
+  Landmark,
+  Wrench,
+  Cable,
+  Power,
+  Droplet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +157,7 @@ interface Device {
 interface LayerConfig {
   id: string;
   name: string;
-  category: "events" | "devices" | "environment" | "infrastructure";
+  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution";
   icon: React.ReactNode;
   enabled: boolean;
   opacity: number;
@@ -186,9 +211,12 @@ const severityColors: Record<string, string> = {
 // Layer categories with icons
 const layerCategories = {
   events: { label: "Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
-  devices: { label: "Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
+  devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   environment: { label: "Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
-  infrastructure: { label: "Infrastructure", icon: <Grid3X3 className="w-3.5 h-3.5" />, color: "text-purple-400" },
+  human: { label: "Human Activity", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-400" },
+  infrastructure: { label: "Transport & Vehicles", icon: <Plane className="w-3.5 h-3.5" />, color: "text-sky-400" },
+  military: { label: "Military & Defense", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
+  pollution: { label: "Pollution & Industry", icon: <Factory className="w-3.5 h-3.5" />, color: "text-orange-400" },
 };
 
 // Event marker component
@@ -345,6 +373,28 @@ function DeviceMarker({ device, isSelected, onClick }: {
   );
 }
 
+// Human & Machines Baseline Data
+const HUMAN_MACHINE_DATA = {
+  population: { total: 8_123_456_789, birthsPerSec: 4.3, deathsPerSec: 1.8 },
+  vehicles: { total: 1_446_000_000, active: 312_000_000, co2PerDay: 18_500_000 },
+  aircraft: { total: 468_000, inFlight: 18_500, flightsPerDay: 115_000, co2PerDay: 2_800_000 },
+  ships: { total: 108_000, atSea: 62_000, fishing: 4_600_000, co2PerDay: 3_200_000 },
+  drones: { registered: 2_800_000, active: 125_000, military: 45_000 },
+  factories: { total: 10_500_000, active: 8_200_000, co2PerDay: 58_000_000 },
+  totalCO2PerDay: 136_000_000,
+  totalMethanePerDay: 1_500_000,
+  fuelPerDay: 102_000_000,
+};
+
+// Format number helper
+function formatNum(num: number): string {
+  if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
+  if (num >= 1e9) return (num / 1e9).toFixed(2) + "B";
+  if (num >= 1e6) return (num / 1e6).toFixed(1) + "M";
+  if (num >= 1e3) return (num / 1e3).toFixed(1) + "K";
+  return num.toLocaleString();
+}
+
 // Right Panel - Mission Context Component
 function MissionContextPanel({ 
   mission, 
@@ -449,6 +499,153 @@ function MissionContextPanel({
   );
 }
 
+// Right Panel - Human & Machines Intel Component
+function HumanMachinesPanel() {
+  const [population, setPopulation] = useState(HUMAN_MACHINE_DATA.population.total);
+  const [activeData, setActiveData] = useState({
+    aircraft: HUMAN_MACHINE_DATA.aircraft.inFlight,
+    ships: HUMAN_MACHINE_DATA.ships.atSea,
+    vehicles: HUMAN_MACHINE_DATA.vehicles.active,
+    drones: HUMAN_MACHINE_DATA.drones.active,
+  });
+
+  // Live population counter
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPopulation(prev => prev + (HUMAN_MACHINE_DATA.population.birthsPerSec - HUMAN_MACHINE_DATA.population.deathsPerSec));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fluctuating active counts
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveData({
+        aircraft: HUMAN_MACHINE_DATA.aircraft.inFlight + Math.floor((Math.random() - 0.5) * 500),
+        ships: HUMAN_MACHINE_DATA.ships.atSea + Math.floor((Math.random() - 0.5) * 200),
+        vehicles: HUMAN_MACHINE_DATA.vehicles.active + Math.floor((Math.random() - 0.5) * 500000),
+        drones: HUMAN_MACHINE_DATA.drones.active + Math.floor((Math.random() - 0.5) * 2000),
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      {/* World Population */}
+      <div className="p-2.5 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <Users className="h-3 w-3 text-blue-400" />
+            World Population
+          </span>
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[8px] text-green-400">LIVE</span>
+          </div>
+        </div>
+        <p className="text-xl font-bold text-blue-400 tabular-nums">{formatNum(Math.floor(population))}</p>
+        <div className="flex items-center gap-3 mt-1 text-[8px]">
+          <span className="text-green-400">+{HUMAN_MACHINE_DATA.population.birthsPerSec.toFixed(1)}/s births</span>
+          <span className="text-red-400">-{HUMAN_MACHINE_DATA.population.deathsPerSec.toFixed(1)}/s deaths</span>
+        </div>
+      </div>
+
+      {/* Transport Grid */}
+      <div className="p-2.5 rounded-lg bg-black/40 border border-gray-700/50">
+        <div className="flex items-center gap-2 mb-2">
+          <Plane className="w-3.5 h-3.5 text-sky-400" />
+          <span className="text-[10px] font-bold text-white">GLOBAL TRANSPORT</span>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {/* Aircraft */}
+          <div className="p-2 rounded bg-gradient-to-br from-sky-500/10 to-cyan-500/5 border border-sky-500/20">
+            <div className="flex items-center justify-between">
+              <Plane className="w-3 h-3 text-sky-400" />
+              <span className="text-[8px] text-sky-400">{formatNum(activeData.aircraft)} flying</span>
+            </div>
+            <div className="text-[11px] font-bold text-sky-300 mt-1">{formatNum(HUMAN_MACHINE_DATA.aircraft.total)}</div>
+            <div className="text-[7px] text-gray-500">Total Aircraft</div>
+          </div>
+          {/* Ships */}
+          <div className="p-2 rounded bg-gradient-to-br from-teal-500/10 to-emerald-500/5 border border-teal-500/20">
+            <div className="flex items-center justify-between">
+              <Ship className="w-3 h-3 text-teal-400" />
+              <span className="text-[8px] text-teal-400">{formatNum(activeData.ships)} at sea</span>
+            </div>
+            <div className="text-[11px] font-bold text-teal-300 mt-1">{formatNum(HUMAN_MACHINE_DATA.ships.total)}</div>
+            <div className="text-[7px] text-gray-500">Ships + {formatNum(HUMAN_MACHINE_DATA.ships.fishing)} fishing</div>
+          </div>
+          {/* Vehicles */}
+          <div className="p-2 rounded bg-gradient-to-br from-orange-500/10 to-amber-500/5 border border-orange-500/20">
+            <div className="flex items-center justify-between">
+              <Car className="w-3 h-3 text-orange-400" />
+              <span className="text-[8px] text-orange-400">{formatNum(activeData.vehicles)} active</span>
+            </div>
+            <div className="text-[11px] font-bold text-orange-300 mt-1">{formatNum(HUMAN_MACHINE_DATA.vehicles.total)}</div>
+            <div className="text-[7px] text-gray-500">Land Vehicles</div>
+          </div>
+          {/* Drones */}
+          <div className="p-2 rounded bg-gradient-to-br from-purple-500/10 to-pink-500/5 border border-purple-500/20">
+            <div className="flex items-center justify-between">
+              <Radio className="w-3 h-3 text-purple-400" />
+              <span className="text-[8px] text-purple-400">{formatNum(activeData.drones)} flying</span>
+            </div>
+            <div className="text-[11px] font-bold text-purple-300 mt-1">{formatNum(HUMAN_MACHINE_DATA.drones.registered)}</div>
+            <div className="text-[7px] text-gray-500">Drones/UAVs ({formatNum(HUMAN_MACHINE_DATA.drones.military)} mil)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Factories & Industry */}
+      <div className="p-2.5 rounded-lg bg-gradient-to-br from-orange-500/10 to-red-500/5 border border-orange-500/30">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <Factory className="h-3 w-3 text-orange-400" />
+            Industrial Facilities
+          </span>
+          <span className="text-[8px] text-orange-400">{formatNum(HUMAN_MACHINE_DATA.factories.active)} active</span>
+        </div>
+        <div className="text-lg font-bold text-orange-300">{formatNum(HUMAN_MACHINE_DATA.factories.total)}</div>
+        <div className="text-[8px] text-gray-500 mt-1">Factories, refineries, power plants worldwide</div>
+      </div>
+
+      {/* Pollution Output */}
+      <div className="p-2.5 rounded-lg bg-gradient-to-br from-red-500/10 to-orange-500/5 border border-red-500/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Cloud className="w-3.5 h-3.5 text-red-400" />
+          <span className="text-[10px] font-bold text-white">EMISSIONS (DAILY)</span>
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          <div className="text-center p-1.5 rounded bg-black/30">
+            <div className="text-[10px] font-bold text-red-400">{formatNum(HUMAN_MACHINE_DATA.totalCO2PerDay)}</div>
+            <div className="text-[7px] text-gray-500">t CO₂</div>
+          </div>
+          <div className="text-center p-1.5 rounded bg-black/30">
+            <div className="text-[10px] font-bold text-amber-400">{formatNum(HUMAN_MACHINE_DATA.totalMethanePerDay)}</div>
+            <div className="text-[7px] text-gray-500">t CH₄</div>
+          </div>
+          <div className="text-center p-1.5 rounded bg-black/30">
+            <div className="text-[10px] font-bold text-orange-400">{formatNum(HUMAN_MACHINE_DATA.fuelPerDay)}</div>
+            <div className="text-[7px] text-gray-500">bbl fuel</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Sources */}
+      <div className="pt-1 border-t border-gray-700/30">
+        <div className="flex flex-wrap gap-1 text-[7px]">
+          <Badge variant="outline" className="px-1 py-0 h-3 border-sky-500/30 text-sky-400">OpenSky</Badge>
+          <Badge variant="outline" className="px-1 py-0 h-3 border-teal-500/30 text-teal-400">AISstream</Badge>
+          <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GFW</Badge>
+          <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">OSINT</Badge>
+          <Badge variant="outline" className="px-1 py-0 h-3 border-amber-500/30 text-amber-400">MIL-INT</Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Right Panel - Layers Component
 function LayerControlPanel({
   layers,
@@ -467,7 +664,10 @@ function LayerControlPanel({
       events: [],
       devices: [],
       environment: [],
+      human: [],
       infrastructure: [],
+      military: [],
+      pollution: [],
     };
     layers.forEach(layer => {
       groups[layer.category]?.push(layer);
@@ -714,15 +914,17 @@ export default function CREPDashboardPage() {
     },
   ]);
   
-  // Layer states
+  // Layer states - Comprehensive tracking for military/scientific use
   const [layers, setLayers] = useState<LayerConfig[]>([
-    // Events
-    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Real-time earthquake data from USGS" },
+    // Events - Natural & Space Weather
+    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
-    { id: "solar", name: "Solar Activity", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Space weather and solar flares" },
-    // Devices
+    { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
+    { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
+    { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
+    // MycoBrain Devices
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
@@ -730,9 +932,33 @@ export default function CREPDashboardPage() {
     { id: "fungi", name: "Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22c55e", description: "iNat/GBIF fungal observation data" },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind" },
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
-    // Infrastructure
-    { id: "maritime", name: "Maritime Traffic", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "AIS ship tracking data" },
-    { id: "aviation", name: "Air Traffic", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#8b5cf6", description: "OpenSky aircraft positions" },
+    // Human Activity
+    { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
+    { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
+    { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
+    // Transport & Vehicles
+    { id: "aviation", name: "Air Traffic (OpenSky)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#0ea5e9", description: "Live aircraft positions worldwide" },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#38bdf8", description: "Aircraft planned routes and paths" },
+    { id: "ships", name: "Ships (AIS)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#14b8a6", description: "AISstream vessel tracking" },
+    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#2dd4bf", description: "Vessel routes and port lines" },
+    { id: "fishing", name: "Fishing Fleets (GFW)", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
+    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
+    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
+    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
+    // Military & Defense
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
+    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
+    { id: "militaryBases", name: "Military Bases", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ca8a04", description: "Known military installations" },
+    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
+    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
+    // Pollution & Industry
+    { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
+    { id: "co2Sources", name: "CO₂ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major CO₂ emitters and hotspots" },
+    { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
+    { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
+    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#fbbf24", description: "Thermal, nuclear, renewable plants" },
+    { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
+    { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
   ]);
   
   // Filter states
@@ -1084,13 +1310,25 @@ export default function CREPDashboardPage() {
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative crep-map-container">
+          {/* Custom CSS to hide map attribution for military/scientific use */}
+          <style jsx global>{`
+            .crep-map-container .maplibregl-ctrl-attrib,
+            .crep-map-container .maplibregl-ctrl-logo,
+            .crep-map-container .maplibregl-ctrl-attrib-button,
+            .crep-map-container .maplibregl-ctrl-bottom-right,
+            .crep-map-container .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib {
+              display: none !important;
+              visibility: hidden !important;
+              opacity: 0 !important;
+            }
+          `}</style>
           <Map 
             center={[0, 20]} 
             zoom={2}
             styles={{
-              dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-              light: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+              dark: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json",
+              light: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
             }}
           >
             <MapControls 
@@ -1154,33 +1392,40 @@ export default function CREPDashboardPage() {
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-4 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+              <TabsList className="w-full grid grid-cols-5 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
                 <TabsTrigger 
                   value="mission" 
-                  className="text-[9px] data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
-                  <Target className="w-3.5 h-3.5 mr-1" />
+                  <Target className="w-3 h-3 mr-0.5" />
                   MISSION
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="layers" 
-                  className="text-[9px] data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  value="intel" 
+                  className="text-[8px] px-1 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 rounded-none"
                 >
-                  <Layers className="w-3.5 h-3.5 mr-1" />
+                  <Users className="w-3 h-3 mr-0.5" />
+                  INTEL
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="layers" 
+                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                >
+                  <Layers className="w-3 h-3 mr-0.5" />
                   LAYERS
                 </TabsTrigger>
                 <TabsTrigger 
                   value="services" 
-                  className="text-[9px] data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
-                  <Cpu className="w-3.5 h-3.5 mr-1" />
-                  SERVICES
+                  <Cpu className="w-3 h-3 mr-0.5" />
+                  SVCS
                 </TabsTrigger>
                 <TabsTrigger 
                   value="myca" 
-                  className="text-[9px] data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
+                  className="text-[8px] px-1 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
                 >
-                  <Bot className="w-3.5 h-3.5 mr-1" />
+                  <Bot className="w-3 h-3 mr-0.5" />
                   MYCA
                 </TabsTrigger>
               </TabsList>
@@ -1189,6 +1434,12 @@ export default function CREPDashboardPage() {
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="mission" className="h-full m-0 p-3 overflow-auto">
                   <MissionContextPanel mission={currentMission} stats={stats} />
+                </TabsContent>
+
+                <TabsContent value="intel" className="h-full m-0 p-3 overflow-auto">
+                  <ScrollArea className="h-full">
+                    <HumanMachinesPanel />
+                  </ScrollArea>
                 </TabsContent>
 
                 <TabsContent value="layers" className="h-full m-0 p-3 overflow-auto">
