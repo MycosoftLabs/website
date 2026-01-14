@@ -135,22 +135,22 @@ import { cn } from "@/lib/utils";
 
 // Types
 interface GlobalEvent {
-  id: string;
-  type: string;
-  title: string;
-  severity: string;
-  lat: number;
-  lng: number;
-  timestamp?: string;
-  link?: string;
+    id: string;
+    type: string;
+    title: string;
+    severity: string;
+    lat: number;
+    lng: number;
+    timestamp?: string;
+    link?: string;
 }
 
 interface Device {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  status: "online" | "offline";
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    status: "online" | "offline";
   type?: string;
 }
 
@@ -1207,7 +1207,7 @@ export default function CREPDashboardPage() {
               <Badge variant="outline" className="text-[8px] border-green-500/50 text-green-400">
                 {filteredEvents.length} ACTIVE
               </Badge>
-            </div>
+        </div>
 
             {/* Quick Stats */}
             <div className="grid grid-cols-3 gap-1 p-2 border-b border-cyan-500/10">
@@ -1259,13 +1259,13 @@ export default function CREPDashboardPage() {
                   const isSelected = selectedEvent?.id === event.id;
                   
                   return (
-                    <div
-                      key={event.id}
+                  <div
+                    key={event.id}
                       onClick={() => setSelectedEvent(isSelected ? null : event)}
-                      className={cn(
+                    className={cn(
                         "p-2 rounded cursor-pointer transition-all border",
                         isSelected
-                          ? "bg-cyan-500/10 border-cyan-500/40"
+                        ? "bg-cyan-500/10 border-cyan-500/40"
                           : "bg-black/30 border-transparent hover:border-gray-700/50"
                       )}
                     >
@@ -1276,23 +1276,23 @@ export default function CREPDashboardPage() {
                         >
                           {config.icon}
                         </div>
-                        <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0">
                           <div className="text-[10px] text-white font-medium truncate">
-                            {event.title}
-                          </div>
+                          {event.title}
+                        </div>
                           <div className="flex items-center justify-between mt-0.5">
                             <span className="text-[8px] text-gray-500">
-                              {event.lat.toFixed(2)}°, {event.lng.toFixed(2)}°
+                          {event.lat.toFixed(2)}°, {event.lng.toFixed(2)}°
                             </span>
-                            <Badge 
-                              variant="outline" 
+                      <Badge 
+                        variant="outline" 
                               className={cn("text-[7px] px-1 py-0", severityColors[event.severity])}
-                            >
+                      >
                               {event.severity}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
+                      </Badge>
+                    </div>
+                    </div>
+                  </div>
                     </div>
                   );
                 })}
@@ -1374,7 +1374,7 @@ export default function CREPDashboardPage() {
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-green-400">LIVE</span>
-            </div>
+              </div>
             <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-cyan-400">
               {filteredEvents.length} EVENTS
             </div>
@@ -1439,7 +1439,7 @@ export default function CREPDashboardPage() {
                 <TabsContent value="intel" className="h-full m-0 p-3 overflow-auto">
                   <ScrollArea className="h-full">
                     <HumanMachinesPanel />
-                  </ScrollArea>
+            </ScrollArea>
                 </TabsContent>
 
                 <TabsContent value="layers" className="h-full m-0 p-3 overflow-auto">
@@ -1464,7 +1464,7 @@ export default function CREPDashboardPage() {
                     onSendMessage={handleMycaMessage}
                   />
                 </TabsContent>
-              </div>
+            </div>
             </Tabs>
           </div>
         </div>
