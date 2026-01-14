@@ -14,8 +14,8 @@ import { useEffect, useState } from "react";
 export interface RollingNumberProps {
   value: number;
   className?: string;
-  color?: "default" | "green" | "blue" | "purple" | "orange" | "red" | "teal" | "cyan";
-  size?: "sm" | "md" | "lg" | "xl";
+  color?: "default" | "green" | "blue" | "purple" | "orange" | "red" | "teal" | "cyan" | "emerald" | "sky" | "amber" | "rose";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   suffix?: string;
   suffixPosition?: "front" | "back";
   align?: "left" | "center" | "right";
@@ -38,11 +38,17 @@ const colorStyles: Record<string, string> = {
   red: "text-red-500",
   teal: "text-teal-500",
   cyan: "text-cyan-500",
+  // Additional colors for kingdom rows
+  emerald: "text-emerald-400",
+  sky: "text-sky-400",
+  amber: "text-amber-400",
+  rose: "text-rose-400",
 };
 
 const sizeMap: Record<string, number> = {
-  sm: 18,
-  md: 28,
+  xs: 12,
+  sm: 16,
+  md: 24,
   lg: 36,
   xl: 48,
 };
@@ -79,8 +85,9 @@ export function RollingNumber({
           className={cn(
             colorStyles[color],
             "font-bold tabular-nums tracking-tight",
-            size === "sm" && "text-lg",
-            size === "md" && "text-2xl",
+            size === "xs" && "text-sm",
+            size === "sm" && "text-base",
+            size === "md" && "text-xl",
             size === "lg" && "text-3xl",
             size === "xl" && "text-4xl"
           )}

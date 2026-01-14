@@ -475,16 +475,25 @@ h1, h2, h3, h4, h5, h6 {
 
 @media print {
   .no-print { display: none !important; }
-  
+
   body {
     background: white;
     color: black;
   }
-  
+
   .parallax-bg,
   .video-bg,
   .spore-particles::before,
   .spore-particles::after {
     display: none;
+  }
+}
+
+@layer base {
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
   }
 }
