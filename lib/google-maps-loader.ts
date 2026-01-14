@@ -12,7 +12,9 @@ declare global {
   }
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+// Filter out placeholder values that indicate no real key is set
+const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+const GOOGLE_MAPS_API_KEY = rawApiKey && !rawApiKey.includes("your-") && rawApiKey !== "your-api-key-here" ? rawApiKey : ""
 
 let loadPromise: Promise<void> | null = null
 let isLoaded = false
