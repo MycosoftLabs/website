@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Layers, MapPin, RefreshCw, ZoomIn, ZoomOut, Globe, Activity, Loader2, Filter, Satellite, Map, Mountain } from "lucide-react"
 
 // Google Maps API key - set in environment or use a default for dev
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+// Filter out placeholder values that indicate no real key is set
+const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+const GOOGLE_MAPS_API_KEY = rawApiKey && !rawApiKey.includes("your-") && rawApiKey !== "your-api-key-here" ? rawApiKey : ""
 
 interface MyceliumObservation {
   id: string
