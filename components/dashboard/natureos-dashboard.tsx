@@ -69,6 +69,8 @@ import { LiveCounter } from "@/components/widgets/live-counter"
 import { GlobalEventsFeed } from "@/components/widgets/global-events-feed"
 import { RollingNumber } from "@/components/widgets/rolling-number"
 import { DataSourceMarquee, type DataSource } from "@/components/widgets/data-source-marquee"
+import { KingdomStatCard } from "@/components/widgets/kingdom-stat-card"
+import { HumansMachinesPanel } from "@/components/widgets/humans-machines-panel"
 import { useLiveStats, useGlobalEvents } from "@/hooks/use-live-stats"
 
 const MyceliumMap = dynamic(() => import("@/components/maps/mycelium-map").then((mod) => mod.MyceliumMap), {
@@ -318,6 +320,42 @@ export function NatureOSDashboard() {
     simulateGrowth: true,
   })
 
+  // Global events for map markers
+  const [globalEventsForMap, setGlobalEventsForMap] = useState<Array<{
+    id: string
+    type: string
+    title: string
+    severity: "info" | "low" | "medium" | "high" | "critical" | "extreme"
+    location: { latitude: number; longitude: number; name?: string }
+    link?: string
+  }>>([])
+
+  // Fetch global events for map overlay
+  useEffect(() => {
+    async function fetchGlobalEvents() {
+      try {
+        const res = await fetch("/api/natureos/global-events")
+        if (res.ok) {
+          const data = await res.json()
+          const events = (data.events || []).map((e: any) => ({
+            id: e.id,
+            type: e.type,
+            title: e.title,
+            severity: e.severity,
+            location: typeof e.location === "object" ? e.location : { latitude: 0, longitude: 0 },
+            link: e.link,
+          })).filter((e: any) => e.location?.latitude && e.location?.longitude)
+          setGlobalEventsForMap(events)
+        }
+      } catch (error) {
+        console.error("Failed to fetch global events for map:", error)
+      }
+    }
+    fetchGlobalEvents()
+    const interval = setInterval(fetchGlobalEvents, 30000) // Refresh every 30s
+    return () => clearInterval(interval)
+  }, [])
+
   // Calculate real device counts - MycoBrain is already in realDevices
   const deviceStats = useMemo(() => {
     if (!realDevices || realDevices.length === 0) {
@@ -545,6 +583,180 @@ export function NatureOSDashboard() {
             </Card>
           </div>
 
+          {/* Multi-Kingdom Life Dashboard - 3x3 Grid for 9 Kingdoms */}
+          <div className="grid gap-4 lg:grid-cols-4">
+            {/* Kingdom Stats Grid (3 columns, 3 rows = 9 kingdoms) */}
+            <div className="lg:col-span-3 grid gap-2 md:grid-cols-3">
+              {/* Row 1: Plants, Birds, Insects */}
+              {liveStats?.plants && (
+                <KingdomStatCard
+                  kingdom="plants"
+                  species={liveStats.plants.species?.total || 0}
+                  observations={liveStats.plants.observations?.total || 0}
+                  images={liveStats.plants.images?.total || 0}
+                  speciesDelta={liveStats.plants.species?.delta || 0}
+                  observationsDelta={liveStats.plants.observations?.delta || 0}
+                  imagesDelta={liveStats.plants.images?.delta || 0}
+                  co2={liveStats.plants.environmental?.co2 || -458000000}
+                  methane={liveStats.plants.environmental?.methane || 650000}
+                  water={liveStats.plants.environmental?.water || 62000000}
+                  co2Delta={liveStats.plants.environmental?.co2Delta || 25000}
+                  methaneDelta={liveStats.plants.environmental?.methaneDelta || 35}
+                  waterDelta={liveStats.plants.environmental?.waterDelta || 3400}
+                />
+              )}
+              
+              {liveStats?.birds && (
+                <KingdomStatCard
+                  kingdom="birds"
+                  species={liveStats.birds.species?.total || 0}
+                  observations={liveStats.birds.observations?.total || 0}
+                  images={liveStats.birds.images?.total || 0}
+                  speciesDelta={liveStats.birds.species?.delta || 0}
+                  observationsDelta={liveStats.birds.observations?.delta || 0}
+                  imagesDelta={liveStats.birds.images?.delta || 0}
+                  co2={liveStats.birds.environmental?.co2 || 890000}
+                  methane={liveStats.birds.environmental?.methane || 1200}
+                  water={liveStats.birds.environmental?.water || 150}
+                  co2Delta={liveStats.birds.environmental?.co2Delta || 45}
+                  methaneDelta={liveStats.birds.environmental?.methaneDelta || 0.1}
+                  waterDelta={liveStats.birds.environmental?.waterDelta || 8}
+                />
+              )}
+              
+              {liveStats?.insects && (
+                <KingdomStatCard
+                  kingdom="insects"
+                  species={liveStats.insects.species?.total || 0}
+                  observations={liveStats.insects.observations?.total || 0}
+                  images={liveStats.insects.images?.total || 0}
+                  speciesDelta={liveStats.insects.species?.delta || 0}
+                  observationsDelta={liveStats.insects.observations?.delta || 0}
+                  imagesDelta={liveStats.insects.images?.delta || 0}
+                  co2={liveStats.insects.environmental?.co2 || 480000}
+                  methane={liveStats.insects.environmental?.methane || 12500}
+                  water={liveStats.insects.environmental?.water || 82}
+                  co2Delta={liveStats.insects.environmental?.co2Delta || 25}
+                  methaneDelta={liveStats.insects.environmental?.methaneDelta || 0.7}
+                  waterDelta={liveStats.insects.environmental?.waterDelta || 4}
+                />
+              )}
+              
+              {/* Row 2: Animals, Marine, Mammals */}
+              {liveStats?.animals && (
+                <KingdomStatCard
+                  kingdom="animals"
+                  species={liveStats.animals.species?.total || 0}
+                  observations={liveStats.animals.observations?.total || 0}
+                  images={liveStats.animals.images?.total || 0}
+                  speciesDelta={liveStats.animals.species?.delta || 0}
+                  observationsDelta={liveStats.animals.observations?.delta || 0}
+                  imagesDelta={liveStats.animals.images?.delta || 0}
+                  co2={liveStats.animals.environmental?.co2 || 2150000}
+                  methane={liveStats.animals.environmental?.methane || 8800}
+                  water={liveStats.animals.environmental?.water || 45000}
+                  co2Delta={liveStats.animals.environmental?.co2Delta || 115}
+                  methaneDelta={liveStats.animals.environmental?.methaneDelta || 0.5}
+                  waterDelta={liveStats.animals.environmental?.waterDelta || 2500}
+                />
+              )}
+              
+              {liveStats?.marine && (
+                <KingdomStatCard
+                  kingdom="marine"
+                  species={liveStats.marine.species?.total || 0}
+                  observations={liveStats.marine.observations?.total || 0}
+                  images={liveStats.marine.images?.total || 0}
+                  speciesDelta={liveStats.marine.species?.delta || 0}
+                  observationsDelta={liveStats.marine.observations?.delta || 0}
+                  imagesDelta={liveStats.marine.images?.delta || 0}
+                  co2={liveStats.marine.environmental?.co2 || -9500000}
+                  methane={liveStats.marine.environmental?.methane || 38000}
+                  water={liveStats.marine.environmental?.water || 0}
+                  co2Delta={liveStats.marine.environmental?.co2Delta || 520}
+                  methaneDelta={liveStats.marine.environmental?.methaneDelta || 2.1}
+                  waterDelta={liveStats.marine.environmental?.waterDelta || 0}
+                />
+              )}
+              
+              {liveStats?.mammals && (
+                <KingdomStatCard
+                  kingdom="mammals"
+                  species={liveStats.mammals.species?.total || 0}
+                  observations={liveStats.mammals.observations?.total || 0}
+                  images={liveStats.mammals.images?.total || 0}
+                  speciesDelta={liveStats.mammals.species?.delta || 0}
+                  observationsDelta={liveStats.mammals.observations?.delta || 0}
+                  imagesDelta={liveStats.mammals.images?.delta || 0}
+                  co2={liveStats.mammals.environmental?.co2 || 5200000}
+                  methane={liveStats.mammals.environmental?.methane || 329000}
+                  water={liveStats.mammals.environmental?.water || 95800}
+                  co2Delta={liveStats.mammals.environmental?.co2Delta || 285}
+                  methaneDelta={liveStats.mammals.environmental?.methaneDelta || 18}
+                  waterDelta={liveStats.mammals.environmental?.waterDelta || 5200}
+                />
+              )}
+
+              {/* Row 3: Protista, Bacteria, Archaea - Microbiome Kingdoms */}
+              {liveStats?.protista && (
+                <KingdomStatCard
+                  kingdom="protista"
+                  species={liveStats.protista.species?.total || 0}
+                  observations={liveStats.protista.observations?.total || 0}
+                  images={liveStats.protista.images?.total || 0}
+                  speciesDelta={liveStats.protista.species?.delta || 0}
+                  observationsDelta={liveStats.protista.observations?.delta || 0}
+                  imagesDelta={liveStats.protista.images?.delta || 0}
+                  co2={liveStats.protista.environmental?.co2 || -15000000}
+                  methane={liveStats.protista.environmental?.methane || 45000}
+                  water={liveStats.protista.environmental?.water || 12000}
+                  co2Delta={liveStats.protista.environmental?.co2Delta || 850}
+                  methaneDelta={liveStats.protista.environmental?.methaneDelta || 2.5}
+                  waterDelta={liveStats.protista.environmental?.waterDelta || 650}
+                />
+              )}
+
+              {liveStats?.bacteria && (
+                <KingdomStatCard
+                  kingdom="bacteria"
+                  species={liveStats.bacteria.species?.total || 0}
+                  observations={liveStats.bacteria.observations?.total || 0}
+                  images={liveStats.bacteria.images?.total || 0}
+                  speciesDelta={liveStats.bacteria.species?.delta || 0}
+                  observationsDelta={liveStats.bacteria.observations?.delta || 0}
+                  imagesDelta={liveStats.bacteria.images?.delta || 0}
+                  co2={liveStats.bacteria.environmental?.co2 || 85000000}
+                  methane={liveStats.bacteria.environmental?.methane || 580000}
+                  water={liveStats.bacteria.environmental?.water || 0}
+                  co2Delta={liveStats.bacteria.environmental?.co2Delta || 4500}
+                  methaneDelta={liveStats.bacteria.environmental?.methaneDelta || 32}
+                  waterDelta={liveStats.bacteria.environmental?.waterDelta || 0}
+                />
+              )}
+
+              {liveStats?.archaea && (
+                <KingdomStatCard
+                  kingdom="archaea"
+                  species={liveStats.archaea.species?.total || 0}
+                  observations={liveStats.archaea.observations?.total || 0}
+                  images={liveStats.archaea.images?.total || 0}
+                  speciesDelta={liveStats.archaea.species?.delta || 0}
+                  observationsDelta={liveStats.archaea.observations?.delta || 0}
+                  imagesDelta={liveStats.archaea.images?.delta || 0}
+                  co2={liveStats.archaea.environmental?.co2 || 12000000}
+                  methane={liveStats.archaea.environmental?.methane || 420000}
+                  water={liveStats.archaea.environmental?.water || 0}
+                  co2Delta={liveStats.archaea.environmental?.co2Delta || 650}
+                  methaneDelta={liveStats.archaea.environmental?.methaneDelta || 24}
+                  waterDelta={liveStats.archaea.environmental?.waterDelta || 0}
+                />
+              )}
+            </div>
+
+            {/* Humans & Machines Intelligence Panel (Right Sidebar) */}
+            <HumansMachinesPanel />
+          </div>
+
           {/* MycoBrain Live Sensor Data */}
           {mycoBrainConnected && bme1 && (
             <div className="grid gap-4 md:grid-cols-4">
@@ -591,167 +803,38 @@ export function NatureOSDashboard() {
             </div>
           )}
 
-          {/* Main Content Grid - Fixed Layout */}
-          <div className="grid gap-5 lg:grid-cols-3">
-            {/* Map - Takes 2 columns, fixed height with overflow hidden */}
-            <Card className="lg:col-span-2 overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Globe className="h-5 w-5 text-green-500" />
-                    Global Network
-                  </span>
-                  <Badge variant="outline" className="text-xs">
+          {/* Global Network Map - Full Width */}
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-green-500" />
+                  Global Network
+                </span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs text-green-500 border-green-500/50">
+                    <Activity className="h-3 w-3 mr-1 animate-pulse" />
                     Live
                   </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[350px] w-full relative overflow-hidden">
-                  <MyceliumMap />
+                  <Badge variant="secondary" className="text-xs">
+                    {deviceStats.online} device{deviceStats.online !== 1 ? 's' : ''} online
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="h-[450px] w-full relative overflow-hidden">
+                <MyceliumMap globalEvents={globalEventsForMap} showEvents={true} />
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Right Sidebar - Stacked Cards */}
-            <div className="space-y-5">
-              {/* Connected Devices List */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    <span>Live Devices</span>
-                    <Badge variant={deviceStats.online > 0 ? "default" : "secondary"} className="text-xs">
-                      {deviceStats.online} Online
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {devicesLoading ? (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        Scanning devices...
-                      </div>
-                    ) : realDevices.length === 0 ? (
-                      <div className="text-center py-4">
-                        <p className="text-muted-foreground text-sm mb-2">No devices connected</p>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href="/natureos/devices">
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Scan for Devices
-                          </Link>
-                        </Button>
-                      </div>
-                    ) : (
-                      realDevices.slice(0, 4).map((device) => (
-                        <div key={device.id} className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${
-                            device.status === "online" ? "bg-green-500/20" : "bg-gray-500/20"
-                          }`}>
-                            {device.connection === "usb" ? (
-                              <Usb className={`h-4 w-4 ${device.status === "online" ? "text-green-500" : "text-gray-500"}`} />
-                            ) : device.connection === "lora" ? (
-                              <Radio className={`h-4 w-4 ${device.status === "online" ? "text-green-500" : "text-gray-500"}`} />
-                            ) : (
-                              <Wifi className={`h-4 w-4 ${device.status === "online" ? "text-green-500" : "text-gray-500"}`} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{device.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {device.port || device.mac?.slice(-8)}
-                            </p>
-                          </div>
-                          <div className={`w-2 h-2 rounded-full ${
-                            device.status === "online" ? "bg-green-500" : 
-                            device.status === "error" ? "bg-red-500" : "bg-gray-500"
-                          }`} />
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-0">
-                  <Button variant="ghost" size="sm" className="w-full" asChild>
-                    <Link href="/natureos/devices/network">View All Devices →</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {recentActivity && recentActivity.length > 0 ? (
-                      recentActivity.slice(0, 4).map((item) => {
-                        const Icon = activityIcons[item.type] || Activity
-                        return (
-                          <div key={item.id} className="flex items-start gap-3">
-                            <div className={`p-1.5 rounded-full ${
-                              item.status === "success" ? "bg-green-500/20" :
-                              item.status === "warning" ? "bg-yellow-500/20" : "bg-red-500/20"
-                            }`}>
-                              <Icon className={`h-3 w-3 ${
-                                item.status === "success" ? "text-green-500" :
-                                item.status === "warning" ? "text-yellow-500" : "text-red-500"
-                              }`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs truncate">{item.message}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "--:--:--"}
-                              </p>
-                            </div>
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        No recent activity
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/natureos/shell">
-                <Cpu className="h-5 w-5" />
-                <span>Cloud Shell</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/natureos/ai-studio">
-                <Bot className="h-5 w-5" />
-                <span>MYCA AI Studio</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/natureos/workflows">
-                <Zap className="h-5 w-5" />
-                <span>Workflows</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/natureos/api">
-                <Globe className="h-5 w-5" />
-                <span>API Gateway</span>
-              </Link>
-            </Button>
-          </div>
-
-          {/* Global Events Feed - Watch the World */}
+          {/* Global Events Feed - Watch the World in Real-Time */}
           <GlobalEventsFeed 
             className="mt-5" 
-            maxEvents={50}
+            maxEvents={200}
             autoRefresh={true}
-            refreshInterval={30000}
+            refreshInterval={15000}
             showFilters={true}
           />
         </TabsContent>
@@ -777,9 +860,9 @@ export function NatureOSDashboard() {
                 UNCLASS // FOUO
               </Badge>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/cinematic">
+                <Link href="/dashboard/crep">
                   <Maximize2 className="h-4 w-4 mr-2" />
-                  3D View
+                  CREP View
                 </Link>
               </Button>
             </div>
@@ -873,9 +956,9 @@ export function NatureOSDashboard() {
               </Link>
             </Button>
             <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-              <Link href="/dashboard/cinematic">
+              <Link href="/dashboard/crep">
                 <Eye className="h-5 w-5" />
-                <span className="text-xs">CREP 3D</span>
+                <span className="text-xs">CREP</span>
               </Link>
             </Button>
           </div>
@@ -980,7 +1063,7 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="h-[500px] w-full relative overflow-hidden">
-                  <MyceliumMap />
+                  <MyceliumMap globalEvents={globalEventsForMap} showEvents={true} />
                 </div>
               </CardContent>
             </Card>

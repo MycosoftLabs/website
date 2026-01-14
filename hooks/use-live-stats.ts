@@ -1,23 +1,82 @@
 "use client";
 
 /**
- * useLiveStats - Real-time biodiversity statistics hook
+ * useLiveStats - Real-time biodiversity statistics hook for ALL KINGDOMS
  * 
- * Fetches and maintains live counts from:
- * - GBIF (species, observations)
- * - iNaturalist (observations, images)
- * - MycoBank (species)
- * - Index Fungorum (species)
- * - MycoBrain devices
+ * Fetches and maintains live counts for:
+ * - FUNGI (Kingdom: Fungi) - Primary focus
+ * - PLANTS (Kingdom: Plantae)
+ * - BIRDS (Class: Aves)
+ * - INSECTS (Class: Insecta)
+ * - ANIMALS (Kingdom: Animalia)
+ * - MARINE (Ocean life)
+ * - MAMMALS (Class: Mammalia)
  * 
- * Returns continuously updating numbers for dashboard display
+ * Data sources: GBIF, iNaturalist, MycoBank, Index Fungorum, eBird, OBIS
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
+// Individual kingdom stats structure
+export interface KingdomStats {
+  total: number;
+  sources: Record<string, number>;
+  delta: number;
+}
+
+// Environmental impact metrics for a kingdom
+export interface EnvironmentalMetrics {
+  co2: number;      // tonnes/day (negative = absorption)
+  methane: number;  // tonnes/day
+  water: number;    // million liters/day
+  co2Delta: number;
+  methaneDelta: number;
+  waterDelta: number;
+}
+
+// Full stats for a kingdom (species, observations, images, environmental)
+export interface KingdomData {
+  species: KingdomStats;
+  observations: KingdomStats;
+  images: KingdomStats;
+  environmental?: EnvironmentalMetrics;
+}
+
+// Complete live stats response
 export interface LiveStats {
   timestamp: string;
-  species: {
+  // All kingdoms
+  fungi: KingdomData;
+  plants: KingdomData;
+  birds: KingdomData;
+  insects: KingdomData;
+  animals: KingdomData;
+  marine: KingdomData;
+  mammals: KingdomData;
+  protista: KingdomData;
+  bacteria: KingdomData;
+  archaea: KingdomData;
+  // Devices
+  devices: {
+    registered: number;
+    online: number;
+    streaming: number;
+  };
+  // Grand totals
+  totals: {
+    allSpecies: number;
+    allObservations: number;
+    allImages: number;
+    speciesDelta: number;
+    observationsDelta: number;
+    imagesDelta: number;
+    // Global environmental totals
+    netCO2?: number;      // Gt/year
+    totalMethane?: number; // Mt/year
+    totalWater?: number;   // km³/day
+  };
+  // Legacy format for backwards compatibility
+  species?: {
     total: number;
     gbif: number;
     inaturalist: number;
@@ -25,30 +84,18 @@ export interface LiveStats {
     indexFungorum: number;
     delta: number;
   };
-  observations: {
+  observations?: {
     total: number;
     gbif: number;
     inaturalist: number;
     delta: number;
   };
-  images: {
+  images?: {
     total: number;
     gbif: number;
     inaturalist: number;
     delta: number;
   };
-  devices: {
-    registered: number;
-    online: number;
-    streaming: number;
-  };
-  lastUpdated: string;
-  sources: {
-    name: string;
-    status: "online" | "offline" | "degraded";
-    lastSync: string;
-    count: number;
-  }[];
 }
 
 interface UseLiveStatsOptions {
@@ -77,12 +124,39 @@ export function useLiveStats(options: UseLiveStatsOptions = {}) {
       const res = await fetch("/api/natureos/live-stats");
       if (!res.ok) throw new Error("Failed to fetch live stats");
       
-      const data: LiveStats = await res.json();
-      baseStatsRef.current = data;
-      setStats(data);
+      const data = await res.json();
+      
+      // Transform to include legacy format for backwards compatibility
+      const stats: LiveStats = {
+        ...data,
+        // Legacy format mapping to fungi data
+        species: {
+          total: data.fungi?.species?.total || 0,
+          gbif: data.fungi?.species?.sources?.gbif || 0,
+          inaturalist: data.fungi?.species?.sources?.inaturalist || 0,
+          mycobank: data.fungi?.species?.sources?.mycobank || 0,
+          indexFungorum: data.fungi?.species?.sources?.indexFungorum || 0,
+          delta: data.fungi?.species?.delta || 0,
+        },
+        observations: {
+          total: data.fungi?.observations?.total || 0,
+          gbif: data.fungi?.observations?.sources?.gbif || 0,
+          inaturalist: data.fungi?.observations?.sources?.inaturalist || 0,
+          delta: data.fungi?.observations?.delta || 0,
+        },
+        images: {
+          total: data.fungi?.images?.total || 0,
+          gbif: data.fungi?.images?.sources?.gbif || 0,
+          inaturalist: data.fungi?.images?.sources?.inaturalist || 0,
+          delta: data.fungi?.images?.delta || 0,
+        },
+      };
+      
+      baseStatsRef.current = stats;
+      setStats(stats);
       setLastFetch(new Date());
       setError(null);
-      onNewData?.(data);
+      onNewData?.(stats);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -102,34 +176,50 @@ export function useLiveStats(options: UseLiveStatsOptions = {}) {
     if (!simulateGrowth || !stats) return;
 
     // Growth rates per second (derived from hourly rates)
-    const SPECIES_PER_SECOND = 25 / 3600; // ~25 species per hour
-    const OBS_PER_SECOND = 130000 / 3600; // ~130k observations per hour
-    const IMAGES_PER_SECOND = 90000 / 3600; // ~90k images per hour
+    const FUNGI_SPECIES_PER_SEC = 5 / 3600;
+    const FUNGI_OBS_PER_SEC = 3500 / 3600;
+    const FUNGI_IMG_PER_SEC = 2800 / 3600;
 
     growthIntervalRef.current = setInterval(() => {
       setStats((prev) => {
         if (!prev) return prev;
         
-        // Add small random increments
-        const speciesIncrement = Math.random() < SPECIES_PER_SECOND ? 1 : 0;
-        const obsIncrement = Math.floor(Math.random() * (OBS_PER_SECOND * 2));
-        const imgIncrement = Math.floor(Math.random() * (IMAGES_PER_SECOND * 2));
+        // Add small random increments to fungi (primary display)
+        const speciesIncrement = Math.random() < FUNGI_SPECIES_PER_SEC ? 1 : 0;
+        const obsIncrement = Math.floor(Math.random() * (FUNGI_OBS_PER_SEC * 2));
+        const imgIncrement = Math.floor(Math.random() * (FUNGI_IMG_PER_SEC * 2));
 
         return {
           ...prev,
           timestamp: new Date().toISOString(),
-          species: {
+          fungi: {
+            ...prev.fungi,
+            species: {
+              ...prev.fungi.species,
+              total: prev.fungi.species.total + speciesIncrement,
+            },
+            observations: {
+              ...prev.fungi.observations,
+              total: prev.fungi.observations.total + obsIncrement,
+            },
+            images: {
+              ...prev.fungi.images,
+              total: prev.fungi.images.total + imgIncrement,
+            },
+          },
+          // Update legacy format too
+          species: prev.species ? {
             ...prev.species,
             total: prev.species.total + speciesIncrement,
-          },
-          observations: {
+          } : undefined,
+          observations: prev.observations ? {
             ...prev.observations,
             total: prev.observations.total + obsIncrement,
-          },
-          images: {
+          } : undefined,
+          images: prev.images ? {
             ...prev.images,
             total: prev.images.total + imgIncrement,
-          },
+          } : undefined,
         };
       });
     }, 1000);

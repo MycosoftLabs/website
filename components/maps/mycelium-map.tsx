@@ -56,6 +56,19 @@ interface DeviceLocation {
   }
 }
 
+interface GlobalEventMarker {
+  id: string
+  type: string
+  title: string
+  severity: "info" | "low" | "medium" | "high" | "critical" | "extreme"
+  location: {
+    latitude: number
+    longitude: number
+    name?: string
+  }
+  link?: string
+}
+
 interface MyceliumMapProps {
   className?: string
   deviceLocations?: Array<{
@@ -65,13 +78,34 @@ interface MyceliumMapProps {
     status: string
   }>
   showDevices?: boolean
+  globalEvents?: GlobalEventMarker[]
+  showEvents?: boolean
 }
 
-export function MyceliumMap({ className, deviceLocations, showDevices = true }: MyceliumMapProps) {
+// Event type to icon/color mapping for map markers
+const eventMarkerConfig: Record<string, { color: string; icon: string }> = {
+  earthquake: { color: "#ef4444", icon: "⚡" },
+  volcano: { color: "#f97316", icon: "🌋" },
+  wildfire: { color: "#dc2626", icon: "🔥" },
+  storm: { color: "#6366f1", icon: "🌪️" },
+  flood: { color: "#3b82f6", icon: "🌊" },
+  tornado: { color: "#7c3aed", icon: "🌀" },
+  lightning: { color: "#facc15", icon: "⚡" },
+  solar_flare: { color: "#fbbf24", icon: "☀️" },
+  geomagnetic_storm: { color: "#8b5cf6", icon: "🌌" },
+  hurricane: { color: "#ec4899", icon: "🌀" },
+  tsunami: { color: "#06b6d4", icon: "🌊" },
+  fungal_bloom: { color: "#22c55e", icon: "🍄" },
+  animal_migration: { color: "#14b8a6", icon: "🦅" },
+  default: { color: "#64748b", icon: "📍" },
+}
+
+export function MyceliumMap({ className, deviceLocations, showDevices = true, globalEvents = [], showEvents = true }: MyceliumMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
   const deviceMarkersRef = useRef<google.maps.Marker[]>([])
+  const eventMarkersRef = useRef<google.maps.Marker[]>([])
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null)
   
   const [isLoading, setIsLoading] = useState(true)
@@ -81,6 +115,7 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showMarkers, setShowMarkers] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
+  const [showEventMarkers, setShowEventMarkers] = useState(showEvents)
   const [selectedObs, setSelectedObs] = useState<MyceliumObservation | null>(null)
   const [mapType, setMapType] = useState<"satellite" | "terrain" | "roadmap">("satellite")
   const [stats, setStats] = useState({ total: 0, species: 0, regions: 0, verified: 0, devices: 0 })
@@ -136,6 +171,86 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true }: 
       })
     }
   }, [showMarkers, showHeatmap])
+
+  // Update global event markers on the map
+  const updateEventMarkers = useCallback((events: GlobalEventMarker[]) => {
+    if (!mapRef.current || !window.google?.maps || !showEventMarkers) return
+
+    // Clear existing event markers
+    eventMarkersRef.current.forEach((marker) => marker.setMap(null))
+    eventMarkersRef.current = []
+
+    events.forEach((event) => {
+      if (!event.location?.latitude || !event.location?.longitude) return
+
+      const config = eventMarkerConfig[event.type] || eventMarkerConfig.default
+      const position = new google.maps.LatLng(event.location.latitude, event.location.longitude)
+      
+      // Determine marker size based on severity
+      const severitySizes: Record<string, number> = {
+        info: 16,
+        low: 18,
+        medium: 22,
+        high: 26,
+        critical: 32,
+        extreme: 38,
+      }
+      const markerSize = severitySizes[event.severity] || 20
+
+      // Create SVG marker with event-specific color
+      const svgMarker = `
+        <svg width="${markerSize}" height="${markerSize}" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" fill="${config.color}" stroke="white" stroke-width="2"/>
+          ${event.severity === "critical" || event.severity === "extreme" ? '<circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="1" opacity="0.6"><animate attributeName="r" from="10" to="18" dur="1s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite"/></circle>' : ''}
+        </svg>
+      `
+      const encodedSvg = btoa(svgMarker)
+
+      const marker = new google.maps.Marker({
+        position,
+        map: mapRef.current!,
+        title: `${event.title}\n${event.location.name || ""}`,
+        icon: {
+          url: `data:image/svg+xml;base64,${encodedSvg}`,
+          scaledSize: new google.maps.Size(markerSize, markerSize),
+          anchor: new google.maps.Point(markerSize / 2, markerSize / 2),
+        },
+        zIndex: event.severity === "critical" || event.severity === "extreme" ? 1000 : 100,
+      })
+
+      // Create info window for event details
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px; max-width: 250px; font-family: system-ui, sans-serif;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <span style="font-size: 20px;">${config.icon}</span>
+              <strong style="font-size: 14px;">${event.title}</strong>
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+              ${event.location.name || `${event.location.latitude.toFixed(3)}, ${event.location.longitude.toFixed(3)}`}
+            </div>
+            <div style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: ${config.color}; color: white; font-size: 10px; text-transform: uppercase;">
+              ${event.severity}
+            </div>
+            ${event.link ? `<a href="${event.link}" target="_blank" rel="noopener" style="display: block; margin-top: 8px; font-size: 11px; color: #3b82f6;">View Details →</a>` : ''}
+          </div>
+        `,
+      })
+
+      marker.addListener("click", () => {
+        infoWindow.open(mapRef.current!, marker)
+      })
+
+      eventMarkersRef.current.push(marker)
+    })
+  }, [showEventMarkers])
+
+  // Effect to update event markers when globalEvents change
+  useEffect(() => {
+    if (mapLoaded && globalEvents.length > 0) {
+      updateEventMarkers(globalEvents)
+    }
+  }, [globalEvents, mapLoaded, updateEventMarkers])
 
   const fetchObservations = useCallback(async () => {
     setIsLoading(true)

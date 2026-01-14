@@ -129,9 +129,9 @@ interface GlobalEventsFeedProps {
 
 export function GlobalEventsFeed({
   className,
-  maxEvents = 50,
+  maxEvents = 200, // Increased from 50 to show more real-world events
   autoRefresh = true,
-  refreshInterval = 30000,
+  refreshInterval = 15000, // More frequent updates (15s instead of 30s)
   showFilters = true,
   compact = false,
   onEventClick,
@@ -365,7 +365,7 @@ export function GlobalEventsFeed({
       </CardHeader>
 
       <CardContent className="p-0">
-        <ScrollArea className="h-[500px]" ref={scrollRef}>
+        <ScrollArea className="h-[600px]" ref={scrollRef}>
           <div className="p-4 pt-0 space-y-2">
             {error && (
               <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
