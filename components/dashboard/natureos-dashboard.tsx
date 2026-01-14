@@ -805,12 +805,12 @@ export function NatureOSDashboard() {
 
           {/* Global Network Map - Full Width */}
           <Card className="overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-green-500" />
-                  Global Network
-                </span>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-green-500" />
+                    Global Network
+                  </span>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs text-green-500 border-green-500/50">
                     <Activity className="h-3 w-3 mr-1 animate-pulse" />
@@ -820,14 +820,14 @@ export function NatureOSDashboard() {
                     {deviceStats.online} device{deviceStats.online !== 1 ? 's' : ''} online
                   </Badge>
                 </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
               <div className="h-[450px] w-full relative overflow-hidden">
                 <MyceliumMap globalEvents={globalEventsForMap} showEvents={true} />
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
 
           {/* Global Events Feed - Watch the World in Real-Time */}
           <GlobalEventsFeed 
@@ -847,7 +847,7 @@ export function NatureOSDashboard() {
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-amber-500/20 border border-amber-500/30">
                 <Shield className="h-6 w-6 text-amber-400" />
-              </div>
+                      </div>
               <div>
                 <h2 className="text-xl font-bold text-amber-400">Common Relevant Environmental Picture</h2>
                 <p className="text-sm text-muted-foreground">
@@ -863,10 +863,10 @@ export function NatureOSDashboard() {
                 <Link href="/dashboard/crep">
                   <Maximize2 className="h-4 w-4 mr-2" />
                   CREP View
-                </Link>
-              </Button>
-            </div>
-          </div>
+                          </Link>
+                        </Button>
+                      </div>
+                          </div>
 
           {/* Situational Awareness - Primary Focus */}
           <SituationalAwareness className="border-amber-500/20" />
@@ -878,7 +878,7 @@ export function NatureOSDashboard() {
             
             {/* MYCA Terminal - System Status */}
             <MYCATerminal maxEvents={100} className="lg:col-span-1" />
-          </div>
+                          </div>
 
           {/* Device Network Status for CREP */}
           <div className="grid gap-4 md:grid-cols-4">
@@ -887,18 +887,18 @@ export function NatureOSDashboard() {
                 <div className="flex items-center gap-2 mb-1">
                   <Network className="h-4 w-4 text-green-500" />
                   <span className="text-xs text-muted-foreground">SENSOR NETWORK</span>
-                </div>
+                        </div>
                 <p className="text-2xl font-bold text-green-500">{deviceStats.online}/{deviceStats.total}</p>
                 <p className="text-xs text-muted-foreground">Nodes Online</p>
-              </CardContent>
-            </Card>
-            
+                </CardContent>
+              </Card>
+
             <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Database className="h-4 w-4 text-blue-500" />
                   <span className="text-xs text-muted-foreground">MINDEX</span>
-                </div>
+                            </div>
                 <p className="text-2xl font-bold text-blue-500">
                   {mindexStats?.total_taxa ? (mindexStats.total_taxa / 1000000).toFixed(2) + "M" : "Active"}
                 </p>
@@ -911,7 +911,7 @@ export function NatureOSDashboard() {
                 <div className="flex items-center gap-2 mb-1">
                   <Bot className="h-4 w-4 text-purple-500" />
                   <span className="text-xs text-muted-foreground">MYCA AGENTS</span>
-                </div>
+                            </div>
                 <p className="text-2xl font-bold text-purple-500">42</p>
                 <p className="text-xs text-muted-foreground">Active Agents</p>
               </CardContent>
@@ -922,11 +922,11 @@ export function NatureOSDashboard() {
                 <div className="flex items-center gap-2 mb-1">
                   <Zap className="h-4 w-4 text-cyan-500" />
                   <span className="text-xs text-muted-foreground">N8N WORKFLOWS</span>
-                </div>
+                          </div>
                 <p className="text-2xl font-bold text-cyan-500">16</p>
                 <p className="text-xs text-muted-foreground">Automations</p>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
           </div>
 
           {/* Quick Links for Defense Operations */}
