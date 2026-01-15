@@ -1272,7 +1272,7 @@ export default function CREPDashboardPage() {
   }
 
   return (
-    <div className="relative w-full max-w-full bg-[#0a1628] overflow-x-hidden flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
+    <div className="relative w-full bg-[#0a1628] overflow-x-hidden flex flex-col" style={{ height: 'calc(100vh - 8rem)', maxWidth: '100vw' }}>
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
@@ -1368,7 +1368,7 @@ export default function CREPDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-x-hidden overflow-y-auto relative w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
+      <div className="flex-1 relative overflow-hidden">
         {/* Floating Left Sidebar - Intel Feed */}
         <div className={cn(
           "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
@@ -1487,7 +1487,7 @@ export default function CREPDashboardPage() {
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 relative crep-map-container min-w-0 overflow-hidden" style={{ flex: '1 1 0%', minWidth: 0 }}>
+        <div className="flex-1 relative crep-map-container min-w-0" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
           {/* Custom CSS to hide map attribution for military/scientific use */}
           <style jsx global>{`
             .crep-map-container .maplibregl-ctrl-attrib,
@@ -1609,11 +1609,11 @@ export default function CREPDashboardPage() {
           </div>
         </div>
 
-        {/* Right Side Panel */}
+        {/* Right Side Panel - Overlays map */}
         <div className={cn(
-          "flex-shrink-0 h-full transition-all duration-300 ease-in-out border-l border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md z-30 overflow-y-auto",
-          rightPanelOpen ? "w-80 max-w-[320px]" : "w-0 opacity-0 pointer-events-none"
-        )}>
+          "absolute right-0 top-0 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md overflow-y-auto",
+          rightPanelOpen ? "w-72 opacity-100" : "w-0 opacity-0 pointer-events-none"
+        )} style={{ maxWidth: '288px' }}>
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">

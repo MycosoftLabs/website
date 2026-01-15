@@ -42,9 +42,9 @@ export default function RootLayout({
         />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <div className="min-h-screen flex flex-col relative overflow-hidden">
+            <div className="min-h-screen flex flex-col relative">
               <Header />
-              <main className="flex-1 relative">{children}</main>
+              <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
               <Footer />
             </div>
           </AuthProvider>
