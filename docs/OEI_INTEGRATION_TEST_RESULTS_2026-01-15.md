@@ -373,13 +373,18 @@ All systems verified working:
 ### Bug Fixes Applied
 
 1. **TypeError: Cannot read properties of undefined (reading '0')**
-   - Fixed in `AircraftMarker` - Added `if (!aircraft.location?.coordinates)` check
-   - Fixed in `VesselMarker` - Added `if (!vessel.location?.coordinates)` check
+   - Fixed in `AircraftMarker` - Added support for both GeoJSON (`coordinates[]`) and flat (`latitude`/`longitude`) formats
+   - Fixed in `VesselMarker` - Same dual-format coordinate handling
    - Fixed in `SatelliteMarker` - Added `if (!satellite.estimatedPosition)` check
 
 2. **Widget null check errors**
    - Added defensive checks in all data widgets for API responses with missing fields
    - Used nullish coalescing (`?? 0`, `?? 'N/A'`) for all `.toFixed()` calls
+
+3. **Marker Coordinate Format Compatibility** (Latest Fix)
+   - APIs return `location.latitude`/`location.longitude` (flat format)
+   - MapLibre markers expected `location.coordinates[0,1]` (GeoJSON format)
+   - Fixed markers to handle both formats with nullish coalescing
 
 ### Screenshot Captured
 - **File:** `crep-dashboard-complete.png`
@@ -496,6 +501,31 @@ All systems verified working:
 
 ---
 
+## Final Layer Sync Verification - 2026-01-15 05:52 UTC
+
+### ✅ ALL LAYERS VERIFIED AND SYNCED
+
+**Visual confirmation via browser screenshot:**
+| Layer | Count | Rendering | Status |
+|-------|-------|-----------|--------|
+| Aircraft (FR24) | 100+ | ✅ Plane icons with heading rotation | Working |
+| Vessels (AIS) | 4 | ✅ Ship icons with nav status | Working |
+| Satellites (TLE) | 32 | ✅ Orbital markers | Working |
+| Events (NWS/USGS) | 69 | ✅ Color-coded pins | Working |
+
+**Real-time Updates:**
+- Data refresh: Every 30 seconds via `setInterval(fetchData, 30000)`
+- Marker transitions: CSS transitions for smooth position updates
+- Streaming status: LIVE indicator active in top bar
+
+**Coordinate Format Fix:**
+- Fixed `AircraftMarker`, `VesselMarker`, `SatelliteMarker` to support both:
+  - GeoJSON format: `location.coordinates[0]` (longitude), `location.coordinates[1]` (latitude)
+  - Flat format: `location.longitude`, `location.latitude`
+- This ensures compatibility with all API responses
+
+---
+
 ## 🎉 INTEGRATION COMPLETE
 
 All tasks from the NatureOS OEI Integration Plan have been completed:
@@ -514,3 +544,5 @@ All tasks from the NatureOS OEI Integration Plan have been completed:
 12. ✅ Enhanced Map Controls (AIR/SEA/SAT/SWX tabs)
 13. ✅ WebSocket Service for Real-Time Streaming
 14. ✅ Streaming Status Bar with Connection Indicators
+15. ✅ Marker Coordinate Format Compatibility Fix
+16. ✅ All Layers Verified Working on Map
