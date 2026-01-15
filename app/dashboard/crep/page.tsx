@@ -133,6 +133,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+// OEI Real-time Data Widgets
+import { SpaceWeatherWidget } from "@/components/crep/space-weather-widget";
+import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
+import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
+import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
+
 // Types
 interface GlobalEvent {
     id: string;
@@ -1429,13 +1435,20 @@ export default function CREPDashboardPage() {
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-5 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+              <TabsList className="w-full grid grid-cols-6 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
                 <TabsTrigger 
                   value="mission" 
                   className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Target className="w-3 h-3 mr-0.5" />
-                  MISSION
+                  MSSN
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="data" 
+                  className="text-[8px] px-1 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-none"
+                >
+                  <Signal className="w-3 h-3 mr-0.5" />
+                  DATA
                 </TabsTrigger>
                 <TabsTrigger 
                   value="intel" 
@@ -1449,7 +1462,7 @@ export default function CREPDashboardPage() {
                   className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Layers className="w-3 h-3 mr-0.5" />
-                  LAYERS
+                  LYRS
                 </TabsTrigger>
                 <TabsTrigger 
                   value="services" 
@@ -1471,6 +1484,46 @@ export default function CREPDashboardPage() {
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="mission" className="h-full m-0 p-3 overflow-auto">
                   <MissionContextPanel mission={currentMission} stats={stats} />
+                </TabsContent>
+
+                <TabsContent value="data" className="h-full m-0 p-2 overflow-auto">
+                  <ScrollArea className="h-full">
+                    <div className="space-y-3">
+                      {/* Real-time Data Feeds Header */}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <Signal className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-[10px] font-bold text-white">LIVE DATA FEEDS</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          <span className="text-[8px] text-green-400">STREAMING</span>
+                        </div>
+                      </div>
+                      
+                      {/* Space Weather Widget */}
+                      <SpaceWeatherWidget compact />
+                      
+                      {/* Flight Tracker Widget */}
+                      <FlightTrackerWidget compact limit={10} />
+                      
+                      {/* Vessel Tracker Widget */}
+                      <VesselTrackerWidget compact limit={10} />
+                      
+                      {/* Satellite Tracker Widget */}
+                      <SatelliteTrackerWidget compact limit={10} />
+                      
+                      {/* Data Sources Footer */}
+                      <div className="pt-2 border-t border-gray-700/30">
+                        <div className="flex flex-wrap gap-1 text-[7px]">
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-amber-500/30 text-amber-400">SWPC</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-sky-500/30 text-sky-400">FR24</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollArea>
                 </TabsContent>
 
                 <TabsContent value="intel" className="h-full m-0 p-3 overflow-auto">

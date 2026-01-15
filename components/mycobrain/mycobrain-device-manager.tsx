@@ -1501,24 +1501,24 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-sensors", () => sendControl(device.port, "command", "get_sensors", { cmd: "get_sensors" }))}
-                  disabled={commandLoading === "get-sensors"}
+                  onClick={() => handleCommand("sensors", () => sendControl(device.port, "command", "sensors", { cmd: "sensors" }))}
+                  disabled={commandLoading === "sensors"}
                 >
-                  {commandLoading === "get-sensors" ? "..." : "Get Sensors"}
+                  {commandLoading === "sensors" ? "..." : "Get Sensors"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-bme1", () => sendControl(device.port, "command", "get_bme1", { cmd: "get_bme1" }))}
-                  disabled={commandLoading === "get-bme1"}
+                  onClick={() => handleCommand("status", () => sendControl(device.port, "command", "status", { cmd: "status" }))}
+                  disabled={commandLoading === "status"}
                 >
-                  {commandLoading === "get-bme1" ? "..." : "BME688-1"}
+                  {commandLoading === "status" ? "..." : "Status"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("get-bme2", () => sendControl(device.port, "command", "get_bme2", { cmd: "get_bme2" }))}
-                  disabled={commandLoading === "get-bme2"}
+                  onClick={() => handleCommand("scan", () => sendControl(device.port, "command", "scan", { cmd: "scan" }))}
+                  disabled={commandLoading === "scan"}
                 >
-                  {commandLoading === "get-bme2" ? "..." : "BME688-2"}
+                  {commandLoading === "scan" ? "..." : "I2C Scan"}
                 </Button>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">

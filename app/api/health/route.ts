@@ -124,7 +124,7 @@ export async function GET() {
     health.status = "degraded"
   }
 
-  return NextResponse.json(health, { 
-    status: health.status === "healthy" ? 200 : 207 
-  })
+  // Always return 200 for Docker health checks - the app is running
+  // The JSON body contains the actual health status for monitoring
+  return NextResponse.json(health, { status: 200 })
 }

@@ -257,12 +257,13 @@ export async function GET(
     } catch { /* use port */ }
     
     // Send scan command using CLI endpoint for longer wait time
+    // Firmware v2.0.0 supports: help, status, ping, get_mac, get_version, scan, sensors, led, beep, fmt, optx, aotx, reboot
     const scanRes = await fetch(
       `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: "scan" }),
+        body: JSON.stringify({ command: { cmd: "scan" } }),
         signal: AbortSignal.timeout(10000),
       }
     )
