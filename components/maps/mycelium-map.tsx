@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Layers, MapPin, RefreshCw, ZoomIn, ZoomOut, Globe, Activity, Loader2, Filter, Satellite, Map, Mountain } from "lucide-react"
+import { Layers, MapPin, RefreshCw, ZoomIn, ZoomOut, Globe, Activity, Loader2, Filter, Satellite, Map, Mountain, AlertTriangle } from "lucide-react"
+import { hasGoogleMapsApiKey, loadGoogleMaps, isGoogleMapsLoaded } from "@/lib/google-maps-loader"
 
-// Google Maps API key - set in environment or use a default for dev
-// Filter out placeholder values that indicate no real key is set
-const rawApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
-const GOOGLE_MAPS_API_KEY = rawApiKey && !rawApiKey.includes("your-") && rawApiKey !== "your-api-key-here" ? rawApiKey : ""
+// Check if API key is available (use the shared loader)
+const HAS_GOOGLE_MAPS_KEY = hasGoogleMapsApiKey()
 
 interface MyceliumObservation {
   id: string
@@ -335,32 +334,41 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
   // Load Google Maps script using shared loader
   useEffect(() => {
     if (typeof window === "undefined") return
+    if (!HAS_GOOGLE_MAPS_KEY) {
+      setIsLoading(false)
+      return
+    }
     
     let mounted = true
     
-    const loadGoogleMaps = async () => {
+    const initGoogleMaps = async () => {
       try {
         // Use shared loader to prevent duplicate script loading
-        const { loadGoogleMaps: loadMaps } = await import("@/lib/google-maps-loader")
-        await loadMaps(["visualization", "places"])
+        await loadGoogleMaps(["visualization", "places"])
         
-        // Small delay to ensure maps API is fully initialized
-        if (mounted) {
+        // Verify maps is actually loaded before initializing
+        if (mounted && mapContainerRef.current && isGoogleMapsLoaded()) {
+          initializeMap()
+        } else if (mounted) {
+          // Retry after a short delay if not ready
           setTimeout(() => {
-            if (mounted && mapContainerRef.current && window.google?.maps) {
+            if (mounted && mapContainerRef.current && isGoogleMapsLoaded()) {
               initializeMap()
+            } else {
+              console.warn("[MyceliumMap] Google Maps not ready after load")
+              setIsLoading(false)
             }
-          }, 100)
+          }, 200)
         }
       } catch (error) {
-        console.error("Failed to load Google Maps:", error)
+        console.error("[MyceliumMap] Failed to load Google Maps:", error)
         if (mounted) {
           setIsLoading(false)
         }
       }
     }
 
-    loadGoogleMaps()
+    initGoogleMaps()
     
     return () => {
       mounted = false
@@ -555,12 +563,29 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
         />
       ))}
       
-      {observations.length === 0 && devices.length === 0 && (
+      {/* Show API key warning if no key and no data */}
+      {!HAS_GOOGLE_MAPS_KEY && observations.length === 0 && devices.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center bg-background/80 backdrop-blur p-4 rounded-lg">
-            <Globe className="h-8 w-8 mx-auto mb-2 text-green-500" />
-            <p className="text-sm">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for full Google Earth integration</p>
+          <div className="text-center bg-background/90 backdrop-blur-sm p-6 rounded-lg border border-yellow-500/30 max-w-md">
+            <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-yellow-500" />
+            <h3 className="font-semibold text-lg mb-2">Google Maps API Key Required</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              To display the interactive map with satellite imagery, set the <code className="bg-muted px-1 rounded">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> environment variable in your <code className="bg-muted px-1 rounded">.env.local</code> file.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Get an API key from the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google Cloud Console</a> and enable Maps JavaScript API.
+            </p>
           </div>
+        </div>
+      )}
+      
+      {/* Show data even without API key */}
+      {!HAS_GOOGLE_MAPS_KEY && (observations.length > 0 || devices.length > 0) && (
+        <div className="absolute top-4 left-4 z-10">
+          <Badge variant="outline" className="bg-background/80 backdrop-blur text-yellow-600 border-yellow-500/50">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Simplified Map Mode
+          </Badge>
         </div>
       )}
     </div>
@@ -569,7 +594,7 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
   return (
     <div className="relative h-full w-full min-h-[300px]" style={{ isolation: "isolate" }}>
       {/* Map Container */}
-      {GOOGLE_MAPS_API_KEY ? (
+      {HAS_GOOGLE_MAPS_KEY ? (
         <div ref={mapContainerRef} className="h-full w-full rounded-lg" />
       ) : (
         renderFallbackMap()

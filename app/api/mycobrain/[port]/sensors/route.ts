@@ -171,12 +171,13 @@ export async function GET(
 
     const fetchPromise = (async () => {
       // Send "sensors" command via /command endpoint
+      // Firmware v2.0.0 supports: help, status, ping, get_mac, get_version, scan, sensors, led, beep, fmt, optx, aotx, reboot
       const response = await fetch(
         `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: { cmd: "get-sensors" } }),
+          body: JSON.stringify({ command: { cmd: "sensors" } }),
           // Give serial a bit more time; cache keeps UI fast.
           signal: AbortSignal.timeout(12000),
         }
