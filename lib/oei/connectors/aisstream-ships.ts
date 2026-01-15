@@ -346,6 +346,7 @@ export class AISStreamClient {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
       status: "active" as const,
       provenance: {
         source: "aisstream",
@@ -355,6 +356,20 @@ export class AISStreamClient {
         metadata: { sample: true },
       },
       tags: [s.type],
+      // Top-level vessel properties for marker rendering
+      mmsi: s.mmsi,
+      heading: s.heading,
+      cog: s.heading, // Course over ground same as heading for sample
+      sog: s.sog,
+      shipType: s.type === "Cargo" ? 70 : s.type === "Tanker" ? 80 : s.type === "Passenger" ? 60 : s.type === "Tug" ? 52 : 0,
+      navStatus: 0, // Under way using engine
+      destination: s.destination,
+      imo: null,
+      flag: "US",
+      length: 100 + Math.floor(Math.random() * 200),
+      width: 20 + Math.floor(Math.random() * 30),
+      draught: 5 + Math.random() * 10,
+      // Legacy properties object
       properties: {
         mmsi: s.mmsi,
         shipName: s.name,

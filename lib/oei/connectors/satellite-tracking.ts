@@ -207,26 +207,46 @@ function tleToEntity(tle: TLEData): SatelliteEntity {
     },
   }
 
+  const orbitType = getOrbitType(tle.INCLINATION, orbital.period, tle.ECCENTRICITY)
+  const objectType = getObjectType(tle.OBJECT_NAME)
+
   return {
     id: `sat_${tle.NORAD_CAT_ID}`,
     type: "satellite",
     name: tle.OBJECT_NAME,
-    description: `${getObjectType(tle.OBJECT_NAME)} - ${getOrbitType(tle.INCLINATION, orbital.period, tle.ECCENTRICITY)} orbit`,
+    description: `${objectType} - ${orbitType} orbit`,
     location: position || undefined,
+    // Alias for satellite marker compatibility
+    estimatedPosition: position ? {
+      longitude: position.longitude,
+      latitude: position.latitude,
+      altitude: position.altitude,
+    } : undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lastSeenAt: new Date().toISOString(),
     status: "active",
     provenance,
-    tags: [
-      getObjectType(tle.OBJECT_NAME),
-      getOrbitType(tle.INCLINATION, orbital.period, tle.ECCENTRICITY),
-    ],
+    tags: [objectType, orbitType],
+    // Top-level satellite properties for marker rendering
+    noradId: tle.NORAD_CAT_ID,
+    intlDesignator: tle.OBJECT_ID,
+    objectType,
+    orbitType,
+    orbitalParams: {
+      inclination: tle.INCLINATION,
+      apogee: Math.round(orbital.apogee),
+      perigee: Math.round(orbital.perigee),
+      period: Math.round(orbital.period * 10) / 10,
+      velocity: Math.round(orbital.velocity * 100) / 100,
+    },
+    isActive: !tle.OBJECT_NAME.includes("DEB") && !tle.OBJECT_NAME.includes("R/B"),
+    // Legacy properties object for backwards compatibility
     properties: {
       noradId: tle.NORAD_CAT_ID,
       intlDesignator: tle.OBJECT_ID,
-      objectType: getObjectType(tle.OBJECT_NAME),
-      orbitType: getOrbitType(tle.INCLINATION, orbital.period, tle.ECCENTRICITY),
+      objectType,
+      orbitType,
       inclination: tle.INCLINATION,
       apogee: Math.round(orbital.apogee),
       perigee: Math.round(orbital.perigee),

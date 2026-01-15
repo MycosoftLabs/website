@@ -497,3 +497,36 @@ h1, h2, h3, h4, h5, h6 {
     @apply hidden!;
   }
 }
+
+/* ============================================
+   DASHBOARD FULLSCREEN MODE
+   ============================================ */
+
+/* When body has dashboard-fullscreen class, hide header and footer */
+body.dashboard-fullscreen header,
+body.dashboard-fullscreen footer {
+  display: none !important;
+}
+
+/* Make the main content area fill the screen */
+body.dashboard-fullscreen .min-h-screen {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.dashboard-fullscreen main {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Dashboard container fills viewport */
+.dashboard-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: var(--background);
+}

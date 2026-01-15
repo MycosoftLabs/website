@@ -133,6 +133,7 @@ function fr24FlightToEntity(flight: FR24FlightData): AircraftEntity {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lastSeenAt: new Date(flight.timestamp * 1000).toISOString(),
+    lastSeen: new Date(flight.timestamp * 1000).toISOString(),
     status: "active",
     provenance,
     tags: [
@@ -140,15 +141,32 @@ function fr24FlightToEntity(flight: FR24FlightData): AircraftEntity {
       flight.isGround ? "ground" : "airborne",
       flight.aircraftType,
     ].filter(Boolean),
+    // Top-level flight properties for marker rendering
+    icao24: flight.icao24,
+    callsign: flight.callsign,
+    origin: flight.origin,
+    destination: flight.destination,
+    altitude: flight.altitude,
+    velocity: flight.groundSpeed,
+    heading: flight.heading,
+    verticalRate: flight.verticalSpeed,
+    onGround: flight.isGround,
+    squawk: flight.squawk,
+    transponder: true,
+    airline: "",
+    aircraftType: flight.aircraftType,
+    registration: flight.registration,
+    flightNumber: flight.flightNumber,
+    // Legacy properties object for backwards compatibility
     properties: {
       icao24: flight.icao24,
       callsign: flight.callsign,
       origin: flight.origin,
       destination: flight.destination,
-      altitude: flight.altitude * 0.3048,
-      velocity: flight.groundSpeed * 0.514444, // Convert knots to m/s
+      altitude: flight.altitude,
+      velocity: flight.groundSpeed,
       heading: flight.heading,
-      verticalRate: flight.verticalSpeed * 0.00508, // Convert ft/min to m/s
+      verticalRate: flight.verticalSpeed,
       squawk: flight.squawk,
       onGround: flight.isGround,
       category: getAircraftCategory(flight.aircraftType),
