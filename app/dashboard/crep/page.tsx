@@ -139,6 +139,12 @@ import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
 import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
 import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
 
+// Map Markers for OEI Data
+import { AircraftMarker, VesselMarker, SatelliteMarker } from "@/components/crep/markers";
+
+// OEI Types
+import type { AircraftEntity, VesselEntity, SatelliteEntity } from "@/types/oei";
+
 // Types
 interface GlobalEvent {
     id: string;
@@ -912,7 +918,15 @@ export default function CREPDashboardPage() {
   // Data states
   const [globalEvents, setGlobalEvents] = useState<GlobalEvent[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
+  const [vessels, setVessels] = useState<VesselEntity[]>([]);
+  const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Selected entity states for map interaction
+  const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
+  const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
+  const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
   
   // Mission context
   const [currentMission] = useState<MissionContext>({
@@ -974,6 +988,7 @@ export default function CREPDashboardPage() {
     { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
     { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
     { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
+    { id: "satellites", name: "Satellites (TLE)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#c084fc", description: "Space objects from CelesTrak TLE data" },
     // Military & Defense
     { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
@@ -1046,6 +1061,54 @@ export default function CREPDashboardPage() {
             };
           });
           setDevices(formattedDevices);
+        }
+
+        // Fetch aircraft data from FlightRadar24 API
+        const aviationLayerEnabled = true; // Always fetch, layer toggle controls visibility
+        if (aviationLayerEnabled) {
+          try {
+            const aircraftRes = await fetch("/api/oei/flightradar24?limit=100");
+            if (aircraftRes.ok) {
+              const data = await aircraftRes.json();
+              if (data.aircraft && Array.isArray(data.aircraft)) {
+                setAircraft(data.aircraft);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch aircraft data:", e);
+          }
+        }
+
+        // Fetch vessel data from AISstream API
+        const shipsLayerEnabled = true;
+        if (shipsLayerEnabled) {
+          try {
+            const vesselsRes = await fetch("/api/oei/aisstream?sample=true");
+            if (vesselsRes.ok) {
+              const data = await vesselsRes.json();
+              if (data.vessels && Array.isArray(data.vessels)) {
+                setVessels(data.vessels);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch vessel data:", e);
+          }
+        }
+
+        // Fetch satellite data from CelesTrak API
+        const satelliteLayerEnabled = true;
+        if (satelliteLayerEnabled) {
+          try {
+            const satellitesRes = await fetch("/api/oei/satellites?category=stations&limit=50");
+            if (satellitesRes.ok) {
+              const data = await satellitesRes.json();
+              if (data.satellites && Array.isArray(data.satellites)) {
+                setSatellites(data.satellites);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to fetch satellite data:", e);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch CREP data:", error);
@@ -1404,6 +1467,36 @@ export default function CREPDashboardPage() {
                 onClick={() => setSelectedDevice(selectedDevice?.id === device.id ? null : device)}
               />
             ))}
+
+            {/* Aircraft Markers (FlightRadar24/OpenSky) */}
+            {layers.find(l => l.id === "aviation")?.enabled && aircraft.map(ac => (
+              <AircraftMarker
+                key={ac.id}
+                aircraft={ac}
+                isSelected={selectedAircraft?.id === ac.id}
+                onClick={() => setSelectedAircraft(selectedAircraft?.id === ac.id ? null : ac)}
+              />
+            ))}
+
+            {/* Vessel Markers (AISstream) */}
+            {layers.find(l => l.id === "ships")?.enabled && vessels.map(vessel => (
+              <VesselMarker
+                key={vessel.id}
+                vessel={vessel}
+                isSelected={selectedVessel?.id === vessel.id}
+                onClick={() => setSelectedVessel(selectedVessel?.id === vessel.id ? null : vessel)}
+              />
+            ))}
+
+            {/* Satellite Markers (CelesTrak) */}
+            {layers.find(l => l.id === "satellites")?.enabled && satellites.map(sat => (
+              <SatelliteMarker
+                key={sat.id}
+                satellite={sat}
+                isSelected={selectedSatellite?.id === sat.id}
+                onClick={() => setSelectedSatellite(selectedSatellite?.id === sat.id ? null : sat)}
+              />
+            ))}
           </Map>
 
           {/* Map Overlay - Corner Decorations */}
@@ -1417,13 +1510,31 @@ export default function CREPDashboardPage() {
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-green-400">LIVE</span>
-              </div>
+            </div>
             <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-cyan-400">
               {filteredEvents.length} EVENTS
             </div>
             <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-green-400">
               {onlineDevices} DEVICES
             </div>
+            {aircraft.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400">
+                <Plane className="w-3 h-3 inline-block mr-1" />
+                {aircraft.length}
+              </div>
+            )}
+            {vessels.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400">
+                <Ship className="w-3 h-3 inline-block mr-1" />
+                {vessels.length}
+              </div>
+            )}
+            {satellites.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400">
+                <Satellite className="w-3 h-3 inline-block mr-1" />
+                {satellites.length}
+              </div>
+            )}
           </div>
         </div>
 

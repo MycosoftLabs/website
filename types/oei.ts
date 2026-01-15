@@ -334,45 +334,135 @@ export interface SpeciesEntity extends Entity {
 
 /**
  * Aircraft entity - for ADS-B tracking
+ * Used by both OpenSky and FlightRadar24 connectors
  */
-export interface AircraftEntity extends Entity {
+export interface AircraftEntity {
+  id: string
   type: EntityType.AIRCRAFT
-  properties: {
-    icao24: string            // 24-bit ICAO transponder address
-    callsign?: string
-    origin?: string           // Origin airport ICAO code
-    destination?: string      // Destination airport ICAO code
-    altitude?: number         // meters
-    velocity?: number         // m/s
-    heading?: number          // degrees
-    verticalRate?: number     // m/s
-    squawk?: string           // Transponder code
-    onGround: boolean
-    category?: string         // Aircraft category
+  icao24: string            // 24-bit ICAO transponder address
+  callsign?: string
+  
+  // Location (GeoJSON Point format)
+  location: {
+    type: "Point"
+    coordinates: [number, number]  // [longitude, latitude]
   }
+  
+  // Flight info
+  origin?: string           // Origin airport ICAO code
+  destination?: string      // Destination airport ICAO code
+  airline?: string          // Airline name or code
+  flightNumber?: string     // Flight number (e.g., "UA123")
+  aircraftType?: string     // Aircraft type code (e.g., "B738")
+  registration?: string     // Aircraft registration (tail number)
+  
+  // Position & Movement
+  altitude?: number | null  // feet
+  velocity?: number | null  // knots
+  heading?: number | null   // degrees
+  verticalRate?: number | null  // feet per minute
+  
+  // Status
+  onGround: boolean
+  squawk?: string           // Transponder code
+  transponder?: boolean     // ADS-B equipped
+  
+  // Timing
+  lastSeen: string          // ISO 8601 timestamp
+  
+  // Provenance
+  provenance: Provenance
 }
 
 /**
  * Vessel entity - for AIS ship tracking
+ * Used by AISstream connector
  */
-export interface VesselEntity extends Entity {
+export interface VesselEntity {
+  id: string
   type: EntityType.VESSEL
-  properties: {
-    mmsi: string              // Maritime Mobile Service Identity
-    imo?: string              // IMO ship number
-    callsign?: string
-    shipName?: string
-    shipType?: string
-    destination?: string
-    eta?: string
-    length?: number           // meters
-    width?: number            // meters
-    draft?: number            // meters
-    heading?: number          // degrees
-    cog?: number              // Course over ground
-    sog?: number              // Speed over ground (knots)
-    navStatus?: string        // Navigational status
+  mmsi: string              // Maritime Mobile Service Identity
+  name?: string             // Ship name
+  
+  // Location (GeoJSON Point format)
+  location: {
+    type: "Point"
+    coordinates: [number, number]  // [longitude, latitude]
   }
+  
+  // Identity
+  imo?: string              // IMO ship number
+  callsign?: string
+  flag?: string             // Country flag
+  
+  // Vessel Details
+  shipType: number | null   // AIS ship type code
+  destination?: string
+  eta?: string              // ISO 8601
+  length?: number           // meters
+  width?: number            // meters
+  draught?: number          // meters (draft)
+  
+  // Movement
+  heading?: number | null   // degrees (true heading)
+  cog?: number | null       // Course over ground (degrees)
+  sog?: number | null       // Speed over ground (knots)
+  rot?: number | null       // Rate of turn (degrees/min)
+  
+  // Status
+  navStatus: number | null  // AIS navigational status code
+  
+  // Timing
+  lastSeen: string          // ISO 8601 timestamp
+  
+  // Provenance
+  provenance: Provenance
+}
+
+/**
+ * Satellite entity - for TLE-based satellite tracking
+ * Used by CelesTrak connector
+ */
+export interface SatelliteEntity {
+  id: string
+  type: "satellite"
+  noradId: number           // NORAD catalog number
+  name: string              // Satellite name
+  
+  // Identity
+  intlDesignator?: string   // International designator (e.g., "1998-067A")
+  objectType?: string       // "PAYLOAD", "ROCKET BODY", "DEBRIS"
+  country?: string          // Country of origin
+  
+  // Orbit Classification
+  orbitType?: "LEO" | "MEO" | "GEO" | "HEO" | "POLAR" | "SSO" | "UNKNOWN"
+  
+  // Orbital Parameters (from TLE)
+  orbitalParams?: {
+    inclination?: number    // degrees
+    eccentricity?: number   // 0-1
+    apogee?: number         // km
+    perigee?: number        // km
+    period?: number         // minutes
+    raan?: number           // Right Ascension of Ascending Node (degrees)
+    argOfPerigee?: number   // Argument of Perigee (degrees)
+    meanAnomaly?: number    // degrees
+  }
+  
+  // Estimated Position (calculated from TLE)
+  estimatedPosition?: {
+    latitude: number
+    longitude: number
+    altitude: number        // km
+  }
+  
+  // Timing
+  launchDate?: string       // ISO 8601
+  decayDate?: string        // ISO 8601 (if decayed)
+  lastSeen: string          // TLE epoch
+  
+  // Provenance
+  provenance: Provenance
 }
 
 /**
