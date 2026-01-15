@@ -142,6 +142,10 @@ import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widg
 // Map Markers for OEI Data
 import { AircraftMarker, VesselMarker, SatelliteMarker } from "@/components/crep/markers";
 
+// Map Controls with streaming status
+import { MapControls, StreamingStatusBar } from "@/components/crep/map-controls";
+import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter } from "@/components/crep/map-controls";
+
 // OEI Types
 import type { AircraftEntity, VesselEntity, SatelliteEntity } from "@/types/oei";
 
@@ -928,6 +932,57 @@ export default function CREPDashboardPage() {
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
   
+  // Streaming state
+  const [isStreaming, setIsStreaming] = useState(true);
+  
+  // Filter states for map controls
+  const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>({
+    showAirborne: true,
+    showGround: false,
+    minAltitude: 0,
+    maxAltitude: 50000,
+    airlines: [],
+    aircraftTypes: [],
+    showMilitary: false,
+    showCargo: true,
+    showPrivate: true,
+    showCommercial: true,
+  });
+  
+  const [vesselFilter, setVesselFilter] = useState<VesselFilter>({
+    showCargo: true,
+    showTanker: true,
+    showPassenger: true,
+    showFishing: true,
+    showTug: true,
+    showMilitary: false,
+    showPleasure: true,
+    minSpeed: 0,
+    showPortAreas: false,
+    showShippingLanes: false,
+    showAnchorages: false,
+  });
+  
+  const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>({
+    showStations: true,
+    showWeather: true,
+    showComms: false,
+    showGPS: false,
+    showStarlink: false,
+    showDebris: false,
+    showActive: true,
+    orbitTypes: ["LEO", "GEO"],
+  });
+  
+  const [spaceWeatherFilter, setSpaceWeatherFilter] = useState<SpaceWeatherFilter>({
+    showSolarFlares: true,
+    showCME: true,
+    showGeomagneticStorms: true,
+    showRadiationBelts: false,
+    showAuroraOval: false,
+    showSolarWind: false,
+  });
+  
   // Mission context
   const [currentMission] = useState<MissionContext>({
     id: "mission-001",
@@ -1240,10 +1295,26 @@ export default function CREPDashboardPage() {
             <Shield className="w-3 h-3 text-amber-400" />
             <span className="text-[9px] text-amber-400 font-mono">OEI</span>
           </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/40 border border-green-500/30">
-            <Radio className="w-3 h-3 text-green-400 animate-pulse" />
-            <span className="text-[9px] text-green-400 font-mono">LIVE</span>
-          </div>
+          <button 
+            onClick={() => setIsStreaming(!isStreaming)}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded bg-black/40 border transition-colors",
+              isStreaming 
+                ? "border-green-500/30 hover:border-green-400/50" 
+                : "border-yellow-500/30 hover:border-yellow-400/50"
+            )}
+          >
+            <Radio className={cn(
+              "w-3 h-3",
+              isStreaming ? "text-green-400 animate-pulse" : "text-yellow-400"
+            )} />
+            <span className={cn(
+              "text-[9px] font-mono",
+              isStreaming ? "text-green-400" : "text-yellow-400"
+            )}>
+              {isStreaming ? "LIVE" : "PAUSED"}
+            </span>
+          </button>
         </div>
 
         {/* Center title */}
@@ -1606,11 +1677,39 @@ export default function CREPDashboardPage() {
                           <Signal className="w-3.5 h-3.5 text-amber-400" />
                           <span className="text-[10px] font-bold text-white">LIVE DATA FEEDS</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                          <span className="text-[8px] text-green-400">STREAMING</span>
-                        </div>
+                        <StreamingStatusBar
+                          statuses={[
+                            { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
+                            { type: "vessels", connected: isStreaming, messageCount: vessels.length },
+                            { type: "satellites", connected: isStreaming, messageCount: satellites.length },
+                          ]}
+                          isLive={isStreaming}
+                          onToggle={() => setIsStreaming(!isStreaming)}
+                        />
                       </div>
+                      
+                      {/* Map Controls - Filter Panel */}
+                      <MapControls
+                        aircraftFilter={aircraftFilter}
+                        vesselFilter={vesselFilter}
+                        satelliteFilter={satelliteFilter}
+                        spaceWeatherFilter={spaceWeatherFilter}
+                        streamStatuses={[
+                          { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
+                          { type: "vessels", connected: isStreaming, messageCount: vessels.length },
+                          { type: "satellites", connected: isStreaming, messageCount: satellites.length },
+                        ]}
+                        isStreaming={isStreaming}
+                        onAircraftFilterChange={(f) => setAircraftFilter({ ...aircraftFilter, ...f })}
+                        onVesselFilterChange={(f) => setVesselFilter({ ...vesselFilter, ...f })}
+                        onSatelliteFilterChange={(f) => setSatelliteFilter({ ...satelliteFilter, ...f })}
+                        onSpaceWeatherFilterChange={(f) => setSpaceWeatherFilter({ ...spaceWeatherFilter, ...f })}
+                        onToggleStreaming={() => setIsStreaming(!isStreaming)}
+                        onRefresh={() => {
+                          // Trigger a refresh by re-fetching data
+                          window.location.reload();
+                        }}
+                      />
                       
                       {/* Space Weather Widget */}
                       <SpaceWeatherWidget compact />

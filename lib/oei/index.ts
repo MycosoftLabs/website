@@ -17,6 +17,16 @@ export {
   type EventBusConfig,
 } from "./event-bus"
 
+// WebSocket Streaming Service
+export {
+  getOEIStreamingService,
+  OEIStreamingService,
+  type StreamType,
+  type StreamSubscription,
+  type StreamMessage,
+  type StreamStatus,
+} from "./websocket-service"
+
 // Re-export types from central types module
 export type {
   Entity,

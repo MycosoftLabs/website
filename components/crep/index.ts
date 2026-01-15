@@ -12,3 +12,13 @@ export { VesselTrackerWidget } from "./vessel-tracker-widget"
 
 // Map Markers
 export { AircraftMarker, VesselMarker, SatelliteMarker } from "./markers"
+
+// Map Controls
+export {
+  MapControls,
+  StreamingStatusBar,
+  type AircraftFilter,
+  type VesselFilter,
+  type SatelliteFilter,
+  type SpaceWeatherFilter,
+} from "./map-controls"

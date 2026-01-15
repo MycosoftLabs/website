@@ -34,13 +34,25 @@ function getRotation(heading: number | null): number {
 }
 
 export function AircraftMarker({ aircraft, isSelected = false, onClick }: AircraftMarkerProps) {
+  // Guard: Ensure we have valid location data
+  if (!aircraft?.location?.coordinates || aircraft.location.coordinates.length < 2) {
+    return null;
+  }
+  
+  const [longitude, latitude] = aircraft.location.coordinates;
+  
+  // Guard: Ensure coordinates are valid numbers
+  if (typeof longitude !== 'number' || typeof latitude !== 'number' || isNaN(longitude) || isNaN(latitude)) {
+    return null;
+  }
+  
   const altitudeColor = getAltitudeColor(aircraft.altitude);
   const rotation = getRotation(aircraft.heading);
   
   return (
     <MapMarker 
-      longitude={aircraft.location.coordinates[0]} 
-      latitude={aircraft.location.coordinates[1]}
+      longitude={longitude} 
+      latitude={latitude}
       onClick={onClick}
     >
       <MarkerContent className="relative">
