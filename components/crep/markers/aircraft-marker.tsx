@@ -34,12 +34,11 @@ function getRotation(heading: number | null): number {
 }
 
 export function AircraftMarker({ aircraft, isSelected = false, onClick }: AircraftMarkerProps) {
-  // Guard: Ensure we have valid location data
-  if (!aircraft?.location?.coordinates || aircraft.location.coordinates.length < 2) {
-    return null;
-  }
-  
-  const [longitude, latitude] = aircraft.location.coordinates;
+  // Guard: Ensure we have valid location data (handle both GeoJSON and flat format)
+  const longitude = aircraft?.location?.longitude ?? 
+    (aircraft?.location?.coordinates && aircraft.location.coordinates[0]);
+  const latitude = aircraft?.location?.latitude ?? 
+    (aircraft?.location?.coordinates && aircraft.location.coordinates[1]);
   
   // Guard: Ensure coordinates are valid numbers
   if (typeof longitude !== 'number' || typeof latitude !== 'number' || isNaN(longitude) || isNaN(latitude)) {

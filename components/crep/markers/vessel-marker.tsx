@@ -63,12 +63,11 @@ function getNavStatus(status: number | null): { label: string; color: string } {
 }
 
 export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMarkerProps) {
-  // Guard: Ensure we have valid location data
-  if (!vessel?.location?.coordinates || vessel.location.coordinates.length < 2) {
-    return null;
-  }
-  
-  const [longitude, latitude] = vessel.location.coordinates;
+  // Guard: Ensure we have valid location data (handle both GeoJSON and flat format)
+  const longitude = vessel?.location?.longitude ?? 
+    (vessel?.location?.coordinates && vessel.location.coordinates[0]);
+  const latitude = vessel?.location?.latitude ?? 
+    (vessel?.location?.coordinates && vessel.location.coordinates[1]);
   
   // Guard: Ensure coordinates are valid numbers
   if (typeof longitude !== 'number' || typeof latitude !== 'number' || isNaN(longitude) || isNaN(latitude)) {
