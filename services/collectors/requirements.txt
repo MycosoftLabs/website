@@ -1,0 +1,6 @@
+# Data Collectors Dependencies
+aiohttp>=3.9.0
+redis>=5.0.0
+tenacity>=8.2.0
+python-dotenv>=1.0.0
+websockets>=12.0

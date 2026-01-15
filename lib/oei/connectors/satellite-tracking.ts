@@ -22,6 +22,34 @@ const N2YO_API = "https://api.n2yo.com/rest/v1/satellite"
 
 export interface SatelliteEntity extends Entity {
   type: "satellite"
+  
+  // Top-level satellite properties for easy access
+  noradId?: number
+  intlDesignator?: string
+  objectType?: string
+  orbitType?: string
+  isActive?: boolean
+  country?: string
+  launchDate?: string
+  lastSeen?: string
+  
+  // Estimated position from TLE calculation
+  estimatedPosition?: {
+    longitude: number
+    latitude: number
+    altitude?: number
+  }
+  
+  // Orbital parameters
+  orbitalParams?: {
+    inclination?: number
+    apogee?: number
+    perigee?: number
+    period?: number
+    velocity?: number
+  }
+  
+  // Legacy properties object for backwards compatibility
   properties: {
     noradId: number
     intlDesignator: string
@@ -225,6 +253,7 @@ function tleToEntity(tle: TLEData): SatelliteEntity {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lastSeenAt: new Date().toISOString(),
+    lastSeen: new Date().toISOString(), // Alias for marker compatibility
     status: "active",
     provenance,
     tags: [objectType, orbitType],
@@ -352,10 +381,12 @@ export class SatelliteTrackingClient {
   }
 
   /**
-   * Get sample satellite data for demo
+   * Get comprehensive sample satellite data for demo
+   * Includes ISS, Tiangong, Starlink, GPS, weather satellites, and more
    */
   private getSampleSatellites(): SatelliteEntity[] {
     const samples: TLEData[] = [
+      // Space Stations
       {
         OBJECT_NAME: "ISS (ZARYA)",
         OBJECT_ID: "1998-067A",
@@ -375,23 +406,99 @@ export class SatelliteTrackingClient {
         MEAN_MOTION_DDOT: 0,
       },
       {
-        OBJECT_NAME: "STARLINK-1234",
-        OBJECT_ID: "2020-001A",
-        NORAD_CAT_ID: 45000,
+        OBJECT_NAME: "TIANHE (TIANGONG CORE)",
+        OBJECT_ID: "2021-035A",
+        NORAD_CAT_ID: 48274,
         EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 15.06,
+        MEAN_MOTION: 15.55,
         ECCENTRICITY: 0.0001,
-        INCLINATION: 53,
-        RA_OF_ASC_NODE: 100,
+        INCLINATION: 41.5,
+        RA_OF_ASC_NODE: 310,
         ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 90,
+        MEAN_ANOMALY: 45,
         CLASSIFICATION_TYPE: "U",
         ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 5000,
+        REV_AT_EPOCH: 3000,
         BSTAR: 0,
         MEAN_MOTION_DOT: 0,
         MEAN_MOTION_DDOT: 0,
       },
+      // Starlink Constellation (sample of many)
+      ...Array.from({ length: 50 }, (_, i) => ({
+        OBJECT_NAME: `STARLINK-${1000 + i}`,
+        OBJECT_ID: `2020-0${Math.floor(i/10)}${i%10}A`,
+        NORAD_CAT_ID: 45000 + i,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 15.06,
+        ECCENTRICITY: 0.0001,
+        INCLINATION: 53 + (i % 5) * 0.2,
+        RA_OF_ASC_NODE: (i * 7.2) % 360,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: (i * 13) % 360,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 5000 + i * 10,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      })),
+      // GPS Satellites
+      ...Array.from({ length: 10 }, (_, i) => ({
+        OBJECT_NAME: `GPS BIIR-${i + 1} (PRN ${20 + i})`,
+        OBJECT_ID: `200${i}-00${i}A`,
+        NORAD_CAT_ID: 26000 + i,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 2.0056,
+        ECCENTRICITY: 0.01,
+        INCLINATION: 55 + (i % 3),
+        RA_OF_ASC_NODE: (i * 60) % 360,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: (i * 36) % 360,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 2000 + i * 100,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      })),
+      // Weather Satellites
+      {
+        OBJECT_NAME: "GOES 18",
+        OBJECT_ID: "2022-021A",
+        NORAD_CAT_ID: 51850,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 1.0027,
+        ECCENTRICITY: 0.0001,
+        INCLINATION: 0.05,
+        RA_OF_ASC_NODE: 0,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: 227,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 500,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      },
+      {
+        OBJECT_NAME: "NOAA 20",
+        OBJECT_ID: "2017-073A",
+        NORAD_CAT_ID: 43013,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 14.19,
+        ECCENTRICITY: 0.001,
+        INCLINATION: 98.7,
+        RA_OF_ASC_NODE: 45,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: 120,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 4500,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      },
+      // Science Satellites
       {
         OBJECT_NAME: "HUBBLE SPACE TELESCOPE",
         OBJECT_ID: "1990-037B",
@@ -410,6 +517,80 @@ export class SatelliteTrackingClient {
         MEAN_MOTION_DOT: 0,
         MEAN_MOTION_DDOT: 0,
       },
+      {
+        OBJECT_NAME: "JAMES WEBB SPACE TELESCOPE",
+        OBJECT_ID: "2021-130A",
+        NORAD_CAT_ID: 50463,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 0.99,
+        ECCENTRICITY: 0.05,
+        INCLINATION: 0.1,
+        RA_OF_ASC_NODE: 0,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: 180,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 10,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      },
+      // Earth Observation
+      {
+        OBJECT_NAME: "LANDSAT 9",
+        OBJECT_ID: "2021-088A",
+        NORAD_CAT_ID: 49260,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 14.57,
+        ECCENTRICITY: 0.001,
+        INCLINATION: 98.2,
+        RA_OF_ASC_NODE: 30,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: 200,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 1200,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      },
+      {
+        OBJECT_NAME: "SENTINEL-2A",
+        OBJECT_ID: "2015-028A",
+        NORAD_CAT_ID: 40697,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 14.31,
+        ECCENTRICITY: 0.001,
+        INCLINATION: 98.5,
+        RA_OF_ASC_NODE: 60,
+        ARG_OF_PERICENTER: 0,
+        MEAN_ANOMALY: 90,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 6000,
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      },
+      // Debris samples
+      ...Array.from({ length: 10 }, (_, i) => ({
+        OBJECT_NAME: `COSMOS 2251 DEB (${i + 1})`,
+        OBJECT_ID: `1993-036${String.fromCharCode(65 + i)}`,
+        NORAD_CAT_ID: 34000 + i,
+        EPOCH: new Date().toISOString(),
+        MEAN_MOTION: 14.5 + Math.random() * 0.5,
+        ECCENTRICITY: 0.01 + Math.random() * 0.02,
+        INCLINATION: 74 + Math.random() * 5,
+        RA_OF_ASC_NODE: Math.random() * 360,
+        ARG_OF_PERICENTER: Math.random() * 360,
+        MEAN_ANOMALY: Math.random() * 360,
+        CLASSIFICATION_TYPE: "U",
+        ELEMENT_SET_NO: 999,
+        REV_AT_EPOCH: 10000 + Math.floor(Math.random() * 5000),
+        BSTAR: 0,
+        MEAN_MOTION_DOT: 0,
+        MEAN_MOTION_DDOT: 0,
+      })),
     ]
     
     return samples.map(tleToEntity)

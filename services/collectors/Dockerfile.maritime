@@ -1,0 +1,23 @@
+# Maritime Data Collector Service
+# Last Updated: 2026-01-15T14:30:00Z
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir aiohttp redis tenacity
+
+COPY maritime_collector.py .
+
+RUN mkdir -p /app/data
+
+ENV REDIS_URL=redis://redis:6379
+ENV MINDEX_API_URL=http://mindex:8001
+ENV MARITIME_CACHE_PATH=/app/data/maritime_cache.db
+ENV COLLECT_INTERVAL=60
+
+EXPOSE 8102
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import sqlite3; conn=sqlite3.connect('/app/data/maritime_cache.db'); conn.close()" || exit 1
+
+CMD ["python", "maritime_collector.py"]

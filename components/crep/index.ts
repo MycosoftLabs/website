@@ -22,3 +22,7 @@ export {
   type SatelliteFilter,
   type SpaceWeatherFilter,
 } from "./map-controls"
+
+// Map Layers
+export { TrajectoryLines } from "./trajectory-lines"
+export { SatelliteOrbitLines } from "./satellite-orbit-lines"

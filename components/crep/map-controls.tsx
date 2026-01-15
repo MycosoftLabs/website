@@ -105,6 +105,12 @@ export interface SpaceWeatherFilter {
   showSolarWind: boolean
 }
 
+export interface NOAAScales {
+  radio: number    // R0-R5
+  solar: number    // S0-S5
+  geomag: number   // G0-G5
+}
+
 export interface StreamStatus {
   type: string
   connected: boolean
@@ -120,6 +126,7 @@ interface MapControlsProps {
   spaceWeatherFilter: SpaceWeatherFilter
   streamStatuses: StreamStatus[]
   isStreaming: boolean
+  noaaScales?: NOAAScales  // Real-time NOAA space weather scales
   onAircraftFilterChange: (filter: Partial<AircraftFilter>) => void
   onVesselFilterChange: (filter: Partial<VesselFilter>) => void
   onSatelliteFilterChange: (filter: Partial<SatelliteFilter>) => void
@@ -139,6 +146,7 @@ export function MapControls({
   spaceWeatherFilter,
   streamStatuses,
   isStreaming,
+  noaaScales,
   onAircraftFilterChange,
   onVesselFilterChange,
   onSatelliteFilterChange,
@@ -572,9 +580,9 @@ export function MapControls({
                     <span className="text-[10px] text-cyan-400/70">NOAA Space Weather Scales</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
-                    <ScaleIndicator label="R" value={0} description="Radio" />
-                    <ScaleIndicator label="S" value={0} description="Solar" />
-                    <ScaleIndicator label="G" value={0} description="Geomag" />
+                    <ScaleIndicator label="R" value={noaaScales?.radio ?? 0} description="Radio Blackout" />
+                    <ScaleIndicator label="S" value={noaaScales?.solar ?? 0} description="Solar Radiation" />
+                    <ScaleIndicator label="G" value={noaaScales?.geomag ?? 0} description="Geomagnetic" />
                   </div>
                 </div>
               </TabsContent>

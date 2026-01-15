@@ -1,0 +1,314 @@
+# Mycosoft CI/CD Pipeline
+# Last Updated: 2026-01-15T14:30:00Z
+# Version: 2.0.0
+#
+# This workflow handles:
+# - Linting and type checking
+# - Unit and integration tests
+# - Docker image building
+# - Deployment to Proxmox VM
+# - Changelog generation
+
+name: Mycosoft CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy to production'
+        required: false
+        default: 'false'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================================================
+  # LINT AND TYPE CHECK
+  # ===========================================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+
+  # ===========================================================================
+  # UNIT TESTS
+  # ===========================================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --if-present
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          files: ./coverage/lcov.info
+
+  # ===========================================================================
+  # BUILD DOCKER IMAGES
+  # ===========================================================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and push Website
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      - name: Build and push Collectors
+        run: |
+          for service in aviation maritime satellite; do
+            docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${service}:${{ github.sha }} \
+              -f ./services/collectors/Dockerfile.${service} ./services/collectors
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${service}:${{ github.sha }}
+          done
+
+  # ===========================================================================
+  # INTEGRATION TESTS
+  # ===========================================================================
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mycosoft
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: mycosoft_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm run test:integration --if-present
+        env:
+          DATABASE_URL: postgresql://mycosoft:test@localhost:5432/mycosoft_test
+          REDIS_URL: redis://localhost:6379
+
+  # ===========================================================================
+  # DEPLOY TO STAGING
+  # ===========================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build, integration]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - name: Deploy to staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/mycosoft-staging
+            docker-compose pull
+            docker-compose up -d --remove-orphans
+            docker-compose exec -T website npm run db:migrate
+            echo "Deployed ${{ github.sha }} to staging at $(date)"
+
+  # ===========================================================================
+  # DEPLOY TO PRODUCTION
+  # ===========================================================================
+  deploy-production:
+    name: Deploy to Production (Proxmox)
+    runs-on: ubuntu-latest
+    needs: [build, integration]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment artifact
+        run: |
+          mkdir -p deployment
+          cp docker-compose.yml deployment/
+          cp -r monitoring deployment/
+          cp -r migrations deployment/
+          tar -czvf mycosoft-deployment-${{ github.sha }}.tar.gz deployment/
+
+      - name: Deploy to Proxmox VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROXMOX_HOST }}
+          username: ${{ secrets.PROXMOX_USER }}
+          key: ${{ secrets.PROXMOX_KEY }}
+          script: |
+            set -e
+            
+            echo "=== Mycosoft Production Deployment ==="
+            echo "Commit: ${{ github.sha }}"
+            echo "Timestamp: $(date -Iseconds)"
+            
+            cd /opt/mycosoft
+            
+            # Backup current state
+            docker-compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql
+            
+            # Pull new images
+            docker-compose pull
+            
+            # Rolling update
+            docker-compose up -d --remove-orphans
+            
+            # Run migrations
+            docker-compose exec -T website npm run db:migrate
+            
+            # Health check
+            for i in {1..30}; do
+              if curl -sf http://localhost:3000/api/health; then
+                echo "Health check passed"
+                break
+              fi
+              sleep 2
+            done
+            
+            # Log deployment
+            echo "${{ github.sha }} deployed at $(date)" >> /var/log/mycosoft-deployments.log
+
+      - name: Notify deployment
+        uses: slackapi/slack-github-action@v1.24.0
+        if: always()
+        with:
+          payload: |
+            {
+              "text": "Mycosoft deployed to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Mycosoft Production Deployment*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ===========================================================================
+  # GENERATE CHANGELOG
+  # ===========================================================================
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v3
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+
+      - name: Commit changelog
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: update changelog [skip ci]"
+          file_pattern: CHANGELOG.md

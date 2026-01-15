@@ -19,7 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Map, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
+import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -140,14 +140,21 @@ import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
 import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
 
 // Map Markers for OEI Data
-import { AircraftMarker, VesselMarker, SatelliteMarker } from "@/components/crep/markers";
+import { AircraftMarker, VesselMarker, SatelliteMarker, FungalMarker, type FungalObservation } from "@/components/crep/markers";
+
+// Trajectory Lines for flight paths and ship routes
+import { TrajectoryLines } from "@/components/crep/trajectory-lines";
+
+// Satellite Orbit Lines for ground track visualization
+import { SatelliteOrbitLines } from "@/components/crep/satellite-orbit-lines";
 
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
-import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter } from "@/components/crep/map-controls";
+import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, NOAAScales } from "@/components/crep/map-controls";
 
 // OEI Types
-import type { AircraftEntity, VesselEntity, SatelliteEntity } from "@/types/oei";
+import type { AircraftEntity, VesselEntity } from "@/types/oei"
+import type { SatelliteEntity } from "@/lib/oei/connectors/satellite-tracking";
 
 // Types
 interface GlobalEvent {
@@ -925,15 +932,20 @@ export default function CREPDashboardPage() {
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
   const [vessels, setVessels] = useState<VesselEntity[]>([]);
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
+  const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Selected entity states for map interaction
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
+  const [selectedFungal, setSelectedFungal] = useState<FungalObservation | null>(null);
   
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(true);
+  
+  // Space weather state for NOAA scales
+  const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
   
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>({
@@ -1036,9 +1048,9 @@ export default function CREPDashboardPage() {
     { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
     // Transport & Vehicles
     { id: "aviation", name: "Air Traffic (OpenSky)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#0ea5e9", description: "Live aircraft positions worldwide" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#38bdf8", description: "Aircraft planned routes and paths" },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft planned routes and paths" },
     { id: "ships", name: "Ships (AIS)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#14b8a6", description: "AISstream vessel tracking" },
-    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#2dd4bf", description: "Vessel routes and port lines" },
+    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel routes and port lines" },
     { id: "fishing", name: "Fishing Fleets (GFW)", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
     { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
     { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
@@ -1075,7 +1087,6 @@ export default function CREPDashboardPage() {
           const data = await eventsRes.json();
           const formattedEvents = (data.events || [])
             .filter((e: any) => e.location?.latitude && e.location?.longitude)
-            .slice(0, 300)
             .map((e: any) => ({
               id: e.id,
               type: e.type,
@@ -1092,40 +1103,45 @@ export default function CREPDashboardPage() {
         const devicesRes = await fetch("/api/mycobrain/devices");
         if (devicesRes.ok) {
           const data = await devicesRes.json();
-          // MycoBrain devices may not have location data - use defaults or configured locations
+          // MycoBrain devices - ALWAYS default to San Diego 91910 for the primary device
+          // The primary device is on the user's desk in San Diego, CA 91910
           const formattedDevices = (data.devices || []).map((d: any, index: number) => {
-            // Default locations spread around the world for devices without location
-            const defaultLocations = [
-              { lat: 49.3988, lng: -123.9756, name: "Nanaimo Lab" }, // Nanaimo, BC - main lab
-              { lat: 48.4284, lng: -123.3656, name: "Victoria Lab" },
-              { lat: 49.2827, lng: -123.1207, name: "Vancouver Lab" },
-              { lat: 47.6062, lng: -122.3321, name: "Seattle Lab" },
-              { lat: 45.5152, lng: -122.6784, name: "Portland Lab" },
-            ];
-            const defaultLoc = defaultLocations[index % defaultLocations.length];
+            // San Diego 91910 coordinates: 32.6189, -117.0769
+            // ALL devices without explicit GPS should default to San Diego HQ
+            const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
+            
+            // Only use device location if explicitly provided AND valid (not 0,0 or null)
+            const hasValidLocation = d.location?.lat && d.location?.lng && 
+              Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
+              // Reject Vancouver default (49, -123) as it's not correct
+              !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
             
             return {
               id: d.device_id || d.id || `device-${index}`,
               name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
-              lat: d.location?.lat || defaultLoc.lat,
-              lng: d.location?.lng || defaultLoc.lng,
+              // ALWAYS use San Diego unless there's a valid explicit location
+              lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
+              lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
               status: d.status === "connected" || d.status === "online" ? "online" : "offline",
               port: d.port,
               firmware: d.info?.firmware,
               protocol: d.protocol,
             };
           });
+          console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (San Diego 91910 default)`);
           setDevices(formattedDevices);
         }
 
-        // Fetch aircraft data from FlightRadar24 API
+        // Fetch aircraft data from FlightRadar24 API (NO LIMIT - fetch all available)
         const aviationLayerEnabled = true; // Always fetch, layer toggle controls visibility
         if (aviationLayerEnabled) {
           try {
-            const aircraftRes = await fetch("/api/oei/flightradar24?limit=100");
+            // Fetch without limit to get ALL available aircraft data
+            const aircraftRes = await fetch("/api/oei/flightradar24");
             if (aircraftRes.ok) {
               const data = await aircraftRes.json();
               if (data.aircraft && Array.isArray(data.aircraft)) {
+                console.log(`[CREP] Loaded ${data.aircraft.length} aircraft from FlightRadar24`);
                 setAircraft(data.aircraft);
               }
             }
@@ -1134,14 +1150,16 @@ export default function CREPDashboardPage() {
           }
         }
 
-        // Fetch vessel data from AISstream API
+        // Fetch vessel data from AISstream API (NO LIMIT - fetch all available)
         const shipsLayerEnabled = true;
         if (shipsLayerEnabled) {
           try {
-            const vesselsRes = await fetch("/api/oei/aisstream?sample=true");
+            // Fetch without limit to get ALL available vessel data
+            const vesselsRes = await fetch("/api/oei/aisstream");
             if (vesselsRes.ok) {
               const data = await vesselsRes.json();
               if (data.vessels && Array.isArray(data.vessels)) {
+                console.log(`[CREP] Loaded ${data.vessels.length} vessels from AISstream${data.sample ? ' (sample data)' : ''}`);
                 setVessels(data.vessels);
               }
             }
@@ -1150,20 +1168,117 @@ export default function CREPDashboardPage() {
           }
         }
 
-        // Fetch satellite data from CelesTrak API
+        // Fetch satellite data from CelesTrak API - ALL categories for comprehensive data
         const satelliteLayerEnabled = true;
         if (satelliteLayerEnabled) {
           try {
-            const satellitesRes = await fetch("/api/oei/satellites?category=stations&limit=50");
-            if (satellitesRes.ok) {
-              const data = await satellitesRes.json();
-              if (data.satellites && Array.isArray(data.satellites)) {
-                setSatellites(data.satellites);
-              }
-            }
+            // Fetch multiple satellite categories in parallel (NO LIMITS)
+            const categories = ["stations", "starlink", "weather", "gnss", "active", "debris"];
+            const allSatellites: SatelliteEntity[] = [];
+            
+            await Promise.all(
+              categories.map(async (category) => {
+                try {
+                  // NO LIMIT - fetch all available satellites for each category
+                  const res = await fetch(`/api/oei/satellites?category=${category}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.satellites && Array.isArray(data.satellites)) {
+                      console.log(`[CREP] Loaded ${data.satellites.length} ${category} satellites`);
+                      allSatellites.push(...data.satellites);
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Failed to fetch ${category} satellites:`, e);
+                }
+              })
+            );
+            
+            // Deduplicate by satellite ID
+            const uniqueSatellites = Array.from(
+              new Map(allSatellites.map(s => [s.id, s])).values()
+            );
+            console.log(`[CREP] Total unique satellites: ${uniqueSatellites.length}`);
+            setSatellites(uniqueSatellites);
           } catch (e) {
             console.error("Failed to fetch satellite data:", e);
           }
+        }
+
+        // Fetch space weather data for NOAA scales
+        try {
+          const spaceWxRes = await fetch("/api/oei/space-weather");
+          if (spaceWxRes.ok) {
+            const spaceWxData = await spaceWxRes.json();
+            if (spaceWxData.scales) {
+              setNoaaScales({
+                radio: spaceWxData.scales.radio?.current ?? 0,
+                solar: spaceWxData.scales.solar?.current ?? 0,
+                geomag: spaceWxData.scales.geomagnetic?.current ?? 0,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch space weather data:", e);
+        }
+
+        // Fetch fungal observations from iNaturalist (Phase 1 - MINDEX integration)
+        // ALWAYS fetch - layer toggle only controls visibility, not data loading
+        // This provides fungal data with GPS coordinates and photos for map overlay
+        try {
+          // Fetch fungal observations from multiple regions globally
+          // Using the iNaturalist API through our earth-simulator endpoint
+          const regions = [
+            // North America (Pacific NW - fungal hotspot)
+            { lat: 47.6, lng: -122.3, radius: 150000 },
+            // Europe (Central Europe)
+            { lat: 48.8, lng: 2.3, radius: 150000 },
+            // Asia (Japan)
+            { lat: 35.7, lng: 139.7, radius: 150000 },
+            // South America (Amazon)
+            { lat: -3.4, lng: -62.2, radius: 150000 },
+            // Australia
+            { lat: -33.9, lng: 151.2, radius: 150000 },
+            // California (User's region - San Diego)
+            { lat: 32.7, lng: -117.1, radius: 150000 },
+            // UK/Ireland
+            { lat: 51.5, lng: -0.1, radius: 150000 },
+            // Scandinavia
+            { lat: 59.3, lng: 18.1, radius: 150000 },
+            // New Zealand
+            { lat: -41.3, lng: 174.8, radius: 150000 },
+            // Southeast Asia
+            { lat: 1.3, lng: 103.8, radius: 150000 },
+          ];
+          
+          const allObservations: FungalObservation[] = [];
+          
+          await Promise.all(
+            regions.map(async (region) => {
+              try {
+                const res = await fetch(
+                  `/api/earth-simulator/inaturalist?action=fungi&lat=${region.lat}&lng=${region.lng}&radius=${region.radius}&per_page=100`
+                );
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.observations && Array.isArray(data.observations)) {
+                    allObservations.push(...data.observations);
+                  }
+                }
+              } catch (e) {
+                console.warn(`Failed to fetch fungal data for region ${region.lat},${region.lng}:`, e);
+              }
+            })
+          );
+          
+          // Deduplicate by observation ID
+          const uniqueObservations = Array.from(
+            new Map(allObservations.map(o => [o.id, o])).values()
+          );
+          console.log(`[CREP] Loaded ${uniqueObservations.length} fungal observations from iNaturalist`);
+          setFungalObservations(uniqueObservations);
+        } catch (e) {
+          console.error("Failed to fetch fungal observations:", e);
         }
       } catch (error) {
         console.error("Failed to fetch CREP data:", error);
@@ -1261,6 +1376,115 @@ export default function CREPDashboardPage() {
     },
   };
 
+  // ===========================================================================
+  // FILTER AIRCRAFT based on aircraftFilter state
+  // Uses intelligent sampling to prevent map clutter while maintaining coverage
+  // ===========================================================================
+  const filteredAircraft = useMemo(() => {
+    // First, apply type/altitude filters
+    let filtered = aircraft.filter(ac => {
+      // Filter by airborne/ground status
+      const isOnGround = ac.onGround === true;
+      if (!aircraftFilter.showAirborne && !isOnGround) return false;
+      if (!aircraftFilter.showGround && isOnGround) return false;
+      
+      // Filter by altitude range (altitude is in feet)
+      const altitude = ac.altitude ?? 0;
+      if (altitude < aircraftFilter.minAltitude || altitude > aircraftFilter.maxAltitude) return false;
+      
+      // Filter by aircraft category (commercial, cargo, military, private)
+      const category = ac.tags?.find(t => 
+        ["Wide-body", "Narrow-body", "Regional", "Cargo", "Helicopter", "Aircraft"].includes(t)
+      ) || "Aircraft";
+      const isCargo = category === "Cargo" || ac.aircraftType?.includes("F");
+      const isMilitary = ac.callsign?.startsWith("RCH") || ac.callsign?.startsWith("DUKE") || 
+                         ac.registration?.startsWith("N/A") || false;
+      const isPrivate = !ac.airline && !isCargo && !isMilitary;
+      const isCommercial = !!ac.airline && !isCargo && !isMilitary;
+      
+      if (!aircraftFilter.showCargo && isCargo) return false;
+      if (!aircraftFilter.showMilitary && isMilitary) return false;
+      if (!aircraftFilter.showPrivate && isPrivate) return false;
+      if (!aircraftFilter.showCommercial && isCommercial) return false;
+      
+      return true;
+    });
+    
+    // Intelligent density reduction: limit to 250 aircraft for readable display
+    // Sample evenly to maintain global coverage
+    const MAX_DISPLAY = 250;
+    if (filtered.length > MAX_DISPLAY) {
+      // Sample every Nth aircraft to get even distribution
+      const step = Math.ceil(filtered.length / MAX_DISPLAY);
+      filtered = filtered.filter((_, idx) => idx % step === 0);
+    }
+    
+    return filtered;
+  }, [aircraft, aircraftFilter]);
+
+  // ===========================================================================
+  // FILTER VESSELS based on vesselFilter state  
+  // ===========================================================================
+  const filteredVessels = useMemo(() => {
+    return vessels.filter(v => {
+      // Get ship type
+      const shipType = typeof v.shipType === "number" ? v.shipType : 0;
+      const shipTypeStr = (v.properties?.shipType || v.description || "").toLowerCase();
+      
+      const isCargo = (shipType >= 70 && shipType <= 79) || shipTypeStr.includes("cargo");
+      const isTanker = (shipType >= 80 && shipType <= 89) || shipTypeStr.includes("tanker");
+      const isPassenger = (shipType >= 60 && shipType <= 69) || shipTypeStr.includes("passenger");
+      const isFishing = shipType === 30 || shipTypeStr.includes("fishing");
+      const isTug = shipType === 52 || shipTypeStr.includes("tug");
+      const isMilitary = shipType === 35 || shipTypeStr.includes("military");
+      
+      if (!vesselFilter.showCargo && isCargo) return false;
+      if (!vesselFilter.showTanker && isTanker) return false;
+      if (!vesselFilter.showPassenger && isPassenger) return false;
+      if (!vesselFilter.showFishing && isFishing) return false;
+      if (!vesselFilter.showTug && isTug) return false;
+      if (!vesselFilter.showMilitary && isMilitary) return false;
+      
+      // Filter by minimum speed
+      const speed = v.sog ?? v.properties?.sog ?? 0;
+      if (speed < vesselFilter.minSpeed) return false;
+      
+      return true;
+    });
+  }, [vessels, vesselFilter]);
+
+  // ===========================================================================
+  // FILTER SATELLITES based on satelliteFilter state
+  // ===========================================================================
+  const filteredSatellites = useMemo(() => {
+    return satellites.filter(sat => {
+      const objectType = (sat.objectType || sat.properties?.objectType || "").toLowerCase();
+      const name = (sat.name || "").toLowerCase();
+      
+      const isStation = objectType.includes("station") || name.includes("iss") || name.includes("tiangong");
+      const isWeather = objectType.includes("weather") || name.includes("goes") || name.includes("noaa");
+      const isComms = objectType.includes("communication");
+      const isGPS = objectType.includes("navigation") || name.includes("gps") || name.includes("glonass") || name.includes("galileo");
+      const isStarlink = name.includes("starlink");
+      const isDebris = objectType.includes("debris") || name.includes("deb");
+      
+      if (!satelliteFilter.showStations && isStation) return false;
+      if (!satelliteFilter.showWeather && isWeather) return false;
+      if (!satelliteFilter.showComms && isComms) return false;
+      if (!satelliteFilter.showGPS && isGPS) return false;
+      if (!satelliteFilter.showStarlink && isStarlink) return false;
+      if (!satelliteFilter.showDebris && isDebris) return false;
+      
+      // Filter by orbit type
+      const orbitType = sat.orbitType || sat.properties?.orbitType || "";
+      const orbitMatch = satelliteFilter.orbitTypes.length === 0 || 
+        satelliteFilter.orbitTypes.some(ot => orbitType.toUpperCase().includes(ot));
+      if (!orbitMatch) return false;
+      
+      return true;
+    });
+  }, [satellites, satelliteFilter]);
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
@@ -1272,7 +1496,7 @@ export default function CREPDashboardPage() {
   }
 
   return (
-    <div className="relative w-full bg-[#0a1628] overflow-x-hidden flex flex-col" style={{ height: 'calc(100vh - 8rem)', maxWidth: '100vw' }}>
+    <div className="relative w-full h-screen bg-[#0a1628] overflow-hidden flex flex-col">
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
@@ -1368,11 +1592,11 @@ export default function CREPDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Floating Left Sidebar - Intel Feed */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Floating Left Sidebar - Intel Feed - Overlays Map */}
         <div className={cn(
           "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
-          leftPanelOpen ? "w-72 opacity-100" : "w-0 opacity-0 pointer-events-none"
+          leftPanelOpen ? "w-72 opacity-100 translate-x-0" : "-translate-x-80 opacity-0 pointer-events-none"
         )}>
           <div className="h-full bg-[#0a1220]/95 backdrop-blur-md border border-cyan-500/20 rounded-lg overflow-hidden flex flex-col shadow-xl">
             {/* Sidebar Header */}
@@ -1431,7 +1655,7 @@ export default function CREPDashboardPage() {
             {/* Event List */}
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {filteredEvents.slice(0, 50).map((event) => {
+                {filteredEvents.map((event) => {
                   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
                   const isSelected = selectedEvent?.id === event.id;
                   
@@ -1486,8 +1710,8 @@ export default function CREPDashboardPage() {
           </div>
         </div>
 
-        {/* Map Container */}
-        <div className="flex-1 relative crep-map-container min-w-0" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: '100%', overflow: 'visible' }}>
+        {/* Map Container - Full size, panels overlay it */}
+        <div className="absolute inset-0 crep-map-container">
           {/* Custom CSS to hide map attribution for military/scientific use */}
           <style jsx global>{`
             .crep-map-container .maplibregl-ctrl-attrib,
@@ -1500,7 +1724,7 @@ export default function CREPDashboardPage() {
               opacity: 0 !important;
             }
           `}</style>
-          <Map 
+          <MapComponent 
             center={[0, 20]} 
             zoom={2}
             styles={{
@@ -1515,6 +1739,21 @@ export default function CREPDashboardPage() {
               showLocate={true}
               showFullscreen={false}
               className="mb-4 ml-4"
+            />
+
+            {/* Trajectory Lines - Flight Paths and Ship Routes */}
+            <TrajectoryLines
+              aircraft={filteredAircraft}
+              vessels={filteredVessels}
+              showFlightPaths={layers.find(l => l.id === "aviationRoutes")?.enabled ?? false}
+              showShipRoutes={layers.find(l => l.id === "shipRoutes")?.enabled ?? false}
+            />
+
+            {/* Satellite Orbit Lines - Ground Track Visualization */}
+            <SatelliteOrbitLines
+              satellites={filteredSatellites}
+              showOrbits={layers.find(l => l.id === "satellites")?.enabled ?? true}
+              showSelected={selectedSatellite?.id}
             />
 
             {/* Event Markers */}
@@ -1539,8 +1778,8 @@ export default function CREPDashboardPage() {
               />
             ))}
 
-            {/* Aircraft Markers (FlightRadar24/OpenSky) */}
-            {layers.find(l => l.id === "aviation")?.enabled && aircraft.map(ac => (
+            {/* Aircraft Markers (FlightRadar24/OpenSky) - Uses filtered data */}
+            {layers.find(l => l.id === "aviation")?.enabled && filteredAircraft.map(ac => (
               <AircraftMarker
                 key={ac.id}
                 aircraft={ac}
@@ -1549,8 +1788,8 @@ export default function CREPDashboardPage() {
               />
             ))}
 
-            {/* Vessel Markers (AISstream) */}
-            {layers.find(l => l.id === "ships")?.enabled && vessels.map(vessel => (
+            {/* Vessel Markers (AISstream) - Uses filtered data */}
+            {layers.find(l => l.id === "ships")?.enabled && filteredVessels.map(vessel => (
               <VesselMarker
                 key={vessel.id}
                 vessel={vessel}
@@ -1559,8 +1798,8 @@ export default function CREPDashboardPage() {
               />
             ))}
 
-            {/* Satellite Markers (CelesTrak) */}
-            {layers.find(l => l.id === "satellites")?.enabled && satellites.map(sat => (
+            {/* Satellite Markers (CelesTrak) - Uses filtered data */}
+            {layers.find(l => l.id === "satellites")?.enabled && filteredSatellites.map(sat => (
               <SatelliteMarker
                 key={sat.id}
                 satellite={sat}
@@ -1568,7 +1807,17 @@ export default function CREPDashboardPage() {
                 onClick={() => setSelectedSatellite(selectedSatellite?.id === sat.id ? null : sat)}
               />
             ))}
-          </Map>
+
+            {/* Fungal Observation Markers (iNaturalist) - Phase 1 MINDEX Integration */}
+            {layers.find(l => l.id === "fungi")?.enabled && fungalObservations.map(obs => (
+              <FungalMarker
+                key={`fungal-${obs.id}`}
+                observation={obs}
+                isSelected={selectedFungal?.id === obs.id}
+                onClick={() => setSelectedFungal(selectedFungal?.id === obs.id ? null : obs)}
+              />
+            ))}
+          </MapComponent>
 
           {/* Map Overlay - Corner Decorations */}
           <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/40 pointer-events-none" />
@@ -1589,31 +1838,37 @@ export default function CREPDashboardPage() {
               {onlineDevices} DEVICES
             </div>
             {aircraft.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400">
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400" title={`${filteredAircraft.length} shown / ${aircraft.length} total`}>
                 <Plane className="w-3 h-3 inline-block mr-1" />
-                {aircraft.length}
+                {filteredAircraft.length}/{aircraft.length}
               </div>
             )}
             {vessels.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400">
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400" title={`${filteredVessels.length} shown / ${vessels.length} total`}>
                 <Ship className="w-3 h-3 inline-block mr-1" />
-                {vessels.length}
+                {filteredVessels.length}/{vessels.length}
               </div>
             )}
             {satellites.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400">
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400" title={`${filteredSatellites.length} shown / ${satellites.length} total`}>
                 <Satellite className="w-3 h-3 inline-block mr-1" />
-                {satellites.length}
+                {filteredSatellites.length}/{satellites.length}
+              </div>
+            )}
+            {fungalObservations.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-green-400" title={`${fungalObservations.length} fungal observations from iNaturalist`}>
+                <Leaf className="w-3 h-3 inline-block mr-1" />
+                {fungalObservations.length}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side Panel - Overlays map */}
+        {/* Right Side Panel - Overlays Map with slide animation */}
         <div className={cn(
-          "absolute right-0 top-0 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md overflow-y-auto",
-          rightPanelOpen ? "w-72 opacity-100" : "w-0 opacity-0 pointer-events-none"
-        )} style={{ maxWidth: '288px' }}>
+          "absolute right-3 top-3 bottom-3 w-80 z-30 transition-all duration-300 ease-in-out border border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden",
+          rightPanelOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
+        )}>
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
@@ -1700,6 +1955,7 @@ export default function CREPDashboardPage() {
                           { type: "satellites", connected: isStreaming, messageCount: satellites.length },
                         ]}
                         isStreaming={isStreaming}
+                        noaaScales={noaaScales}
                         onAircraftFilterChange={(f) => setAircraftFilter({ ...aircraftFilter, ...f })}
                         onVesselFilterChange={(f) => setVesselFilter({ ...vesselFilter, ...f })}
                         onSatelliteFilterChange={(f) => setSatelliteFilter({ ...satelliteFilter, ...f })}

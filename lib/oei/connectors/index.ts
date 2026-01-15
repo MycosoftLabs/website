@@ -54,3 +54,21 @@ export {
   type SatelliteQuery,
   type SatelliteCategory,
 } from "./satellite-tracking"
+
+// Carbon Mapper Emissions
+export {
+  CarbonMapperClient,
+  getCarbonMapperClient,
+  type EmissionEntity,
+  type EmissionPlume,
+  type EmissionQuery,
+} from "./carbon-mapper"
+
+// OpenRailwayMap Railways
+export {
+  OpenRailwayClient,
+  getOpenRailwayClient,
+  type RailwayEntity,
+  type RailwayStation,
+  type RailwayQuery,
+} from "./openrailway"

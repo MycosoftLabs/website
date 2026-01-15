@@ -499,46 +499,38 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
-   DASHBOARD LAYOUT
+   DASHBOARD LAYOUT - FULLSCREEN MODE
    ============================================ */
 
-/* Ensure CREP dashboard fits within normal layout with header/footer */
-.app\:dashboard\:crep {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-}
-
-/* Ensure flex containers properly constrain width */
-.crep-map-container {
-  min-width: 0;
-  flex: 1 1 0%;
-}
-
-/* Override any fullscreen dashboard CSS - always show header and footer */
+/* Hide header and footer when in fullscreen dashboard mode */
 body.dashboard-fullscreen header,
 body.dashboard-fullscreen footer {
-  display: block !important;
-  visibility: visible !important;
+  display: none !important;
 }
 
+/* Make main content take full viewport */
 body.dashboard-fullscreen {
-  overflow: auto !important;
+  overflow: hidden !important;
 }
 
 html.dashboard-fullscreen {
-  overflow: auto !important;
+  overflow: hidden !important;
 }
 
 body.dashboard-fullscreen .min-h-screen {
-  position: relative !important;
-  width: 100% !important;
-  height: auto !important;
   min-height: 100vh !important;
+  height: 100vh !important;
 }
 
 body.dashboard-fullscreen main {
-  position: relative !important;
-  width: 100% !important;
-  height: auto !important;
+  flex: 1 !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+/* Ensure CREP map container doesn't overflow */
+.crep-map-container {
+  min-width: 0;
+  flex: 1 1 0%;
 }
