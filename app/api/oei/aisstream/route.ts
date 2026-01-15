@@ -26,26 +26,11 @@ export async function GET(request: NextRequest) {
   // Other params
   const mmsi = searchParams.get("mmsi")
   const publish = searchParams.get("publish") === "true"
-  const limit = parseInt(searchParams.get("limit") || "100")
+  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : undefined // No default limit
   const sample = searchParams.get("sample") === "true"
 
   try {
     const client = getAISStreamClient()
-    
-    // If sample data requested or no API key, return sample vessels
-    if (sample || !client.hasApiKey()) {
-      const vessels = client.getSampleVessels()
-      return NextResponse.json({
-        success: true,
-        sample: true,
-        message: client.hasApiKey() 
-          ? "Returning sample data as requested"
-          : "AISstream API key not configured. Set AISSTREAM_API_KEY env var. Returning sample data.",
-        total: vessels.length,
-        vessels,
-        timestamp: new Date().toISOString(),
-      })
-    }
     
     const query = {
       bounds: lamin && lamax && lomin && lomax ? {
@@ -58,6 +43,56 @@ export async function GET(request: NextRequest) {
       limit,
     }
     
+    // If sample data explicitly requested, return sample vessels
+    if (sample) {
+      const vessels = client.getSampleVessels()
+      return NextResponse.json({
+        success: true,
+        sample: true,
+        message: "Returning sample data as requested",
+        total: vessels.length,
+        vessels,
+        timestamp: new Date().toISOString(),
+      })
+    }
+    
+    // Try to get cached vessels from WebSocket stream
+    let vessels = client.getCachedVessels(query)
+    
+    // If cache is empty (no WebSocket connection or no data), use sample data as fallback
+    // This ensures the dashboard always has vessel data to display
+    if (vessels.length === 0) {
+      console.log("[AISStream] Cache empty, using sample vessel data as fallback")
+      vessels = client.getSampleVessels()
+      
+      // Apply query filters to sample data if provided
+      if (query.bounds) {
+        vessels = vessels.filter(v => {
+          if (!v.location) return false
+          const loc = v.location as { latitude: number; longitude: number }
+          return (
+            loc.latitude >= query.bounds!.south &&
+            loc.latitude <= query.bounds!.north &&
+            loc.longitude >= query.bounds!.west &&
+            loc.longitude <= query.bounds!.east
+          )
+        })
+      }
+      
+      if (query.limit && query.limit > 0) {
+        vessels = vessels.slice(0, query.limit)
+      }
+      
+      return NextResponse.json({
+        success: true,
+        sample: true,
+        message: "Using sample data - AISStream WebSocket cache is empty. For live data, start the AIS streaming service.",
+        total: vessels.length,
+        vessels,
+        timestamp: new Date().toISOString(),
+      })
+    }
+    
     if (publish) {
       const result = await client.publishCachedVessels(query)
       return NextResponse.json({
@@ -68,7 +103,6 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       })
     } else {
-      const vessels = client.getCachedVessels(query)
       return NextResponse.json({
         success: true,
         total: vessels.length,

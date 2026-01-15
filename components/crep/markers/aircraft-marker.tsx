@@ -5,8 +5,10 @@
  * 
  * Displays aircraft on the MapLibre map with real-time position,
  * heading indicator, and popup with flight details.
+ * Includes smooth movement animation based on velocity and heading.
  */
 
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +20,10 @@ interface AircraftMarkerProps {
   isSelected?: boolean;
   onClick?: () => void;
 }
+
+// Constants for animation
+const ANIMATION_INTERVAL_MS = 1000; // Update every second
+const KNOTS_TO_DEG_PER_SECOND = 1 / 3600 / 60; // Approximate conversion for lat/lon movement
 
 // Get color based on altitude
 function getAltitudeColor(altitude: number | null): string {
@@ -35,18 +41,77 @@ function getRotation(heading: number | null): number {
 
 export function AircraftMarker({ aircraft, isSelected = false, onClick }: AircraftMarkerProps) {
   // Guard: Ensure we have valid location data (handle both GeoJSON and flat format)
-  const longitude = aircraft?.location?.longitude ?? 
+  const baseLongitude = aircraft?.location?.longitude ?? 
     (aircraft?.location?.coordinates && aircraft.location.coordinates[0]);
-  const latitude = aircraft?.location?.latitude ?? 
+  const baseLatitude = aircraft?.location?.latitude ?? 
     (aircraft?.location?.coordinates && aircraft.location.coordinates[1]);
   
   // Guard: Ensure coordinates are valid numbers
-  if (typeof longitude !== 'number' || typeof latitude !== 'number' || isNaN(longitude) || isNaN(latitude)) {
+  if (typeof baseLongitude !== 'number' || typeof baseLatitude !== 'number' || isNaN(baseLongitude) || isNaN(baseLatitude)) {
     return null;
   }
   
+  // State for animated position
+  const [animatedPosition, setAnimatedPosition] = useState({
+    longitude: baseLongitude,
+    latitude: baseLatitude
+  });
+  
+  // Keep track of base position updates
+  const lastBasePosition = useRef({ longitude: baseLongitude, latitude: baseLatitude });
+  const animationStartTime = useRef(Date.now());
+  
+  // Reset animation when base position changes (new data from API)
+  useEffect(() => {
+    if (lastBasePosition.current.longitude !== baseLongitude || 
+        lastBasePosition.current.latitude !== baseLatitude) {
+      lastBasePosition.current = { longitude: baseLongitude, latitude: baseLatitude };
+      setAnimatedPosition({ longitude: baseLongitude, latitude: baseLatitude });
+      animationStartTime.current = Date.now();
+    }
+  }, [baseLongitude, baseLatitude]);
+  
+  // Animate position based on velocity and heading
+  useEffect(() => {
+    if (!aircraft.velocity || !aircraft.heading || aircraft.onGround) {
+      return; // Don't animate if no velocity/heading or on ground
+    }
+    
+    const velocityKnots = aircraft.velocity;
+    const headingDeg = aircraft.heading;
+    
+    // Convert heading to radians
+    const headingRad = (headingDeg * Math.PI) / 180;
+    
+    // Calculate speed in degrees per second (approximate)
+    // 1 knot = 1 nautical mile per hour = 1/60 degree per hour (at equator)
+    const speedDegPerSecond = (velocityKnots / 3600) / 60;
+    
+    const animate = () => {
+      const elapsed = (Date.now() - animationStartTime.current) / 1000; // seconds
+      
+      // Calculate displacement
+      const dLon = Math.sin(headingRad) * speedDegPerSecond * elapsed;
+      const dLat = Math.cos(headingRad) * speedDegPerSecond * elapsed;
+      
+      setAnimatedPosition({
+        longitude: baseLongitude + dLon,
+        latitude: baseLatitude + dLat
+      });
+    };
+    
+    const intervalId = setInterval(animate, ANIMATION_INTERVAL_MS);
+    animate(); // Run immediately
+    
+    return () => clearInterval(intervalId);
+  }, [baseLongitude, baseLatitude, aircraft.velocity, aircraft.heading, aircraft.onGround]);
+  
   const altitudeColor = getAltitudeColor(aircraft.altitude);
   const rotation = getRotation(aircraft.heading);
+  
+  // Use animated position for rendering
+  const longitude = animatedPosition.longitude;
+  const latitude = animatedPosition.latitude;
   
   return (
     <MapMarker 

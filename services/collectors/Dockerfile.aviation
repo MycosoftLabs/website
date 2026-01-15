@@ -1,0 +1,29 @@
+# Aviation Data Collector Service
+# Last Updated: 2026-01-15T14:30:00Z
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir aiohttp redis tenacity
+
+# Copy application
+COPY aviation_collector.py .
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Environment variables
+ENV REDIS_URL=redis://redis:6379
+ENV MINDEX_API_URL=http://mindex:8001
+ENV AVIATION_CACHE_PATH=/app/data/aviation_cache.db
+ENV COLLECT_INTERVAL=30
+
+# Expose port for health checks and API
+EXPOSE 8101
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import sqlite3; conn=sqlite3.connect('/app/data/aviation_cache.db'); conn.close()" || exit 1
+
+CMD ["python", "aviation_collector.py"]

@@ -1,0 +1,23 @@
+# Satellite Data Collector Service
+# Last Updated: 2026-01-15T14:30:00Z
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir aiohttp redis tenacity sgp4
+
+COPY satellite_collector.py .
+
+RUN mkdir -p /app/data
+
+ENV REDIS_URL=redis://redis:6379
+ENV MINDEX_API_URL=http://mindex:8001
+ENV SATELLITE_CACHE_PATH=/app/data/satellite_cache.db
+ENV COLLECT_INTERVAL=300
+
+EXPOSE 8103
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import sqlite3; conn=sqlite3.connect('/app/data/satellite_cache.db'); conn.close()" || exit 1
+
+CMD ["python", "satellite_collector.py"]

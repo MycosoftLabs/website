@@ -5,19 +5,24 @@
  * 
  * Displays satellites on the MapLibre map with estimated position
  * and popup with orbital parameters.
+ * Includes movement animation based on orbital velocity.
  */
 
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
 import { Satellite, Clock, Globe, Radio, Gauge, Orbit } from "lucide-react";
-import type { SatelliteEntity } from "@/types/oei";
+import type { SatelliteEntity } from "@/lib/oei/connectors/satellite-tracking";
 
 interface SatelliteMarkerProps {
   satellite: SatelliteEntity;
   isSelected?: boolean;
   onClick?: () => void;
 }
+
+// Constants for animation
+const ANIMATION_INTERVAL_MS = 500; // Update every 500ms for smoother satellite motion
 
 // Get color based on orbit type
 function getOrbitColor(orbitType: string | undefined): string {
@@ -51,17 +56,87 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick }: Sate
   const objectTypeLabel = getObjectTypeLabel(satellite.objectType);
   
   // Get position from estimated position or defaults
-  const lng = satellite.estimatedPosition?.longitude ?? 0;
-  const lat = satellite.estimatedPosition?.latitude ?? 0;
+  const baseLng = satellite.estimatedPosition?.longitude ?? 0;
+  const baseLat = satellite.estimatedPosition?.latitude ?? 0;
   const alt = satellite.estimatedPosition?.altitude ?? satellite.orbitalParams?.apogee ?? 0;
   
   // Only render if we have valid coordinates (not both 0,0)
-  if (lng === 0 && lat === 0) return null;
+  if (baseLng === 0 && baseLat === 0) return null;
   
   // Guard: Ensure coordinates are valid numbers
-  if (typeof lng !== 'number' || typeof lat !== 'number' || isNaN(lng) || isNaN(lat)) {
+  if (typeof baseLng !== 'number' || typeof baseLat !== 'number' || isNaN(baseLng) || isNaN(baseLat)) {
     return null;
   }
+  
+  // State for animated position
+  const [animatedPosition, setAnimatedPosition] = useState({
+    lng: baseLng,
+    lat: baseLat
+  });
+  
+  // Keep track of base position updates
+  const lastBasePosition = useRef({ lng: baseLng, lat: baseLat });
+  const animationStartTime = useRef(Date.now());
+  
+  // Reset animation when base position changes (new data from API)
+  useEffect(() => {
+    if (lastBasePosition.current.lng !== baseLng || 
+        lastBasePosition.current.lat !== baseLat) {
+      lastBasePosition.current = { lng: baseLng, lat: baseLat };
+      setAnimatedPosition({ lng: baseLng, lat: baseLat });
+      animationStartTime.current = Date.now();
+    }
+  }, [baseLng, baseLat]);
+  
+  // Animate satellite position based on orbital period
+  useEffect(() => {
+    // Calculate orbital velocity from period or use default for LEO
+    // LEO satellites typically orbit at ~7.8 km/s, which translates to about 0.065 deg/s longitude at equator
+    const periodMinutes = satellite.orbitalParams?.period || 90; // Default to 90 min for LEO
+    
+    // Angular velocity in degrees per second (360 degrees / period in seconds)
+    const angularVelocityDegPerSec = 360 / (periodMinutes * 60);
+    
+    // For flat map, satellites primarily move east-west (longitude)
+    // with slight latitude oscillation based on inclination
+    const inclination = satellite.orbitalParams?.inclination || 45;
+    
+    const animate = () => {
+      const elapsed = (Date.now() - animationStartTime.current) / 1000; // seconds
+      
+      // Calculate longitude displacement (primarily eastward for prograde orbits)
+      // Satellites move faster than Earth rotation, so they appear to move eastward
+      const dLon = angularVelocityDegPerSec * elapsed;
+      
+      // Calculate latitude oscillation (simplified)
+      // Satellites oscillate between +/- inclination degrees
+      const oscillationPeriod = periodMinutes * 60; // seconds
+      const phase = (elapsed / oscillationPeriod) * 2 * Math.PI;
+      const dLat = Math.sin(phase) * inclination * 0.1; // Small oscillation
+      
+      // Wrap longitude to stay in valid range
+      let newLng = baseLng + dLon;
+      while (newLng > 180) newLng -= 360;
+      while (newLng < -180) newLng += 360;
+      
+      // Clamp latitude
+      const newLat = Math.max(-85, Math.min(85, baseLat + dLat));
+      
+      setAnimatedPosition({
+        lng: newLng,
+        lat: newLat
+      });
+    };
+    
+    const intervalId = setInterval(animate, ANIMATION_INTERVAL_MS);
+    animate(); // Run immediately
+    
+    return () => clearInterval(intervalId);
+  }, [baseLng, baseLat, satellite.orbitalParams?.period, satellite.orbitalParams?.inclination]);
+  
+  // Use animated position for rendering
+  const lng = animatedPosition.lng;
+  const lat = animatedPosition.lat;
   
   return (
     <MapMarker 
@@ -248,7 +323,7 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick }: Sate
           <div className="flex items-center justify-between pt-1 border-t border-gray-700/50 text-[8px]">
             <div className="flex items-center gap-1 text-gray-500">
               <Clock className="w-3 h-3" />
-              Updated: {new Date(satellite.lastSeen).toLocaleTimeString()}
+              Updated: {new Date(satellite.lastSeen || satellite.lastSeenAt || Date.now()).toLocaleTimeString()}
             </div>
             <div className="flex items-center gap-1 text-gray-600">
               <Radio className="w-3 h-3" />

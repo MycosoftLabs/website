@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const query = {
       category: validCategory,
       noradIds,
-      limit: limit ? parseInt(limit) : 50,
+      limit: limit ? parseInt(limit) : undefined, // No default limit - fetch all available
     }
 
     const satellites = await client.fetchSatellites(query)

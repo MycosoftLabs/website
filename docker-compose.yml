@@ -1,0 +1,330 @@
+# Mycosoft Platform - Complete Docker Compose
+# Last Updated: 2026-01-15T14:30:00Z
+# Version: 2.0.0
+#
+# This file orchestrates ALL Mycosoft services for single-snapshot deployment
+# to Proxmox VM. All services are designed for high availability and
+# automatic recovery.
+#
+# Usage:
+#   docker-compose up -d              # Start all services
+#   docker-compose logs -f            # View logs
+#   docker-compose down               # Stop all services
+#   docker-compose pull && docker-compose up -d  # Update services
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # CORE SERVICES
+  # ==========================================================================
+  
+  website:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: mycosoft-website
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=website"
+      - "com.mycosoft.version=2.0.0"
+
+  # ==========================================================================
+  # DATA LAYER
+  # ==========================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mycosoft-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mycosoft}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mycosoft_secure_2026}
+      - POSTGRES_DB=${POSTGRES_DB:-mycosoft}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mycosoft"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mycosoft-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mycosoft-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # MYCOBRAIN SERVICE
+  # ==========================================================================
+
+  mycobrain:
+    build:
+      context: ./services/mycobrain
+      dockerfile: Dockerfile
+    container_name: mycosoft-mycobrain
+    ports:
+      - "8765:8765"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - mycobrain_data:/app/data
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # GEOCODING SERVICE
+  # ==========================================================================
+
+  geocoding:
+    build:
+      context: ./services/geocoding
+      dockerfile: Dockerfile
+    container_name: mycosoft-geocoding
+    ports:
+      - "8107:8107"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - GEOCODING_CACHE_PATH=/app/data/geocoding_cache.db
+      - GEOCODING_INTERVAL=300
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - geocoding_data:/app/data
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # DATA COLLECTORS
+  # ==========================================================================
+
+  aviation-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.aviation
+    container_name: mycosoft-aviation
+    ports:
+      - "8101:8101"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - COLLECT_INTERVAL=30
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - aviation_data:/app/data
+    networks:
+      - mycosoft-network
+
+  maritime-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.maritime
+    container_name: mycosoft-maritime
+    ports:
+      - "8102:8102"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - COLLECT_INTERVAL=60
+      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY}
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - maritime_data:/app/data
+    networks:
+      - mycosoft-network
+
+  satellite-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.satellite
+    container_name: mycosoft-satellite
+    ports:
+      - "8103:8103"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - COLLECT_INTERVAL=300
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - satellite_data:/app/data
+    networks:
+      - mycosoft-network
+
+  space-weather-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.spaceweather
+    container_name: mycosoft-spaceweather
+    ports:
+      - "8104:8104"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - COLLECT_INTERVAL=300
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - spaceweather_data:/app/data
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # MINDEX EVENT LOGGER
+  # ==========================================================================
+
+  mindex-logger:
+    build:
+      context: ./services/mindex-logger
+      dockerfile: Dockerfile
+    container_name: mycosoft-mindex-logger
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex:8001
+      - LOG_BATCH_SIZE=100
+      - LOG_FLUSH_INTERVAL=10
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - mindex_logs:/app/logs
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # MONITORING STACK
+  # ==========================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mycosoft-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mycosoft-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # WORKFLOW AUTOMATION
+  # ==========================================================================
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: mycosoft-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - WEBHOOK_URL=https://api.mycosoft.com/webhooks
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+networks:
+  mycosoft-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mycobrain_data:
+    driver: local
+  geocoding_data:
+    driver: local
+  aviation_data:
+    driver: local
+  maritime_data:
+    driver: local
+  satellite_data:
+    driver: local
+  spaceweather_data:
+    driver: local
+  mindex_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  n8n_data:
+    driver: local

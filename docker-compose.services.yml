@@ -1,0 +1,163 @@
+version: '3.8'
+
+# Mycosoft CREP Data Collectors and Infrastructure
+# This compose file runs all data collection services with Redis caching
+
+services:
+  # ====================
+  # INFRASTRUCTURE
+  # ====================
+  
+  redis:
+    image: redis:7-alpine
+    container_name: mycosoft-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mycosoft-network
+
+  # ====================
+  # DATA COLLECTORS
+  # ====================
+
+  aviation-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.aviation
+    container_name: mycosoft-aviation-collector
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AVIATION_CACHE_PATH=/app/data/aviation_cache.db
+      - COLLECT_INTERVAL=30
+    volumes:
+      - aviation_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mycosoft-network
+
+  maritime-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.maritime
+    container_name: mycosoft-maritime-collector
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MARITIME_CACHE_PATH=/app/data/maritime_cache.db
+      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY:-}
+      - COLLECT_INTERVAL=60
+    volumes:
+      - maritime_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mycosoft-network
+
+  satellite-collector:
+    build:
+      context: ./services/collectors
+      dockerfile: Dockerfile.satellite
+    container_name: mycosoft-satellite-collector
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SATELLITE_CACHE_PATH=/app/data/satellite_cache.db
+      - COLLECT_INTERVAL=3600
+    volumes:
+      - satellite_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mycosoft-network
+
+  # ====================
+  # GEOCODING PIPELINE
+  # ====================
+
+  geocoding-service:
+    build:
+      context: ./services/geocoding
+      dockerfile: Dockerfile
+    container_name: mycosoft-geocoding
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex-api:8001
+      - GEOCODING_CACHE_PATH=/app/data/geocoding_cache.db
+      - GEOCODING_INTERVAL=300
+    volumes:
+      - geocoding_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mycosoft-network
+
+  # ====================
+  # MINDEX AUDIT LOGGER
+  # ====================
+
+  mindex-audit-logger:
+    build:
+      context: ./services/mindex_logger
+      dockerfile: Dockerfile
+    container_name: mycosoft-audit-logger
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINDEX_API_URL=http://mindex-api:8001
+      - AUDIT_LOG_PATH=/app/data/audit_log.db
+      - SYNC_INTERVAL=60
+    volumes:
+      - audit_data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - mycosoft-network
+
+  # ====================
+  # NEXT.JS WEBSITE
+  # ====================
+
+  website:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: mycosoft-website
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - mycosoft-network
+
+networks:
+  mycosoft-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  aviation_data:
+  maritime_data:
+  satellite_data:
+  geocoding_data:
+  audit_data:

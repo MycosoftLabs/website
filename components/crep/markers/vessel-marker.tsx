@@ -5,8 +5,10 @@
  * 
  * Displays vessels on the MapLibre map with real-time AIS position,
  * heading indicator, and popup with vessel details.
+ * Includes smooth movement animation based on speed and course.
  */
 
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +20,9 @@ interface VesselMarkerProps {
   isSelected?: boolean;
   onClick?: () => void;
 }
+
+// Constants for animation
+const ANIMATION_INTERVAL_MS = 1000; // Update every second
 
 // Get vessel type icon and color
 function getVesselStyle(shipType: number | null): { icon: React.ReactNode; color: string; label: string } {
@@ -64,15 +69,76 @@ function getNavStatus(status: number | null): { label: string; color: string } {
 
 export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMarkerProps) {
   // Guard: Ensure we have valid location data (handle both GeoJSON and flat format)
-  const longitude = vessel?.location?.longitude ?? 
+  const baseLongitude = vessel?.location?.longitude ?? 
     (vessel?.location?.coordinates && vessel.location.coordinates[0]);
-  const latitude = vessel?.location?.latitude ?? 
+  const baseLatitude = vessel?.location?.latitude ?? 
     (vessel?.location?.coordinates && vessel.location.coordinates[1]);
   
   // Guard: Ensure coordinates are valid numbers
-  if (typeof longitude !== 'number' || typeof latitude !== 'number' || isNaN(longitude) || isNaN(latitude)) {
+  if (typeof baseLongitude !== 'number' || typeof baseLatitude !== 'number' || isNaN(baseLongitude) || isNaN(baseLatitude)) {
     return null;
   }
+  
+  // State for animated position
+  const [animatedPosition, setAnimatedPosition] = useState({
+    longitude: baseLongitude,
+    latitude: baseLatitude
+  });
+  
+  // Keep track of base position updates
+  const lastBasePosition = useRef({ longitude: baseLongitude, latitude: baseLatitude });
+  const animationStartTime = useRef(Date.now());
+  
+  // Reset animation when base position changes (new data from API)
+  useEffect(() => {
+    if (lastBasePosition.current.longitude !== baseLongitude || 
+        lastBasePosition.current.latitude !== baseLatitude) {
+      lastBasePosition.current = { longitude: baseLongitude, latitude: baseLatitude };
+      setAnimatedPosition({ longitude: baseLongitude, latitude: baseLatitude });
+      animationStartTime.current = Date.now();
+    }
+  }, [baseLongitude, baseLatitude]);
+  
+  // Animate position based on speed (SOG) and course (COG)
+  useEffect(() => {
+    // Don't animate if vessel is stationary (moored, anchored, at dock)
+    const isStationary = vessel.navStatus === 1 || vessel.navStatus === 5 || !vessel.sog || vessel.sog < 0.5;
+    if (isStationary || !vessel.cog) {
+      return;
+    }
+    
+    const speedKnots = vessel.sog;
+    const courseDeg = vessel.cog;
+    
+    // Convert course to radians
+    const courseRad = (courseDeg * Math.PI) / 180;
+    
+    // Calculate speed in degrees per second (approximate)
+    // 1 knot = 1 nautical mile per hour = 1/60 degree per hour (at equator)
+    const speedDegPerSecond = (speedKnots / 3600) / 60;
+    
+    const animate = () => {
+      const elapsed = (Date.now() - animationStartTime.current) / 1000; // seconds
+      
+      // Calculate displacement
+      const dLon = Math.sin(courseRad) * speedDegPerSecond * elapsed;
+      const dLat = Math.cos(courseRad) * speedDegPerSecond * elapsed;
+      
+      setAnimatedPosition({
+        longitude: baseLongitude + dLon,
+        latitude: baseLatitude + dLat
+      });
+    };
+    
+    const intervalId = setInterval(animate, ANIMATION_INTERVAL_MS);
+    animate(); // Run immediately
+    
+    return () => clearInterval(intervalId);
+  }, [baseLongitude, baseLatitude, vessel.sog, vessel.cog, vessel.navStatus]);
+  
+  // Use animated position for rendering
+  const longitude = animatedPosition.longitude;
+  const latitude = animatedPosition.latitude;
   
   const vesselStyle = getVesselStyle(vessel.shipType);
   const navStatus = getNavStatus(vessel.navStatus);
