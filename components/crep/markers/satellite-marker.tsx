@@ -44,16 +44,24 @@ function getObjectTypeLabel(objectType: string | undefined): string {
 }
 
 export function SatelliteMarker({ satellite, isSelected = false, onClick }: SatelliteMarkerProps) {
+  // Guard: Ensure satellite data exists
+  if (!satellite) return null;
+  
   const orbitColor = getOrbitColor(satellite.orbitType);
   const objectTypeLabel = getObjectTypeLabel(satellite.objectType);
   
   // Get position from estimated position or defaults
-  const lng = satellite.estimatedPosition?.longitude || 0;
-  const lat = satellite.estimatedPosition?.latitude || 0;
-  const alt = satellite.estimatedPosition?.altitude || satellite.orbitalParams?.apogee || 0;
+  const lng = satellite.estimatedPosition?.longitude ?? 0;
+  const lat = satellite.estimatedPosition?.latitude ?? 0;
+  const alt = satellite.estimatedPosition?.altitude ?? satellite.orbitalParams?.apogee ?? 0;
   
-  // Only render if we have valid coordinates
-  if (!lng && !lat) return null;
+  // Only render if we have valid coordinates (not both 0,0)
+  if (lng === 0 && lat === 0) return null;
+  
+  // Guard: Ensure coordinates are valid numbers
+  if (typeof lng !== 'number' || typeof lat !== 'number' || isNaN(lng) || isNaN(lat)) {
+    return null;
+  }
   
   return (
     <MapMarker 
