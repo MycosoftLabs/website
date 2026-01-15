@@ -508,25 +508,43 @@ body.dashboard-fullscreen footer {
   display: none !important;
 }
 
-/* Make the main content area fill the screen */
+/* Remove padding/margins from body and html for fullscreen */
+body.dashboard-fullscreen {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+html.dashboard-fullscreen {
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Make the wrapper div fill the entire viewport */
 body.dashboard-fullscreen .min-h-screen {
-  min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
+/* Make the main content area fill the screen */
 body.dashboard-fullscreen main {
-  height: 100vh;
-  overflow: hidden;
-}
-
-/* Dashboard container fills viewport */
-.dashboard-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 50;
-  background: var(--background);
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }

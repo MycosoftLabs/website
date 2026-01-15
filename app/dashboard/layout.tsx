@@ -15,17 +15,16 @@ export default function DashboardLayout({
 }) {
   useEffect(() => {
     // Add class to hide header/footer for fullscreen dashboard
+    document.documentElement.classList.add("dashboard-fullscreen")
     document.body.classList.add("dashboard-fullscreen")
     
     return () => {
       // Remove class when leaving dashboard
+      document.documentElement.classList.remove("dashboard-fullscreen")
       document.body.classList.remove("dashboard-fullscreen")
     }
   }, [])
 
-  return (
-    <div className="dashboard-container h-screen w-screen overflow-hidden">
-      {children}
-    </div>
-  )
+  // Pass children through directly - CREP page handles its own fullscreen layout
+  return <>{children}</>
 }
