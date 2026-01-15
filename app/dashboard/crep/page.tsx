@@ -152,6 +152,9 @@ interface Device {
     lng: number;
     status: "online" | "offline";
   type?: string;
+  port?: string;
+  firmware?: string;
+  protocol?: string;
 }
 
 interface LayerConfig {
@@ -345,11 +348,11 @@ function DeviceMarker({ device, isSelected, onClick }: {
           </div>
         </div>
       </MarkerContent>
-      <MarkerPopup className="min-w-[180px] bg-[#0a1628]/95 backdrop-blur border-green-500/30" closeButton>
+      <MarkerPopup className="min-w-[200px] bg-[#0a1628]/95 backdrop-blur border-green-500/30" closeButton>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className={cn(
-              "w-6 h-6 rounded flex items-center justify-center text-lg",
+              "w-7 h-7 rounded flex items-center justify-center text-lg",
               isOnline ? "bg-green-500/20" : "bg-red-500/20"
             )}>
               🍄
@@ -360,13 +363,33 @@ function DeviceMarker({ device, isSelected, onClick }: {
                 "text-[10px] uppercase font-mono",
                 isOnline ? "text-green-400" : "text-red-400"
               )}>
-                {device.status}
+                ● {device.status}
               </div>
             </div>
           </div>
-          <div className="text-[10px] text-gray-500">
-            {device.lat.toFixed(4)}°, {device.lng.toFixed(4)}°
+          <div className="grid grid-cols-2 gap-1 text-[9px] font-mono">
+            {device.port && (
+              <>
+                <span className="text-gray-500">PORT</span>
+                <span className="text-cyan-400">{device.port}</span>
+              </>
+            )}
+            {device.protocol && (
+              <>
+                <span className="text-gray-500">PROTOCOL</span>
+                <span className="text-cyan-400">{device.protocol}</span>
+              </>
+            )}
+            {device.firmware && device.firmware !== "unknown" && (
+              <>
+                <span className="text-gray-500">FIRMWARE</span>
+                <span className="text-cyan-400">{device.firmware}</span>
+              </>
+            )}
+            <span className="text-gray-500">LAT/LNG</span>
+            <span className="text-gray-400">{device.lat.toFixed(4)}°, {device.lng.toFixed(4)}°</span>
           </div>
+          <div className="text-[8px] text-gray-600 font-mono truncate">{device.id}</div>
         </div>
       </MarkerPopup>
     </MapMarker>
@@ -993,15 +1016,29 @@ export default function CREPDashboardPage() {
         const devicesRes = await fetch("/api/mycobrain/devices");
         if (devicesRes.ok) {
           const data = await devicesRes.json();
-          const formattedDevices = (data.devices || [])
-            .filter((d: any) => d.location?.lat && d.location?.lng)
-            .map((d: any) => ({
-              id: d.id,
-              name: d.name || "MycoBrain Device",
-              lat: d.location.lat,
-              lng: d.location.lng,
-              status: d.status === "online" ? "online" : "offline",
-            }));
+          // MycoBrain devices may not have location data - use defaults or configured locations
+          const formattedDevices = (data.devices || []).map((d: any, index: number) => {
+            // Default locations spread around the world for devices without location
+            const defaultLocations = [
+              { lat: 49.3988, lng: -123.9756, name: "Nanaimo Lab" }, // Nanaimo, BC - main lab
+              { lat: 48.4284, lng: -123.3656, name: "Victoria Lab" },
+              { lat: 49.2827, lng: -123.1207, name: "Vancouver Lab" },
+              { lat: 47.6062, lng: -122.3321, name: "Seattle Lab" },
+              { lat: 45.5152, lng: -122.6784, name: "Portland Lab" },
+            ];
+            const defaultLoc = defaultLocations[index % defaultLocations.length];
+            
+            return {
+              id: d.device_id || d.id || `device-${index}`,
+              name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
+              lat: d.location?.lat || defaultLoc.lat,
+              lng: d.location?.lng || defaultLoc.lng,
+              status: d.status === "connected" || d.status === "online" ? "online" : "offline",
+              port: d.port,
+              firmware: d.info?.firmware,
+              protocol: d.protocol,
+            };
+          });
           setDevices(formattedDevices);
         }
       } catch (error) {
