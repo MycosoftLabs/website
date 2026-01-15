@@ -1272,7 +1272,7 @@ export default function CREPDashboardPage() {
   }
 
   return (
-    <div className="relative w-full h-screen bg-[#0a1628] overflow-hidden flex flex-col">
+    <div className="relative w-full max-w-full bg-[#0a1628] overflow-x-hidden flex flex-col" style={{ height: 'calc(100vh - 8rem)' }}>
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
@@ -1368,7 +1368,7 @@ export default function CREPDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-x-hidden overflow-y-auto relative w-full" style={{ minWidth: 0, maxWidth: '100%' }}>
         {/* Floating Left Sidebar - Intel Feed */}
         <div className={cn(
           "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
@@ -1487,7 +1487,7 @@ export default function CREPDashboardPage() {
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 relative crep-map-container">
+        <div className="flex-1 relative crep-map-container min-w-0 overflow-hidden" style={{ flex: '1 1 0%', minWidth: 0 }}>
           {/* Custom CSS to hide map attribution for military/scientific use */}
           <style jsx global>{`
             .crep-map-container .maplibregl-ctrl-attrib,
@@ -1611,8 +1611,8 @@ export default function CREPDashboardPage() {
 
         {/* Right Side Panel */}
         <div className={cn(
-          "flex-shrink-0 h-full transition-all duration-300 ease-in-out border-l border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md z-30",
-          rightPanelOpen ? "w-80" : "w-0 opacity-0 pointer-events-none"
+          "flex-shrink-0 h-full transition-all duration-300 ease-in-out border-l border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md z-30 overflow-y-auto",
+          rightPanelOpen ? "w-80 max-w-[320px]" : "w-0 opacity-0 pointer-events-none"
         )}>
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
