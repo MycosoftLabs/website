@@ -258,7 +258,7 @@ export async function GET(
     
     // Send scan command using CLI endpoint for longer wait time
     const scanRes = await fetch(
-      `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/cli`,
+      `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

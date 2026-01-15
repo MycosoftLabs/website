@@ -202,8 +202,46 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [serialMonitoring, setSerialMonitoring] = useState(false)
   const [diagnostics, setDiagnostics] = useState<any>(null)
   const [machineModeActive, setMachineModeActive] = useState(false)
+  const machineModePendingRef = useRef(false)
   const lastServiceErrorRef = useRef<string | null>(null)
   const serviceErrorCountRef = useRef(0)
+
+  // Auto-initialize machine mode when device connects
+  useEffect(() => {
+    if (!device?.port || !device?.connected) {
+      setMachineModeActive(false)
+      return
+    }
+    
+    // Prevent duplicate initialization
+    if (machineModeActive || machineModePendingRef.current) return
+    machineModePendingRef.current = true
+    
+    const initMachineMode = async () => {
+      try {
+        logToConsole("> Auto-initializing machine mode...")
+        const res = await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/machine-mode`, {
+          method: "POST",
+          signal: AbortSignal.timeout(10000),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setMachineModeActive(true)
+          logToConsole("✓ Machine mode auto-initialized")
+        } else {
+          logToConsole(`✗ Machine mode init failed: ${data.error || "Unknown"}`)
+        }
+      } catch (error) {
+        logToConsole(`✗ Machine mode init error: ${error}`)
+      } finally {
+        machineModePendingRef.current = false
+      }
+    }
+    
+    // Small delay to let device settle after connection
+    const timer = setTimeout(initMachineMode, 1000)
+    return () => clearTimeout(timer)
+  }, [device?.port, device?.connected, machineModeActive])
 
   const handleCommand = async (name: string, action: () => Promise<unknown>) => {
     setCommandLoading(name)

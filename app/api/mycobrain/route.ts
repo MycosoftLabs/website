@@ -1,10 +1,45 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 
 // MycoBrain service URL - can be local Python service or Docker container
 // Port 8003 = MAS dual service (preferred), Port 8765 = legacy website service
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export const dynamic = "force-dynamic"
+
+// Normalize device data from service to match frontend expectations
+function normalizeDevice(d: any) {
+  return {
+    ...d,
+    port: d.port || d.device,
+    device_id: d.device_id || `mycobrain-${(d.port || d.device || "unknown").replace(/[\/\\]/g, "-")}`,
+    connected: d.connected ?? (d.status === "connected"),
+    // Mark as verified MycoBrain device if it has board info
+    is_mycobrain: true,
+    verified: true,
+    // Normalize info -> device_info for frontend compatibility
+    device_info: d.device_info || {
+      side: d.info?.side,
+      firmware_version: d.info?.firmware,
+      board_type: d.info?.board,
+      bme688_count: 2, // MycoBrain boards typically have 2 BME688 sensors
+      status: d.status,
+    },
+    // Keep original info field as well
+    info: d.info,
+    // Preserve or initialize sensor_data
+    sensor_data: d.sensor_data || {},
+    // Set capabilities based on known MycoBrain hardware
+    capabilities: d.capabilities || {
+      bme688_count: 2,
+      has_lora: false,
+      has_neopixel: true,
+      has_buzzer: true,
+      i2c_bus: true,
+      analog_inputs: 4,
+      digital_io: 3,
+    },
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,6 +68,9 @@ export async function GET(request: NextRequest) {
     if (response.ok) {
       const data = await response.json()
       
+      // Normalize devices to match frontend expectations
+      const normalizedDevices = (data.devices || []).map(normalizeDevice)
+      
       // Also get available ports to show discovery status
       const portsRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, {
         signal: AbortSignal.timeout(2000),
@@ -42,6 +80,7 @@ export async function GET(request: NextRequest) {
       
       return NextResponse.json({
         ...data,
+        devices: normalizedDevices,
         source: "mycobrain-service",
         availablePorts: portsData.ports || [],
         discoveryRunning: portsData.discovery_running || false,
@@ -123,4 +162,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

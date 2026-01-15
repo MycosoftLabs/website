@@ -18,8 +18,8 @@ export async function POST(
     // The port parameter might be a device_id (e.g., "mycobrain-side-a-COM5") or just a port (e.g., "COM5")
     let deviceId = port
     
-    // If it looks like just a port (COM5), try to find the device_id
-    if (port.match(/^COM\d+$/i)) {
+    // If it looks like a port path (COM5, /dev/ttyACM0), try to find the device_id
+    if (port.match(/^COM\d+$/i) || port.startsWith("/dev/")) {
       try {
         const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
           signal: AbortSignal.timeout(3000),

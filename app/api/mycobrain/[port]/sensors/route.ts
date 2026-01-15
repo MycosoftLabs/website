@@ -136,7 +136,7 @@ export async function GET(
   try {
     // Find device_id from port
     let deviceId = port
-    if (port.match(/^COM\d+$/i)) {
+    if (port.match(/^COM\d+$/i) || port.startsWith("/dev/")) {
       try {
         const devicesRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
           signal: AbortSignal.timeout(3000),
@@ -170,13 +170,13 @@ export async function GET(
     }
 
     const fetchPromise = (async () => {
-      // Send "sensors" command via CLI endpoint (works better for text commands)
+      // Send "sensors" command via /command endpoint
       const response = await fetch(
-        `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/cli`,
+        `${MYCOBRAIN_SERVICE_URL}/devices/${encodeURIComponent(deviceId)}/command`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: "sensors" }),
+          body: JSON.stringify({ command: { cmd: "get-sensors" } }),
           // Give serial a bit more time; cache keeps UI fast.
           signal: AbortSignal.timeout(12000),
         }
