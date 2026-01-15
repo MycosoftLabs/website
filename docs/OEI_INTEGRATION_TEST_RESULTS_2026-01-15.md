@@ -443,6 +443,59 @@ All systems verified working:
 
 ---
 
+## Enhanced Map Controls & WebSocket Streaming - 2026-01-15 05:42 UTC
+
+### ✅ ALL FEATURES IMPLEMENTED
+
+**FlightRadar24 API Key Configured:**
+- Environment variable: `FLIGHTRADAR24_API_KEY`
+- Added to `docker-compose.always-on.yml`
+- Key format: `019bbfd3-0cd0-723f-9c99-bf493c056c79|ajn9pJvW5gHMrLX5PtSFpvPhY9A7IVOibTlfLApu6b7af649`
+
+### New UI Controls (MapControls Component)
+
+**DATA FILTERS Panel with 4 Tabs:**
+
+| Tab | Controls |
+|-----|----------|
+| **AIR** | Airborne, Ground, Commercial, Cargo, Military, Private + Altitude Range slider |
+| **SEA** | Cargo, Tanker, Passenger, Fishing, Tug, Military + Ports/Lanes/Anchor layers + Min Speed |
+| **SAT** | Stations, Weather, Comms, GPS/GNSS, Starlink, Debris + LEO/MEO/GEO/HEO orbit types |
+| **SWX** | Solar Flares, CME, G-Storms, Radiation, Aurora Oval, Solar Wind + NOAA R/S/G scales |
+
+### Streaming Status Bar
+
+**Real-time connection indicators:**
+- SWPC (Space Weather)
+- FR24 (FlightRadar24)
+- AIS (Vessel Tracking)
+- TLE (Satellite TLE)
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `lib/oei/websocket-service.ts` | Generic WebSocket service for real-time OEI data |
+| `components/crep/map-controls.tsx` | Enhanced UI controls with filter tabs |
+| `hooks/use-oei-streaming.ts` | React hook for OEI streaming management |
+
+### Integration Points
+
+1. **Dynamic LIVE Indicator** - Top bar now shows real-time streaming status
+2. **DATA Tab** - Integrated `OEIMapControls` component in right panel
+3. **Streaming Status** - Footer bar shows connection status for all data sources
+
+### Screenshots Captured
+
+| File | Contents |
+|------|----------|
+| `crep-data-filters.png` | AIR tab with aircraft filters |
+| `crep-sea-filters.png` | SEA tab with vessel filters |
+| `crep-sat-filters.png` | SAT tab with satellite filters |
+| `crep-swx-filters.png` | SWX tab with space weather filters |
+
+---
+
 ## 🎉 INTEGRATION COMPLETE
 
 All tasks from the NatureOS OEI Integration Plan have been completed:
@@ -457,3 +510,7 @@ All tasks from the NatureOS OEI Integration Plan have been completed:
 8. ✅ Docker Deployment with all secrets configured
 9. ✅ MycoBrain Sensor Library with 25+ sensor types
 10. ✅ Drone Control Page with FPV and navigation widgets
+11. ✅ FlightRadar24 API Key Configuration
+12. ✅ Enhanced Map Controls (AIR/SEA/SAT/SWX tabs)
+13. ✅ WebSocket Service for Real-Time Streaming
+14. ✅ Streaming Status Bar with Connection Indicators
