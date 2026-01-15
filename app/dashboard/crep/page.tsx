@@ -143,7 +143,7 @@ import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widg
 import { AircraftMarker, VesselMarker, SatelliteMarker } from "@/components/crep/markers";
 
 // Map Controls with streaming status
-import { MapControls, StreamingStatusBar } from "@/components/crep/map-controls";
+import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter } from "@/components/crep/map-controls";
 
 // OEI Types
@@ -1689,7 +1689,7 @@ export default function CREPDashboardPage() {
                       </div>
                       
                       {/* Map Controls - Filter Panel */}
-                      <MapControls
+                      <OEIMapControls
                         aircraftFilter={aircraftFilter}
                         vesselFilter={vesselFilter}
                         satelliteFilter={satelliteFilter}
