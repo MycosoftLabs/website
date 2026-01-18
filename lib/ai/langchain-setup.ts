@@ -9,31 +9,42 @@ import { OpenAIEmbeddings } from '@langchain/openai'
 import { createClient } from '@supabase/supabase-js'
 import { Document } from '@langchain/core/documents'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const openaiApiKey = process.env.OPENAI_API_KEY
+// Lazy initialization to avoid build-time errors
+let supabase: ReturnType<typeof createClient> | null = null
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration')
+function getSupabaseClient() {
+  if (supabase) return supabase
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase configuration')
+  }
+  
+  supabase = createClient(supabaseUrl, supabaseKey)
+  return supabase
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+function getOpenAIApiKey() {
+  const key = process.env.OPENAI_API_KEY
+  if (!key) {
+    throw new Error('OpenAI API key required for embeddings')
+  }
+  return key
+}
 
 /**
  * Create Supabase vector store for documents
  */
 export function createDocumentVectorStore() {
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key required for embeddings')
-  }
-  
   const embeddings = new OpenAIEmbeddings({
-    openAIApiKey: openaiApiKey,
+    openAIApiKey: getOpenAIApiKey(),
     modelName: 'text-embedding-3-small',
   })
   
   return SupabaseVectorStore.fromExistingIndex(embeddings, {
-    client: supabase,
+    client: getSupabaseClient(),
     tableName: 'documents',
     queryName: 'match_documents',
   })
@@ -43,17 +54,13 @@ export function createDocumentVectorStore() {
  * Create Supabase vector store for species
  */
 export function createSpeciesVectorStore() {
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key required for embeddings')
-  }
-  
   const embeddings = new OpenAIEmbeddings({
-    openAIApiKey: openaiApiKey,
+    openAIApiKey: getOpenAIApiKey(),
     modelName: 'text-embedding-3-small',
   })
   
   return SupabaseVectorStore.fromExistingIndex(embeddings, {
-    client: supabase,
+    client: getSupabaseClient(),
     tableName: 'species',
     queryName: 'match_species',
   })
