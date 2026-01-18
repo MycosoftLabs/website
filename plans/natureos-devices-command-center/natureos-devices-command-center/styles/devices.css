@@ -1,0 +1,169 @@
+:root {
+  /* Primary */
+  --bg-deep: #030712; /* near black */
+  --bg-primary: #0f172a; /* dark blue-gray */
+  --bg-secondary: #1e293b; /* lighter blue-gray */
+
+  /* Accents */
+  --accent-mycelium: #ffffff; /* vibrant white */
+  --accent-neural: #06b6d4; /* cyan */
+  --accent-data: #8b5cf6; /* purple */
+  --accent-warning: #f59e0b; /* amber */
+  --accent-critical: #ef4444; /* red */
+  --accent-good: #22c55e; /* green */
+
+  /* Effects */
+  --glow-green: 0 0 40px rgba(34, 197, 94, 0.3);
+  --glow-cyan: 0 0 40px rgba(6, 182, 212, 0.3);
+  --glow-purple: 0 0 40px rgba(139, 92, 246, 0.3);
+
+  --glass: rgba(15, 23, 42, 0.42);
+  --glass-strong: rgba(15, 23, 42, 0.62);
+  --stroke: rgba(255, 255, 255, 0.08);
+  --stroke-strong: rgba(255, 255, 255, 0.14);
+  --text: rgba(255, 255, 255, 0.92);
+  --text-dim: rgba(255, 255, 255, 0.72);
+}
+
+/* Background helper */
+.cc-page {
+  background: radial-gradient(ellipse at 20% 80%, rgba(34, 197, 94, 0.12) 0%, transparent 52%),
+    radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.09) 0%, transparent 62%),
+    linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-primary) 100%);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+.cc-surface {
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 16px;
+}
+
+.cc-surface-strong {
+  background: var(--glass-strong);
+  border: 1px solid var(--stroke-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
+}
+
+.cc-heading {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+}
+
+.cc-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cc-grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* Animated border sheen */
+.cc-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.cc-sheen::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-60%);
+  opacity: 0;
+}
+
+.cc-sheen:hover::before {
+  opacity: 1;
+  animation: border-flow 1.8s linear infinite;
+}
+
+@keyframes border-flow {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+/* Hero background pulse (fallback) */
+.cc-hero-fallback {
+  background: radial-gradient(ellipse at 20% 80%, rgba(34, 197, 94, 0.18) 0%, transparent 52%),
+    radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.16) 0%, transparent 52%),
+    linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-primary) 100%);
+  animation: bg-pulse 16s ease-in-out infinite;
+}
+
+@keyframes bg-pulse {
+  0% {
+    filter: saturate(1) brightness(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: saturate(1.1) brightness(1.05);
+    transform: scale(1.02);
+  }
+  100% {
+    filter: saturate(1) brightness(1);
+    transform: scale(1);
+  }
+}
+
+/* Status pulse */
+.cc-pulse {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .cc-hero-fallback {
+    animation: none;
+  }
+  .cc-pulse {
+    animation: none;
+  }
+  .cc-sheen:hover::before {
+    animation: none;
+  }
+}
+
+/* Font helpers (pair with next/font variable option) */
+.cc-font-orbitron {
+  font-family: var(--font-orbitron), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+.cc-font-ui {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+.cc-font-mono {
+  font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+}

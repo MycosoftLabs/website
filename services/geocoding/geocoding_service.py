@@ -450,10 +450,34 @@ class GeocodingPipeline:
                     "city": location.city
                 }
             ) as resp:
-                return resp.status in (200, 204)
+                if resp.status in (200, 204):
+                    # Publish to Redis for real-time CREP updates
+                    await self.publish_geocoded_observation(observation_id, location)
+                    return True
+                return False
         except Exception as e:
             logger.error(f"Failed to update observation {observation_id}: {e}")
         return False
+    
+    async def publish_geocoded_observation(self, observation_id: str, location: GeoLocation):
+        """Publish newly geocoded observation to Redis for real-time CREP updates."""
+        if not self.redis_cache.client:
+            return
+        
+        try:
+            message = {
+                "type": "observation_geocoded",
+                "observation_id": observation_id,
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+                "formatted_address": location.formatted_address,
+                "source": location.source,
+                "timestamp": datetime.now().isoformat()
+            }
+            await self.redis_cache.client.publish("crep:fungal:updates", json.dumps(message))
+            logger.debug(f"Published geocoded observation {observation_id} to CREP")
+        except Exception as e:
+            logger.warning(f"Failed to publish to Redis: {e}")
     
     async def process_batch(self) -> int:
         """Process a batch of observations without GPS."""

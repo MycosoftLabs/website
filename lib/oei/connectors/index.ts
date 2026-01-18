@@ -72,3 +72,35 @@ export {
   type RailwayStation,
   type RailwayQuery,
 } from "./openrailway"
+
+// GBIF Biodiversity
+export {
+  GBIFClient,
+  getGBIFClient,
+  type GBIFQuery,
+  type SpeciesEntity,
+} from "./gbif"
+
+// eBird Bird Observations
+export {
+  EBirdClient,
+  getEBirdClient,
+  type EBirdQuery,
+  type BirdObservationEntity,
+} from "./ebird"
+
+// OpenAQ Air Quality
+export {
+  OpenAQClient,
+  getOpenAQClient,
+  type OpenAQQuery,
+  type AirQualityObservation,
+} from "./openaq"
+
+// OBIS Marine Biodiversity
+export {
+  OBISClient,
+  getOBISClient,
+  type OBISQuery,
+  type MarineSpeciesEntity,
+} from "./obis"

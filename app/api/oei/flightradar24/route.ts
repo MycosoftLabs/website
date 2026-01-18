@@ -14,6 +14,7 @@
 
 import { NextResponse } from "next/server"
 import { getFlightRadar24Client } from "@/lib/oei/connectors"
+import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
   const limit = searchParams.get("limit")
 
   try {
+    const startTime = Date.now()
     const client = getFlightRadar24Client()
     
     const query = {
@@ -42,6 +44,10 @@ export async function GET(request: Request) {
     }
 
     const aircraft = await client.fetchFlights(query)
+    const latency = Date.now() - startTime
+    
+    // Log to MINDEX
+    logDataCollection("flightradar24", "flightradar24.com", aircraft.length, latency, false)
 
     return NextResponse.json({
       source: "flightradar24",
@@ -51,6 +57,7 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("[API] FlightRadar24 error:", error)
+    logAPIError("flightradar24", "flightradar24.com", String(error))
     return NextResponse.json(
       { error: "Failed to fetch FlightRadar24 data" },
       { status: 500 }

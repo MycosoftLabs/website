@@ -23,6 +23,7 @@ import {
 
 interface LayerControlsProps {
   layers: {
+    fungi?: boolean;      // PRIMARY: Fungal data from MINDEX/iNat/GBIF
     mycelium: boolean;
     heat: boolean;
     organisms: boolean;
@@ -40,6 +41,15 @@ interface LayerControlsProps {
 
 const layerGroups = [
   {
+    name: "🍄 Fungal Data (Primary)",
+    icon: TreePine,
+    isPrimary: true,
+    layers: [
+      { key: "fungi", label: "Fungal Observations", icon: TreePine, description: "MINDEX + iNat + GBIF data", primary: true },
+      { key: "devices", label: "MycoBrain Devices", icon: Radio, description: "IoT sensor network", primary: true },
+    ],
+  },
+  {
     name: "Biological Data",
     icon: Leaf,
     layers: [
@@ -55,13 +65,6 @@ const layerGroups = [
       { key: "weather", label: "Weather Conditions", icon: Cloud, description: "Temperature & conditions" },
       { key: "wind", label: "Wind Patterns", icon: Wind, description: "Wind speed & direction" },
       { key: "precipitation", label: "Precipitation", icon: Droplets, description: "Rain & moisture" },
-    ],
-  },
-  {
-    name: "Device Network",
-    icon: Radio,
-    layers: [
-      { key: "devices", label: "MycoBrain Sensors", icon: Radio, description: "IoT devices" },
     ],
   },
   {
@@ -102,8 +105,8 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
           <div key={group.name}>
             {groupIdx > 0 && <Separator className="mb-3 bg-white/10" />}
             <div className="flex items-center gap-2 mb-2">
-              <group.icon className="h-3 w-3 text-gray-400" />
-              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              <group.icon className={`h-3 w-3 ${group.isPrimary ? "text-green-400" : "text-gray-400"}`} />
+              <span className={`text-xs font-medium uppercase tracking-wider ${group.isPrimary ? "text-green-400" : "text-gray-400"}`}>
                 {group.name}
               </span>
             </div>
@@ -111,6 +114,7 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
               {group.layers.map((layer) => {
                 const isEnabled = layers[layer.key as keyof typeof layers] ?? false;
                 const LayerIcon = layer.icon;
+                const isPrimary = layer.primary;
                 
                 return (
                   <div 
@@ -119,17 +123,22 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
                       layer.comingSoon 
                         ? "opacity-50 cursor-not-allowed" 
                         : "hover:bg-white/5 cursor-pointer"
-                    }`}
+                    } ${isPrimary && isEnabled ? "bg-green-500/10 border border-green-500/20" : ""}`}
                     onClick={() => !layer.comingSoon && handleToggle(layer.key)}
                   >
                     <div className="flex items-center gap-2">
-                      <LayerIcon className={`h-4 w-4 ${isEnabled ? "text-green-400" : "text-gray-500"}`} />
+                      <LayerIcon className={`h-4 w-4 ${isEnabled ? (isPrimary ? "text-green-400" : "text-green-400") : "text-gray-500"}`} />
                       <div>
                         <Label 
                           htmlFor={layer.key} 
                           className={`text-sm cursor-pointer ${isEnabled ? "text-white" : "text-gray-300"}`}
                         >
                           {layer.label}
+                          {isPrimary && (
+                            <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-green-500/50 text-green-400">
+                              Primary
+                            </Badge>
+                          )}
                           {layer.comingSoon && (
                             <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-yellow-500/50 text-yellow-500">
                               Soon

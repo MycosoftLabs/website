@@ -1,0 +1,38 @@
+# CREP Collectors - Python Dependencies
+# Common dependencies for all CREP data collection services
+
+# HTTP/API
+aiohttp>=3.9.0
+requests>=2.31.0
+httpx>=0.26.0
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.26.0
+orjson>=3.9.0
+
+# Database
+redis>=5.0.0
+aiosqlite>=0.19.0
+
+# Scheduling
+apscheduler>=3.10.0
+
+# Monitoring
+prometheus-client>=0.19.0
+
+# Logging
+structlog>=24.1.0
+
+# Geospatial
+pyproj>=3.6.0
+shapely>=2.0.0
+
+# API Server
+fastapi>=0.109.0
+uvicorn[standard]>=0.25.0
+
+# Configuration
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0

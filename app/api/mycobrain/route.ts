@@ -43,9 +43,9 @@ function normalizeDevice(d: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    // First check if service is running - try /devices endpoint as health check
-    const healthRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-      signal: AbortSignal.timeout(2000),
+    // First check if service is running - try /health endpoint as health check (more reliable)
+    const healthRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/health`, {
+      signal: AbortSignal.timeout(5000),
     }).catch(() => null)
     
     if (!healthRes?.ok) {

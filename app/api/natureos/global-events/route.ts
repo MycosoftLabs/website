@@ -282,7 +282,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   lightningLocations.forEach((loc, idx) => {
     events.push({
-      id: `lightning-${idx}-${Math.floor(now / 60000)}`,
+      id: `lightning-${loc.name.replace(/[^a-zA-Z0-9]/g, '')}-${loc.lat.toFixed(2)}-${loc.lng.toFixed(2)}`,
       type: "lightning",
       title: `${loc.strikes} Lightning Strikes`,
       description: `Intense thunderstorm activity with ${loc.strikes} lightning strikes detected in the last 15 minutes near ${loc.name}.`,
@@ -314,7 +314,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   volcanos.forEach((vol, idx) => {
     events.push({
-      id: `volcano-${idx}-${Math.floor(now / 300000)}`,
+      id: `volcano-${vol.id}-${vol.lat.toFixed(2)}-${vol.lng.toFixed(2)}`,
       type: "volcano",
       title: `Volcanic Activity - ${vol.name}`,
       description: `${vol.status}. Aviation color code: ORANGE. Monitor for updates.`,
@@ -347,7 +347,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   wildfires.forEach((fire, idx) => {
     events.push({
-      id: `wildfire-${idx}-${Math.floor(now / 300000)}`,
+      id: `wildfire-${fire.name.replace(/[^a-zA-Z0-9]/g, '')}-${fire.lat.toFixed(2)}-${fire.lng.toFixed(2)}`,
       type: "wildfire",
       title: `Active Wildfire - ${fire.name}`,
       description: `${fire.acres.toLocaleString()} acres burning. Containment: ${fire.containment}%. Air quality warnings in effect.`,
@@ -377,7 +377,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   storms.forEach((storm, idx) => {
     events.push({
-      id: `storm-${idx}-${Math.floor(now / 600000)}`,
+      id: `storm-${storm.stormName.replace(/[^a-zA-Z0-9]/g, '')}-${storm.lat.toFixed(2)}-${storm.lng.toFixed(2)}`,
       type: "storm",
       title: `${storm.stormName} - ${storm.windSpeed} mph winds`,
       description: `${storm.stormName} tracking through ${storm.name}. Sustained winds of ${storm.windSpeed} mph. ${storm.windSpeed > 74 ? "Hurricane conditions" : "Tropical storm conditions"} expected.`,
@@ -411,7 +411,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   fungalBlooms.forEach((bloom, idx) => {
     events.push({
-      id: `fungal-${idx}-${Math.floor(now / 3600000)}`,
+      id: `fungal-${bloom.species.replace(/[^a-zA-Z0-9]/g, '')}-${bloom.lat.toFixed(2)}-${bloom.lng.toFixed(2)}`,
       type: "fungal_bloom",
       title: `${bloom.species.split(" ")[0]} Bloom Detected`,
       description: `Satellite imagery and ground sensors indicate significant ${bloom.species} fruiting activity near ${bloom.name}. Spore count: ${bloom.spores.toLocaleString()}/m³.`,
@@ -441,7 +441,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   migrations.forEach((mig, idx) => {
     events.push({
-      id: `migration-${idx}-${Math.floor(now / 7200000)}`,
+      id: `migration-${mig.animal.replace(/[^a-zA-Z0-9]/g, '')}-${mig.lat.toFixed(2)}-${mig.lng.toFixed(2)}`,
       type: "animal_migration",
       title: `${mig.animal} Migration Active`,
       description: `Large-scale ${mig.animal.toLowerCase()} migration detected in ${mig.name}. Estimated ${mig.count} individuals.`,
@@ -472,7 +472,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   if (hour >= 14 && hour <= 22) {
     tornadoes.slice(0, 2).forEach((loc, idx) => {
       events.push({
-        id: `tornado-${idx}-${Math.floor(now / 1800000)}`,
+        id: `tornado-${loc.zone}-${loc.lat.toFixed(2)}-${loc.lng.toFixed(2)}`,
         type: "tornado",
         title: "Tornado Warning",
         description: `NWS has issued a tornado warning for ${loc.name}. Take shelter immediately in a sturdy building.`,
@@ -500,7 +500,7 @@ function generateSimulatedEvents(): GlobalEvent[] {
   
   floods.forEach((flood, idx) => {
     events.push({
-      id: `flood-${idx}-${Math.floor(now / 3600000)}`,
+      id: `flood-${flood.name.replace(/[^a-zA-Z0-9]/g, '')}-${flood.lat.toFixed(2)}-${flood.lng.toFixed(2)}`,
       type: "flood",
       title: `Flooding - ${flood.name}`,
       description: `Significant flooding reported in ${flood.name}. Water levels rising. Evacuation orders may be in effect.`,
@@ -523,17 +523,11 @@ function generateSimulatedEvents(): GlobalEvent[] {
 export async function GET() {
   const now = Date.now();
   
-  // Return cached data if still valid (with minor updates)
+  // Return cached data if still valid
   if (cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
-    // Add some simulated real-time events
-    const simulatedEvents = generateSimulatedEvents();
-    const combined = [...simulatedEvents, ...cachedEvents];
-    combined.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    
+    // Return cached events directly (simulated events are already included in cache)
     return NextResponse.json({
-      events: combined.slice(0, 500), // Uncapped - return up to 500 events
+      events: cachedEvents.slice(0, 500), // Return up to 500 events
       lastUpdated: new Date().toISOString(),
       sources: {
         usgs: "online",
