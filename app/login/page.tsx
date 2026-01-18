@@ -97,10 +97,13 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
+    const redirectTo = searchParams.get("redirectTo") || "/dashboard"
+    const callbackUrl = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     })
     
@@ -114,10 +117,13 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
+    const redirectTo = searchParams.get("redirectTo") || "/dashboard"
+    const callbackUrl = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     })
     
