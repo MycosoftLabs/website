@@ -30,9 +30,6 @@ function getSupabaseAdmin() {
   return _supabaseAdmin;
 }
 
-// Alias for easier usage
-const supabaseAdmin = { get: getSupabaseAdmin };
-
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const headersList = await headers();
@@ -261,7 +258,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const customer = await stripe.customers.retrieve(customerId);
   
   if (!customer.deleted && customer.metadata?.supabase_user_id) {
-    await supabaseAdmin.from('payments').insert({
+    await getSupabaseAdmin().from('payments').insert({
       user_id: customer.metadata.supabase_user_id,
       stripe_invoice_id: invoice.id,
       stripe_payment_intent_id: invoice.payment_intent as string,
@@ -283,7 +280,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     const userId = customer.metadata.supabase_user_id;
     
     // Create notification about failed payment
-    await supabaseAdmin.from('notifications').insert({
+    await getSupabaseAdmin().from('notifications').insert({
       user_id: userId,
       type: 'payment_failed',
       title: 'Payment Failed',
@@ -292,7 +289,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     });
     
     // Record failed payment
-    await supabaseAdmin.from('payments').insert({
+    await getSupabaseAdmin().from('payments').insert({
       user_id: userId,
       stripe_invoice_id: invoice.id,
       amount: invoice.amount_due,
@@ -329,7 +326,7 @@ async function updateUserSubscription(
     tier = planId?.toLowerCase() || 'pro';
   }
   
-  await supabaseAdmin
+  await getSupabaseAdmin()
     .from('profiles')
     .update({
       subscription_tier: tier,
@@ -343,7 +340,7 @@ async function updateUserSubscription(
 }
 
 async function downgradeToFree(userId: string) {
-  await supabaseAdmin
+  await getSupabaseAdmin()
     .from('profiles')
     .update({
       subscription_tier: 'free',
