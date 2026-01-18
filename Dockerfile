@@ -55,11 +55,11 @@ ENV MONGODB_ENDPOINT_URL=mongodb://placeholder:27017
 ENV MONGODB_API_KEY=placeholder
 ENV NEON_DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 ENV DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
-# Supabase - Required for build-time static analysis
-ENV SUPABASE_URL=https://placeholder.supabase.co
-ENV SUPABASE_ANON_KEY=placeholder
-ENV NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
+# Supabase - REAL values needed at build time (NEXT_PUBLIC_* are baked into client code)
+ENV SUPABASE_URL=https://kzwnthsxofkkdxcmqbcl.supabase.co
+ENV SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6d250aHN4b2Fra2R4Y21xYmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc0MDg5MTEsImV4cCI6MjA1Mjk4NDkxMX0.HRmyw7OVZsrmTDN95b2wbJk2w8j1RRe5zKTRpKQMXJE
+ENV NEXT_PUBLIC_SUPABASE_URL=https://kzwnthsxofkkdxcmqbcl.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6d250aHN4b2Fra2R4Y21xYmNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc0MDg5MTEsImV4cCI6MjA1Mjk4NDkxMX0.HRmyw7OVZsrmTDN95b2wbJk2w8j1RRe5zKTRpKQMXJE
 ENV SUPABASE_SERVICE_ROLE_KEY=placeholder
 # Stripe - Required for webhook route
 ENV STRIPE_SECRET_KEY=sk_placeholder
