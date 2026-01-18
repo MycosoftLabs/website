@@ -50,13 +50,22 @@ ENV NEXT_PUBLIC_MYCA_MAS_API_BASE_URL=$NEXT_PUBLIC_MYCA_MAS_API_BASE_URL
 ENV NEXT_PUBLIC_USE_MOCK_DATA=$NEXT_PUBLIC_USE_MOCK_DATA
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
-# Dummy env vars for build phase (not used at runtime - set real values in .env)
+# Dummy env vars for build phase (not used at runtime - set real values in docker-compose)
 ENV MONGODB_ENDPOINT_URL=mongodb://placeholder:27017
 ENV MONGODB_API_KEY=placeholder
 ENV NEON_DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 ENV DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
+# Supabase - Required for build-time static analysis
 ENV SUPABASE_URL=https://placeholder.supabase.co
 ENV SUPABASE_ANON_KEY=placeholder
+ENV NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
+ENV SUPABASE_SERVICE_ROLE_KEY=placeholder
+# Stripe - Required for webhook route
+ENV STRIPE_SECRET_KEY=sk_placeholder
+ENV STRIPE_WEBHOOK_SECRET=whsec_placeholder
+# OpenAI - Required for AI routes
+ENV OPENAI_API_KEY=sk-placeholder
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1

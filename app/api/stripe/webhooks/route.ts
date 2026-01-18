@@ -10,11 +10,28 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Use service role for webhook handlers
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Force dynamic to avoid build-time errors
+export const dynamic = 'force-dynamic';
+
+// Lazy Supabase client to avoid build-time env var issues
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseAdmin() {
+  if (_supabaseAdmin) return _supabaseAdmin;
+  
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    throw new Error('Supabase not configured');
+  }
+  
+  _supabaseAdmin = createClient(url, key);
+  return _supabaseAdmin;
+}
+
+// Alias for easier usage
+const supabaseAdmin = { get: getSupabaseAdmin };
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -155,7 +172,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const productId = session.metadata?.product_id;
     
     // Create order record
-    await supabaseAdmin.from('orders').insert({
+    await getSupabaseAdmin().from('orders').insert({
       user_id: userId,
       stripe_session_id: session.id,
       stripe_payment_intent_id: session.payment_intent as string,
@@ -227,7 +244,7 @@ async function handleTrialWillEnd(subscription: Stripe.Subscription) {
   console.log(`Trial ending soon for user ${userId}`);
   
   // You could insert a notification record here
-  await supabaseAdmin.from('notifications').insert({
+  await getSupabaseAdmin().from('notifications').insert({
     user_id: userId,
     type: 'trial_ending',
     title: 'Your trial is ending soon',
