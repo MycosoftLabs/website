@@ -5,6 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+
+// Skip static analysis - this route requires runtime env vars
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 import { similaritySearch } from '@/lib/ai/langchain-setup'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,11 +24,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Perform semantic search to get relevant context
-    const relevantDocs = await similaritySearch(message, 4, { tableName: table as 'documents' | 'species' })
+    const relevantDocs = await similaritySearch(table as 'documents' | 'species', message, 4)
 
     // Build context from retrieved documents
     const context = relevantDocs
-      .map((doc) => doc.pageContent)
+      .map((doc) => doc.content)
       .join('\n\n')
 
     // TODO: Integrate with your LLM (OpenAI, Anthropic, etc.)
