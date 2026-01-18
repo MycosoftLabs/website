@@ -1,0 +1,21 @@
+# AstriaGraph Collector Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY base_collector.py .
+COPY astria_collector.py .
+
+RUN mkdir -p /app/data
+
+EXPOSE 8203
+
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8203/health || exit 1
+
+CMD ["python", "astria_collector.py"]

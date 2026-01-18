@@ -52,6 +52,8 @@ type MapProps = {
   };
   /** Map projection type. Use `{ type: "globe" }` for 3D globe view. */
   projection?: MapLibreGL.ProjectionSpecification;
+  /** Callback fired when the map has fully loaded and is ready for interaction */
+  onLoad?: (map: MapLibreGL.Map) => void;
 } & Omit<MapLibreGL.MapOptions, "container" | "style">;
 
 type MapRef = MapLibreGL.Map;
@@ -67,7 +69,7 @@ const DefaultLoader = () => (
 );
 
 const Map = forwardRef<MapRef, MapProps>(function Map(
-  { children, styles, projection, ...props },
+  { children, styles, projection, onLoad, ...props },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,7 +125,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
         }
       }, 150);
     };
-    const loadHandler = () => setIsLoaded(true);
+    const loadHandler = () => {
+      setIsLoaded(true);
+      // Call onLoad callback with the map instance when map is ready
+      if (onLoad) {
+        onLoad(map);
+      }
+    };
 
     map.on("load", loadHandler);
     map.on("styledata", styleDataHandler);
@@ -228,6 +236,24 @@ function MapMarker({
 }: MapMarkerProps) {
   const { map } = useMap();
 
+  // CRITICAL FIX: Use refs to store the latest callbacks
+  // This fixes the stale closure problem where handlers captured in useMemo
+  // would never update when props changed, causing marker clicks to fail
+  const onClickRef = useRef(onClick);
+  const onMouseEnterRef = useRef(onMouseEnter);
+  const onMouseLeaveRef = useRef(onMouseLeave);
+  const onDragStartRef = useRef(onDragStart);
+  const onDragRef = useRef(onDrag);
+  const onDragEndRef = useRef(onDragEnd);
+
+  // Update refs on every render so handlers always use latest callbacks
+  onClickRef.current = onClick;
+  onMouseEnterRef.current = onMouseEnter;
+  onMouseLeaveRef.current = onMouseLeave;
+  onDragStartRef.current = onDragStart;
+  onDragRef.current = onDrag;
+  onDragEndRef.current = onDragEnd;
+
   const marker = useMemo(() => {
     const markerInstance = new MapLibreGL.Marker({
       ...markerOptions,
@@ -235,9 +261,13 @@ function MapMarker({
       draggable,
     }).setLngLat([longitude, latitude]);
 
-    const handleClick = (e: MouseEvent) => onClick?.(e);
-    const handleMouseEnter = (e: MouseEvent) => onMouseEnter?.(e);
-    const handleMouseLeave = (e: MouseEvent) => onMouseLeave?.(e);
+    // Use refs in handlers so they always call the LATEST callback
+    const handleClick = (e: MouseEvent) => {
+      e.stopPropagation(); // Prevent click-away handler from firing
+      onClickRef.current?.(e);
+    };
+    const handleMouseEnter = (e: MouseEvent) => onMouseEnterRef.current?.(e);
+    const handleMouseLeave = (e: MouseEvent) => onMouseLeaveRef.current?.(e);
 
     markerInstance.getElement()?.addEventListener("click", handleClick);
     markerInstance
@@ -249,15 +279,15 @@ function MapMarker({
 
     const handleDragStart = () => {
       const lngLat = markerInstance.getLngLat();
-      onDragStart?.({ lng: lngLat.lng, lat: lngLat.lat });
+      onDragStartRef.current?.({ lng: lngLat.lng, lat: lngLat.lat });
     };
     const handleDrag = () => {
       const lngLat = markerInstance.getLngLat();
-      onDrag?.({ lng: lngLat.lng, lat: lngLat.lat });
+      onDragRef.current?.({ lng: lngLat.lng, lat: lngLat.lat });
     };
     const handleDragEnd = () => {
       const lngLat = markerInstance.getLngLat();
-      onDragEnd?.({ lng: lngLat.lng, lat: lngLat.lat });
+      onDragEndRef.current?.({ lng: lngLat.lng, lat: lngLat.lat });
     };
 
     markerInstance.on("dragstart", handleDragStart);
@@ -322,13 +352,18 @@ type MarkerContentProps = {
   children?: ReactNode;
   /** Additional CSS classes for the marker container */
   className?: string;
+  /** Data attribute for marker identification (used for click-away detection) */
+  "data-marker"?: string;
 };
 
-function MarkerContent({ children, className }: MarkerContentProps) {
+function MarkerContent({ children, className, "data-marker": dataMarker }: MarkerContentProps) {
   const { marker } = useMarkerContext();
 
   return createPortal(
-    <div className={cn("relative cursor-pointer", className)}>
+    <div 
+      className={cn("relative cursor-pointer", className)} 
+      data-marker={dataMarker}
+    >
       {children || <DefaultMarkerIcon />}
     </div>,
     marker.getElement()
@@ -348,12 +383,15 @@ type MarkerPopupProps = {
   className?: string;
   /** Show a close button in the popup (default: false) */
   closeButton?: boolean;
+  /** Callback when popup is closed (via close button or programmatic close) */
+  onClose?: () => void;
 } & Omit<PopupOptions, "className" | "closeButton">;
 
 function MarkerPopup({
   children,
   className,
   closeButton = false,
+  onClose,
   ...popupOptions
 }: MarkerPopupProps) {
   const { marker, map } = useMarkerContext();
@@ -376,11 +414,19 @@ function MarkerPopup({
   useEffect(() => {
     if (!map) return;
 
+    const onCloseProp = () => onClose?.();
+    popup.on("close", onCloseProp);
+
     popup.setDOMContent(container);
     marker.setPopup(popup);
+    // Deterministic open: when this component mounts (i.e., selected state), open the popup
+    // without relying on a marker click to toggle it.
+    popup.setLngLat(marker.getLngLat()).addTo(map);
 
     return () => {
+      popup.off("close", onCloseProp);
       marker.setPopup(null);
+      popup.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map]);
@@ -398,7 +444,10 @@ function MarkerPopup({
     prevPopupOptions.current = popupOptions;
   }
 
-  const handleClose = () => popup.remove();
+  const handleClose = () => {
+    popup.remove();
+    onClose?.();
+  };
 
   return createPortal(
     <div

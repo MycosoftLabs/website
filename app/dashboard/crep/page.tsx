@@ -18,11 +18,12 @@
  * Route: /dashboard/crep
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
 import { 
   ArrowLeft, 
+  ArrowDown,
   Maximize2, 
   Minimize2, 
   Shield, 
@@ -30,6 +31,7 @@ import {
   Activity, 
   Radio, 
   Zap,
+  Sun,
   ChevronDown,
   ChevronUp,
   Layers,
@@ -142,6 +144,9 @@ import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widg
 // Map Markers for OEI Data
 import { AircraftMarker, VesselMarker, SatelliteMarker, FungalMarker, type FungalObservation } from "@/components/crep/markers";
 
+// Centered Detail Panel for entity popups
+import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
+
 // Trajectory Lines for flight paths and ship routes
 import { TrajectoryLines } from "@/components/crep/trajectory-lines";
 
@@ -161,11 +166,22 @@ interface GlobalEvent {
     id: string;
     type: string;
     title: string;
+    description?: string;
     severity: string;
     lat: number;
     lng: number;
     timestamp?: string;
     link?: string;
+    // Extended fields from API
+    source?: string; // USGS, NOAA, NASA EONET, etc.
+    sourceUrl?: string; // Link to source website
+    magnitude?: number; // For earthquakes, storms, fires (acres)
+    locationName?: string; // Place name
+    depth?: number; // For earthquakes (km)
+    windSpeed?: number; // For storms (mph)
+    containment?: number; // For wildfires (%)
+    affectedArea?: number; // km² affected
+    affectedPopulation?: number; // People affected
 }
 
 interface Device {
@@ -211,16 +227,35 @@ interface MYCAMessage {
 }
 
 // Event type configurations
+// COLORS: Each event type MUST have a distinctly different color for instant visual recognition
+// - Earthquake: Amber/Brown (earth/seismic)
+// - Wildfire: Orange-red (flame)
+// - Volcano: Deep orange
+// - Storm: Indigo/purple
+// - Lightning: Bright yellow
 const eventTypeConfig: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-  earthquake: { color: "#ef4444", icon: <Activity className="w-3 h-3" />, label: "Earthquake" },
-  volcano: { color: "#f97316", icon: <Mountain className="w-3 h-3" />, label: "Volcano" },
-  wildfire: { color: "#dc2626", icon: <Flame className="w-3 h-3" />, label: "Wildfire" },
+  // Seismic
+  earthquake: { color: "#b45309", icon: <Activity className="w-3 h-3" />, label: "Earthquake" }, // Amber-700 (distinct from fire)
+  // Volcanic
+  volcano: { color: "#ea580c", icon: <Mountain className="w-3 h-3" />, label: "Volcano" }, // Orange-600
+  // Fire
+  wildfire: { color: "#dc2626", icon: <Flame className="w-3 h-3" />, label: "Wildfire" }, // Red-600 (fire stays red)
+  fire: { color: "#dc2626", icon: <Flame className="w-3 h-3" />, label: "Fire" }, // Alias for wildfire
+  // Weather - Storms
   storm: { color: "#6366f1", icon: <Cloud className="w-3 h-3" />, label: "Storm" },
+  hurricane: { color: "#4f46e5", icon: <Cloud className="w-3 h-3" />, label: "Hurricane" }, // Deeper indigo
+  flood: { color: "#0284c7", icon: <Droplet className="w-3 h-3" />, label: "Flood" }, // Sky blue
+  // Weather - Lightning/Tornado
   lightning: { color: "#facc15", icon: <Zap className="w-3 h-3" />, label: "Lightning" },
   tornado: { color: "#7c3aed", icon: <Wind className="w-3 h-3" />, label: "Tornado" },
+  // Space Weather
   solar_flare: { color: "#fbbf24", icon: <Satellite className="w-3 h-3" />, label: "Solar Flare" },
+  geomagnetic_storm: { color: "#f59e0b", icon: <Sun className="w-3 h-3" />, label: "Geomagnetic Storm" },
+  cme: { color: "#d97706", icon: <Sun className="w-3 h-3" />, label: "Coronal Mass Ejection" },
+  // Biological
   fungal_bloom: { color: "#22c55e", icon: <TreePine className="w-3 h-3" />, label: "Fungal Bloom" },
   migration: { color: "#06b6d4", icon: <Fish className="w-3 h-3" />, label: "Migration" },
+  // Default fallback
   default: { color: "#3b82f6", icon: <CircleDot className="w-3 h-3" />, label: "Event" },
 };
 
@@ -234,25 +269,106 @@ const severityColors: Record<string, string> = {
   extreme: "bg-red-600/20 text-red-300 border-red-600/30",
 };
 
-// Layer categories with icons
+// Layer categories with icons - ORDERED: Fungal/Devices FIRST, Transport/Military LAST
 const layerCategories = {
-  events: { label: "Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
+  // PRIMARY - Fungal data and devices (shown first)
+  environment: { label: "🍄 Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
-  environment: { label: "Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  // CONTEXT - Natural events for correlation
+  events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
+  // SECONDARY - Transport & Human (demo layers, off by default)
+  infrastructure: { label: "[DEMO] Transport & Vehicles", icon: <Plane className="w-3.5 h-3.5" />, color: "text-sky-400" },
   human: { label: "Human Activity", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-400" },
-  infrastructure: { label: "Transport & Vehicles", icon: <Plane className="w-3.5 h-3.5" />, color: "text-sky-400" },
-  military: { label: "Military & Defense", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
+  military: { label: "[DEMO] Military & Defense", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
   pollution: { label: "Pollution & Industry", icon: <Factory className="w-3.5 h-3.5" />, color: "text-orange-400" },
 };
 
-// Event marker component
-function EventMarker({ event, isSelected, onClick }: { 
+// Event marker component with detailed popup
+function EventMarker({ event, isSelected, onClick, onClose, onFlyTo }: { 
   event: GlobalEvent; 
   isSelected: boolean;
   onClick: () => void;
+  onClose: () => void;
+  onFlyTo?: (lat: number, lng: number, zoom?: number) => void;
 }) {
   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
   const isCritical = event.severity === "critical" || event.severity === "extreme";
+  
+  // Guard against missing coordinates
+  if (event.lat === undefined || event.lng === undefined || isNaN(event.lat) || isNaN(event.lng)) {
+    return null;
+  }
+
+  // Get event-type-specific data fields
+  const getEventSpecificData = () => {
+    switch (event.type) {
+      case "earthquake":
+        return [
+          { label: "Magnitude", value: event.magnitude ? `M${event.magnitude.toFixed(1)}` : "N/A", icon: <Activity className="w-3 h-3" /> },
+          { label: "Depth", value: event.depth ? `${event.depth.toFixed(1)} km` : "N/A", icon: <ArrowDown className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      case "wildfire":
+        return [
+          { label: "Area", value: event.magnitude ? `${event.magnitude.toLocaleString()} acres` : "N/A", icon: <Flame className="w-3 h-3" /> },
+          { label: "Containment", value: event.containment !== undefined ? `${event.containment}%` : "N/A", icon: <Shield className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      case "storm":
+      case "hurricane":
+      case "tornado":
+        return [
+          { label: "Wind Speed", value: event.magnitude ? `${event.magnitude} mph` : "N/A", icon: <Wind className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      case "volcano":
+        return [
+          { label: "Status", value: event.description?.match(/Aviation color code: (\w+)/)?.[1] || "Active", icon: <Mountain className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      case "solar_flare":
+      case "geomagnetic_storm":
+        return [
+          { label: "Class/Kp", value: event.magnitude ? `Kp ${event.magnitude.toFixed(0)}` : event.title.match(/[MCXAB]\d+\.\d+/)?.[0] || "N/A", icon: <Sun className="w-3 h-3" /> },
+          { label: "Effect", value: "Aurora visible at high latitudes", icon: <Sparkles className="w-3 h-3" /> },
+        ];
+      case "lightning":
+        return [
+          { label: "Strikes", value: event.magnitude ? `${event.magnitude.toLocaleString()}` : "N/A", icon: <Zap className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      case "flood":
+        return [
+          { label: "Status", value: "Active Flooding", icon: <Droplet className="w-3 h-3" /> },
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+      default:
+        return [
+          { label: "Location", value: event.locationName || "Unknown", icon: <MapPin className="w-3 h-3" /> },
+        ];
+    }
+  };
+
+  // Get source icon and label
+  const getSourceInfo = () => {
+    const sourceMap: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+      "USGS": { icon: <Globe className="w-3 h-3" />, label: "USGS Earthquake Hazards", color: "text-amber-400" },
+      "NOAA SWPC": { icon: <Sun className="w-3 h-3" />, label: "NOAA Space Weather", color: "text-yellow-400" },
+      "NASA EONET": { icon: <Satellite className="w-3 h-3" />, label: "NASA Earth Observatory", color: "text-blue-400" },
+      "NHC": { icon: <Cloud className="w-3 h-3" />, label: "National Hurricane Center", color: "text-indigo-400" },
+      "NWS": { icon: <Cloud className="w-3 h-3" />, label: "National Weather Service", color: "text-cyan-400" },
+      "FIRMS": { icon: <Flame className="w-3 h-3" />, label: "NASA Fire Information", color: "text-orange-400" },
+      "Smithsonian GVP": { icon: <Mountain className="w-3 h-3" />, label: "Global Volcanism Program", color: "text-red-400" },
+      "Blitzortung": { icon: <Zap className="w-3 h-3" />, label: "Blitzortung Lightning", color: "text-yellow-400" },
+      "GDACS": { icon: <AlertTriangle className="w-3 h-3" />, label: "Global Disaster Alert", color: "text-red-400" },
+      "MycoBrain Network": { icon: <Radar className="w-3 h-3" />, label: "MycoBrain Sensors", color: "text-green-400" },
+      "Movebank": { icon: <Navigation className="w-3 h-3" />, label: "Movebank Animal Tracking", color: "text-emerald-400" },
+    };
+    return sourceMap[event.source || ""] || { icon: <Database className="w-3 h-3" />, label: event.source || "Unknown Source", color: "text-gray-400" };
+  };
+
+  const sourceInfo = getSourceInfo();
+  const eventData = getEventSpecificData();
   
   return (
     <MapMarker 
@@ -260,79 +376,200 @@ function EventMarker({ event, isSelected, onClick }: {
       latitude={event.lat}
       onClick={onClick}
     >
-      <MarkerContent className="relative">
+      <MarkerContent className="relative" data-marker="event">
         <div className={cn(
           "relative flex items-center justify-center transition-transform",
           isSelected ? "scale-150" : "scale-100"
         )}>
+          {/* Pulsing ring ONLY for critical events - REDUCED opacity */}
           {isCritical && (
             <div 
-              className="absolute w-8 h-8 rounded-full animate-ping"
-              style={{ backgroundColor: `${config.color}40` }}
+              className="absolute w-6 h-6 rounded-full animate-ping pointer-events-none"
+              style={{ backgroundColor: `${config.color}20` }}
             />
           )}
+          {/* Subtle glow - REDUCED */}
           <div 
-            className="absolute w-6 h-6 rounded-full blur-sm"
-            style={{ backgroundColor: `${config.color}60` }}
+            className="absolute w-5 h-5 rounded-full blur-[2px]"
+            style={{ backgroundColor: `${config.color}25` }}
           />
           <div 
             className={cn(
-              "relative w-4 h-4 rounded-full border-2 flex items-center justify-center",
+              "relative w-4 h-4 rounded-full border flex items-center justify-center",
               isSelected && "ring-2 ring-white"
             )}
             style={{ 
               backgroundColor: config.color,
-              borderColor: isSelected ? "#fff" : config.color,
-              boxShadow: `0 0 12px ${config.color}` 
+              borderColor: isSelected ? "#fff" : `${config.color}80`,
+              boxShadow: isSelected ? `0 0 8px ${config.color}` : `0 0 4px ${config.color}40`
             }}
           >
             <span className="text-[8px] text-white">{config.icon}</span>
           </div>
         </div>
       </MarkerContent>
-      <MarkerPopup className="min-w-[200px] bg-[#0a1628]/95 backdrop-blur border-cyan-500/30" closeButton>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
+      
+      {/* ENHANCED EVENT POPUP - Much larger with more data */}
+      {isSelected && (
+        <MarkerPopup 
+          className={cn(
+            "min-w-[320px] max-w-[380px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden",
+            "border-2 border-gray-600/40"
+          )}
+          closeButton
+          closeOnClick={false}
+          anchor="bottom"
+          offset={[0, -12]}
+          onClose={onClose}
+        >
+        {/* Header with severity gradient */}
+        <div 
+          className="px-3 py-2 border-b border-gray-700/50"
+          style={{ 
+            background: `linear-gradient(135deg, ${config.color}40 0%, ${config.color}15 100%)`,
+          }}
+        >
+          <div className="flex items-start gap-2">
             <div 
-              className="w-6 h-6 rounded flex items-center justify-center"
-              style={{ backgroundColor: `${config.color}30` }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${config.color}50` }}
             >
               {config.icon}
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-white">{event.title}</div>
-              <div className="text-[10px] text-gray-400 uppercase">{config.label}</div>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-gray-500">
-              {event.lat.toFixed(4)}°, {event.lng.toFixed(4)}°
-            </span>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-white leading-tight">{event.title}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] text-gray-400 uppercase">{config.label}</span>
             <Badge 
               variant="outline" 
-              className={cn("text-[8px] px-1.5", severityColors[event.severity])}
+                  className={cn("text-[8px] px-1.5 py-0", severityColors[event.severity || "medium"])}
             >
-              {event.severity.toUpperCase()}
+                  {(event.severity || "medium").toUpperCase()}
             </Badge>
           </div>
-          {event.timestamp && (
-            <div className="text-[9px] text-gray-500 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {new Date(event.timestamp).toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        {event.description && (
+          <div className="px-3 py-2 border-b border-gray-700/30">
+            <p className="text-[11px] text-gray-300 leading-relaxed line-clamp-3">
+              {event.description}
+            </p>
             </div>
           )}
+
+        {/* Event-specific data grid */}
+        <div className="px-3 py-2 border-b border-gray-700/30">
+          <div className="grid grid-cols-3 gap-2">
+            {eventData.map((item, idx) => (
+              <div key={idx} className="bg-black/40 rounded p-1.5 border border-gray-700/40">
+                <div className="flex items-center gap-1 text-[8px] text-gray-500 uppercase mb-0.5">
+                  {item.icon}
+                  {item.label}
+                </div>
+                <div className="text-[11px] text-white font-medium truncate">{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Coordinates - CLICKABLE to fly to location */}
+        <div className="px-3 py-2 border-b border-gray-700/30">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onFlyTo?.(event.lat, event.lng, 10);
+            }}
+            className="w-full flex items-center justify-between p-2 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors group"
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-cyan-400" />
+              <div className="text-left">
+                <div className="text-[9px] text-gray-500 uppercase">Coordinates</div>
+                <div className="text-[11px] text-cyan-400 font-mono">
+                  {(event.lat ?? 0).toFixed(5)}°, {(event.lng ?? 0).toFixed(5)}°
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-[9px] text-cyan-400 group-hover:text-cyan-300">
+              <Navigation className="w-3 h-3" />
+              <span>FLY TO</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Timestamp */}
+        <div className="px-3 py-2 border-b border-gray-700/30 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Detected</span>
+          </div>
+          <span className="text-[11px] text-white">
+            {event.timestamp ? new Date(event.timestamp).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true
+            }) : "Unknown"}
+          </span>
+        </div>
+
+        {/* Source and Links */}
+        <div className="px-3 py-2 space-y-2">
+          {/* Source info */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className={cn("flex items-center gap-1 text-[10px]", sourceInfo.color)}>
+                {sourceInfo.icon}
+                {sourceInfo.label}
+              </span>
+            </div>
+            {event.sourceUrl && (
+              <a
+                href={event.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[9px] text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Source <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
           {event.link && (
             <a
               href={event.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300"
-            >
-              View Details <ExternalLink className="w-3 h-3" />
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3" />
+                View on {event.source || "Source"}
+              </a>
+            )}
+            {event.sourceUrl && !event.link && (
+              <a
+                href={event.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3" />
+                Visit {event.source || "Source"}
             </a>
           )}
+          </div>
         </div>
       </MarkerPopup>
+      )}
     </MapMarker>
   );
 }
@@ -351,7 +588,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
       latitude={device.lat}
       onClick={onClick}
     >
-      <MarkerContent className="relative">
+      <MarkerContent className="relative" data-marker="device">
         <div className={cn(
           "relative flex items-center justify-center transition-transform",
           isSelected ? "scale-150" : "scale-100"
@@ -371,7 +608,12 @@ function DeviceMarker({ device, isSelected, onClick }: {
           </div>
         </div>
       </MarkerContent>
-      <MarkerPopup className="min-w-[200px] bg-[#0a1628]/95 backdrop-blur border-green-500/30" closeButton>
+      {isSelected && (
+        <MarkerPopup
+          className="min-w-[200px] bg-[#0a1628]/95 backdrop-blur border-green-500/30"
+          closeButton
+          onClose={onClick}
+        >
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div className={cn(
@@ -410,11 +652,12 @@ function DeviceMarker({ device, isSelected, onClick }: {
               </>
             )}
             <span className="text-gray-500">LAT/LNG</span>
-            <span className="text-gray-400">{device.lat.toFixed(4)}°, {device.lng.toFixed(4)}°</span>
+              <span className="text-gray-400">{typeof device.lat === 'number' ? device.lat.toFixed(4) : '—'}°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : '—'}°</span>
           </div>
           <div className="text-[8px] text-gray-600 font-mono truncate">{device.id}</div>
         </div>
       </MarkerPopup>
+      )}
     </MapMarker>
   );
 }
@@ -450,93 +693,93 @@ function MissionContextPanel({
   stats: { events: number; devices: number; critical: number; kingdoms: Record<string, number> };
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 h-full flex flex-col">
       {/* Current Mission */}
       {mission && (
-        <div className="p-3 rounded-lg bg-gradient-to-br from-cyan-500/10 to-blue-500/5 border border-cyan-500/30">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-bold text-white">ACTIVE MISSION</span>
+        <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500/10 to-blue-500/5 border border-cyan-500/30 flex-shrink-0">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[10px] font-bold text-white">ACTIVE MISSION</span>
             </div>
             <Badge 
               variant="outline" 
               className={cn(
-                "text-[8px] px-1.5",
+                "text-[7px] px-1 py-0",
                 mission.status === "active" ? "border-green-500/50 text-green-400" : "border-yellow-500/50 text-yellow-400"
               )}
             >
               {mission.status.toUpperCase()}
             </Badge>
           </div>
-          <h3 className="text-sm font-semibold text-white mb-1">{mission.name}</h3>
-          <p className="text-[10px] text-gray-400 mb-2">{mission.objective}</p>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[10px]">
+          <h3 className="text-xs font-semibold text-white mb-0.5">{mission.name}</h3>
+          <p className="text-[9px] text-gray-400 mb-1">{mission.objective}</p>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[9px]">
               <span className="text-gray-500">Progress</span>
               <span className="text-cyan-400 font-mono">{mission.progress}%</span>
             </div>
-            <Progress value={mission.progress} className="h-1.5" />
+            <Progress value={mission.progress} className="h-1" />
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <div className="text-center p-1.5 rounded bg-black/30">
-              <div className="text-sm font-bold text-cyan-400">{mission.targets}</div>
-              <div className="text-[8px] text-gray-500">TARGETS</div>
+          <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+            <div className="text-center p-1 rounded bg-black/30">
+              <div className="text-xs font-bold text-cyan-400">{mission.targets}</div>
+              <div className="text-[7px] text-gray-500">TARGETS</div>
             </div>
-            <div className="text-center p-1.5 rounded bg-black/30">
-              <div className="text-sm font-bold text-orange-400">{mission.alerts}</div>
-              <div className="text-[8px] text-gray-500">ALERTS</div>
+            <div className="text-center p-1 rounded bg-black/30">
+              <div className="text-xs font-bold text-orange-400">{mission.alerts}</div>
+              <div className="text-[7px] text-gray-500">ALERTS</div>
             </div>
           </div>
         </div>
       )}
 
       {/* Real-time Stats */}
-      <div className="p-3 rounded-lg bg-black/40 border border-gray-700/50">
-        <div className="flex items-center gap-2 mb-2">
-          <BarChart3 className="w-4 h-4 text-cyan-400" />
-          <span className="text-xs font-bold text-white">LIVE STATISTICS</span>
+      <div className="p-2 rounded-lg bg-black/40 border border-gray-700/50 flex-shrink-0">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-[10px] font-bold text-white">LIVE STATISTICS</span>
         </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <div className="text-center p-2 rounded bg-black/30 border border-red-500/20">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-red-400">{stats.events}</div>
-            <div className="text-[7px] text-gray-500 uppercase">Events</div>
+        <div className="grid grid-cols-3 gap-1">
+          <div className="text-center p-1.5 rounded bg-black/30 border border-red-500/20">
+            <AlertTriangle className="w-3 h-3 text-red-400 mx-auto mb-0.5" />
+            <div className="text-sm font-bold text-red-400">{stats.events}</div>
+            <div className="text-[6px] text-gray-500 uppercase">Events</div>
           </div>
-          <div className="text-center p-2 rounded bg-black/30 border border-green-500/20">
-            <Radar className="w-3.5 h-3.5 text-green-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-green-400">{stats.devices}</div>
-            <div className="text-[7px] text-gray-500 uppercase">Devices</div>
+          <div className="text-center p-1.5 rounded bg-black/30 border border-green-500/20">
+            <Radar className="w-3 h-3 text-green-400 mx-auto mb-0.5" />
+            <div className="text-sm font-bold text-green-400">{stats.devices}</div>
+            <div className="text-[6px] text-gray-500 uppercase">Devices</div>
           </div>
-          <div className="text-center p-2 rounded bg-black/30 border border-orange-500/20">
-            <Zap className="w-3.5 h-3.5 text-orange-400 mx-auto mb-1" />
-            <div className="text-lg font-bold text-orange-400">{stats.critical}</div>
-            <div className="text-[7px] text-gray-500 uppercase">Critical</div>
+          <div className="text-center p-1.5 rounded bg-black/30 border border-orange-500/20">
+            <Zap className="w-3 h-3 text-orange-400 mx-auto mb-0.5" />
+            <div className="text-sm font-bold text-orange-400">{stats.critical}</div>
+            <div className="text-[6px] text-gray-500 uppercase">Critical</div>
           </div>
         </div>
       </div>
 
       {/* Kingdom Data */}
-      <div className="p-3 rounded-lg bg-black/40 border border-gray-700/50">
-        <div className="flex items-center gap-2 mb-2">
-          <Microscope className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-bold text-white">MINDEX KINGDOMS</span>
+      <div className="p-2 rounded-lg bg-black/40 border border-gray-700/50 flex-1 min-h-0">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Microscope className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-[10px] font-bold text-white">MINDEX KINGDOMS</span>
         </div>
         <div className="grid grid-cols-3 gap-1">
           {[
-            { key: "fungi", icon: <TreePine className="w-3 h-3" />, color: "text-green-400", label: "Fungi" },
-            { key: "plants", icon: <Leaf className="w-3 h-3" />, color: "text-emerald-400", label: "Plants" },
-            { key: "birds", icon: <Bird className="w-3 h-3" />, color: "text-sky-400", label: "Birds" },
-            { key: "insects", icon: <Bug className="w-3 h-3" />, color: "text-amber-400", label: "Insects" },
-            { key: "animals", icon: <PawPrint className="w-3 h-3" />, color: "text-orange-400", label: "Animals" },
-            { key: "marine", icon: <Waves className="w-3 h-3" />, color: "text-cyan-400", label: "Marine" },
+            { key: "fungi", icon: <TreePine className="w-2.5 h-2.5" />, color: "text-green-400", label: "Fungi" },
+            { key: "plants", icon: <Leaf className="w-2.5 h-2.5" />, color: "text-emerald-400", label: "Plants" },
+            { key: "birds", icon: <Bird className="w-2.5 h-2.5" />, color: "text-sky-400", label: "Birds" },
+            { key: "insects", icon: <Bug className="w-2.5 h-2.5" />, color: "text-amber-400", label: "Insects" },
+            { key: "animals", icon: <PawPrint className="w-2.5 h-2.5" />, color: "text-orange-400", label: "Animals" },
+            { key: "marine", icon: <Waves className="w-2.5 h-2.5" />, color: "text-cyan-400", label: "Marine" },
           ].map(({ key, icon, color, label }) => (
-            <div key={key} className="text-center p-1.5 rounded bg-black/30 hover:bg-black/50 transition-colors cursor-pointer">
-              <div className={cn("mx-auto mb-0.5", color)}>{icon}</div>
-              <div className={cn("text-[10px] font-bold tabular-nums", color)}>
+            <div key={key} className="text-center p-1 rounded bg-black/30 hover:bg-black/50 transition-colors cursor-pointer">
+              <div className={cn("mx-auto", color)}>{icon}</div>
+              <div className={cn("text-[9px] font-bold tabular-nums", color)}>
                 {((stats.kingdoms[key] || 0) / 1000).toFixed(0)}K
               </div>
-              <div className="text-[7px] text-gray-500">{label}</div>
+              <div className="text-[6px] text-gray-500">{label}</div>
             </div>
           ))}
         </div>
@@ -923,8 +1166,32 @@ export default function CREPDashboardPage() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState("mission");
+  const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events">("fungal"); // DEFAULT TO FUNGAL
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  
+  // Map reference for auto-zoom and pan functionality
+  const [mapRef, setMapRef] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [hasAutoZoomed, setHasAutoZoomed] = useState(false);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
+  // Shows more markers when zoomed in, fewer when zoomed out for performance
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [mapZoom, setMapZoom] = useState(2);
+  const [mapBounds, setMapBounds] = useState<{
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null>(null);
+  
+  // Debounce ref for viewport updates (prevents rapid-fire recalculations)
+  const viewportUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Separate loading state for fungal data to prevent blinking
+  const [fungalLoading, setFungalLoading] = useState(true);
   
   // Data states
   const [globalEvents, setGlobalEvents] = useState<GlobalEvent[]>([]);
@@ -1024,45 +1291,61 @@ export default function CREPDashboardPage() {
     },
   ]);
   
-  // Layer states - Comprehensive tracking for military/scientific use
+  // Layer states - FUNGAL DATA FIRST, transport/military OFF by default
+  // Primary layers: Fungal observations and MycoBrain devices
+  // Secondary layers: Transport, military - toggleable demos for correlation analysis
   const [layers, setLayers] = useState<LayerConfig[]>([
-    // Events - Natural & Space Weather
-    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Real-time USGS earthquake data" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Fungal Observations - THE PRIMARY DATA SOURCE
+    { id: "fungi", name: "🍄 Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
+    // MycoBrain Devices - Real-time sensor network
+    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
+    { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
+    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
+    // Environment - Context for fungal activity
+    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
+    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
+    // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
     { id: "storms", name: "Storm Systems", category: "events", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#6366f1", description: "NOAA storm tracking and forecasts" },
-    { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
-    { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
-    { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
-    // MycoBrain Devices
-    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring devices" },
-    { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
-    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
-    // Environment
-    { id: "fungi", name: "Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22c55e", description: "iNat/GBIF fungal observation data" },
-    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind" },
-    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
+    { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
+    { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
+    { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
+    // Click to enable for correlation analysis with fungal data
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
+    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
+    { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
+    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
+    { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
+    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
+    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
+    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
+    { id: "satellites", name: "Satellites (TLE Live)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#c084fc", description: "CelesTrak live satellite positions" },
     // Human Activity
     { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
     { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
     { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
-    // Transport & Vehicles
-    { id: "aviation", name: "Air Traffic (OpenSky)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#0ea5e9", description: "Live aircraft positions worldwide" },
-    { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft planned routes and paths" },
-    { id: "ships", name: "Ships (AIS)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#14b8a6", description: "AISstream vessel tracking" },
-    { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel routes and port lines" },
-    { id: "fishing", name: "Fishing Fleets (GFW)", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
-    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
-    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
-    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
-    { id: "satellites", name: "Satellites (TLE)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#c084fc", description: "Space objects from CelesTrak TLE data" },
-    // Military & Defense
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
-    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
-    { id: "militaryBases", name: "Military Bases", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ca8a04", description: "Known military installations" },
-    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
-    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
-    // Pollution & Industry
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "militaryAir", name: "[DEMO] Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
+    { id: "militaryNavy", name: "[DEMO] Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
+    { id: "militaryBases", name: "[DEMO] Military Bases", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ca8a04", description: "Known military installations" },
+    { id: "tanks", name: "[DEMO] Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
+    { id: "militaryDrones", name: "[DEMO] Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // POLLUTION & INDUSTRY (OFF BY DEFAULT)
+    // ═══════════════════════════════════════════════════════════════════════════
     { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
     { id: "co2Sources", name: "CO₂ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major CO₂ emitters and hotspots" },
     { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
@@ -1074,6 +1357,60 @@ export default function CREPDashboardPage() {
   
   // Filter states
   const [eventFilter, setEventFilter] = useState<string>("all");
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-ZOOM TO USER LOCATION ON PAGE LOAD
+  // Uses browser Geolocation API to get user's position, then zooms to their
+  // continent/region to immediately show relevant fungal data
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (hasAutoZoomed || !mounted) return;
+    
+    // Get user's location via browser Geolocation API
+    if (typeof navigator !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          console.log(`[CREP] User location detected: ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`);
+          setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Determine appropriate zoom level based on continent
+          // Zoom 4-5 for continent view, showing relevant fungal data
+          const zoomLevel = 5;
+          
+          // If we have a map reference, fly to user's location
+          if (mapRef && mapRef.flyTo) {
+            mapRef.flyTo({
+              center: [longitude, latitude],
+              zoom: zoomLevel,
+              duration: 2000, // 2 second smooth animation
+              essential: true,
+            });
+            setHasAutoZoomed(true);
+            console.log(`[CREP] Auto-zoomed to user location at zoom ${zoomLevel}`);
+          }
+        },
+        (error) => {
+          // Fallback: If user denies location, use IP-based approximation or default
+          console.log(`[CREP] Geolocation unavailable: ${error.message}. Using default view.`);
+          // Default to slightly zoomed out global view
+          if (mapRef && mapRef.flyTo) {
+            mapRef.flyTo({
+              center: [0, 20],
+              zoom: 2.5,
+              duration: 1500,
+            });
+            setHasAutoZoomed(true);
+          }
+        },
+        {
+          enableHighAccuracy: false, // Don't need precise GPS, just general location
+          timeout: 5000,
+          maximumAge: 300000, // Cache for 5 minutes
+        }
+      );
+    }
+  }, [mounted, mapRef, hasAutoZoomed]);
   
   // Fetch data
   useEffect(() => {
@@ -1091,11 +1428,22 @@ export default function CREPDashboardPage() {
               id: e.id,
               type: e.type,
               title: e.title,
+              description: e.description,
               severity: e.severity,
               lat: e.location.latitude,
               lng: e.location.longitude,
               timestamp: e.timestamp,
               link: e.link,
+              // Extended data from API
+              source: e.source,
+              sourceUrl: e.sourceUrl,
+              magnitude: e.magnitude,
+              locationName: e.location?.name,
+              depth: e.location?.depth,
+              windSpeed: e.type === "storm" ? e.magnitude : undefined,
+              containment: e.description?.match(/Containment: (\d+)%/)?.[1] ? parseInt(e.description.match(/Containment: (\d+)%/)[1]) : undefined,
+              affectedArea: e.affected?.area_km2,
+              affectedPopulation: e.affected?.population,
             }));
           setGlobalEvents(formattedEvents);
         }
@@ -1222,63 +1570,75 @@ export default function CREPDashboardPage() {
           console.error("Failed to fetch space weather data:", e);
         }
 
-        // Fetch fungal observations from iNaturalist (Phase 1 - MINDEX integration)
-        // ALWAYS fetch - layer toggle only controls visibility, not data loading
-        // This provides fungal data with GPS coordinates and photos for map overlay
+        // ═══════════════════════════════════════════════════════════════════════════
+        // FETCH FUNGAL OBSERVATIONS - PRIMARY DATA SOURCE (MINDEX - NO LIMIT)
+        // MINDEX contains THOUSANDS of pre-imported iNaturalist/GBIF observations
+        // with photos, coordinates, names, timestamps, and source links
+        // ═══════════════════════════════════════════════════════════════════════════
         try {
-          // Fetch fungal observations from multiple regions globally
-          // Using the iNaturalist API through our earth-simulator endpoint
-          const regions = [
-            // North America (Pacific NW - fungal hotspot)
-            { lat: 47.6, lng: -122.3, radius: 150000 },
-            // Europe (Central Europe)
-            { lat: 48.8, lng: 2.3, radius: 150000 },
-            // Asia (Japan)
-            { lat: 35.7, lng: 139.7, radius: 150000 },
-            // South America (Amazon)
-            { lat: -3.4, lng: -62.2, radius: 150000 },
-            // Australia
-            { lat: -33.9, lng: 151.2, radius: 150000 },
-            // California (User's region - San Diego)
-            { lat: 32.7, lng: -117.1, radius: 150000 },
-            // UK/Ireland
-            { lat: 51.5, lng: -0.1, radius: 150000 },
-            // Scandinavia
-            { lat: 59.3, lng: 18.1, radius: 150000 },
-            // New Zealand
-            { lat: -41.3, lng: 174.8, radius: 150000 },
-            // Southeast Asia
-            { lat: 1.3, lng: 103.8, radius: 150000 },
-          ];
-          
-          const allObservations: FungalObservation[] = [];
-          
-          await Promise.all(
-            regions.map(async (region) => {
-              try {
-                const res = await fetch(
-                  `/api/earth-simulator/inaturalist?action=fungi&lat=${region.lat}&lng=${region.lng}&radius=${region.radius}&per_page=100`
-                );
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.observations && Array.isArray(data.observations)) {
-                    allObservations.push(...data.observations);
-                  }
-                }
-              } catch (e) {
-                console.warn(`Failed to fetch fungal data for region ${region.lat},${region.lng}:`, e);
+          // Fetch ALL fungal data from MINDEX - no artificial limit!
+          // MINDEX is the primary source with pre-imported iNaturalist/GBIF data
+          console.log("[CREP] Fetching fungal observations from MINDEX (no limit)...");
+          const fungalRes = await fetch("/api/crep/fungal");
+          if (fungalRes.ok) {
+            const fungalData = await fungalRes.json();
+            if (fungalData.observations && Array.isArray(fungalData.observations)) {
+              // Map to FungalObservation format expected by FungalMarker
+              const formattedObs: FungalObservation[] = fungalData.observations.map((obs: any) => ({
+                id: obs.id,
+                observed_on: obs.timestamp || obs.observed_on,
+                latitude: obs.latitude || obs.lat,
+                longitude: obs.longitude || obs.lng,
+                species: obs.commonName || obs.species || obs.scientificName || "Unknown",
+                taxon_id: obs.taxon_id,
+                taxon: {
+                  id: obs.taxon_id || 0,
+                  name: obs.scientificName || obs.species || "Unknown",
+                  preferred_common_name: obs.commonName || obs.species,
+                  rank: "species",
+                },
+                photos: obs.imageUrl || obs.thumbnailUrl ? [{ 
+                  id: 1, 
+                  url: obs.imageUrl || obs.thumbnailUrl,
+                  license: "CC-BY-NC"
+                }] : [],
+                quality_grade: obs.verified ? "research" : "needs_id",
+                user: obs.observer,
+                // Source information for rich display
+                source: obs.source,
+                location: obs.location,
+                habitat: obs.habitat,
+                notes: obs.notes,
+                // Source URL for "View on iNaturalist" / "View on GBIF" links
+                sourceUrl: obs.sourceUrl,
+                externalId: obs.externalId,
+              }));
+              
+              const sourceInfo = fungalData.meta?.sources || {};
+              const dataSource = fungalData.meta?.dataSource || "unknown";
+              console.log(`[CREP] 🍄 Loaded ${formattedObs.length} fungal observations (${dataSource})`);
+              console.log(`[CREP] Sources breakdown: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
+              
+              setFungalObservations(formattedObs);
+              setFungalLoading(false);
+            }
+          } else {
+            console.error("[CREP] Failed to fetch from /api/crep/fungal:", fungalRes.status);
+            // Fallback: try iNaturalist directly for San Diego area at minimum
+            console.log("[CREP] Using iNaturalist fallback...");
+            const fallbackRes = await fetch("/api/crep/fungal?fallback=true");
+            if (fallbackRes.ok) {
+              const data = await fallbackRes.json();
+              if (data.observations) {
+                console.log(`[CREP] Fallback: Loaded ${data.observations.length} fungal observations`);
+                setFungalObservations(data.observations);
+                setFungalLoading(false);
               }
-            })
-          );
-          
-          // Deduplicate by observation ID
-          const uniqueObservations = Array.from(
-            new Map(allObservations.map(o => [o.id, o])).values()
-          );
-          console.log(`[CREP] Loaded ${uniqueObservations.length} fungal observations from iNaturalist`);
-          setFungalObservations(uniqueObservations);
+            }
+          }
         } catch (e) {
-          console.error("Failed to fetch fungal observations:", e);
+          console.error("[CREP] Failed to fetch fungal observations:", e);
+          setFungalLoading(false);
         }
       } catch (error) {
         console.error("Failed to fetch CREP data:", error);
@@ -1311,6 +1671,50 @@ export default function CREPDashboardPage() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLICK-AWAY HANDLER: Dismiss popups when clicking outside
+  // Uses click event in BUBBLING phase so that marker stopPropagation() works
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const handleClickAway = (e: MouseEvent) => {
+      const target = e.target;
+      
+      // Skip if no popups are selected - nothing to dismiss
+      if (!selectedEvent && !selectedFungal) return;
+      
+      // Guard: Ensure target is an Element with closest() method
+      if (!target || !(target instanceof Element)) {
+        return;
+      }
+      
+      // Check if click is inside any popup (content + close button + tip)
+      const isInsidePopup = target.closest(".maplibregl-popup") !== null;
+      
+      // Check if click is inside a marker button (multiple selectors for robustness)
+      const isInsideMarker = target.closest('[data-marker]') !== null || 
+                             target.closest('button[title*="🍄"]') !== null ||
+                             target.closest('.maplibregl-marker') !== null;
+
+      // Check if click is inside side panels (Intel Feed / right panel)
+      const isInsidePanel = target.closest('[data-panel]') !== null;
+      
+      // Check if click is inside Intel Feed event cards
+      const isInsideEventCard = target.closest('[data-event-card]') !== null;
+      
+      // If clicking outside popup, marker, panel, and event cards - dismiss
+      if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
+        console.log("[CREP] Click-away (doc): dismissing popups");
+        setSelectedEvent(null);
+        setSelectedFungal(null);
+      }
+    };
+
+    // Use click event in BUBBLING phase (false/default) so that 
+    // marker stopPropagation() can prevent this handler from running
+    document.addEventListener('click', handleClickAway, false);
+    return () => document.removeEventListener('click', handleClickAway, false);
+  }, [selectedEvent, selectedFungal]);
+
   // Layer handlers
   const toggleLayer = useCallback((layerId: string) => {
     setLayers(prev => prev.map(l => 
@@ -1323,6 +1727,302 @@ export default function CREPDashboardPage() {
       l.id === layerId ? { ...l, opacity } : l
     ));
   }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
+  // 
+  // DESIGN PRINCIPLE: When zoomed in, show MORE markers, not fewer!
+  // The user expectation is: zoom in = see more detail = more markers
+  // 
+  // What's shown in Intel Feed MUST match what's rendered on the map.
+  // This is critical for user trust and accurate data representation.
+  //
+  // Zoom Level Strategy (GENEROUS at higher zoom):
+  //   0-2  (world view)       → 50 markers   (global sampling)
+  //   2-3  (multi-continent)  → 200 markers  
+  //   3-4  (continent view)   → 500 markers
+  //   4-5  (large country)    → 1500 markers
+  //   5-6  (country/region)   → 3000 markers
+  //   6-7  (state/province)   → 6000 markers
+  //   7+   (local view)       → ALL in viewport (up to 15000 cap)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const visibleFungalObservations = useMemo(() => {
+    // Early return with minimal markers if no bounds yet
+    if (!mapBounds || fungalObservations.length === 0) {
+      return fungalObservations.slice(0, 50);
+    }
+    
+    // Step 1: Filter to viewport bounds FIRST (fast culling)
+    const inViewport = fungalObservations.filter(obs => {
+      const lat = obs.latitude;
+      const lng = obs.longitude;
+      
+      // Handle international date line crossing
+      if (mapBounds.west > mapBounds.east) {
+        return lat >= mapBounds.south && lat <= mapBounds.north &&
+               (lng >= mapBounds.west || lng <= mapBounds.east);
+      }
+      
+      return lat >= mapBounds.south && lat <= mapBounds.north &&
+             lng >= mapBounds.west && lng <= mapBounds.east;
+    });
+    
+    // Step 2: Zoom-based limits - MORE generous at higher zoom levels
+    let maxMarkers: number;
+    let lodLevel: string;
+    if (mapZoom < 2) {
+      maxMarkers = 50;
+      lodLevel = "world";
+    } else if (mapZoom < 3) {
+      maxMarkers = 200;
+      lodLevel = "multi-continent";
+    } else if (mapZoom < 4) {
+      maxMarkers = 500;
+      lodLevel = "continent";
+    } else if (mapZoom < 5) {
+      maxMarkers = 1500;
+      lodLevel = "large-country";
+    } else if (mapZoom < 6) {
+      maxMarkers = 3000;
+      lodLevel = "country";
+    } else if (mapZoom < 7) {
+      maxMarkers = 6000;
+      lodLevel = "state";
+    } else {
+      // At high zoom, show everything (with performance cap)
+      maxMarkers = 15000;
+      lodLevel = "local";
+    }
+    
+    // Step 3: If within limit, show ALL in viewport
+    if (inViewport.length <= maxMarkers) {
+      // Log occasionally for debugging
+      if (Math.random() < 0.05) {
+        console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) → ALL ${inViewport.length} in viewport`);
+      }
+      return inViewport;
+    }
+    
+    // Step 4: Spatial grid sampling for even geographic distribution
+    const gridSize = Math.ceil(Math.sqrt(maxMarkers));
+    const latRange = mapBounds.north - mapBounds.south;
+    const lngRange = mapBounds.east > mapBounds.west 
+      ? mapBounds.east - mapBounds.west 
+      : (360 - mapBounds.west + mapBounds.east);
+    
+    const cellWidth = lngRange / gridSize;
+    const cellHeight = latRange / gridSize;
+    
+    // Grid-based sampling: one representative per cell
+    const grid = new Map<string, typeof inViewport[0]>();
+    
+    for (const obs of inViewport) {
+      const cellX = Math.floor((obs.longitude - mapBounds.west + (mapBounds.west > mapBounds.east ? 360 : 0)) / cellWidth);
+      const cellY = Math.floor((obs.latitude - mapBounds.south) / cellHeight);
+      const cellKey = `${cellX},${cellY}`;
+      
+      // Keep the observation with highest quality (research grade preferred)
+      const existing = grid.get(cellKey);
+      if (!existing || (obs.quality_grade === "research" && existing.quality_grade !== "research")) {
+        grid.set(cellKey, obs);
+      }
+    }
+    
+    const sampled = Array.from(grid.values()).slice(0, maxMarkers);
+    
+    // Log sampling info
+    if (Math.random() < 0.05) {
+      console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) → Sampled ${sampled.length}/${inViewport.length} in viewport`);
+    }
+    
+    return sampled;
+  }, [fungalObservations, mapZoom, mapBounds]);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
+  // When a user clicks a fungal marker, the popup is attached directly to the marker.
+  // This handler ensures the map pans to keep the popup visible and not behind panels.
+  // Panel widths: Left = 288px (w-72), Right = 320px (w-80) + 12px margins each
+  // ═══════════════════════════════════════════════════════════════════════════
+  const handleSelectFungal = useCallback((obs: FungalObservation | null) => {
+    // Clear event selection when selecting fungal
+    setSelectedEvent(null);
+
+    // If deselecting, just clear selection
+    if (!obs) {
+      setSelectedFungal(null);
+      return;
+    }
+    
+    // Toggle selection
+    if (selectedFungal?.id === obs.id) {
+      setSelectedFungal(null);
+      return;
+    }
+    
+    // Select the new observation
+    setSelectedFungal(obs);
+    
+    // Smart pan: Ensure the marker + popup are visible and not behind panels
+    if (mapRef && mapRef.getContainer) {
+      const container = mapRef.getContainer();
+      if (!container) return;
+      
+      const containerWidth = container.offsetWidth;
+      const containerHeight = container.offsetHeight;
+      
+      // Calculate visible viewport accounting for panels
+      // Left panel: 288px + 12px margin = 300px when open
+      // Right panel: 320px + 12px margin = 332px when open
+      const leftPanelWidth = leftPanelOpen ? 300 : 0;
+      const rightPanelWidth = rightPanelOpen ? 340 : 0;
+      
+      // Popup dimensions (approximate) - popup is ~320px wide, ~250px tall
+      const popupWidth = 320;
+      const popupHeight = 280;
+      
+      // Convert marker lat/lng to screen position
+      const point = mapRef.project([obs.longitude, obs.latitude]);
+      
+      // Define the "safe zone" where the marker + popup should be visible
+      // Adding padding for the popup which appears ABOVE the marker
+      const safeZone = {
+        left: leftPanelWidth + 20, // 20px extra padding
+        right: containerWidth - rightPanelWidth - 20,
+        top: popupHeight + 40, // popup height + padding
+        bottom: containerHeight - 60 // bottom status bar area
+      };
+      
+      // Calculate if pan is needed
+      let panX = 0;
+      let panY = 0;
+      
+      // Check if marker is too far left (behind left panel)
+      if (point.x < safeZone.left) {
+        panX = safeZone.left - point.x + popupWidth / 2;
+      }
+      // Check if marker is too far right (behind right panel)
+      else if (point.x > safeZone.right - popupWidth / 2) {
+        panX = safeZone.right - popupWidth / 2 - point.x;
+      }
+      
+      // Check if marker is too close to top (popup would go off screen)
+      if (point.y < safeZone.top) {
+        panY = safeZone.top - point.y;
+      }
+      // Check if marker is too close to bottom
+      else if (point.y > safeZone.bottom) {
+        panY = safeZone.bottom - point.y;
+      }
+      
+      // If pan is needed, smoothly pan the map
+      if (Math.abs(panX) > 10 || Math.abs(panY) > 10) {
+        mapRef.panBy([-panX, -panY], { duration: 300 });
+      }
+    }
+  }, [mapRef, leftPanelOpen, rightPanelOpen, selectedFungal]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMART MAP AUTO-PAN: Event Marker Selection Handler
+  // When a user clicks an event marker or event in the list, the popup shows attached.
+  // This handler ensures the map pans to keep the popup visible and not behind panels.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const handleSelectEvent = useCallback((event: GlobalEvent | null, shouldFlyTo = false) => {
+    // Clear fungal selection when selecting an event
+    setSelectedFungal(null);
+    
+    // If deselecting, just clear selection
+    if (!event) {
+      setSelectedEvent(null);
+      return;
+    }
+    
+    // Toggle selection if same event
+    if (selectedEvent?.id === event.id) {
+      setSelectedEvent(null);
+      return;
+    }
+    
+    // Select the new event
+    setSelectedEvent(event);
+    
+    // If shouldFlyTo, fly to the event location first
+    if (shouldFlyTo && mapRef) {
+      mapRef.flyTo({
+        center: [event.lng, event.lat],
+        zoom: Math.max(mapRef.getZoom?.() || 8, 8), // At least zoom level 8
+        duration: 700,
+      });
+      return; // Pan will happen after flyTo due to flyend event
+    }
+    
+    // Smart pan: Ensure the marker + popup are visible and not behind panels
+    if (mapRef && mapRef.getContainer) {
+      // Short delay to ensure the popup has rendered
+      setTimeout(() => {
+        const container = mapRef.getContainer();
+        if (!container) return;
+        
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
+        
+        // Calculate visible viewport accounting for panels
+        const leftPanelWidth = leftPanelOpen ? 300 : 0;
+        const rightPanelWidth = rightPanelOpen ? 340 : 0;
+        
+        // Event popup dimensions (larger than fungal popup)
+        const popupWidth = 380;
+        const popupHeight = 400;
+        
+        // Convert marker lat/lng to screen position
+        const point = mapRef.project([event.lng, event.lat]);
+        
+        // Define the "safe zone" where the marker + popup should be visible
+        const safeZone = {
+          left: leftPanelWidth + 20,
+          right: containerWidth - rightPanelWidth - 20,
+          top: popupHeight + 60,
+          bottom: containerHeight - 60
+        };
+        
+        // Calculate if pan is needed
+        let panX = 0;
+        let panY = 0;
+        
+        // Check if marker is too far left (behind left panel)
+        if (point.x < safeZone.left) {
+          panX = safeZone.left - point.x + popupWidth / 2;
+        }
+        // Check if marker is too far right (behind right panel)
+        else if (point.x > safeZone.right - popupWidth / 2) {
+          panX = safeZone.right - popupWidth / 2 - point.x;
+        }
+        
+        // Check if marker is too close to top (popup would go off screen)
+        if (point.y < safeZone.top) {
+          panY = safeZone.top - point.y;
+        }
+        // Check if marker is too close to bottom
+        else if (point.y > safeZone.bottom) {
+          panY = safeZone.bottom - point.y;
+        }
+        
+        // If pan is needed, smoothly pan the map
+        if (Math.abs(panX) > 10 || Math.abs(panY) > 10) {
+          mapRef.panBy([-panX, -panY], { duration: 300 });
+        }
+      }, 100);
+    }
+  }, [mapRef, leftPanelOpen, rightPanelOpen, selectedEvent]);
+
+  // Clear all selections when clicking on empty map area
+  const handleMapClick = useCallback(() => {
+    // Only clear if something is selected
+    if (selectedEvent || selectedFungal) {
+      setSelectedEvent(null);
+      setSelectedFungal(null);
+    }
+  }, [selectedEvent, selectedFungal]);
 
   // MYCA message handler
   const handleMycaMessage = useCallback((content: string) => {
@@ -1351,11 +2051,78 @@ export default function CREPDashboardPage() {
     }, 1500);
   }, []);
 
-  // Filter events
-  const filteredEvents = globalEvents.filter(event => {
+  // Filter events by type
+  const typeFilteredEvents = globalEvents.filter(event => {
     if (eventFilter !== "all" && event.type !== eventFilter) return false;
     return true;
   });
+
+  // LOD (Level of Detail) filtering for events - same system as fungal data
+  const visibleEvents = useMemo(() => {
+    // Early return with minimal markers if no bounds yet
+    if (!mapBounds || typeFilteredEvents.length === 0) {
+      return typeFilteredEvents.slice(0, 30);
+    }
+    
+    // Step 1: Filter to viewport bounds FIRST (fast culling)
+    const inViewport = typeFilteredEvents.filter(event => {
+      const lat = event.lat;
+      const lng = event.lng;
+      
+      // Skip events with invalid coordinates
+      if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) return false;
+      
+      // Handle international date line crossing
+      if (mapBounds.west > mapBounds.east) {
+        return lat >= mapBounds.south && lat <= mapBounds.north &&
+               (lng >= mapBounds.west || lng <= mapBounds.east);
+      }
+      
+      return lat >= mapBounds.south && lat <= mapBounds.north &&
+             lng >= mapBounds.west && lng <= mapBounds.east;
+    });
+    
+    // Step 2: Zoom-based limits - events are typically fewer than fungal data
+    // so limits are more conservative
+    let maxEvents: number;
+    if (mapZoom < 2) {
+      maxEvents = 20;  // World view - only most critical events
+    } else if (mapZoom < 3) {
+      maxEvents = 50;
+    } else if (mapZoom < 4) {
+      maxEvents = 100;
+    } else if (mapZoom < 5) {
+      maxEvents = 150;
+    } else if (mapZoom < 6) {
+      maxEvents = 200;
+    } else {
+      maxEvents = 500; // Show all at high zoom
+    }
+    
+    // Step 3: If within limit, show ALL in viewport
+    if (inViewport.length <= maxEvents) {
+      return inViewport;
+    }
+    
+    // Step 4: Prioritize by severity (critical/extreme first) then sample
+    const critical = inViewport.filter(e => e.severity === "critical" || e.severity === "extreme");
+    const high = inViewport.filter(e => e.severity === "high");
+    const rest = inViewport.filter(e => e.severity !== "critical" && e.severity !== "extreme" && e.severity !== "high");
+    
+    // Take all critical, then fill with high, then rest
+    const result = [...critical];
+    if (result.length < maxEvents) {
+      result.push(...high.slice(0, maxEvents - result.length));
+    }
+    if (result.length < maxEvents) {
+      result.push(...rest.slice(0, maxEvents - result.length));
+    }
+    
+    return result;
+  }, [typeFilteredEvents, mapZoom, mapBounds]);
+
+  // For backward compatibility - use visibleEvents for rendering
+  const filteredEvents = visibleEvents;
 
   // Stats
   const criticalCount = globalEvents.filter(e => e.severity === "critical" || e.severity === "extreme").length;
@@ -1593,44 +2360,185 @@ export default function CREPDashboardPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Floating Left Sidebar - Intel Feed - Overlays Map */}
-        <div className={cn(
+        {/* Floating Left Sidebar - Intel Feed - FUNGAL DATA PRIMARY */}
+        <div 
+          data-panel="left"
+          className={cn(
           "absolute left-3 top-3 bottom-3 z-30 transition-all duration-300 ease-in-out",
           leftPanelOpen ? "w-72 opacity-100 translate-x-0" : "-translate-x-80 opacity-0 pointer-events-none"
-        )}>
+          )}
+        >
           <div className="h-full bg-[#0a1220]/95 backdrop-blur-md border border-cyan-500/20 rounded-lg overflow-hidden flex flex-col shadow-xl">
-            {/* Sidebar Header */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-cyan-500/20 bg-black/30">
+            {/* Sidebar Header with Tabs - FUNGAL FIRST */}
+            <div className="border-b border-cyan-500/20 bg-black/30">
+              <div className="flex items-center justify-between px-3 py-2">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-white">INTEL FEED</span>
               </div>
-              <Badge variant="outline" className="text-[8px] border-green-500/50 text-green-400">
-                {filteredEvents.length} ACTIVE
+                <Badge variant="outline" className={cn(
+                  "text-[8px]",
+                  leftPanelTab === "fungal" 
+                    ? "border-green-500/50 text-green-400" 
+                    : "border-orange-500/50 text-orange-400"
+                )}>
+                  {leftPanelTab === "fungal" 
+                    ? `${visibleFungalObservations.length}/${fungalObservations.length} FUNGI` 
+                    : `${filteredEvents.length} EVENTS`}
               </Badge>
+              </div>
+              {/* Tab Buttons - FUNGAL is PRIMARY */}
+              <div className="flex px-2 pb-2 gap-1">
+                <button
+                  onClick={() => setLeftPanelTab("fungal")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-semibold transition-all",
+                    leftPanelTab === "fungal"
+                      ? "bg-green-500/20 text-green-400 border border-green-500/50"
+                      : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
+                  )}
+                >
+                  <span className="text-sm">🍄</span>
+                  FUNGAL DATA
+                </button>
+                <button
+                  onClick={() => setLeftPanelTab("events")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-semibold transition-all",
+                    leftPanelTab === "events"
+                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/50"
+                      : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
+                  )}
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  EVENTS
+                </button>
+              </div>
         </div>
 
-            {/* Quick Stats */}
+            {/* Quick Stats - Updated for Fungal Priority */}
             <div className="grid grid-cols-3 gap-1 p-2 border-b border-cyan-500/10">
-              <div className="text-center p-2 rounded bg-black/30">
-                <div className="text-lg font-bold text-cyan-400">{globalEvents.length}</div>
-                <div className="text-[8px] text-gray-500 uppercase">Events</div>
+              <div className="text-center p-2 rounded bg-black/30 border border-green-500/20">
+                <div className="text-lg font-bold text-green-400">{fungalObservations.length}</div>
+                <div className="text-[8px] text-gray-500 uppercase">Fungi</div>
               </div>
               <div className="text-center p-2 rounded bg-black/30">
-                <div className="text-lg font-bold text-green-400">{onlineDevices}</div>
+                <div className="text-lg font-bold text-cyan-400">{onlineDevices}</div>
                 <div className="text-[8px] text-gray-500 uppercase">Devices</div>
               </div>
               <div className="text-center p-2 rounded bg-black/30">
-                <div className="text-lg font-bold text-red-400">{criticalCount}</div>
-                <div className="text-[8px] text-gray-500 uppercase">Critical</div>
+                <div className="text-lg font-bold text-orange-400">{globalEvents.length}</div>
+                <div className="text-[8px] text-gray-500 uppercase">Events</div>
               </div>
             </div>
 
-            {/* Filters */}
+            {/* FUNGAL TAB CONTENT - PRIMARY */}
+            {leftPanelTab === "fungal" && (
+              <>
+                {/* Fungal Filters */}
+                <div className="p-2 border-b border-cyan-500/10 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="w-3 h-3 text-green-500" />
+                    <span className="text-[10px] text-green-400 font-semibold">Fungal Observations</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[9px]">
+                    <Badge variant="outline" className="border-green-500/30 text-green-400 px-1.5 py-0">
+                      {fungalObservations.filter(f => f.quality_grade === "research").length} Research Grade
+                    </Badge>
+                    <Badge variant="outline" className="border-yellow-500/30 text-yellow-400 px-1.5 py-0">
+                      {fungalObservations.filter(f => f.quality_grade !== "research").length} Needs ID
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Fungal Observation List - SCROLLABLE
+                    Shows VISIBLE observations (from LOD system) for consistency with map
+                    Limited to 50 items max for performance */}
+                <ScrollArea className="flex-1">
+                  <div className="p-2 space-y-1">
+                    {fungalLoading ? (
+                      <div className="text-center py-8 text-gray-500 text-[10px]">
+                        <span className="text-3xl mb-2 block animate-pulse">🍄</span>
+                        <span className="animate-pulse">Loading from MINDEX...</span>
+                      </div>
+                    ) : visibleFungalObservations.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500 text-[10px]">
+                        <span className="text-3xl mb-2 block">🍄</span>
+                        Zoom in to see observations
+                      </div>
+                    ) : (
+                      visibleFungalObservations.slice(0, 50).map((obs) => {
+                        const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Fungus";
+                        const isResearchGrade = obs.quality_grade === "research";
+                        const isSelected = selectedFungal?.id === obs.id;
+                        
+                        return (
+                          <div
+                            key={`fungal-item-${obs.id}`}
+                            onClick={() => handleSelectFungal(isSelected ? null : obs)}
+                            className={cn(
+                              "p-2 rounded cursor-pointer transition-all border",
+                              isSelected
+                                ? "bg-green-500/10 border-green-500/40"
+                                : "bg-black/30 border-transparent hover:border-green-700/50"
+                            )}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className={cn(
+                                "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                                isResearchGrade ? "bg-green-500/30" : "bg-green-400/20"
+                              )}>
+                                <span className="text-xs">🍄</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] text-white font-medium truncate">
+                                  {speciesName}
+                                </div>
+                                <div className="flex items-center justify-between mt-0.5">
+                                  <span className="text-[8px] text-gray-500 truncate max-w-[100px]">
+                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : '—'}°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : '—'}°`}
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-[7px] px-1 py-0",
+                                      isResearchGrade 
+                                        ? "border-green-500/50 text-green-400" 
+                                        : "border-yellow-500/50 text-yellow-400"
+                                    )}
+                                  >
+                                    {isResearchGrade ? "✓ verified" : "needs ID"}
+                                  </Badge>
+                                </div>
+                                {obs.observed_on && (
+                                  <div className="text-[7px] text-gray-600 mt-0.5">
+                                    {new Date(obs.observed_on).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    {visibleFungalObservations.length > 50 && (
+                      <div className="text-center py-2 text-[9px] text-gray-500">
+                        Showing 50 of {visibleFungalObservations.length} visible • Zoom in for more
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
+
+            {/* EVENTS TAB CONTENT - SECONDARY */}
+            {leftPanelTab === "events" && (
+              <>
+                {/* Event Filters */}
             <div className="p-2 border-b border-cyan-500/10 space-y-2">
               <div className="flex items-center gap-2">
                 <Filter className="w-3 h-3 text-gray-500" />
-                <span className="text-[10px] text-gray-400">Filters</span>
+                    <span className="text-[10px] text-gray-400">Event Filters</span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {["all", "earthquake", "volcano", "wildfire", "storm"].map((type) => (
@@ -1652,58 +2560,90 @@ export default function CREPDashboardPage() {
               </div>
             </div>
 
-            {/* Event List */}
+                {/* Event List - FIXED OVERFLOW with proper padding */}
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {filteredEvents.map((event) => {
+                  <div className="px-2 py-1.5 space-y-1.5">
+                    {filteredEvents.slice(0, 50).map((event) => {
                   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
                   const isSelected = selectedEvent?.id === event.id;
                   
                   return (
                   <div
                     key={event.id}
-                      onClick={() => setSelectedEvent(isSelected ? null : event)}
+                          onClick={() => handleSelectEvent(isSelected ? null : event, true)}
                     className={cn(
-                        "p-2 rounded cursor-pointer transition-all border",
+                            "p-2 rounded cursor-pointer transition-all border overflow-hidden",
                         isSelected
                         ? "bg-cyan-500/10 border-cyan-500/40"
                           : "bg-black/30 border-transparent hover:border-gray-700/50"
                       )}
                     >
-                      <div className="flex items-start gap-2">
+                          <div className="flex items-start gap-2 overflow-hidden">
                         <div 
                           className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5"
                           style={{ backgroundColor: `${config.color}30` }}
                         >
                           {config.icon}
                         </div>
-                      <div className="flex-1 min-w-0">
-                          <div className="text-[10px] text-white font-medium truncate">
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              {/* Title - click to select and fly to */}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectEvent(isSelected ? null : event, true);
+                                }}
+                                className="text-[10px] text-white font-medium truncate hover:text-cyan-400 transition-colors text-left w-full"
+                              >
                           {event.title}
-                        </div>
-                          <div className="flex items-center justify-between mt-0.5">
-                            <span className="text-[8px] text-gray-500">
-                          {event.lat.toFixed(2)}°, {event.lng.toFixed(2)}°
+                              </button>
+                              <div className="flex items-center justify-between mt-0.5 overflow-hidden">
+                                {/* Clickable coordinates - FLY TO */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectEvent(event, true);
+                                  }}
+                                  className="text-[8px] text-cyan-500 hover:text-cyan-400 flex items-center gap-0.5 transition-colors"
+                                  title="Fly to event and show details"
+                                >
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span className="truncate max-w-[80px]">
+                                    {(event.lat ?? 0).toFixed(2)}°, {(event.lng ?? 0).toFixed(2)}°
                             </span>
+                                </button>
                       <Badge 
                         variant="outline" 
-                              className={cn("text-[7px] px-1 py-0", severityColors[event.severity])}
+                                  className={cn("text-[7px] px-1 py-0 flex-shrink-0", severityColors[event.severity || "medium"])}
                       >
-                              {event.severity}
+                                  {(event.severity || "medium").toUpperCase()}
                       </Badge>
                     </div>
+                              {/* Source info */}
+                              {event.source && (
+                                <div className="flex items-center gap-1 mt-0.5 text-[7px] text-gray-500 truncate">
+                                  <Database className="w-2 h-2 flex-shrink-0" />
+                                  <span className="truncate">{event.source}</span>
+                                </div>
+                              )}
                     </div>
                   </div>
                     </div>
                   );
                 })}
+                    {filteredEvents.length > 50 && (
+                      <div className="text-center py-2 text-[9px] text-gray-500">
+                        Showing 50 of {filteredEvents.length} visible • Zoom in for more
+                      </div>
+                    )}
               </div>
             </ScrollArea>
+              </>
+            )}
 
             {/* Sidebar Footer */}
             <div className="px-3 py-2 border-t border-cyan-500/20 bg-black/30">
               <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
-                <span>LAST UPDATE</span>
+                <span>{leftPanelTab === "fungal" ? "MINDEX SYNC" : "LAST UPDATE"}</span>
                 <span className="text-cyan-400">{new Date().toLocaleTimeString()}</span>
               </div>
             </div>
@@ -1725,11 +2665,78 @@ export default function CREPDashboardPage() {
             }
           `}</style>
           <MapComponent 
-            center={[0, 20]} 
-            zoom={2}
+            center={userLocation ? [userLocation.lng, userLocation.lat] : [0, 20]} 
+            zoom={userLocation ? 5 : 2}
             styles={{
               dark: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json",
               light: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
+            }}
+            onLoad={(map: any) => {
+              setMapRef(map);
+              console.log("[CREP] Map loaded, reference captured for auto-zoom");
+              
+              // Initialize zoom and bounds
+              setMapZoom(map.getZoom());
+              const bounds = map.getBounds();
+              if (bounds) {
+                setMapBounds({
+                  north: bounds.getNorth(),
+                  south: bounds.getSouth(),
+                  east: bounds.getEast(),
+                  west: bounds.getWest(),
+                });
+              }
+              
+              // LOD System: Update viewport on zoom/pan completion
+              // Using "moveend" and "zoomend" for reliable updates after gestures complete
+              const updateViewport = () => {
+                const newZoom = map.getZoom();
+                const b = map.getBounds();
+                if (b) {
+                  console.log(`[CREP/LOD] Viewport update: zoom=${newZoom.toFixed(2)}`);
+                  setMapZoom(newZoom);
+                  setMapBounds({
+                    north: b.getNorth(),
+                    south: b.getSouth(),
+                    east: b.getEast(),
+                    west: b.getWest(),
+                  });
+                }
+              };
+              
+              // Use "moveend" and "zoomend" for reliable updates after interaction completes
+              // These fire once when pan/zoom animation finishes, not continuously
+              map.on("moveend", updateViewport);
+              map.on("zoomend", updateViewport);
+              
+              // MAP CLICK-AWAY HANDLER: Direct MapLibre click event for reliable popup dismissal
+              // This fires when clicking directly on the map canvas, not on markers/popups
+              map.on("click", (e: any) => {
+                // Use a longer delay to allow React state updates and popup rendering
+                setTimeout(() => {
+                  // Check if any popup is open - if so, we might want to close
+                  const openPopups = document.querySelectorAll('.maplibregl-popup');
+                  if (openPopups.length > 0) {
+                    // Use the original event target to check if click was on a marker
+                    // This is more reliable than elementFromPoint for overlay markers
+                    const target = e.originalEvent?.target as HTMLElement | null;
+                    const isOnMarker = target?.closest('[data-marker]') !== null ||
+                                       target?.closest('button[title*="🍄"]') !== null ||
+                                       target?.closest('.maplibregl-marker') !== null;
+                    const isOnPopup = target?.closest('.maplibregl-popup') !== null;
+                    
+                    // Also check if click was on canvas (empty map area)
+                    const isOnCanvas = target?.tagName === 'CANVAS' || target?.classList?.contains('maplibregl-canvas');
+                    
+                    // Only dismiss if click was on canvas AND not on a marker or popup
+                    if (isOnCanvas && !isOnMarker && !isOnPopup) {
+                      console.log("[CREP] Click-away (map): dismissing popups");
+                      setSelectedEvent(null);
+                      setSelectedFungal(null);
+                    }
+                  }
+                }, 100);
+              });
             }}
           >
             <MapControls 
@@ -1738,7 +2745,11 @@ export default function CREPDashboardPage() {
               showCompass={true}
               showLocate={true}
               showFullscreen={false}
-              className="mb-4 ml-4"
+              className={cn(
+                "mb-4 transition-all duration-300",
+                // Move controls to the right of left panel when it's open
+                leftPanelOpen ? "ml-[310px]" : "ml-4"
+              )}
             />
 
             {/* Trajectory Lines - Flight Paths and Ship Routes */}
@@ -1756,17 +2767,58 @@ export default function CREPDashboardPage() {
               showSelected={selectedSatellite?.id}
             />
 
-            {/* Event Markers */}
-            {layers.find(l => l.id === "earthquakes" || l.id === "volcanoes" || l.id === "wildfires" || l.id === "storms")?.enabled && 
-              filteredEvents.map(event => (
+            {/* Event Markers - Only render if corresponding layer is enabled */}
+            {filteredEvents.map(event => {
+              // Check if the specific event type layer is enabled
+              // COMPREHENSIVE MAP: All event types must be mapped to correct layers
+              const layerMap: Record<string, string> = {
+                // Seismic events
+                earthquake: "earthquakes",
+                // Volcanic events
+                volcano: "volcanoes",
+                // Fire events  
+                wildfire: "wildfires",
+                fire: "wildfires",
+                // Storm events
+                storm: "storms",
+                hurricane: "storms",
+                flood: "storms",
+                // Lightning events
+                lightning: "lightning",
+                // Tornado events
+                tornado: "tornadoes",
+                // Space weather (solar) events
+                solar_flare: "solar",
+                geomagnetic_storm: "solar",
+                cme: "solar",
+                // Biological events - NOT in event markers, handled by fungal layer
+                fungal_bloom: "fungi",
+                migration: "fungi",
+                // Default fallback
+                default: "earthquakes",
+              };
+              const layerId = layerMap[event.type] || layerMap.default;
+              const isLayerEnabled = layers.find(l => l.id === layerId)?.enabled ?? false;
+              
+              if (!isLayerEnabled) return null;
+              
+              return (
                 <EventMarker
                   key={event.id}
                   event={event}
                   isSelected={selectedEvent?.id === event.id}
-                  onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
+                  onClick={() => handleSelectEvent(selectedEvent?.id === event.id ? null : event)}
+                  onClose={() => handleSelectEvent(null)}
+                  onFlyTo={(lat, lng, zoom) => {
+                    mapRef?.flyTo({
+                      center: [lng, lat],
+                      zoom: zoom || 10,
+                      duration: 1500,
+                    });
+                  }}
                 />
-              ))
-            }
+              );
+            })}
 
             {/* Device Markers */}
             {layers.find(l => l.id === "mycobrain")?.enabled && devices.map(device => (
@@ -1785,6 +2837,7 @@ export default function CREPDashboardPage() {
                 aircraft={ac}
                 isSelected={selectedAircraft?.id === ac.id}
                 onClick={() => setSelectedAircraft(selectedAircraft?.id === ac.id ? null : ac)}
+                onClose={() => setSelectedAircraft(null)}
               />
             ))}
 
@@ -1795,6 +2848,7 @@ export default function CREPDashboardPage() {
                 vessel={vessel}
                 isSelected={selectedVessel?.id === vessel.id}
                 onClick={() => setSelectedVessel(selectedVessel?.id === vessel.id ? null : vessel)}
+                onClose={() => setSelectedVessel(null)}
               />
             ))}
 
@@ -1805,16 +2859,22 @@ export default function CREPDashboardPage() {
                 satellite={sat}
                 isSelected={selectedSatellite?.id === sat.id}
                 onClick={() => setSelectedSatellite(selectedSatellite?.id === sat.id ? null : sat)}
+                onClose={() => setSelectedSatellite(null)}
               />
             ))}
 
-            {/* Fungal Observation Markers (iNaturalist) - Phase 1 MINDEX Integration */}
-            {layers.find(l => l.id === "fungi")?.enabled && fungalObservations.map(obs => (
+            {/* Fungal Observation Markers - LOD System
+                Uses visibleFungalObservations which filters by:
+                1. Viewport bounds (only render visible markers)
+                2. Zoom-based sampling (fewer markers when zoomed out)
+                This enables rendering 21K+ markers smoothly like Google Earth */}
+            {layers.find(l => l.id === "fungi")?.enabled && visibleFungalObservations.map(obs => (
               <FungalMarker
                 key={`fungal-${obs.id}`}
                 observation={obs}
                 isSelected={selectedFungal?.id === obs.id}
-                onClick={() => setSelectedFungal(selectedFungal?.id === obs.id ? null : obs)}
+                onClick={() => handleSelectFungal(selectedFungal?.id === obs.id ? null : obs)}
+                onClose={() => handleSelectFungal(null)}
               />
             ))}
           </MapComponent>
@@ -1825,50 +2885,55 @@ export default function CREPDashboardPage() {
           <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-cyan-500/40 pointer-events-none" />
           <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-cyan-500/40 pointer-events-none" />
 
-          {/* Map Status Overlay - Top Center */}
+          {/* Map Status Overlay - Top Center - FUNGAL DATA PRIMARY */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[9px] font-mono pointer-events-none">
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-green-400">LIVE</span>
             </div>
-            <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-cyan-400">
+            {/* FUNGAL DATA FIRST - PRIMARY */}
+            {fungalObservations.length > 0 && (
+              <div className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30" title={`${fungalObservations.length} fungal observations - PRIMARY DATA`}>
+                <span className="mr-1">🍄</span>
+                {fungalObservations.length} FUNGI
+              </div>
+            )}
+            <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-orange-400">
               {filteredEvents.length} EVENTS
             </div>
-            <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-green-400">
+            <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-cyan-400">
               {onlineDevices} DEVICES
             </div>
-            {aircraft.length > 0 && (
+            {/* Transport/Satellite data - SECONDARY (only show if enabled) */}
+            {layers.find(l => l.id === "aviation")?.enabled && aircraft.length > 0 && (
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400" title={`${filteredAircraft.length} shown / ${aircraft.length} total`}>
                 <Plane className="w-3 h-3 inline-block mr-1" />
                 {filteredAircraft.length}/{aircraft.length}
               </div>
             )}
-            {vessels.length > 0 && (
+            {layers.find(l => l.id === "ships")?.enabled && vessels.length > 0 && (
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-teal-400" title={`${filteredVessels.length} shown / ${vessels.length} total`}>
                 <Ship className="w-3 h-3 inline-block mr-1" />
                 {filteredVessels.length}/{vessels.length}
               </div>
             )}
-            {satellites.length > 0 && (
+            {layers.find(l => l.id === "satellites")?.enabled && satellites.length > 0 && (
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400" title={`${filteredSatellites.length} shown / ${satellites.length} total`}>
                 <Satellite className="w-3 h-3 inline-block mr-1" />
                 {filteredSatellites.length}/{satellites.length}
-              </div>
-            )}
-            {fungalObservations.length > 0 && (
-              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-green-400" title={`${fungalObservations.length} fungal observations from iNaturalist`}>
-                <Leaf className="w-3 h-3 inline-block mr-1" />
-                {fungalObservations.length}
               </div>
             )}
           </div>
         </div>
 
         {/* Right Side Panel - Overlays Map with slide animation */}
-        <div className={cn(
+        <div 
+          data-panel="right"
+          className={cn(
           "absolute right-3 top-3 bottom-3 w-80 z-30 transition-all duration-300 ease-in-out border border-cyan-500/20 bg-[#0a1220]/95 backdrop-blur-md rounded-lg shadow-xl overflow-hidden",
           rightPanelOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
-        )}>
+          )}
+        >
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
@@ -1919,7 +2984,7 @@ export default function CREPDashboardPage() {
 
               {/* Tab Content */}
               <div className="flex-1 overflow-hidden">
-                <TabsContent value="mission" className="h-full m-0 p-3 overflow-auto">
+                <TabsContent value="mission" className="h-full m-0 p-3 overflow-hidden flex flex-col">
                   <MissionContextPanel mission={currentMission} stats={stats} />
                 </TabsContent>
 
@@ -2044,6 +3109,20 @@ export default function CREPDashboardPage() {
           <span className="text-cyan-400 tabular-nums">{new Date().toLocaleTimeString()}</span>
         </div>
       </div>
+
+      {/* Centered Entity Detail Panel - for transport entities only
+          NOTE: Events and Fungal observations use attached MarkerPopup widgets instead of this centered modal.
+          This provides a better UX where the popup is connected to the marker icon. */}
+      <EntityDetailPanel 
+        onClose={() => {
+          setSelectedAircraft(null);
+          setSelectedVessel(null);
+          setSelectedSatellite(null);
+        }}
+        aircraft={selectedAircraft}
+        vessel={selectedVessel}
+        satellite={selectedSatellite}
+      />
     </div>
   );
 }

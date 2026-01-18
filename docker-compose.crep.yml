@@ -1,0 +1,266 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# CREP External Services - Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════
+# 
+# These services provide additional data layers for the CREP dashboard:
+# - Carbon Mapper: Methane/CO2 plume detection
+# - OpenRailwayMap: Railway infrastructure mapping
+# - AstriaGraph: Space debris and satellite tracking
+# - SatelliteMap.space: Visual satellite positions
+# - MarineTraffic: Alternative AIS vessel data
+# - FlightRadar24 Enhanced: Extended flight tracking
+#
+# Each service includes:
+# - Local SQLite cache for fast access
+# - Redis integration for event bus
+# - Health check endpoints
+# - Prometheus metrics
+# - MINDEX logging integration
+#
+# Usage:
+#   docker-compose -f docker-compose.crep.yml up -d
+#   docker-compose -f docker-compose.crep.yml logs -f
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  # ==========================================================================
+  # CARBON MAPPER - Methane and CO2 Plume Detection
+  # Source: https://data.carbonmapper.org/
+  # ==========================================================================
+  crep-carbon-mapper:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.carbon-mapper
+    container_name: crep-carbon-mapper
+    ports:
+      - "8201:8201"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=300
+      - CACHE_PATH=/app/data/carbon_mapper_cache.db
+      - LOG_LEVEL=INFO
+    volumes:
+      - carbon_mapper_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8201/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=carbon-mapper"
+      - "com.crep.priority=high"
+
+  # ==========================================================================
+  # OPENRAILWAYMAP - Global Railway Infrastructure
+  # Source: https://www.openrailwaymap.org/
+  # ==========================================================================
+  crep-railway:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.railway
+    container_name: crep-railway
+    ports:
+      - "8202:8202"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=3600
+      - CACHE_PATH=/app/data/railway_cache.db
+      - OSM_OVERPASS_URL=https://overpass-api.de/api/interpreter
+      - LOG_LEVEL=INFO
+    volumes:
+      - railway_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8202/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=railway"
+      - "com.crep.priority=medium"
+
+  # ==========================================================================
+  # ASTRIAGRAPH - Space Debris and Object Tracking
+  # Source: http://astria.tacc.utexas.edu/AstriaGraph/
+  # ==========================================================================
+  crep-astria:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.astria
+    container_name: crep-astria
+    ports:
+      - "8203:8203"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=600
+      - CACHE_PATH=/app/data/astria_cache.db
+      - ASTRIA_API_URL=http://astria.tacc.utexas.edu
+      - LOG_LEVEL=INFO
+    volumes:
+      - astria_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8203/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=astria"
+      - "com.crep.priority=medium"
+
+  # ==========================================================================
+  # SATELLITEMAP - Visual Satellite Positions
+  # Source: https://satellitemap.space/
+  # ==========================================================================
+  crep-satmap:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.satmap
+    container_name: crep-satmap
+    ports:
+      - "8204:8204"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=60
+      - CACHE_PATH=/app/data/satmap_cache.db
+      - CELESTRAK_URL=https://celestrak.org/NORAD/elements
+      - LOG_LEVEL=INFO
+    volumes:
+      - satmap_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8204/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=satmap"
+      - "com.crep.priority=high"
+
+  # ==========================================================================
+  # MARINETRAFFIC ENHANCED - Alternative AIS Data
+  # Source: https://www.marinetraffic.com/
+  # Note: Requires API key for production use
+  # ==========================================================================
+  crep-marine:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.marine
+    container_name: crep-marine
+    ports:
+      - "8205:8205"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=30
+      - CACHE_PATH=/app/data/marine_cache.db
+      - MARINETRAFFIC_API_KEY=${MARINETRAFFIC_API_KEY:-}
+      - AISSTREAM_API_KEY=${AISSTREAM_API_KEY:-}
+      - LOG_LEVEL=INFO
+    volumes:
+      - marine_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8205/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=marine"
+      - "com.crep.priority=high"
+
+  # ==========================================================================
+  # FLIGHTRADAR24 ENHANCED - Extended Flight Tracking
+  # Source: https://www.flightradar24.com/
+  # ==========================================================================
+  crep-flights:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.flights
+    container_name: crep-flights
+    ports:
+      - "8206:8206"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=10
+      - CACHE_PATH=/app/data/flights_cache.db
+      - FLIGHTRADAR_API_KEY=${FLIGHTRADAR_API_KEY:-}
+      - OPENSKY_USERNAME=${OPENSKY_USERNAME:-}
+      - OPENSKY_PASSWORD=${OPENSKY_PASSWORD:-}
+      - LOG_LEVEL=INFO
+    volumes:
+      - flights_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8206/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=flights"
+      - "com.crep.priority=critical"
+
+  # ==========================================================================
+  # CREP CACHE WARMER - Pre-loads data for instant dashboard access
+  # ==========================================================================
+  crep-cache-warmer:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.cache-warmer
+    container_name: crep-cache-warmer
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - CREP_SERVICES=carbon-mapper:8201,railway:8202,astria:8203,satmap:8204,marine:8205,flights:8206
+      - WARM_INTERVAL=60
+      - LOG_LEVEL=INFO
+    depends_on:
+      - crep-carbon-mapper
+      - crep-railway
+      - crep-astria
+      - crep-satmap
+      - crep-marine
+      - crep-flights
+    restart: unless-stopped
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=cache-warmer"
+      - "com.crep.priority=high"
+
+# Connect to existing always-on network
+networks:
+  mycosoft-always-on_default:
+    external: true
+
+volumes:
+  carbon_mapper_data:
+    driver: local
+  railway_data:
+    driver: local
+  astria_data:
+    driver: local
+  satmap_data:
+    driver: local
+  marine_data:
+    driver: local
+  flights_data:
+    driver: local

@@ -6,6 +6,7 @@ import { ComprehensiveSidePanel } from "./comprehensive-side-panel";
 import { LayerControls } from "./layer-controls";
 import { Controls } from "./controls";
 import { HUD } from "./hud";
+import { EarthSimulatorErrorBoundary } from "./error-boundary";
 
 interface GridTile {
   id: string;
@@ -40,17 +41,20 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
   const [showLandGrid, setShowLandGrid] = useState(false);
   const [gridTileSize, setGridTileSize] = useState(0.5);
   const [layers, setLayers] = useState({
-    mycelium: false, // Disabled until tile server is available
-    heat: false,
-    organisms: true, // Enable organisms by default to show iNaturalist data
-    weather: false,
-    // New layers - prepared for future integrations
-    devices: true, // Show MycoBrain devices
-    inat: true, // iNaturalist observations
+    // PRIORITY LAYERS - Fungal data first
+    fungi: true,      // PRIMARY: Fungal observations from MINDEX/iNat/GBIF - ON by default
+    devices: true,    // PRIMARY: MycoBrain devices - ON by default
+    organisms: true,  // iNaturalist organism data - ON by default
+    // Secondary layers (now enabled - stub tile servers implemented)
+    mycelium: false,  // Can be enabled - stub tile server available
+    heat: false,      // Can be enabled - stub tile server available
+    weather: false,    // Can be enabled - stub tile server available
+    // Future integrations (OFF by default)
+    inat: true,       // iNaturalist observations
     wind: false,
     precipitation: false,
-    ndvi: false, // Vegetation index (coming soon)
-    nlm: false, // Nature Learning Model predictions (coming soon)
+    ndvi: false,      // Vegetation index (coming soon)
+    nlm: false,       // Nature Learning Model predictions (coming soon)
   });
 
   const handleCellClick = useCallback((cellId: string, lat: number, lon: number) => {
@@ -75,7 +79,8 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
   );
 
   return (
-    <div className={`earth-simulator-container w-full h-screen relative flex ${className}`}>
+    <EarthSimulatorErrorBoundary>
+      <div className={`earth-simulator-container w-full h-screen relative flex ${className}`}>
       {/* Left Side Panel - Always Visible */}
       <div className="w-96 flex-shrink-0 z-20">
         <ComprehensiveSidePanel
@@ -169,5 +174,6 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
         </div>
       </div>
     </div>
+    </EarthSimulatorErrorBoundary>
   );
 }

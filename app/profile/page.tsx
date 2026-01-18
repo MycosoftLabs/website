@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
+import { useSupabaseUser, useProfile } from "@/hooks/use-supabase-user"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,7 +20,8 @@ import {
 } from "lucide-react"
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading, signOut } = useSupabaseUser()
+  const { profile, loading: profileLoading, updateProfile } = useProfile()
   const router = useRouter()
   const { toast } = useToast()
   const { 
@@ -42,25 +43,31 @@ export default function ProfilePage() {
   })
   const [showChangelog, setShowChangelog] = useState(false)
 
-  // Initialize form when settings load
+  // Initialize form when profile loads
   useEffect(() => {
-    if (settings?.profile) {
+    if (profile) {
+      setProfileForm({
+        displayName: profile.full_name || "",
+        bio: settings?.profile?.bio || "",
+      })
+    } else if (settings?.profile) {
       setProfileForm({
         displayName: settings.profile.displayName || "",
         bio: settings.profile.bio || "",
       })
     }
-  }, [settings?.profile])
+  }, [profile, settings?.profile])
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (!authLoading && !user) {
       router.push("/login")
     }
-  }, [status, router])
+  }, [authLoading, user, router])
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/login" })
+    await signOut()
+    router.push("/login")
   }
 
   // Handle notification toggle
@@ -111,7 +118,7 @@ export default function ProfilePage() {
   }
 
   // Loading state
-  if (status === "loading" || (status === "authenticated" && settingsLoading)) {
+  if (authLoading || profileLoading || (user && settingsLoading)) {
     return (
       <div className="container py-8 flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -120,14 +127,22 @@ export default function ProfilePage() {
   }
 
   // Not authenticated
-  if (!session?.user) {
+  if (!user) {
     return null
   }
 
-  const user = session.user as any
-  const isOwner = user.role === "owner" || user.isOwner
-  const isAdmin = user.role === "admin" || user.isAdmin || isOwner
-  const permissions = user.permissions || []
+  // Build user display data from Supabase user and profile
+  const displayUser = {
+    id: user.id,
+    email: user.email,
+    name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+    image: profile?.avatar_url || user.user_metadata?.avatar_url || null,
+    role: profile?.role || "user",
+    title: profile?.organization || null,
+  }
+  const isOwner = displayUser.role === "owner"
+  const isAdmin = displayUser.role === "admin" || isOwner
+  const permissions = isOwner ? ["*"] : []
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -184,23 +199,23 @@ export default function ProfilePage() {
 
         <div className="flex items-start gap-4 md:gap-8">
           <Avatar className="w-20 h-20 border-2 border-primary">
-            <AvatarImage src={user.image} alt={user.name || ""} />
+            <AvatarImage src={displayUser.image || undefined} alt={displayUser.name || ""} />
             <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-              {(user.name || user.email || "U").charAt(0).toUpperCase()}
+              {(displayUser.name || displayUser.email || "U").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h1 className="text-2xl font-bold">{user.name || user.email}</h1>
-                <p className="text-muted-foreground">{user.email}</p>
-                {user.title && (
-                  <p className="text-sm text-muted-foreground">{user.title}</p>
+                <h1 className="text-2xl font-bold">{displayUser.name || displayUser.email}</h1>
+                <p className="text-muted-foreground">{displayUser.email}</p>
+                {displayUser.title && (
+                  <p className="text-sm text-muted-foreground">{displayUser.title}</p>
                 )}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <Badge variant={getRoleBadgeVariant(user.role)} className={isOwner ? "bg-yellow-500 text-black" : ""}>
-                    {getRoleIcon(user.role)}
-                    {user.role?.toUpperCase() || "USER"}
+                  <Badge variant={getRoleBadgeVariant(displayUser.role)} className={isOwner ? "bg-yellow-500 text-black" : ""}>
+                    {getRoleIcon(displayUser.role)}
+                    {displayUser.role?.toUpperCase() || "USER"}
                   </Badge>
                   {isAdmin && !isOwner && (
                     <Badge variant="outline" className="border-blue-500 text-blue-500">
@@ -261,19 +276,19 @@ export default function ProfilePage() {
                   <Label htmlFor="name">Name</Label>
                   <Input 
                     id="name" 
-                    value={isEditing ? profileForm.displayName || user.name || "" : (user.name || "")}
+                    value={isEditing ? profileForm.displayName || displayUser.name || "" : (displayUser.name || "")}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, displayName: e.target.value }))}
                     disabled={!isEditing} 
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={user.email || ""} disabled />
+                  <Input id="email" value={displayUser.email || ""} disabled />
                 </div>
-                {user.title && (
+                {displayUser.title && (
                   <div className="grid gap-2">
                     <Label htmlFor="title">Title</Label>
-                    <Input id="title" value={user.title} disabled />
+                    <Input id="title" value={displayUser.title} disabled />
                   </div>
                 )}
                 <div className="grid gap-2">
@@ -332,21 +347,21 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Session Information</CardTitle>
-                <CardDescription>Current authentication details</CardDescription>
+                <CardDescription>Current authentication details (Supabase)</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">User ID</span>
-                    <span className="font-mono">{user.id}</span>
+                    <span className="font-mono text-xs">{displayUser.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Role</span>
-                    <span className="font-mono">{user.role}</span>
+                    <span className="font-mono">{displayUser.role}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Session Type</span>
-                    <span className="font-mono">JWT</span>
+                    <span className="text-muted-foreground">Auth Provider</span>
+                    <span className="font-mono">Supabase</span>
                   </div>
                 </div>
               </CardContent>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getOpenSkyClient } from "@/lib/oei/connectors/opensky-adsb"
+import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import type { GeoBounds } from "@/types/oei"
 
 export const dynamic = "force-dynamic"
@@ -64,9 +65,16 @@ export async function GET(request: NextRequest) {
       icao24: icao24 ? icao24.split(",") : undefined,
     }
     
+    const startTime = Date.now()
+    
     if (publish) {
       const result = await client.fetchAndPublish(query)
       const entities = result.entities.slice(0, limit)
+      const latency = Date.now() - startTime
+      
+      // Log to MINDEX
+      logDataCollection("opensky", "opensky-network.org", entities.length, latency, false)
+      
       return NextResponse.json({
         success: true,
         published: Math.min(result.published, limit),
@@ -78,6 +86,11 @@ export async function GET(request: NextRequest) {
     } else {
       const entities = await client.fetchAllStates(query)
       const limited = entities.slice(0, limit)
+      const latency = Date.now() - startTime
+      
+      // Log to MINDEX
+      logDataCollection("opensky", "opensky-network.org", limited.length, latency, false)
+      
       return NextResponse.json({
         success: true,
         total: entities.length,
@@ -88,6 +101,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error("[OpenSky] Error:", error)
+    logAPIError("opensky", "opensky-network.org", String(error))
     
     // Handle rate limit specifically
     const errorMessage = String(error)

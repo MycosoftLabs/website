@@ -6,9 +6,12 @@
  * Displays vessels on the MapLibre map with real-time AIS position,
  * heading indicator, and popup with vessel details.
  * Includes smooth movement animation based on speed and course.
+ * 
+ * FIXED: All hooks called before any conditional returns to comply with React Rules of Hooks.
+ * FIXED: All .toFixed() calls now have null/undefined guards.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +22,7 @@ interface VesselMarkerProps {
   vessel: VesselEntity;
   isSelected?: boolean;
   onClick?: () => void;
+  onClose?: () => void;
 }
 
 // Constants for animation
@@ -67,40 +71,58 @@ function getNavStatus(status: number | null): { label: string; color: string } {
   }
 }
 
-export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMarkerProps) {
-  // Guard: Ensure we have valid location data (handle both GeoJSON and flat format)
-  const baseLongitude = vessel?.location?.longitude ?? 
-    (vessel?.location?.coordinates && vessel.location.coordinates[0]);
-  const baseLatitude = vessel?.location?.latitude ?? 
-    (vessel?.location?.coordinates && vessel.location.coordinates[1]);
+// Safe toFixed helper
+function safeToFixed(value: number | null | undefined, decimals: number): string {
+  if (typeof value !== 'number' || isNaN(value)) return 'N/A';
+  return value.toFixed(decimals);
+}
+
+export function VesselMarker({ vessel, isSelected = false, onClick, onClose }: VesselMarkerProps) {
+  // Extract coordinates safely - MUST happen with useMemo for consistent hooks
+  const baseLongitude = useMemo(() => {
+    return vessel?.location?.longitude ?? 
+      (vessel?.location?.coordinates && vessel.location.coordinates[0]) ?? null;
+  }, [vessel?.location]);
   
-  // Guard: Ensure coordinates are valid numbers
-  if (typeof baseLongitude !== 'number' || typeof baseLatitude !== 'number' || isNaN(baseLongitude) || isNaN(baseLatitude)) {
-    return null;
-  }
+  const baseLatitude = useMemo(() => {
+    return vessel?.location?.latitude ?? 
+      (vessel?.location?.coordinates && vessel.location.coordinates[1]) ?? null;
+  }, [vessel?.location]);
   
-  // State for animated position
+  // Validate coordinates
+  const hasValidCoords = useMemo(() => {
+    return typeof baseLongitude === 'number' && 
+           typeof baseLatitude === 'number' && 
+           !isNaN(baseLongitude) && 
+           !isNaN(baseLatitude);
+  }, [baseLongitude, baseLatitude]);
+  
+  // State for animated position - MUST be called unconditionally
   const [animatedPosition, setAnimatedPosition] = useState({
-    longitude: baseLongitude,
-    latitude: baseLatitude
+    longitude: baseLongitude ?? 0,
+    latitude: baseLatitude ?? 0
   });
   
   // Keep track of base position updates
-  const lastBasePosition = useRef({ longitude: baseLongitude, latitude: baseLatitude });
+  const lastBasePosition = useRef({ longitude: baseLongitude ?? 0, latitude: baseLatitude ?? 0 });
   const animationStartTime = useRef(Date.now());
   
   // Reset animation when base position changes (new data from API)
   useEffect(() => {
+    if (!hasValidCoords) return;
+    
     if (lastBasePosition.current.longitude !== baseLongitude || 
         lastBasePosition.current.latitude !== baseLatitude) {
-      lastBasePosition.current = { longitude: baseLongitude, latitude: baseLatitude };
-      setAnimatedPosition({ longitude: baseLongitude, latitude: baseLatitude });
+      lastBasePosition.current = { longitude: baseLongitude!, latitude: baseLatitude! };
+      setAnimatedPosition({ longitude: baseLongitude!, latitude: baseLatitude! });
       animationStartTime.current = Date.now();
     }
-  }, [baseLongitude, baseLatitude]);
+  }, [baseLongitude, baseLatitude, hasValidCoords]);
   
   // Animate position based on speed (SOG) and course (COG)
   useEffect(() => {
+    if (!hasValidCoords) return;
+    
     // Don't animate if vessel is stationary (moored, anchored, at dock)
     const isStationary = vessel.navStatus === 1 || vessel.navStatus === 5 || !vessel.sog || vessel.sog < 0.5;
     if (isStationary || !vessel.cog) {
@@ -114,7 +136,6 @@ export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMark
     const courseRad = (courseDeg * Math.PI) / 180;
     
     // Calculate speed in degrees per second (approximate)
-    // 1 knot = 1 nautical mile per hour = 1/60 degree per hour (at equator)
     const speedDegPerSecond = (speedKnots / 3600) / 60;
     
     const animate = () => {
@@ -125,8 +146,8 @@ export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMark
       const dLat = Math.cos(courseRad) * speedDegPerSecond * elapsed;
       
       setAnimatedPosition({
-        longitude: baseLongitude + dLon,
-        latitude: baseLatitude + dLat
+        longitude: (baseLongitude ?? 0) + dLon,
+        latitude: (baseLatitude ?? 0) + dLat
       });
     };
     
@@ -134,15 +155,21 @@ export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMark
     animate(); // Run immediately
     
     return () => clearInterval(intervalId);
-  }, [baseLongitude, baseLatitude, vessel.sog, vessel.cog, vessel.navStatus]);
+  }, [baseLongitude, baseLatitude, vessel.sog, vessel.cog, vessel.navStatus, hasValidCoords]);
+  
+  // Compute derived values unconditionally
+  const vesselStyle = getVesselStyle(vessel.shipType);
+  const navStatus = getNavStatus(vessel.navStatus);
+  const rotation = vessel.heading || vessel.cog || 0;
   
   // Use animated position for rendering
   const longitude = animatedPosition.longitude;
   const latitude = animatedPosition.latitude;
   
-  const vesselStyle = getVesselStyle(vessel.shipType);
-  const navStatus = getNavStatus(vessel.navStatus);
-  const rotation = vessel.heading || vessel.cog || 0;
+  // NOW we can return null if coordinates are invalid (after all hooks)
+  if (!hasValidCoords) {
+    return null;
+  }
   
   return (
     <MapMarker 
@@ -150,7 +177,7 @@ export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMark
       latitude={latitude}
       onClick={onClick}
     >
-      <MarkerContent className="relative">
+      <MarkerContent className="relative" data-marker="vessel">
         <div className={cn(
           "relative flex items-center justify-center transition-transform cursor-pointer",
           isSelected ? "scale-150" : "scale-100 hover:scale-110"
@@ -183,141 +210,184 @@ export function VesselMarker({ vessel, isSelected = false, onClick }: VesselMark
         </div>
       </MarkerContent>
       
-      <MarkerPopup className="min-w-[260px] bg-[#0a1628]/95 backdrop-blur border-teal-500/30" closeButton>
-        <div className="space-y-2">
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center"
-              style={{ backgroundColor: `${vesselStyle.color}30` }}
-            >
-              <span style={{ color: vesselStyle.color }}>{vesselStyle.icon}</span>
+      {/* CONDITIONAL POPUP - Only render when selected to prevent crashes */}
+      {isSelected && (
+        <MarkerPopup 
+          className="min-w-[260px] bg-[#0a1628]/95 backdrop-blur border-teal-500/30" 
+          closeButton
+          closeOnClick={false}
+          anchor="bottom"
+          offset={[0, -8]}
+          onClose={onClose}
+        >
+          <div className="space-y-2">
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-8 h-8 rounded flex items-center justify-center"
+                style={{ backgroundColor: `${vesselStyle.color}30` }}
+              >
+                <span style={{ color: vesselStyle.color }}>{vesselStyle.icon}</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">
+                    {vessel.name || 'UNNAMED'}
+                  </span>
+                  <Badge 
+                    variant="outline" 
+                    className="text-[7px] px-1"
+                    style={{ borderColor: `${vesselStyle.color}50`, color: vesselStyle.color }}
+                  >
+                    {vesselStyle.label}
+                  </Badge>
+                </div>
+                <div className="text-[10px] text-gray-400 font-mono">
+                  MMSI: {vessel.mmsi || 'N/A'}
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">
-                  {vessel.name || 'UNNAMED'}
+            
+            {/* Navigation Status */}
+            <div className={cn(
+              "flex items-center gap-2 p-1.5 rounded bg-black/30 text-[9px]",
+              navStatus.color
+            )}>
+              <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <span>{navStatus.label}</span>
+            </div>
+            
+            {/* Vessel Info Grid */}
+            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
+              {/* Speed */}
+              <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
+                <Gauge className="w-3 h-3 text-teal-400" />
+                <div>
+                  <div className="text-gray-500">SPEED</div>
+                  <div className="text-white font-bold">
+                    {typeof vessel.sog === 'number' ? `${safeToFixed(vessel.sog, 1)} kts` : 'N/A'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Course */}
+              <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
+                <Navigation className="w-3 h-3 text-amber-400" />
+                <div>
+                  <div className="text-gray-500">COURSE</div>
+                  <div className="text-white font-bold">
+                    {typeof vessel.cog === 'number' ? `${Math.round(vessel.cog)}°` : 'N/A'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Heading */}
+              <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
+                <Navigation className="w-3 h-3 text-cyan-400" />
+                <div>
+                  <div className="text-gray-500">HEADING</div>
+                  <div className="text-white font-bold">
+                    {typeof vessel.heading === 'number' ? `${Math.round(vessel.heading)}°` : 'N/A'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Draught */}
+              <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
+                <Anchor className="w-3 h-3 text-blue-400" />
+                <div>
+                  <div className="text-gray-500">DRAUGHT</div>
+                  <div className="text-white font-bold">
+                    {typeof vessel.draught === 'number' ? `${safeToFixed(vessel.draught, 1)} m` : 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Vessel Dimensions */}
+            {(vessel.length || vessel.width) && (
+              <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
+                <span className="text-gray-400">DIMENSIONS</span>
+                <span className="text-white font-mono">
+                  {vessel.length || '?'} × {vessel.width || '?'} m
                 </span>
-                <Badge 
-                  variant="outline" 
-                  className="text-[7px] px-1"
-                  style={{ borderColor: `${vesselStyle.color}50`, color: vesselStyle.color }}
-                >
-                  {vesselStyle.label}
-                </Badge>
               </div>
-              <div className="text-[10px] text-gray-400 font-mono">
-                MMSI: {vessel.mmsi}
+            )}
+            
+            {/* Route Info */}
+            {vessel.destination && (
+              <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
+                <span className="text-gray-400">DESTINATION</span>
+                <span className="text-teal-400 font-mono font-bold">
+                  {vessel.destination}
+                </span>
               </div>
-            </div>
-          </div>
-          
-          {/* Navigation Status */}
-          <div className={cn(
-            "flex items-center gap-2 p-1.5 rounded bg-black/30 text-[9px]",
-            navStatus.color
-          )}>
-            <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-            <span>{navStatus.label}</span>
-          </div>
-          
-          {/* Vessel Info Grid */}
-          <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
-            {/* Speed */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
-              <Gauge className="w-3 h-3 text-teal-400" />
-              <div>
-                <div className="text-gray-500">SPEED</div>
-                <div className="text-white font-bold">
-                  {vessel.sog ? `${vessel.sog.toFixed(1)} kts` : 'N/A'}
+            )}
+            
+            {/* ETA */}
+            {vessel.eta && (
+              <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
+                <span className="text-gray-400">ETA</span>
+                <span className="text-white font-mono">
+                  {new Date(vessel.eta).toLocaleString()}
+                </span>
+              </div>
+            )}
+            
+            {/* Coordinates */}
+            <div className="p-1.5 rounded bg-black/30 text-[9px]">
+              <div className="text-gray-500 mb-1">POSITION</div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-[8px] text-gray-600">LAT</div>
+                  <div className="text-cyan-400 font-mono">{typeof latitude === 'number' ? latitude.toFixed(5) : 'N/A'}°</div>
+                </div>
+                <div>
+                  <div className="text-[8px] text-gray-600">LON</div>
+                  <div className="text-cyan-400 font-mono">{typeof longitude === 'number' ? longitude.toFixed(5) : 'N/A'}°</div>
                 </div>
               </div>
             </div>
             
-            {/* Course */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
-              <Navigation className="w-3 h-3 text-amber-400" />
-              <div>
-                <div className="text-gray-500">COURSE</div>
-                <div className="text-white font-bold">
-                  {vessel.cog ? `${Math.round(vessel.cog)}°` : 'N/A'}
+            {/* Additional Vessel Info */}
+            <div className="grid grid-cols-2 gap-2 text-[9px]">
+              {/* Country Flag */}
+              {vessel.flag && (
+                <div className="p-1.5 rounded bg-black/30">
+                  <div className="text-gray-500">FLAG</div>
+                  <div className="text-white">{vessel.flag}</div>
                 </div>
-              </div>
+              )}
+              {/* IMO */}
+              {vessel.imo && (
+                <div className="p-1.5 rounded bg-black/30">
+                  <div className="text-gray-500">IMO</div>
+                  <div className="text-white font-mono">{vessel.imo}</div>
+                </div>
+              )}
             </div>
             
-            {/* Heading */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
-              <Navigation className="w-3 h-3 text-cyan-400" />
-              <div>
-                <div className="text-gray-500">HEADING</div>
-                <div className="text-white font-bold">
-                  {vessel.heading ? `${Math.round(vessel.heading)}°` : 'N/A'}
-                </div>
+            {/* Callsign if available */}
+            {vessel.properties?.callsign && (
+              <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
+                <span className="text-gray-400">CALLSIGN</span>
+                <span className="text-teal-400 font-mono">{vessel.properties.callsign}</span>
               </div>
-            </div>
+            )}
             
-            {/* Draught */}
-            <div className="flex items-center gap-1.5 p-1.5 rounded bg-black/30">
-              <Anchor className="w-3 h-3 text-blue-400" />
-              <div>
-                <div className="text-gray-500">DRAUGHT</div>
-                <div className="text-white font-bold">
-                  {vessel.draught ? `${vessel.draught.toFixed(1)} m` : 'N/A'}
-                </div>
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-1 border-t border-gray-700/50 text-[8px]">
+              <div className="flex items-center gap-1 text-gray-500">
+                <Clock className="w-3 h-3" />
+                {vessel.lastSeen ? new Date(vessel.lastSeen).toLocaleTimeString() : 'N/A'}
+              </div>
+              <div className="text-gray-600 font-mono">
+                AIS Live
               </div>
             </div>
           </div>
-          
-          {/* Vessel Dimensions */}
-          {(vessel.length || vessel.width) && (
-            <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
-              <span className="text-gray-400">DIMENSIONS</span>
-              <span className="text-white font-mono">
-                {vessel.length || '?'} × {vessel.width || '?'} m
-              </span>
-            </div>
-          )}
-          
-          {/* Route Info */}
-          {vessel.destination && (
-            <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
-              <span className="text-gray-400">DESTINATION</span>
-              <span className="text-teal-400 font-mono font-bold">
-                {vessel.destination}
-              </span>
-            </div>
-          )}
-          
-          {/* ETA */}
-          {vessel.eta && (
-            <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
-              <span className="text-gray-400">ETA</span>
-              <span className="text-white font-mono">
-                {new Date(vessel.eta).toLocaleString()}
-              </span>
-            </div>
-          )}
-          
-          {/* Country Flag */}
-          {vessel.flag && (
-            <div className="flex items-center justify-between p-1.5 rounded bg-black/30 text-[9px]">
-              <span className="text-gray-400">FLAG</span>
-              <span className="text-white">{vessel.flag}</span>
-            </div>
-          )}
-          
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-1 border-t border-gray-700/50 text-[8px]">
-            <div className="flex items-center gap-1 text-gray-500">
-              <Clock className="w-3 h-3" />
-              {new Date(vessel.lastSeen).toLocaleTimeString()}
-            </div>
-            <div className="text-gray-600 font-mono">
-              {vessel.imo ? `IMO: ${vessel.imo}` : ''}
-            </div>
-          </div>
-        </div>
-      </MarkerPopup>
+        </MarkerPopup>
+      )}
     </MapMarker>
   );
 }

@@ -1,0 +1,8 @@
+# Mycosoft Security Monitor Dependencies
+aiohttp>=3.9.0
+requests>=2.31.0
+urllib3>=2.0.0
+python-dateutil>=2.8.2
+maxminddb>=2.4.0
+geoip2>=4.8.0
+asyncio>=3.4.3

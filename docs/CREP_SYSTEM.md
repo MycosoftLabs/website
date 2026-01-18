@@ -1,8 +1,20 @@
 # CREP - Common Relevant Environmental Picture
 
+> **Last Updated**: 2026-01-15  
+> **Version**: 2.0.0 - Fungal-First Architecture
+
 ## Overview
 
-CREP (Common Relevant Environmental Picture) is Mycosoft's real-time environmental awareness dashboard that integrates multiple data sources to provide a comprehensive view of global environmental conditions, transportation, and natural phenomena.
+CREP (Common Relevant Environmental Picture) is Mycosoft's real-time environmental awareness dashboard. It is designed as a **fungal-first** visualization system where MINDEX fungal observations and MycoBrain device data are the **primary focus**.
+
+### Fungal-First Design
+
+When users open the CREP dashboard, they see:
+1. **Fungal Observations** - Geotagged mushroom sightings from MINDEX/iNaturalist/GBIF
+2. **MycoBrain Devices** - Real-time ESP32-S3 environmental sensors
+3. **Environmental Events** - Earthquakes, storms, wildfires (context for fungal growth)
+
+Transport layers (aviation, maritime, satellites) and military layers are **OFF by default** and labeled as `[DEMO]` - they can be toggled on for correlation analysis.
 
 ## Architecture
 
@@ -66,15 +78,33 @@ CREP (Common Relevant Environmental Picture) is Mycosoft's real-time environment
 
 ## Layer Controls
 
-| Layer | Description | Default |
-|-------|-------------|---------|
-| Events | Earthquakes, fires, storms, volcanic activity | ON |
-| Aviation | Aircraft positions with trajectories | ON |
-| Ships | Vessel positions with routes | ON |
-| Satellites | Orbital objects | OFF |
-| Space Weather | Solar activity, geomagnetic storms | OFF |
-| Fungal Observations | Mushroom sightings from MINDEX | ON |
-| MycoBrain Devices | Local sensor devices | ON |
+### Primary Layers (ON by Default)
+
+| Layer | Description | Default | Category |
+|-------|-------------|---------|----------|
+| 🍄 Fungal Observations | MINDEX/iNaturalist/GBIF mushroom data | **ON** | PRIMARY |
+| MycoBrain Devices | ESP32-S3 environmental sensors | **ON** | PRIMARY |
+| SporeBase Sensors | Spore detection network | **ON** | PRIMARY |
+
+### Context Layers (ON for Correlation)
+
+| Layer | Description | Default | Category |
+|-------|-------------|---------|----------|
+| Seismic Activity | USGS earthquake data | ON | CONTEXT |
+| Volcanic Activity | Active eruptions | ON | CONTEXT |
+| Wildfires | NASA FIRMS fire detection | ON | CONTEXT |
+| Storm Systems | NOAA storm tracking | ON | CONTEXT |
+
+### Secondary Layers (OFF by Default - Demo/Toggleable)
+
+| Layer | Description | Default | Category |
+|-------|-------------|---------|----------|
+| [DEMO] Air Traffic | FlightRadar24 aircraft | OFF | TRANSPORT |
+| [DEMO] Ships (AIS) | AISstream vessel tracking | OFF | TRANSPORT |
+| [DEMO] Satellites | CelesTrak orbital data | OFF | TRANSPORT |
+| [DEMO] Military Aircraft | Military aviation | OFF | MILITARY |
+| [DEMO] Naval Vessels | Military ships | OFF | MILITARY |
+| Space Weather | Solar activity | OFF | EVENTS |
 
 ## API Endpoints
 

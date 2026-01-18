@@ -27,6 +27,50 @@ export {
   type StreamStatus,
 } from "./websocket-service"
 
+// Cache Manager - Multi-layer caching with failover
+export {
+  getCached,
+  invalidateCache,
+  clearAllCaches,
+  saveSnapshot as saveCacheSnapshot,
+  preloadCriticalData,
+  getCacheStats,
+} from "./cache-manager"
+
+// Snapshot Store - IndexedDB persistence for timeline replay
+export {
+  saveSnapshot,
+  getLatestSnapshot,
+  getSnapshotAtTime,
+  getSnapshotTimeline,
+  getStorageStats,
+  exportSnapshots,
+  clearAllSnapshots,
+} from "./snapshot-store"
+
+// Failover Service - Circuit breaker and automatic recovery
+export {
+  fetchWithFailover,
+  getFailoverStatus,
+  resetAllCircuits,
+  forceRefresh,
+} from "./failover-service"
+
+// MINDEX Logger - Centralized logging for audit and monitoring
+export {
+  initMINDEXLogger,
+  logCREPEvent,
+  logDataCollection,
+  logAPIError,
+  logFailover,
+  logSnapshot,
+  logHealthCheck,
+  flushLogs,
+  getQueuedLogCount,
+  stopMINDEXLogger,
+  type MINDEXLogEntry,
+} from "./mindex-logger"
+
 // Re-export types from central types module
 export type {
   Entity,

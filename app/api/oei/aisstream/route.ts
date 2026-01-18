@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
+import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
   const sample = searchParams.get("sample") === "true"
 
   try {
+    const startTime = Date.now()
     const client = getAISStreamClient()
     
     const query = {
@@ -46,6 +48,8 @@ export async function GET(request: NextRequest) {
     // If sample data explicitly requested, return sample vessels
     if (sample) {
       const vessels = client.getSampleVessels()
+      const latency = Date.now() - startTime
+      logDataCollection("aisstream", "sample-data", vessels.length, latency, true, "memory")
       return NextResponse.json({
         success: true,
         sample: true,
@@ -83,6 +87,9 @@ export async function GET(request: NextRequest) {
         vessels = vessels.slice(0, query.limit)
       }
       
+      const latency = Date.now() - startTime
+      logDataCollection("aisstream", "sample-fallback", vessels.length, latency, true, "memory")
+      
       return NextResponse.json({
         success: true,
         sample: true,
@@ -93,8 +100,11 @@ export async function GET(request: NextRequest) {
       })
     }
     
+    const latency = Date.now() - startTime
+    
     if (publish) {
       const result = await client.publishCachedVessels(query)
+      logDataCollection("aisstream", "aisstream.com", result.entities.length, latency, true, "memory")
       return NextResponse.json({
         success: true,
         published: result.published,
@@ -103,6 +113,7 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       })
     } else {
+      logDataCollection("aisstream", "aisstream.com", vessels.length, latency, true, "memory")
       return NextResponse.json({
         success: true,
         total: vessels.length,
@@ -112,6 +123,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error("[AISStream] Error:", error)
+    logAPIError("aisstream", "aisstream.com", String(error))
     return NextResponse.json(
       { 
         error: "Failed to fetch AIS vessel data", 

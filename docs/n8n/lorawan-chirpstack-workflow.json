@@ -1,0 +1,258 @@
+{
+  "name": "NatureOS ChirpStack LoRaWAN Integration",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chirpstack-uplink",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "chirpstack-webhook",
+      "name": "ChirpStack Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "webhookId": "chirpstack-uplink"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse ChirpStack uplink message\nconst body = items[0].json;\n\n// ChirpStack v4 uplink format\nconst uplink = {\n  devEUI: body.deviceInfo?.devEui || body.devEUI,\n  deviceName: body.deviceInfo?.deviceName || body.deviceName,\n  applicationID: body.deviceInfo?.applicationId || body.applicationID,\n  applicationName: body.deviceInfo?.applicationName || body.applicationName,\n  fPort: body.fPort,\n  fCnt: body.fCnt,\n  data: body.data,  // Base64 encoded\n  object: body.object || {},  // Decoded payload\n  rxInfo: body.rxInfo || [],\n  txInfo: body.txInfo || {},\n  time: body.time || new Date().toISOString(),\n  // Gateway info\n  gatewayId: body.rxInfo?.[0]?.gatewayId,\n  rssi: body.rxInfo?.[0]?.rssi,\n  snr: body.rxInfo?.[0]?.snr,\n  location: body.rxInfo?.[0]?.location || null\n};\n\n// Normalize to NatureOS format\nconst normalized = {\n  deviceId: uplink.devEUI,\n  deviceType: 'lorawan',\n  deviceName: uplink.deviceName,\n  timestamp: uplink.time,\n  readings: uplink.object,\n  location: uplink.location ? {\n    latitude: uplink.location.latitude,\n    longitude: uplink.location.longitude,\n    altitude: uplink.location.altitude,\n    source: 'gateway'\n  } : null,\n  metadata: {\n    applicationID: uplink.applicationID,\n    applicationName: uplink.applicationName,\n    fPort: uplink.fPort,\n    fCnt: uplink.fCnt,\n    gatewayId: uplink.gatewayId,\n    rssi: uplink.rssi,\n    snr: uplink.snr,\n    rawData: uplink.data\n  }\n};\n\nreturn [{ json: normalized }];"
+      },
+      "id": "parse-chirpstack",
+      "name": "Parse ChirpStack Uplink",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.deviceId}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate",
+      "name": "Valid Device?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WEBSITE_URL || 'http://localhost:3000'}}/api/devices/ingest",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "send-to-natureos",
+      "name": "Send to NatureOS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log error for debugging\nconsole.log('Invalid uplink received:', items[0].json);\nreturn [{ json: { error: 'Invalid device data', received: items[0].json } }];"
+      },
+      "id": "log-error",
+      "name": "Log Invalid Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check if device needs registration\nconst response = items[0].json;\n\nif (response.success && response.entityStatus === 'pending') {\n  // First time seeing this device - auto-register\n  return [{\n    json: {\n      shouldRegister: true,\n      deviceId: $('Parse ChirpStack Uplink').item.json.deviceId,\n      deviceName: $('Parse ChirpStack Uplink').item.json.deviceName,\n      metadata: $('Parse ChirpStack Uplink').item.json.metadata\n    }\n  }];\n}\n\nreturn [{ json: { shouldRegister: false } }];"
+      },
+      "id": "check-registration",
+      "name": "Check Registration",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.shouldRegister}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "needs-registration",
+      "name": "Needs Registration?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WEBSITE_URL || 'http://localhost:3000'}}/api/devices/register",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "deviceId",
+              "value": "={{$json.deviceId}}"
+            },
+            {
+              "name": "deviceType",
+              "value": "lorawan"
+            },
+            {
+              "name": "name",
+              "value": "={{$json.deviceName || 'LoRaWAN Device'}}"
+            },
+            {
+              "name": "manufacturer",
+              "value": "ChirpStack"
+            },
+            {
+              "name": "metadata",
+              "value": "={{$json.metadata}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "register-device",
+      "name": "Register Device",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 100]
+    },
+    {
+      "parameters": {},
+      "id": "already-registered",
+      "name": "Already Registered",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [[]]
+    },
+    "ChirpStack Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse ChirpStack Uplink",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse ChirpStack Uplink": {
+      "main": [
+        [
+          {
+            "node": "Valid Device?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Device?": {
+      "main": [
+        [
+          {
+            "node": "Send to NatureOS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Invalid Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to NatureOS": {
+      "main": [
+        [
+          {
+            "node": "Check Registration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Registration": {
+      "main": [
+        [
+          {
+            "node": "Needs Registration?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Registration?": {
+      "main": [
+        [
+          {
+            "node": "Register Device",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Registered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "natureos",
+      "id": "1"
+    },
+    {
+      "name": "lorawan",
+      "id": "3"
+    },
+    {
+      "name": "chirpstack",
+      "id": "4"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-16T00:00:00.000Z",
+  "versionId": "1"
+}

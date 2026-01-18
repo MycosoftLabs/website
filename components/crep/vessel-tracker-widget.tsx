@@ -94,7 +94,7 @@ function VesselIcon({ type, heading = 0 }: { type?: string; heading?: number }) 
 
 function VesselListItem({ vessel, onClick }: { vessel: Vessel; onClick: () => void }) {
   const { properties } = vessel
-  const speedKnots = properties?.sog != null ? properties.sog.toFixed(1) : "0.0"
+  const speedKnots = typeof properties?.sog === 'number' ? properties.sog.toFixed(1) : "0.0"
   
   return (
     <div 

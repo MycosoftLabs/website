@@ -15,6 +15,20 @@ interface GridTile {
   areaKm2: number;
 }
 
+interface FungalObservation {
+  id: number;
+  observed_on: string;
+  latitude: number;
+  longitude: number;
+  species: string;
+  scientificName?: string;
+  source: string;
+  imageUrl?: string;
+  place_guess?: string;
+  user_login?: string;
+  quality_grade?: string;
+}
+
 interface CesiumGlobeProps {
   onViewportChange?: (viewport: { north: number; south: number; east: number; west: number }) => void;
   onCellClick?: (cellId: string, lat: number, lon: number) => void;
@@ -22,10 +36,13 @@ interface CesiumGlobeProps {
   showLandGrid?: boolean;
   gridTileSize?: number;
   layers?: {
+    fungi: boolean;
+    devices: boolean;
     mycelium: boolean;
     heat: boolean;
     organisms: boolean;
     weather: boolean;
+    inat: boolean;
   };
 }
 
@@ -40,10 +57,12 @@ export function CesiumGlobe({
   const cesiumContainerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const gridEntitiesRef = useRef<any[]>([]);
+  const fungalEntitiesRef = useRef<any[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gridLoaded, setGridLoaded] = useState(false);
   const [gridStats, setGridStats] = useState<{ totalTiles: number; landTiles: number } | null>(null);
+  const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
 
   useEffect(() => {
     if (!cesiumContainerRef.current || initialized) return;
@@ -55,7 +74,15 @@ export function CesiumGlobe({
         if (!document.querySelector('link[href*="cesium"]')) {
           const link = document.createElement("link");
           link.rel = "stylesheet";
-          link.href = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css";
+          // Use unpkg CDN as alternative (more reliable)
+          link.href = "https://unpkg.com/cesium@1.115.0/Build/Cesium/Widgets/widgets.css";
+          link.onerror = () => {
+            // Fallback to official CDN
+            const fallbackLink = document.createElement("link");
+            fallbackLink.rel = "stylesheet";
+            fallbackLink.href = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css";
+            document.head.appendChild(fallbackLink);
+          };
           document.head.appendChild(link);
         }
 
@@ -63,9 +90,17 @@ export function CesiumGlobe({
         if (!(window as any).Cesium) {
           await new Promise((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js";
+            // Use unpkg CDN as alternative (more reliable)
+            script.src = "https://unpkg.com/cesium@1.115.0/Build/Cesium/Cesium.js";
             script.onload = resolve;
-            script.onerror = reject;
+            script.onerror = () => {
+              // Fallback to official CDN
+              const fallbackScript = document.createElement("script");
+              fallbackScript.src = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js";
+              fallbackScript.onload = resolve;
+              fallbackScript.onerror = reject;
+              document.head.appendChild(fallbackScript);
+            };
             document.head.appendChild(script);
           });
         }
@@ -75,8 +110,13 @@ export function CesiumGlobe({
           throw new Error("Cesium failed to load");
         }
 
-        // Set Cesium base URL
-        (window as any).CESIUM_BASE_URL = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/";
+        // Set Cesium base URL (try unpkg first, fallback to official)
+        (window as any).CESIUM_BASE_URL = "https://unpkg.com/cesium@1.115.0/Build/Cesium/";
+        
+        // Fallback to official CDN if unpkg fails
+        if (!(window as any).Cesium) {
+          (window as any).CESIUM_BASE_URL = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/";
+        }
 
         // Disable default Cesium Ion token warning
         Cesium.Ion.defaultAccessToken = undefined;
@@ -382,10 +422,203 @@ export function CesiumGlobe({
     }
   }, [showLandGrid]);
 
-  // Custom overlay layers disabled - tile servers not yet implemented
-  // When implementing, add layers for: mycelium, heat, weather
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _layersDisabled = layers; // Suppress unused warning
+  // Fetch and display fungal observations
+  useEffect(() => {
+    if (!layers?.fungi || !initialized) return;
+
+    const fetchFungalData = async () => {
+      try {
+        // Try the Earth fungal API first (returns GeoJSON)
+        const response = await fetch('/api/earth/fungal?limit=1000&format=json');
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Handle GeoJSON format
+          if (data.type === 'FeatureCollection' && data.features) {
+            const observations = data.features.map((f: any) => ({
+              id: f.properties?.id || Math.random(),
+              observed_on: f.properties?.timestamp || new Date().toISOString(),
+              latitude: f.geometry?.coordinates?.[1],
+              longitude: f.geometry?.coordinates?.[0],
+              species: f.properties?.species || 'Unknown',
+              scientificName: f.properties?.scientificName,
+              source: f.properties?.source || 'Unknown',
+              imageUrl: f.properties?.imageUrl,
+              place_guess: undefined,
+              user_login: f.properties?.observer,
+              quality_grade: f.properties?.verified ? 'research' : 'needs_id',
+            })).filter((obs: FungalObservation) => obs.latitude && obs.longitude);
+            
+            console.log(`[Earth Simulator] Fetched ${observations.length} fungal observations from GeoJSON`);
+            setFungalObservations(observations);
+          } else if (data.observations) {
+            // Handle regular observations format
+            setFungalObservations(data.observations);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch fungal data:', err);
+      }
+    };
+
+    fetchFungalData();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchFungalData, 300000);
+    return () => clearInterval(interval);
+  }, [layers?.fungi, initialized]);
+
+  // Render fungal markers on the globe
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || !initialized) return;
+
+    const Cesium = (window as any).Cesium;
+    if (!Cesium) return;
+
+    // Clear existing fungal entities
+    fungalEntitiesRef.current.forEach(entity => {
+      viewer.entities.remove(entity);
+    });
+    fungalEntitiesRef.current = [];
+
+    // Only render if fungi layer is enabled
+    if (!layers?.fungi) return;
+
+    // Add fungal observation markers
+    fungalObservations.forEach(obs => {
+      if (!obs.latitude || !obs.longitude || isNaN(obs.latitude) || isNaN(obs.longitude)) return;
+
+      // Color based on source and quality
+      const isResearchGrade = obs.quality_grade === 'research';
+      const isMindex = obs.source === 'MINDEX';
+      
+      let markerColor;
+      if (isMindex) {
+        markerColor = Cesium.Color.fromCssColorString('#22c55e'); // Bright green for MINDEX
+      } else if (isResearchGrade) {
+        markerColor = Cesium.Color.fromCssColorString('#4ade80'); // Green for research grade
+      } else {
+        markerColor = Cesium.Color.fromCssColorString('#eab308'); // Yellow for needs ID
+      }
+
+      const entity = viewer.entities.add({
+        id: `fungal-${obs.id}`,
+        position: Cesium.Cartesian3.fromDegrees(obs.longitude, obs.latitude, 1000),
+        point: {
+          pixelSize: isMindex ? 12 : (isResearchGrade ? 10 : 8),
+          color: markerColor,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+        },
+        label: {
+          text: `🍄 ${obs.species || 'Unknown'}`,
+          font: '12px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -15),
+          show: false, // Only show on hover/zoom
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 500000), // Show within 500km
+        },
+        description: `
+          <div style="padding: 10px; font-family: system-ui;">
+            <h3 style="margin: 0 0 8px; color: #22c55e;">🍄 ${obs.species || 'Unknown Species'}</h3>
+            ${obs.scientificName ? `<p style="margin: 0 0 8px; font-style: italic; color: #888;">${obs.scientificName}</p>` : ''}
+            <p style="margin: 0 0 4px;"><strong>Source:</strong> ${obs.source}</p>
+            <p style="margin: 0 0 4px;"><strong>Date:</strong> ${new Date(obs.observed_on).toLocaleDateString()}</p>
+            ${obs.place_guess ? `<p style="margin: 0 0 4px;"><strong>Location:</strong> ${obs.place_guess}</p>` : ''}
+            ${obs.user_login ? `<p style="margin: 0 0 4px;"><strong>Observer:</strong> ${obs.user_login}</p>` : ''}
+            ${obs.quality_grade ? `<p style="margin: 0 0 4px;"><strong>Quality:</strong> ${obs.quality_grade}</p>` : ''}
+            ${obs.imageUrl ? `<img src="${obs.imageUrl}" style="max-width: 200px; border-radius: 4px; margin-top: 8px;" />` : ''}
+          </div>
+        `,
+      });
+
+      fungalEntitiesRef.current.push(entity);
+    });
+
+    console.log(`[Earth Simulator] Rendered ${fungalEntitiesRef.current.length} fungal markers`);
+  }, [fungalObservations, layers?.fungi, initialized]);
+
+  // Add custom overlay layers when enabled
+  useEffect(() => {
+    if (!viewerRef.current || !initialized || !(window as any).Cesium) return;
+
+    const Cesium = (window as any).Cesium;
+    const viewer = viewerRef.current;
+
+    // Remove existing custom layers (keep base satellite layer)
+    const existingLayers = viewer.imageryLayers;
+    const layersToRemove: any[] = [];
+    for (let i = existingLayers.length - 1; i >= 1; i--) {
+      const layer = existingLayers.get(i);
+      // Check if it's a custom layer by URL pattern
+      if (layer.imageryProvider && layer.imageryProvider.url) {
+        const url = layer.imageryProvider.url;
+        if (url.includes("mycelium-tiles") || url.includes("heat-tiles") || url.includes("weather-tiles")) {
+          layersToRemove.push(layer);
+        }
+      }
+    }
+    layersToRemove.forEach(layer => viewer.imageryLayers.remove(layer));
+
+    // Add mycelium layer if enabled
+    if (layers?.mycelium) {
+      try {
+        const myceliumLayer = viewer.imageryLayers.addImageryProvider(
+          new Cesium.UrlTemplateImageryProvider({
+            url: "/api/earth-simulator/mycelium-tiles/{z}/{x}/{y}",
+            credit: "Mycelium Probability",
+            maximumLevel: 19,
+            tileWidth: 256,
+            tileHeight: 256,
+          })
+        );
+        myceliumLayer.alpha = 0.5;
+      } catch (err) {
+        console.warn("Could not add mycelium layer:", err);
+      }
+    }
+
+    // Add heat map layer if enabled
+    if (layers?.heat) {
+      try {
+        const heatLayer = viewer.imageryLayers.addImageryProvider(
+          new Cesium.UrlTemplateImageryProvider({
+            url: "/api/earth-simulator/heat-tiles/{z}/{x}/{y}",
+            credit: "Heat Map",
+            maximumLevel: 19,
+            tileWidth: 256,
+            tileHeight: 256,
+          })
+        );
+        heatLayer.alpha = 0.6;
+      } catch (err) {
+        console.warn("Could not add heat layer:", err);
+      }
+    }
+
+    // Add weather layer if enabled
+    if (layers?.weather) {
+      try {
+        const weatherLayer = viewer.imageryLayers.addImageryProvider(
+          new Cesium.UrlTemplateImageryProvider({
+            url: "/api/earth-simulator/weather-tiles/{z}/{x}/{y}",
+            credit: "Weather Data",
+            maximumLevel: 19,
+            tileWidth: 256,
+            tileHeight: 256,
+          })
+        );
+        weatherLayer.alpha = 0.4;
+      } catch (err) {
+        console.warn("Could not add weather layer:", err);
+      }
+    }
+  }, [layers, initialized]);
 
   if (error) {
     return (

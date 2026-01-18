@@ -1,0 +1,212 @@
+{
+  "name": "NatureOS Device Ingestion Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "device-telemetry",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Device Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "webhookId": "device-telemetry"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse and validate device telemetry\nconst body = items[0].json;\n\nif (!body.deviceId) {\n  throw new Error('deviceId is required');\n}\n\n// Normalize telemetry data\nconst normalized = {\n  deviceId: body.deviceId,\n  deviceType: body.deviceType || 'generic',\n  timestamp: body.timestamp || new Date().toISOString(),\n  readings: {},\n  location: body.location || null,\n  metadata: body.metadata || {}\n};\n\n// Extract readings\nconst readingKeys = ['temp', 'temperature', 'humidity', 'pressure', 'co2', 'voc', 'iaq', 'pm25', 'pm10'];\nfor (const key of Object.keys(body)) {\n  if (readingKeys.includes(key.toLowerCase()) || typeof body[key] === 'number') {\n    normalized.readings[key] = body[key];\n  }\n}\n\nreturn [{ json: normalized }];"
+      },
+      "id": "normalize",
+      "name": "Normalize Telemetry",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WEBSITE_URL || 'http://localhost:3000'}}/api/devices/ingest",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "deviceId",
+              "value": "={{$json.deviceId}}"
+            },
+            {
+              "name": "deviceType",
+              "value": "={{$json.deviceType}}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{$json.timestamp}}"
+            },
+            {
+              "name": "readings",
+              "value": "={{$json.readings}}"
+            },
+            {
+              "name": "location",
+              "value": "={{$json.location}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "Send to NatureOS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.readings.temp}}",
+              "operation": "larger",
+              "value2": 35
+            }
+          ]
+        }
+      },
+      "id": "temp-check",
+      "name": "High Temp Alert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WEBSITE_URL || 'http://localhost:3000'}}/api/oei/events",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "device_alert"
+            },
+            {
+              "name": "severity",
+              "value": "warning"
+            },
+            {
+              "name": "title",
+              "value": "High Temperature Alert"
+            },
+            {
+              "name": "description",
+              "value": "=Device {{$json.deviceId}} reported temperature of {{$json.readings.temp}}°C"
+            },
+            {
+              "name": "source",
+              "value": "n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-alert",
+      "name": "Create Alert Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {},
+      "id": "no-op",
+      "name": "No Alert Needed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1250, 400]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        []
+      ]
+    },
+    "Device Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telemetry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Send to NatureOS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to NatureOS": {
+      "main": [
+        [
+          {
+            "node": "High Temp Alert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Temp Alert?": {
+      "main": [
+        [
+          {
+            "node": "Create Alert Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Alert Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "natureos",
+      "id": "1"
+    },
+    {
+      "name": "device-ingestion",
+      "id": "2"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-16T00:00:00.000Z",
+  "versionId": "1"
+}
