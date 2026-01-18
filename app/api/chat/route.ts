@@ -2,16 +2,32 @@
  * API Route: Chat with RAG (Retrieval Augmented Generation)
  * 
  * Uses LangChain with Supabase vector store for context-aware chat
+ * NOTE: This route requires SUPABASE_SERVICE_ROLE_KEY and OPENAI_API_KEY at runtime
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// Skip static analysis - this route requires runtime env vars
+// Force dynamic to skip static generation
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check for required env vars at runtime
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: 'Chat API not configured - missing Supabase credentials' },
+        { status: 503 }
+      )
+    }
+    
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: 'Chat API not configured - missing OpenAI API key' },
+        { status: 503 }
+      )
+    }
+
     const { message, conversation_id, table = 'documents' } = await request.json()
 
     if (!message || typeof message !== 'string') {
@@ -32,19 +48,11 @@ export async function POST(request: NextRequest) {
       .map((doc: { content: string }) => doc.content)
       .join('\n\n')
 
-    // TODO: Integrate with your LLM (OpenAI, Anthropic, etc.)
-    // For now, return the context
-    // In production, you would:
-    // 1. Create a prompt with the context
-    // 2. Call your LLM
-    // 3. Return the response
-
     return NextResponse.json({
       success: true,
       message,
       context: relevantDocs,
       response: `Based on the context, here's a response to: ${message}`,
-      // In production, this would be the LLM response
     })
   } catch (error) {
     console.error('Chat error:', error)
