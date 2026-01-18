@@ -6,12 +6,19 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   // Support both 'next' and 'redirectTo' query params
   const next = searchParams.get('next') || searchParams.get('redirectTo') || '/dashboard'
   const error = searchParams.get('error')
   const error_description = searchParams.get('error_description')
+
+  // Get the correct origin - use X-Forwarded-Host header (from tunnel/proxy) or NEXT_PUBLIC_SITE_URL
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+  const origin = forwardedHost 
+    ? `${forwardedProto}://${forwardedHost}`
+    : process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
 
   // Handle OAuth errors
   if (error) {
