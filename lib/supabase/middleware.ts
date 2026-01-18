@@ -66,9 +66,10 @@ export async function updateSession(request: NextRequest) {
 
   // Check if trying to access protected route without auth
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
+  // Note: /devices is PUBLIC (home page devices section)
+  // Only /dashboard and /account require authentication
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-                          request.nextUrl.pathname.startsWith('/account') ||
-                          request.nextUrl.pathname.startsWith('/devices')
+                          request.nextUrl.pathname.startsWith('/account')
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
