@@ -10,6 +10,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Exclude heavy packages from server bundle analysis (fixes build-time env var issues)
+  serverExternalPackages: [
+    '@langchain/community',
+    '@langchain/openai',
+    '@langchain/core',
+    'langchain',
+  ],
   // Force dynamic rendering for all pages (avoid SSG issues with client components)
   experimental: {
     // This will make all pages dynamic by default
