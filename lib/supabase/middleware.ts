@@ -34,9 +34,23 @@ export async function updateSession(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Ensure cookies are set with proper domain for production
+            const cookieOptions = {
+              ...options,
+              // Set domain only in production (not localhost)
+              domain: request.nextUrl.hostname !== 'localhost' 
+                ? request.nextUrl.hostname 
+                : undefined,
+              // Set secure in production (HTTPS)
+              secure: request.nextUrl.protocol === 'https:',
+              // Set sameSite for CSRF protection
+              sameSite: 'lax' as const,
+              // Set path
+              path: options?.path || '/',
+            }
+            supabaseResponse.cookies.set(name, value, cookieOptions)
+          })
         },
       },
     }
@@ -58,7 +72,7 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
+    url.pathname = '/login'
     url.searchParams.set('redirectTo', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
