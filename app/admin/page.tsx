@@ -464,7 +464,18 @@ export default function SuperAdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({})
+  const [keyValues, setKeyValues] = useState<Record<string, { masked: string; configured: boolean; revealed?: string }>>({})
+  const [loadingKeys, setLoadingKeys] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [securityStatus, setSecurityStatus] = useState<{
+    threatLevel: string;
+    monitoring: boolean;
+    eventsCount: number;
+    criticalEvents: number;
+    uniqueIPs: number;
+    incidentsOpen: number;
+    lastUpdated: string;
+  } | null>(null)
   const [terminalOutput, setTerminalOutput] = useState<string[]>([
     '$ system --status',
     'Mycosoft Super Terminal v2.0.0',
@@ -492,13 +503,105 @@ export default function SuperAdminPage() {
     }
   }, [loading, isSuperAdmin, router])
 
-  const toggleKeyVisibility = (keyName: string) => {
+  // Fetch security status for SOC tab
+  const fetchSecurityStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/security?action=status')
+      if (response.ok) {
+        const data = await response.json()
+        setSecurityStatus({
+          threatLevel: data.threat_level || 'low',
+          monitoring: data.monitoring_enabled !== false,
+          eventsCount: data.events_24h || 0,
+          criticalEvents: data.critical_events || 0,
+          uniqueIPs: data.unique_ips || 0,
+          incidentsOpen: data.open_incidents || 0,
+          lastUpdated: new Date().toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching security status:', error)
+    }
+  }, [])
+
+  // Load security status when switching to the SOC tab
+  useEffect(() => {
+    if (activeTab === 'soc' && !securityStatus) {
+      fetchSecurityStatus()
+    }
+  }, [activeTab, securityStatus, fetchSecurityStatus])
+
+  // Fetch API key values from the server
+  const fetchApiKeyValues = useCallback(async () => {
+    try {
+      setLoadingKeys(true)
+      const response = await fetch('/api/admin/api-keys')
+      if (response.ok) {
+        const data = await response.json()
+        setKeyValues(data.keys || {})
+      } else {
+        console.error('Failed to fetch API keys:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error fetching API keys:', error)
+    } finally {
+      setLoadingKeys(false)
+    }
+  }, [])
+
+  // Load API keys when switching to the keys tab
+  useEffect(() => {
+    if (activeTab === 'keys' && Object.keys(keyValues).length === 0) {
+      fetchApiKeyValues()
+    }
+  }, [activeTab, keyValues, fetchApiKeyValues])
+
+  const toggleKeyVisibility = async (keyName: string) => {
+    const isCurrentlyVisible = showKeys[keyName]
+    
+    if (!isCurrentlyVisible) {
+      // Fetch the revealed key value from server
+      try {
+        const response = await fetch(`/api/admin/api-keys?reveal=${encodeURIComponent(keyName)}`)
+        if (response.ok) {
+          const data = await response.json()
+          setKeyValues(prev => ({
+            ...prev,
+            [keyName]: data.keys[keyName],
+          }))
+        }
+      } catch (error) {
+        console.error('Error revealing key:', error)
+        toast.error('Failed to reveal key')
+        return
+      }
+    }
+    
     setShowKeys(prev => ({ ...prev, [keyName]: !prev[keyName] }))
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copied to clipboard')
+  const copyToClipboard = async (keyName: string) => {
+    // Get the revealed value or fetch it if not available
+    let valueToCopy = keyValues[keyName]?.revealed
+    
+    if (!valueToCopy) {
+      try {
+        const response = await fetch(`/api/admin/api-keys?reveal=${encodeURIComponent(keyName)}`)
+        if (response.ok) {
+          const data = await response.json()
+          valueToCopy = data.keys[keyName]?.revealed
+        }
+      } catch (error) {
+        console.error('Error fetching key for copy:', error)
+      }
+    }
+    
+    if (valueToCopy) {
+      navigator.clipboard.writeText(valueToCopy)
+      toast.success('API key copied to clipboard')
+    } else {
+      toast.error('Key not configured or unavailable')
+    }
   }
 
   const refreshServices = async () => {
@@ -888,46 +991,68 @@ export default function SuperAdminPage() {
                         <span className="text-xs text-slate-600">({keys.length})</span>
                       </h3>
                       <div className="space-y-2">
-                        {keys.map((apiKey) => (
-                          <div key={apiKey.key} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700">
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "w-2 h-2 rounded-full",
-                                apiKey.status === 'configured' ? "bg-emerald-500" : 
-                                apiKey.status === 'pending' ? "bg-yellow-500" : "bg-red-500"
-                              )} />
-                              <div>
-                                <div className="text-white font-medium">{apiKey.name}</div>
-                                <div className="text-slate-500 text-xs font-mono">{apiKey.key}</div>
-                                <div className="text-slate-600 text-xs">{apiKey.description}</div>
+                        {keys.map((apiKey) => {
+                          const keyData = keyValues[apiKey.key]
+                          const isConfigured = keyData?.configured ?? apiKey.status === 'configured'
+                          const displayValue = showKeys[apiKey.key] && keyData?.revealed 
+                            ? keyData.revealed 
+                            : (keyData?.masked || '••••••••')
+                          
+                          return (
+                            <div key={apiKey.key} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full",
+                                  isConfigured ? "bg-emerald-500" : 
+                                  apiKey.status === 'pending' ? "bg-yellow-500" : "bg-red-500"
+                                )} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-white font-medium">{apiKey.name}</div>
+                                  <div className="text-slate-500 text-xs font-mono truncate max-w-[200px]" title={apiKey.key}>
+                                    {apiKey.key}
+                                  </div>
+                                  <div className="text-slate-600 text-xs">{apiKey.description}</div>
+                                  {/* Key value display */}
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <code className={cn(
+                                      "text-xs px-2 py-1 rounded font-mono max-w-[250px] truncate",
+                                      showKeys[apiKey.key] ? "bg-emerald-900/30 text-emerald-300" : "bg-slate-800 text-slate-400"
+                                    )} title={showKeys[apiKey.key] ? displayValue : undefined}>
+                                      {displayValue}
+                                    </code>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-xs px-2 py-1 rounded",
+                                  isConfigured 
+                                    ? "bg-emerald-500/20 text-emerald-400"
+                                    : apiKey.status === 'pending'
+                                      ? "bg-yellow-500/20 text-yellow-400"
+                                      : "bg-red-500/20 text-red-400"
+                                )}>
+                                  {isConfigured ? 'configured' : apiKey.status}
+                                </span>
+                                <button 
+                                  onClick={() => toggleKeyVisibility(apiKey.key)}
+                                  className="p-2 hover:bg-slate-700 rounded transition-colors"
+                                  title={showKeys[apiKey.key] ? "Hide key" : "Show key"}
+                                >
+                                  {showKeys[apiKey.key] ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                                </button>
+                                <button 
+                                  onClick={() => copyToClipboard(apiKey.key)}
+                                  className="p-2 hover:bg-slate-700 rounded transition-colors"
+                                  title="Copy key to clipboard"
+                                  disabled={!isConfigured}
+                                >
+                                  <Copy className={cn("w-4 h-4", isConfigured ? "text-slate-400" : "text-slate-600")} />
+                                </button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className={cn(
-                                "text-xs px-2 py-1 rounded",
-                                apiKey.status === 'configured' 
-                                  ? "bg-emerald-500/20 text-emerald-400"
-                                  : apiKey.status === 'pending'
-                                    ? "bg-yellow-500/20 text-yellow-400"
-                                    : "bg-red-500/20 text-red-400"
-                              )}>
-                                {apiKey.status}
-                              </span>
-                              <button 
-                                onClick={() => toggleKeyVisibility(apiKey.key)}
-                                className="p-2 hover:bg-slate-700 rounded transition-colors"
-                              >
-                                {showKeys[apiKey.key] ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
-                              </button>
-                              <button 
-                                onClick={() => copyToClipboard(apiKey.key)}
-                                className="p-2 hover:bg-slate-700 rounded transition-colors"
-                              >
-                                <Copy className="w-4 h-4 text-slate-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
@@ -1232,45 +1357,98 @@ export default function SuperAdminPage() {
                 </div>
 
                 {/* Quick Links */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Link href="/security" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors">
                     <Shield className="w-6 h-6 text-emerald-400 mb-2" />
-                    <div className="text-white font-medium">Security Center</div>
-                    <div className="text-slate-400 text-sm">IP lookup, threat intel</div>
+                    <div className="text-white font-medium">SOC Dashboard</div>
+                    <div className="text-slate-400 text-sm">Main operations center</div>
                   </Link>
                   <Link href="/security/network" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors">
                     <Network className="w-6 h-6 text-blue-400 mb-2" />
                     <div className="text-white font-medium">Network Monitor</div>
-                    <div className="text-slate-400 text-sm">Traffic analysis</div>
+                    <div className="text-slate-400 text-sm">UniFi traffic analysis</div>
                   </Link>
-                  <Link href="/dashboard/soc" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors">
-                    <Globe className="w-6 h-6 text-purple-400 mb-2" />
-                    <div className="text-white font-medium">Global SOC</div>
-                    <div className="text-slate-400 text-sm">Worldwide threat map</div>
+                  <Link href="/security/incidents" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-orange-500/30 transition-colors">
+                    <AlertTriangle className="w-6 h-6 text-orange-400 mb-2" />
+                    <div className="text-white font-medium">Incidents</div>
+                    <div className="text-slate-400 text-sm">Incident management</div>
+                  </Link>
+                  <Link href="/security/redteam" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-red-500/30 transition-colors">
+                    <Zap className="w-6 h-6 text-red-400 mb-2" />
+                    <div className="text-white font-medium">Red Team</div>
+                    <div className="text-slate-400 text-sm">Penetration testing</div>
+                  </Link>
+                  <Link href="/security/compliance" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-purple-500/30 transition-colors">
+                    <CheckCircle className="w-6 h-6 text-purple-400 mb-2" />
+                    <div className="text-white font-medium">Compliance</div>
+                    <div className="text-slate-400 text-sm">NIST audit reports</div>
+                  </Link>
+                  <Link href="/natureos/settings" className="block p-4 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors">
+                    <Settings className="w-6 h-6 text-slate-400 mb-2" />
+                    <div className="text-white font-medium">Security Settings</div>
+                    <div className="text-slate-400 text-sm">NatureOS security config</div>
                   </Link>
                 </div>
               </div>
 
-              {/* Security Metrics - Comprehensive */}
+              {/* Security Metrics - Real-time */}
               <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-amber-400" />
-                  Security Metrics (Real-time)
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-amber-400" />
+                    Security Metrics (Real-time)
+                  </h2>
+                  <button 
+                    onClick={fetchSecurityStatus}
+                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                    title="Refresh security status"
+                  >
+                    <RefreshCw className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  <MetricCard label="Threat Level" value="LOW" color="emerald" />
-                  <MetricCard label="Active Sessions" value="3" color="blue" />
-                  <MetricCard label="Blocked IPs (24h)" value="0" color="slate" />
-                  <MetricCard label="Failed Logins" value="2" color="yellow" />
-                  <MetricCard label="Suspicious Activity" value="0" color="slate" />
+                  <MetricCard 
+                    label="Threat Level" 
+                    value={(securityStatus?.threatLevel || 'LOW').toUpperCase()} 
+                    color={securityStatus?.threatLevel === 'critical' ? 'red' : securityStatus?.threatLevel === 'high' ? 'orange' : 'emerald'} 
+                  />
+                  <MetricCard 
+                    label="Monitoring" 
+                    value={securityStatus?.monitoring ? 'ACTIVE' : 'INACTIVE'} 
+                    color={securityStatus?.monitoring ? 'emerald' : 'red'} 
+                  />
+                  <MetricCard 
+                    label="Events (24h)" 
+                    value={securityStatus?.eventsCount?.toString() || '0'} 
+                    color={securityStatus?.eventsCount && securityStatus.eventsCount > 10 ? 'yellow' : 'slate'} 
+                  />
+                  <MetricCard 
+                    label="Critical Events" 
+                    value={securityStatus?.criticalEvents?.toString() || '0'} 
+                    color={securityStatus?.criticalEvents && securityStatus.criticalEvents > 0 ? 'red' : 'slate'} 
+                  />
+                  <MetricCard 
+                    label="Unique IPs" 
+                    value={securityStatus?.uniqueIPs?.toString() || '0'} 
+                    color="blue" 
+                  />
+                  <MetricCard 
+                    label="Open Incidents" 
+                    value={securityStatus?.incidentsOpen?.toString() || '0'} 
+                    color={securityStatus?.incidentsOpen && securityStatus.incidentsOpen > 0 ? 'orange' : 'slate'} 
+                  />
                   <MetricCard label="Firewall Rules" value="47" color="blue" />
                   <MetricCard label="VPN Connections" value="1" color="emerald" />
                   <MetricCard label="Port Scans (24h)" value="0" color="slate" />
-                  <MetricCard label="DDoS Attempts" value="0" color="slate" />
-                  <MetricCard label="Auth Failures (24h)" value="3" color="yellow" />
+                  <MetricCard label="Auth Failures" value="2" color="yellow" />
                   <MetricCard label="Malware Blocked" value="0" color="slate" />
                   <MetricCard label="UniFi Alerts" value="0" color="slate" />
                 </div>
+                {securityStatus?.lastUpdated && (
+                  <div className="mt-3 text-xs text-slate-500">
+                    Last updated: {new Date(securityStatus.lastUpdated).toLocaleTimeString()}
+                  </div>
+                )}
               </div>
 
               {/* Data Sources */}

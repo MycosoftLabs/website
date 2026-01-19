@@ -97,15 +97,27 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
+    // Store the intended redirect in sessionStorage before OAuth
     const redirectTo = searchParams.get("redirectTo") || "/dashboard"
-    const callbackUrl = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+    sessionStorage.setItem("authRedirectTo", redirectTo)
     
-    const { error } = await supabase.auth.signInWithOAuth({
+    // Use current origin for callback URL - must match Supabase whitelist exactly
+    const currentOrigin = window.location.origin
+    const callbackUrl = `${currentOrigin}/auth/callback`
+    
+    console.log('[OAuth] Google login initiated')
+    console.log('[OAuth] Current origin:', currentOrigin)
+    console.log('[OAuth] Callback URL:', callbackUrl)
+    
+    const { error, data } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: callbackUrl,
+        skipBrowserRedirect: false,
       },
     })
+    
+    console.log('[OAuth] Response:', { error, url: data?.url })
     
     if (error) {
       setError(error.message)
@@ -117,15 +129,27 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
+    // Store the intended redirect in sessionStorage before OAuth
     const redirectTo = searchParams.get("redirectTo") || "/dashboard"
-    const callbackUrl = `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`
+    sessionStorage.setItem("authRedirectTo", redirectTo)
     
-    const { error } = await supabase.auth.signInWithOAuth({
+    // Use current origin for callback URL - must match Supabase whitelist exactly
+    const currentOrigin = window.location.origin
+    const callbackUrl = `${currentOrigin}/auth/callback`
+    
+    console.log('[OAuth] GitHub login initiated')
+    console.log('[OAuth] Current origin:', currentOrigin)
+    console.log('[OAuth] Callback URL:', callbackUrl)
+    
+    const { error, data } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
         redirectTo: callbackUrl,
+        skipBrowserRedirect: false,
       },
     })
+    
+    console.log('[OAuth] Response:', { error, url: data?.url })
     
     if (error) {
       setError(error.message)

@@ -67,9 +67,12 @@ export async function updateSession(request: NextRequest) {
   // Check if trying to access protected route without auth
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
   // Note: /devices is PUBLIC (home page devices section)
-  // Only /dashboard and /account require authentication
+  // Protected routes require authentication
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-                          request.nextUrl.pathname.startsWith('/account')
+                          request.nextUrl.pathname.startsWith('/account') ||
+                          request.nextUrl.pathname.startsWith('/security') ||
+                          request.nextUrl.pathname.startsWith('/admin') ||
+                          request.nextUrl.pathname.startsWith('/natureos')
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()

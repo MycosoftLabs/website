@@ -1,0 +1,10 @@
+# Threat Intelligence Service Dependencies
+aiohttp>=3.9.0
+redis>=5.0.0
+aiosqlite>=0.19.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+structlog>=24.0.0
+fastapi>=0.109.0
+uvicorn>=0.27.0
+httpx>=0.26.0

@@ -137,7 +137,7 @@ export default function SecurityPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="flex items-center gap-3 text-emerald-400">
           <RefreshCw className="animate-spin" size={24} />
           <span className="text-lg font-mono">Loading Security Operations Center...</span>
@@ -147,7 +147,7 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+    <div className="p-6">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -156,16 +156,38 @@ export default function SecurityPage() {
               <Shield className="text-emerald-400" size={32} />
               <h1 className="text-3xl font-bold text-white font-mono">Security Operations Center</h1>
             </div>
-            <p className="text-slate-400 font-mono text-sm">Mycosoft Network Security Monitoring</p>
+            <p className="text-slate-400 font-mono text-sm">Mycosoft Network Security Monitoring | 24/7 Active Protection</p>
           </div>
-          <Link 
-            href="/security/network"
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono rounded-lg transition-colors"
-          >
-            <Network size={20} />
-            Network Monitor
-            <ArrowRight size={16} />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link 
+              href="/security/compliance"
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white font-mono text-sm rounded-lg transition-colors"
+            >
+              <Lock size={16} />
+              Compliance
+            </Link>
+            <Link 
+              href="/security/incidents"
+              className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white font-mono text-sm rounded-lg transition-colors"
+            >
+              <AlertTriangle size={16} />
+              Incidents
+            </Link>
+            <Link 
+              href="/security/redteam"
+              className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-mono text-sm rounded-lg transition-colors"
+            >
+              🔴 Red Team
+            </Link>
+            <Link 
+              href="/security/network"
+              className="flex items-center gap-2 px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-sm rounded-lg transition-colors"
+            >
+              <Network size={18} />
+              Network
+              <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -350,7 +372,77 @@ export default function SecurityPage() {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Security Agents & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Security Agents */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
+            <Server className="text-purple-400" size={20} />
+            Security Agents
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { id: 'watchdog', name: 'Watchdog', status: 'active', desc: 'Continuous monitoring' },
+              { id: 'hunter', name: 'Hunter', status: 'active', desc: 'Threat hunting' },
+              { id: 'guardian', name: 'Guardian', status: 'active', desc: 'System protection' },
+              { id: 'incident-response', name: 'Incident Response', status: 'active', desc: 'Auto remediation' },
+              { id: 'suricata', name: 'Suricata IDS', status: 'active', desc: 'Network IDS/IPS' },
+              { id: 'threat-intel', name: 'Threat Intel', status: 'active', desc: 'Intelligence feeds' },
+            ].map((agent) => (
+              <div key={agent.id} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-between">
+                <div>
+                  <div className="font-mono text-sm text-white">{agent.name}</div>
+                  <div className="text-xs text-slate-500">{agent.desc}</div>
+                </div>
+                <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
+            <Activity className="text-amber-400" size={20} />
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Link href="/security/redteam" className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg hover:bg-red-900/50 transition">
+              <div className="text-red-400 font-mono font-bold mb-1">🔴 Red Team</div>
+              <div className="text-xs text-slate-400">Penetration testing & scanning</div>
+            </Link>
+            <Link href="/security/incidents" className="p-4 bg-orange-900/30 border border-orange-700/50 rounded-lg hover:bg-orange-900/50 transition">
+              <div className="text-orange-400 font-mono font-bold mb-1">⚠️ Incidents</div>
+              <div className="text-xs text-slate-400">Incident management</div>
+            </Link>
+            <Link href="/security/network" className="p-4 bg-cyan-900/30 border border-cyan-700/50 rounded-lg hover:bg-cyan-900/50 transition">
+              <div className="text-cyan-400 font-mono font-bold mb-1">🌐 Network</div>
+              <div className="text-xs text-slate-400">UniFi monitoring</div>
+            </Link>
+            <Link href="/security/compliance" className="p-4 bg-purple-900/30 border border-purple-700/50 rounded-lg hover:bg-purple-900/50 transition">
+              <div className="text-purple-400 font-mono font-bold mb-1">📋 Compliance</div>
+              <div className="text-xs text-slate-400">NIST & audit reports</div>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Threat Map Placeholder */}
+      <div className="mt-6 bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
+          <Globe className="text-blue-400" size={20} />
+          Global Threat Overview
+        </h2>
+        <div className="h-48 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-center">
+          <div className="text-center text-slate-500">
+            <Globe size={48} className="mx-auto mb-2 opacity-50" />
+            <p className="font-mono text-sm">Geographic threat visualization</p>
+            <p className="text-xs">Showing traffic patterns from {status?.unique_ips || 0} unique IPs</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Last Update Info */}
       <div className="mt-8 text-center text-slate-500 font-mono text-xs">
         <p>Last Updated: {status?.last_check ? new Date(status.last_check).toLocaleString() : "Unknown"}</p>
         <p>Uptime: {status?.uptime_seconds ? Math.floor(status.uptime_seconds / 60) : 0} minutes</p>

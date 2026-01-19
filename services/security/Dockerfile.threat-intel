@@ -1,0 +1,26 @@
+# Mycosoft Threat Intelligence Aggregator
+# Aggregates threat data from multiple sources
+
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.threat-intel.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY threat_intel_service.py .
+COPY config/ ./config/
+
+RUN mkdir -p /data && useradd -m threatintel && chown -R threatintel:threatintel /app /data
+USER threatintel
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8100
+
+CMD ["python", "threat_intel_service.py"]

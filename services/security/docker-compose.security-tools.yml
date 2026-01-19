@@ -1,0 +1,215 @@
+# Mycosoft Red Team Security Tools Stack
+# 
+# This stack provides advanced security monitoring, threat detection, and penetration testing capabilities
+# 
+# Usage:
+#   docker-compose -f docker-compose.security-tools.yml up -d
+#
+# Services:
+#   - Suricata IDS/IPS: Network intrusion detection and prevention
+#   - Nmap Scanner: Network discovery and vulnerability scanning
+#   - Redis Queue: Security event processing and caching
+#   - Threat Intel: Threat intelligence aggregation service
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # SURICATA IDS/IPS - Network Intrusion Detection System
+  # ==========================================================================
+  suricata:
+    image: jasonish/suricata:latest
+    container_name: mycosoft-suricata
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    environment:
+      - SURICATA_OPTIONS=-i eth0 --af-packet
+    volumes:
+      - suricata_logs:/var/log/suricata
+      - suricata_rules:/var/lib/suricata/rules
+      - ./config/suricata/suricata.yaml:/etc/suricata/suricata.yaml:ro
+      - ./config/suricata/local.rules:/var/lib/suricata/rules/local.rules:ro
+    command: ["/usr/bin/suricata", "-c", "/etc/suricata/suricata.yaml", "-i", "eth0"]
+    healthcheck:
+      test: ["CMD", "suricatasc", "-c", "iface-list"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.mycosoft.service=suricata"
+      - "com.mycosoft.category=security"
+      - "com.mycosoft.priority=critical"
+
+  # ==========================================================================
+  # NMAP SCANNER SERVICE - Network Discovery and Vulnerability Scanning
+  # ==========================================================================
+  nmap-scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile.nmap
+    container_name: mycosoft-nmap-scanner
+    restart: unless-stopped
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    environment:
+      - REDIS_URL=redis://redis-security:6379
+      - SCAN_INTERVAL=3600
+      - TARGET_NETWORKS=192.168.0.0/24
+      - ALLOWED_SCAN_TYPES=ping,syn,version,vuln
+      - MAX_CONCURRENT_SCANS=2
+    volumes:
+      - nmap_results:/app/results
+      - ./config/nmap/targets.txt:/app/config/targets.txt:ro
+    depends_on:
+      - redis-security
+    networks:
+      - security-network
+    healthcheck:
+      test: ["CMD", "nmap", "--version"]
+      interval: 120s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "com.mycosoft.service=nmap-scanner"
+      - "com.mycosoft.category=security"
+
+  # ==========================================================================
+  # REDIS - Security Event Queue and Cache
+  # ==========================================================================
+  redis-security:
+    image: redis:7-alpine
+    container_name: mycosoft-redis-security
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_security_data:/data
+    ports:
+      - "6391:6379"
+    networks:
+      - security-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "com.mycosoft.service=redis-security"
+      - "com.mycosoft.category=security"
+
+  # ==========================================================================
+  # THREAT INTELLIGENCE AGGREGATOR
+  # ==========================================================================
+  threat-intel:
+    build:
+      context: .
+      dockerfile: Dockerfile.threat-intel
+    container_name: mycosoft-threat-intel
+    restart: unless-stopped
+    environment:
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
+      - VIRUSTOTAL_API_KEY=${VIRUSTOTAL_API_KEY:-}
+      - REDIS_URL=redis://redis-security:6379
+      - UPDATE_INTERVAL=3600
+      - TOR_EXIT_UPDATE_INTERVAL=21600
+      - THREAT_DB_PATH=/data/threats.db
+    volumes:
+      - threat_intel_data:/data
+      - ./config/threat-intel:/app/config:ro
+    depends_on:
+      - redis-security
+    ports:
+      - "8100:8100"
+    networks:
+      - security-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.mycosoft.service=threat-intel"
+      - "com.mycosoft.category=security"
+
+  # ==========================================================================
+  # SECURITY EVENT PROCESSOR
+  # ==========================================================================
+  security-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.processor
+    container_name: mycosoft-security-processor
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis-security:6379
+      - SURICATA_LOG_PATH=/var/log/suricata
+      - UNIFI_HOST=${UNIFI_HOST:-192.168.0.1}
+      - UNIFI_API_KEY=${UNIFI_API_KEY:-}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+      - ALERT_EMAIL=${ALERT_EMAIL:-}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+      - PLAYBOOK_CONFIG=/app/config/playbooks.json
+    volumes:
+      - suricata_logs:/var/log/suricata:ro
+      - nmap_results:/app/nmap-results:ro
+      - ./config:/app/config:ro
+    depends_on:
+      - redis-security
+      - suricata
+    ports:
+      - "8101:8101"
+    networks:
+      - security-network
+    labels:
+      - "com.mycosoft.service=security-processor"
+      - "com.mycosoft.category=security"
+      - "com.mycosoft.priority=critical"
+
+  # ==========================================================================
+  # SURICATA LOG PARSER / EVE JSON PROCESSOR
+  # ==========================================================================
+  suricata-parser:
+    build:
+      context: .
+      dockerfile: Dockerfile.suricata-parser
+    container_name: mycosoft-suricata-parser
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis-security:6379
+      - EVE_LOG_PATH=/var/log/suricata/eve.json
+      - PARSE_INTERVAL=5
+    volumes:
+      - suricata_logs:/var/log/suricata:ro
+    depends_on:
+      - redis-security
+      - suricata
+    networks:
+      - security-network
+    labels:
+      - "com.mycosoft.service=suricata-parser"
+      - "com.mycosoft.category=security"
+
+networks:
+  security-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  suricata_logs:
+    driver: local
+  suricata_rules:
+    driver: local
+  nmap_results:
+    driver: local
+  redis_security_data:
+    driver: local
+  threat_intel_data:
+    driver: local

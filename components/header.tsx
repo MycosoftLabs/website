@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2, Shield, Cpu } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2, Shield, Cpu, Lock, Loader2 } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -16,24 +16,37 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/contexts/auth-context"
+import { useSupabaseUser } from "@/hooks/use-supabase-user"
 import { useRouter } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState } from "react"
 
 export function Header() {
   const { theme } = useTheme()
-  const { user, signOut } = useAuth()
+  const { user: supabaseUser, loading: isLoading, signOut } = useSupabaseUser()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  
+  // Transform supabase user to the expected format
+  const user = supabaseUser ? {
+    id: supabaseUser.id,
+    name: supabaseUser.user_metadata?.full_name || 
+          supabaseUser.user_metadata?.name ||
+          supabaseUser.email?.split("@")[0] || 
+          "User",
+    email: supabaseUser.email ?? null,
+    avatar: supabaseUser.user_metadata?.avatar_url || 
+            supabaseUser.user_metadata?.picture ||
+            "/placeholder.svg",
+  } : null
 
   // Prevent hydration mismatch by only rendering theme-dependent content after mount
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleSignOut = () => {
-    signOut()
+  const handleSignOut = async () => {
+    await signOut()
     router.push("/")
   }
 
@@ -92,6 +105,14 @@ export function Header() {
               Apps
             </Link>
           </Button>
+          {user && (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/security">
+                <Lock className="h-4 w-4 mr-2" />
+                Security
+              </Link>
+            </Button>
+          )}
         </nav>
 
         {/* Right side controls - visible on all screen sizes */}
@@ -112,13 +133,17 @@ export function Header() {
 
           <ModeToggle />
 
-          {user ? (
+          {isLoading ? (
+            <Button variant="ghost" size="sm" disabled className="hidden md:flex">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </Button>
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name[0]}</AvatarFallback>
+                    <AvatarFallback>{user.name?.[0] || "U"}</AvatarFallback>
                   </Avatar>
                   <span className="hidden md:inline-block">{user.name}</span>
                 </Button>
@@ -129,6 +154,9 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/security">Security Center</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>Sign Out</DropdownMenuItem>

@@ -1,0 +1,26 @@
+# Mycosoft Security Event Processor
+# Processes security events from multiple sources and executes playbooks
+
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.processor.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY security_processor.py .
+COPY playbooks/ ./playbooks/
+COPY config/ ./config/
+
+RUN mkdir -p /var/log/security && useradd -m processor && chown -R processor:processor /app /var/log/security
+USER processor
+
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8101
+
+CMD ["python", "security_processor.py"]

@@ -20,7 +20,14 @@ export function createClient() {
       'Supabase credentials not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local'
     )
   }
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      // Use implicit flow for OAuth to avoid PKCE code verifier issues with localhost
+      flowType: 'implicit',
+      detectSessionInUrl: true,
+      persistSession: true,
+    }
+  })
 }
 
 // Singleton pattern for client-side use

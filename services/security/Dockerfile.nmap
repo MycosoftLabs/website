@@ -1,0 +1,32 @@
+# Mycosoft Nmap Scanner Service
+# Provides network discovery and vulnerability scanning capabilities
+
+FROM python:3.11-slim
+
+# Install nmap and dependencies
+RUN apt-get update && apt-get install -y \
+    nmap \
+    libpcap0.8 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.nmap.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy scanner service
+COPY nmap_scanner.py .
+COPY config/ ./config/
+
+# Create results directory
+RUN mkdir -p /app/results
+
+# Non-root user for safety (nmap still needs caps)
+RUN useradd -m scanner && chown -R scanner:scanner /app
+USER scanner
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "nmap_scanner.py"]

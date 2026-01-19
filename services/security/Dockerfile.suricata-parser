@@ -1,0 +1,18 @@
+# Mycosoft Suricata Log Parser
+# Parses EVE JSON logs from Suricata and publishes events to Redis
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.suricata-parser.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY suricata_parser.py .
+
+RUN useradd -m parser && chown -R parser:parser /app
+USER parser
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "suricata_parser.py"]
