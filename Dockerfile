@@ -12,7 +12,7 @@
 # =========================
 # Stage 1: Dependencies
 # =========================
-FROM node:20-alpine AS deps
+FROM node:18-alpine AS deps
 WORKDIR /app
 
 # Install pnpm
@@ -27,7 +27,7 @@ RUN pnpm install --no-frozen-lockfile
 # =========================
 # Stage 2: Builder
 # =========================
-FROM node:20-alpine AS builder
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
@@ -73,7 +73,7 @@ ENV OPENAI_API_KEY=sk-placeholder
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 # Disable V8's use of AVX/advanced CPU instructions for older CPUs (Westmere/X5670 compatibility)
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=4096 --no-wasm-code-gc"
 # Use swc with wasm fallback for broader CPU compatibility
 ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 RUN pnpm build
@@ -81,7 +81,7 @@ RUN pnpm build
 # =========================
 # Stage 3: Runner
 # =========================
-FROM node:20-alpine AS runner
+FROM node:18-alpine AS runner
 WORKDIR /app
 
 # Create non-root user
