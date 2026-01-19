@@ -72,6 +72,10 @@ ENV OPENAI_API_KEY=sk-placeholder
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
+# Disable V8's use of AVX/advanced CPU instructions for older CPUs (Westmere/X5670 compatibility)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Use swc with wasm fallback for broader CPU compatibility
+ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 RUN pnpm build
 
 # =========================
