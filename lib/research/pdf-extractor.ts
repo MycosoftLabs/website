@@ -10,9 +10,19 @@
  * @see https://github.com/Lulzx/zpdf
  */
 
-// pdf-parse doesn't have types, so we use any
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+// pdf-parse can eagerly initialize pdfjs/canvas internals at import-time.
+// On some Node/OS combos (and during Next build bundling) that can crash the build.
+// We lazy-load it so it is only required when the route is actually invoked.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let pdfParse: any | null = null;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getPdfParse(): any {
+  if (pdfParse) return pdfParse;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  pdfParse = require('pdf-parse');
+  return pdfParse;
+}
 
 export interface PDFExtractionResult {
   success: boolean;
@@ -76,7 +86,7 @@ export async function extractTextFromPDF(
   
   // Use pdf-parse as default/fallback
   try {
-    const data = await pdfParse(pdfBuffer);
+    const data = await getPdfParse()(pdfBuffer);
     
     return {
       success: true,
