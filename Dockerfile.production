@@ -1,7 +1,8 @@
 # Mycosoft.com Production Dockerfile
 # This is the main Mycosoft website with NatureOS, MIndex, MYCA integrations
+# Uses Node.js 18 for compatibility with older CPUs (Xeon X5670 Westmere)
 
-FROM node:22-alpine AS base
+FROM node:18-alpine AS base
 
 # Install dependencies
 FROM base AS deps
@@ -17,6 +18,10 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Disable worker threads for better CPU compatibility
+ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
+# Increase memory for large builds
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN npm run build
 
