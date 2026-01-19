@@ -37,9 +37,9 @@ const devices = [
     description: "Our flagship stationary ground buoy that monitors underground fungal networks, soil conditions, and environmental data in real-time with unmatched precision.",
     icon: Radar,
     color: "orange-500",
-    image: "/devices/mushroom1.png",
+    image: "/assets/mushroom1/Main A.jpg",
     status: "Pre-order",
-    price: "$599",
+    price: "$2,000",
     specs: [
       { label: "Sensor Depth", value: "Up to 2 meters" },
       { label: "Battery Life", value: "6 months (solar)" },
@@ -293,13 +293,24 @@ export function DevicesPortal() {
             className="grid lg:grid-cols-2 gap-12"
           >
             {/* Device Image/Visual */}
-            <div className={`aspect-square rounded-2xl border overflow-hidden ${
-              selectedDevice.color === 'primary' ? 'bg-gradient-to-br from-primary/10 to-muted' :
-              selectedDevice.color === 'blue-500' ? 'bg-gradient-to-br from-blue-500/10 to-muted' :
-              selectedDevice.color === 'destructive' ? 'bg-gradient-to-br from-destructive/10 to-muted' :
-              'bg-gradient-to-br from-orange-500/10 to-muted'
-            }`}>
-              <div className="h-full flex items-center justify-center">
+            <div className="aspect-square rounded-2xl border overflow-hidden relative bg-muted">
+              <img
+                src={selectedDevice.image}
+                alt={selectedDevice.name}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to icon if image fails
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                  target.nextElementSibling?.classList.remove('hidden')
+                }}
+              />
+              <div className={`hidden h-full flex items-center justify-center ${
+                selectedDevice.color === 'primary' ? 'bg-gradient-to-br from-primary/10 to-muted' :
+                selectedDevice.color === 'blue-500' ? 'bg-gradient-to-br from-blue-500/10 to-muted' :
+                selectedDevice.color === 'destructive' ? 'bg-gradient-to-br from-destructive/10 to-muted' :
+                'bg-gradient-to-br from-orange-500/10 to-muted'
+              }`}>
                 <selectedDevice.icon className={`h-48 w-48 ${
                   selectedDevice.color === 'primary' ? 'text-primary/30' :
                   selectedDevice.color === 'blue-500' ? 'text-blue-500/30' :

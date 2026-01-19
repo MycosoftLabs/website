@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import { DeviceDetails } from "@/components/devices/device-details"
+import { Mushroom1Details } from "@/components/devices/mushroom1-details"
 import { DEVICES } from "@/lib/devices"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -53,6 +54,15 @@ export default function DevicePage({ params }: DevicePageProps) {
   // Show 404 if device not found
   if (error || !device) {
     return notFound()
+  }
+
+  // Use special Mushroom 1 page for the flagship product
+  if (id === "mushroom-1") {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Mushroom1Details />
+      </div>
+    )
   }
 
   return (

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Database, Globe, Layers, MapPin, TrendingUp, Activity } from "lucide-react";
+import { ArrowLeft, Database, Globe, Layers, MapPin, TrendingUp, Activity, Thermometer, Wind, Droplets, GripVertical, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Link from "next/link";
 import { DataPanel } from "./data-panel";
 import { Statistics } from "./statistics";
@@ -20,8 +20,51 @@ interface ComprehensiveSidePanelProps {
     heat: boolean;
     organisms: boolean;
     weather: boolean;
+    [key: string]: boolean;
   };
   onCloseCell?: () => void;
+}
+
+// Collapsible widget component for the side panel
+interface WidgetSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  defaultOpen?: boolean;
+  badge?: string | number;
+  children: React.ReactNode;
+}
+
+function WidgetSection({ title, icon, defaultOpen = true, badge, children }: WidgetSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="bg-gray-800/80 border-gray-700 overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-2 px-3 cursor-pointer hover:bg-gray-700/50 transition-colors">
+            <CardTitle className="text-xs text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-3 h-3 text-gray-500 cursor-move" />
+                {icon}
+                <span className="uppercase tracking-wider">{title}</span>
+                {badge !== undefined && (
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                    {badge}
+                  </Badge>
+                )}
+              </div>
+              {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-3 px-3 text-sm">
+            {children}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
 }
 
 export function ComprehensiveSidePanel({
@@ -33,7 +76,6 @@ export function ComprehensiveSidePanel({
   const [viewData, setViewData] = useState<any>(null);
   const [cellData, setCellData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch viewport data
   useEffect(() => {
@@ -51,7 +93,6 @@ export function ComprehensiveSidePanel({
           ).catch(() => null),
         ]);
 
-        // Safely parse JSON responses
         let obsData = { observations: [] };
         let layersData = null;
         
@@ -127,203 +168,235 @@ export function ComprehensiveSidePanel({
 
   const observations = viewData?.observations || cellData?.observations || [];
   const uniqueSpecies = new Set(observations.map((obs: any) => obs.species).filter(Boolean)).size;
+  const activeLayerCount = Object.values(layers).filter(Boolean).length;
 
   return (
-    <div className="w-96 h-full bg-gray-900/95 backdrop-blur-sm border-r border-gray-700 flex flex-col">
+    <div className="w-80 h-full bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 bg-gray-900 border-b border-gray-700 p-4 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Globe className="w-5 h-5" />
+      <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50 p-3 z-10">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wider">
+            <Globe className="w-4 h-4 text-green-500" />
             Earth Simulator
           </h2>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
             <Link href="/natureos">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              NatureOS
+              <ArrowLeft className="w-3 h-3 mr-1" />
+              Back
             </Link>
           </Button>
         </div>
-        {selectedCell && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCloseCell?.()}
-            className="w-full"
-          >
-            Clear Selection
-          </Button>
-        )}
+        
+        {/* Quick Stats Bar */}
+        <div className="flex items-center gap-2 text-[10px] text-gray-400">
+          <span className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            LIVE
+          </span>
+          <span>•</span>
+          <span>{activeLayerCount} layers</span>
+          <span>•</span>
+          <span>{observations.length} obs</span>
+        </div>
       </div>
 
-      {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="data">Data</TabsTrigger>
-            </TabsList>
+      {/* Widgets */}
+      <ScrollArea className="flex-1 p-2">
+        <div className="space-y-2">
+          {/* Selected Cell Info */}
+          {selectedCell && (
+            <Card className="bg-green-900/30 border-green-500/30">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-green-400 uppercase tracking-wider font-bold">Selected Cell</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 hover:bg-red-500/20"
+                    onClick={() => onCloseCell?.()}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="text-xs text-gray-300 space-y-1">
+                  <div>ID: {selectedCell.cellId}</div>
+                  <div>Lat: {selectedCell.lat.toFixed(4)}°</div>
+                  <div>Lon: {selectedCell.lon.toFixed(4)}°</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-4 mt-4">
-              {/* Viewport Stats */}
-              {viewport && (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardHeader>
-                    <CardTitle className="text-sm text-white flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Viewport
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">North:</span>
-                      <span className="text-white">{viewport.north.toFixed(4)}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">South:</span>
-                      <span className="text-white">{viewport.south.toFixed(4)}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">East:</span>
-                      <span className="text-white">{viewport.east.toFixed(4)}°</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">West:</span>
-                      <span className="text-white">{viewport.west.toFixed(4)}°</span>
-                    </div>
-                  </CardContent>
-                </Card>
+          {/* Viewport Widget */}
+          <WidgetSection 
+            title="Viewport" 
+            icon={<MapPin className="w-3 h-3 text-blue-400" />}
+            defaultOpen={true}
+          >
+            {viewport ? (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-700/50 rounded p-1.5">
+                  <span className="text-gray-400 block text-[10px]">North</span>
+                  <span className="text-white font-mono">{viewport.north.toFixed(2)}°</span>
+                </div>
+                <div className="bg-gray-700/50 rounded p-1.5">
+                  <span className="text-gray-400 block text-[10px]">South</span>
+                  <span className="text-white font-mono">{viewport.south.toFixed(2)}°</span>
+                </div>
+                <div className="bg-gray-700/50 rounded p-1.5">
+                  <span className="text-gray-400 block text-[10px]">East</span>
+                  <span className="text-white font-mono">{viewport.east.toFixed(2)}°</span>
+                </div>
+                <div className="bg-gray-700/50 rounded p-1.5">
+                  <span className="text-gray-400 block text-[10px]">West</span>
+                  <span className="text-white font-mono">{viewport.west.toFixed(2)}°</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-xs">No viewport data</div>
+            )}
+          </WidgetSection>
+
+          {/* Active Layers Widget */}
+          <WidgetSection 
+            title="Layers" 
+            icon={<Layers className="w-3 h-3 text-purple-400" />}
+            badge={activeLayerCount}
+          >
+            <div className="space-y-1">
+              {Object.entries(layers).map(([key, active]) => (
+                <div key={key} className="flex items-center justify-between py-0.5">
+                  <span className="text-gray-300 capitalize text-xs">{key}</span>
+                  <div className={`w-2 h-2 rounded-full ${active ? 'bg-green-500' : 'bg-gray-600'}`} />
+                </div>
+              ))}
+            </div>
+          </WidgetSection>
+
+          {/* Quick Stats Widget */}
+          <WidgetSection 
+            title="Statistics" 
+            icon={<Activity className="w-3 h-3 text-cyan-400" />}
+            badge={observations.length}
+          >
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-xs">Observations</span>
+                <span className="text-white font-bold">{observations.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400 text-xs">Unique Species</span>
+                <span className="text-white font-bold">{uniqueSpecies}</span>
+              </div>
+              {viewData?.probabilities?.length > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-400 text-xs">Grid Cells</span>
+                  <span className="text-white font-bold">{viewData.probabilities.length}</span>
+                </div>
               )}
+            </div>
+          </WidgetSection>
 
-              {/* Layer Status */}
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-sm text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4" />
-                    Active Layers
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {Object.entries(layers).map(([key, active]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-300 capitalize">{key}</span>
-                      <Badge variant={active ? "default" : "outline"}>
-                        {active ? "On" : "Off"}
+          {/* Weather Widget (placeholder) */}
+          <WidgetSection 
+            title="Weather" 
+            icon={<Wind className="w-3 h-3 text-yellow-400" />}
+            defaultOpen={false}
+          >
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-gray-700/50 rounded p-2">
+                <Thermometer className="w-3 h-3 mx-auto mb-1 text-orange-400" />
+                <div className="text-white font-bold text-sm">--°C</div>
+                <div className="text-[10px] text-gray-400">Temp</div>
+              </div>
+              <div className="bg-gray-700/50 rounded p-2">
+                <Wind className="w-3 h-3 mx-auto mb-1 text-blue-400" />
+                <div className="text-white font-bold text-sm">-- m/s</div>
+                <div className="text-[10px] text-gray-400">Wind</div>
+              </div>
+              <div className="bg-gray-700/50 rounded p-2">
+                <Droplets className="w-3 h-3 mx-auto mb-1 text-cyan-400" />
+                <div className="text-white font-bold text-sm">--%</div>
+                <div className="text-[10px] text-gray-400">Humidity</div>
+              </div>
+            </div>
+          </WidgetSection>
+
+          {/* iNaturalist Data Widget */}
+          <WidgetSection 
+            title="iNaturalist" 
+            icon={<Database className="w-3 h-3 text-green-400" />}
+            badge={observations.length}
+            defaultOpen={observations.length > 0}
+          >
+            {loading ? (
+              <div className="text-center py-4 text-gray-400 text-xs">Loading...</div>
+            ) : observations.length > 0 ? (
+              <div className="space-y-2">
+                <SpeciesList observations={observations.slice(0, 10)} />
+                {observations.length > 10 && (
+                  <div className="text-center text-[10px] text-gray-500">
+                    +{observations.length - 10} more
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-gray-500 text-xs text-center py-2">
+                No observations in viewport
+              </div>
+            )}
+          </WidgetSection>
+
+          {/* Mycelium Probability Widget */}
+          {(cellData?.probability || viewData?.probabilities?.length > 0) && (
+            <WidgetSection 
+              title="Mycelium Probability" 
+              icon={<TrendingUp className="w-3 h-3 text-emerald-400" />}
+            >
+              {cellData?.probability ? (
+                <Statistics
+                  probability={cellData.probability}
+                  observations={cellData.observations}
+                />
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-auto">
+                  {viewData?.probabilities?.slice(0, 5).map((prob: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-xs py-0.5">
+                      <span className="text-gray-400">Cell {idx + 1}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {(prob.probability * 100).toFixed(1)}%
                       </Badge>
                     </div>
                   ))}
-                </CardContent>
-              </Card>
-
-              {/* Quick Stats */}
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-sm text-white flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    Quick Stats
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Observations</span>
-                    <Badge variant="outline">{observations.length}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-400">Unique Species</span>
-                    <Badge variant="outline">{uniqueSpecies}</Badge>
-                  </div>
-                  {viewData?.probabilities && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">Grid Cells</span>
-                      <Badge variant="outline">{viewData.probabilities.length}</Badge>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Data Tab */}
-            <TabsContent value="data" className="space-y-4 mt-4">
-              {loading ? (
-                <div className="text-center py-8 text-gray-400">Loading data...</div>
-              ) : selectedCell && cellData ? (
-                <>
-                  <DataPanel
-                    cellId={selectedCell.cellId}
-                    lat={selectedCell.lat}
-                    lon={selectedCell.lon}
-                    probability={cellData.probability}
-                  />
-                  <Statistics
-                    probability={cellData.probability}
-                    observations={cellData.observations}
-                  />
-                  <SpeciesList observations={cellData.observations} />
-                </>
-              ) : (
-                <>
-                  {/* Viewport-wide data */}
-                  {viewData && (
-                    <>
-                      <Card className="bg-gray-800 border-gray-700">
-                        <CardHeader>
-                          <CardTitle className="text-sm text-white flex items-center gap-2">
-                            <Database className="w-4 h-4" />
-                            iNaturalist Observations
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-sm text-gray-300 mb-3">
-                            {observations.length} observations in viewport
-                          </div>
-                          {observations.length > 0 && (
-                            <SpeciesList observations={observations} />
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {viewData.probabilities && viewData.probabilities.length > 0 && (
-                        <Card className="bg-gray-800 border-gray-700">
-                          <CardHeader>
-                            <CardTitle className="text-sm text-white flex items-center gap-2">
-                              <TrendingUp className="w-4 h-4" />
-                              Mycelium Probabilities
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <ScrollArea className="h-64">
-                              <div className="space-y-2">
-                                {viewData.probabilities.slice(0, 20).map((prob: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="p-2 bg-gray-700/50 rounded text-sm"
-                                  >
-                                    <div className="flex justify-between mb-1">
-                                      <span className="text-gray-300">Cell {idx + 1}</span>
-                                      <Badge>
-                                        {(prob.probability * 100).toFixed(1)}%
-                                      </Badge>
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                      {prob.observationCount} observations
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </ScrollArea>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </>
-                  )}
-                </>
+                </div>
               )}
-            </TabsContent>
-          </Tabs>
+            </WidgetSection>
+          )}
+
+          {/* Selected Cell Data */}
+          {selectedCell && cellData && (
+            <WidgetSection 
+              title="Cell Analysis" 
+              icon={<MapPin className="w-3 h-3 text-amber-400" />}
+            >
+              <DataPanel
+                cellId={selectedCell.cellId}
+                lat={selectedCell.lat}
+                lon={selectedCell.lon}
+                probability={cellData.probability}
+              />
+            </WidgetSection>
+          )}
         </div>
       </ScrollArea>
+
+      {/* Footer */}
+      <div className="border-t border-gray-700/50 p-2 bg-gray-900/95">
+        <div className="flex items-center justify-between text-[10px] text-gray-500">
+          <span>Earth Simulator v2.0</span>
+          <span>MINDEX + iNaturalist</span>
+        </div>
+      </div>
     </div>
   );
 }

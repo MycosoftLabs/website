@@ -53,10 +53,9 @@ export const DEVICES: Device[] = [
     name: "Mushroom 1",
     tagline: "Ground-Based Fungal Intelligence Station",
     description: "A stationary ground buoy that monitors underground fungal networks and soil conditions in real-time.",
-    price: 599,
+    price: 2000,
     status: "Pre-order",
-    image:
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mushroom%201%20website-XBl4pAt7OdoBb53OzZjjnar9FBtckr.png",
+    image: "/assets/mushroom1/Main A.jpg",
     video: "https://mycosoft.org/videos/mushroom1-promo.mp4",
     videoTitle: "Discover the Underground Network",
     videoDescription: "Experience real-time monitoring of mycelial networks with unprecedented precision and insight.",

@@ -40,7 +40,7 @@ const fusariumComponents = [
   },
   {
     name: "Mushroom1-D",
-    description: "Defense-variant quadruped with enhanced comms, encrypted telemetry, and tactical integration.",
+    description: "Defense-variant platform with enhanced comms, encrypted telemetry, and tactical integration. $10,000",
     icon: Radar,
     features: ["SATCOM capable", "Encrypted C2", "Extended endurance", "Tactical mesh"]
   },

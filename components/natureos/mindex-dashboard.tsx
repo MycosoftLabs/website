@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { VirtualTable, VirtualList } from "@/components/ui/virtual-table"
 import { 
   Database, 
   Activity, 
@@ -500,39 +501,48 @@ export function MINDEXDashboard() {
             </Card>
           </div>
 
-          {/* Recent Activity */}
+          {/* Recent Activity - Using Virtual Scrolling for Large Datasets */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Observations</CardTitle>
-              <CardDescription>Latest field observations added to MINDEX</CardDescription>
+              <CardTitle className="flex items-center justify-between">
+                <span>Recent Observations</span>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {observations.length.toLocaleString()} records
+                </Badge>
+              </CardTitle>
+              <CardDescription>Latest field observations added to MINDEX (virtual scrolling enabled)</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-3">
-                  {observations.slice(0, 10).map((obs) => (
-                    <div key={obs.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
+              {observations.length > 0 ? (
+                <VirtualList
+                  data={observations}
+                  height={300}
+                  emptyText="No observations found"
+                  rowsPerBlock={25}
+                  renderItem={(obs, index) => `
+                    <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-2 hover:bg-muted transition-colors">
+                      <div class="flex items-center gap-3">
+                        <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                         <div>
-                          <div className="font-medium text-sm">
-                            Observation {obs.id.slice(0, 8)}
+                          <div class="font-medium text-sm">
+                            Observation ${obs.id.slice(0, 8)}
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown date"}
-                            {obs.location && ` • ${obs.location.coordinates[1]?.toFixed(4)}, ${obs.location.coordinates[0]?.toFixed(4)}`}
+                          <div class="text-xs text-muted-foreground">
+                            ${obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown date"}
+                            ${obs.location ? ` • ${obs.location.coordinates[1]?.toFixed(4)}, ${obs.location.coordinates[0]?.toFixed(4)}` : ''}
                           </div>
                         </div>
                       </div>
-                      <Badge variant="outline">{obs.source}</Badge>
+                      <span class="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-secondary text-secondary-foreground">${obs.source}</span>
                     </div>
-                  ))}
-                  {observations.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No observations found
-                    </div>
-                  )}
+                  `}
+                  className="border-0"
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No observations found
                 </div>
-              </ScrollArea>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -706,63 +716,122 @@ export function MINDEXDashboard() {
             </Card>
           )}
 
-          {/* Taxa Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {taxa.map((taxon) => (
-              <Card 
-                key={taxon.id} 
-                className="cursor-pointer hover:border-blue-500 transition-colors"
-                onClick={() => setSelectedTaxon(taxon)}
-              >
-                <CardHeader>
-                  <CardTitle className="text-lg">{taxon.canonical_name}</CardTitle>
-                  {taxon.common_name && (
-                    <CardDescription>{taxon.common_name}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Layers className="h-3 w-3 text-muted-foreground" />
-                      <span className="capitalize">{taxon.rank}</span>
-                    </div>
-                    {taxon.authority && (
-                      <div className="text-xs text-muted-foreground">
-                        {taxon.authority}
-                      </div>
-                    )}
-                    {taxon.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {taxon.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs">
-                        {taxon.source}
-                      </Badge>
-                      {observations.filter(o => o.taxon_id === taxon.id).length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          {observations.filter(o => o.taxon_id === taxon.id).length} obs.
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="ghost" size="sm" className="w-full">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-            {taxa.length === 0 && !isLoading && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No species found. Try a different search term.</p>
+          {/* Taxa List with Virtual Scrolling */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Species Database</CardTitle>
+                  <CardDescription className="text-xs">
+                    {taxa.length.toLocaleString()} taxa loaded • Virtual scrolling enabled for performance
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="font-mono">
+                  Clusterize.js
+                </Badge>
               </div>
-            )}
-          </div>
+            </CardHeader>
+            <CardContent>
+              {taxa.length > 0 ? (
+                <VirtualTable
+                  data={taxa}
+                  height={500}
+                  emptyText="No species found"
+                  rowsPerBlock={20}
+                  renderRow={(taxon, index) => `
+                    <td class="p-3 font-medium text-sm cursor-pointer hover:text-blue-500" data-taxon-id="${taxon.id}">
+                      ${taxon.canonical_name}
+                      ${taxon.common_name ? `<span class="text-muted-foreground text-xs ml-2">(${taxon.common_name})</span>` : ''}
+                    </td>
+                    <td class="p-3 text-sm capitalize">${taxon.rank}</td>
+                    <td class="p-3 text-xs text-muted-foreground max-w-[200px] truncate">${taxon.authority || '-'}</td>
+                    <td class="p-3">
+                      <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-secondary/50">${taxon.source}</span>
+                    </td>
+                    <td class="p-3 text-right">
+                      <button class="inline-flex items-center justify-center rounded-md text-xs font-medium h-7 px-3 bg-primary text-primary-foreground hover:bg-primary/90" onclick="window.dispatchEvent(new CustomEvent('select-taxon', {detail: '${taxon.id}'}))">
+                        View
+                      </button>
+                    </td>
+                  `}
+                  className="rounded-lg"
+                />
+              ) : !isLoading ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No species found. Try a different search term.</p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                  <p className="text-muted-foreground mt-4">Loading species data...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Taxa Cards Grid (Alternative View) */}
+          <details className="group">
+            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 mb-4">
+              <BarChart3 className="h-4 w-4" />
+              Show Card View ({taxa.length} species)
+            </summary>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
+              {taxa.slice(0, 12).map((taxon) => (
+                <Card 
+                  key={taxon.id} 
+                  className="cursor-pointer hover:border-blue-500 transition-colors"
+                  onClick={() => setSelectedTaxon(taxon)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-lg">{taxon.canonical_name}</CardTitle>
+                    {taxon.common_name && (
+                      <CardDescription>{taxon.common_name}</CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Layers className="h-3 w-3 text-muted-foreground" />
+                        <span className="capitalize">{taxon.rank}</span>
+                      </div>
+                      {taxon.authority && (
+                        <div className="text-xs text-muted-foreground">
+                          {taxon.authority}
+                        </div>
+                      )}
+                      {taxon.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {taxon.description}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          {taxon.source}
+                        </Badge>
+                        {observations.filter(o => o.taxon_id === taxon.id).length > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {observations.filter(o => o.taxon_id === taxon.id).length} obs.
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+              {taxa.length > 12 && (
+                <div className="col-span-full text-center text-sm text-muted-foreground py-4">
+                  Showing first 12 of {taxa.length} species. Use table view above for full list.
+                </div>
+              )}
+            </div>
+          </details>
         </TabsContent>
 
         {/* Data Pipeline Tab */}

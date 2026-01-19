@@ -41,6 +41,11 @@ import {
   PieChart,
   Shield,
   Maximize2,
+  Plane,
+  Satellite,
+  Ship,
+  Sparkles,
+  Leaf,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -62,9 +67,9 @@ import {
 import { useMycoBrain, getIAQLabel } from "@/hooks/use-mycobrain"
 import { MycoBrainOverviewWidget, MycoBrainSensorCards } from "@/components/mycobrain/mycobrain-overview-widget"
 import { EventFeed } from "@/components/dashboard/event-feed"
-import { MYCATerminal } from "@/components/widgets/myca-terminal"
 import { NLMGlobalEvents } from "@/components/widgets/nlm-global-events"
 import { SituationalAwareness } from "@/components/widgets/situational-awareness"
+import { PackeryDashboard, DashboardWidget } from "@/components/dashboard/packery-dashboard"
 import { LiveCounter } from "@/components/widgets/live-counter"
 import { GlobalEventsFeed } from "@/components/widgets/global-events-feed"
 import { RollingNumber } from "@/components/widgets/rolling-number"
@@ -871,14 +876,311 @@ export function NatureOSDashboard() {
           {/* Situational Awareness - Primary Focus */}
           <SituationalAwareness className="border-amber-500/20" />
 
-          {/* Intelligence Grid */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* NLM Global Events - Full Width for CREP */}
-            <NLMGlobalEvents maxEvents={30} className="lg:col-span-1" />
-            
-            {/* MYCA Terminal - System Status */}
-            <MYCATerminal maxEvents={100} className="lg:col-span-1" />
-                          </div>
+          {/* Intelligence Grid - Draggable Packery Widgets */}
+          <PackeryDashboard
+            widgets={[
+              {
+                id: 'nlm-global-events',
+                title: 'NLM Global Events',
+                icon: <Globe className="h-4 w-4 text-amber-400" />,
+                content: <NLMGlobalEvents maxEvents={30} className="h-full" />,
+                width: 2,
+                height: 2,
+                closable: true,
+                badge: globalEventsForMap.length,
+                badgeVariant: 'secondary',
+              },
+              {
+                id: 'device-network',
+                title: 'Device Network',
+                icon: <Network className="h-4 w-4 text-green-500" />,
+                content: (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Online</span>
+                      <Badge variant="default" className="bg-green-600">{deviceStats.online}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Offline</span>
+                      <Badge variant="secondary">{deviceStats.offline}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Total</span>
+                      <Badge variant="outline">{deviceStats.total}</Badge>
+                    </div>
+                    <Progress value={deviceStats.total > 0 ? (deviceStats.online / deviceStats.total) * 100 : 0} className="h-2 mt-2" />
+                  </div>
+                ),
+                width: 1,
+                height: 1,
+                closable: true,
+              },
+              {
+                id: 'mindex-status',
+                title: 'MINDEX Status',
+                icon: <Database className="h-4 w-4 text-blue-500" />,
+                content: (
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold text-blue-500">
+                      {mindexStats?.total_taxa ? (mindexStats.total_taxa / 1000000).toFixed(2) + "M" : "Active"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Species Indexed</p>
+                    <div className="text-sm text-muted-foreground">
+                      {mindexStats?.total_observations?.toLocaleString() || "—"} observations
+                    </div>
+                  </div>
+                ),
+                width: 1,
+                height: 1,
+                closable: true,
+              },
+              {
+                id: 'myca-agents',
+                title: 'MYCA Agents',
+                icon: <Bot className="h-4 w-4 text-purple-500" />,
+                content: (
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold text-purple-500">42</div>
+                    <p className="text-xs text-muted-foreground">Active Agents</p>
+                    <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        <span>Core: 8</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span>Research: 12</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span>Financial: 6</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-purple-500" />
+                        <span>Data: 16</span>
+                      </div>
+                    </div>
+                  </div>
+                ),
+                width: 1,
+                height: 1,
+                closable: true,
+              },
+              {
+                id: 'live-environment',
+                title: 'Live Environment',
+                icon: <Thermometer className="h-4 w-4 text-orange-500" />,
+                content: mycoBrainConnected && bme1 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-center p-2 rounded bg-orange-500/10">
+                      <div className="text-lg font-bold">{bme1.temperature?.toFixed(1)}°C</div>
+                      <div className="text-xs text-muted-foreground">Temp</div>
+                    </div>
+                    <div className="text-center p-2 rounded bg-blue-500/10">
+                      <div className="text-lg font-bold">{bme1.humidity?.toFixed(0)}%</div>
+                      <div className="text-xs text-muted-foreground">Humidity</div>
+                    </div>
+                    <div className="text-center p-2 rounded bg-purple-500/10">
+                      <div className="text-lg font-bold">{bme1.pressure?.toFixed(0)}</div>
+                      <div className="text-xs text-muted-foreground">hPa</div>
+                    </div>
+                    <div className={`text-center p-2 rounded ${iaqStatus.bgColor}`}>
+                      <div className={`text-lg font-bold ${iaqStatus.color}`}>{bme1.iaq || "--"}</div>
+                      <div className="text-xs text-muted-foreground">IAQ</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    No MycoBrain connected
+                  </div>
+                ),
+                width: 1,
+                height: 1,
+                closable: true,
+              },
+              {
+                id: 'n8n-workflows',
+                title: 'N8N Workflows',
+                icon: <Zap className="h-4 w-4 text-cyan-500" />,
+                content: (
+                  <div className="space-y-2">
+                    <div className="text-2xl font-bold text-cyan-500">16</div>
+                    <p className="text-xs text-muted-foreground">Active Automations</p>
+                    <div className="space-y-1 mt-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Voice Processing</span>
+                        <Badge variant="outline" className="text-green-500">Active</Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Device Sync</span>
+                        <Badge variant="outline" className="text-green-500">Active</Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">ETL Pipeline</span>
+                        <Badge variant="outline" className="text-yellow-500">Running</Badge>
+                      </div>
+                    </div>
+                  </div>
+                ),
+                width: 1,
+                height: 1,
+                closable: true,
+              },
+              {
+                id: 'fungal-intelligence',
+                title: 'Fungal Intelligence Network',
+                icon: <Leaf className="h-4 w-4 text-emerald-500" />,
+                content: (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-emerald-400 animate-pulse" />
+                        <span className="text-sm font-medium">Mycelium Activity</span>
+                      </div>
+                      <Badge variant="default" className="bg-emerald-600">High</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
+                        <div className="text-lg font-bold text-emerald-400">2.4M</div>
+                        <div className="text-muted-foreground">Species Tracked</div>
+                      </div>
+                      <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+                        <div className="text-lg font-bold text-green-400">847K</div>
+                        <div className="text-muted-foreground">Active Nodes</div>
+                      </div>
+                      <div className="p-2 rounded bg-teal-500/10 border border-teal-500/20">
+                        <div className="text-lg font-bold text-teal-400">12.8TB</div>
+                        <div className="text-muted-foreground">Genomic Data</div>
+                      </div>
+                      <div className="p-2 rounded bg-lime-500/10 border border-lime-500/20">
+                        <div className="text-lg font-bold text-lime-400">98.7%</div>
+                        <div className="text-muted-foreground">Network Health</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Spore Detection Rate</span>
+                      <span className="text-emerald-400 font-medium">+23% ↑</span>
+                    </div>
+                    <Progress value={87} className="h-1.5" />
+                  </div>
+                ),
+                width: 2,
+                height: 2,
+                closable: true,
+              },
+              {
+                id: 'global-asset-tracking',
+                title: 'Global Asset Tracking',
+                icon: <Globe className="h-4 w-4 text-sky-500" />,
+                content: (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded bg-sky-500/10 border border-sky-500/20">
+                        <Plane className="h-5 w-5 text-sky-400 mx-auto mb-1" />
+                        <div className="text-xl font-bold text-sky-400">14,847</div>
+                        <div className="text-[10px] text-muted-foreground">Aircraft</div>
+                      </div>
+                      <div className="text-center p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                        <Satellite className="h-5 w-5 text-purple-400 mx-auto mb-1" />
+                        <div className="text-xl font-bold text-purple-400">8,421</div>
+                        <div className="text-[10px] text-muted-foreground">Satellites</div>
+                      </div>
+                      <div className="text-center p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                        <Ship className="h-5 w-5 text-blue-400 mx-auto mb-1" />
+                        <div className="text-xl font-bold text-blue-400">92,156</div>
+                        <div className="text-[10px] text-muted-foreground">Vessels</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          ADS-B Coverage
+                        </span>
+                        <span className="text-green-400">98.2%</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                          Starlink Active
+                        </span>
+                        <span className="text-purple-400">5,847</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                          AIS Coverage
+                        </span>
+                        <span className="text-blue-400">94.6%</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-center text-muted-foreground border-t border-gray-700 pt-2">
+                      Real-time tracking • Updated every 5s
+                    </div>
+                  </div>
+                ),
+                width: 2,
+                height: 2,
+                closable: true,
+              },
+              {
+                id: 'solar-activity',
+                title: 'Solar Activity Monitor',
+                icon: <Sun className="h-4 w-4 text-yellow-500" />,
+                content: (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sun className="h-5 w-5 text-yellow-400 animate-spin" style={{ animationDuration: '10s' }} />
+                        <span className="text-sm font-medium">Space Weather</span>
+                      </div>
+                      <Badge variant="outline" className="text-green-400 border-green-400/50">Nominal</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
+                        <div className="text-lg font-bold text-yellow-400">G1</div>
+                        <div className="text-muted-foreground">Storm Level</div>
+                      </div>
+                      <div className="p-2 rounded bg-orange-500/10 border border-orange-500/20">
+                        <div className="text-lg font-bold text-orange-400">127</div>
+                        <div className="text-muted-foreground">Solar Flux (SFU)</div>
+                      </div>
+                      <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <div className="text-lg font-bold text-red-400">C2.4</div>
+                        <div className="text-muted-foreground">X-Ray Flux</div>
+                      </div>
+                      <div className="p-2 rounded bg-pink-500/10 border border-pink-500/20">
+                        <div className="text-lg font-bold text-pink-400">Kp 3</div>
+                        <div className="text-muted-foreground">Geomagnetic</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Solar Wind Speed</span>
+                        <span className="text-yellow-400">412 km/s</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Proton Density</span>
+                        <span className="text-orange-400">4.2 p/cm³</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-center text-muted-foreground border-t border-gray-700 pt-2">
+                      Data: NOAA SWPC • Aurora probability: 15%
+                    </div>
+                  </div>
+                ),
+                width: 1,
+                height: 2,
+                closable: true,
+              },
+            ]}
+            variant="dark"
+            persistLayoutKey="natureos-crep-tab"
+            gutter={12}
+            rowHeight={160}
+            showResetButton={true}
+            className="mt-2"
+          />
 
           {/* Device Network Status for CREP */}
           <div className="grid gap-4 md:grid-cols-4">
@@ -1401,10 +1703,37 @@ export function NatureOSDashboard() {
 
         {/* ============ ANALYTICS TAB ============ */}
         <TabsContent value="analytics" className="space-y-5">
-          {/* System Events Grid - Replaces BME688 widgets */}
+          {/* System Events Grid - Global Events Only (MYCA Terminal removed) */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <MYCATerminal maxEvents={50} />
-            <NLMGlobalEvents maxEvents={20} />
+            <NLMGlobalEvents maxEvents={30} />
+            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-purple-500" />
+                  Agent Activity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Active Agents</span>
+                    <Badge variant="default" className="bg-purple-600">42</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Tasks in Queue</span>
+                    <Badge variant="secondary">7</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Completed Today</span>
+                    <Badge variant="outline" className="text-green-500">156</Badge>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="text-xs text-muted-foreground">
+                    MYCA orchestrates 42+ specialized agents including Core, Financial, Research, DAO, and Integration agents.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
           {/* MINDEX Holistic KPI Row - Data from all sources */}

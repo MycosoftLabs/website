@@ -953,10 +953,14 @@ export function DefensePortal() {
                     <Radar className="h-6 w-6" />
                     <span className="font-semibold">Autonomous Deployment Platform</span>
                   </div>
-                  <h3 className="text-3xl font-bold">Mushroom1 Quadruped Robot</h3>
+                  <h3 className="text-3xl font-bold">Mushroom1-D Defense Platform</h3>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl font-bold text-orange-500">$10,000</span>
+                    <span className="text-sm text-muted-foreground">Defense-grade configuration</span>
+                  </div>
                   <p className="text-muted-foreground text-lg">
-                    Autonomous quadruped for deploying MycoNodes, mapping environmental anomalies, 
-                    and conducting reconnaissance in contaminated zones.
+                    Military-grade autonomous platform for deploying MycoNodes, mapping environmental anomalies, 
+                    and conducting reconnaissance in contaminated zones. Features encrypted C2, SATCOM capability, and tactical mesh integration.
                   </p>
                   <div className="grid grid-cols-2 gap-4">
                     {[
