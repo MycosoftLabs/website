@@ -1,45 +1,45 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { LineChart, ShoppingBag, Bot, Globe, FlaskRoundIcon as Flask, AppWindow } from "lucide-react"
+import { Globe, Radar, PipetteIcon as PetriDish, Users, Database, Shield } from "lucide-react"
 import Link from "next/link"
 
 const quickAccessItems = [
   {
-    title: "Live Data",
-    icon: LineChart,
-    description: "View real-time sensor readings",
+    title: "Nature OS",
+    icon: Globe,
+    description: "Environmental intelligence platform",
     href: "/natureos",
   },
   {
-    title: "Mycology Apps",
-    icon: AppWindow,
-    description: "Open Petri Dish Simulator",
-    href: "/apps",
+    title: "Mushroom 1",
+    icon: Radar,
+    description: "Ground-based fungal intelligence station",
+    href: "/devices/mushroom-1",
   },
   {
-    title: "Spore Tracker",
-    icon: Globe,
-    description: "Global map of fungal activity",
-    href: "/apps/spore-tracker",
+    title: "Petri Dish Simulator",
+    icon: PetriDish,
+    description: "Simulate fungal growth patterns",
+    href: "/apps/petri-dish-sim",
   },
   {
-    title: "Science",
-    icon: Flask,
-    description: "Research & Publications",
-    href: "/science",
+    title: "About Us",
+    icon: Users,
+    description: "Our mission and team",
+    href: "/about",
   },
   {
-    title: "Myca AI",
-    icon: Bot,
-    description: "AI-powered fungal assistant",
-    href: "/myca-ai",
+    title: "Ancestry Database",
+    icon: Database,
+    description: "Fungal genealogy and phylogenetics",
+    href: "/ancestry",
   },
   {
-    title: "Buy Devices",
-    icon: ShoppingBag,
-    description: "Shop Mushroom 1, SporeBase",
-    href: "/devices",
+    title: "Defense",
+    icon: Shield,
+    description: "Operational Environmental Intelligence",
+    href: "/defense",
   },
 ]
 

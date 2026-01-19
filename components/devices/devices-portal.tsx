@@ -31,6 +31,39 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const devices = [
   {
+    id: "mushroom-1",
+    name: "Mushroom 1",
+    tagline: "Ground-Based Fungal Intelligence Station",
+    description: "Our flagship stationary ground buoy that monitors underground fungal networks, soil conditions, and environmental data in real-time with unmatched precision.",
+    icon: Radar,
+    color: "orange-500",
+    image: "/devices/mushroom1.png",
+    status: "Pre-order",
+    price: "$599",
+    specs: [
+      { label: "Sensor Depth", value: "Up to 2 meters" },
+      { label: "Battery Life", value: "6 months (solar)" },
+      { label: "Wireless Range", value: "5km line of sight" },
+      { label: "Data Storage", value: "32GB + cloud" },
+      { label: "Environmental", value: "IP67 waterproof" },
+      { label: "Temperature", value: "-20°C to 60°C" }
+    ],
+    features: [
+      "Multi-depth soil probes",
+      "Real-time bioelectric signal detection",
+      "Mesh network with other units",
+      "Environmental condition monitoring",
+      "Automated data collection and analysis",
+      "Long-range LoRa communication"
+    ],
+    applications: [
+      "Forest ecosystem monitoring",
+      "Agricultural soil health",
+      "Climate research",
+      "Conservation projects"
+    ]
+  },
+  {
     id: "myconode",
     name: "MycoNode",
     tagline: "Subsurface Bioelectric Probe",
@@ -71,8 +104,8 @@ const devices = [
     icon: Wind,
     color: "blue-500",
     image: "/devices/sporebase.png",
-    status: "Available",
-    price: "Contact Sales",
+    status: "In Stock",
+    price: "$299",
     specs: [
       { label: "Collection Method", value: "Active/Passive" },
       { label: "Time Resolution", value: "15-60 min" },
@@ -90,10 +123,10 @@ const devices = [
       "Remote configuration"
     ],
     applications: [
-      "Biothreat early warning",
-      "Seasonal spore monitoring",
+      "Spore tracking and mapping",
+      "Seasonal monitoring",
       "Air quality assessment",
-      "Remediation verification"
+      "Research data collection"
     ]
   },
   {
@@ -104,8 +137,8 @@ const devices = [
     icon: AlertTriangle,
     color: "destructive",
     image: "/devices/alarm.png",
-    status: "Available",
-    price: "Contact Sales",
+    status: "Coming Soon",
+    price: "$49.99",
     specs: [
       { label: "Parameters", value: "Temp/RH/CO₂/VOC" },
       { label: "Alert Latency", value: "< 60 seconds" },
@@ -120,55 +153,42 @@ const devices = [
       "Moisture event detection",
       "Mold risk prediction",
       "Optional micro-imaging",
-      "Building automation integration"
+      "Smart home integration"
     ],
     applications: [
-      "Critical facility protection",
-      "Ship compartment monitoring",
-      "Data center environment",
-      "Storage facility oversight"
-    ]
-  },
-  {
-    id: "mushroom1",
-    name: "Mushroom1",
-    tagline: "Autonomous Quadruped Platform",
-    description: "Rugged autonomous robot for sensor deployment, environmental mapping, and reconnaissance in challenging terrain.",
-    icon: Radar,
-    color: "orange-500",
-    image: "/devices/mushroom1.png",
-    status: "Limited Availability",
-    price: "Government Contract",
-    specs: [
-      { label: "Payload Capacity", value: "20 kg" },
-      { label: "Terrain", value: "All-terrain" },
-      { label: "Endurance", value: "8+ hours" },
-      { label: "Navigation", value: "GPS denied capable" },
-      { label: "Speed", value: "Up to 3 m/s" },
-      { label: "Autonomy", value: "Level 4" }
-    ],
-    features: [
-      "MycoNode deployment capability",
-      "Georeferenced anomaly mapping",
-      "LIDAR and camera systems",
-      "Contaminated zone operation",
-      "Remote and autonomous modes",
-      "Encrypted C2 link"
-    ],
-    applications: [
-      "Sensor network deployment",
-      "Contaminated site survey",
-      "Perimeter monitoring",
-      "Environmental reconnaissance"
+      "Home air quality",
+      "Lab environment control",
+      "Storage facility monitoring",
+      "Health-conscious spaces"
     ]
   }
 ]
 
 const accessories = [
-  { name: "Deployment Kit", description: "Tools and supplies for field installation", icon: Package },
-  { name: "LoRa Gateway", description: "Long-range mesh network gateway", icon: Radio },
-  { name: "Solar Power Unit", description: "Off-grid power for remote deployments", icon: Zap },
-  { name: "Ruggedized Case", description: "MIL-STD transport and storage", icon: Shield }
+  { 
+    name: "Deployment Kit", 
+    description: "Complete tools and supplies for professional field installation. Includes mounting hardware, calibration tools, and quick-start guide.",
+    icon: Package,
+    image: "/assets/devices/deployment-kit.jpg"
+  },
+  { 
+    name: "LoRa Gateway", 
+    description: "Long-range mesh network gateway supporting up to 50 connected nodes. Weather-resistant with solar power option.",
+    icon: Radio,
+    image: "/assets/devices/lora-gateway.jpg"
+  },
+  { 
+    name: "Solar Power Unit", 
+    description: "Off-grid power solution for remote deployments. 20W panel with 72-hour battery backup for continuous operation.",
+    icon: Zap,
+    image: "/assets/devices/solar-unit.jpg"
+  },
+  { 
+    name: "Ruggedized Case", 
+    description: "MIL-STD-810G certified transport and storage case. Foam-lined interior protects devices during deployment.",
+    icon: Shield,
+    image: "/assets/devices/ruggedized-case.jpg"
+  }
 ]
 
 export function DevicesPortal() {
@@ -204,13 +224,17 @@ export function DevicesPortal() {
             </p>
 
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg">
-                Request Quote
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" asChild>
+                <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                  <Play className="mr-2 h-5 w-5" />
+                  Watch Videos
+                </a>
               </Button>
-              <Button size="lg" variant="outline">
-                View Specifications
-                <ChevronRight className="ml-2 h-5 w-5" />
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/devices/specifications">
+                  View Specifications
+                  <ChevronRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
             </div>
           </motion.div>
@@ -322,9 +346,11 @@ export function DevicesPortal() {
 
               {/* CTA */}
               <div className="flex gap-4">
-                <Button size="lg">
-                  Request Quote
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                <Button size="lg" asChild>
+                  <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                    <Play className="mr-2 h-5 w-5" />
+                    Learn More
+                  </a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
                   <Link href={`/devices/${selectedDevice.id}`}>
@@ -341,37 +367,37 @@ export function DevicesPortal() {
       <section className="py-24">
         <div className="container px-4 max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Deployment</Badge>
+            <Badge className="mb-4">Nature First Technology</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Operational Applications
+              Giving Nature a Voice
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              From fixed installations to mobile reconnaissance, our hardware 
-              adapts to your mission requirements.
+              Our devices put technology in nature 24/7, collecting live data 
+              and providing early warning detection capabilities to everyone on the planet.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {[
               {
-                icon: Shield,
-                title: "Base Protection",
-                description: "Perimeter and infrastructure monitoring for installations"
+                icon: Microscope,
+                title: "Give Nature Eyes",
+                description: "Real-time environmental monitoring that sees what humans cannot"
               },
               {
-                icon: Droplets,
-                title: "Contamination Detection",
-                description: "Early warning for fuel leaks, PFAS, and chemical threats"
+                icon: Radio,
+                title: "Give Nature Ears",
+                description: "Listen to bioelectric signals and atmospheric patterns"
               },
               {
-                icon: Thermometer,
-                title: "Climate Monitoring",
-                description: "Long-term environmental trend analysis"
+                icon: Wind,
+                title: "Give Nature a Nose",
+                description: "Detect spores, pathogens, and air quality changes"
               },
               {
-                icon: Radar,
-                title: "Mobile Operations",
-                description: "Deployable sensing for expeditionary forces"
+                icon: Zap,
+                title: "Early Warning Detection",
+                description: "Alert systems that protect before threats become visible"
               }
             ].map((app) => (
               <Card key={app.title} className="text-center hover:border-primary/50 transition-colors">
@@ -452,22 +478,42 @@ export function DevicesPortal() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Deploy?
+              Start Monitoring Today
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Contact our defense team for pricing, availability, and deployment planning.
+              Whether you&apos;re a researcher, conservationist, farmer, or technologist - 
+              our devices help you understand the environment like never before.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8">
-                Request Quote
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8" asChild>
-                <Link href="/natureos/devices">
-                  Manage Connected Devices
+              <Button size="lg" className="text-lg px-8" asChild>
+                <Link href="/devices/mushroom-1">
+                  Get Mushroom 1
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
+              <Button size="lg" variant="outline" className="text-lg px-8" asChild>
+                <Link href="/natureos">
+                  Explore NatureOS
+                </Link>
+              </Button>
+            </div>
+
+            <div className="mt-12 pt-12 border-t">
+              <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  <span>Worldwide Shipping</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  <span>Integration Support</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>30-Day Returns</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { 
   Shield, 
   Radio, 
@@ -35,16 +35,412 @@ import {
   LineChart,
   Users,
   FileText,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  Code,
+  Terminal,
+  Layers,
+  Wifi,
+  Server,
+  Bot,
+  Satellite,
+  Map,
+  Bell
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// Mission Critical Application Modal
+interface MissionModalData {
+  title: string
+  icon: React.ElementType
+  problem: string
+  scenario: string
+  outcome: string
+  impact: string
+  solutions: {
+    category: string
+    items: { name: string; description: string; link?: string }[]
+  }[]
+}
+
+const missionCriticalData: MissionModalData[] = [
+  {
+    title: "Installation Threat Detection",
+    icon: Building2,
+    problem: "DoD installations face invisible environmental threats - contamination, infrastructure degradation, and biological hazards that current systems cannot detect until significant damage has occurred.",
+    scenario: "A CONUS base with legacy fuel storage sees a small but persistent OEI anomaly—elevated microbial stress and VOC signature near a buried pipe.",
+    outcome: "OEI detects the anomaly before surface staining. Early detection prevents groundwater contamination and major cleanup costs.",
+    impact: "72 hours earlier detection | $2.3M remediation avoided",
+    solutions: [
+      {
+        category: "Hardware Platforms",
+        items: [
+          { name: "Mushroom 1", description: "Autonomous deployment for perimeter and installation monitoring", link: "/devices/mushroom-1" },
+          { name: "MycoNode", description: "Subsurface bioelectric probes for detecting contamination signatures", link: "/devices/myconode" },
+          { name: "ALARM", description: "Interior sensors for facility environmental monitoring", link: "/devices/alarm" }
+        ]
+      },
+      {
+        category: "Software & Analytics",
+        items: [
+          { name: "NatureOS", description: "Unified command center for real-time visualization and alerts", link: "/natureos" },
+          { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/dashboard/crep" },
+          { name: "Nature Learning Model", description: "AI-powered anomaly detection and pattern recognition" }
+        ]
+      },
+      {
+        category: "Protocols & Data",
+        items: [
+          { name: "MINDEX Database", description: "Cryptographic chain-of-custody for environmental evidence" },
+          { name: "ETA Packets", description: "Environmental Threat Assessment formatted for immediate action" },
+          { name: "ESI Monitoring", description: "Environmental Stability Index for continuous baseline tracking" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Range Management & UXO Zones",
+    icon: Target,
+    problem: "Training ranges accumulate legacy contamination and UXO that restrict usage, while current detection methods are slow and incomplete.",
+    scenario: "An impact area with legacy UXO and heavy metal deposition shows spatially correlated patterns of suppressed microbial activity.",
+    outcome: "Range managers adjust use patterns and plan targeted remediation. Long-term availability preserved.",
+    impact: "40% reduction in restricted zones | Maintained training capacity",
+    solutions: [
+      {
+        category: "Hardware Platforms",
+        items: [
+          { name: "Mushroom 1", description: "Autonomous mapping of contaminated zones and UXO-affected areas", link: "/devices/mushroom-1" },
+          { name: "MycoNode Grid", description: "Distributed sensing network for wide-area coverage", link: "/devices/myconode" },
+          { name: "SporeBase", description: "Atmospheric sampling for airborne hazard monitoring", link: "/devices/sporebase" }
+        ]
+      },
+      {
+        category: "Software & Analytics",
+        items: [
+          { name: "NatureOS Mapping", description: "GIS-integrated visualization of environmental anomalies", link: "/natureos" },
+          { name: "Trend Analytics", description: "Historical pattern analysis for remediation planning" },
+          { name: "Fusarium Defense", description: "Defense-specific dashboard with tactical overlays", link: "/defense/fusarium" }
+        ]
+      },
+      {
+        category: "Intelligence Products",
+        items: [
+          { name: "BAR Reports", description: "Biological Anomaly Reports for deviation detection" },
+          { name: "RER Monitoring", description: "Remediation Effectiveness Reports to track cleanup progress" },
+          { name: "MINDEX Logs", description: "Auditable records for compliance and accountability" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Littoral Base Operations",
+    icon: Anchor,
+    problem: "Coastal installations face complex environmental challenges including water quality concerns, storm impacts, and marine-terrestrial interaction zones.",
+    scenario: "A coastal naval base experiences public concern over water quality with unknown source.",
+    outcome: "OEI nodes detect specific microbial patterns associated with upstream civilian infrastructure failure. Evidence enables interagency coordination.",
+    impact: "Source identified in 4 hours | Mitigated reputational damage",
+    solutions: [
+      {
+        category: "Hardware Platforms",
+        items: [
+          { name: "Mushroom 1 Maritime", description: "Corrosion-resistant variant for coastal deployment", link: "/devices/mushroom-1" },
+          { name: "MycoNode Aquatic", description: "Submersible probes for marine environment monitoring", link: "/devices/myconode" },
+          { name: "SporeBase Coastal", description: "Salt-spray resistant atmospheric sampling", link: "/devices/sporebase" }
+        ]
+      },
+      {
+        category: "Software & Analytics",
+        items: [
+          { name: "NatureOS Marine Module", description: "Specialized visualization for coastal operations", link: "/natureos" },
+          { name: "Source Tracking AI", description: "ML-powered contamination source identification" },
+          { name: "CREP Maritime", description: "Coastal environmental picture integration", link: "/dashboard/crep" }
+        ]
+      },
+      {
+        category: "Integration & Compliance",
+        items: [
+          { name: "EPA Data Exchange", description: "Automated compliance reporting and data sharing" },
+          { name: "Interagency Protocols", description: "Standardized formats for multi-agency coordination" },
+          { name: "Evidence Chain", description: "MINDEX integrity for legal and regulatory actions" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Biothreat Early Warning",
+    icon: Bug,
+    problem: "Biological threats - whether natural, accidental, or adversarial - require persistent baseline monitoring to enable rapid detection of anomalies.",
+    scenario: "Intelligence suggests adversary experimentation with environmental dissemination of biological agents.",
+    outcome: "OEI networks provide baseline microbial dynamics. Deviations trigger focused sampling and high-end lab analysis.",
+    impact: "Continuous monitoring | Prioritized biosurveillance",
+    solutions: [
+      {
+        category: "Hardware Platforms",
+        items: [
+          { name: "SporeBase Network", description: "Time-indexed bioaerosol collection for atmospheric biosurveillance", link: "/devices/sporebase" },
+          { name: "MycoNode Sentinels", description: "Soil microbiome baseline monitoring", link: "/devices/myconode" },
+          { name: "ALARM Indoor", description: "Facility-level biological environment monitoring", link: "/devices/alarm" }
+        ]
+      },
+      {
+        category: "Software & AI",
+        items: [
+          { name: "Nature Learning Model", description: "AI trained on normal microbial dynamics to detect anomalies" },
+          { name: "Fusarium Biodefense", description: "Specialized dashboard for biothreat monitoring", link: "/defense/fusarium" },
+          { name: "EEW System", description: "Environmental Early Warning automated alerting" }
+        ]
+      },
+      {
+        category: "Response Integration",
+        items: [
+          { name: "Lab Integration", description: "Direct sample chain to high-end analysis facilities" },
+          { name: "CBRN Coordination", description: "Integration with existing CBRN detection networks" },
+          { name: "Alert Protocols", description: "Tiered escalation based on threat classification" }
+        ]
+      }
+    ]
+  }
+]
+
+// Intelligence Packet Data
+const intelligencePackets = [
+  {
+    acronym: "ETA",
+    name: "Environmental Threat Assessment",
+    icon: AlertTriangle,
+    description: "Standardized format for communicating environmental hazard intelligence to decision-makers.",
+    importance: "Enables commanders to understand environmental risks in their operational area and make informed decisions about force protection and mission planning.",
+    liveCount: Math.floor(Math.random() * 1000) + 500,
+    jsonExample: `{
+  "packet_type": "ETA",
+  "version": "1.2.0",
+  "timestamp": "2026-01-19T14:32:00Z",
+  "location": {
+    "lat": 38.8719,
+    "lon": -77.0563,
+    "alt_m": 45
+  },
+  "threat_level": "MODERATE",
+  "threat_type": "CONTAMINATION",
+  "confidence": 0.87,
+  "source_devices": ["M1-0042", "MN-1138"],
+  "summary": "Elevated VOC signature detected",
+  "recommended_action": "INVESTIGATE"
+}`
+  },
+  {
+    acronym: "ESI",
+    name: "Environmental Stability Index",
+    icon: Activity,
+    description: "Quantitative measure of environmental condition and risk level, providing continuous situational awareness.",
+    importance: "Establishes baselines and tracks deviations over time. Rising ESI values indicate degrading conditions that may require intervention.",
+    liveCount: Math.floor(Math.random() * 5000) + 2000,
+    jsonExample: `{
+  "packet_type": "ESI",
+  "version": "2.0.1",
+  "timestamp": "2026-01-19T14:32:15Z",
+  "zone_id": "ZONE-ALPHA-7",
+  "index_value": 78.4,
+  "trend": "STABLE",
+  "components": {
+    "microbial_activity": 82.1,
+    "chemical_baseline": 75.6,
+    "soil_health": 77.5
+  },
+  "comparison_24h": +1.2,
+  "comparison_7d": -0.8,
+  "alert_threshold": 65.0
+}`
+  },
+  {
+    acronym: "BAR",
+    name: "Biological Anomaly Report",
+    icon: Bug,
+    description: "Alert format for detected biological deviations from established baseline conditions.",
+    importance: "Critical for early detection of biological threats, contamination events, or ecosystem disruptions that require immediate attention.",
+    liveCount: Math.floor(Math.random() * 200) + 50,
+    jsonExample: `{
+  "packet_type": "BAR",
+  "version": "1.1.0",
+  "timestamp": "2026-01-19T14:33:00Z",
+  "anomaly_id": "BAR-20260119-0847",
+  "severity": "HIGH",
+  "detection_source": "SporeBase-12",
+  "anomaly_type": "MICROBIAL_SPIKE",
+  "deviation_sigma": 3.7,
+  "baseline_period": "30d",
+  "affected_area_m2": 2500,
+  "confidence": 0.92,
+  "requires_sampling": true,
+  "escalation": "G2_NOTIFY"
+}`
+  },
+  {
+    acronym: "RER",
+    name: "Remediation Effectiveness Report",
+    icon: BarChart3,
+    description: "Assessment of cleanup and mitigation operation success, tracking progress toward environmental restoration.",
+    importance: "Enables data-driven decisions about remediation strategies and provides accountability for cleanup efforts.",
+    liveCount: Math.floor(Math.random() * 100) + 20,
+    jsonExample: `{
+  "packet_type": "RER",
+  "version": "1.0.0",
+  "timestamp": "2026-01-19T14:34:00Z",
+  "project_id": "REM-2025-1847",
+  "site_name": "Tank Farm Alpha",
+  "period": "WEEKLY",
+  "metrics": {
+    "contaminant_reduction": 34.7,
+    "area_cleared_pct": 28.5,
+    "microbial_recovery": 45.2
+  },
+  "trend": "IMPROVING",
+  "projected_completion": "2026-08-15",
+  "cost_to_date_usd": 847000,
+  "next_milestone": "Phase 2 excavation"
+}`
+  },
+  {
+    acronym: "EEW",
+    name: "Environmental Early Warning",
+    icon: Zap,
+    description: "Predictive alert for emerging environmental threats based on pattern analysis and trend detection.",
+    importance: "Provides advance warning of environmental conditions that may impact operations, enabling proactive rather than reactive response.",
+    liveCount: Math.floor(Math.random() * 50) + 10,
+    jsonExample: `{
+  "packet_type": "EEW",
+  "version": "1.3.0",
+  "timestamp": "2026-01-19T14:35:00Z",
+  "warning_id": "EEW-20260119-0023",
+  "priority": "URGENT",
+  "threat_type": "INFRASTRUCTURE_RISK",
+  "prediction_window_hrs": 72,
+  "confidence": 0.78,
+  "affected_assets": ["Bldg-142", "Pipeline-7"],
+  "predicted_impact": "Pipe corrosion failure",
+  "recommended_actions": [
+    "Immediate inspection",
+    "Activate monitoring",
+    "Prepare containment"
+  ],
+  "model_version": "NLM-2.1.0"
+}`
+  }
+]
+
+// DoD Integration Data
+const dodIntegrationItems = [
+  {
+    code: "G-2/J-2",
+    desc: "Intelligence feed for environmental threats",
+    details: {
+      title: "Intelligence Integration (G-2/J-2)",
+      description: "OEI provides a new intelligence discipline that complements existing collection capabilities. Environmental data feeds directly into intelligence analysis workflows.",
+      capabilities: [
+        "ETA packets formatted for intelligence reporting",
+        "Pattern-of-life analysis for environmental threats",
+        "Adversary activity indicators in environment",
+        "Cross-domain intelligence correlation"
+      ],
+      tools: [
+        { name: "MINDEX Intel Export", description: "Classified intelligence product generation" },
+        { name: "NLM Analysis", description: "AI-powered pattern recognition" },
+        { name: "CREP Dashboard", description: "Situational awareness display" }
+      ],
+      compliance: ["ICD 503", "NIST 800-53", "DoD 8140"]
+    }
+  },
+  {
+    code: "G-3/J-3",
+    desc: "Operational planning in degraded environments",
+    details: {
+      title: "Operations Integration (G-3/J-3)",
+      description: "OEI enables operational planning that accounts for environmental factors, ensuring forces can operate effectively in all conditions.",
+      capabilities: [
+        "Real-time environmental condition overlays",
+        "Mission planning with environmental constraints",
+        "Route analysis for contaminated zones",
+        "Force protection environmental awareness"
+      ],
+      tools: [
+        { name: "NatureOS Ops Module", description: "Tactical planning interface" },
+        { name: "ESI Zone Mapping", description: "Environmental stability visualization" },
+        { name: "Mushroom 1 Recon", description: "Autonomous environmental reconnaissance" }
+      ],
+      compliance: ["JP 3-0", "CJCSM 3130.03", "MIL-STD-2525"]
+    }
+  },
+  {
+    code: "G-4/J-4",
+    desc: "Logistics siting and hazmat operations",
+    details: {
+      title: "Logistics Integration (G-4/J-4)",
+      description: "OEI supports logistics operations by identifying contamination risks, monitoring storage conditions, and ensuring safe materiel handling.",
+      capabilities: [
+        "Hazmat storage condition monitoring",
+        "Fuel storage leak detection",
+        "Supply chain environmental compliance",
+        "Warehouse climate control verification"
+      ],
+      tools: [
+        { name: "ALARM Network", description: "Facility environmental monitoring" },
+        { name: "RER Tracking", description: "Remediation progress monitoring" },
+        { name: "MINDEX Chain", description: "Compliance documentation" }
+      ],
+      compliance: ["DLA 4145.26", "OSHA 1910.120", "40 CFR 264"]
+    }
+  },
+  {
+    code: "G-6/J-6",
+    desc: "Comms and cyber hardening of OEI networks",
+    details: {
+      title: "Communications & Cyber (G-6/J-6)",
+      description: "OEI networks are designed with defense-grade cybersecurity, ensuring data integrity and availability across tactical and strategic communications.",
+      capabilities: [
+        "Encrypted mesh network communications",
+        "Zero-trust architecture implementation",
+        "Resilient tactical data links",
+        "Cyber threat detection on OEI networks"
+      ],
+      tools: [
+        { name: "Mycorrhizae Protocol", description: "Secure data transmission standard" },
+        { name: "MINDEX Integrity", description: "Cryptographic data verification" },
+        { name: "Hyphae Language", description: "Secure device programming" }
+      ],
+      compliance: ["NIST CSF", "CMMC Level 2", "RMF"]
+    }
+  },
+  {
+    code: "JADC2",
+    desc: "Joint All-Domain Command and Control integration",
+    details: {
+      title: "JADC2 Integration",
+      description: "OEI provides the environmental sensing layer for Joint All-Domain Command and Control, enabling commanders to understand the operational environment across all domains.",
+      capabilities: [
+        "Multi-domain environmental data fusion",
+        "Machine-to-machine data exchange",
+        "Automated decision support",
+        "Cross-service environmental awareness"
+      ],
+      tools: [
+        { name: "NatureOS API", description: "RESTful and gRPC integration" },
+        { name: "Standard Formats", description: "MIL-STD compliant data exchange" },
+        { name: "NLM AI", description: "Automated environmental assessment" }
+      ],
+      compliance: ["CJADC2 Strategy", "DoD Data Strategy", "ABMS Compatible"]
+    }
+  }
+]
+
 export function DefensePortal() {
   const [activeCapability, setActiveCapability] = useState("oei")
   const [isMounted, setIsMounted] = useState(false)
+  const [selectedMission, setSelectedMission] = useState<MissionModalData | null>(null)
+  const [hoveredPacket, setHoveredPacket] = useState<string | null>(null)
+  const [selectedDodItem, setSelectedDodItem] = useState<typeof dodIntegrationItems[0] | null>(dodIntegrationItems[0])
 
   // Prevent hydration mismatch by only rendering diagram on client
   useState(() => {
@@ -53,13 +449,144 @@ export function DefensePortal() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section - Palantir/Anduril Style */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-muted/20">
-        {/* Animated Background Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:24px_24px] opacity-20" />
+      {/* Mission Critical Application Modal */}
+      <AnimatePresence>
+        {selectedMission && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedMission(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-background border rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-background border-b p-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <selectedMission.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedMission.title}</h2>
+                    <p className="text-sm text-muted-foreground">Mission Critical Application</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedMission(null)}>
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="p-6 space-y-8">
+                {/* Problem & Scenario */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                      <h3 className="font-semibold text-lg">The Problem</h3>
+                    </div>
+                    <p className="text-muted-foreground">{selectedMission.problem}</p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-orange-500" />
+                      <h3 className="font-semibold text-lg">Scenario</h3>
+                    </div>
+                    <p className="text-muted-foreground">{selectedMission.scenario}</p>
+                  </div>
+                </div>
+
+                {/* Outcome */}
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-lg">Outcome</h3>
+                  </div>
+                  <p className="text-muted-foreground mb-4">{selectedMission.outcome}</p>
+                  <div className="inline-block bg-primary/10 text-primary px-4 py-2 rounded-lg font-semibold">
+                    {selectedMission.impact}
+                  </div>
+                </div>
+
+                {/* Solutions */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-lg">Mycosoft Solutions</h3>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-3 gap-6">
+                    {selectedMission.solutions.map((category) => (
+                      <div key={category.category} className="space-y-4">
+                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
+                          {category.category}
+                        </h4>
+                        <div className="space-y-3">
+                          {category.items.map((item) => (
+                            <div key={item.name} className="bg-muted/50 rounded-lg p-4 hover:bg-muted transition-colors">
+                              {item.link ? (
+                                <Link href={item.link} className="block group">
+                                  <div className="font-medium group-hover:text-primary transition-colors flex items-center gap-1">
+                                    {item.name}
+                                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                                </Link>
+                              ) : (
+                                <>
+                                  <div className="font-medium">{item.name}</div>
+                                  <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t flex justify-end gap-4">
+                  <Button variant="outline" onClick={() => setSelectedMission(null)}>
+                    Close
+                  </Button>
+                  <Button asChild>
+                    <Link href="/defense/request-briefing">
+                      Request Briefing
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hero Section - Palantir/Anduril Style with Full-Screen Video */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+        {/* Full-screen Background Video */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "brightness(0.3)" }}
+        >
+          <source src="/assets/backgrounds/defense-hero.mp4" type="video/mp4" />
+          {/* Fallback gradient if video doesn't load */}
+        </video>
         
-        {/* Radial Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent" />
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
+        
+        {/* Animated Background Grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:24px_24px] opacity-10" />
         
         {/* Floating Elements */}
         <motion.div 
@@ -114,7 +641,9 @@ export function DefensePortal() {
           >
             A new intelligence discipline for the Department of Defense.
             <br className="hidden md:block" />
-            Persistent biological sensing. Real-time environmental awareness. Mission-critical infrastructure protection.
+            Persistent biological sensing. Real-time environmental awareness.
+            <br className="hidden md:block" />
+            Mission-critical infrastructure protection.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -124,13 +653,17 @@ export function DefensePortal() {
             transition={{ delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Button size="lg" className="text-lg px-8 bg-primary hover:bg-primary/90">
-              Request Briefing
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="text-lg px-8 bg-primary hover:bg-primary/90" asChild>
+              <Link href="/defense/request-briefing">
+                Request Briefing
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline" className="text-lg px-8">
-              View Capabilities
-              <ChevronRight className="ml-2 h-5 w-5" />
+            <Button size="lg" variant="outline" className="text-lg px-8" asChild>
+              <Link href="/defense/capabilities">
+                View Capabilities
+                <ChevronRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           </motion.div>
 
@@ -168,9 +701,19 @@ export function DefensePortal() {
         </motion.div>
       </section>
 
-      {/* Problem Statement Section */}
-      <section className="py-24 bg-muted/30">
-        <div className="container max-w-7xl mx-auto px-4">
+      {/* Problem Statement Section - Environmental Threats */}
+      <section className="py-24 relative overflow-hidden">
+        {/* Background Image with Opacity */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ 
+            backgroundImage: "url('/assets/backgrounds/environmental-threats.jpg')",
+            opacity: 0.15
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
+        
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <Badge className="mb-4">The Challenge</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -274,62 +817,106 @@ export function DefensePortal() {
                 ))}
               </div>
 
-              <div className="mt-8">
+              <div className="mt-8 flex flex-wrap gap-4">
                 <Button size="lg">
                   Download White Paper
                   <FileText className="ml-2 h-5 w-5" />
                 </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link href="/defense/oei">
+                    Learn More
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
               </div>
             </div>
 
-            {/* OEI Diagram - Client-only to prevent hydration mismatch */}
+            {/* OEI Diagram - Military Hierarchy with Data Flow */}
             <div className="relative">
-              <div className="aspect-square bg-gradient-to-br from-primary/10 via-muted to-blue-500/10 rounded-3xl p-8">
-                <div className="h-full w-full border border-primary/20 rounded-2xl relative overflow-hidden">
-                  {/* Central Node */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-32 h-32 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
+              <div className="aspect-square bg-gradient-to-br from-primary/10 via-muted to-blue-500/10 rounded-3xl p-6">
+                <div className="h-full w-full border border-primary/20 rounded-2xl relative overflow-hidden bg-background/50 p-4">
+                  {/* Top Level: Decision Makers */}
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4">
+                    <div className="w-20 h-14 rounded-lg bg-primary/20 border border-primary/50 flex flex-col items-center justify-center">
+                      <Users className="h-4 w-4 text-primary" />
+                      <span className="text-[7px] font-bold mt-0.5">COMMAND</span>
+                    </div>
+                    <div className="w-20 h-14 rounded-lg bg-blue-500/20 border border-blue-500/50 flex flex-col items-center justify-center">
+                      <Target className="h-4 w-4 text-blue-500" />
+                      <span className="text-[7px] font-bold mt-0.5">WARFIGHTER</span>
+                    </div>
+                  </div>
+                  
+                  {/* AI Processing Layer */}
+                  <div className="absolute top-24 left-1/2 -translate-x-1/2 w-28 h-12 rounded-lg bg-purple-500/20 border border-purple-500/50 flex flex-col items-center justify-center">
+                    <Cpu className="h-4 w-4 text-purple-500" />
+                    <span className="text-[7px] font-bold mt-0.5">NLM / AI</span>
+                  </div>
+
+                  {/* Central Node - NatureOS */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
                       <div className="text-center">
-                        <Eye className="h-8 w-8 mx-auto text-primary" />
-                        <span className="text-xs font-bold mt-1 block">NatureOS</span>
+                        <Eye className="h-6 w-6 mx-auto text-primary" />
+                        <span className="text-[9px] font-bold mt-1 block">NatureOS</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Orbital Nodes - Simplified grid layout */}
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-primary/50 flex flex-col items-center justify-center text-center">
-                    <Microscope className="h-5 w-5 text-primary" />
-                    <span className="text-[8px] font-medium mt-1">MycoNode</span>
-                  </div>
-                  
-                  <div className="absolute top-1/2 -translate-y-1/2 right-4 w-16 h-16 rounded-full bg-background border-2 border-blue-500/50 flex flex-col items-center justify-center text-center">
-                    <Wind className="h-5 w-5 text-blue-500" />
-                    <span className="text-[8px] font-medium mt-1">SporeBase</span>
-                  </div>
-                  
-                  <div className="absolute bottom-4 right-1/4 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-destructive/50 flex flex-col items-center justify-center text-center">
-                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                    <span className="text-[8px] font-medium mt-1">ALARM</span>
-                  </div>
-                  
-                  <div className="absolute bottom-4 left-1/4 -translate-x-1/2 w-16 h-16 rounded-full bg-background border-2 border-orange-500/50 flex flex-col items-center justify-center text-center">
-                    <Radar className="h-5 w-5 text-orange-500" />
-                    <span className="text-[8px] font-medium mt-1">Mushroom1</span>
-                  </div>
-                  
-                  <div className="absolute top-1/2 -translate-y-1/2 left-4 w-16 h-16 rounded-full bg-background border-2 border-purple-500/50 flex flex-col items-center justify-center text-center">
-                    <Database className="h-5 w-5 text-purple-500" />
-                    <span className="text-[8px] font-medium mt-1">MINDEX</span>
+                  {/* Gateway/Mesh Layer */}
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-3">
+                    <div className="w-16 h-12 rounded-lg bg-green-500/20 border border-green-500/50 flex flex-col items-center justify-center">
+                      <Network className="h-4 w-4 text-green-500" />
+                      <span className="text-[6px] font-medium mt-0.5">GATEWAY</span>
+                    </div>
+                    <div className="w-16 h-12 rounded-lg bg-green-500/20 border border-green-500/50 flex flex-col items-center justify-center">
+                      <Radio className="h-4 w-4 text-green-500" />
+                      <span className="text-[6px] font-medium mt-0.5">MESH</span>
+                    </div>
                   </div>
 
-                  {/* Connection Lines - Static positions */}
+                  {/* Device Layer - Bottom */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                    <div className="w-14 h-12 rounded-lg bg-orange-500/20 border border-orange-500/50 flex flex-col items-center justify-center">
+                      <Radar className="h-3 w-3 text-orange-500" />
+                      <span className="text-[5px] font-medium mt-0.5">M1</span>
+                    </div>
+                    <div className="w-14 h-12 rounded-lg bg-primary/20 border border-primary/50 flex flex-col items-center justify-center">
+                      <Microscope className="h-3 w-3 text-primary" />
+                      <span className="text-[5px] font-medium mt-0.5">NODE</span>
+                    </div>
+                    <div className="w-14 h-12 rounded-lg bg-blue-500/20 border border-blue-500/50 flex flex-col items-center justify-center">
+                      <Wind className="h-3 w-3 text-blue-500" />
+                      <span className="text-[5px] font-medium mt-0.5">SPORE</span>
+                    </div>
+                    <div className="w-14 h-12 rounded-lg bg-destructive/20 border border-destructive/50 flex flex-col items-center justify-center">
+                      <AlertTriangle className="h-3 w-3 text-destructive" />
+                      <span className="text-[5px] font-medium mt-0.5">ALARM</span>
+                    </div>
+                  </div>
+
+                  {/* Data Flow Arrows */}
                   <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                    <line x1="50%" y1="50%" x2="50%" y2="10%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
-                    <line x1="50%" y1="50%" x2="90%" y2="50%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
-                    <line x1="50%" y1="50%" x2="75%" y2="90%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
-                    <line x1="50%" y1="50%" x2="25%" y2="90%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
-                    <line x1="50%" y1="50%" x2="10%" y2="50%" stroke="currentColor" strokeWidth="1" className="text-primary/20" strokeDasharray="4 4" />
+                    {/* Command to AI */}
+                    <line x1="50%" y1="18%" x2="50%" y2="26%" stroke="currentColor" strokeWidth="2" className="text-primary/40" markerEnd="url(#arrowhead)" />
+                    {/* AI to NatureOS */}
+                    <line x1="50%" y1="34%" x2="50%" y2="42%" stroke="currentColor" strokeWidth="2" className="text-purple-500/40" markerEnd="url(#arrowhead)" />
+                    {/* NatureOS to Gateway */}
+                    <line x1="50%" y1="58%" x2="50%" y2="66%" stroke="currentColor" strokeWidth="2" className="text-primary/40" markerEnd="url(#arrowhead)" />
+                    {/* Gateway to Devices */}
+                    <line x1="50%" y1="76%" x2="50%" y2="84%" stroke="currentColor" strokeWidth="2" className="text-green-500/40" markerEnd="url(#arrowhead)" />
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/60" />
+                      </marker>
+                    </defs>
                   </svg>
+
+                  {/* MINDEX Database - Side */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-4 w-14 h-14 rounded-lg bg-purple-500/20 border border-purple-500/50 flex flex-col items-center justify-center">
+                    <Database className="h-4 w-4 text-purple-500" />
+                    <span className="text-[6px] font-medium mt-0.5">MINDEX</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -350,14 +937,52 @@ export function DefensePortal() {
             </p>
           </div>
 
-          <Tabs defaultValue="myconode" className="w-full">
+          <Tabs defaultValue="mushroom1" className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full max-w-4xl mx-auto mb-12">
+              <TabsTrigger value="mushroom1">Mushroom1</TabsTrigger>
               <TabsTrigger value="myconode">MycoNode</TabsTrigger>
               <TabsTrigger value="sporebase">SporeBase</TabsTrigger>
               <TabsTrigger value="alarm">ALARM</TabsTrigger>
-              <TabsTrigger value="mushroom1">Mushroom1</TabsTrigger>
               <TabsTrigger value="natureos">NatureOS</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="mushroom1">
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="space-y-6">
+                  <div className="inline-flex items-center gap-2 text-orange-500">
+                    <Radar className="h-6 w-6" />
+                    <span className="font-semibold">Autonomous Deployment Platform</span>
+                  </div>
+                  <h3 className="text-3xl font-bold">Mushroom1 Quadruped Robot</h3>
+                  <p className="text-muted-foreground text-lg">
+                    Autonomous quadruped for deploying MycoNodes, mapping environmental anomalies, 
+                    and conducting reconnaissance in contaminated zones.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { label: "Payload", value: "20kg capacity" },
+                      { label: "Terrain", value: "All-terrain capable" },
+                      { label: "Endurance", value: "8+ hours" },
+                      { label: "Autonomy", value: "GPS denied capable" }
+                    ].map((spec) => (
+                      <div key={spec.label} className="bg-background p-4 rounded-lg border">
+                        <div className="text-sm text-muted-foreground">{spec.label}</div>
+                        <div className="font-semibold">{spec.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button asChild>
+                    <Link href="/devices/mushroom-1">
+                      View Mushroom 1 Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-orange-500/20 to-muted rounded-xl flex items-center justify-center border">
+                  <Radar className="h-32 w-32 text-orange-500/50" />
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="myconode">
               <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -384,6 +1009,12 @@ export function DefensePortal() {
                       </div>
                     ))}
                   </div>
+                  <Button asChild>
+                    <Link href="/devices/myconode">
+                      View MycoNode Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
                 <div className="aspect-video bg-gradient-to-br from-primary/20 to-muted rounded-xl flex items-center justify-center border">
                   <Microscope className="h-32 w-32 text-primary/50" />
@@ -394,7 +1025,7 @@ export function DefensePortal() {
             <TabsContent value="sporebase">
               <div className="grid lg:grid-cols-2 gap-12 items-center">
                 <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 text-primary">
+                  <div className="inline-flex items-center gap-2 text-blue-500">
                     <Wind className="h-6 w-6" />
                     <span className="font-semibold">Bioaerosol Collection</span>
                   </div>
@@ -416,6 +1047,12 @@ export function DefensePortal() {
                       </div>
                     ))}
                   </div>
+                  <Button asChild>
+                    <Link href="/devices/sporebase">
+                      View SporeBase Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
                 <div className="aspect-video bg-gradient-to-br from-blue-500/20 to-muted rounded-xl flex items-center justify-center border">
                   <Wind className="h-32 w-32 text-blue-500/50" />
@@ -448,41 +1085,15 @@ export function DefensePortal() {
                       </div>
                     ))}
                   </div>
+                  <Button asChild>
+                    <Link href="/devices/alarm">
+                      View ALARM Details
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
                 <div className="aspect-video bg-gradient-to-br from-destructive/20 to-muted rounded-xl flex items-center justify-center border">
                   <AlertTriangle className="h-32 w-32 text-destructive/50" />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="mushroom1">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
-                <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 text-orange-500">
-                    <Radar className="h-6 w-6" />
-                    <span className="font-semibold">Autonomous Deployment Platform</span>
-                  </div>
-                  <h3 className="text-3xl font-bold">Mushroom1 Quadruped Robot</h3>
-                  <p className="text-muted-foreground text-lg">
-                    Autonomous quadruped for deploying MycoNodes, mapping environmental anomalies, 
-                    and conducting reconnaissance in contaminated zones.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { label: "Payload", value: "20kg capacity" },
-                      { label: "Terrain", value: "All-terrain capable" },
-                      { label: "Endurance", value: "8+ hours" },
-                      { label: "Autonomy", value: "GPS denied capable" }
-                    ].map((spec) => (
-                      <div key={spec.label} className="bg-background p-4 rounded-lg border">
-                        <div className="text-sm text-muted-foreground">{spec.label}</div>
-                        <div className="font-semibold">{spec.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="aspect-video bg-gradient-to-br from-orange-500/20 to-muted rounded-xl flex items-center justify-center border">
-                  <Radar className="h-32 w-32 text-orange-500/50" />
                 </div>
               </div>
             </TabsContent>
@@ -528,7 +1139,7 @@ export function DefensePortal() {
         </div>
       </section>
 
-      {/* Use Cases / Vignettes Section */}
+      {/* Use Cases / Vignettes Section - Now with Clickable Modals */}
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -537,41 +1148,12 @@ export function DefensePortal() {
               Mission-Critical Applications
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Real-world scenarios where OEI provides decisive advantage.
+              Real-world scenarios where OEI provides decisive advantage. Click to explore solutions.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                icon: Building2,
-                title: "Installation Threat Detection",
-                scenario: "A CONUS base with legacy fuel storage sees a small but persistent OEI anomaly—elevated microbial stress and VOC signature near a buried pipe.",
-                outcome: "OEI detects the anomaly before surface staining. Early detection prevents groundwater contamination and major cleanup costs.",
-                impact: "72 hours earlier detection | $2.3M remediation avoided"
-              },
-              {
-                icon: Target,
-                title: "Range Management & UXO Zones",
-                scenario: "An impact area with legacy UXO and heavy metal deposition shows spatially correlated patterns of suppressed microbial activity.",
-                outcome: "Range managers adjust use patterns and plan targeted remediation. Long-term availability preserved.",
-                impact: "40% reduction in restricted zones | Maintained training capacity"
-              },
-              {
-                icon: Anchor,
-                title: "Littoral Base Operations",
-                scenario: "A coastal naval base experiences public concern over water quality with unknown source.",
-                outcome: "OEI nodes detect specific microbial patterns associated with upstream civilian infrastructure failure. Evidence enables interagency coordination.",
-                impact: "Source identified in 4 hours | Mitigated reputational damage"
-              },
-              {
-                icon: Bug,
-                title: "Biothreat Early Warning",
-                scenario: "Intelligence suggests adversary experimentation with environmental dissemination of biological agents.",
-                outcome: "OEI networks provide baseline microbial dynamics. Deviations trigger focused sampling and high-end lab analysis.",
-                impact: "Continuous monitoring | Prioritized biosurveillance"
-              }
-            ].map((useCase, index) => (
+            {missionCriticalData.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
                 initial={{ opacity: 0, y: 20 }}
@@ -579,13 +1161,16 @@ export function DefensePortal() {
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
               >
-                <Card className="h-full hover:border-primary/50 transition-colors">
+                <Card 
+                  className="h-full hover:border-primary/50 transition-all cursor-pointer group hover:shadow-lg hover:shadow-primary/5"
+                  onClick={() => setSelectedMission(useCase)}
+                >
                   <CardHeader>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 rounded-lg bg-primary/10">
+                      <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                         <useCase.icon className="h-6 w-6 text-primary" />
                       </div>
-                      <CardTitle>{useCase.title}</CardTitle>
+                      <CardTitle className="group-hover:text-primary transition-colors">{useCase.title}</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -597,8 +1182,12 @@ export function DefensePortal() {
                       <div className="text-sm font-medium text-muted-foreground mb-1">OUTCOME</div>
                       <p className="text-sm">{useCase.outcome}</p>
                     </div>
-                    <div className="pt-4 border-t">
+                    <div className="pt-4 border-t flex items-center justify-between">
                       <div className="text-sm font-semibold text-primary">{useCase.impact}</div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                        <span>View Solutions</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -608,7 +1197,7 @@ export function DefensePortal() {
         </div>
       </section>
 
-      {/* Intelligence Products Section */}
+      {/* Intelligence Products Section - Now with Hover Tooltips */}
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
@@ -616,98 +1205,225 @@ export function DefensePortal() {
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Actionable Environmental Intelligence
             </h2>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+              Standardized packet formats for environmental data exchange. Hover over each to see the data structure.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6">
-            {[
-              { acronym: "ETA", name: "Environmental Threat Assessment", icon: AlertTriangle },
-              { acronym: "ESI", name: "Environmental Stability Index", icon: Activity },
-              { acronym: "BAR", name: "Biological Anomaly Report", icon: Bug },
-              { acronym: "RER", name: "Remediation Effectiveness Report", icon: BarChart3 },
-              { acronym: "EEW", name: "Environmental Early Warning", icon: Zap }
-            ].map((product) => (
-              <Card key={product.acronym} className="text-center hover:border-primary/50 transition-colors">
-                <CardContent className="pt-6">
-                  <product.icon className="h-8 w-8 mx-auto mb-3 text-primary" />
-                  <div className="text-2xl font-bold mb-1">{product.acronym}</div>
-                  <div className="text-sm text-muted-foreground">{product.name}</div>
-                </CardContent>
-              </Card>
+            {intelligencePackets.map((product) => (
+              <div 
+                key={product.acronym} 
+                className="relative"
+                onMouseEnter={() => setHoveredPacket(product.acronym)}
+                onMouseLeave={() => setHoveredPacket(null)}
+              >
+                <Card className="text-center hover:border-primary/50 transition-colors cursor-pointer">
+                  <CardContent className="pt-6">
+                    <product.icon className="h-8 w-8 mx-auto mb-3 text-primary" />
+                    <div className="text-2xl font-bold mb-1">{product.acronym}</div>
+                    <div className="text-sm text-muted-foreground">{product.name}</div>
+                    <div className="mt-3 text-xs text-primary/80">
+                      {product.liveCount.toLocaleString()} packets/24h
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Hover Tooltip */}
+                <AnimatePresence>
+                  {hoveredPacket === product.acronym && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-[400px] bg-background border rounded-xl shadow-2xl p-4"
+                      style={{ top: "100%" }}
+                    >
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <product.icon className="h-5 w-5 text-primary" />
+                            <h4 className="font-bold">{product.acronym} Packet Format</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{product.description}</p>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Code className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground uppercase">JSON Structure</span>
+                          </div>
+                          <pre className="bg-muted rounded-lg p-3 text-xs overflow-x-auto max-h-48">
+                            <code className="text-primary/80">{product.jsonExample}</code>
+                          </pre>
+                        </div>
+
+                        <div className="pt-3 border-t">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Zap className="h-4 w-4 text-primary" />
+                            <span className="text-xs font-medium">Why It Matters</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{product.importance}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <Badge variant="outline" className="text-xs">
+                            <Activity className="h-3 w-3 mr-1" />
+                            {product.liveCount.toLocaleString()} active
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            <Terminal className="h-3 w-3 mr-1" />
+                            v{product.jsonExample.match(/"version": "([^"]+)"/)?.[1] || "1.0.0"}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {/* Arrow pointer */}
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-background border-l border-t rotate-45" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Integration Section */}
+      {/* Integration Section - Now Interactive */}
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-16 items-start">
             <div>
               <Badge className="mb-4">Integration</Badge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
                 Seamless DoD Integration
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
-                OEI capabilities integrate directly into existing command structures and decision cycles.
+                OEI capabilities integrate directly into existing command structures and decision cycles. 
+                Click on each to see integration details.
               </p>
 
-              <div className="space-y-6">
-                {[
-                  { code: "G-2/J-2", desc: "Intelligence feed for environmental threats" },
-                  { code: "G-3/J-3", desc: "Operational planning in degraded environments" },
-                  { code: "G-4/J-4", desc: "Logistics siting and hazmat operations" },
-                  { code: "G-6/J-6", desc: "Comms and cyber hardening of OEI networks" },
-                  { code: "JADC2", desc: "Joint All-Domain Command and Control integration" }
-                ].map((item) => (
-                  <div key={item.code} className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-                    <Badge variant="outline" className="font-mono">{item.code}</Badge>
-                    <span className="text-sm">{item.desc}</span>
-                  </div>
+              <div className="space-y-4">
+                {dodIntegrationItems.map((item) => (
+                  <motion.div 
+                    key={item.code} 
+                    className={`flex items-center gap-4 p-4 rounded-lg cursor-pointer transition-all ${
+                      selectedDodItem?.code === item.code 
+                        ? "bg-primary/10 border border-primary/30" 
+                        : "bg-muted/50 hover:bg-muted"
+                    }`}
+                    onClick={() => setSelectedDodItem(item)}
+                    whileHover={{ x: 4 }}
+                    animate={{ 
+                      scale: selectedDodItem?.code === item.code ? 1.02 : 1,
+                    }}
+                  >
+                    <Badge 
+                      variant={selectedDodItem?.code === item.code ? "default" : "outline"} 
+                      className="font-mono min-w-[80px] justify-center"
+                    >
+                      {item.code}
+                    </Badge>
+                    <span className={`text-sm ${selectedDodItem?.code === item.code ? "text-foreground font-medium" : ""}`}>
+                      {item.desc}
+                    </span>
+                    {selectedDodItem?.code === item.code && (
+                      <ChevronRight className="h-4 w-4 ml-auto text-primary" />
+                    )}
+                  </motion.div>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5 text-primary" />
-                    MINDEX Data Integrity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Cryptographic integrity layer providing tamper-evident logs for investigations, 
-                    compliance, and accountability.
-                  </p>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary">Hash-chained</Badge>
-                    <Badge variant="secondary">Timestamped</Badge>
-                    <Badge variant="secondary">Auditable</Badge>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Dynamic Right Panel */}
+            <AnimatePresence mode="wait">
+              {selectedDodItem && (
+                <motion.div
+                  key={selectedDodItem.code}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-6"
+                >
+                  <Card className="border-primary/20">
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <Badge className="text-lg px-3 py-1">{selectedDodItem.code}</Badge>
+                        <CardTitle>{selectedDodItem.details.title}</CardTitle>
+                      </div>
+                      <CardDescription className="text-base">
+                        {selectedDodItem.details.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Capabilities */}
+                      <div>
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                          Integration Capabilities
+                        </h4>
+                        <ul className="space-y-2">
+                          {selectedDodItem.details.capabilities.map((cap, i) => (
+                            <motion.li 
+                              key={i}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="flex items-start gap-2 text-sm"
+                            >
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                              {cap}
+                            </motion.li>
+                          ))}
+                        </ul>
+                      </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Network className="h-5 w-5 text-primary" />
-                    Mycorrhizae Protocol
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Standardized schemas, compression, and feature extraction for consistent 
-                    multi-modal OEI data representation.
-                  </p>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary">LoRa/Sub-GHz</Badge>
-                    <Badge variant="secondary">WiFi/Ethernet</Badge>
-                    <Badge variant="secondary">Tactical Radio</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                      {/* Tools */}
+                      <div>
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-primary" />
+                          Mycosoft Tools
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedDodItem.details.tools.map((tool, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="bg-muted/50 rounded-lg p-3"
+                            >
+                              <div className="font-medium text-sm">{tool.name}</div>
+                              <div className="text-xs text-muted-foreground">{tool.description}</div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Compliance */}
+                      <div>
+                        <h4 className="font-semibold mb-3 flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-primary" />
+                          Compliance Standards
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedDodItem.details.compliance.map((standard, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: i * 0.05 }}
+                            >
+                              <Badge variant="secondary">{standard}</Badge>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </section>
@@ -726,13 +1442,17 @@ export function DefensePortal() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8">
-                Request Briefing
-                <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" className="text-lg px-8" asChild>
+                <Link href="/defense/request-briefing">
+                  Request Briefing
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8">
-                Technical Documentation
-                <FileText className="ml-2 h-5 w-5" />
+              <Button size="lg" variant="outline" className="text-lg px-8" asChild>
+                <Link href="/defense/technical-docs">
+                  Technical Documentation
+                  <FileText className="ml-2 h-5 w-5" />
+                </Link>
               </Button>
             </div>
 
@@ -765,37 +1485,3 @@ export function DefensePortal() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

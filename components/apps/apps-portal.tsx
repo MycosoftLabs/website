@@ -38,10 +38,10 @@ const defenseApps = [
     category: "command"
   },
   {
-    title: "OEI Monitor",
-    description: "Operational Environmental Intelligence monitoring with bioelectric and chemical sensing",
-    icon: Activity,
-    href: "/natureos/monitoring",
+    title: "Fusarium",
+    description: "Integrated defense system with CREP dashboard, specialized devices, and AI-driven environmental intelligence",
+    icon: Shield,
+    href: "/defense/fusarium",
     status: "operational",
     category: "command"
   },
@@ -49,15 +49,15 @@ const defenseApps = [
     title: "MINDEX Console",
     description: "Cryptographic data integrity layer with tamper-evident logging and audit trails",
     icon: Database,
-    href: "/natureos/storage",
+    href: "/natureos/mindex",
     status: "operational",
     category: "data"
   },
   {
-    title: "Threat Analytics",
-    description: "ML-powered environmental threat detection and predictive risk assessment",
+    title: "CREP Dashboard",
+    description: "Common Relevant Environmental Picture - situational awareness and threat monitoring",
     icon: BarChart3,
-    href: "/natureos/ai-studio",
+    href: "/dashboard/crep",
     status: "operational",
     category: "analytics"
   }
@@ -192,10 +192,25 @@ function AppCard({ app, index }: { app: typeof defenseApps[0], index: number }) 
 export function AppsPortal() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
+      {/* Hero Section with Background Video */}
       <section className="relative py-24 overflow-hidden">
+        {/* Background Video */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "brightness(0.25)" }}
+        >
+          <source src="/assets/backgrounds/apps-hero.mp4" type="video/mp4" />
+        </video>
+        
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background" />
+        
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-5" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
         
         <div className="container max-w-7xl mx-auto relative z-10 px-4">
@@ -207,7 +222,7 @@ export function AppsPortal() {
             <Badge className="mb-4">Application Suite</Badge>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                Mission-Critical
+                Biological Computing
               </span>
               <br />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-green-500">
@@ -215,17 +230,17 @@ export function AppsPortal() {
               </span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Purpose-built software for environmental intelligence, research operations, 
-              and defense applications.
+              Purpose-built software for environmental intelligence research operations. 
+              Dual-use applications for science and beyond.
             </p>
 
             {/* Quick Stats */}
             <div className="flex flex-wrap justify-center gap-8 mt-12">
               {[
                 { value: "14+", label: "Applications" },
-                { value: "99.9%", label: "Uptime" },
+                { value: "<50ms", label: "Latency" },
                 { value: "Real-time", label: "Processing" },
-                { value: "DoD", label: "Ready" }
+                { value: "Open", label: "Platform" }
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
                   <div className="text-3xl font-bold">{stat.value}</div>
@@ -240,16 +255,16 @@ export function AppsPortal() {
       {/* Apps Grid Section */}
       <section className="py-16 bg-muted/30">
         <div className="container px-4 max-w-7xl mx-auto">
-          <Tabs defaultValue="defense" className="w-full">
+          <Tabs defaultValue="research" className="w-full">
             <div className="flex justify-center mb-12">
               <TabsList className="grid grid-cols-3 w-full max-w-lg">
-                <TabsTrigger value="defense" className="gap-2">
-                  <Shield className="h-4 w-4" />
-                  Defense
-                </TabsTrigger>
                 <TabsTrigger value="research" className="gap-2">
                   <Microscope className="h-4 w-4" />
                   Research
+                </TabsTrigger>
+                <TabsTrigger value="defense" className="gap-2">
+                  <Shield className="h-4 w-4" />
+                  Defense
                 </TabsTrigger>
                 <TabsTrigger value="developer" className="gap-2">
                   <Terminal className="h-4 w-4" />
@@ -257,20 +272,6 @@ export function AppsPortal() {
                 </TabsTrigger>
               </TabsList>
             </div>
-
-            <TabsContent value="defense">
-              <div className="mb-8 text-center max-w-3xl mx-auto">
-                <h2 className="text-2xl font-bold mb-2">Defense & Intelligence</h2>
-                <p className="text-muted-foreground">
-                  Command and control applications for operational environmental intelligence.
-                </p>
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
-                {defenseApps.map((app, index) => (
-                  <AppCard key={app.title} app={app} index={index} />
-                ))}
-              </div>
-            </TabsContent>
 
             <TabsContent value="research">
               <div className="mb-8 text-center max-w-3xl mx-auto">
@@ -281,6 +282,20 @@ export function AppsPortal() {
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
                 {researchApps.map((app, index) => (
+                  <AppCard key={app.title} app={app} index={index} />
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="defense">
+              <div className="mb-8 text-center max-w-3xl mx-auto">
+                <h2 className="text-2xl font-bold mb-2">Defense & Intelligence</h2>
+                <p className="text-muted-foreground">
+                  Command and control applications for operational environmental intelligence.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {defenseApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>
@@ -341,10 +356,23 @@ export function AppsPortal() {
 
             <div className="relative">
               <div className="aspect-video bg-gradient-to-br from-primary/10 via-muted to-green-500/10 rounded-2xl border overflow-hidden">
+                {/* Video Placeholder */}
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                  style={{ filter: "brightness(0.8)" }}
+                >
+                  <source src="/assets/backgrounds/natureos-demo.mp4" type="video/mp4" />
+                </video>
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <Eye className="h-20 w-20 text-primary/30 mx-auto mb-4" />
-                    <p className="text-muted-foreground">NatureOS Dashboard</p>
+                    <Eye className="h-16 w-16 text-primary/50 mx-auto mb-4" />
+                    <p className="text-lg font-semibold">NatureOS Dashboard</p>
+                    <p className="text-sm text-muted-foreground">Real-time environmental monitoring</p>
                   </div>
                 </div>
                 {/* Simulated Dashboard Elements */}
@@ -357,25 +385,120 @@ export function AppsPortal() {
         </div>
       </section>
 
-      {/* Integration Section */}
-      <section className="py-24 bg-muted/30">
-        <div className="container max-w-7xl mx-auto px-4">
+      {/* Integration Section with Topology Diagram */}
+      <section className="py-24 bg-muted/30 relative overflow-hidden">
+        {/* Background Video */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-10"
+        >
+          <source src="/assets/backgrounds/nature-compute.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-muted/90 to-muted/95" />
+        
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
             <Badge className="mb-4">Platform</Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Built on Nature Compute
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              All applications run on our unified Nature Compute platform, ensuring 
-              seamless data integration and consistent security.
+              All applications run on our unified Nature Compute platform - 
+              a complete stack from hardware to AI.
             </p>
           </div>
 
+          {/* Topology Diagram */}
+          <div className="max-w-4xl mx-auto mb-16">
+            <Card className="p-8">
+              <div className="grid grid-cols-6 gap-4 items-center text-center">
+                {/* Layer 1: Hardware */}
+                <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
+                  <Radar className="h-8 w-8 text-orange-500 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Hardware</p>
+                  <p className="text-[10px] text-muted-foreground">Sensors</p>
+                </div>
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                
+                {/* Layer 2: Software */}
+                <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                  <Layers className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Software</p>
+                  <p className="text-[10px] text-muted-foreground">NatureOS</p>
+                </div>
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                
+                {/* Layer 3: Data */}
+                <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                  <Database className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Data</p>
+                  <p className="text-[10px] text-muted-foreground">MINDEX</p>
+                </div>
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+              </div>
+              
+              {/* Second Row */}
+              <div className="grid grid-cols-6 gap-4 items-center text-center mt-4">
+                {/* Layer 4: Protocols */}
+                <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/20">
+                  <Network className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Protocols</p>
+                  <p className="text-[10px] text-muted-foreground">Mycorrhizae</p>
+                </div>
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                
+                {/* Layer 5: AI */}
+                <div className="p-4 bg-primary/10 rounded-xl border border-primary/20">
+                  <Cpu className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <p className="text-xs font-semibold">AI</p>
+                  <p className="text-[10px] text-muted-foreground">NLM</p>
+                </div>
+                
+                {/* Arrow */}
+                <div className="flex items-center justify-center">
+                  <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                
+                {/* Layer 6: Users */}
+                <div className="p-4 bg-destructive/10 rounded-xl border border-destructive/20">
+                  <Eye className="h-8 w-8 text-destructive mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Users</p>
+                  <p className="text-[10px] text-muted-foreground">Dashboard</p>
+                </div>
+                
+                {/* Final */}
+                <div className="flex items-center justify-center">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Feature Cards */}
           <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
               {
                 icon: Shield,
-                title: "Defense-Grade Security",
+                title: "Enterprise Security",
                 description: "Zero-trust architecture with end-to-end encryption"
               },
               {
@@ -389,7 +512,7 @@ export function AppsPortal() {
                 description: "MINDEX integrity with cross-application access"
               }
             ].map((feature) => (
-              <Card key={feature.title} className="text-center">
+              <Card key={feature.title} className="text-center bg-background/80 backdrop-blur">
                 <CardContent className="pt-8">
                   <div className="inline-flex p-4 rounded-xl bg-primary/10 mb-4">
                     <feature.icon className="h-8 w-8 text-primary" />

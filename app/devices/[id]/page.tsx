@@ -1,25 +1,26 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import { DeviceDetails } from "@/components/devices/device-details"
 import { DEVICES } from "@/lib/devices"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface DevicePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function DevicePage({ params }: DevicePageProps) {
+  const { id } = use(params)
   const [device, setDevice] = useState<(typeof DEVICES)[0] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
     // Find the device by ID
-    const foundDevice = DEVICES.find((d) => d.id === params.id)
+    const foundDevice = DEVICES.find((d) => d.id === id)
 
     if (foundDevice) {
       setDevice(foundDevice)
@@ -28,7 +29,7 @@ export default function DevicePage({ params }: DevicePageProps) {
     }
 
     setLoading(false)
-  }, [params.id])
+  }, [id])
 
   // Show loading state
   if (loading) {

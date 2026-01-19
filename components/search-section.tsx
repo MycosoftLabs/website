@@ -205,18 +205,6 @@ export function SearchSection() {
         </div>
       </SearchErrorBoundary>
 
-      <div className="flex flex-wrap gap-4 justify-center text-sm text-muted-foreground px-4">
-        <span>Trending:</span>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=lions+mane+research">Lion's Mane Research</Link>
-        </Button>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=bioremediation">Bioremediation</Link>
-        </Button>
-        <Button variant="link" className="p-0 h-auto" asChild>
-          <Link href="/search?q=cordyceps+studies">Cordyceps Studies</Link>
-        </Button>
-      </div>
     </section>
   )
 }
