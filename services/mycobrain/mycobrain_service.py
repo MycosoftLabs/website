@@ -725,8 +725,21 @@ class DeviceManager:
             self.devices[port].disconnect()
             del self.devices[port]
     
-    def get_device(self, port: str) -> Optional[MycoBrainDevice]:
-        return self.devices.get(port)
+    def get_device(self, port_or_id: str) -> Optional[MycoBrainDevice]:
+        """Get device by port (COM7) or device_id (mycobrain-XX:XX:XX:XX:XX:XX)"""
+        # Direct port lookup first
+        if port_or_id in self.devices:
+            return self.devices[port_or_id]
+        
+        # Fallback: search by device_id or serial_number
+        for device in self.devices.values():
+            if device.device_id == port_or_id or device.serial_number == port_or_id:
+                return device
+            # Also match partial device_id (e.g., just the MAC portion)
+            if device.device_id and port_or_id in device.device_id:
+                return device
+        
+        return None
     
     def get_all_devices(self) -> List[Dict[str, Any]]:
         return [
