@@ -14,6 +14,39 @@ import {
   Cpu, Battery, Signal, Lock, Cloud, Leaf, AlertTriangle, Check,
   ExternalLink, Youtube
 } from "lucide-react"
+interface SelectedVideo {
+  kind: "youtube" | "mp4"
+  src: string
+  title: string
+}
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.matchMedia("(max-width: 768px)").matches
+  })
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 768px)")
+
+    function handleChange() {
+      setIsMobile(mediaQuery.matches)
+    }
+
+    handleChange()
+
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", handleChange)
+      return () => mediaQuery.removeEventListener("change", handleChange)
+    }
+
+    // Safari < 14 fallback
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
+  return isMobile
+}
 
 // Asset configuration
 const MUSHROOM1_ASSETS = {
@@ -117,9 +150,13 @@ export function Mushroom1Details() {
   const [activeUseCase, setActiveUseCase] = useState(0)
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null)
+  const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const isMobile = useIsMobile()
+
+  // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
+  const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -142,7 +179,12 @@ export function Mushroom1Details() {
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + MUSHROOM1_ASSETS.images.length) % MUSHROOM1_ASSETS.images.length)
 
   const openVideoModal = (videoId: string) => {
-    setSelectedVideo(videoId)
+    setSelectedVideo({ kind: "youtube", src: videoId, title: "Mushroom 1 Video" })
+    setIsVideoModalOpen(true)
+  }
+
+  const openMp4Modal = (videoSrc: string, title: string) => {
+    setSelectedVideo({ kind: "mp4", src: videoSrc, title })
     setIsVideoModalOpen(true)
   }
 
@@ -162,9 +204,10 @@ export function Mushroom1Details() {
             muted
             loop
             playsInline
+            preload="metadata"
             className="absolute inset-0 w-full h-full object-cover"
           >
-            <source src={MUSHROOM1_ASSETS.videos.background} type="video/mp4" />
+            <source src={heroVideoSrc} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
         </motion.div>
@@ -216,7 +259,7 @@ export function Mushroom1Details() {
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
             </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}>
               <Play className="mr-2 h-5 w-5" />
               Watch Film
             </Button>
@@ -313,6 +356,7 @@ export function Mushroom1Details() {
                   muted
                   loop
                   playsInline
+                  preload="metadata"
                   className="absolute inset-0 w-full h-full object-cover object-center"
                 >
                   <source src={MUSHROOM1_ASSETS.videos.waterfall} type="video/mp4" />
@@ -504,6 +548,7 @@ export function Mushroom1Details() {
                 muted
                 loop
                 playsInline
+                preload="metadata"
                 className="absolute inset-0 w-full h-full object-cover"
               >
                 <source src={USE_CASES[activeUseCase].video} type="video/mp4" />
@@ -895,6 +940,7 @@ export function Mushroom1Details() {
             muted
             loop
             playsInline
+            preload="metadata"
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
           >
@@ -949,13 +995,19 @@ export function Mushroom1Details() {
               className="relative w-full max-w-5xl aspect-video"
               onClick={(e) => e.stopPropagation()}
             >
-              <iframe
-                src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
-                title="YouTube video player"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full rounded-xl"
-              />
+              {selectedVideo.kind === "youtube" ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${selectedVideo.src}?autoplay=1`}
+                  title={selectedVideo.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-xl"
+                />
+              ) : (
+                <video autoPlay muted controls playsInline className="w-full h-full rounded-xl bg-black">
+                  <source src={selectedVideo.src} type="video/mp4" />
+                </video>
+              )}
               <button
                 onClick={() => setIsVideoModalOpen(false)}
                 className="absolute -top-12 right-0 text-white/60 hover:text-white"
