@@ -7,7 +7,7 @@ const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://local
 export async function GET() {
   try {
     const response = await fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(3000),
     })
     
     if (response.ok) {
@@ -32,8 +32,8 @@ export async function GET() {
     )
   } catch (error) {
     return NextResponse.json(
-      { ports: [], error: "Failed to fetch ports", details: String(error) },
-      { status: 500 }
+      { ports: [], error: "Failed to fetch ports", details: String(error), serviceUrl: MYCOBRAIN_SERVICE_URL },
+      { status: 503 }
     )
   }
 }

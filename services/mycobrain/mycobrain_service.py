@@ -665,6 +665,7 @@ app.add_middleware(
 # ============== API Endpoints ==============
 
 @app.get("/health")
+@app.get("/api/mycobrain/health")
 async def health_check():
     return {
         "status": "ok",
@@ -674,6 +675,7 @@ async def health_check():
 
 
 @app.get("/ports")
+@app.get("/api/mycobrain/ports")
 async def list_ports():
     """List all available serial ports"""
     ports = device_manager.scan_ports()
@@ -685,6 +687,7 @@ async def list_ports():
 
 
 @app.get("/devices")
+@app.get("/api/mycobrain/devices")
 async def list_devices():
     """List all connected MycoBrain devices"""
     return {
@@ -694,6 +697,7 @@ async def list_devices():
 
 
 @app.post("/devices/connect/{port}")
+@app.post("/api/mycobrain/devices/connect/{port}")
 async def connect_device(port: str):
     """Connect to a MycoBrain device on specified port"""
     # URL decode the port (COM4 -> COM4, %2Fdev%2FttyACM0 -> /dev/ttyACM0)
@@ -767,6 +771,7 @@ async def connect_device(port: str):
 
 
 @app.post("/devices/disconnect/{port}")
+@app.post("/api/mycobrain/devices/disconnect/{port}")
 async def disconnect_device(port: str):
     """Disconnect from a MycoBrain device"""
     from urllib.parse import unquote
@@ -777,6 +782,7 @@ async def disconnect_device(port: str):
 
 
 @app.get("/devices/{port}/status")
+@app.get("/api/mycobrain/devices/{port}/status")
 async def get_device_status(port: str):
     """Get status of a specific device"""
     from urllib.parse import unquote
@@ -789,6 +795,7 @@ async def get_device_status(port: str):
 
 
 @app.get("/devices/{port}/sensors")
+@app.get("/api/mycobrain/devices/{port}/sensors")
 async def get_sensor_data(port: str):
     """Get sensor data from device"""
     from urllib.parse import unquote
@@ -812,6 +819,7 @@ async def get_sensor_data(port: str):
 
 
 @app.get("/devices/{port}/diagnostics")
+@app.get("/api/mycobrain/devices/{port}/diagnostics")
 async def get_device_diagnostics(port: str):
     """Get comprehensive device diagnostics including firmware version"""
     from urllib.parse import unquote
@@ -864,6 +872,7 @@ async def get_device_diagnostics(port: str):
 
 
 @app.post("/devices/{port}/neopixel")
+@app.post("/api/mycobrain/devices/{port}/neopixel")
 async def control_neopixel(port: str, cmd: NeoPixelCommand):
     """Control NeoPixel LEDs on the device"""
     from urllib.parse import unquote
@@ -885,6 +894,7 @@ async def control_neopixel(port: str, cmd: NeoPixelCommand):
 
 
 @app.post("/devices/{port}/buzzer")
+@app.post("/api/mycobrain/devices/{port}/buzzer")
 async def control_buzzer(port: str, cmd: BuzzerCommand):
     """Control buzzer on the device"""
     from urllib.parse import unquote
@@ -910,6 +920,7 @@ async def control_buzzer(port: str, cmd: BuzzerCommand):
 
 
 @app.post("/devices/{port}/command")
+@app.post("/api/mycobrain/devices/{port}/command")
 async def send_raw_command(port: str, cmd: CommandRequest):
     """Send a command to the device
     
@@ -950,6 +961,7 @@ async def send_raw_command(port: str, cmd: CommandRequest):
 
 
 @app.websocket("/ws/{port}")
+@app.websocket("/api/mycobrain/ws/{port}")
 async def websocket_endpoint(websocket: WebSocket, port: str):
     """WebSocket for real-time device updates"""
     from urllib.parse import unquote

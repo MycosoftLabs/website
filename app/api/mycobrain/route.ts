@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   try {
     // First check if service is running - try /health endpoint as health check (more reliable)
     const healthRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/health`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
     }).catch(() => null)
     
     if (!healthRes?.ok) {
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     
     // Fetch all connected devices from the MycoBrain service
     const response = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
     })
     
     if (response.ok) {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       
       // Also get available ports to show discovery status
       const portsRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, {
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(1500),
       }).catch(() => null)
       
       const portsData = portsRes?.ok ? await portsRes.json() : { ports: [], discovery_running: false }
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
     })
     
     const data = await response.json()
