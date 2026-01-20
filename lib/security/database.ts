@@ -751,6 +751,9 @@ import {
   DEFAULT_SBIR_CONTROLS,
   DEFAULT_ITAR_CONTROLS,
   DEFAULT_EAR_CONTROLS,
+  DEFAULT_ICD_503_CONTROLS,
+  DEFAULT_CNSSI_1253_CONTROLS,
+  DEFAULT_FEDRAMP_HIGH_CONTROLS,
   CDSE_TRAINING_REQUIREMENTS,
   DEFAULT_EXOSTAR_CONFIG,
   FRAMEWORKS,
@@ -762,6 +765,8 @@ import {
   FOCIMitigation,
   SBIRSTTRProgram,
   CDSETrainingRequirement,
+  ImpactLevel,
+  NSSCategorization,
 } from './compliance-frameworks';
 
 // Re-export the ComplianceControl type for backward compatibility
@@ -777,6 +782,8 @@ export type {
   FOCIMitigation,
   SBIRSTTRProgram,
   CDSETrainingRequirement,
+  ImpactLevel,
+  NSSCategorization,
 };
 
 // Export training requirements
@@ -836,8 +843,14 @@ function ensureDefaultControls() {
     DEFAULT_ITAR_CONTROLS.forEach(control => complianceStore.set(control.id, control));
     // Add EAR controls
     DEFAULT_EAR_CONTROLS.forEach(control => complianceStore.set(control.id, control));
+    // Add ICD 503 controls (Intelligence Community)
+    DEFAULT_ICD_503_CONTROLS.forEach(control => complianceStore.set(control.id, control));
+    // Add CNSSI 1253 controls (National Security Systems)
+    DEFAULT_CNSSI_1253_CONTROLS.forEach(control => complianceStore.set(control.id, control));
+    // Add FedRAMP High controls
+    DEFAULT_FEDRAMP_HIGH_CONTROLS.forEach(control => complianceStore.set(control.id, control));
     
-    console.log('[ComplianceDB] Loaded frameworks: NIST 800-53, NIST 800-171, CMMC, NISPOM, FOCI, SBIR/STTR, ITAR, EAR');
+    console.log('[ComplianceDB] Loaded frameworks: NIST 800-53, NIST 800-171, CMMC, NISPOM, FOCI, SBIR/STTR, ITAR, EAR, ICD 503, CNSSI 1253, FedRAMP High');
   }
 }
 
@@ -1176,6 +1189,347 @@ export async function getNIST171SSPData(): Promise<{
     poams,
     lastUpdated: new Date().toISOString(),
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FCL (FACILITY CLEARANCE) DATA
+// ═══════════════════════════════════════════════════════════════
+
+export interface KeyPersonnel {
+  id: string;
+  name: string;
+  title: string;
+  role: 'FSO' | 'AFSO' | 'ISSM' | 'ISSO' | 'KMP' | 'Officer' | 'Director';
+  clearanceLevel: 'Pending' | 'Confidential' | 'Secret' | 'Top Secret' | 'TS/SCI';
+  clearanceStatus: 'active' | 'pending' | 'expired' | 'suspended';
+  clearanceExpiry?: string;
+  email: string;
+  phone?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingRecord {
+  id: string;
+  courseName: string;
+  provider: 'CDSE' | 'Internal' | 'External';
+  completedDate: string;
+  expirationDate?: string;
+  personnel: string; // Name or 'All Personnel'
+  certificateUrl?: string;
+  status: 'complete' | 'in_progress' | 'expired' | 'pending';
+  created_at: string;
+  updated_at: string;
+}
+
+const inMemoryPersonnel = new Map<string, KeyPersonnel>();
+const inMemoryTraining = new Map<string, TrainingRecord>();
+
+// Initialize with default data
+const defaultPersonnel: Omit<KeyPersonnel, 'created_at' | 'updated_at'>[] = [
+  {
+    id: 'KP-001',
+    name: 'Michael Chen',
+    title: 'Chief Executive Officer',
+    role: 'KMP',
+    clearanceLevel: 'Pending',
+    clearanceStatus: 'pending',
+    email: 'michael.chen@mycosoft.com',
+    phone: '(555) 123-4567',
+  },
+  {
+    id: 'KP-002',
+    name: 'Sarah Johnson',
+    title: 'Facility Security Officer',
+    role: 'FSO',
+    clearanceLevel: 'Secret',
+    clearanceStatus: 'pending',
+    email: 'sarah.johnson@mycosoft.com',
+    phone: '(555) 234-5678',
+  },
+  {
+    id: 'KP-003',
+    name: 'Robert Williams',
+    title: 'Information System Security Manager',
+    role: 'ISSM',
+    clearanceLevel: 'Top Secret',
+    clearanceStatus: 'pending',
+    email: 'robert.williams@mycosoft.com',
+    phone: '(555) 345-6789',
+  },
+  {
+    id: 'KP-004',
+    name: 'Emily Davis',
+    title: 'Assistant Facility Security Officer',
+    role: 'AFSO',
+    clearanceLevel: 'Secret',
+    clearanceStatus: 'pending',
+    email: 'emily.davis@mycosoft.com',
+    phone: '(555) 456-7890',
+  },
+];
+
+const defaultTraining: Omit<TrainingRecord, 'created_at' | 'updated_at'>[] = [
+  {
+    id: 'TR-001',
+    courseName: 'Facility Security Officer (FSO) Program Management for Possessing Facilities',
+    provider: 'CDSE',
+    completedDate: '2026-01-10',
+    expirationDate: '2027-01-10',
+    personnel: 'Sarah Johnson',
+    status: 'complete',
+  },
+  {
+    id: 'TR-002',
+    courseName: 'Insider Threat Awareness',
+    provider: 'CDSE',
+    completedDate: '2026-01-05',
+    expirationDate: '2027-01-05',
+    personnel: 'All Personnel',
+    status: 'complete',
+  },
+  {
+    id: 'TR-003',
+    courseName: 'Counterintelligence Awareness',
+    provider: 'CDSE',
+    completedDate: '2026-01-08',
+    expirationDate: '2027-01-08',
+    personnel: 'All Personnel',
+    status: 'complete',
+  },
+  {
+    id: 'TR-004',
+    courseName: 'Derivative Classification Training',
+    provider: 'CDSE',
+    completedDate: '2026-01-12',
+    expirationDate: '2028-01-12',
+    personnel: 'Cleared Personnel',
+    status: 'complete',
+  },
+];
+
+function initializeFCLData() {
+  if (inMemoryPersonnel.size === 0) {
+    const now = new Date().toISOString();
+    defaultPersonnel.forEach(p => {
+      inMemoryPersonnel.set(p.id, { ...p, created_at: now, updated_at: now });
+    });
+  }
+  
+  if (inMemoryTraining.size === 0) {
+    const now = new Date().toISOString();
+    defaultTraining.forEach(t => {
+      inMemoryTraining.set(t.id, { ...t, created_at: now, updated_at: now });
+    });
+  }
+}
+
+export async function getKeyPersonnel(): Promise<KeyPersonnel[]> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('fcl_personnel')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.warn('[FCL] Failed to fetch personnel from database:', error);
+    }
+  }
+  
+  return Array.from(inMemoryPersonnel.values());
+}
+
+export async function createKeyPersonnel(
+  personnel: Omit<KeyPersonnel, 'id' | 'created_at' | 'updated_at'>
+): Promise<KeyPersonnel> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  const now = new Date().toISOString();
+  const id = `KP-${Date.now().toString().slice(-6)}`;
+  const newPersonnel: KeyPersonnel = {
+    ...personnel,
+    id,
+    created_at: now,
+    updated_at: now,
+  };
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('fcl_personnel')
+        .insert(newPersonnel)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await createComplianceAuditLog({
+        action: 'CREATE_KEY_PERSONNEL',
+        user: 'system',
+        resource: `fcl-personnel-${id}`,
+        resource_type: 'fcl',
+        result: 'success',
+        ip: '127.0.0.1',
+        details: { personnel: newPersonnel.name, role: newPersonnel.role },
+      });
+      
+      return data;
+    } catch (error) {
+      console.warn('[FCL] Failed to create personnel in database:', error);
+    }
+  }
+  
+  inMemoryPersonnel.set(id, newPersonnel);
+  return newPersonnel;
+}
+
+export async function updateKeyPersonnel(
+  id: string,
+  updates: Partial<Omit<KeyPersonnel, 'id' | 'created_at'>>
+): Promise<KeyPersonnel> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  const updated_at = new Date().toISOString();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('fcl_personnel')
+        .update({ ...updates, updated_at })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await createComplianceAuditLog({
+        action: 'UPDATE_KEY_PERSONNEL',
+        user: 'system',
+        resource: `fcl-personnel-${id}`,
+        resource_type: 'fcl',
+        result: 'success',
+        ip: '127.0.0.1',
+        details: { updates },
+      });
+      
+      return data;
+    } catch (error) {
+      console.warn('[FCL] Failed to update personnel in database:', error);
+    }
+  }
+  
+  const existing = inMemoryPersonnel.get(id);
+  if (!existing) throw new Error(`Personnel ${id} not found`);
+  
+  const updated: KeyPersonnel = { ...existing, ...updates, updated_at };
+  inMemoryPersonnel.set(id, updated);
+  return updated;
+}
+
+export async function deleteKeyPersonnel(id: string): Promise<void> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('fcl_personnel')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      await createComplianceAuditLog({
+        action: 'DELETE_KEY_PERSONNEL',
+        user: 'system',
+        resource: `fcl-personnel-${id}`,
+        resource_type: 'fcl',
+        result: 'success',
+        ip: '127.0.0.1',
+        details: { personnel_id: id },
+      });
+      
+      return;
+    } catch (error) {
+      console.warn('[FCL] Failed to delete personnel from database:', error);
+    }
+  }
+  
+  inMemoryPersonnel.delete(id);
+}
+
+export async function getTrainingRecords(): Promise<TrainingRecord[]> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('fcl_training')
+        .select('*')
+        .order('completedDate', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.warn('[FCL] Failed to fetch training from database:', error);
+    }
+  }
+  
+  return Array.from(inMemoryTraining.values());
+}
+
+export async function createTrainingRecord(
+  training: Omit<TrainingRecord, 'id' | 'created_at' | 'updated_at'>
+): Promise<TrainingRecord> {
+  initializeFCLData();
+  const supabase = await getSupabaseClient();
+  
+  const now = new Date().toISOString();
+  const id = `TR-${Date.now().toString().slice(-6)}`;
+  const newTraining: TrainingRecord = {
+    ...training,
+    id,
+    created_at: now,
+    updated_at: now,
+  };
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('fcl_training')
+        .insert(newTraining)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      await createComplianceAuditLog({
+        action: 'CREATE_TRAINING_RECORD',
+        user: 'system',
+        resource: `fcl-training-${id}`,
+        resource_type: 'fcl',
+        result: 'success',
+        ip: '127.0.0.1',
+        details: { course: newTraining.courseName, personnel: newTraining.personnel },
+      });
+      
+      return data;
+    } catch (error) {
+      console.warn('[FCL] Failed to create training in database:', error);
+    }
+  }
+  
+  inMemoryTraining.set(id, newTraining);
+  return newTraining;
 }
 
 // ═══════════════════════════════════════════════════════════════

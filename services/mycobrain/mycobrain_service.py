@@ -14,6 +14,8 @@ import json
 import time
 import os
 import sys
+import hashlib
+import re
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
@@ -79,6 +81,11 @@ class MycoBrainDevice:
         self.mdp_encoder = MDPEncoder() if MDP_AVAILABLE and use_mdp else None
         self.mdp_decoder = MDPDecoder() if MDP_AVAILABLE and use_mdp else None
         self._read_buffer = bytearray()  # Buffer for COBS frame assembly
+        self.device_id: Optional[str] = None  # Stable identity, if known (not COM port)
+        self.serial_number: Optional[str] = None  # Stable serial, if known
+        self.mindex_device_id: Optional[str] = None  # UUID from MINDEX registry
+        self.sequence_number: int = 0
+        self.last_telemetry_sent_at: Optional[str] = None  # ISO8601
         
     def connect(self) -> bool:
         try:
@@ -221,6 +228,7 @@ class MycoBrainDevice:
                     # Sensor data from BME688
                     self.sensor_data.update(data)
                     self.sensor_data["last_update"] = datetime.now().isoformat()
+                    # Telemetry enqueue happens in the DeviceManager telemetry loop based on last_update
                 elif "src" in data:
                     # MDP message received
                     self.last_message = data
@@ -335,6 +343,9 @@ class MycoBrainDevice:
     
     def get_status(self) -> Dict[str, Any]:
         return {
+            "device_id": self.device_id,
+            "serial_number": self.serial_number,
+            "mindex_device_id": self.mindex_device_id,
             "connected": self.connected,
             "port": self.port,
             "last_message": self.last_message,
@@ -369,23 +380,61 @@ class DeviceManager:
         self.discovered_ports: Dict[str, Dict[str, Any]] = {}  # port -> port info
         self._discovery_running = False
         self._discovery_thread: Optional[threading.Thread] = None
-        self._mindex_url = os.getenv("MINDEX_API_URL", "http://localhost:8000")
+        self._mindex_url = os.getenv("MINDEX_API_URL", "http://192.168.0.187:8000")
+        self._mindex_api_key = os.getenv("MINDEX_API_KEY", "")
+        self._telemetry_push_enabled = os.getenv("MYCOBRAIN_PUSH_TELEMETRY_TO_MINDEX", "true").lower() == "true"
+        self._telemetry_queue: List[Dict[str, Any]] = []
+        self._telemetry_lock = threading.Lock()
+        self._telemetry_thread: Optional[threading.Thread] = None
     
     def scan_ports(self) -> List[Dict[str, str]]:
         """Scan for available serial ports"""
         ports = []
         for port in serial.tools.list_ports.comports():
+            serial_number = getattr(port, "serial_number", None)
             port_info = {
                 "port": port.device,
                 "description": port.description,
                 "hwid": port.hwid,
                 "vid": port.vid,
                 "pid": port.pid,
+                "serial_number": serial_number,
             }
             ports.append(port_info)
             # Track discovered ports
             self.discovered_ports[port.device] = port_info
         return ports
+
+    def _headers(self) -> Dict[str, str]:
+        if not self._mindex_api_key:
+            return {}
+        return {"X-API-Key": self._mindex_api_key}
+
+    def _extract_serial_number(self, port: str) -> Optional[str]:
+        info = self.discovered_ports.get(port) or {}
+        sn = info.get("serial_number")
+        if isinstance(sn, str) and sn.strip():
+            return sn.strip()
+
+        # Try to parse from HWID strings like "... SER=xxxx ..."
+        hwid = str(info.get("hwid", ""))
+        m = re.search(r"SER=([\\w\\-]{6,64})", hwid, flags=re.IGNORECASE)
+        if m:
+            return m.group(1)[:32]
+
+        # Fallback: derive a stable-ish surrogate from HWID + VID/PID (not from COM port)
+        material = f"{info.get('vid')}:{info.get('pid')}:{hwid}".encode("utf-8", errors="ignore")
+        digest = hashlib.sha1(material).hexdigest()[:12]
+        return f"esp32s3-{digest}"
+
+    def _ensure_device_identity(self, port: str) -> None:
+        device = self.devices.get(port)
+        if not device:
+            return
+        if not device.serial_number:
+            device.serial_number = self._extract_serial_number(port)
+        if not device.device_id and device.serial_number:
+            device.device_id = f"mycobrain-{device.serial_number}"
     
     def _is_mycobrain_port(self, port_info: Dict[str, Any]) -> bool:
         """Check if a port is a MycoBrain device (ESP32-S3)"""
@@ -476,39 +525,135 @@ class DeviceManager:
             device = self.devices.get(port)
             if not device:
                 return
-            
-            device_id = f"mycobrain-{port.replace('/', '-').replace('\\', '-')}"
+
+            self._ensure_device_identity(port)
             device_info = device.device_info or {}
-            
+
+            if not self._mindex_api_key:
+                print("[MINDEX] Skipping device registration: MINDEX_API_KEY not set")
+                return
+
+            serial_number = device.serial_number
+            if not serial_number:
+                print(f"[MINDEX] Skipping device registration: cannot determine serial_number for {port}")
+                return
+
             payload = {
-                "device_id": device_id,
-                "device_type": "mycobrain",
-                "serial_number": port,
-                "firmware_version": device_info.get("mdp_version", "1.0.0"),
-                "status": "online" if device.connected else "offline",
-                "connection_type": "usb",
-                "port": port,
+                "serial_number": serial_number,
+                "name": f"MycoBrain {serial_number}",
+                "firmware_version_a": device_info.get("mdp_version"),
+                "firmware_version_b": None,
+                "telemetry_interval_ms": 5000,
                 "metadata": {
+                    "port": port,
                     "side": device_info.get("side"),
                     "lora_status": device_info.get("lora_status"),
                     "last_seen": device.last_message_time,
-                }
+                    "description": (self.discovered_ports.get(port) or {}).get("description"),
+                    "vid": (self.discovered_ports.get(port) or {}).get("vid"),
+                    "pid": (self.discovered_ports.get(port) or {}).get("pid"),
+                },
             }
-            
-            # Try to register with MINDEX
-            try:
-                response = requests.post(
-                    f"{self._mindex_url}/api/devices/register",
-                    json=payload,
-                    timeout=2
-                )
-                if response.status_code in [200, 201]:
-                    print(f"[MINDEX] Registered device {device_id}")
-            except:
-                pass  # MINDEX not available, continue anyway
+
+            # Register with MINDEX (real endpoint; API key required)
+            response = requests.post(
+                f"{self._mindex_url}/api/mindex/mycobrain/devices",
+                json=payload,
+                headers=self._headers(),
+                timeout=5,
+            )
+            if response.status_code == 201:
+                data = response.json()
+                device.mindex_device_id = data.get("id")
+                print(f"[MINDEX] Registered device serial={serial_number} id={device.mindex_device_id}")
+            else:
+                print(f"[MINDEX] Device registration failed ({response.status_code}): {response.text[:300]}")
                 
         except Exception as e:
             print(f"[MINDEX] Failed to register device: {e}")
+
+    def _enqueue_telemetry(self, item: Dict[str, Any]) -> None:
+        with self._telemetry_lock:
+            self._telemetry_queue.append(item)
+            # bound memory; drop oldest (do not block device IO)
+            if len(self._telemetry_queue) > 2000:
+                self._telemetry_queue = self._telemetry_queue[-2000:]
+
+    def _telemetry_loop(self) -> None:
+        import requests
+
+        while self._discovery_running:
+            try:
+                # Build fresh telemetry items from connected devices when sensor_data updates
+                for port, device in list(self.devices.items()):
+                    try:
+                        if not device.connected:
+                            continue
+                        self._ensure_device_identity(port)
+                        last_update = (device.sensor_data or {}).get("last_update")
+                        if not last_update or last_update == device.last_telemetry_sent_at:
+                            continue
+
+                        device.sequence_number = (device.sequence_number + 1) % 65536
+                        recorded_at = datetime.now().isoformat()
+
+                        telemetry_item = {
+                            "device_id": device.mindex_device_id,  # UUID string or None
+                            "serial_number": device.serial_number,
+                            "sequence_number": device.sequence_number,
+                            "device_timestamp_ms": None,
+                            "recorded_at": recorded_at,
+                            "payload": {
+                                "raw": {
+                                    "port": port,
+                                    "device_info": device.device_info,
+                                    "sensor_data": device.sensor_data,
+                                }
+                            },
+                            "crc_valid": True,
+                        }
+                        self._enqueue_telemetry(telemetry_item)
+                        device.last_telemetry_sent_at = last_update
+                    except Exception as e:
+                        print(f"[MINDEX] Telemetry build error for {port}: {e}")
+
+                if not self._telemetry_push_enabled:
+                    time.sleep(2)
+                    continue
+                if not self._mindex_api_key:
+                    time.sleep(5)
+                    continue
+
+                batch: List[Dict[str, Any]] = []
+                with self._telemetry_lock:
+                    if self._telemetry_queue:
+                        batch = self._telemetry_queue[:200]
+                        self._telemetry_queue = self._telemetry_queue[200:]
+
+                if not batch:
+                    time.sleep(1)
+                    continue
+
+                payload = {"items": batch}
+                res = requests.post(
+                    f"{self._mindex_url}/api/mindex/mycobrain/telemetry/ingest/batch",
+                    json=payload,
+                    headers=self._headers(),
+                    timeout=10,
+                )
+                if res.status_code == 200:
+                    # ok; nothing else to do
+                    pass
+                else:
+                    # push back for retry (at front) — bounded by max queue size
+                    print(f"[MINDEX] Telemetry batch ingest failed ({res.status_code}): {res.text[:300]}")
+                    with self._telemetry_lock:
+                        self._telemetry_queue = batch + self._telemetry_queue
+                    time.sleep(2)
+
+            except Exception as e:
+                print(f"[MINDEX] Telemetry loop error: {e}")
+                time.sleep(2)
     
     def start_discovery(self):
         """Start continuous device discovery"""
@@ -516,6 +661,9 @@ class DeviceManager:
             self._discovery_running = True
             self._discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
             self._discovery_thread.start()
+            if not self._telemetry_thread:
+                self._telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
+                self._telemetry_thread.start()
             print("[Discovery] Device discovery started")
     
     def stop_discovery(self):
@@ -553,6 +701,7 @@ class DeviceManager:
         device = MycoBrainDevice(port, use_mdp=use_mdp)
         if device.connect():
             self.devices[port] = device
+            self._ensure_device_identity(port)
             print(f"[DeviceManager] Device {port} connected successfully (MDP mode: {device.use_mdp})")
             # Register with MINDEX
             self._register_with_mindex(port)
@@ -564,6 +713,7 @@ class DeviceManager:
                 device = MycoBrainDevice(port, use_mdp=False)
                 if device.connect():
                     self.devices[port] = device
+                    self._ensure_device_identity(port)
                     print(f"[DeviceManager] Device {port} connected successfully (JSON mode)")
                     self._register_with_mindex(port)
                     return True

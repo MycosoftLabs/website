@@ -147,10 +147,11 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <Shield className="text-emerald-400" size={32} />
@@ -446,6 +447,7 @@ export default function SecurityPage() {
       <div className="mt-8 text-center text-slate-500 font-mono text-xs">
         <p>Last Updated: {status?.last_check ? new Date(status.last_check).toLocaleString() : "Unknown"}</p>
         <p>Uptime: {status?.uptime_seconds ? Math.floor(status.uptime_seconds / 60) : 0} minutes</p>
+      </div>
       </div>
     </div>
   );

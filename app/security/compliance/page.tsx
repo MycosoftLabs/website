@@ -34,6 +34,9 @@ type ComplianceFramework =
   | 'SBIR-STTR'   // Small Business Innovation Research / STTR
   | 'ITAR'        // International Traffic in Arms
   | 'EAR'         // Export Administration Regulations
+  | 'ICD-503'     // Intelligence Community Directive 503
+  | 'CNSSI-1253'  // CNSSI 1253 - National Security Systems
+  | 'FEDRAMP-HIGH' // FedRAMP High Baseline
   | 'all';
 
 interface ComplianceControl {
@@ -169,6 +172,36 @@ const FRAMEWORKS: Record<string, FrameworkInfo> = {
     borderColor: 'border-sky-500/30',
     description: 'Dual-Use Export Controls',
   },
+  'ICD-503': {
+    id: 'ICD-503',
+    name: 'ICD 503',
+    fullName: 'Intelligence Community Directive 503',
+    icon: '🕵️',
+    color: 'text-slate-300',
+    bgColor: 'bg-slate-500/20',
+    borderColor: 'border-slate-500/30',
+    description: 'IC Security Controls for TS/SCI',
+  },
+  'CNSSI-1253': {
+    id: 'CNSSI-1253',
+    name: 'CNSSI 1253',
+    fullName: 'National Security Systems Categorization',
+    icon: '🏛️',
+    color: 'text-zinc-300',
+    bgColor: 'bg-zinc-500/20',
+    borderColor: 'border-zinc-500/30',
+    description: 'NSS Security Categorization (IL-5/IL-6)',
+  },
+  'FEDRAMP-HIGH': {
+    id: 'FEDRAMP-HIGH',
+    name: 'FedRAMP High',
+    fullName: 'FedRAMP High Baseline',
+    icon: '☁️',
+    color: 'text-cyan-400',
+    bgColor: 'bg-cyan-500/20',
+    borderColor: 'border-cyan-500/30',
+    description: 'Federal Cloud Authorization',
+  },
 };
 
 // Control family definitions
@@ -231,6 +264,18 @@ const CONTROL_FAMILIES: Record<string, { name: string; icon: string }> = {
   'TCM': { name: 'Technology Control', icon: '🔐' },
   // EAR
   'SCR': { name: 'Denied Party Screening', icon: '🔍' },
+  // ICD 503
+  'PM': { name: 'Program Management', icon: '📊' },
+  'PV': { name: 'Privacy', icon: '👁️' },
+  // CNSSI 1253
+  'CAT': { name: 'Categorization', icon: '📊' },
+  'BAS': { name: 'Baseline Selection', icon: '🎯' },
+  'OVR': { name: 'Overlays', icon: '📋' },
+  'TAI': { name: 'Tailoring', icon: '✂️' },
+  'DOC': { name: 'Documentation', icon: '📝' },
+  'ATO': { name: 'Authorization', icon: '✅' },
+  // FedRAMP
+  'SA': { name: 'System Acquisition', icon: '🛒' },
 };
 
 const statusColors = {
@@ -559,10 +604,11 @@ export default function CompliancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 text-white">
+      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
       <header className="mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href="/security" className="text-slate-400 hover:text-white transition">
               ← Security
@@ -575,7 +621,7 @@ export default function CompliancePage() {
               </h1>
             </div>
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             {isLiveData && (
               <span className="px-3 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm flex items-center gap-2">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
@@ -604,7 +650,7 @@ export default function CompliancePage() {
       </header>
 
       {/* Framework Selector */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 overflow-x-auto">
         {Object.values(FRAMEWORKS).map((fw) => {
           const stats = getFrameworkStats(fw.id as ComplianceFramework);
           const isSelected = selectedFramework === fw.id;
@@ -668,9 +714,9 @@ export default function CompliancePage() {
 
       {/* Controls Tab */}
       {activeTab === 'controls' && (
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Family Filter */}
-          <div className="col-span-3">
+          <div className="lg:col-span-3">
             <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4 sticky top-6">
               <h3 className="text-sm font-medium text-slate-400 mb-3">Control Families</h3>
               <div className="space-y-1 max-h-[60vh] overflow-y-auto">
@@ -702,7 +748,7 @@ export default function CompliancePage() {
           </div>
 
           {/* Controls List */}
-          <div className="col-span-9">
+          <div className="lg:col-span-9">
             <div className="bg-slate-800/50 rounded-xl border border-slate-700">
               <div className="p-4 border-b border-slate-700 flex items-center justify-between">
                 <h3 className="font-medium">{filteredControls.length} Controls</h3>
@@ -1222,6 +1268,7 @@ export default function CompliancePage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

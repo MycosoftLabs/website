@@ -64,6 +64,13 @@ import {
   getComplianceAuditLogs,
   createComplianceAuditLog,
   getComplianceStats,
+  // FCL
+  getKeyPersonnel,
+  createKeyPersonnel,
+  updateKeyPersonnel,
+  deleteKeyPersonnel,
+  getTrainingRecords,
+  createTrainingRecord,
 } from '@/lib/security/database';
 
 import {
@@ -606,9 +613,18 @@ export async function GET(request: NextRequest) {
       
       case 'compliance-audit-logs':
         // Get compliance audit logs
-        const complianceLimit = params.limit ? parseInt(params.limit, 10) : 100;
+        const complianceLimit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100;
         const complianceAuditLogs = await getComplianceAuditLogs({ limit: complianceLimit });
         return NextResponse.json({ logs: complianceAuditLogs });
+      
+      // FCL (Facility Clearance) endpoints
+      case 'fcl-personnel':
+        const personnel = await getKeyPersonnel();
+        return NextResponse.json({ personnel });
+      
+      case 'fcl-training':
+        const training = await getTrainingRecords();
+        return NextResponse.json({ training });
       
       default:
         // Return dashboard overview
@@ -911,6 +927,52 @@ export async function POST(request: NextRequest) {
           details: data.details || {},
         });
         return NextResponse.json({ success: true, log: auditEntry });
+      
+      // ═══════════════════════════════════════════════════════════════
+      // FCL (FACILITY CLEARANCE) POST ENDPOINTS
+      // ═══════════════════════════════════════════════════════════════
+      
+      case 'create-personnel':
+        const newPersonnel = await createKeyPersonnel({
+          name: data.name,
+          title: data.title,
+          role: data.role,
+          clearanceLevel: data.clearanceLevel,
+          clearanceStatus: data.clearanceStatus || 'pending',
+          clearanceExpiry: data.clearanceExpiry,
+          email: data.email,
+          phone: data.phone,
+        });
+        return NextResponse.json({ success: true, personnel: newPersonnel });
+      
+      case 'update-personnel':
+        const updatedPersonnel = await updateKeyPersonnel(data.id, {
+          name: data.name,
+          title: data.title,
+          role: data.role,
+          clearanceLevel: data.clearanceLevel,
+          clearanceStatus: data.clearanceStatus,
+          clearanceExpiry: data.clearanceExpiry,
+          email: data.email,
+          phone: data.phone,
+        });
+        return NextResponse.json({ success: true, personnel: updatedPersonnel });
+      
+      case 'delete-personnel':
+        await deleteKeyPersonnel(data.id);
+        return NextResponse.json({ success: true });
+      
+      case 'create-training':
+        const newTraining = await createTrainingRecord({
+          courseName: data.courseName,
+          provider: data.provider,
+          completedDate: data.completedDate,
+          expirationDate: data.expirationDate,
+          personnel: data.personnel,
+          certificateUrl: data.certificateUrl,
+          status: data.status || 'complete',
+        });
+        return NextResponse.json({ success: true, training: newTraining });
       
       default:
         return NextResponse.json(
