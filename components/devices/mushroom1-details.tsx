@@ -12,8 +12,10 @@ import {
   Antenna, Radio, Wifi, Network, Shield, Zap, Sun, Eye, Thermometer,
   Droplets, Wind, Activity, MapPin, Globe, Trees, Microscope, Database,
   Cpu, Battery, Signal, Lock, Cloud, Leaf, AlertTriangle, Check,
-  ExternalLink, Youtube
+  ExternalLink, Youtube, Home, Flashlight, CircuitBoard, Cable
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { PreOrderModal } from "./pre-order-modal"
 interface SelectedVideo {
   kind: "youtube" | "mp4"
   src: string
@@ -79,17 +81,96 @@ const MUSHROOM1_ASSETS = {
 }
 
 // Component architecture data for blueprint
-const DEVICE_COMPONENTS = [
-  { id: "solar", name: "Solar Panels", position: { top: "8%", left: "30%" }, description: "4x High-efficiency monocrystalline cells" },
-  { id: "cap", name: "Cap Housing", position: { top: "15%", left: "50%" }, description: "UV-resistant polycarbonate dome" },
-  { id: "leds", name: "Status LEDs", position: { top: "25%", left: "70%" }, description: "RGB status indicators (power, network, alert)" },
-  { id: "antenna", name: "LoRa Antenna", position: { top: "30%", left: "25%" }, description: "Long-range 915MHz mesh network antenna" },
-  { id: "bme688", name: "BME688 Sensors", position: { top: "40%", left: "60%" }, description: "Dual environmental sensors (AMB + ENV)" },
-  { id: "esp32", name: "ESP32-S3 Brain", position: { top: "50%", left: "40%" }, description: "Main processing unit with 16MB flash" },
-  { id: "battery", name: "Li-Po Battery", position: { top: "55%", left: "70%" }, description: "3.7V 6600mAh rechargeable" },
-  { id: "stem", name: "Stem Housing", position: { top: "65%", left: "50%" }, description: "IP67 weatherproof enclosure" },
-  { id: "legs", name: "Tripod Legs", position: { top: "80%", left: "35%" }, description: "Adjustable ground anchors" },
-  { id: "probe", name: "Soil Probe", position: { top: "90%", left: "55%" }, description: "2m depth sensor array" },
+interface DeviceComponent {
+  id: string
+  name: string
+  icon: LucideIcon
+  position: { top: string; left: string }
+  description: string
+  details: string
+}
+
+const DEVICE_COMPONENTS: DeviceComponent[] = [
+  { 
+    id: "solar", 
+    name: "Solar Panels", 
+    icon: Sun,
+    position: { top: "8%", left: "30%" }, 
+    description: "4x High-efficiency monocrystalline cells",
+    details: "Provides continuous power through high-efficiency monocrystalline solar cells arranged in a 2x2 configuration. Each panel delivers up to 5W peak power, ensuring the device operates independently for months without external power. The panels are positioned at an optimal angle to maximize sun exposure throughout the day."
+  },
+  { 
+    id: "cap", 
+    name: "Cap Housing", 
+    icon: Home,
+    position: { top: "15%", left: "50%" }, 
+    description: "UV-resistant polycarbonate dome",
+    details: "The protective cap housing is constructed from UV-resistant polycarbonate that withstands years of exposure to harsh environmental conditions. It protects internal sensors while allowing light and air to reach the BME688 environmental sensors. The dome shape channels water away from critical components."
+  },
+  { 
+    id: "leds", 
+    name: "Status LEDs", 
+    icon: Flashlight,
+    position: { top: "25%", left: "70%" }, 
+    description: "RGB status indicators (power, network, alert)",
+    details: "RGB status LEDs provide at-a-glance system health information. Green indicates normal operation, blue signals network connectivity, red indicates alerts or warnings, and amber shows charging status. The LEDs are visible from over 50 meters for easy field monitoring."
+  },
+  { 
+    id: "antenna", 
+    name: "LoRa Antenna", 
+    icon: Antenna,
+    position: { top: "30%", left: "25%" }, 
+    description: "Long-range 915MHz mesh network antenna",
+    details: "The 915MHz LoRa antenna enables mesh networking with a range of up to 5km line-of-sight. It operates in the ISM band for license-free operation worldwide. The antenna supports bidirectional communication, allowing the device to both transmit sensor data and receive commands or firmware updates."
+  },
+  { 
+    id: "bme688", 
+    name: "BME688 Sensors", 
+    icon: Thermometer,
+    position: { top: "40%", left: "60%" }, 
+    description: "Dual environmental sensors (AMB + ENV)",
+    details: "Two Bosch BME688 sensors provide comprehensive environmental monitoring. One sensor measures ambient conditions (temperature, humidity, pressure, gas), while the second monitors environmental air quality, detecting VOCs, CO2 equivalents, and pathogen indicators. Combined, they create a complete atmospheric picture."
+  },
+  { 
+    id: "esp32", 
+    name: "ESP32-S3 Brain", 
+    icon: Cpu,
+    position: { top: "50%", left: "40%" }, 
+    description: "Main processing unit with 16MB flash",
+    details: "The ESP32-S3 dual-core processor runs at 240MHz, providing ample computing power for real-time sensor processing, mesh networking protocols, and local data analytics. With 16MB of flash storage and 8MB of PSRAM, it can store weeks of sensor data locally before syncing to the cloud."
+  },
+  { 
+    id: "battery", 
+    name: "Li-Po Battery", 
+    icon: Battery,
+    position: { top: "55%", left: "70%" }, 
+    description: "3.7V 6600mAh rechargeable",
+    details: "The 6600mAh lithium-polymer battery provides up to 6 months of operation on a single charge when combined with solar recharging. The battery management system includes overcharge protection, temperature monitoring, and efficient power delivery to all subsystems. Solar panels continuously top off the battery during daylight hours."
+  },
+  { 
+    id: "stem", 
+    name: "Stem Housing", 
+    icon: CircuitBoard,
+    position: { top: "65%", left: "50%" }, 
+    description: "IP67 weatherproof enclosure",
+    details: "The stem housing is an IP67-rated weatherproof enclosure that protects all internal electronics from moisture, dust, and extreme temperatures. It's constructed from corrosion-resistant materials and sealed with industrial-grade gaskets. The design allows for easy maintenance access while maintaining environmental protection."
+  },
+  { 
+    id: "legs", 
+    name: "Tripod Legs", 
+    icon: Activity,
+    position: { top: "80%", left: "35%" }, 
+    description: "Adjustable ground anchors",
+    details: "Three adjustable legs provide stable mounting on any terrain. Each leg has ground anchors that can penetrate soil, sand, or snow. The tripod design ensures stability in high winds while allowing for easy repositioning. The legs are made from lightweight but durable aluminum alloy."
+  },
+  { 
+    id: "probe", 
+    name: "Soil Probe", 
+    icon: Cable,
+    position: { top: "90%", left: "55%" }, 
+    description: "2m depth sensor array",
+    details: "The 2-meter soil probe contains multiple sensor nodes that measure soil moisture, temperature, pH, and electrical conductivity at various depths. This multi-depth sensing provides a comprehensive profile of soil conditions, enabling detection of mycelial networks and understanding of subsurface environmental dynamics."
+  },
 ]
 
 // Use cases - now with video backgrounds
@@ -149,8 +230,10 @@ export function Mushroom1Details() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(true)
   const [activeUseCase, setActiveUseCase] = useState(0)
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
+  const [selectedComponent, setSelectedComponent] = useState<string>("solar")
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
+  const [isPreOrderModalOpen, setIsPreOrderModalOpen] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const isMobile = useIsMobile()
@@ -223,7 +306,7 @@ export function Mushroom1Details() {
             transition={{ duration: 1, delay: 0.3 }}
           >
             <Badge className="mb-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-sm px-4 py-1">
-              Pre-Order Now - $2,000
+              Environmental drone
             </Badge>
           </motion.div>
           
@@ -244,9 +327,9 @@ export function Mushroom1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            The world&apos;s first ground-based fungal intelligence station.
+            The world&apos;s first real droid.
             <br />
-            <span className="text-emerald-400">Giving nature a voice.</span>
+            <span className="text-emerald-400">Giving nature its own computer.</span>
           </motion.p>
 
           <motion.div 
@@ -255,7 +338,11 @@ export function Mushroom1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-8">
+            <Button 
+              size="lg" 
+              className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-8"
+              onClick={() => setIsPreOrderModalOpen(true)}
+            >
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
             </Button>
@@ -385,6 +472,79 @@ export function Mushroom1Details() {
                 </div>
               </motion.div>
             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sensor Capabilities */}
+      <section className="py-24 bg-gradient-to-b from-black via-slate-950 to-black">
+        <div className="max-w-7xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <Badge className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">Technology</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Advanced <span className="text-cyan-400">Sensor Suite</span>
+            </h2>
+            <p className="text-xl text-white/60 max-w-3xl mx-auto">
+              Military-grade environmental sensors packed into a compact, solar-powered package.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {SENSORS.map((sensor, i) => (
+              <motion.div
+                key={sensor.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Card className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-colors h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-lg bg-cyan-500/10">
+                        <sensor.icon className="h-6 w-6 text-cyan-400" />
+                      </div>
+                      <CardTitle className="text-white">{sensor.name}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {sensor.specs.map((spec, j) => (
+                        <li key={j} className="flex items-center gap-2 text-white/70 text-sm">
+                          <Check className="h-4 w-4 text-cyan-400 flex-shrink-0" />
+                          {spec}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Network Features */}
+          <div className="mt-16 grid md:grid-cols-4 gap-6">
+            {NETWORK_FEATURES.map((feature, i) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="text-center p-6 rounded-xl bg-white/5 border border-white/10"
+              >
+                <div className="inline-flex p-4 rounded-full bg-emerald-500/10 mb-4">
+                  <feature.icon className="h-8 w-8 text-emerald-400" />
+                </div>
+                <h3 className="text-xl font-bold">{feature.title}</h3>
+                <p className="text-white/60 mt-2">{feature.description}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -616,79 +776,6 @@ export function Mushroom1Details() {
         </div>
       </section>
 
-      {/* Sensor Capabilities */}
-      <section className="py-24 bg-gradient-to-b from-black via-slate-950 to-black">
-        <div className="max-w-7xl mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <Badge className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">Technology</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Advanced <span className="text-cyan-400">Sensor Suite</span>
-            </h2>
-            <p className="text-xl text-white/60 max-w-3xl mx-auto">
-              Military-grade environmental sensors packed into a compact, solar-powered package.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SENSORS.map((sensor, i) => (
-              <motion.div
-                key={sensor.name}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <Card className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-colors h-full">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 rounded-lg bg-cyan-500/10">
-                        <sensor.icon className="h-6 w-6 text-cyan-400" />
-                      </div>
-                      <CardTitle className="text-white">{sensor.name}</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {sensor.specs.map((spec, j) => (
-                        <li key={j} className="flex items-center gap-2 text-white/70 text-sm">
-                          <Check className="h-4 w-4 text-cyan-400 flex-shrink-0" />
-                          {spec}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Network Features */}
-          <div className="mt-16 grid md:grid-cols-4 gap-6">
-            {NETWORK_FEATURES.map((feature, i) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center p-6 rounded-xl bg-white/5 border border-white/10"
-              >
-                <div className="inline-flex p-4 rounded-full bg-emerald-500/10 mb-4">
-                  <feature.icon className="h-8 w-8 text-emerald-400" />
-                </div>
-                <h3 className="text-xl font-bold">{feature.title}</h3>
-                <p className="text-white/60 mt-2">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Blueprint Section - Placeholder for Interactive 2D Diagram */}
       <section className="py-24 bg-black">
         <div className="max-w-7xl mx-auto px-4">
@@ -707,94 +794,211 @@ export function Mushroom1Details() {
             </p>
           </motion.div>
 
-          <div className="relative max-w-3xl mx-auto">
-            {/* Blueprint container */}
-            <div className="relative aspect-[3/4] bg-slate-950 rounded-2xl border border-amber-500/20 overflow-hidden">
-              {/* Grid pattern */}
-              <div className="absolute inset-0 opacity-20" style={{
-                backgroundImage: `
-                  linear-gradient(rgba(251,191,36,0.3) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(251,191,36,0.3) 1px, transparent 1px)
-                `,
-                backgroundSize: '40px 40px'
-              }} />
-              
-              {/* Device outline */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative w-full max-w-md">
-                  <Image
-                    src={MUSHROOM1_ASSETS.mainImage}
-                    alt="Mushroom 1 Blueprint"
-                    width={400}
-                    height={600}
-                    className="opacity-30 filter grayscale"
-                  />
-                  
-                  {/* Interactive component markers */}
-                  {DEVICE_COMPONENTS.map((component) => (
-                    <motion.div
-                      key={component.id}
-                      className="absolute"
-                      style={{ top: component.position.top, left: component.position.left }}
-                      onMouseEnter={() => setHoveredComponent(component.id)}
-                      onMouseLeave={() => setHoveredComponent(null)}
-                    >
-                      <motion.div
-                        className={`w-4 h-4 rounded-full cursor-pointer ${
-                          hoveredComponent === component.id ? 'bg-amber-400' : 'bg-amber-500/50'
-                        }`}
-                        animate={{
-                          scale: hoveredComponent === component.id ? 1.5 : [1, 1.2, 1],
-                          boxShadow: hoveredComponent === component.id 
-                            ? '0 0 20px rgba(251,191,36,0.8)' 
-                            : '0 0 10px rgba(251,191,36,0.3)'
-                        }}
-                        transition={{ duration: 0.3 }}
-                      />
-                      
-                      {/* Tooltip */}
-                      <AnimatePresence>
-                        {hoveredComponent === component.id && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                            className="absolute z-10 left-6 top-0 bg-slate-900 border border-amber-500/30 rounded-lg p-3 w-64"
-                          >
-                            <h4 className="font-semibold text-amber-400">{component.name}</h4>
-                            <p className="text-sm text-white/70 mt-1">{component.description}</p>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Animated signal lines placeholder */}
-              <div className="absolute bottom-8 left-8 right-8 text-center">
-                <p className="text-amber-400/60 text-sm">
-                  Interactive 2D wire diagram with live signal processing coming soon
-                </p>
-              </div>
+          {/* Control Device Layout - Industrial Control Panel Aesthetic */}
+          <div className="relative bg-slate-900/50 rounded-3xl border-2 border-amber-500/30 p-6 shadow-2xl shadow-amber-500/5">
+            {/* Control Panel Frame */}
+            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
             </div>
 
-            {/* Component legend */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
-              {DEVICE_COMPONENTS.slice(0, 5).map((component) => (
-                <div 
+            <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
+              {/* LEFT SIDE: Controller Panel + Description */}
+              <div className="lg:w-80 flex flex-col gap-4">
+                {/* Controller Panel - Component Selectors */}
+                <div className="bg-slate-950 rounded-2xl border border-amber-500/40 p-4 shadow-inner">
+                  {/* Panel Header */}
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-500/20">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs font-mono text-amber-400/70 uppercase tracking-wider">Component Selector</span>
+                  </div>
+                  
+                  {/* Component Buttons Grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {DEVICE_COMPONENTS.map((component) => {
+                      const IconComponent = component.icon
+                      const isSelected = selectedComponent === component.id
+                      const isHovered = hoveredComponent === component.id
+                      return (
+                        <motion.button
                   key={component.id}
-                  className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                    hoveredComponent === component.id 
-                      ? 'bg-amber-500/20 border-amber-500/50' 
-                      : 'bg-white/5 border-white/10 hover:border-amber-500/30'
-                  }`}
+                          onClick={() => setSelectedComponent(component.id)}
                   onMouseEnter={() => setHoveredComponent(component.id)}
                   onMouseLeave={() => setHoveredComponent(null)}
-                >
-                  <div className="text-xs text-amber-400 font-medium">{component.name}</div>
+                          className={`p-3 rounded-xl border-2 transition-all text-left ${
+                            isSelected 
+                              ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/30' 
+                              : isHovered
+                                ? 'bg-amber-500/10 border-amber-500/50'
+                                : 'bg-slate-900/50 border-slate-700 hover:border-amber-500/40'
+                  }`}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-amber-500/30' : 'bg-slate-800'}`}>
+                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-amber-400' : 'text-white/50'}`} />
+                    </div>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-amber-400' : 'text-white/70'}`}>
+                              {component.name}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <motion.div 
+                              layoutId="selector-indicator"
+                              className="mt-2 h-0.5 bg-gradient-to-r from-amber-400 to-amber-600 rounded-full"
+                            />
+                          )}
+                        </motion.button>
+                      )
+                    })}
+                  </div>
                 </div>
+
+                {/* Description Widget - Below Controller */}
+                <div className="bg-slate-950 rounded-2xl border border-amber-500/40 p-4 shadow-inner flex-1">
+                  {/* Panel Header */}
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-500/20">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-xs font-mono text-amber-400/70 uppercase tracking-wider">Component Details</span>
+                  </div>
+                  
+                  <AnimatePresence mode="wait">
+                    {DEVICE_COMPONENTS.filter(c => c.id === selectedComponent).map((component) => (
+                      <motion.div
+                        key={component.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/30">
+                            <component.icon className="h-6 w-6 text-amber-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-amber-400">{component.name}</h3>
+                            <p className="text-xs text-white/50 font-mono">{component.description}</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-white/80 leading-relaxed">{component.details}</p>
+                </motion.div>
               ))}
+                  </AnimatePresence>
+                </div>
+            </div>
+
+              {/* RIGHT SIDE: Tall Vertical Blueprint */}
+              <div className="flex-1 min-w-0 flex">
+                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-amber-500/40 overflow-hidden shadow-inner">
+                {/* Grid pattern */}
+                  <div className="absolute inset-0 opacity-15" style={{
+                  backgroundImage: `
+                      linear-gradient(rgba(251,191,36,0.4) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(251,191,36,0.4) 1px, transparent 1px)
+                  `,
+                    backgroundSize: '30px 30px'
+                }} />
+                
+                  {/* Panel Header */}
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span className="text-xs font-mono text-cyan-400/70 uppercase tracking-wider">Interactive Blueprint</span>
+                      <div className="flex-1" />
+                      <span className="text-xs font-mono text-white/30">MUSHROOM-1 // REV 2.0</span>
+                    </div>
+                  </div>
+                  
+                  {/* Device Blueprint - Vertical orientation */}
+                  <div className="absolute inset-0 flex items-center justify-center pt-10">
+                    <div className="relative h-[90%] aspect-[3/5] max-w-full">
+                    <Image
+                      src={MUSHROOM1_ASSETS.mainImage}
+                      alt="Mushroom 1 Blueprint"
+                        fill
+                        className="opacity-40 filter grayscale object-contain"
+                    />
+                    
+                    {/* Interactive component markers */}
+                      {DEVICE_COMPONENTS.map((component) => {
+                        const isSelected = selectedComponent === component.id
+                        const isHovered = hoveredComponent === component.id
+                        const isActive = isSelected || isHovered
+                        
+                        return (
+                      <motion.div
+                        key={component.id}
+                            className="absolute cursor-pointer z-20"
+                        style={{ top: component.position.top, left: component.position.left }}
+                            onClick={() => setSelectedComponent(component.id)}
+                        onMouseEnter={() => setHoveredComponent(component.id)}
+                        onMouseLeave={() => setHoveredComponent(null)}
+                      >
+                            {/* Connection line */}
+                            {isSelected && (
+                        <motion.div
+                                initial={{ opacity: 0, scaleX: 0 }}
+                                animate={{ opacity: 1, scaleX: 1 }}
+                                className="absolute top-1/2 right-full -translate-y-1/2 w-16 h-px origin-right"
+                                style={{ marginRight: '12px' }}
+                              >
+                                <div className="w-full h-full border-t-2 border-dashed border-amber-400" />
+                              </motion.div>
+                            )}
+                            
+                            {/* Marker */}
+                            <motion.div
+                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                isActive 
+                                  ? 'bg-amber-400 border-white shadow-lg shadow-amber-400/50' 
+                                  : 'bg-amber-500/40 border-amber-500/50'
+                          }`}
+                          animate={{
+                                scale: isActive ? 1.3 : 1,
+                          }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              {isActive && (
+                                <motion.div 
+                                  className="w-2 h-2 rounded-full bg-white"
+                                  animate={{ scale: [1, 0.8, 1] }}
+                                  transition={{ duration: 1, repeat: Infinity }}
+                        />
+                              )}
+                      </motion.div>
+                            
+                            {/* Label on hover */}
+                            <AnimatePresence>
+                              {isHovered && (
+                                <motion.div
+                                  initial={{ opacity: 0, x: 10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, x: 10 }}
+                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-amber-500/30 z-30"
+                                >
+                                  <span className="text-sm font-medium text-amber-400 whitespace-nowrap">{component.name}</span>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Bottom status bar */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
+                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
+                      <span>COMPONENT: <span className="text-amber-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        SYSTEM READY
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -919,11 +1123,25 @@ export function Mushroom1Details() {
           </div>
 
           <div className="mt-8 flex justify-center gap-4">
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10">
+            <Button 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10"
+              onClick={() => {
+                // TODO: Download full specifications PDF
+                alert("Full specifications document will be available soon.")
+              }}
+            >
               <Download className="mr-2 h-5 w-5" />
               Download Full Specifications
             </Button>
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10">
+            <Button 
+              variant="outline" 
+              className="border-white/20 text-white hover:bg-white/10"
+              onClick={() => {
+                // TODO: Open 3D CAD viewer
+                alert("3D CAD model viewer will be available soon. CAD files pending upload.")
+              }}
+            >
               <ExternalLink className="mr-2 h-5 w-5" />
               View CAD Models
             </Button>
@@ -972,7 +1190,7 @@ export function Mushroom1Details() {
               </Button>
             </div>
             <p className="text-white/50 mt-6 text-sm">
-              Expected shipping Q2 2026 • 30-day money-back guarantee • Free worldwide shipping
+              Expected deployment mid-to-end 2026 • 30-day money-back guarantee • Free worldwide shipping
             </p>
           </motion.div>
         </div>
@@ -1018,6 +1236,12 @@ export function Mushroom1Details() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Pre-Order Modal */}
+      <PreOrderModal 
+        isOpen={isPreOrderModalOpen} 
+        onClose={() => setIsPreOrderModalOpen(false)} 
+      />
     </div>
   )
 }
