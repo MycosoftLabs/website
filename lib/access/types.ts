@@ -9,6 +9,7 @@ export enum UserRole {
   USER = 'user',
   PREMIUM = 'premium',
   ADMIN = 'admin',
+  SECURITY_ADMIN = 'security_admin',  // Security compliance access without super admin privileges
   SUPER_ADMIN = 'super_admin'
 }
 
@@ -121,11 +122,13 @@ export const SUBSCRIPTION_PRICING: Record<SubscriptionTier, number> = {
 }
 
 // Role hierarchy (higher index = more access)
+// Note: SECURITY_ADMIN has same level as ADMIN but with different permissions
 export const ROLE_HIERARCHY: UserRole[] = [
   UserRole.ANONYMOUS,
   UserRole.USER,
   UserRole.PREMIUM,
   UserRole.ADMIN,
+  UserRole.SECURITY_ADMIN,  // Same level as ADMIN, different scope
   UserRole.SUPER_ADMIN
 ]
 

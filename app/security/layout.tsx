@@ -5,18 +5,19 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { 
   Shield, Network, AlertTriangle, Skull, FileText, 
-  ArrowLeft, Home, Settings, Lock
+  ArrowLeft, Home, Settings, Lock, HelpCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { SecurityTourProvider } from "@/components/security/tour"
 
 const securityNavItems = [
-  { href: "/security", label: "SOC Dashboard", icon: Shield },
-  { href: "/security/network", label: "Network Monitor", icon: Network },
-  { href: "/security/incidents", label: "Incidents", icon: AlertTriangle },
-  { href: "/security/redteam", label: "Red Team", icon: Skull },
-  { href: "/security/compliance", label: "Compliance", icon: FileText },
+  { href: "/security", label: "SOC Dashboard", icon: Shield, tourId: "nav-soc" },
+  { href: "/security/network", label: "Network Monitor", icon: Network, tourId: "nav-network" },
+  { href: "/security/incidents", label: "Incidents", icon: AlertTriangle, tourId: "nav-incidents" },
+  { href: "/security/redteam", label: "Red Team", icon: Skull, tourId: "nav-redteam" },
+  { href: "/security/compliance", label: "Compliance", icon: FileText, tourId: "nav-compliance" },
 ]
 
 export default function SecurityLayout({
@@ -28,9 +29,10 @@ export default function SecurityLayout({
   const { user } = useAuth()
 
   return (
+    <SecurityTourProvider>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Security Header */}
-      <header className="sticky top-0 z-50 bg-slate-900/95 border-b border-slate-700 backdrop-blur">
+      <header className="sticky top-0 z-50 bg-slate-900/95 border-b border-slate-700 backdrop-blur" data-tour="soc-header">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             {/* Left: Back + Logo */}
@@ -60,6 +62,7 @@ export default function SecurityLayout({
                     size="sm"
                     asChild
                     className={isActive ? "bg-emerald-600/20 text-emerald-400" : "text-slate-400 hover:text-white"}
+                    data-tour={item.tourId}
                   >
                     <Link href={item.href}>
                       <Icon className="h-4 w-4 mr-1" />
@@ -140,5 +143,6 @@ export default function SecurityLayout({
         </div>
       </footer>
     </div>
+    </SecurityTourProvider>
   )
 }

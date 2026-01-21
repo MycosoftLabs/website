@@ -362,11 +362,11 @@ export default function FCLTrackingPage() {
   };
   
   const tabs = [
-    { id: 'overview', label: 'Overview', iconName: 'shield' },
-    { id: 'applications', label: 'Applications', iconName: 'filetext' },
-    { id: 'personnel', label: 'Key Personnel', iconName: 'users' },
-    { id: 'training', label: 'Training', iconName: 'graduationcap' },
-    { id: 'forms', label: 'Required Forms', iconName: 'filecheck' },
+    { id: 'overview', label: 'Overview', iconName: 'shield', tourId: 'fcl-tab-overview' },
+    { id: 'applications', label: 'Applications', iconName: 'filetext', tourId: 'fcl-tab-applications' },
+    { id: 'personnel', label: 'Key Personnel', iconName: 'users', tourId: 'fcl-tab-personnel' },
+    { id: 'training', label: 'Training', iconName: 'graduationcap', tourId: 'fcl-tab-training' },
+    { id: 'forms', label: 'Required Forms', iconName: 'filecheck', tourId: 'fcl-tab-forms' },
   ];
   
   if (loading) {
@@ -406,11 +406,12 @@ export default function FCLTrackingPage() {
           </div>
           
           {/* Tabs */}
-          <div className="flex gap-1">
+          <div className="flex gap-1" data-tour="fcl-tabs">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                data-tour={tab.tourId}
                 className={`px-4 py-2 rounded-t-lg flex items-center gap-2 transition-colors ${
                   activeTab === tab.id
                     ? 'bg-slate-800 text-cyan-400 border-t border-l border-r border-slate-700'
@@ -428,7 +429,7 @@ export default function FCLTrackingPage() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-tour="fcl-overview">
             {/* Status Cards */}
             <div className="grid grid-cols-4 gap-4">
               <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
@@ -633,7 +634,7 @@ export default function FCLTrackingPage() {
         
         {/* Personnel Tab */}
         {activeTab === 'personnel' && (
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="fcl-personnel">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Key Management Personnel (KMP)</h2>
               <Dialog open={addPersonnelOpen} onOpenChange={setAddPersonnelOpen}>
@@ -829,7 +830,7 @@ export default function FCLTrackingPage() {
         
         {/* Training Tab */}
         {activeTab === 'training' && (
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="fcl-training">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Security Training Records (CDSE)</h2>
               <a

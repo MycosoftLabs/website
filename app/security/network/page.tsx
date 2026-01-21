@@ -5,8 +5,10 @@ import {
   Wifi, Server, Monitor, Globe, Shield, Activity, 
   AlertTriangle, Zap, Users, Router, Signal, 
   ArrowUp, ArrowDown, Clock, RefreshCw, Search,
-  ChevronRight, Lock, Unlock, XCircle, CheckCircle
+  ChevronRight, Lock, Unlock, XCircle, CheckCircle,
+  HelpCircle
 } from "lucide-react";
+import { SecurityTour, networkMonitorTour, TourTriggerButton } from "@/components/security/tour";
 
 // ===== Types =====
 
@@ -201,8 +203,11 @@ export default function NetworkSecurityPage() {
 
   return (
     <div className="p-4 md:p-6">
+      {/* Tour for Network Monitor */}
+      <SecurityTour tourId="network-monitor" steps={networkMonitorTour} />
+      
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6" data-tour="network-header">
         <div className="flex items-center gap-3">
           <Router className="text-cyan-400" size={32} />
           <div>
@@ -211,6 +216,7 @@ export default function NetworkSecurityPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <TourTriggerButton tourId="network-monitor" />
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={`px-3 py-2 rounded-lg font-mono text-sm flex items-center gap-2 transition-colors ${
@@ -237,17 +243,18 @@ export default function NetworkSecurityPage() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6" data-tour="network-tabs">
         {[
-          { id: "overview", label: "Overview", icon: Monitor },
-          { id: "devices", label: "Devices", icon: Server },
-          { id: "clients", label: "Clients", icon: Users },
-          { id: "traffic", label: "Traffic", icon: Activity },
-          { id: "topology", label: "Topology", icon: Globe },
-        ].map(({ id, label, icon: Icon }) => (
+          { id: "overview", label: "Overview", icon: Monitor, tourId: "network-tab-overview" },
+          { id: "devices", label: "Devices", icon: Server, tourId: "network-tab-devices" },
+          { id: "clients", label: "Clients", icon: Users, tourId: "network-tab-clients" },
+          { id: "traffic", label: "Traffic", icon: Activity, tourId: "network-tab-traffic" },
+          { id: "topology", label: "Topology", icon: Globe, tourId: "network-tab-topology" },
+        ].map(({ id, label, icon: Icon, tourId }) => (
           <button
             key={id}
             onClick={() => setSelectedView(id as any)}
+            data-tour={tourId}
             className={`px-4 py-2 rounded-lg font-mono text-sm flex items-center gap-2 transition-colors ${
               selectedView === id
                 ? "bg-cyan-600 text-white"
@@ -508,12 +515,16 @@ export default function NetworkSecurityPage() {
 
       {/* Devices View */}
       {selectedView === "devices" && data && (
-        <DevicesView devices={data.devices.list} formatUptime={formatUptime} />
+        <div data-tour="device-list">
+          <DevicesView devices={data.devices.list} formatUptime={formatUptime} />
+        </div>
       )}
 
       {/* Clients View */}
       {selectedView === "clients" && data && (
-        <ClientsView clients={data.clients} formatBytes={formatBytes} />
+        <div data-tour="clients-list">
+          <ClientsView clients={data.clients} formatBytes={formatBytes} />
+        </div>
       )}
 
       {/* Traffic View */}
@@ -523,7 +534,9 @@ export default function NetworkSecurityPage() {
 
       {/* Topology View */}
       {selectedView === "topology" && (
-        <TopologyView />
+        <div data-tour="topology-view">
+          <TopologyView />
+        </div>
       )}
 
       {/* Last Update Info */}

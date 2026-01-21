@@ -9,7 +9,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Globe, Router, Server, Wifi, Monitor, Users, RefreshCw, Target, Shield, AlertTriangle, Crosshair, Lock, Unlock, Zap, Database, Cloud, Eye, ChevronRight, X } from 'lucide-react';
+import { Globe, Router, Server, Wifi, Monitor, Users, RefreshCw, Target, Shield, AlertTriangle, Crosshair, Lock, Unlock, Zap, Database, Cloud, Eye, ChevronRight, X, HelpCircle } from 'lucide-react';
+import { SecurityTour, redTeamTour, TourTriggerButton } from '@/components/security/tour';
 
 interface Host {
   ip: string;
@@ -520,8 +521,11 @@ export default function RedTeamDashboard() {
 
   return (
     <div className="bg-gradient-to-br from-slate-950 via-red-950/20 to-slate-950 text-white p-6">
+      {/* Tour for Red Team page */}
+      <SecurityTour tourId="red-team" steps={redTeamTour} />
+      
       {/* Page Header */}
-      <header className="mb-6">
+      <header className="mb-6" data-tour="redteam-header">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/security" className="text-slate-400 hover:text-white transition">
@@ -534,6 +538,7 @@ export default function RedTeamDashboard() {
                   Red Team Operations
                 </h1>
               </div>
+              <TourTriggerButton tourId="red-team" />
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2 py-1 bg-red-900/50 border border-red-700 rounded text-red-300">

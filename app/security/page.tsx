@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, Shield, Activity, Globe, Users, Eye, Lock, Server, RefreshCw, Search, Network, ArrowRight } from "lucide-react";
+import { AlertTriangle, Shield, Activity, Globe, Users, Eye, Lock, Server, RefreshCw, Search, Network, ArrowRight, HelpCircle } from "lucide-react";
+import { SecurityTour, WelcomeModal, useSecurityTour, socDashboardTour, TourTriggerButton } from "@/components/security/tour";
 
 interface SecurityStatus {
   status: string;
@@ -148,9 +149,15 @@ export default function SecurityPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      {/* Welcome Modal for first-time users */}
+      <WelcomeModal />
+      
+      {/* Tour for SOC Dashboard */}
+      <SecurityTour tourId="soc-dashboard" steps={socDashboardTour} />
+      
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8" data-tour="soc-header">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -160,9 +167,13 @@ export default function SecurityPage() {
             <p className="text-slate-400 font-mono text-sm">Mycosoft Network Security Monitoring | 24/7 Active Protection</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Staff Tour Button */}
+            <TourTriggerButton tourId="soc-dashboard" />
+            
             <Link 
               href="/security/compliance"
               className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white font-mono text-sm rounded-lg transition-colors"
+              data-tour="nav-compliance"
             >
               <Lock size={16} />
               Compliance
@@ -170,6 +181,7 @@ export default function SecurityPage() {
             <Link 
               href="/security/incidents"
               className="flex items-center gap-2 px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white font-mono text-sm rounded-lg transition-colors"
+              data-tour="nav-incidents"
             >
               <AlertTriangle size={16} />
               Incidents
@@ -177,12 +189,14 @@ export default function SecurityPage() {
             <Link 
               href="/security/redteam"
               className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-mono text-sm rounded-lg transition-colors"
+              data-tour="nav-redteam"
             >
               🔴 Red Team
             </Link>
             <Link 
               href="/security/network"
               className="flex items-center gap-2 px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-sm rounded-lg transition-colors"
+              data-tour="nav-network"
             >
               <Network size={18} />
               Network
@@ -199,9 +213,9 @@ export default function SecurityPage() {
       )}
 
       {/* Status Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" data-tour="metrics-panel">
         {/* Threat Level */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6" data-tour="threat-status">
           <div className="flex items-center justify-between mb-4">
             <span className="text-slate-400 font-mono text-sm">Threat Level</span>
             <AlertTriangle className={`${getThreatColor(status?.threat_level || "low").split(" ")[0]}`} size={20} />

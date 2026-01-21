@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSupabaseUser } from '@/hooks/use-supabase-user';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { 
   FileText, 
   Shield, 
@@ -23,7 +23,11 @@ import {
   Lock,
   FileWarning,
   Sparkles,
+  Loader2,
+  X,
+  HelpCircle,
 } from 'lucide-react';
+import { SecurityTour, useSecurityTour, formsTour, TourTriggerButton } from '@/components/security/tour';
 
 // ═══════════════════════════════════════════════════════════════
 // FORM TYPES
@@ -245,9 +249,16 @@ const CATEGORIES: { id: FormCategory; label: string; icon: React.ReactNode }[] =
 
 export default function ComplianceFormsPage() {
   const { user, loading } = useSupabaseUser();
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<FormCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [generatingForm, setGeneratingForm] = useState<string | null>(null);
+  const [downloadingForm, setDownloadingForm] = useState<string | null>(null);
+  const [viewingDocument, setViewingDocument] = useState<{ content: string; title: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [generatingAllSSPs, setGeneratingAllSSPs] = useState(false);
+  const [exportingAll, setExportingAll] = useState(false);
+  const [submittingToExostar, setSubmittingToExostar] = useState(false);
   
   if (loading) {
     return (
@@ -258,7 +269,8 @@ export default function ComplianceFormsPage() {
   }
   
   if (!user) {
-    redirect('/login?redirect=/security/forms');
+    router.push('/login?redirect=/security/forms');
+    return null;
   }
   
   const filteredForms = COMPLIANCE_FORMS.filter(form => {
@@ -289,12 +301,204 @@ export default function ComplianceFormsPage() {
     }
   };
   
+  // Map form ID to framework and document type
+  const getFormParams = (formId: string): { framework: string; documentType: 'ssp' | 'poam' } => {
+    const form = COMPLIANCE_FORMS.find(f => f.id === formId);
+    const documentType = formId.includes('poam') ? 'poam' : 'ssp';
+    let framework = form?.framework || 'NIST-800-171';
+    
+    // Normalize framework names
+    if (framework === 'CMMC') framework = 'CMMC-L2';
+    if (framework === 'FedRAMP-High') framework = 'FEDRAMP-HIGH';
+    if (framework === 'All') framework = 'NIST-800-171';
+    
+    return { framework, documentType };
+  };
+
+  // Generate document
   const handleGenerate = async (formId: string) => {
     setGeneratingForm(formId);
-    // Simulate generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setGeneratingForm(null);
-    // In production, this would call the SSP/POA&M generators
+    setMessage(null);
+    
+    try {
+      const { framework, documentType } = getFormParams(formId);
+      
+      const res = await fetch('/api/security/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate',
+          documentType,
+          framework,
+          systemName: 'Mycosoft Security System',
+          format: 'html'
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: `Generated ${data.document.title}` });
+        // Open the document for viewing
+        setViewingDocument({ content: data.content, title: data.document.title });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to generate document' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error during generation' });
+    } finally {
+      setGeneratingForm(null);
+    }
+  };
+
+  // Download document
+  const handleDownload = async (formId: string) => {
+    setDownloadingForm(formId);
+    setMessage(null);
+    
+    try {
+      const { framework, documentType } = getFormParams(formId);
+      const form = COMPLIANCE_FORMS.find(f => f.id === formId);
+      
+      const res = await fetch(
+        `/api/security/documents?action=download&framework=${framework}&type=${documentType}&systemName=Mycosoft+System&format=html`
+      );
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${form?.name || documentType}_${framework}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setMessage({ type: 'success', text: 'Document downloaded successfully!' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to download document' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error during download' });
+    } finally {
+      setDownloadingForm(null);
+    }
+  };
+
+  // View document
+  const handleView = async (formId: string) => {
+    setMessage(null);
+    
+    try {
+      const { framework, documentType } = getFormParams(formId);
+      
+      const res = await fetch(
+        `/api/security/documents?action=view&framework=${framework}&type=${documentType}&systemName=Mycosoft+System&format=html`
+      );
+      
+      if (res.ok) {
+        const data = await res.json();
+        const form = COMPLIANCE_FORMS.find(f => f.id === formId);
+        setViewingDocument({ content: data.content, title: form?.name || 'Document' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to load document' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error loading document' });
+    }
+  };
+
+  // Generate all SSPs
+  const handleGenerateAllSSPs = async () => {
+    setGeneratingAllSSPs(true);
+    setMessage(null);
+    
+    try {
+      const frameworks = ['NIST-800-171', 'CMMC-L2', 'NIST-800-53', 'ICD-503', 'FEDRAMP-HIGH'];
+      
+      const res = await fetch('/api/security/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate-all-ssps',
+          systemName: 'Mycosoft Security System',
+          frameworks
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: `Generated ${data.generated} SSPs successfully!` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to generate SSPs' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error during generation' });
+    } finally {
+      setGeneratingAllSSPs(false);
+    }
+  };
+
+  // Export all documents
+  const handleExportAll = async () => {
+    setExportingAll(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch('/api/security/documents?action=export-all');
+      
+      if (res.ok) {
+        const data = await res.json();
+        // Create a summary JSON file
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `compliance_documents_export_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setMessage({ type: 'success', text: `Exported ${data.summary.total} documents` });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to export documents' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error during export' });
+    } finally {
+      setExportingAll(false);
+    }
+  };
+
+  // Submit to Exostar
+  const handleSubmitToExostar = async () => {
+    setSubmittingToExostar(true);
+    setMessage(null);
+    
+    try {
+      const res = await fetch('/api/security/exostar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit',
+          framework: 'CMMC-L2',
+          controls: []
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: `Submitted to Exostar! Reference ID: ${data.referenceId}` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Exostar not configured. Please configure credentials first.' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Network error during submission' });
+    } finally {
+      setSubmittingToExostar(false);
+    }
   };
   
   const stats = {
@@ -306,8 +510,84 @@ export default function ComplianceFormsPage() {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      {/* Tour for Forms page */}
+      <SecurityTour tourId="forms" steps={formsTour} />
+      
+      {/* Status Message Toast */}
+      {message && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 ${
+          message.type === 'success' 
+            ? 'bg-emerald-600 text-white' 
+            : 'bg-red-600 text-white'
+        }`}>
+          {message.type === 'success' ? (
+            <CheckCircle className="w-5 h-5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5" />
+          )}
+          <span>{message.text}</span>
+          <button onClick={() => setMessage(null)} className="ml-2 hover:opacity-80">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Document Viewer Modal */}
+      {viewingDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-5xl h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-100 border-b">
+              <h3 className="text-lg font-semibold text-slate-800">{viewingDocument.title}</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const blob = new Blob([viewingDocument.content], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${viewingDocument.title.replace(/\s+/g, '_')}.html`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm rounded-lg flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download
+                </button>
+                <button
+                  onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                      printWindow.document.write(viewingDocument.content);
+                      printWindow.document.close();
+                      printWindow.print();
+                    }
+                  }}
+                  className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white text-sm rounded-lg"
+                >
+                  Print
+                </button>
+                <button
+                  onClick={() => setViewingDocument(null)}
+                  className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <iframe
+                srcDoc={viewingDocument.content}
+                className="w-full h-full border-0"
+                title={viewingDocument.title}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10" data-tour="forms-header">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -319,14 +599,17 @@ export default function ComplianceFormsPage() {
                 Generate, manage, and submit compliance documentation
               </p>
             </div>
-            <button className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg flex items-center gap-2 transition-colors">
-              <Plus className="w-4 h-4" />
-              New Document
-            </button>
+            <div className="flex items-center gap-3">
+              <TourTriggerButton tourId="forms" />
+              <button className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg flex items-center gap-2 transition-colors">
+                <Plus className="w-4 h-4" />
+                New Document
+              </button>
+            </div>
           </div>
           
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-4 gap-4 mt-6" data-tour="form-stats">
             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
               <div className="text-3xl font-bold text-white">{stats.total}</div>
               <div className="text-sm text-slate-400">Total Forms</div>
@@ -355,7 +638,7 @@ export default function ComplianceFormsPage() {
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
                 Categories
               </h3>
-              <nav className="space-y-1">
+              <nav className="space-y-1" data-tour="category-filter">
                 {CATEGORIES.map(category => (
                   <button
                     key={category.id}
@@ -378,22 +661,49 @@ export default function ComplianceFormsPage() {
               </nav>
               
               {/* Quick Actions */}
-              <div className="mt-8">
+              <div className="mt-8" data-tour="quick-actions">
                 <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
                   Quick Actions
                 </h3>
                 <div className="space-y-2">
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    Generate All SSPs
+                  <button 
+                    onClick={handleGenerateAllSSPs}
+                    disabled={generatingAllSSPs}
+                    data-tour="generate-all-ssps"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    {generatingAllSSPs ? (
+                      <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                    )}
+                    {generatingAllSSPs ? 'Generating...' : 'Generate All SSPs'}
                   </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors">
-                    <Download className="w-4 h-4 text-blue-400" />
-                    Export All Documents
+                  <button 
+                    onClick={handleExportAll}
+                    disabled={exportingAll}
+                    data-tour="export-all"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    {exportingAll ? (
+                      <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 text-blue-400" />
+                    )}
+                    {exportingAll ? 'Exporting...' : 'Export All Documents'}
                   </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors">
-                    <FileCheck className="w-4 h-4 text-emerald-400" />
-                    Submit to Exostar
+                  <button 
+                    onClick={handleSubmitToExostar}
+                    disabled={submittingToExostar}
+                    data-tour="submit-exostar"
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-slate-300 hover:bg-slate-800 border border-slate-700 transition-colors disabled:opacity-50"
+                  >
+                    {submittingToExostar ? (
+                      <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                    ) : (
+                      <FileCheck className="w-4 h-4 text-emerald-400" />
+                    )}
+                    {submittingToExostar ? 'Submitting...' : 'Submit to Exostar'}
                   </button>
                 </div>
               </div>
@@ -427,9 +737,10 @@ export default function ComplianceFormsPage() {
                   <p>No forms found matching your criteria</p>
                 </div>
               ) : (
-                filteredForms.map(form => (
+                filteredForms.map((form, idx) => (
                   <div
                     key={form.id}
+                    data-tour={idx === 0 ? "form-card" : undefined}
                     className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-slate-600 transition-colors group"
                   >
                     <div className="flex items-start gap-4">
@@ -471,13 +782,26 @@ export default function ComplianceFormsPage() {
                       {/* Actions */}
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         {form.actions.includes('view') && (
-                          <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="View">
+                          <button 
+                            onClick={() => handleView(form.id)}
+                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" 
+                            title="View"
+                          >
                             <Eye className="w-5 h-5" />
                           </button>
                         )}
                         {form.actions.includes('download') && (
-                          <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Download">
-                            <Download className="w-5 h-5" />
+                          <button 
+                            onClick={() => handleDownload(form.id)}
+                            disabled={downloadingForm === form.id}
+                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50" 
+                            title="Download"
+                          >
+                            {downloadingForm === form.id ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Download className="w-5 h-5" />
+                            )}
                           </button>
                         )}
                         {form.actions.includes('generate') && (
@@ -488,7 +812,7 @@ export default function ComplianceFormsPage() {
                           >
                             {generatingForm === form.id ? (
                               <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                <Loader2 className="w-4 h-4 animate-spin" />
                                 Generating...
                               </>
                             ) : (

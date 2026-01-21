@@ -23,6 +23,11 @@ const SUPER_ADMIN_EMAILS = [
   'admin@mycosoft.org'
 ]
 
+// Security admin emails - have access to compliance/security tools but not super admin privileges
+const SECURITY_ADMIN_EMAILS = [
+  'garret@mycosoft.org'
+]
+
 // Get user session with access info
 export async function getUserAccessSession(): Promise<UserAccessSession | null> {
   try {
@@ -46,6 +51,8 @@ export async function getUserAccessSession(): Promise<UserAccessSession | null> 
     
     if (SUPER_ADMIN_EMAILS.includes(email)) {
       role = UserRole.SUPER_ADMIN
+    } else if (SECURITY_ADMIN_EMAILS.includes(email) || profile?.role === 'security_admin') {
+      role = UserRole.SECURITY_ADMIN
     } else if (profile?.role === 'admin') {
       role = UserRole.ADMIN
     } else if (profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'enterprise') {

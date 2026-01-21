@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { SecurityTour, incidentsTour, TourTriggerButton } from '@/components/security/tour';
 
 interface Incident {
   id: string;
@@ -248,6 +249,9 @@ export default function IncidentManagementPage() {
 
   return (
     <div className="text-white p-6">
+      {/* Tour for Incidents page */}
+      <SecurityTour tourId="incidents" steps={incidentsTour} />
+      
       {/* Error Banner */}
       {error && (
         <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
@@ -263,7 +267,7 @@ export default function IncidentManagementPage() {
       )}
 
       {/* Page Header */}
-      <header className="mb-6">
+      <header className="mb-6" data-tour="incidents-header">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
@@ -271,6 +275,7 @@ export default function IncidentManagementPage() {
               </h1>
               <DatabaseBadge connected={dbConnected} />
               <span className="text-xs text-slate-500 font-mono">{incidents.length} incidents</span>
+              <TourTriggerButton tourId="incidents" />
             </div>
             <button 
               onClick={async () => {

@@ -16,8 +16,9 @@ import {
   Download, FileText, FileSpreadsheet, Loader2, 
   Shield, Lock, Building2, Link2, CheckCircle2, 
   AlertTriangle, XCircle, ChevronRight, ExternalLink,
-  Settings, RefreshCw
+  Settings, RefreshCw, HelpCircle
 } from 'lucide-react';
+import { SecurityTour, useSecurityTour, complianceTour, TourTriggerButton } from '@/components/security/tour';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -493,6 +494,18 @@ export default function CompliancePage() {
   // Exostar state
   const [exostarEnabled, setExostarEnabled] = useState(false);
   const [exostarSyncing, setExostarSyncing] = useState(false);
+  const [exostarOrgId, setExostarOrgId] = useState('');
+  const [exostarApiKey, setExostarApiKey] = useState('');
+  const [exostarStatus, setExostarStatus] = useState<string>('disconnected');
+  const [exostarLastSync, setExostarLastSync] = useState<string | null>(null);
+  const [exostarAssessments, setExostarAssessments] = useState<Array<{
+    assessmentType: string;
+    status: string;
+    score: number | null;
+    maxScore: number | null;
+  }>>([]);
+  const [exostarSaving, setExostarSaving] = useState(false);
+  const [exostarMessage, setExostarMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fetch compliance data
   useEffect(() => {
@@ -538,6 +551,35 @@ export default function CompliancePage() {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch Exostar status
+  useEffect(() => {
+    const fetchExostarStatus = async () => {
+      try {
+        const res = await fetch('/api/security/exostar?action=status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.configured) {
+            setExostarEnabled(true);
+            setExostarOrgId(data.organizationId || '');
+            setExostarStatus(data.syncStatus || 'disconnected');
+            setExostarLastSync(data.lastSync);
+          }
+        }
+        
+        // Also fetch assessments
+        const assessRes = await fetch('/api/security/exostar?action=assessments');
+        if (assessRes.ok) {
+          const data = await assessRes.json();
+          setExostarAssessments(data.assessments || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Exostar status:', error);
+      }
+    };
+    
+    fetchExostarStatus();
   }, []);
 
   // Filter controls by framework
@@ -596,18 +638,105 @@ export default function CompliancePage() {
     }, 500);
   };
 
+  // Save Exostar credentials
+  const handleExostarSave = async () => {
+    if (!exostarOrgId || !exostarApiKey) {
+      setExostarMessage({ type: 'error', text: 'Please enter both Organization ID and API Key' });
+      return;
+    }
+    
+    setExostarSaving(true);
+    setExostarMessage(null);
+    
+    try {
+      const res = await fetch('/api/security/exostar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'configure',
+          organizationId: exostarOrgId,
+          apiKey: exostarApiKey
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setExostarEnabled(true);
+        setExostarStatus('disconnected');
+        setExostarMessage({ type: 'success', text: 'Credentials saved successfully!' });
+        
+        // Test the connection
+        const testRes = await fetch('/api/security/exostar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'test' })
+        });
+        
+        const testData = await testRes.json();
+        if (testData.success) {
+          setExostarStatus('connected');
+          setExostarMessage({ type: 'success', text: testData.message });
+        } else {
+          setExostarStatus('error');
+          setExostarMessage({ type: 'error', text: testData.message });
+        }
+      } else {
+        setExostarMessage({ type: 'error', text: data.error || 'Failed to save credentials' });
+      }
+    } catch (error) {
+      setExostarMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setExostarSaving(false);
+    }
+  };
+
+  // Sync with Exostar
   const handleExostarSync = async () => {
+    if (!exostarEnabled) {
+      setExostarMessage({ type: 'error', text: 'Please configure Exostar credentials first' });
+      return;
+    }
+    
     setExostarSyncing(true);
-    // Simulate sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setExostarSyncing(false);
+    setExostarMessage(null);
+    
+    try {
+      const res = await fetch('/api/security/exostar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync' })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setExostarStatus('connected');
+        setExostarLastSync(new Date().toISOString());
+        setExostarAssessments(data.assessments || []);
+        setExostarMessage({ 
+          type: 'success', 
+          text: `Synced ${data.recordsSynced} assessment(s) successfully!` 
+        });
+      } else {
+        setExostarStatus('error');
+        setExostarMessage({ type: 'error', text: data.error || 'Sync failed' });
+      }
+    } catch (error) {
+      setExostarMessage({ type: 'error', text: 'Network error during sync' });
+    } finally {
+      setExostarSyncing(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/10 to-slate-950 text-white">
+      {/* Tour for Compliance page */}
+      <SecurityTour tourId="compliance" steps={complianceTour} />
+      
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
-      <header className="mb-6">
+      <header className="mb-6" data-tour="compliance-header">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href="/security" className="text-slate-400 hover:text-white transition">
@@ -620,6 +749,7 @@ export default function CompliancePage() {
                 Compliance & Audit
               </h1>
             </div>
+            <TourTriggerButton tourId="compliance" />
           </div>
           <div className="flex gap-2 items-center flex-wrap">
             {isLiveData && (
@@ -650,13 +780,13 @@ export default function CompliancePage() {
       </header>
 
       {/* Framework Selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 overflow-x-auto">
-        {Object.values(FRAMEWORKS).map((fw) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6 overflow-x-auto" data-tour="framework-selector">
+        {Object.values(FRAMEWORKS).map((fw, idx) => {
           const stats = getFrameworkStats(fw.id as ComplianceFramework);
           const isSelected = selectedFramework === fw.id;
           return (
             <button
-              key={fw.id}
+              key={fw.id || `framework-${idx}`}
               onClick={() => {
                 setSelectedFramework(fw.id as ComplianceFramework);
                 setSelectedFamily(null);
@@ -690,16 +820,17 @@ export default function CompliancePage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6" data-tour="compliance-tabs">
         {[
-          { id: 'controls', label: 'Controls', icon: Shield },
-          { id: 'audit', label: 'Audit Logs', icon: FileText },
-          { id: 'reports', label: 'Reports', icon: FileSpreadsheet },
-          { id: 'exostar', label: 'Exostar', icon: Link2 },
+          { id: 'controls', label: 'Controls', icon: Shield, tourId: 'controls-tab' },
+          { id: 'audit', label: 'Audit Logs', icon: FileText, tourId: 'audit-tab' },
+          { id: 'reports', label: 'Reports', icon: FileSpreadsheet, tourId: 'reports-tab' },
+          { id: 'exostar', label: 'Exostar', icon: Link2, tourId: 'exostar-tab' },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            data-tour={tab.tourId}
             className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
               activeTab === tab.id
                 ? 'bg-purple-600 text-white'
@@ -716,7 +847,7 @@ export default function CompliancePage() {
       {activeTab === 'controls' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Family Filter */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3" data-tour="control-families">
             <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4 sticky top-6">
               <h3 className="text-sm font-medium text-slate-400 mb-3">Control Families</h3>
               <div className="space-y-1 max-h-[60vh] overflow-y-auto">
@@ -728,12 +859,12 @@ export default function CompliancePage() {
                 >
                   All Families ({filteredControls.length})
                 </button>
-                {availableFamilies.map((family) => {
+                {availableFamilies.map((family, idx) => {
                   const familyInfo = CONTROL_FAMILIES[family] || { name: family, icon: '📁' };
                   const count = filteredControls.filter(c => c.family === family).length;
                   return (
                     <button
-                      key={family}
+                      key={family || `family-${idx}`}
                       onClick={() => setSelectedFamily(family)}
                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
                         selectedFamily === family ? 'bg-purple-600 text-white' : 'hover:bg-slate-700 text-slate-300'
@@ -748,7 +879,7 @@ export default function CompliancePage() {
           </div>
 
           {/* Controls List */}
-          <div className="lg:col-span-9">
+          <div className="lg:col-span-9" data-tour="control-list">
             <div className="bg-slate-800/50 rounded-xl border border-slate-700">
               <div className="p-4 border-b border-slate-700 flex items-center justify-between">
                 <h3 className="font-medium">{filteredControls.length} Controls</h3>
@@ -765,12 +896,12 @@ export default function CompliancePage() {
                 </div>
               </div>
               <div className="divide-y divide-slate-700/50 max-h-[70vh] overflow-y-auto">
-                {filteredControls.map((control) => {
+                {filteredControls.map((control, idx) => {
                   const StatusIcon = statusIcons[control.status];
                   const isExpanded = expandedControl === control.id;
                   return (
                     <div 
-                      key={control.id} 
+                      key={control.id || `control-${idx}`} 
                       className="p-4 hover:bg-slate-700/30 transition cursor-pointer"
                       onClick={() => setExpandedControl(isExpanded ? null : control.id)}
                     >
@@ -842,8 +973,8 @@ export default function CompliancePage() {
                             <div>
                               <span className="text-xs text-slate-500">Cross-Framework Mappings:</span>
                               <div className="flex flex-wrap gap-2 mt-1">
-                                {Object.entries(control.mappings).map(([fw, ids]) => (
-                                  <span key={fw} className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
+                                {Object.entries(control.mappings).map(([fw, ids], idx) => (
+                                  <span key={fw || `mapping-${idx}`} className="text-xs px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
                                     {fw}: {(ids as string[]).join(', ')}
                                   </span>
                                 ))}
@@ -867,7 +998,7 @@ export default function CompliancePage() {
 
       {/* Audit Logs Tab */}
       {activeTab === 'audit' && (
-        <div className="bg-slate-800/50 rounded-xl border border-slate-700">
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700" data-tour="audit-logs">
           <div className="p-4 border-b border-slate-700 flex items-center justify-between">
             <h3 className="font-medium">Security Audit Log</h3>
             <button 
@@ -905,8 +1036,8 @@ export default function CompliancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-700/30">
+                {auditLogs.map((log, idx) => (
+                  <tr key={log.id || `log-${idx}`} className="hover:bg-slate-700/30">
                     <td className="p-4 font-mono text-xs text-slate-400">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
@@ -933,7 +1064,7 @@ export default function CompliancePage() {
 
       {/* Reports Tab */}
       {activeTab === 'reports' && (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="reports-section">
           {/* Row 1: Core Compliance Reports */}
           <div className="grid grid-cols-4 gap-4">
             {/* NIST 800-171 Reports */}
@@ -1159,7 +1290,7 @@ export default function CompliancePage() {
 
       {/* Exostar Tab */}
       {activeTab === 'exostar' && (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto" data-tour="exostar-section">
           <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -1171,10 +1302,37 @@ export default function CompliancePage() {
                   <p className="text-slate-400">Supply Chain Risk Management Platform</p>
                 </div>
               </div>
-              <div className={`px-4 py-2 rounded-lg ${exostarEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>
-                {exostarEnabled ? 'Connected' : 'Not Configured'}
+              <div className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                exostarStatus === 'connected' ? 'bg-emerald-500/20 text-emerald-400' : 
+                exostarStatus === 'syncing' ? 'bg-blue-500/20 text-blue-400' :
+                exostarStatus === 'error' ? 'bg-red-500/20 text-red-400' :
+                'bg-slate-700 text-slate-400'
+              }`}>
+                {exostarStatus === 'syncing' && <Loader2 className="w-4 h-4 animate-spin" />}
+                {exostarStatus === 'connected' ? 'Connected' : 
+                 exostarStatus === 'syncing' ? 'Syncing...' :
+                 exostarStatus === 'error' ? 'Error' :
+                 exostarEnabled ? 'Disconnected' : 'Not Configured'}
               </div>
             </div>
+
+            {/* Status Message */}
+            {exostarMessage && (
+              <div className={`mb-6 p-4 rounded-lg border ${
+                exostarMessage.type === 'success' 
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {exostarMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5" />
+                  )}
+                  {exostarMessage.text}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div className="bg-slate-900/50 rounded-lg p-4">
@@ -1200,6 +1358,14 @@ export default function CompliancePage() {
                     <span>Incident Reporting to DoD</span>
                   </li>
                 </ul>
+                
+                {exostarLastSync && (
+                  <div className="mt-4 pt-4 border-t border-slate-700">
+                    <p className="text-xs text-slate-400">
+                      Last Sync: {new Date(exostarLastSync).toLocaleString()}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-900/50 rounded-lg p-4">
@@ -1213,6 +1379,8 @@ export default function CompliancePage() {
                     <input 
                       type="text" 
                       placeholder="Enter Exostar Org ID"
+                      value={exostarOrgId}
+                      onChange={(e) => setExostarOrgId(e.target.value)}
                       className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm focus:border-purple-500 focus:outline-none"
                     />
                   </div>
@@ -1220,18 +1388,72 @@ export default function CompliancePage() {
                     <label className="text-xs text-slate-400">API Key</label>
                     <input 
                       type="password" 
-                      placeholder="••••••••••••"
+                      placeholder={exostarEnabled ? '••••••••••••' : 'Enter API Key'}
+                      value={exostarApiKey}
+                      onChange={(e) => setExostarApiKey(e.target.value)}
                       className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm focus:border-purple-500 focus:outline-none"
                     />
                   </div>
+                  <button
+                    onClick={handleExostarSave}
+                    disabled={exostarSaving || (!exostarOrgId && !exostarApiKey)}
+                    className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {exostarSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Credentials'
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
 
+            {/* Assessment Results */}
+            {exostarAssessments.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-medium mb-4">Assessment Results</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  {exostarAssessments.map((assessment, idx) => (
+                    <div key={idx} className="bg-slate-900/50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{assessment.assessmentType}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs ${
+                          assessment.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' :
+                          assessment.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
+                          assessment.status === 'expired' ? 'bg-red-500/20 text-red-400' :
+                          'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {assessment.status}
+                        </span>
+                      </div>
+                      {assessment.score !== null && assessment.maxScore !== null && (
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-400">Score</span>
+                            <span className="font-bold">{assessment.score}/{assessment.maxScore}</span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-700 rounded-full mt-1">
+                            <div 
+                              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                              style={{ width: `${(assessment.score / assessment.maxScore) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4">
               <button
                 onClick={handleExostarSync}
-                disabled={exostarSyncing}
+                disabled={exostarSyncing || !exostarEnabled}
                 className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {exostarSyncing ? (
@@ -1258,11 +1480,14 @@ export default function CompliancePage() {
             </div>
 
             <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-              <h4 className="font-medium text-amber-400 mb-2">Integration Ready</h4>
+              <h4 className="font-medium text-amber-400 mb-2">
+                {exostarEnabled ? 'Integration Active' : 'Integration Ready'}
+              </h4>
               <p className="text-sm text-slate-300">
-                This system is pre-configured for Exostar integration. Once you provide your organization 
-                credentials, compliance data will sync automatically with the Exostar platform for 
-                CMMC certification tracking and supply chain risk management.
+                {exostarEnabled 
+                  ? `Connected to Exostar as ${exostarOrgId}. Click "Sync with Exostar" to fetch the latest assessment data.`
+                  : 'Enter your Exostar Organization ID and API Key to connect. Once configured, compliance data will sync automatically for CMMC certification tracking.'
+                }
               </p>
             </div>
           </div>
