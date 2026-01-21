@@ -50,7 +50,13 @@ function useIsMobile() {
   return isMobile
 }
 
-// Asset configuration
+// ============================================================================
+// MUSHROOM 1 MEDIA ASSETS
+// Place media files in: public/assets/mushroom1/ (local)
+// NAS path: \\192.168.0.105\mycosoft.com\website\assets\mushroom1\
+// Public URL: /assets/mushroom1/...
+// See docs/DEVICE_MEDIA_ASSETS_PIPELINE.md for details
+// ============================================================================
 const MUSHROOM1_ASSETS = {
   images: [
     { src: "/assets/mushroom1/1.jpg", alt: "Mushroom 1 Field Deployment 1", location: "Field Deployment" },

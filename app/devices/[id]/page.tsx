@@ -4,6 +4,10 @@ import { use, useEffect, useState } from "react"
 import { notFound } from "next/navigation"
 import { DeviceDetails } from "@/components/devices/device-details"
 import { Mushroom1Details } from "@/components/devices/mushroom1-details"
+import { SporeBaseDetails } from "@/components/devices/sporebase-details"
+import { Hyphae1Details } from "@/components/devices/hyphae1-details"
+import { MycoNodeDetails } from "@/components/devices/myconode-details"
+import { AlarmDetails } from "@/components/devices/alarm-details"
 import { DEVICES } from "@/lib/devices"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -56,18 +60,43 @@ export default function DevicePage({ params }: DevicePageProps) {
     return notFound()
   }
 
-  // Use special Mushroom 1 page for the flagship product
-  if (id === "mushroom-1") {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Mushroom1Details />
-      </div>
-    )
+  // Use specialized detail pages for each device
+  switch (id) {
+    case "mushroom-1":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Mushroom1Details />
+        </div>
+      )
+    case "sporebase":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <SporeBaseDetails />
+        </div>
+      )
+    case "hyphae-1":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Hyphae1Details />
+        </div>
+      )
+    case "myconode":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <MycoNodeDetails />
+        </div>
+      )
+    case "alarm":
+      return (
+        <div className="min-h-screen flex flex-col">
+          <AlarmDetails />
+        </div>
+      )
+    default:
+      return (
+        <div className="min-h-screen flex flex-col">
+          <DeviceDetails device={device} />
+        </div>
+      )
   }
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <DeviceDetails device={device} />
-    </div>
-  )
 }
