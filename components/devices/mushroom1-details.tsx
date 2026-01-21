@@ -157,11 +157,11 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
   },
   { 
     id: "legs", 
-    name: "Tripod Legs", 
+    name: "Quadruped Legs", 
     icon: Activity,
     position: { top: "80%", left: "35%" }, 
-    description: "Adjustable ground anchors",
-    details: "Three adjustable legs provide stable mounting on any terrain. Each leg has ground anchors that can penetrate soil, sand, or snow. The tripod design ensures stability in high winds while allowing for easy repositioning. The legs are made from lightweight but durable aluminum alloy."
+    description: "4 articulated walking legs",
+    details: "Four articulated legs enable autonomous locomotion and stable positioning on any terrain. Each leg features independent servo motors for walking, climbing, and self-repositioning. The quadruped design provides exceptional stability and mobility, allowing Mushroom 1 to navigate uneven ground, reposition itself for optimal sun exposure, and even relocate to better sensing locations. Made from lightweight carbon fiber composite."
   },
   { 
     id: "probe", 

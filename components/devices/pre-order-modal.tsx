@@ -94,7 +94,7 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
                       </div>
                       <div className="flex items-center gap-2 text-white/80">
                         <Check className="h-4 w-4 text-emerald-400" />
-                        <span>Tripod mounting system</span>
+                        <span>Quadruped walking system</span>
                       </div>
                     </CardContent>
                   </Card>
