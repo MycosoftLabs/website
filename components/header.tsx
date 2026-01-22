@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2, Shield, Cpu, Lock, Loader2 } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, User2, Shield, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -16,10 +16,74 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu"
 import { useSupabaseUser } from "@/hooks/use-supabase-user"
 import { useRouter } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
+
+// Navigation dropdown items configuration
+const defenseItems = [
+  { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Fungal threat detection & monitoring" },
+  { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Operational Environmental Intelligence" },
+  { title: "Technical Documentation", href: "/defense/docs", icon: FileText, description: "Defense systems documentation" },
+]
+
+const natureOSItems = [
+  { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map, description: "Common Relevant Environmental Picture" },
+  { title: "Device Network", href: "/natureos/devices", icon: Network, description: "Connected device management" },
+  { title: "MINDEX", href: "/natureos/mindex", icon: Database, description: "Mycological intelligence database" },
+  { title: "Earth Simulator", href: "/natureos/earth", icon: Globe, description: "Global environmental modeling" },
+]
+
+const devicesItems = [
+  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Ground-based fungal intelligence station" },
+  { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Bioaerosol collection system" },
+  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular I/O platform" },
+  { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Subsurface bioelectric probe" },
+  { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Indoor environmental monitor" },
+]
+
+const appsItems = [
+  { title: "Petri Dish Simulator", href: "/apps/petri-dish", icon: FlaskConical, description: "Virtual culture growth simulation" },
+  { title: "Mushroom Simulator", href: "/apps/mushroom-simulator", icon: Microscope, description: "3D fungal growth modeling" },
+  { title: "Compound Analyzer", href: "/apps/compound-analyzer", icon: FlaskConical, description: "Chemical compound analysis" },
+  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, description: "Spore dispersal mapping" },
+  { title: "Ancestry Database", href: "/apps/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
+  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, description: "Performance metrics & insights" },
+]
+
+// Reusable dropdown item component
+function NavDropdownItem({ item }: { item: { title: string; href: string; icon: React.ElementType; description: string } }) {
+  const Icon = item.icon
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <Link
+          href={item.href}
+          className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+        >
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium leading-none">{item.title}</span>
+          </div>
+          <p className="line-clamp-2 text-xs leading-snug text-muted-foreground mt-1">
+            {item.description}
+          </p>
+        </Link>
+      </NavigationMenuLink>
+    </li>
+  )
+}
 
 export function Header() {
   const { theme } = useTheme()
@@ -73,47 +137,92 @@ export function Header() {
           </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1 mx-auto">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/">
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/defense">
-              <Shield className="h-4 w-4 mr-2" />
-              Defense
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/natureos">
-              <Cloud className="h-4 w-4 mr-2" />
-              NatureOS
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/devices">
-              <Cpu className="h-4 w-4 mr-2" />
-              Devices
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/apps">
-              <Apps className="h-4 w-4 mr-2" />
-              Apps
-            </Link>
-          </Button>
-          {user && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/security">
-                <Lock className="h-4 w-4 mr-2" />
-                Security
+        {/* Desktop Navigation with Dropdowns */}
+        <NavigationMenu className="hidden md:flex mx-auto">
+          <NavigationMenuList>
+            {/* Search - Direct Link */}
+            <NavigationMenuItem>
+              <Link href="/" legacyBehavior passHref>
+                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </NavigationMenuLink>
               </Link>
-            </Button>
-          )}
-        </nav>
+            </NavigationMenuItem>
+
+            {/* Defense Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="gap-1">
+                <Shield className="h-4 w-4 mr-1" />
+                Defense
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[300px] gap-1 p-2">
+                  {defenseItems.map((item) => (
+                    <NavDropdownItem key={item.href} item={item} />
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* NatureOS Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="gap-1">
+                <Cloud className="h-4 w-4 mr-1" />
+                NatureOS
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[320px] gap-1 p-2">
+                  {natureOSItems.map((item) => (
+                    <NavDropdownItem key={item.href} item={item} />
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Devices Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="gap-1">
+                <Cpu className="h-4 w-4 mr-1" />
+                Devices
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[340px] gap-1 p-2">
+                  {devicesItems.map((item) => (
+                    <NavDropdownItem key={item.href} item={item} />
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Apps Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="gap-1">
+                <Apps className="h-4 w-4 mr-1" />
+                Apps
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[320px] gap-1 p-2">
+                  {appsItems.map((item) => (
+                    <NavDropdownItem key={item.href} item={item} />
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Security - Direct Link (no dropdown) */}
+            {user && (
+              <NavigationMenuItem>
+                <Link href="/security" legacyBehavior passHref>
+                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Security
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
+            )}
+          </NavigationMenuList>
+        </NavigationMenu>
 
         {/* Right side controls - visible on all screen sizes */}
         <div className="flex items-center gap-2">
