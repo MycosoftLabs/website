@@ -13,6 +13,9 @@ import {
   Cpu, Battery, Signal, Lock, Cloud, Cable, CircuitBoard, Target,
   ExternalLink, Check, Layers, Gauge, FlaskRound, TreeDeciduous
 } from "lucide-react"
+import { UndergroundFlow } from "@/components/effects/perlin-flow"
+import { MyceliumNetwork } from "@/components/ui/mycelium-network"
+import { ParticleFlow } from "@/components/ui/particle-flow"
 import type { LucideIcon } from "lucide-react"
 
 // ============================================================================
@@ -23,22 +26,83 @@ import type { LucideIcon } from "lucide-react"
 // See docs/DEVICE_MEDIA_ASSETS_PIPELINE.md for details
 // ============================================================================
 const MYCONODE_ASSETS = {
-  // Primary product image - replace when real photo is available
-  mainImage: "/placeholder.svg?height=600&width=800&text=MycoNode",
-  // Gallery images
-  gallery: [
-    { src: "/assets/myconode/gallery-1.jpg", alt: "MycoNode Deployment", location: "Forest Floor" },
-    { src: "/assets/myconode/gallery-2.jpg", alt: "MycoNode Array", location: "Research Grid" },
-    { src: "/assets/myconode/gallery-3.jpg", alt: "MycoNode Probe", location: "Soil Integration" },
+  // Hero video background
+  heroVideo: "/assets/myconode/myconode hero1.mp4",
+  // Primary product image - main marketing image
+  mainImage: "/assets/myconode/myconode a.png",
+  // White version for probe visualization
+  probeImage: "/assets/myconode/myconode white.jpg",
+  // Mycelium background video for Applications section
+  myceliumVideo: "/assets/myconode/myconode mycelium.mp4",
+  // Deployment video showing installation
+  deployVideo: "/assets/myconode/myconode deploy1.mp4",
+  // Lab testing video showing device being built and tested
+  labTestVideo: "/assets/myconode/Myconode test1.mp4",
+  // Live operation video
+  liveVideo: "/assets/myconode/myconode live1.mp4",
+  // Color options for product selector
+  colors: [
+    { 
+      name: "White", 
+      image: "/assets/myconode/myconode white.jpg", 
+      hex: "#FFFFFF",
+      environments: "Labs, greenhouses, indoor gardens, research facilities",
+      description: "Perfect for controlled environments and demonstrations. White stands out intentionally in labs and research settings where visibility is preferred. Also blends naturally with white fencing, PVC irrigation pipes, and greenhouse structures."
+    },
+    { 
+      name: "Black", 
+      image: "/assets/myconode/myconode black.jpg", 
+      hex: "#1a1a1a",
+      environments: "Gardens with dark mulch, near black planters, driveways, parking lots",
+      description: "Disappears into dark mulch, black plastic edging, and shadowy corners of gardens. Ideal near asphalt, dark stone pathways, or black raised bed frames. Also complements modern architecture with dark accents."
+    },
+    { 
+      name: "Purple", 
+      image: "/assets/myconode/myconode purple.jpg", 
+      hex: "#8B5CF6",
+      environments: "Lavender fields, flower gardens, near purple flowers like salvia or iris",
+      description: "Blends beautifully with lavender, purple sage, alliums, and ornamental flowers. A natural choice for cottage gardens, butterfly gardens, and anywhere purple blooms thrive. Echoes the hues of many wild mushroom species."
+    },
+    { 
+      name: "Blue", 
+      image: "/assets/myconode/myconode blue.jpg", 
+      hex: "#3B82F6",
+      environments: "Near water features, pools, boats, blue-painted structures, hydrangeas",
+      description: "Ideal for waterfront installations, near pools, ponds, or boats. Matches blue hydrangeas, delphiniums, and blue garden decor. Perfect alongside blue-painted fences, sheds, or nautical-themed properties."
+    },
+    { 
+      name: "Orange", 
+      image: "/assets/myconode/myconode orange.jpg", 
+      hex: "#F97316",
+      environments: "Autumn gardens, pumpkin patches, near marigolds, terracotta pots",
+      description: "Naturally camouflages in fall foliage, near marigolds, orange lilies, and pumpkin patches. Complements terracotta planters, brick walls, and rust-colored mulch. Perfect for farms and orchards in harvest season."
+    },
+    { 
+      name: "Red", 
+      image: "/assets/myconode/myconode red.jpg", 
+      hex: "#EF4444",
+      environments: "Rose gardens, near red barns, brick walls, geraniums, red mulch",
+      description: "Vanishes among red roses, geraniums, and ruby-colored shrubs. Perfect match for classic red barns, brick walls, and red-dyed mulch. Also blends with red garden markers and clay pots in traditional gardens."
+    },
+    { 
+      name: "Yellow", 
+      image: "/assets/myconode/myconode yellow.jpg", 
+      hex: "#EAB308",
+      environments: "Sunflower fields, near daffodils, lemon trees, golden crops, sandy areas",
+      description: "Disappears among sunflowers, daffodils, black-eyed susans, and golden wheat fields. Blends with sandy soil, straw mulch, and golden-hour lighting. Ideal for farms growing corn, hay, or sunflower crops."
+    },
+    { 
+      name: "Camo Green", 
+      image: "/assets/myconode/myconode camo green.jpg", 
+      hex: "#4D5C3C",
+      environments: "Forests, wild areas, grass lawns, shrubs, natural landscapes",
+      description: "Our most versatile option for natural environments. Virtually invisible in forests, grass lawns, and wild meadows. Blends with moss, ferns, shrubs, and tree bark. The ultimate choice for conservation areas and undisturbed ecosystems."
+    },
   ],
-  // Colorful mushroom texture backgrounds (for the aesthetic)
-  mushrooms: [
-    { src: "/assets/myconode/mushroom-bg-1.jpg", species: "Amanita muscaria" },
-    { src: "/assets/myconode/mushroom-bg-2.jpg", species: "Psilocybe cubensis" },
-    { src: "/assets/myconode/mushroom-bg-3.jpg", species: "Clitocybe nuda" },
-  ],
-  // Hero video (add when available)
-  // heroVideo: "/assets/myconode/hero.mp4",
+  // Colors overview image
+  colorsOverview: "/assets/myconode/myconode colors.png",
+  // Mushroom-shaped node variant
+  mushroomNode: "/assets/myconode/myconode mushroom.jpg",
 }
 
 // Device Components
@@ -113,8 +177,8 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
     name: "Battery System", 
     icon: Battery,
     position: { top: "85%", left: "60%" }, 
-    description: "5-year lithium primary",
-    details: "High-capacity lithium thionyl chloride batteries provide 5+ years of continuous operation. Low self-discharge and wide temperature range (-40°C to 85°C) ensure reliable power in all environments."
+    description: "90+ day rechargeable",
+    details: "High-capacity lithium battery provides 90+ days of continuous operation between charges. Solar charging option available. Low self-discharge and wide temperature range (-40°C to 85°C) ensure reliable power in all environments."
   },
 ]
 
@@ -155,7 +219,7 @@ const SPECIFICATIONS = {
   "Bioelectric Resolution": "0.1 μV",
   "Deployment Depth": "10-50 cm",
   "Sampling Rate": "0.1-10 Hz configurable",
-  "Battery Life": "5+ years continuous",
+  "Battery Life": "90+ days minimum",
   "Communication": "LoRa 915MHz mesh",
   "Range": "10km line-of-sight",
   "IP Rating": "IP68 fully sealed",
@@ -170,7 +234,10 @@ export function MycoNodeDetails() {
   const [selectedComponent, setSelectedComponent] = useState("electrode")
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
+  const [selectedColor, setSelectedColor] = useState(0)
+  const [hoveredSensor, setHoveredSensor] = useState<number | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -181,11 +248,27 @@ export function MycoNodeDetails() {
 
   return (
     <div className="relative bg-gradient-to-b from-violet-950 via-purple-950 to-slate-950 text-white overflow-hidden">
-      {/* Hero Section - Colorful Mushroom Aesthetic */}
+      {/* Hero Section - with Video Background */}
       <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-fuchsia-900/30 to-indigo-950" />
+        {/* Video background */}
+        <div className="absolute inset-0 z-0">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            poster="/assets/myconode/myconode a.png"
+          >
+            <source src={MYCONODE_ASSETS.heroVideo} type="video/mp4" />
+          </video>
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/70 via-purple-950/50 to-slate-950/90" />
+        </div>
+        
+        {/* Animated gradient accents */}
+        <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
           <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
@@ -322,7 +405,7 @@ export function MycoNodeDetails() {
                   <div className="text-sm text-white/50">Resolution</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">5yr</div>
+                  <div className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 to-cyan-400">90d</div>
                   <div className="text-sm text-white/50">Battery</div>
                 </div>
                 <div className="text-center">
@@ -337,21 +420,123 @@ export function MycoNodeDetails() {
             </div>
             
             <div className="relative">
-              <div className="aspect-square rounded-3xl overflow-hidden border border-purple-500/20 bg-gradient-to-br from-purple-900/30 to-slate-950 flex items-center justify-center">
-                <div className="relative w-1/2 h-4/5">
-                  {/* Stylized probe visualization */}
-                  <div className="absolute inset-0 flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-purple-500/50">
-                      <Antenna className="h-8 w-8 text-white" />
-                    </div>
-                    <div className="w-2 h-full bg-gradient-to-b from-purple-500 via-fuchsia-500 to-cyan-500 rounded-full" />
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-green-500 -mt-4" />
-                  </div>
-                </div>
+              <div className="aspect-square rounded-3xl overflow-hidden border border-purple-500/20 bg-gradient-to-br from-purple-900/30 to-slate-950">
+                <Image
+                  src={MYCONODE_ASSETS.mainImage}
+                  alt="MycoNode soil probe device"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
               </div>
               <div className="absolute -bottom-6 -right-6 p-4 bg-gradient-to-br from-purple-500/20 to-fuchsia-500/20 backdrop-blur-xl rounded-2xl border border-purple-500/30">
                 <Zap className="h-8 w-8 text-purple-400" />
                 <p className="text-sm font-medium mt-2 text-purple-400">Bioelectric Sensing</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Deployment Section - How It Works */}
+      <section className="relative py-24 bg-gradient-to-b from-purple-950/50 to-purple-950/30 overflow-hidden">
+        {/* Mycelium Network Background Animation */}
+        <div className="absolute inset-0 pointer-events-none">
+          <MyceliumNetwork hue={280} opacity={0.7} />
+          {/* Subtle gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/30 via-transparent to-purple-950/30" />
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+              Quick Start
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Deploy in Minutes
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+              Simple installation, automatic network connection, instant data streaming.
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left: 1-2-3 Instructions */}
+            <div className="space-y-8">
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-2xl font-bold shadow-lg shadow-emerald-500/30">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2 text-emerald-400">Plant the Probe</h3>
+                  <p className="text-white/70">
+                    Push MycoNode into the soil at your desired depth (10-50cm). The mushroom-shaped 
+                    head stays above ground for radio communication while sensors reach deep underground.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center text-2xl font-bold shadow-lg shadow-purple-500/30">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2 text-purple-400">Auto-Connect to Mycosoft Network</h3>
+                  <p className="text-white/70">
+                    The device automatically establishes a secure LoRa mesh connection with nearby 
+                    MycoNodes and Mycosoft infrastructure. No configuration required—just plant and go.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-2xl font-bold shadow-lg shadow-cyan-500/30">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2 text-cyan-400">Start Streaming Fungal Data</h3>
+                  <p className="text-white/70">
+                    Bioelectric signals, soil conditions, and environmental factors are immediately 
+                    broadcast to our cloud platform. View real-time data on your dashboard within seconds.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="pt-4">
+                <div className="flex items-center gap-4 text-white/50 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span>No tools required</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span>Waterproof IP68</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span>Solar option</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right: Deployment Video */}
+            <div className="relative">
+              <div className="aspect-video rounded-2xl overflow-hidden border border-purple-500/20 bg-slate-900">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                  poster={MYCONODE_ASSETS.mainImage}
+                >
+                  <source src={MYCONODE_ASSETS.deployVideo} type="video/mp4" />
+                </video>
+              </div>
+              <div className="absolute -bottom-4 -left-4 p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-xl rounded-2xl border border-emerald-500/30">
+                <MapPin className="h-6 w-6 text-emerald-400" />
+                <p className="text-xs font-medium mt-1 text-emerald-400">Field Deployment</p>
               </div>
             </div>
           </div>
@@ -375,35 +560,131 @@ export function MycoNodeDetails() {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Zap, title: "Bioelectric", desc: "Detect mycelial network signals at μV precision", color: "from-purple-500 to-fuchsia-500" },
-              { icon: Droplets, title: "Moisture", desc: "Multi-depth volumetric water content", color: "from-blue-500 to-cyan-500" },
-              { icon: Thermometer, title: "Temperature", desc: "RTD sensors from surface to 50cm", color: "from-orange-500 to-red-500" },
-              { icon: Gauge, title: "Conductivity", desc: "Soil EC for nutrient monitoring", color: "from-green-500 to-emerald-500" },
-              { icon: FlaskRound, title: "pH Level", desc: "Solid-state ISFET technology", color: "from-amber-500 to-yellow-500" },
-              { icon: Waves, title: "Impedance", desc: "Complex bioelectric signatures", color: "from-indigo-500 to-violet-500" },
-              { icon: Signal, title: "Signal Quality", desc: "Environmental noise rejection", color: "from-pink-500 to-rose-500" },
-              { icon: Target, title: "Root Detection", desc: "Plant root zone mapping", color: "from-teal-500 to-cyan-500" },
+              { 
+                icon: Zap, 
+                title: "Bioelectric", 
+                desc: "Detect mycelial network signals at μV precision", 
+                color: "from-purple-500 to-fuchsia-500",
+                specs: "0.1μV resolution • 0.1-1000Hz bandwidth • Platinum-iridium electrodes",
+                details: "Our bioelectric sensing array uses platinum-iridium electrodes with ultra-low noise amplification to detect the faint electrical signals produced by fungal mycelium and plant root systems."
+              },
+              { 
+                icon: Droplets, 
+                title: "Moisture", 
+                desc: "Multi-depth volumetric water content", 
+                color: "from-blue-500 to-cyan-500",
+                specs: "0-100% VWC • ±2% accuracy • FDR technology",
+                details: "Frequency Domain Reflectometry (FDR) sensors measure volumetric water content at multiple depths. Immune to soil salinity variations for reliable readings in all soil types."
+              },
+              { 
+                icon: Thermometer, 
+                title: "Temperature", 
+                desc: "RTD sensors from surface to 50cm", 
+                color: "from-orange-500 to-red-500",
+                specs: "±0.1°C accuracy • -40°C to 85°C range • Multi-point profiling",
+                details: "Platinum RTD sensors provide laboratory-grade temperature accuracy. Multi-point profiling reveals thermal gradients and microbial activity in different soil layers."
+              },
+              { 
+                icon: Gauge, 
+                title: "Conductivity", 
+                desc: "Soil EC for nutrient monitoring", 
+                color: "from-green-500 to-emerald-500",
+                specs: "0-20 dS/m range • 4-electrode design • Auto temperature compensation",
+                details: "Four-electrode conductivity cells eliminate contact resistance errors. Track fertilizer levels, salt accumulation, and nutrient availability with automatic temperature compensation."
+              },
+              { 
+                icon: FlaskRound, 
+                title: "pH Level", 
+                desc: "Solid-state ISFET technology", 
+                color: "from-amber-500 to-yellow-500",
+                specs: "pH 2-12 range • ±0.1 pH accuracy • No maintenance required",
+                details: "Solid-state ISFET pH sensors provide years of maintenance-free operation. Unlike glass electrodes, they're immune to breakage and pressure variations."
+              },
+              { 
+                icon: Waves, 
+                title: "Impedance", 
+                desc: "Complex bioelectric signatures", 
+                color: "from-indigo-500 to-violet-500",
+                specs: "1Hz-100kHz sweep • Complex impedance (Z, θ) • Network mapping",
+                details: "Electrochemical impedance spectroscopy reveals the complex bioelectric signatures of soil organisms. Map mycelial network connectivity and health in real-time."
+              },
+              { 
+                icon: Signal, 
+                title: "Signal Quality", 
+                desc: "Environmental noise rejection", 
+                color: "from-pink-500 to-rose-500",
+                specs: "60dB CMRR • Active shielding • Digital filtering",
+                details: "Advanced common-mode rejection and active shielding eliminate environmental interference. Onboard DSP filters separate biological signals from noise."
+              },
+              { 
+                icon: Target, 
+                title: "Root Detection", 
+                desc: "Plant root zone mapping", 
+                color: "from-teal-500 to-cyan-500",
+                specs: "Capacitive sensing • Growth rate tracking • Species differentiation",
+                details: "Detect and map plant root systems using capacitive proximity sensing. Track root growth patterns and differentiate between plant species based on electrical signatures."
+              },
             ].map((item, index) => (
-              <Card key={item.title} className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-colors overflow-hidden">
-                <CardContent className="pt-6 relative">
-                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.color} opacity-10 rounded-full blur-2xl`} />
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${item.color} w-fit mb-4`}>
-                    <item.icon className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-lg mb-2 text-white">{item.title}</h3>
-                  <p className="text-white/60 text-sm">{item.desc}</p>
-                </CardContent>
-              </Card>
+              <motion.div
+                key={item.title}
+                onHoverStart={() => setHoveredSensor(index)}
+                onHoverEnd={() => setHoveredSensor(null)}
+                className="relative"
+              >
+                <Card className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-all overflow-hidden h-full cursor-pointer">
+                  <CardContent className="pt-6 relative">
+                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.color} opacity-10 rounded-full blur-2xl`} />
+                    <div className={`p-3 rounded-xl bg-gradient-to-br ${item.color} w-fit mb-4`}>
+                      <item.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-lg mb-2 text-white">{item.title}</h3>
+                    <p className="text-white/60 text-sm">{item.desc}</p>
+                    
+                    {/* Hover expansion */}
+                    <AnimatePresence>
+                      {hoveredSensor === index && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-4 pt-4 border-t border-purple-500/20">
+                            <p className="text-xs font-mono text-purple-400 mb-2">{item.specs}</p>
+                            <p className="text-sm text-white/70">{item.details}</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Applications Section */}
-      <section className="py-24 bg-gradient-to-b from-purple-950/30 to-slate-950">
-        <div className="max-w-7xl mx-auto px-4">
+      {/* Applications Section - with Video Background */}
+      <section className="relative py-24 overflow-hidden">
+        {/* Video background */}
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            poster={MYCONODE_ASSETS.mainImage}
+          >
+            <source src={MYCONODE_ASSETS.myceliumVideo} type="video/mp4" />
+          </video>
+          {/* Dark overlay for content readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/85 via-slate-950/80 to-slate-950/90" />
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30 backdrop-blur-sm">
               Applications
             </Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -546,12 +827,16 @@ export function MycoNodeDetails() {
                     </div>
                   </div>
                   
-                  {/* Probe Visual */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="relative h-4/5 w-16">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-500 shadow-lg shadow-purple-500/50" />
-                      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-4 h-[80%] bg-gradient-to-b from-purple-500 via-fuchsia-500 to-cyan-500 rounded-full" />
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-green-500" />
+                  {/* Probe Visual - Real Image */}
+                  <div className="absolute inset-0 flex items-center justify-center p-8">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={MYCONODE_ASSETS.probeImage}
+                        alt="MycoNode probe device"
+                        fill
+                        className="object-contain"
+                        sizes="(max-width: 768px) 100vw, 60vw"
+                      />
                     </div>
                   </div>
                   
@@ -572,8 +857,173 @@ export function MycoNodeDetails() {
         </div>
       </section>
 
+      {/* Color Picker Section */}
+      <section className="py-24 bg-gradient-to-b from-black to-purple-950/50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30">
+              Customization
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Choose Your Color
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+              MycoNode comes in 8 colors to blend with any environment.
+            </p>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Color selector on left */}
+            <div>
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                {MYCONODE_ASSETS.colors.map((color, index) => (
+                  <motion.button
+                    key={color.name}
+                    onClick={() => setSelectedColor(index)}
+                    className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                      selectedColor === index 
+                        ? 'border-fuchsia-500 ring-2 ring-fuchsia-500/50 scale-105' 
+                        : 'border-purple-500/20 hover:border-purple-500/50'
+                    }`}
+                    whileHover={{ scale: selectedColor === index ? 1.05 : 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Image
+                      src={color.image}
+                      alt={`MycoNode ${color.name}`}
+                      fill
+                      className="object-cover object-top"
+                      sizes="100px"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                      <p className="text-xs font-medium text-white text-center">{color.name}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              
+              <div className="bg-slate-900/50 rounded-2xl border border-purple-500/20 p-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div 
+                    className="w-12 h-12 rounded-xl border border-white/20"
+                    style={{ backgroundColor: MYCONODE_ASSETS.colors[selectedColor].hex }}
+                  />
+                  <div>
+                    <h3 className="text-lg font-bold text-white">
+                      MycoNode {MYCONODE_ASSETS.colors[selectedColor].name}
+                    </h3>
+                    <p className="text-sm text-white/50">
+                      {MYCONODE_ASSETS.colors[selectedColor].hex}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Environment tags */}
+                <div className="mb-4">
+                  <p className="text-xs text-purple-400 font-medium mb-2 uppercase tracking-wider">Best For:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {MYCONODE_ASSETS.colors[selectedColor].environments.split(', ').map((env, i) => (
+                      <span key={i} className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-xs text-purple-300">
+                        {env}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Full description */}
+                <p className="text-white/70 text-sm leading-relaxed">
+                  {MYCONODE_ASSETS.colors[selectedColor].description}
+                </p>
+              </div>
+            </div>
+            
+            {/* Selected color image on right */}
+            <div className="relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedColor}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                  className="aspect-square rounded-2xl overflow-hidden border-2 border-purple-500/30 bg-gradient-to-br from-purple-900/30 to-slate-950"
+                >
+                  <Image
+                    src={MYCONODE_ASSETS.colors[selectedColor].image}
+                    alt={`MycoNode ${MYCONODE_ASSETS.colors[selectedColor].name}`}
+                    fill
+                    className="object-cover object-top rounded-2xl"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                </motion.div>
+              </AnimatePresence>
+              
+              {/* Color overview badge */}
+              <div className="absolute -bottom-4 -right-4 p-3 bg-gradient-to-br from-fuchsia-500/20 to-purple-500/20 backdrop-blur-xl rounded-xl border border-fuchsia-500/30">
+                <p className="text-xs font-medium text-fuchsia-400">8 Colors Available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Lab Testing Video Section */}
+      <section className="relative py-24 bg-purple-950/30 overflow-hidden">
+        {/* Particle Flow Background Animation - Interactive with mouse */}
+        <div className="absolute inset-0">
+          <ParticleFlow opacity={0.5} />
+          {/* Very light gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/20 via-transparent to-purple-950/20 pointer-events-none" />
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+              Behind The Scenes
+            </Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Built & Tested at Mycosoft Labs
+            </h2>
+            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+              Watch the device being assembled and tested by our team. Real hardware, real sensors, real results.
+            </p>
+          </div>
+          
+          <div className="max-w-4xl mx-auto">
+            <div className="relative aspect-video rounded-2xl overflow-hidden border border-purple-500/20 bg-slate-900 shadow-2xl shadow-purple-500/20">
+              <video
+                controls
+                playsInline
+                className="w-full h-full object-cover"
+                poster={MYCONODE_ASSETS.mainImage}
+              >
+                <source src={MYCONODE_ASSETS.labTestVideo} type="video/mp4" />
+              </video>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 mt-8">
+              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+                <Cpu className="h-6 w-6 text-cyan-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-white">Hand-Assembled</p>
+                <p className="text-xs text-white/50">Quality craftsmanship</p>
+              </div>
+              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+                <Activity className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-white">Real Testing</p>
+                <p className="text-xs text-white/50">Verified sensors</p>
+              </div>
+              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+                <Shield className="h-6 w-6 text-fuchsia-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-white">Production Ready</p>
+                <p className="text-xs text-white/50">Not a prototype</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Technical Specifications */}
-      <section className="py-24 bg-gradient-to-b from-black to-purple-950/30">
+      <section className="py-24 bg-gradient-to-b from-purple-950/30 to-purple-950/50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
@@ -630,30 +1080,38 @@ export function MycoNodeDetails() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-b from-purple-950/30 to-slate-950">
-        <div className="max-w-4xl mx-auto text-center px-4">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to listen to the underground?
-          </h2>
-          <p className="text-xl text-white/60 mb-8">
-            Join researchers and organizations around the world using MycoNode 
-            to decode the secrets of soil ecosystems.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Contact Sales
-            </Button>
-            <Button size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
-              <Download className="mr-2 h-5 w-5" />
-              Download Research Papers
-            </Button>
+      <section className="relative py-24 bg-slate-950 overflow-hidden">
+        {/* Perlin flow background animation */}
+        <UndergroundFlow className="opacity-80" />
+        
+        {/* Gradient overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-950/40 via-transparent to-slate-950/60 pointer-events-none" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
+          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-purple-500/20 shadow-xl">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Ready to listen to the underground?
+            </h2>
+            <p className="text-xl text-white/60 mb-8">
+              Join researchers and organizations around the world using MycoNode 
+              to decode the secrets of soil ecosystems.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                Contact Sales
+              </Button>
+              <Button size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+                <Download className="mr-2 h-5 w-5" />
+                Download Research Papers
+              </Button>
+            </div>
+            
+            <p className="text-sm text-white/40 mt-8">
+              Enterprise pricing • Custom configurations available • Academic discounts
+            </p>
           </div>
-          
-          <p className="text-sm text-white/40 mt-8">
-            Enterprise pricing • Custom configurations available • Academic discounts
-          </p>
         </div>
       </section>
     </div>

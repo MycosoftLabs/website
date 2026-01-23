@@ -14,12 +14,27 @@ export async function GET(request: Request) {
   const error = searchParams.get('error')
   const error_description = searchParams.get('error_description')
 
-  // Get the correct origin - use X-Forwarded-Host header (from tunnel/proxy) or NEXT_PUBLIC_SITE_URL
+  // Get the correct origin from the request URL
+  // For local development, always use the request URL origin to avoid redirecting to sandbox
+  const requestOrigin = new URL(request.url).origin
+  
+  // Detect if this is a localhost request - ALWAYS use localhost origin for local dev
+  const isLocalDev = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1')
+  
+  // For production/sandbox, check for forwarded headers from Cloudflare/proxy
   const forwardedHost = request.headers.get('x-forwarded-host')
   const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-  const origin = forwardedHost 
-    ? `${forwardedProto}://${forwardedHost}`
-    : process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin
+  
+  // Origin priority:
+  // 1. Localhost always uses request origin (prevents sandbox redirect)
+  // 2. Forwarded host for production behind proxy/tunnel
+  // 3. NEXT_PUBLIC_SITE_URL as fallback
+  // 4. Request origin as final fallback
+  const origin = isLocalDev 
+    ? requestOrigin 
+    : forwardedHost 
+      ? `${forwardedProto}://${forwardedHost}`
+      : process.env.NEXT_PUBLIC_SITE_URL || requestOrigin
 
   // Handle OAuth errors
   if (error) {

@@ -6,6 +6,9 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { SporeUniverse } from "@/components/effects/star-universe"
+import { SporeGravity } from "@/components/effects/particle-gravity"
+import { SporeWave } from "@/components/effects/particle-wave"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -38,7 +41,7 @@ const SPOREBASE_ASSETS = {
   // heroVideo: "/assets/sporebase/hero.mp4",
 }
 
-// Device Components
+// Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 interface DeviceComponent {
   id: string
   name: string
@@ -54,64 +57,64 @@ const DEVICE_COMPONENTS: DeviceComponent[] = [
     name: "Air Intake", 
     icon: Wind,
     position: { top: "10%", left: "40%" }, 
-    description: "High-flow bioaerosol intake port",
-    details: "The precision-engineered air intake draws in up to 100 liters per minute of ambient air through a pre-filter that removes large debris while allowing biological particles to pass through. The intake design prevents rain and moisture ingress while maintaining optimal airflow."
+    description: "Protected sampling inlet",
+    details: "The air intake uses a controlled fan to pull ambient air across a protected sampling path. The inlet guard prevents rain and debris ingress while allowing biological particles to deposit onto the adhesive tape collection surface."
   },
   { 
-    id: "filter", 
-    name: "Collection Filter", 
-    icon: Filter,
+    id: "cassette", 
+    name: "Tape Cassette", 
+    icon: Timer,
     position: { top: "25%", left: "55%" }, 
-    description: "Multi-stage spore capture system",
-    details: "A three-stage filtration system captures bioaerosols with 99.7% efficiency. The primary filter captures particles 10μm and larger, the secondary targets 2.5-10μm, and the tertiary nano-filter captures particles down to 0.3μm including spores, pollen, and bacteria."
+    description: "Sealed time-indexed collection",
+    details: "The sealed tape cassette advances every 15 minutes (configurable) creating 2,880 timestamped collection intervals over 30 days. Each tape segment captures particles via adhesive deposition and is preserved for lab analysis including microscopy, qPCR, and sequencing."
   },
   { 
-    id: "pump", 
-    name: "Sampling Pump", 
+    id: "fan", 
+    name: "Sampling Fan", 
     icon: Activity,
     position: { top: "40%", left: "35%" }, 
-    description: "Variable-speed precision pump",
-    details: "The brushless DC pump provides consistent airflow rates from 10-100 L/min. It operates quietly (<35dB) for urban deployments and features a 50,000-hour operational life. Flow rate is automatically adjusted based on environmental conditions."
+    description: "Fan-driven active sampling",
+    details: "A precision fan drives airflow across the sampling head where particles deposit onto the adhesive tape. PWM control with tachometer feedback ensures consistent, repeatable collection rates across varying environmental conditions."
   },
   { 
-    id: "carousel", 
-    name: "Sample Carousel", 
+    id: "drive", 
+    name: "Tape Drive", 
     icon: Timer,
     position: { top: "50%", left: "60%" }, 
-    description: "24-position time-indexed collection",
-    details: "The motorized carousel holds 24 individual collection substrates, each exposed for a configurable time window (15 minutes to 24 hours). This creates a complete time-resolved record of airborne biological particles, enabling correlation with weather and events."
+    description: "Stepper motor tape advance",
+    details: "The precision stepper motor advances the adhesive tape at fixed intervals, creating a continuous chronological timeline. Each advance distance (ΔL) is precisely controlled, enabling exact correlation between tape position and collection timestamp."
   },
   { 
     id: "sensors", 
     name: "Environmental Sensors", 
     icon: Thermometer,
     position: { top: "55%", left: "30%" }, 
-    description: "BME688 + UV + particle counter",
-    details: "Integrated sensors measure temperature, humidity, pressure, UV index, and real-time particle counts. This metadata is logged alongside each collection sample, providing complete context for lab analysis."
+    description: "BME688/BME690 + BMV080",
+    details: "Modular sensor payload includes Bosch BME69x for temperature, humidity, pressure, and VOC sensing. Optional BMV080 provides particulate correlation. All telemetry is timestamped and stored with sample metadata via Mycorrhizae Protocol."
   },
   { 
-    id: "esp32", 
-    name: "Control Unit", 
+    id: "mycobrain", 
+    name: "MycoBrain Controller", 
     icon: Cpu,
     position: { top: "65%", left: "50%" }, 
-    description: "ESP32-S3 with cellular modem",
-    details: "The ESP32-S3 processor manages all operations including pump control, carousel positioning, sensor readings, and data transmission. Includes LTE Cat-M1 cellular modem for remote areas and LoRa for mesh networking with other SporeBase units."
+    description: "Dual ESP32-S3 + LoRa",
+    details: "MycoBrain embedded controller features dual ESP32-S3 modules, LoRa radio for mesh networking, MPPT solar charging, actuator outputs for fan/motor control, and I2C expansion. Data is normalized via Mycorrhizae Protocol and stored with MINDEX chain-of-custody."
   },
   { 
     id: "solar", 
-    name: "Solar Panel", 
+    name: "Solar + Battery", 
     icon: Sun,
     position: { top: "75%", left: "40%" }, 
-    description: "10W weatherproof panel",
-    details: "The 10W monocrystalline solar panel provides primary power in remote deployments. Combined with the internal battery, it enables fully autonomous operation for months without maintenance."
+    description: "MPPT solar charging",
+    details: "MPPT solar charging via CN3903 enables field deployments with solar panels. Combined with Li-ion battery pack, enables autonomous 30-day operation. Battery voltage and charge state are monitored as device health telemetry."
   },
   { 
     id: "mount", 
     name: "Universal Mount", 
     icon: Building,
     position: { top: "85%", left: "55%" }, 
-    description: "Multi-platform mounting system",
-    details: "The universal mounting system includes adapters for building walls, poles, vehicles, and tripods. Quick-release design allows the collection carousel to be swapped in seconds without tools."
+    description: "IP65 weatherproof enclosure",
+    details: "IP65-rated enclosure with gasket sealing and hydrophobic vent membrane. Universal mounting system includes adapters for buildings, poles, vehicles, and tripods. Sealed cable glands for external power connections."
   },
 ]
 
@@ -147,20 +150,20 @@ const USE_CASES = [
   },
 ]
 
-// Specs
+// Specs - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 const SPECIFICATIONS = {
-  "Collection Rate": "10-100 L/min adjustable",
-  "Sample Positions": "24 time-indexed slots",
-  "Filter Efficiency": "99.7% at 0.3μm",
-  "Power Source": "Solar + 5200mAh battery",
-  "Battery Life": "30 days (sampling 4hr/day)",
-  "Connectivity": "LTE Cat-M1, LoRa, WiFi",
-  "Weather Rating": "IP65 all-weather",
-  "Operating Temp": "-10°C to 50°C",
-  "Dimensions": "20cm × 15cm × 40cm",
-  "Weight": "2.8kg",
-  "Data Storage": "16GB local + cloud",
-  "Analysis Output": "PCR-ready, microscopy-ready"
+  "Sampling Method": "Fan-driven active deposition",
+  "Sample Intervals": "2,880 per cassette (30 days)",
+  "Collection Cadence": "15 min default (configurable)",
+  "Sample Format": "Sealed adhesive tape cassette",
+  "Power Source": "MPPT solar + Li-ion battery",
+  "Controller": "MycoBrain (Dual ESP32-S3)",
+  "Connectivity": "LoRa mesh, WiFi, cellular optional",
+  "Weather Rating": "IP65 design target",
+  "Operating Temp": "-10°C to +50°C",
+  "Dimensions": "~194 × 149 × 53 mm",
+  "Sensors": "BME688/690, BMV080 (optional)",
+  "Data Storage": "microSD (32-256 GB)"
 }
 
 export function SporeBaseDetails() {
@@ -182,36 +185,17 @@ export function SporeBaseDetails() {
     <div className="relative bg-gradient-to-b from-orange-950 via-slate-950 to-black text-white overflow-hidden">
       {/* Hero Section */}
       <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background gradient */}
+        {/* Background gradient - matching CodePen style */}
         <motion.div 
           style={{ scale: heroScale }}
-          className="absolute inset-0 bg-gradient-to-br from-orange-900/30 via-amber-900/20 to-slate-950"
-        />
+          className="absolute inset-0"
+          >
+          <div className="absolute inset-0 bg-gradient-to-r from-[#00223e] to-[#ffa17f] opacity-60" />
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-900/30 via-amber-900/20 to-slate-950" />
+        </motion.div>
         
-        {/* Animated particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {Array.from({ length: 40 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-orange-400/30 rounded-full"
-              initial={{ 
-                x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
-                y: (typeof window !== 'undefined' ? window.innerHeight : 1080) + 100,
-                opacity: 0
-              }}
-              animate={{ 
-                y: -100,
-                opacity: [0, 0.8, 0],
-              }}
-              transition={{
-                duration: 8 + Math.random() * 4,
-                repeat: Infinity,
-                delay: Math.random() * 5,
-                ease: "linear"
-              }}
-            />
-          ))}
-        </div>
+        {/* Star/Spore Universe Animation */}
+        <SporeUniverse starCount={300} maxTime={25} className="z-0" />
         
         <motion.div 
           style={{ opacity: heroOpacity }}
@@ -238,9 +222,9 @@ export function SporeBaseDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            The world&apos;s most advanced bioaerosol collector.
+            Time-indexed bioaerosol collection for the real world.
             <br />
-            <span className="text-orange-400">Capturing the invisible. Making it visible.</span>
+            <span className="text-orange-400">Capturing the invisible. Making it measurable.</span>
           </motion.p>
           
           <motion.div
@@ -251,7 +235,7 @@ export function SporeBaseDetails() {
           >
             <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
-              Order Now - $299
+              Pre-Order Now
             </Button>
             <Button size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
               <Play className="mr-2 h-5 w-5" />
@@ -289,33 +273,35 @@ export function SporeBaseDetails() {
               </h2>
               <div className="space-y-4 text-lg text-white/70">
                 <p>
-                  The air around us carries billions of invisible biological particles—spores, pollen, 
-                  bacteria, and more. Understanding what&apos;s in the air we breathe has never been more 
-                  important.
+                  The air around us carries billions of microscopic particles—spores, pollen, 
+                  dust, and other biological material. Understanding what&apos;s in the air we breathe 
+                  has never been more important.
                 </p>
                 <p>
-                  SporeBase is a distributed bioaerosol collection network that creates time-indexed 
-                  samples for laboratory analysis. Mount it on buildings, vehicles, or research stations 
-                  to map the invisible world of airborne biology.
+                  SporeBase creates <strong className="text-orange-400">time-indexed physical samples</strong> for 
+                  lab analysis while logging environmental context. Unlike snapshot sampling that loses temporal 
+                  context, SporeBase advances a sealed adhesive-tape cassette every 15 minutes, creating a 
+                  chronological record spanning <strong className="text-orange-400">30 days (2,880 intervals)</strong>.
                 </p>
                 <p>
-                  From tracking seasonal allergies to early disease detection in crops, SporeBase 
-                  provides the data needed to understand our atmospheric environment.
+                  Deploy on buildings, vehicles, or research stations. SporeBase works standalone 
+                  or as part of the Mycosoft Environmental Intelligence network via <strong className="text-white/90">Mycorrhizae 
+                  Protocol + MINDEX</strong>, visualized through <strong className="text-white/90">NatureOS</strong>.
                 </p>
               </div>
               
               <div className="grid grid-cols-4 gap-4 mt-8">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">100L</div>
-                  <div className="text-sm text-white/50">Per Minute</div>
+                  <div className="text-3xl font-bold text-orange-400">2,880</div>
+                  <div className="text-sm text-white/50">Sample Intervals</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">24</div>
-                  <div className="text-sm text-white/50">Time Slots</div>
+                  <div className="text-3xl font-bold text-orange-400">30</div>
+                  <div className="text-sm text-white/50">Days Per Cassette</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">1km</div>
-                  <div className="text-sm text-white/50">Mesh Range</div>
+                  <div className="text-3xl font-bold text-orange-400">15m</div>
+                  <div className="text-sm text-white/50">Collection Cadence</div>
                 </div>
                 <div className="text-center">
                   <div className="text-3xl font-bold text-orange-400">IP65</div>
@@ -325,15 +311,73 @@ export function SporeBaseDetails() {
             </div>
             
             <div className="relative">
-              <div className="aspect-square rounded-3xl overflow-hidden border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-slate-900">
+              {/* Background with floating pixels effect */}
+              <div className="absolute inset-0 rounded-3xl overflow-hidden">
+                {/* Animated floating pixels */}
+                {[...Array(20)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-1 h-1 bg-orange-400/40 rounded-full"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                    }}
+                    animate={{
+                      y: [0, -20, 0],
+                      opacity: [0.2, 0.6, 0.2],
+                      scale: [1, 1.5, 1],
+                    }}
+                    transition={{
+                      duration: 3 + Math.random() * 2,
+                      repeat: Infinity,
+                      delay: Math.random() * 2,
+                    }}
+                  />
+                ))}
+                {/* Larger floating particles */}
+                {[...Array(8)].map((_, i) => (
+                  <motion.div
+                    key={`large-${i}`}
+                    className="absolute w-2 h-2 bg-orange-500/30 rounded-full blur-[1px]"
+                    style={{
+                      left: `${10 + Math.random() * 80}%`,
+                      top: `${10 + Math.random() * 80}%`,
+                    }}
+                    animate={{
+                      y: [0, -30, 0],
+                      x: [0, 10, 0],
+                      opacity: [0.1, 0.4, 0.1],
+                    }}
+                    transition={{
+                      duration: 4 + Math.random() * 3,
+                      repeat: Infinity,
+                      delay: Math.random() * 3,
+                    }}
+                  />
+                ))}
+              </div>
+              
+              {/* Shadow layer behind the image */}
+              <div className="absolute inset-4 rounded-3xl bg-orange-500/20 blur-2xl" />
+              
+              {/* Main image with depth effect - floating above */}
+              <motion.div 
+                className="relative aspect-square rounded-3xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-slate-900 shadow-2xl shadow-orange-500/20"
+                initial={{ y: 0 }}
+                animate={{ y: [-4, 4, -4] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              >
                 <Image
                   src={SPOREBASE_ASSETS.mainImage}
                   alt="SporeBase Device"
                   fill
-                  className="object-contain p-8"
+                  className="object-cover"
                 />
-              </div>
-              <div className="absolute -bottom-6 -right-6 p-4 bg-orange-500/20 backdrop-blur-xl rounded-2xl border border-orange-500/30">
+                {/* Subtle inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-t from-orange-500/10 via-transparent to-transparent pointer-events-none" />
+              </motion.div>
+              
+              <div className="absolute -bottom-6 -right-6 p-4 bg-orange-500/20 backdrop-blur-xl rounded-2xl border border-orange-500/30 shadow-lg shadow-orange-500/10">
                 <Wind className="h-8 w-8 text-orange-400" />
                 <p className="text-sm font-medium mt-2 text-orange-400">Bioaerosol Capture</p>
               </div>
@@ -350,19 +394,19 @@ export function SporeBaseDetails() {
               Technology
             </Badge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Advanced Collection System
+              How SporeBase Works
             </h2>
             <p className="text-xl text-white/60 max-w-2xl mx-auto">
-              Three-stage filtration captures particles from 10μm down to 0.3μm with 99.7% efficiency.
+              Fan-driven active sampling deposits particles onto adhesive tape, creating 2,880 time-indexed samples per cassette.
             </p>
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Wind, title: "Active Sampling", desc: "100L/min precision pump draws air through multi-stage filters" },
-              { icon: Timer, title: "Time-Indexed", desc: "24 collection slots create temporal resolution for analysis" },
-              { icon: Filter, title: "99.7% Capture", desc: "Three-stage filtration captures particles down to 0.3μm" },
-              { icon: FlaskRound, title: "Lab-Ready", desc: "Samples ready for PCR, microscopy, or culturing" },
+              { icon: Wind, title: "Fan-Driven Sampling", desc: "Controlled fan pulls ambient air across the sampling head where particles deposit onto adhesive tape" },
+              { icon: Timer, title: "Time-Indexed", desc: "2,880 intervals per cassette (15-min cadence × 30 days) with precise timestamping" },
+              { icon: Database, title: "Chain of Custody", desc: "MINDEX provides tamper-evident records with Mycorrhizae Protocol data encoding" },
+              { icon: FlaskRound, title: "Lab-Ready", desc: "Sealed cassettes ready for microscopy, qPCR, sequencing, or archive storage" },
             ].map((item) => (
               <Card key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors">
                 <CardContent className="pt-6">
@@ -379,8 +423,11 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Applications Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-900 to-slate-950">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="relative py-24 bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden">
+        {/* Interactive particle gravity effect - mouse/touch responsive */}
+        <SporeGravity className="opacity-70" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Applications
@@ -629,8 +676,15 @@ export function SporeBaseDetails() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-950 to-orange-950/30">
-        <div className="max-w-4xl mx-auto text-center px-4">
+      <section className="relative py-24 overflow-hidden">
+        {/* Background with CodePen gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#00223e] to-[#ffa17f] opacity-40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 to-orange-950/30" />
+        
+        {/* Flowing particle wave effect - sinusoidal animation */}
+        <SporeWave className="opacity-70" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Ready to map the invisible world?
           </h2>
@@ -642,7 +696,7 @@ export function SporeBaseDetails() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
-              Order Now - $299
+              Pre-Order Now
             </Button>
             <Button size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
               <Download className="mr-2 h-5 w-5" />

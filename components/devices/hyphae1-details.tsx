@@ -15,6 +15,9 @@ import {
   ArrowRight, Square, RectangleHorizontal, RectangleVertical
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
+import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
+import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 
 // ============================================================================
 // HYPHAE 1 MEDIA ASSETS
@@ -296,8 +299,11 @@ export function Hyphae1Details() {
       </section>
 
       {/* Variant Showcase */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="relative py-24 bg-white overflow-hidden">
+        {/* Connected dots background animation */}
+        <ProductShowcaseDots className="opacity-100" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Product Line
@@ -459,8 +465,11 @@ export function Hyphae1Details() {
       </section>
 
       {/* Applications Section */}
-      <section className="py-24 bg-slate-100">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="relative py-24 bg-slate-100 overflow-hidden">
+        {/* Scrolling grid background effect - prominent visibility */}
+        <InfrastructureGrid className="opacity-90" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Applications
@@ -698,30 +707,38 @@ export function Hyphae1Details() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-slate-900 text-white">
-        <div className="max-w-4xl mx-auto text-center px-4">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to modernize your infrastructure?
-          </h2>
-          <p className="text-xl text-white/60 mb-8">
-            Configure your Hyphae 1 system with our online tool or speak 
-            with our integration specialists.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Configure & Order
-            </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-              <ExternalLink className="mr-2 h-5 w-5" />
-              Contact Sales
-            </Button>
+      <section className="relative py-24 bg-slate-900 text-white overflow-hidden">
+        {/* Pulsing dot grid background effect - full visibility */}
+        <InfrastructureDotGrid className="opacity-100" />
+        
+        <div className="relative z-10 max-w-4xl mx-auto px-4">
+          {/* Container widget to separate text from animated background */}
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-3xl border border-slate-700/50 p-10 md:p-14 shadow-2xl">
+            <div className="text-center">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                Ready to modernize your infrastructure?
+              </h2>
+              <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
+                Configure your Hyphae 1 system with our online tool or speak 
+                with our integration specialists.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
+                  <ShoppingCart className="mr-2 h-5 w-5" />
+                  Configure & Order
+                </Button>
+                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                  <ExternalLink className="mr-2 h-5 w-5" />
+                  Contact Sales
+                </Button>
+              </div>
+              
+              <p className="text-sm text-white/50 mt-8">
+                Starting at $199 • 5-year warranty • Free technical support
+              </p>
+            </div>
           </div>
-          
-          <p className="text-sm text-white/40 mt-8">
-            Starting at $199 • 5-year warranty • Free technical support
-          </p>
         </div>
       </section>
     </div>

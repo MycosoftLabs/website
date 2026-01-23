@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { PreOrderModal } from "./pre-order-modal"
+import { SensorNeuralWeb } from "@/components/effects/neural-web"
 interface SelectedVideo {
   kind: "youtube" | "mp4"
   src: string
@@ -483,8 +484,11 @@ export function Mushroom1Details() {
       </section>
 
       {/* Sensor Capabilities */}
-      <section className="py-24 bg-gradient-to-b from-black via-slate-950 to-black">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="relative py-24 bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden">
+        {/* Neural web sensor visualization background */}
+        <SensorNeuralWeb className="opacity-50" />
+        
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}

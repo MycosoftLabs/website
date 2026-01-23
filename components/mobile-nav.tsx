@@ -17,14 +17,14 @@ import { cn } from "@/lib/utils"
 const defenseItems = [
   { title: "Fusarium", href: "/defense/fusarium", icon: Bug },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target },
-  { title: "Technical Documentation", href: "/defense/docs", icon: FileText },
+  { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText },
 ]
 
 const natureOSItems = [
   { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map },
   { title: "Device Network", href: "/natureos/devices", icon: Network },
-  { title: "MINDEX", href: "/natureos/mindex", icon: Database },
-  { title: "Earth Simulator", href: "/natureos/earth", icon: Globe },
+  { title: "MINDEX", href: "/mindex", icon: Database },
+  { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
 ]
 
 const devicesItems = [
@@ -36,11 +36,11 @@ const devicesItems = [
 ]
 
 const appsItems = [
-  { title: "Petri Dish Simulator", href: "/apps/petri-dish", icon: FlaskConical },
-  { title: "Mushroom Simulator", href: "/apps/mushroom-simulator", icon: Microscope },
-  { title: "Compound Analyzer", href: "/apps/compound-analyzer", icon: FlaskConical },
+  { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: FlaskConical },
+  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope },
+  { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
   { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass },
-  { title: "Ancestry Database", href: "/apps/ancestry", icon: TreeDeciduous },
+  { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous },
   { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3 },
 ]
 
