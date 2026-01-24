@@ -86,21 +86,16 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Failed to fetch images:", error)
-    
-    // Return mock data
-    return NextResponse.json({
-      source: "mock",
-      images: [
-        { id: "abc123", name: "mycosoft-mas", tag: "latest", created: new Date().toISOString(), sizeFormatted: "1.2 GB", isMcp: false },
-        { id: "def456", name: "n8nio/n8n", tag: "latest", created: new Date().toISOString(), sizeFormatted: "450 MB", isMcp: false },
-        { id: "ghi789", name: "postgres", tag: "15", created: new Date().toISOString(), sizeFormatted: "379 MB", isMcp: false },
-        { id: "jkl012", name: "redis", tag: "7-alpine", created: new Date().toISOString(), sizeFormatted: "30 MB", isMcp: false },
-        { id: "mno345", name: "mcp-server-filesystem", tag: "latest", created: new Date().toISOString(), sizeFormatted: "150 MB", isMcp: true },
-        { id: "pqr678", name: "mcp-server-github", tag: "latest", created: new Date().toISOString(), sizeFormatted: "120 MB", isMcp: true },
-      ],
-      stats: { total: 6, mcpServers: 2, totalSizeFormatted: "2.3 GB" },
-      error: "Docker API not available",
-    })
+
+    return NextResponse.json(
+      {
+        source: "local",
+        images: [],
+        stats: { total: 0, mcpServers: 0, totalSize: 0, totalSizeFormatted: "0 B" },
+        error: "Docker API not available",
+      },
+      { status: 503 },
+    )
   }
 }
 

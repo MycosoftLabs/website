@@ -6,78 +6,82 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { env } from "@/lib/env"
+import { listTaxa } from "@/lib/integrations/mindex"
+import type { Taxon } from "@/lib/integrations/types"
 
-export interface MINDEXTaxon {
-  id: string
-  parent_id?: string
-  canonical_name: string
-  rank: string
-  common_name?: string
-  authority?: string
-  description?: string
-  source?: string
-  metadata?: Record<string, any>
-}
-
-export interface MINDEXObservation {
-  id: string
-  taxon_id?: string
-  source: string
-  source_id?: string
-  observer?: string
-  observed_at: string
-  location?: {
-    type: 'Point'
-    coordinates: [number, number] // [longitude, latitude]
-  }
-  accuracy_m?: number
-  media?: any[]
-  notes?: string
-  metadata?: Record<string, any>
+export interface SyncResult {
+  ok: boolean
+  upserted: number
+  pages: number
 }
 
 /**
  * Sync MINDEX taxa to Supabase species table
  */
-export async function syncMINDEXTaxaToSupabase() {
+export async function syncMINDEXTaxaToSupabase(options?: { pageSize?: number; maxPages?: number }): Promise<SyncResult> {
+  if (!env.integrationsEnabled) {
+    throw new Error("Integrations are disabled. Set INTEGRATIONS_ENABLED=true and provide MINDEX_API_BASE_URL/MINDEX_API_KEY.")
+  }
+
   const supabase = await createClient()
   
-  // TODO: Fetch from MINDEX API
-  // For now, this is a placeholder structure
-  // const mindexTaxa = await fetchMINDEXTaxa()
-  
-  // Map MINDEX taxa to Supabase species format
-  // const speciesData = mindexTaxa.map(taxon => ({
-  //   id: taxon.id,
-  //   canonical_name: taxon.canonical_name,
-  //   common_name: taxon.common_name,
-  //   rank: taxon.rank,
-  //   authority: taxon.authority,
-  //   description: taxon.description,
-  //   metadata: taxon.metadata,
-  //   embedding: null, // Will be generated later
-  // }))
-  
-  // Upsert to Supabase
-  // const { data, error } = await supabase
-  //   .from('species')
-  //   .upsert(speciesData, { onConflict: 'id' })
-  
-  // return { data, error }
-  
-  return { data: null, error: null }
+  const pageSize = options?.pageSize ?? 200
+  const maxPages = options?.maxPages ?? 50
+
+  let page = 1
+  let pages = 0
+  let upserted = 0
+
+  while (pages < maxPages) {
+    const result = await listTaxa({ page, pageSize })
+    pages += 1
+    page += 1
+
+    const taxa = result.data as Taxon[]
+    if (!taxa.length) break
+
+    const rows = taxa.map((t) => ({
+      scientific_name: t.scientificName,
+      common_name: t.commonName || null,
+      family: t.family || null,
+      description: t.description || null,
+      image_url: t.imageUrl || null,
+      characteristics: {
+        mindex_taxon_id: t.id,
+        taxonomy: {
+          kingdom: t.kingdom,
+          phylum: t.phylum,
+          class: t.class,
+          order: t.order,
+          family: t.family,
+          genus: t.genus,
+          species: t.species,
+        },
+        edibility: t.edibility,
+        medicinal_properties: t.medicinalProperties || [],
+        habitat: t.habitat || [],
+      },
+    }))
+
+    const { error } = await supabase.from("species").upsert(rows, { onConflict: "scientific_name" })
+    if (error) throw new Error(`Supabase upsert failed: ${error.message}`)
+
+    upserted += rows.length
+
+    if (result.meta?.hasMore === false) break
+  }
+
+  return { ok: true, upserted, pages }
 }
 
 /**
  * Sync MINDEX observations to Supabase
  */
 export async function syncMINDEXObservationsToSupabase() {
-  const supabase = await createClient()
-  
-  // TODO: Fetch from MINDEX API
-  // Map observations to Supabase format
-  
-  return { data: null, error: null }
+  throw new Error(
+    "Observations sync is not configured. Add a Supabase table for MINDEX observations (or use FDW) and then implement a real sync pipeline.",
+  )
 }
 
 /**
@@ -85,63 +89,15 @@ export async function syncMINDEXObservationsToSupabase() {
  * This allows querying MINDEX directly from Supabase
  */
 export async function setupMINDEXFDW() {
-  // This would be done via SQL migration
-  // CREATE EXTENSION IF NOT EXISTS postgres_fdw;
-  // CREATE SERVER mindex_server FOREIGN DATA WRAPPER postgres_fdw
-  //   OPTIONS (host 'mindex-host', port '5432', dbname 'mindex');
-  // 
-  // CREATE USER MAPPING FOR CURRENT_USER SERVER mindex_server
-  //   OPTIONS (user 'mindex_user', password 'mindex_password');
-  // 
-  // CREATE FOREIGN TABLE supabase.mindex_taxon (
-  //   id uuid,
-  //   canonical_name text,
-  //   ...
-  // ) SERVER mindex_server OPTIONS (schema_name 'core', table_name 'taxon');
-  
-  return { success: true }
-}
-
-/**
- * Get MINDEX API client
- */
-export function getMINDEXClient() {
-  const apiUrl = process.env.MINDEX_API_URL || 'http://localhost:8000'
-  const apiKey = process.env.MINDEX_API_KEY
-  
   return {
-    async getTaxa(params?: { limit?: number; offset?: number; search?: string }) {
-      const url = new URL(`${apiUrl}/api/taxa`)
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined) url.searchParams.set(key, String(value))
-        })
-      }
-      
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
-      
-      const response = await fetch(url.toString(), { headers })
-      if (!response.ok) throw new Error(`MINDEX API error: ${response.statusText}`)
-      
-      return response.json()
-    },
-    
-    async getObservations(params?: { limit?: number; offset?: number; taxon_id?: string }) {
-      const url = new URL(`${apiUrl}/api/observations`)
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined) url.searchParams.set(key, String(value))
-        })
-      }
-      
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
-      
-      const response = await fetch(url.toString(), { headers })
-      if (!response.ok) throw new Error(`MINDEX API error: ${response.statusText}`)
-      
-      return response.json()
-    },
+    ok: false,
+    message:
+      "FDW setup must be applied as SQL in the Supabase project (requires postgres_fdw extension + a server/user mapping).",
+    sql_template: [
+      "CREATE EXTENSION IF NOT EXISTS postgres_fdw;",
+      "-- CREATE SERVER mindex_server FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host '<MINDEX_DB_HOST>', port '5432', dbname '<MINDEX_DB_NAME>');",
+      "-- CREATE USER MAPPING FOR CURRENT_USER SERVER mindex_server OPTIONS (user '<MINDEX_DB_USER>', password '<MINDEX_DB_PASSWORD>');",
+      "-- CREATE FOREIGN TABLE ... SERVER mindex_server OPTIONS (schema_name 'core', table_name 'taxon');",
+    ].join("\n"),
   }
 }

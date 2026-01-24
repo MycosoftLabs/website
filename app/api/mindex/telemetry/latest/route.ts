@@ -7,15 +7,17 @@
 import { NextResponse } from "next/server"
 import { env } from "@/lib/env"
 import { getLatestTelemetry } from "@/lib/integrations/mindex"
-import { mockTelemetry } from "@/lib/integrations/mock-data"
 
 export async function GET() {
-  // Return mock data if integrations disabled
   if (!env.integrationsEnabled) {
-    return NextResponse.json({
-      data: mockTelemetry,
-      meta: { total: mockTelemetry.length },
-    })
+    return NextResponse.json(
+      {
+        error: "MINDEX integration is disabled. This endpoint requires a live MINDEX backend.",
+        code: "INTEGRATIONS_DISABLED",
+        requiredEnv: ["INTEGRATIONS_ENABLED=true", "MINDEX_API_BASE_URL", "MINDEX_API_KEY"],
+      },
+      { status: 503 },
+    )
   }
 
   try {

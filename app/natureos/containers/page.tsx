@@ -122,12 +122,12 @@ export default function ContainersPage() {
         const data = await res.json()
         setContainers(data.containers || [])
         setStats(data.stats || null)
-        setDockerConnected(data.source !== "mock")
+        setDockerConnected(true)
       }
     } catch (error) {
       console.error("Failed to fetch containers:", error)
-      setContainers(getDefaultContainers())
-      setStats(getDefaultStats())
+      setContainers([])
+      setStats(null)
       setDockerConnected(false)
     } finally {
       setIsLoading(false)
@@ -172,157 +172,7 @@ export default function ContainersPage() {
     return () => clearInterval(interval)
   }, [fetchContainers, fetchMcpServers, fetchImages])
 
-  const getDefaultContainers = (): Container[] => [
-    { 
-      id: "abc123", 
-      name: "mycosoft-website", 
-      image: "platform-infra-website:latest", 
-      status: "running", 
-      cpu: 2.5, 
-      memory: 256, 
-      memoryLimit: 2048, 
-      ports: ["80:3002"], 
-      uptime: "2h 15m",
-      created: "2024-12-20T10:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/app/.next"],
-      health: "healthy"
-    },
-    { 
-      id: "def456", 
-      name: "mycosoft-mas", 
-      image: "mycosoft-mas:latest", 
-      status: "running", 
-      cpu: 8.3, 
-      memory: 512, 
-      memoryLimit: 4096, 
-      ports: ["8000:8000"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/app/data", "/app/models"],
-      health: "healthy"
-    },
-    { 
-      id: "ghi789", 
-      name: "mycosoft-gateway", 
-      image: "nginx:alpine", 
-      status: "running", 
-      cpu: 0.8, 
-      memory: 64, 
-      memoryLimit: 512, 
-      ports: ["80:80", "443:443"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/etc/nginx/conf.d"],
-      health: "healthy"
-    },
-    { 
-      id: "jkl012", 
-      name: "mycosoft-n8n", 
-      image: "n8nio/n8n:latest", 
-      status: "running", 
-      cpu: 3.2, 
-      memory: 384, 
-      memoryLimit: 2048, 
-      ports: ["5678:5678"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/home/node/.n8n"],
-      health: "healthy"
-    },
-    { 
-      id: "mno345", 
-      name: "mycosoft-postgres", 
-      image: "postgres:15", 
-      status: "running", 
-      cpu: 1.2, 
-      memory: 128, 
-      memoryLimit: 1024, 
-      ports: ["5432:5432"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/var/lib/postgresql/data"],
-      health: "healthy"
-    },
-    { 
-      id: "pqr678", 
-      name: "mycosoft-redis", 
-      image: "redis:7-alpine", 
-      status: "running", 
-      cpu: 0.5, 
-      memory: 32, 
-      memoryLimit: 256, 
-      ports: ["6379:6379"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/data"],
-      health: "healthy"
-    },
-    { 
-      id: "stu901", 
-      name: "mycosoft-qdrant", 
-      image: "qdrant/qdrant:latest", 
-      status: "running", 
-      cpu: 15.0, 
-      memory: 768, 
-      memoryLimit: 4096, 
-      ports: ["6333:6333"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/qdrant/storage"],
-      health: "healthy"
-    },
-    { 
-      id: "vwx234", 
-      name: "mycosoft-myca-dashboard", 
-      image: "mycosoft/unifi-dashboard:latest", 
-      status: "running", 
-      cpu: 6.0, 
-      memory: 192, 
-      memoryLimit: 1024, 
-      ports: ["3100:3000"], 
-      uptime: "5d 12h",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: [],
-      health: "healthy"
-    },
-    { 
-      id: "yza567", 
-      name: "mycosoft-whisper", 
-      image: "mycosoft/whisper:latest", 
-      status: "exited", 
-      cpu: 0, 
-      memory: 0, 
-      memoryLimit: 4096, 
-      ports: ["8765:8765"], 
-      uptime: "-",
-      created: "2024-12-15T08:00:00Z",
-      networks: ["mycosoft-network"],
-      volumes: ["/app/models"],
-      health: "none",
-      restartCount: 5
-    },
-  ]
-
-  const getDefaultStats = (): DockerStats => ({
-    totalContainers: 9,
-    running: 8,
-    stopped: 1,
-    paused: 0,
-    totalCpu: 37.5,
-    totalMemory: 2336,
-    totalMemoryLimit: 19456,
-    images: 15,
-    volumes: 12,
-    networks: 3,
-  })
+  // Note: mock defaults removed. This page requires a live Docker API.
 
   // Container actions
   const handleContainerAction = async (action: string, containerId: string) => {
@@ -350,13 +200,8 @@ export default function ContainersPage() {
         const data = await res.json()
         setLogs(data.logs || "No logs available")
       }
-    } catch {
-      setLogs(`[${new Date().toISOString()}] Container logs would appear here.
-[${new Date().toISOString()}] INFO: Starting service...
-[${new Date().toISOString()}] INFO: Connected to database
-[${new Date().toISOString()}] INFO: Server listening on port 8000
-[${new Date().toISOString()}] DEBUG: Processing request...
-[${new Date().toISOString()}] INFO: Request completed successfully`)
+    } catch (error) {
+      setLogs(`Failed to fetch logs: ${error instanceof Error ? error.message : String(error)}`)
     }
     setLogsDialog(true)
   }

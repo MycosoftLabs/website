@@ -1,0 +1,30 @@
+// NOTE: Kept in sync with `lib/mindex/grpc/mindex.proto`
+syntax = "proto3";
+
+package mindex.v2;
+
+message TelemetryFrame {
+  string device_id = 1;
+  string timestamp = 2;
+  bytes payload = 3;
+  string content_type = 4;
+}
+
+message IngestAck {
+  bool ok = 1;
+  string message = 2;
+  uint64 ingested = 3;
+}
+
+message CommandMessage {
+  string device_id = 1;
+  string command_id = 2;
+  string timestamp = 3;
+  bytes payload = 4;
+}
+
+service MindexTelemetry {
+  rpc IngestTelemetry(stream TelemetryFrame) returns (IngestAck);
+  rpc CommandStream(stream CommandMessage) returns (stream CommandMessage);
+}
+

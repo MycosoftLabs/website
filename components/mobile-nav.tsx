@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
 import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind } from "lucide-react"
@@ -46,6 +47,7 @@ const appsItems = [
 
 interface ExpandableSectionProps {
   title: string
+  href: string // Main section link
   icon: React.ElementType
   items: { title: string; href: string; icon: React.ElementType }[]
   closeMenu: () => void
@@ -53,19 +55,32 @@ interface ExpandableSectionProps {
   onToggle: () => void
 }
 
-function ExpandableSection({ title, icon: Icon, items, closeMenu, isOpen, onToggle }: ExpandableSectionProps) {
+function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, onToggle }: ExpandableSectionProps) {
   return (
     <div className="flex flex-col">
-      <button
-        onClick={onToggle}
-        className="flex items-center justify-between text-lg font-medium py-1 hover:text-primary transition-colors"
-      >
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between py-1">
+        {/* Main section link - tapping navigates to the section page */}
+        <Link
+          href={href}
+          onClick={closeMenu}
+          className="flex items-center gap-2 text-lg font-medium hover:text-primary transition-colors flex-1"
+        >
           <Icon className="h-5 w-5" />
           {title}
-        </div>
-        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-      </button>
+        </Link>
+        {/* Expand/collapse button - separate from the link */}
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onToggle()
+          }}
+          className="p-2 hover:bg-accent rounded-md transition-colors"
+          aria-label={isOpen ? `Collapse ${title} submenu` : `Expand ${title} submenu`}
+        >
+          <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+        </button>
+      </div>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -151,20 +166,36 @@ export function MobileNav() {
     open: { opacity: 1, x: 0 },
   }
 
-  return (
-    <>
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleMenu} aria-label="Menu">
-        <Menu className="h-5 w-5" />
-      </Button>
+  // State to track if we're mounted (for portal)
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
+  
+  useEffect(() => {
+    setPortalContainer(document.body)
+  }, [])
 
-      <AnimatePresence>
-        {isOpen && (
+  const mobileMenuContent = isOpen && portalContainer ? createPortal(
+    <AnimatePresence mode="wait">
+      {isOpen && (
+        <>
+          {/* Backdrop overlay - covers entire screen */}
           <motion.div
+            key="mobile-nav-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[99998] bg-black/70 backdrop-blur-md"
+            onClick={closeMenu}
+            aria-hidden="true"
+          />
+          {/* Mobile nav drawer */}
+          <motion.div
+            key="mobile-nav-drawer"
             initial="closed"
             animate="open"
             exit="closed"
             variants={menuVariants}
-            className="fixed inset-y-0 right-0 z-50 bg-background w-80 border-l border-gray-800 shadow-xl overflow-y-auto"
+            className="fixed inset-y-0 right-0 z-[99999] bg-background w-80 border-l border-gray-800 shadow-2xl overflow-y-auto"
           >
             <div className="container flex h-14 items-center justify-between">
               <Link href="/" className="flex items-center gap-2 font-semibold" onClick={closeMenu}>
@@ -198,6 +229,7 @@ export function MobileNav() {
                 {/* Defense - Expandable */}
                 <ExpandableSection
                   title="Defense"
+                  href="/defense"
                   icon={Shield}
                   items={defenseItems}
                   closeMenu={closeMenu}
@@ -208,6 +240,7 @@ export function MobileNav() {
                 {/* NatureOS - Expandable */}
                 <ExpandableSection
                   title="NatureOS"
+                  href="/natureos"
                   icon={Cloud}
                   items={natureOSItems}
                   closeMenu={closeMenu}
@@ -218,6 +251,7 @@ export function MobileNav() {
                 {/* Devices - Expandable */}
                 <ExpandableSection
                   title="Devices"
+                  href="/devices"
                   icon={Cpu}
                   items={devicesItems}
                   closeMenu={closeMenu}
@@ -228,6 +262,7 @@ export function MobileNav() {
                 {/* Apps - Expandable */}
                 <ExpandableSection
                   title="Apps"
+                  href="/apps"
                   icon={Apps}
                   items={appsItems}
                   closeMenu={closeMenu}
@@ -275,8 +310,18 @@ export function MobileNav() {
               </motion.div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>,
+    portalContainer
+  ) : null
+
+  return (
+    <>
+      <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleMenu} aria-label="Menu">
+        <Menu className="h-5 w-5" />
+      </Button>
+      {mobileMenuContent}
     </>
   )
 }

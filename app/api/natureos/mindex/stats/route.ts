@@ -1,129 +1,157 @@
-import { NextResponse } from "next/server";
+/**
+ * MINDEX Stats API Route (BFF Proxy)
+ * 
+ * Fetches real statistics from MINDEX API
+ * Returns taxa counts, observations, and ETL status
+ * 
+ * NO MOCK DATA - all data must come from real MINDEX backend
+ */
 
-export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server"
+import { env } from "@/lib/env"
+
+export const dynamic = "force-dynamic"
 
 interface MindexStats {
-  total_taxa: number;
-  total_observations: number;
-  observations_with_images: number;
-  taxa_by_source: Record<string, number>;
-  etl_status: string;
-  genome_records: number;
-  last_updated: string;
+  total_taxa: number
+  total_observations: number
+  total_external_ids: number
+  observations_with_location: number
+  observations_with_images: number
+  taxa_with_observations: number
+  taxa_by_source: Record<string, number>
+  observations_by_source: Record<string, number>
+  observation_date_range: { earliest: string | null; latest: string | null }
+  etl_status: "running" | "idle" | "error" | "unknown"
+  genome_records: number
+  trait_records: number
+  synonym_records: number
+  last_updated: string
+  data_source: "live" | "cached" | "unavailable"
 }
 
 export async function GET() {
+  const mindexUrl = env.mindexApiBaseUrl
+  const apiKey = env.mindexApiKey || "local-dev-key"
+  
+  let stats: MindexStats = {
+    total_taxa: 0,
+    total_observations: 0,
+    total_external_ids: 0,
+    observations_with_location: 0,
+    observations_with_images: 0,
+    taxa_with_observations: 0,
+    taxa_by_source: {},
+    observations_by_source: {},
+    observation_date_range: { earliest: null, latest: null },
+    etl_status: "unknown",
+    genome_records: 0,
+    trait_records: 0,
+    synonym_records: 0,
+    last_updated: new Date().toISOString(),
+    data_source: "unavailable",
+  }
+
   try {
-    // Try to fetch from MINDEX API
-    const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8002";
-    
-    const [statsRes, taxaRes, observationsRes] = await Promise.allSettled([
-      fetch(`${mindexUrl}/api/v1/stats`, { 
-        signal: AbortSignal.timeout(5000),
-        cache: "no-store" 
-      }),
-      fetch(`${mindexUrl}/api/v1/taxa?limit=1`, { 
-        signal: AbortSignal.timeout(5000),
-        cache: "no-store" 
-      }),
-      fetch(`${mindexUrl}/api/v1/observations?limit=1`, { 
-        signal: AbortSignal.timeout(5000),
-        cache: "no-store" 
-      }),
-    ]);
+    // Fetch from multiple MINDEX API endpoints in parallel
+    const endpoints = [
+      { path: "/api/mindex/stats", key: "main_stats" },
+      { path: "/api/mindex/taxa?limit=1", key: "taxa_count" },
+      { path: "/api/mindex/observations?limit=1", key: "obs_count" },
+      { path: "/api/mindex/etl/status", key: "etl" },
+    ]
 
-    let stats: MindexStats = {
-      total_taxa: 0,
-      total_observations: 0,
-      observations_with_images: 0,
-      taxa_by_source: {},
-      etl_status: "unknown",
-      genome_records: 0,
-      last_updated: new Date().toISOString(),
-    };
-
-    // Parse stats response
-    if (statsRes.status === "fulfilled" && statsRes.value.ok) {
-      const data = await statsRes.value.json();
-      stats = {
-        ...stats,
-        ...data,
-      };
-    }
-
-    // Parse taxa response for counts
-    if (taxaRes.status === "fulfilled" && taxaRes.value.ok) {
-      const data = await taxaRes.value.json();
-      if (data.total !== undefined) {
-        stats.total_taxa = data.total;
-      }
-      if (data.taxa && Array.isArray(data.taxa)) {
-        // Count by source
-        const sources: Record<string, number> = {};
-        data.taxa.forEach((t: any) => {
-          const source = t.source || "unknown";
-          sources[source] = (sources[source] || 0) + 1;
-        });
-        if (Object.keys(sources).length > 0) {
-          stats.taxa_by_source = sources;
+    const responses = await Promise.allSettled(
+      endpoints.map(async ({ path, key }) => {
+        const response = await fetch(`${mindexUrl}${path}`, {
+          headers: {
+            "X-API-Key": apiKey,
+            "Content-Type": "application/json",
+          },
+          signal: AbortSignal.timeout(10000),
+          cache: "no-store",
+        })
+        if (!response.ok) {
+          throw new Error(`${key}: HTTP ${response.status}`)
         }
+        return { key, data: await response.json() }
+      })
+    )
+
+    let hasValidData = false
+
+    for (const result of responses) {
+      if (result.status !== "fulfilled") continue
+
+      const { key, data } = result.value
+      hasValidData = true
+
+      switch (key) {
+        case "main_stats":
+          stats = {
+            ...stats,
+            total_taxa: data.total_taxa ?? stats.total_taxa,
+            total_observations: data.total_observations ?? stats.total_observations,
+            total_external_ids: data.total_external_ids ?? stats.total_external_ids,
+            observations_with_location: data.observations_with_location ?? stats.observations_with_location,
+            observations_with_images: data.observations_with_images ?? stats.observations_with_images,
+            taxa_with_observations: data.taxa_with_observations ?? stats.taxa_with_observations,
+            taxa_by_source: data.taxa_by_source ?? stats.taxa_by_source,
+            observations_by_source: data.observations_by_source ?? stats.observations_by_source,
+            observation_date_range: data.observation_date_range ?? stats.observation_date_range,
+            genome_records: data.genome_records ?? stats.genome_records,
+            trait_records: data.trait_records ?? stats.trait_records,
+            synonym_records: data.synonym_records ?? stats.synonym_records,
+          }
+          break
+
+        case "taxa_count":
+          if (data.total !== undefined) {
+            stats.total_taxa = data.total
+          }
+          if (data.data && Array.isArray(data.data)) {
+            // Aggregate by source if available
+            const sources: Record<string, number> = {}
+            data.data.forEach((t: { source?: string }) => {
+              const source = t.source || "unknown"
+              sources[source] = (sources[source] || 0) + 1
+            })
+            if (Object.keys(sources).length > 0 && Object.keys(stats.taxa_by_source).length === 0) {
+              stats.taxa_by_source = sources
+            }
+          }
+          break
+
+        case "obs_count":
+          if (data.total !== undefined) {
+            stats.total_observations = data.total
+          }
+          break
+
+        case "etl":
+          stats.etl_status = data.status || data.etl_status || stats.etl_status
+          break
       }
     }
 
-    // Parse observations response for counts
-    if (observationsRes.status === "fulfilled" && observationsRes.value.ok) {
-      const data = await observationsRes.value.json();
-      if (data.total !== undefined) {
-        stats.total_observations = data.total;
-      }
-      if (data.observations && Array.isArray(data.observations)) {
-        stats.observations_with_images = data.observations.filter(
-          (o: any) => o.image_url || o.photos?.length > 0
-        ).length;
-      }
-    }
+    stats.data_source = hasValidData ? "live" : "unavailable"
+    stats.last_updated = new Date().toISOString()
 
-    // Try to get more detailed stats from a dedicated endpoint
-    try {
-      const detailedRes = await fetch(`${mindexUrl}/api/v1/database/stats`, {
-        signal: AbortSignal.timeout(3000),
-        cache: "no-store",
-      });
-      
-      if (detailedRes.ok) {
-        const detailed = await detailedRes.json();
-        stats = {
-          ...stats,
-          total_taxa: detailed.total_taxa || stats.total_taxa,
-          total_observations: detailed.total_observations || stats.total_observations,
-          observations_with_images: detailed.observations_with_images || stats.observations_with_images,
-          genome_records: detailed.genome_records || detailed.genomes || 0,
-          taxa_by_source: detailed.taxa_by_source || detailed.sources || stats.taxa_by_source,
-          etl_status: detailed.etl_status || "idle",
-        };
-      }
-    } catch {
-      // Detailed stats endpoint not available
-    }
-
-    return NextResponse.json(stats);
+    return NextResponse.json(stats)
   } catch (error) {
-    console.error("Failed to fetch MINDEX stats:", error);
+    console.error("Failed to fetch MINDEX stats:", error)
     
-    // Return placeholder data when MINDEX is unavailable
+    // Return empty stats with error indicator - NO MOCK DATA
     return NextResponse.json({
-      total_taxa: 1245678,
-      total_observations: 3456789,
-      observations_with_images: 2345678,
-      taxa_by_source: {
-        iNaturalist: 850000,
-        GBIF: 350000,
-        MycoBank: 45678,
-      },
-      etl_status: "idle",
-      genome_records: 12500,
-      last_updated: new Date().toISOString(),
-      cached: true,
-    });
+      ...stats,
+      data_source: "unavailable",
+      error: error instanceof Error ? error.message : "MINDEX service unavailable",
+      mindex_url: mindexUrl,
+      troubleshooting: {
+        check_vm: "SSH to 192.168.0.187 and verify MINDEX container is running",
+        check_api: `curl ${mindexUrl}/api/mindex/health`,
+        restart: "docker-compose -f docker-compose.always-on.yml restart mindex-api",
+      }
+    }, { status: 503 })
   }
 }

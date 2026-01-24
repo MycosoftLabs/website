@@ -1,5 +1,4 @@
 import type { DevicesSnapshot } from './types';
-import { mockDevicesSnapshot } from './mock';
 
 /**
  * Server-side loader for the Devices page.
@@ -10,7 +9,9 @@ import { mockDevicesSnapshot } from './mock';
 export async function getDevicesSnapshot(): Promise<DevicesSnapshot> {
   const endpoint = process.env.NATUREOS_DEVICES_ENDPOINT;
   if (!endpoint) {
-    return { ...mockDevicesSnapshot, generatedAt: new Date().toISOString() };
+    throw new Error(
+      "NATUREOS_DEVICES_ENDPOINT is not set. Mock data has been removed; wire this to a real devices snapshot endpoint.",
+    )
   }
 
   try {
@@ -24,30 +25,18 @@ export async function getDevicesSnapshot(): Promise<DevicesSnapshot> {
     });
 
     if (!res.ok) {
-      return {
-        ...mockDevicesSnapshot,
-        source: 'mock',
-        generatedAt: new Date().toISOString(),
-      };
+      throw new Error(`Devices snapshot fetch failed: ${res.status}`)
     }
 
     const json = (await res.json()) as DevicesSnapshot;
 
     // Minimal sanity checks
     if (!json || !Array.isArray((json as any).devices)) {
-      return {
-        ...mockDevicesSnapshot,
-        source: 'mock',
-        generatedAt: new Date().toISOString(),
-      };
+      throw new Error("Devices snapshot response invalid: missing devices array")
     }
 
     return json;
-  } catch {
-    return {
-      ...mockDevicesSnapshot,
-      source: 'mock',
-      generatedAt: new Date().toISOString(),
-    };
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : String(error))
   }
 }

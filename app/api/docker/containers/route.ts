@@ -192,116 +192,14 @@ export async function GET() {
     const data = await fetchDockerContainers()
     return NextResponse.json(data)
   } catch (error) {
-    // Return mock data if Docker API not available
-    // This allows the UI to function for development
-    return NextResponse.json({
-      containers: [
-        { 
-          id: "abc123", 
-          name: "mycosoft-website", 
-          image: "platform-infra-website:latest", 
-          status: "running", 
-          cpu: 2.5, 
-          memory: 256, 
-          memoryLimit: 2048, 
-          ports: ["80:3002"], 
-          uptime: "2h 15m",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: ["/app/.next"],
-          health: "healthy"
-        },
-        { 
-          id: "def456", 
-          name: "mycosoft-mas", 
-          image: "mycosoft-mas:latest", 
-          status: "running", 
-          cpu: 8.3, 
-          memory: 512, 
-          memoryLimit: 4096, 
-          ports: ["8000:8000"], 
-          uptime: "5d 12h",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: ["/app/data"],
-          health: "healthy"
-        },
-        { 
-          id: "ghi789", 
-          name: "mycosoft-gateway", 
-          image: "nginx:alpine", 
-          status: "running", 
-          cpu: 0.8, 
-          memory: 64, 
-          memoryLimit: 512, 
-          ports: ["80:80", "443:443"], 
-          uptime: "5d 12h",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: [],
-          health: "healthy"
-        },
-        { 
-          id: "jkl012", 
-          name: "mycosoft-n8n", 
-          image: "n8nio/n8n:latest", 
-          status: "running", 
-          cpu: 3.2, 
-          memory: 384, 
-          memoryLimit: 2048, 
-          ports: ["5678:5678"], 
-          uptime: "5d 12h",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: [],
-          health: "healthy"
-        },
-        { 
-          id: "mno345", 
-          name: "mycosoft-postgres", 
-          image: "postgres:15", 
-          status: "running", 
-          cpu: 1.2, 
-          memory: 128, 
-          memoryLimit: 1024, 
-          ports: ["5432:5432"], 
-          uptime: "5d 12h",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: ["/var/lib/postgresql/data"],
-          health: "healthy"
-        },
-        { 
-          id: "pqr678", 
-          name: "mycosoft-redis", 
-          image: "redis:7-alpine", 
-          status: "running", 
-          cpu: 0.5, 
-          memory: 32, 
-          memoryLimit: 256, 
-          ports: ["6379:6379"], 
-          uptime: "5d 12h",
-          created: new Date().toISOString(),
-          networks: ["mycosoft-network"],
-          volumes: [],
-          health: "healthy"
-        },
-      ],
-      stats: {
-        totalContainers: 6,
-        running: 6,
-        stopped: 0,
-        paused: 0,
-        totalCpu: 16.5,
-        totalMemory: 1376,
-        totalMemoryLimit: 16384,
-        images: 15,
-        volumes: 8,
-        networks: 3,
+    return NextResponse.json(
+      {
+        error: "Docker API not available",
+        code: "DOCKER_UNAVAILABLE",
+        details: error instanceof Error ? error.message : String(error),
       },
-      source: "mock",
-      message: "Docker API not available, showing mock data",
-    })
+      { status: 503 },
+    )
   }
 }
 
@@ -340,21 +238,10 @@ export async function POST(request: NextRequest) {
       case "clone":
         // Clone involves creating a new container from the same image
         // This would require getting container config and creating new
-        return NextResponse.json({
-          success: true,
-          message: `Container ${containerId} clone initiated`,
-          action: "clone",
-          newContainerId: `${containerId}-test-${Date.now()}`,
-        })
+        return NextResponse.json({ error: "Not implemented", code: "NOT_IMPLEMENTED" }, { status: 501 })
       case "backup":
         // Backup would export container to tar and save to NAS
-        return NextResponse.json({
-          success: true,
-          message: `Backup of ${containerId} started`,
-          action: "backup",
-          destination: "\\\\mycosoft-nas\\backups\\containers",
-          estimatedSize: "2.5 GB",
-        })
+        return NextResponse.json({ error: "Not implemented", code: "NOT_IMPLEMENTED" }, { status: 501 })
       case "export-proxmox":
         // Export to Proxmox would convert container to VM
         return NextResponse.json({

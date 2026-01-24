@@ -4,13 +4,16 @@ import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import PhylogenyVisualization from "./3d-visualization"
+import { PhylogeneticTree } from "@/components/ancestry/phylogenetic-tree"
 
 export default function PhylogenyPage() {
   const [treeType, setTreeType] = useState<"cladogram" | "phylogram" | "radial" | "unrooted">("cladogram")
   const [taxonomicLevel, setTaxonomicLevel] = useState("order")
   const [dataSource, setDataSource] = useState("its")
   const [selectedTree, setSelectedTree] = useState("agaricales")
+  const [visualizationMode, setVisualizationMode] = useState<"d3" | "3d">("d3")
 
   // Map tree names to root species IDs (mock data)
   const treeRootMap: Record<string, number> = {
@@ -23,10 +26,32 @@ export default function PhylogenyPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-foreground">Phylogenetic Trees</h1>
-      <p className="text-lg text-foreground/70 mb-8">
-        Explore the evolutionary relationships between fungal species through interactive phylogenetic trees.
-      </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Phylogenetic Trees</h1>
+          <p className="text-lg text-foreground/70 mt-2">
+            Explore the evolutionary relationships between fungal species through interactive phylogenetic trees.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={visualizationMode === "d3" ? "bg-green-500/10 text-green-400 border-green-500/30" : ""}>
+            D3 Tree
+          </Badge>
+          <Badge variant="outline" className={visualizationMode === "3d" ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : ""}>
+            3D View
+          </Badge>
+        </div>
+      </div>
+
+      {/* D3 Phylogenetic Tree - Full Width */}
+      <section className="mb-12">
+        <PhylogeneticTree 
+          height={650}
+          showControls={true}
+          showLegend={true}
+          treeType="radial"
+        />
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
         <div className="lg:col-span-1">

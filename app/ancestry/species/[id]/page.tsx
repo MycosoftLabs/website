@@ -21,6 +21,10 @@ import {
   Microscope,
   Leaf,
   FlaskConical,
+  Atom,
+  Beaker,
+  TestTube,
+  Activity,
 } from "lucide-react"
 
 interface Species {
@@ -47,9 +51,52 @@ interface Species {
   }>
 }
 
+interface Compound {
+  compound_id: string
+  name: string
+  formula: string | null
+  molecular_weight: number | null
+  chemspider_id: number | null
+  relationship_type: string
+  evidence_level: string
+  tissue_location: string | null
+}
+
+// Fallback compound data for known species when MINDEX is unavailable
+function getFallbackCompounds(scientificName: string): Compound[] {
+  const compoundDatabase: Record<string, Compound[]> = {
+    "Psilocybe cubensis": [
+      { compound_id: "psilocybin", name: "Psilocybin", formula: "C12H17N2O4P", molecular_weight: 284.25, chemspider_id: 10086, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "psilocin", name: "Psilocin", formula: "C12H16N2O", molecular_weight: 204.27, chemspider_id: 10041, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "baeocystin", name: "Baeocystin", formula: "C11H15N2O4P", molecular_weight: 270.22, chemspider_id: 119205, relationship_type: "produces", evidence_level: "reported", tissue_location: "fruiting_body" },
+    ],
+    "Hericium erinaceus": [
+      { compound_id: "hericenone-a", name: "Hericenone A", formula: "C35H54O5", molecular_weight: 554.8, chemspider_id: 10449012, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "erinacine-a", name: "Erinacine A", formula: "C25H36O5", molecular_weight: 416.55, chemspider_id: 21106522, relationship_type: "produces", evidence_level: "verified", tissue_location: "mycelium" },
+    ],
+    "Ganoderma lucidum": [
+      { compound_id: "ganoderic-acid-a", name: "Ganoderic Acid A", formula: "C30H44O7", molecular_weight: 516.67, chemspider_id: 4445172, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "lucidenic-acid", name: "Lucidenic Acid A", formula: "C27H40O6", molecular_weight: 460.60, chemspider_id: 10219066, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+    ],
+    "Cordyceps militaris": [
+      { compound_id: "cordycepin", name: "Cordycepin", formula: "C10H13N5O3", molecular_weight: 251.24, chemspider_id: 6372, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "adenosine", name: "Adenosine", formula: "C10H13N5O4", molecular_weight: 267.24, chemspider_id: 54923, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+    ],
+    "Amanita muscaria": [
+      { compound_id: "muscimol", name: "Muscimol", formula: "C4H6N2O2", molecular_weight: 114.10, chemspider_id: 4070, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "ibotenic-acid", name: "Ibotenic Acid", formula: "C5H6N2O4", molecular_weight: 158.11, chemspider_id: 1149, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+      { compound_id: "muscarine", name: "Muscarine", formula: "C9H20NO2", molecular_weight: 174.26, chemspider_id: 9019, relationship_type: "produces", evidence_level: "verified", tissue_location: "fruiting_body" },
+    ],
+  }
+  
+  return compoundDatabase[scientificName] || []
+}
+
 export default function SpeciesDetailPage() {
   const params = useParams()
   const [species, setSpecies] = useState<Species | null>(null)
+  const [compounds, setCompounds] = useState<Compound[]>([])
+  const [compoundsLoading, setCompoundsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -75,6 +122,42 @@ export default function SpeciesDetailPage() {
       fetchSpeciesData()
     }
   }, [params.id])
+
+  // Fetch compounds when species is loaded
+  useEffect(() => {
+    const fetchCompounds = async () => {
+      if (!species?.id) return
+      
+      setCompoundsLoading(true)
+      try {
+        // Try to fetch from MINDEX API
+        const mindex_url = process.env.NEXT_PUBLIC_MINDEX_API_URL || "http://localhost:8000"
+        const response = await fetch(`${mindex_url}/api/compounds/for-taxon/${species.id}`)
+        
+        if (response.ok) {
+          const data = await response.json()
+          setCompounds(data.compounds || [])
+        } else {
+          // Fallback to local API if MINDEX is not available
+          const localResponse = await fetch(`/api/compounds/species/${params.id}`)
+          if (localResponse.ok) {
+            const data = await localResponse.json()
+            setCompounds(data.compounds || [])
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching compounds:", err)
+        // Use fallback static data for known species
+        setCompounds(getFallbackCompounds(species.scientific_name))
+      } finally {
+        setCompoundsLoading(false)
+      }
+    }
+
+    if (species) {
+      fetchCompounds()
+    }
+  }, [species, params.id])
 
   if (loading) {
     return (
@@ -265,6 +348,7 @@ export default function SpeciesDetailPage() {
           <Tabs defaultValue="overview">
             <TabsList className="mb-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="chemistry">Chemistry</TabsTrigger>
               <TabsTrigger value="genetics">Genetics</TabsTrigger>
               <TabsTrigger value="ancestry">Ancestry</TabsTrigger>
               <TabsTrigger value="research">Research</TabsTrigger>
@@ -306,6 +390,201 @@ export default function SpeciesDetailPage() {
                       }
                     </p>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="chemistry">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Atom className="h-5 w-5 text-purple-600" />
+                    Chemical Compounds
+                  </CardTitle>
+                  <CardDescription>
+                    Bioactive compounds produced by or found in {species.common_name || species.scientific_name}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {compoundsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                      <span className="ml-2 text-muted-foreground">Loading compounds...</span>
+                    </div>
+                  ) : compounds.length > 0 ? (
+                    <>
+                      {/* Compound Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center">
+                          <p className="text-2xl font-bold text-purple-600">{compounds.length}</p>
+                          <p className="text-xs text-muted-foreground">Total Compounds</p>
+                        </div>
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
+                          <p className="text-2xl font-bold text-green-600">
+                            {compounds.filter(c => c.evidence_level === "verified").length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Verified</p>
+                        </div>
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
+                          <p className="text-2xl font-bold text-blue-600">
+                            {compounds.filter(c => c.tissue_location === "fruiting_body").length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">In Fruiting Body</p>
+                        </div>
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-center">
+                          <p className="text-2xl font-bold text-orange-600">
+                            {compounds.filter(c => c.tissue_location === "mycelium").length}
+                          </p>
+                          <p className="text-xs text-muted-foreground">In Mycelium</p>
+                        </div>
+                      </div>
+
+                      {/* Compound List */}
+                      <div>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <Beaker className="h-4 w-4" />
+                          Identified Compounds
+                        </h3>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-muted">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-sm font-medium">Compound</th>
+                                <th className="px-4 py-2 text-left text-sm font-medium">Formula</th>
+                                <th className="px-4 py-2 text-left text-sm font-medium hidden md:table-cell">MW</th>
+                                <th className="px-4 py-2 text-left text-sm font-medium hidden md:table-cell">Location</th>
+                                <th className="px-4 py-2 text-left text-sm font-medium">Evidence</th>
+                                <th className="px-4 py-2 text-left text-sm font-medium">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {compounds.map((compound, i) => (
+                                <tr key={compound.compound_id || i} className="hover:bg-muted/50">
+                                  <td className="px-4 py-2">
+                                    <span className="font-medium">{compound.name}</span>
+                                  </td>
+                                  <td className="px-4 py-2 text-sm font-mono text-muted-foreground">
+                                    {compound.formula || "—"}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground hidden md:table-cell">
+                                    {compound.molecular_weight ? `${compound.molecular_weight.toFixed(2)} g/mol` : "—"}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground hidden md:table-cell capitalize">
+                                    {compound.tissue_location?.replace("_", " ") || "—"}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={
+                                        compound.evidence_level === "verified" 
+                                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-green-300"
+                                          : compound.evidence_level === "reported"
+                                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 border-yellow-300"
+                                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                                      }
+                                    >
+                                      {compound.evidence_level}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <div className="flex gap-1">
+                                      {compound.chemspider_id && (
+                                        <Button variant="ghost" size="sm" asChild>
+                                          <a
+                                            href={`https://www.chemspider.com/Chemical-Structure.${compound.chemspider_id}.html`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            title="View on ChemSpider"
+                                          >
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        </Button>
+                                      )}
+                                      <Button variant="ghost" size="sm" asChild>
+                                        <Link href={`/compounds/${compound.compound_id}`}>
+                                          <TestTube className="h-3 w-3" />
+                                        </Link>
+                                      </Button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Bioactivity Section */}
+                      <div>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <Activity className="h-4 w-4" />
+                          Known Biological Activities
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {/* Common activities based on compound types */}
+                          {compounds.some(c => c.name.toLowerCase().includes("psilocybin") || c.name.toLowerCase().includes("psilocin")) && (
+                            <>
+                              <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Psychoactive</Badge>
+                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Serotonergic</Badge>
+                            </>
+                          )}
+                          {compounds.some(c => c.name.toLowerCase().includes("hericenone") || c.name.toLowerCase().includes("erinacine")) && (
+                            <>
+                              <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Neurotrophic</Badge>
+                              <Badge className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">Neuroprotective</Badge>
+                            </>
+                          )}
+                          {compounds.some(c => c.name.toLowerCase().includes("ganoderic")) && (
+                            <>
+                              <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">Anticancer</Badge>
+                              <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">Immunomodulating</Badge>
+                            </>
+                          )}
+                          {compounds.some(c => c.name.toLowerCase().includes("cordycepin")) && (
+                            <>
+                              <Badge className="bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300">Antitumor</Badge>
+                              <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">Anti-inflammatory</Badge>
+                            </>
+                          )}
+                          {compounds.some(c => c.name.toLowerCase().includes("muscimol") || c.name.toLowerCase().includes("ibotenic")) && (
+                            <>
+                              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">GABAergic</Badge>
+                              <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300">Psychoactive</Badge>
+                            </>
+                          )}
+                          {compounds.length > 0 && !compounds.some(c => 
+                            c.name.toLowerCase().includes("psilocybin") || 
+                            c.name.toLowerCase().includes("hericenone") ||
+                            c.name.toLowerCase().includes("ganoderic") ||
+                            c.name.toLowerCase().includes("cordycepin") ||
+                            c.name.toLowerCase().includes("muscimol")
+                          ) && (
+                            <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">Under Research</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Link to Compound Analyzer */}
+                      <div className="flex justify-center pt-4">
+                        <Button className="bg-purple-600 hover:bg-purple-700" asChild>
+                          <Link href="/apps/compound-sim">
+                            <FlaskConical className="h-4 w-4 mr-2" />
+                            Analyze in Compound Simulator
+                          </Link>
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Beaker className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                      <p className="text-muted-foreground mb-4">
+                        No chemical compound data available for this species yet.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Compound data is continuously being enriched from ChemSpider and research literature.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

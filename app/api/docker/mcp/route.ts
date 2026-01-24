@@ -104,51 +104,17 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Failed to fetch MCP servers:", error)
-    
-    // Return mock data
-    return NextResponse.json({
-      servers: [
-        {
-          id: "mcp001",
-          name: "mcp-filesystem",
-          image: "mcp/filesystem:latest",
-          status: "running",
-          port: 3001,
-          type: "filesystem",
-          description: "File system access MCP server",
-          capabilities: ["read", "write", "list"],
-        },
-        {
-          id: "mcp002",
-          name: "mcp-github",
-          image: "mcp/github:latest",
-          status: "running",
-          port: 3002,
-          type: "github",
-          description: "GitHub integration MCP server",
-          capabilities: ["repos", "issues", "prs"],
-        },
-        {
-          id: "mcp003",
-          name: "mcp-postgres",
-          image: "mcp/postgres:latest",
-          status: "stopped",
-          type: "database",
-          description: "PostgreSQL MCP server",
-          capabilities: ["query", "schema"],
-        },
-      ],
-      running: 2,
-      total: 3,
-      availableImages: [
-        { name: "mcp/filesystem", tag: "latest", type: "filesystem" },
-        { name: "mcp/github", tag: "latest", type: "github" },
-        { name: "mcp/postgres", tag: "latest", type: "database" },
-        { name: "mcp/puppeteer", tag: "latest", type: "browser" },
-      ],
-      source: "mock",
-      error: "Docker API not available",
-    })
+
+    return NextResponse.json(
+      {
+        servers: [],
+        running: 0,
+        total: 0,
+        availableImages: [],
+        error: "Docker API not available",
+      },
+      { status: 503 },
+    )
   }
 }
 

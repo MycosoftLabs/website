@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package mindex.v2;
+
+// High-throughput telemetry ingestion + command streaming (v2 scaffolding).
+
+message TelemetryFrame {
+  string device_id = 1;
+  string timestamp = 2;
+  bytes payload = 3; // Encoded NDJSON/CBOR/MDP-decoded bytes (implementation-defined)
+  string content_type = 4; // e.g. application/x-ndjson
+}
+
+message IngestAck {
+  bool ok = 1;
+  string message = 2;
+  uint64 ingested = 3;
+}
+
+message CommandMessage {
+  string device_id = 1;
+  string command_id = 2;
+  string timestamp = 3;
+  bytes payload = 4;
+}
+
+service MindexTelemetry {
+  // Streaming ingestion for high-throughput telemetry.
+  rpc IngestTelemetry(stream TelemetryFrame) returns (IngestAck);
+
+  // Bidirectional stream for device commands / acks.
+  rpc CommandStream(stream CommandMessage) returns (stream CommandMessage);
+}
+

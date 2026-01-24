@@ -51,7 +51,6 @@ This document describes the integration architecture for connecting the Mycosoft
 | `MYCA_MAS_API_KEY` | Server-only API key for MYCA MAS | Yes (if enabled) |
 | `NATUREOS_API_BASE_URL` | Base URL for NatureOS API | Optional |
 | `INTEGRATIONS_ENABLED` | Enable/disable live integrations | Yes |
-| `NEXT_PUBLIC_USE_MOCK_DATA` | Force mock data in UI | Optional |
 
 **Security Note:** `MINDEX_API_KEY` and `MYCA_MAS_API_KEY` are server-only. Never prefix with `NEXT_PUBLIC_`.
 
@@ -110,7 +109,7 @@ Common error codes:
 2. Create integration module in `/lib/integrations/{service}.ts`
 3. Export from `/lib/integrations/index.ts`
 4. Create BFF route in `/app/api/{service}/route.ts`
-5. Add mock data to `/lib/integrations/mock-data.ts`
+5. Configure the real backend services (MINDEX, MYCA MAS) and required environment variables
 6. Update this documentation
 
 ## Feature Flags

@@ -55,30 +55,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Failed to fetch logs:", error)
-    
-    // Return mock logs for demo
-    const now = new Date()
-    const mockLogs = [
-      `[${new Date(now.getTime() - 3600000).toISOString()}] INFO  Container started`,
-      `[${new Date(now.getTime() - 3500000).toISOString()}] INFO  Initializing services...`,
-      `[${new Date(now.getTime() - 3400000).toISOString()}] DEBUG Environment loaded`,
-      `[${new Date(now.getTime() - 3300000).toISOString()}] INFO  Connected to database`,
-      `[${new Date(now.getTime() - 3200000).toISOString()}] INFO  Connected to Redis`,
-      `[${new Date(now.getTime() - 3100000).toISOString()}] INFO  API server starting...`,
-      `[${new Date(now.getTime() - 3000000).toISOString()}] INFO  Server listening on port 8000`,
-      `[${new Date(now.getTime() - 2000000).toISOString()}] DEBUG Processing incoming request`,
-      `[${new Date(now.getTime() - 1000000).toISOString()}] INFO  Request completed: 200 OK (45ms)`,
-      `[${new Date(now.getTime() - 500000).toISOString()}] DEBUG Health check passed`,
-      `[${new Date(now.getTime() - 100000).toISOString()}] INFO  Metrics collected`,
-      `[${now.toISOString()}] DEBUG Waiting for requests...`,
-    ].join("\n")
-
-    return NextResponse.json({
-      logs: mockLogs,
-      containerId,
-      tail: parseInt(tail),
-      source: "mock",
-    })
+    return NextResponse.json(
+      { error: "Docker API not available", code: "DOCKER_UNAVAILABLE", details: String(error) },
+      { status: 503 },
+    )
   }
 }
 

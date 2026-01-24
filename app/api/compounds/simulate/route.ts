@@ -2,55 +2,74 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+
 /**
- * Compound Simulation API
+ * Compound Simulation API - Real MINDEX Integration
  * 
- * Simulates molecular interactions, binding affinity, and chemical properties
- * Based on quantum chemistry and molecular dynamics
+ * Queries compound data from MINDEX and simulates molecular interactions.
+ * For full simulation, connect to:
+ * - AutoDock for binding simulations
+ * - GROMACS for molecular dynamics
+ * - RDKit for property prediction
  */
 export async function POST(request: NextRequest) {
   try {
     const { compoundId, formula, type } = await request.json()
 
-    // In production, this would call actual chemistry simulation engines like:
-    // - AutoDock for binding simulations
-    // - GROMACS for molecular dynamics
-    // - Gaussian for quantum chemistry
-    // - RDKit for property prediction
+    if (!compoundId && !formula) {
+      return NextResponse.json(
+        { success: false, error: "compoundId or formula required" },
+        { status: 400 }
+      )
+    }
 
-    // Mock simulation results for now
+    // Query MINDEX for compound data
+    let compoundData = null
+    try {
+      const mindexRes = await fetch(
+        `${MINDEX_API_URL}/api/compounds/${encodeURIComponent(compoundId || formula)}`,
+        { signal: AbortSignal.timeout(5000) }
+      )
+      if (mindexRes.ok) {
+        compoundData = await mindexRes.json()
+      }
+    } catch {
+      // MINDEX not available - continue with input parameters
+    }
+
+    // Build results from MINDEX data or return placeholder
     const results = {
-      compoundId,
-      formula,
-      type,
-      bindingAffinity: (-5.5 - Math.random() * 3).toFixed(2), // kcal/mol
-      stability: (85 + Math.random() * 10).toFixed(1), // percentage
-      lipophilicity: (2 + Math.random() * 2).toFixed(2), // LogP
-      solubility: (0.5 + Math.random() * 2).toFixed(2), // mg/mL
-      toxicity: Math.random() < 0.3 ? "High" : Math.random() < 0.6 ? "Moderate" : "Low",
-      bioavailability: (40 + Math.random() * 50).toFixed(1), // percentage
-      halfLife: (2 + Math.random() * 8).toFixed(1), // hours
-      metabolites: [
-        `${formula}-OH`,
-        `${formula}-COOH`,
-      ],
-      targetProteins: [
-        "5-HT2A Receptor",
-        "Cytochrome P450",
-        "NMDA Receptor",
-      ],
+      compoundId: compoundId || compoundData?.id || formula,
+      formula: formula || compoundData?.formula,
+      type: type || compoundData?.type || "unknown",
+      // Real data from MINDEX if available
+      bindingAffinity: compoundData?.binding_affinity || null,
+      stability: compoundData?.stability || null,
+      lipophilicity: compoundData?.logp || null,
+      solubility: compoundData?.solubility || null,
+      toxicity: compoundData?.toxicity_class || null,
+      bioavailability: compoundData?.bioavailability || null,
+      halfLife: compoundData?.half_life || null,
+      metabolites: compoundData?.metabolites || [],
+      targetProteins: compoundData?.targets || [],
+      source: compoundData ? "mindex" : "input",
       timestamp: new Date().toISOString(),
     }
 
     return NextResponse.json({
       success: true,
       results,
+      note: compoundData
+        ? "Data retrieved from MINDEX"
+        : "Compound not found in MINDEX - connect simulation backend for full analysis",
     })
   } catch (error) {
     console.error("Simulation error:", error)
     return NextResponse.json({
       success: false,
       error: "Simulation failed",
+      details: error instanceof Error ? error.message : String(error),
     }, { status: 500 })
   }
 }

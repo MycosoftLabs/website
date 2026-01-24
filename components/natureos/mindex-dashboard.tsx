@@ -1,35 +1,42 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { VirtualTable, VirtualList } from "@/components/ui/virtual-table"
+import { TronCircuitAnimation } from "@/components/ui/tron-circuit-animation"
+import { DataBlockViz, MiniBlockRow, TransactionBlockStrip } from "@/components/ui/data-block-viz"
+import { PixelGridViz, MerklePixelTree, HashCompareViz, HashStreamViz } from "@/components/ui/pixel-grid-viz"
+import { GlassCard, GlowingBorder, TravelingBorder, CornerAccents, NeonText, GlowingStatus } from "@/components/ui/glowing-border"
+import { MINDEXSearchInput } from "@/components/mindex/search-input"
+import { MINDEXVerificationPanel } from "@/components/mindex/verification-panel"
+import { MINDEXIntegrityBadge } from "@/components/mindex/integrity-badge"
+import { HashChainVisualizer } from "@/components/mindex/hash-chain-visualizer"
+import { MerkleTreeViz } from "@/components/mindex/merkle-tree-viz"
+import { SignaturePanel } from "@/components/mindex/signature-panel"
+import { CryptoMonitor } from "@/components/mindex/crypto-monitor"
+import { DataFlow } from "@/components/mindex/data-flow"
+import { QueryMonitor } from "@/components/mindex/query-monitor"
+import { AgentActivity } from "@/components/mindex/agent-activity"
+import { LedgerPanel } from "@/components/mindex/ledger-panel"
+import { OrdinalsViewer } from "@/components/mindex/ordinals-viewer"
+import { MycorrhizalNetworkViz } from "@/components/mindex/mycorrhizal-network-viz"
+import { FCIDeviceMonitor } from "@/components/mindex/fci-device-monitor"
+import { MWaveDashboard } from "@/components/mindex/mwave-dashboard"
+import { PhylogeneticTree } from "@/components/ancestry/phylogenetic-tree"
 import { 
   Database, 
   Activity, 
   RefreshCw, 
   Search, 
   Globe, 
-  Image as ImageIcon,
   MapPin,
-  FileText,
-  TrendingUp,
-  Download,
-  Upload,
-  Eye,
-  Edit,
   BookOpen,
   Dna,
-  Microscope,
-  Calendar,
-  BarChart3,
-  LineChart,
-  PieChart,
   Server,
   CheckCircle,
   AlertCircle,
@@ -41,13 +48,24 @@ import {
   ExternalLink,
   Filter,
   X,
-  Plus,
-  Info,
-  Link2,
-  Newspaper,
-  GraduationCap
+  Shield,
+  Lock,
+  FileText,
+  Radio,
+  Cpu,
+  Box,
+  Eye,
+  ChevronRight,
+  LayoutDashboard,
+  Binary,
+  Hexagon,
+  GitBranch,
+  Wallet,
+  Waves,
+  Container
 } from "lucide-react"
 
+// ==================== Types ====================
 interface MINDEXHealth {
   status: "healthy" | "unhealthy" | "degraded"
   api: boolean
@@ -66,10 +84,7 @@ interface MINDEXStats {
   observations_with_location: number
   observations_with_images: number
   taxa_with_observations: number
-  observation_date_range: {
-    earliest: string | null
-    latest: string | null
-  }
+  observation_date_range: { earliest: string | null; latest: string | null }
   etl_status: "running" | "idle" | "unknown"
   genome_records: number
   trait_records: number
@@ -93,10 +108,7 @@ interface Observation {
   id: string
   taxon_id: string
   observed_at: string
-  location?: {
-    type: string
-    coordinates: number[]
-  }
+  location?: { type: string; coordinates: number[] }
   media?: any[]
   source: string
   metadata?: any
@@ -126,6 +138,42 @@ interface ETLStatus {
   available_sources: string[]
 }
 
+// ==================== Widget Sections ====================
+type WidgetSection = 
+  | "overview"
+  | "encyclopedia"
+  | "data"
+  | "integrity"
+  | "cryptography"
+  | "ledger"
+  | "network"
+  | "phylogeny"
+  | "devices"
+  | "mwave"
+  | "containers"
+
+interface NavItem {
+  id: WidgetSection
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard, color: "#8B5CF6" },
+  { id: "encyclopedia", label: "Encyclopedia", icon: BookOpen, color: "#22D3EE" },
+  { id: "data", label: "Data Pipeline", icon: Activity, color: "#10B981" },
+  { id: "integrity", label: "Integrity", icon: Shield, color: "#F59E0B" },
+  { id: "cryptography", label: "Cryptography", icon: Lock, color: "#A855F7" },
+  { id: "ledger", label: "Ledger", icon: Wallet, color: "#3B82F6" },
+  { id: "network", label: "Network", icon: Network, color: "#06B6D4" },
+  { id: "phylogeny", label: "Phylogeny", icon: GitBranch, color: "#EC4899" },
+  { id: "devices", label: "Devices", icon: Cpu, color: "#8B5CF6" },
+  { id: "mwave", label: "M-Wave", icon: Waves, color: "#F97316" },
+  { id: "containers", label: "Containers", icon: Container, color: "#6366F1" }
+]
+
+// ==================== Main Dashboard Component ====================
 export function MINDEXDashboard() {
   const [health, setHealth] = useState<MINDEXHealth | null>(null)
   const [stats, setStats] = useState<MINDEXStats | null>(null)
@@ -137,37 +185,32 @@ export function MINDEXDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTaxon, setSelectedTaxon] = useState<Taxon | null>(null)
-  const [activeTab, setActiveTab] = useState<"overview" | "encyclopedia" | "data" | "containers">("overview")
+  const [activeSection, setActiveSection] = useState<WidgetSection>("overview")
+  const [integrityRecordId, setIntegrityRecordId] = useState("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  // Fetch MINDEX health
+  // ==================== Data Fetching ====================
   const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/natureos/mindex/health")
       if (res.ok) {
         const data = await res.json()
-
-        // MINDEX returns { status: "ok", db: "ok", ... }.
-        // Normalize to the dashboard contract.
         const isApiOk = data?.status === "ok" || data?.api === true || data?.status === "healthy"
         const isDbOk = data?.db === "ok" || data?.database === true
-
-        const normalized: MINDEXHealth = {
+        setHealth({
           status: isApiOk && isDbOk ? "healthy" : "degraded",
           api: Boolean(isApiOk),
           database: Boolean(isDbOk),
           etl: data?.etl_status || data?.etl || "unknown",
           version: data?.version,
-          uptime: data?.uptime,
-        }
-
-        setHealth(normalized)
+          uptime: data?.uptime
+        })
       }
     } catch (error) {
       console.error("Failed to fetch MINDEX health:", error)
     }
   }, [])
 
-  // Fetch MINDEX statistics
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("/api/natureos/mindex/stats")
@@ -180,7 +223,6 @@ export function MINDEXDashboard() {
     }
   }, [])
 
-  // Fetch taxa (fungi species)
   const fetchTaxa = useCallback(async (query?: string) => {
     try {
       const url = query 
@@ -196,7 +238,6 @@ export function MINDEXDashboard() {
     }
   }, [])
 
-  // Fetch observations
   const fetchObservations = useCallback(async () => {
     try {
       const res = await fetch("/api/natureos/mindex/observations?limit=100")
@@ -209,7 +250,6 @@ export function MINDEXDashboard() {
     }
   }, [])
 
-  // Fetch MINDEX Docker containers
   const fetchContainers = useCallback(async () => {
     try {
       const res = await fetch("/api/docker/containers")
@@ -225,7 +265,6 @@ export function MINDEXDashboard() {
     }
   }, [])
 
-  // Fetch ETL status
   const fetchETLStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/natureos/mindex/sync")
@@ -238,32 +277,28 @@ export function MINDEXDashboard() {
     }
   }, [])
 
-  // Trigger sync
   const triggerSync = useCallback(async (sources?: string[]) => {
     setIsSyncing(true)
     try {
       const res = await fetch("/api/natureos/mindex/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sources, limit: 10000 }),
+        body: JSON.stringify({ sources, limit: 10000 })
       })
-      const data = await res.json()
       if (res.ok) {
-        // Refresh stats after a delay
         setTimeout(() => {
           fetchStats()
           fetchETLStatus()
           setIsSyncing(false)
         }, 2000)
       } else {
-        console.error("Sync failed:", data)
         setIsSyncing(false)
       }
     } catch (error) {
       console.error("Failed to trigger sync:", error)
       setIsSyncing(false)
     }
-  }, [fetchStats])
+  }, [fetchStats, fetchETLStatus])
 
   // Initial load
   useEffect(() => {
@@ -281,13 +316,10 @@ export function MINDEXDashboard() {
     }
     loadAll()
 
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
       fetchHealth()
       fetchStats()
-      fetchObservations()
       fetchContainers()
-      fetchETLStatus()
     }, 30000)
 
     return () => clearInterval(interval)
@@ -302,896 +334,1055 @@ export function MINDEXDashboard() {
   }, [searchQuery, fetchTaxa])
 
   const getHealthStatus = () => {
-    if (!health) return { status: "unknown", color: "gray", icon: AlertCircle }
+    if (!health) return { status: "unknown", color: "#6B7280" }
     if (health.status === "healthy" && health.api && health.database) {
-      return { status: "healthy", color: "green", icon: CheckCircle }
+      return { status: "online", color: "#22C55E" }
     }
-    if (health.status === "degraded" || (!health.api || !health.database)) {
-      return { status: "degraded", color: "yellow", icon: AlertTriangle }
+    if (health.status === "degraded") {
+      return { status: "warning", color: "#F59E0B" }
     }
-    return { status: "unhealthy", color: "red", icon: X }
+    return { status: "offline", color: "#EF4444" }
   }
 
   const healthStatus = getHealthStatus()
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Database className="h-6 w-6 text-blue-500" />
-            MINDEX Infrastructure
-          </h2>
-          <p className="text-muted-foreground">
-            Fungal Intelligence Database - Encyclopedia, Observations, and Data Pipeline
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant={healthStatus.status === "healthy" ? "default" : "secondary"}
-            className={healthStatus.status === "healthy" ? "bg-green-600" : ""}
-          >
-            <healthStatus.icon className="h-3 w-3 mr-1" />
-            {healthStatus.status === "healthy" ? "Healthy" : healthStatus.status === "degraded" ? "Degraded" : "Unhealthy"}
-          </Badge>
-          <Button variant="outline" size="sm" onClick={() => {
-            fetchHealth()
-            fetchStats()
-            fetchTaxa()
-            fetchObservations()
-            fetchContainers()
-          }} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+    <div className="relative min-h-screen bg-[#0A0A0F] overflow-hidden">
+      {/* Background Circuit Animation - 20% opacity for subtle effect */}
+      <TronCircuitAnimation 
+        opacity={0.2}
+        lineColor="#8B5CF6"
+        glowColor="#A855F7"
+        particleColor="#22D3EE"
+        particleCount={40}
+        gridSize={80}
+      />
 
-      {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="encyclopedia">Encyclopedia</TabsTrigger>
-          <TabsTrigger value="data">Data Pipeline</TabsTrigger>
-          <TabsTrigger value="containers">Containers</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Status Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">API Status</CardTitle>
-                <Server className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  {health?.api ? (
-                    <><CheckCircle className="h-5 w-5 text-green-500" /> Online</>
-                  ) : (
-                    <><X className="h-5 w-5 text-red-500" /> Offline</>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {health?.version || "v0.1.0"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Database</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  {health?.database ? (
-                    <><CheckCircle className="h-5 w-5 text-green-500" /> Connected</>
-                  ) : (
-                    <><X className="h-5 w-5 text-red-500" /> Disconnected</>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PostGIS {health?.status || "unknown"}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">ETL Status</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats?.etl_status === "running" ? (
-                    <span className="text-green-500">Running</span>
-                  ) : stats?.etl_status === "idle" ? (
-                    <span className="text-yellow-500">Idle</span>
-                  ) : (
-                    <span className="text-gray-500">Unknown</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Data synchronization
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Taxa</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.total_taxa?.toLocaleString() || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Fungal species cataloged
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Statistics Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Observations</CardTitle>
-                <CardDescription>Field observations collected</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.total_observations?.toLocaleString() || 0}</div>
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>With Location</span>
-                    <span className="font-mono">
-                      {stats?.observations_with_location?.toLocaleString() || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>With Images</span>
-                    <span className="font-mono">
-                      {stats?.observations_with_images?.toLocaleString() || 0}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Data Sources</CardTitle>
-                <CardDescription>Taxa by source</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {stats?.taxa_by_source && Object.entries(stats.taxa_by_source).slice(0, 5).map(([source, count]) => (
-                    <div key={source} className="flex justify-between text-sm">
-                      <span className="capitalize">{source}</span>
-                      <span className="font-mono">{count.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Biological Data</CardTitle>
-                <CardDescription>Genomes, traits, synonyms</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Genomes</span>
-                    <span className="font-mono">{stats?.genome_records?.toLocaleString() || 0}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Traits</span>
-                    <span className="font-mono">{stats?.trait_records?.toLocaleString() || 0}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Synonyms</span>
-                    <span className="font-mono">{stats?.synonym_records?.toLocaleString() || 0}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Activity - Using Virtual Scrolling for Large Datasets */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Recent Observations</span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {observations.length.toLocaleString()} records
-                </Badge>
-              </CardTitle>
-              <CardDescription>Latest field observations added to MINDEX (virtual scrolling enabled)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {observations.length > 0 ? (
-                <VirtualList
-                  data={observations}
-                  height={300}
-                  emptyText="No observations found"
-                  rowsPerBlock={25}
-                  renderItem={(obs, index) => `
-                    <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-2 hover:bg-muted transition-colors">
-                      <div class="flex items-center gap-3">
-                        <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                        <div>
-                          <div class="font-medium text-sm">
-                            Observation ${obs.id.slice(0, 8)}
-                          </div>
-                          <div class="text-xs text-muted-foreground">
-                            ${obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown date"}
-                            ${obs.location ? ` • ${obs.location.coordinates[1]?.toFixed(4)}, ${obs.location.coordinates[0]?.toFixed(4)}` : ''}
-                          </div>
-                        </div>
-                      </div>
-                      <span class="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-secondary text-secondary-foreground">${obs.source}</span>
-                    </div>
-                  `}
-                  className="border-0"
-                />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No observations found
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Encyclopedia Tab */}
-        <TabsContent value="encyclopedia" className="space-y-6">
-          {/* Search */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Fungi Encyclopedia</CardTitle>
-              <CardDescription>Search and explore fungal species, taxonomy, genetics, and research</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search species, common names, or taxonomy..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Selected Taxon Detail View */}
-          {selectedTaxon && (
-            <Card className="mb-6 border-blue-500">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-2xl">{selectedTaxon.canonical_name}</CardTitle>
-                    {selectedTaxon.common_name && (
-                      <CardDescription className="text-lg mt-1">{selectedTaxon.common_name}</CardDescription>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedTaxon(null)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="overview" className="w-full">
-                  <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="genetics">Genetics</TabsTrigger>
-                    <TabsTrigger value="observations">Observations</TabsTrigger>
-                    <TabsTrigger value="research">Research</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="overview" className="space-y-4 mt-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <div className="text-sm font-medium mb-2">Taxonomy</div>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Rank:</span>
-                            <span className="capitalize">{selectedTaxon.rank}</span>
-                          </div>
-                          {selectedTaxon.authority && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Authority:</span>
-                              <span>{selectedTaxon.authority}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Source:</span>
-                            <Badge variant="outline">{selectedTaxon.source}</Badge>
-                          </div>
-                        </div>
-                      </div>
-                      {selectedTaxon.description && (
-                        <div>
-                          <div className="text-sm font-medium mb-2">Description</div>
-                          <p className="text-sm text-muted-foreground">{selectedTaxon.description}</p>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="genetics" className="mt-4">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-muted rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Dna className="h-5 w-5 text-blue-500" />
-                          <span className="font-medium">Genomic Data</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Genome sequences, genetic markers, and trait data available in MINDEX database.
-                        </div>
-                        <div className="mt-3 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Genome Records:</span>
-                            <span className="font-mono">{stats?.genome_records || 0}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span>Trait Records:</span>
-                            <span className="font-mono">{stats?.trait_records || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="observations" className="mt-4">
-                    <div className="space-y-3">
-                      <div className="text-sm font-medium mb-2">Field Observations</div>
-                      {observations.filter(o => o.taxon_id === selectedTaxon.id).slice(0, 10).map((obs) => (
-                        <div key={obs.id} className="p-3 bg-muted rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm">
-                                {obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown date"}
-                              </span>
-                            </div>
-                            <Badge variant="outline">{obs.source}</Badge>
-                          </div>
-                          {obs.location && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {obs.location.coordinates[1]?.toFixed(4)}, {obs.location.coordinates[0]?.toFixed(4)}
-                            </div>
-                          )}
-                          {obs.media && obs.media.length > 0 && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <ImageIcon className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">{obs.media.length} image(s)</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {observations.filter(o => o.taxon_id === selectedTaxon.id).length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground text-sm">
-                          No observations found for this species
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="research" className="mt-4">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-muted rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <GraduationCap className="h-5 w-5 text-purple-500" />
-                          <span className="font-medium">Research & Publications</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Research papers, news articles, and scientific publications linked to this species.
-                        </div>
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Newspaper className="h-4 w-4 text-muted-foreground" />
-                            <span>Research articles available in metadata</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Link2 className="h-4 w-4 text-muted-foreground" />
-                            <span>External references: {selectedTaxon.metadata?.references?.length || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Taxa List with Virtual Scrolling */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm">Species Database</CardTitle>
-                  <CardDescription className="text-xs">
-                    {taxa.length.toLocaleString()} taxa loaded • Virtual scrolling enabled for performance
-                  </CardDescription>
-                </div>
-                <Badge variant="outline" className="font-mono">
-                  Clusterize.js
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {taxa.length > 0 ? (
-                <VirtualTable
-                  data={taxa}
-                  height={500}
-                  emptyText="No species found"
-                  rowsPerBlock={20}
-                  renderRow={(taxon, index) => `
-                    <td class="p-3 font-medium text-sm cursor-pointer hover:text-blue-500" data-taxon-id="${taxon.id}">
-                      ${taxon.canonical_name}
-                      ${taxon.common_name ? `<span class="text-muted-foreground text-xs ml-2">(${taxon.common_name})</span>` : ''}
-                    </td>
-                    <td class="p-3 text-sm capitalize">${taxon.rank}</td>
-                    <td class="p-3 text-xs text-muted-foreground max-w-[200px] truncate">${taxon.authority || '-'}</td>
-                    <td class="p-3">
-                      <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold bg-secondary/50">${taxon.source}</span>
-                    </td>
-                    <td class="p-3 text-right">
-                      <button class="inline-flex items-center justify-center rounded-md text-xs font-medium h-7 px-3 bg-primary text-primary-foreground hover:bg-primary/90" onclick="window.dispatchEvent(new CustomEvent('select-taxon', {detail: '${taxon.id}'}))">
-                        View
-                      </button>
-                    </td>
-                  `}
-                  className="rounded-lg"
-                />
-              ) : !isLoading ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No species found. Try a different search term.</p>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-                  <p className="text-muted-foreground mt-4">Loading species data...</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Taxa Cards Grid (Alternative View) */}
-          <details className="group">
-            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground flex items-center gap-2 mb-4">
-              <BarChart3 className="h-4 w-4" />
-              Show Card View ({taxa.length} species)
-            </summary>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
-              {taxa.slice(0, 12).map((taxon) => (
-                <Card 
-                  key={taxon.id} 
-                  className="cursor-pointer hover:border-blue-500 transition-colors"
-                  onClick={() => setSelectedTaxon(taxon)}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg">{taxon.canonical_name}</CardTitle>
-                    {taxon.common_name && (
-                      <CardDescription>{taxon.common_name}</CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Layers className="h-3 w-3 text-muted-foreground" />
-                        <span className="capitalize">{taxon.rank}</span>
-                      </div>
-                      {taxon.authority && (
-                        <div className="text-xs text-muted-foreground">
-                          {taxon.authority}
-                        </div>
-                      )}
-                      {taxon.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {taxon.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {taxon.source}
-                        </Badge>
-                        {observations.filter(o => o.taxon_id === taxon.id).length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {observations.filter(o => o.taxon_id === taxon.id).length} obs.
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button variant="ghost" size="sm" className="w-full">
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-              {taxa.length > 12 && (
-                <div className="col-span-full text-center text-sm text-muted-foreground py-4">
-                  Showing first 12 of {taxa.length} species. Use table view above for full list.
-                </div>
-              )}
-            </div>
-          </details>
-        </TabsContent>
-
-        {/* Data Pipeline Tab */}
-        <TabsContent value="data" className="space-y-6">
-          {/* Sync Control Panel */}
-          <Card className="border-blue-500/50 bg-blue-500/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-blue-500" />
-                    Data Sync Control
-                  </CardTitle>
-                  <CardDescription>
-                    Trigger manual sync from external fungal databases
-                  </CardDescription>
-                </div>
-                <Button 
-                  onClick={() => triggerSync()}
-                  disabled={isSyncing}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSyncing ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Sync All Sources
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-5">
-                {(etlStatus?.available_sources || ["iNaturalist", "GBIF", "MycoBank", "FungiDB", "GenBank"]).map((source) => (
-                  <Button
-                    key={source}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => triggerSync([source])}
-                    disabled={isSyncing}
-                    className="justify-start"
-                  >
-                    <Globe className="h-4 w-4 mr-2" />
-                    {source}
-                  </Button>
-                ))}
-              </div>
-              {etlStatus?.recent_syncs && etlStatus.recent_syncs.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <div className="text-sm font-medium mb-2">Recent Syncs</div>
-                  <div className="space-y-2">
-                    {etlStatus.recent_syncs.slice(0, 3).map((sync, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{sync.source}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {sync.records_count.toLocaleString()} records
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={sync.status === "completed" ? "default" : "secondary"}>
-                            {sync.status}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(sync.completed_at).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Input Sources
-                </CardTitle>
-                <CardDescription>Data sources being scraped and indexed</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {stats?.observations_by_source && Object.entries(stats.observations_by_source).map(([source, count]) => (
-                    <div key={source} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium capitalize">{source}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-mono">{count.toLocaleString()}</span>
-                        <Badge variant="outline" className="bg-green-500/20 text-green-500">
-                          Active
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Download className="h-5 w-5" />
-                  Output Metrics
-                </CardTitle>
-                <CardDescription>Data processed and available</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Total Records</span>
-                      <span className="font-mono">
-                        {((stats?.total_taxa || 0) + (stats?.total_observations || 0)).toLocaleString()}
-                      </span>
-                    </div>
-                    <Progress value={100} className="h-2" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Data Quality</span>
-                      <span className="font-mono">
-                        {stats && stats.total_observations > 0
-                          ? Math.round((stats.observations_with_location / stats.total_observations) * 100)
-                          : 0}%
-                      </span>
-                    </div>
-                    <Progress 
-                      value={stats && stats.total_observations > 0
-                        ? (stats.observations_with_location / stats.total_observations) * 100
-                        : 0} 
-                      className="h-2" 
-                    />
-                  </div>
-                  <div className="pt-2 border-t">
-                    <div className="text-sm text-muted-foreground">
-                      Last sync: {stats?.etl_status === "running" ? "In progress" : "Idle"}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Live Data Flow Visualization */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Live Data Flow
-              </CardTitle>
-              <CardDescription>Real-time input/output and scraping status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Input Sources */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Upload className="h-4 w-4 text-green-500" />
-                      <span className="font-medium">Input Sources (Scraping Status)</span>
-                    </div>
-                    <Badge variant={stats?.etl_status === "running" ? "default" : "secondary"}>
-                      {stats?.etl_status === "running" ? "Active" : "Idle"}
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {stats?.observations_by_source && Object.entries(stats.observations_by_source).map(([source, count]) => (
-                      <div key={source} className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="capitalize font-medium">{source}</span>
-                            <span className="font-mono text-xs">{count.toLocaleString()} records</span>
-                          </div>
-                          <Progress 
-                            value={stats.total_observations > 0 ? (count / stats.total_observations) * 100 : 0} 
-                            className="h-2" 
-                          />
-                        </div>
-                        <Badge variant="outline" className="bg-green-500/20 text-green-500 border-green-500/50">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Synced
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Output Metrics */}
-                <div className="pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Download className="h-4 w-4 text-blue-500" />
-                    <span className="font-medium">Output Metrics</span>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="p-4 bg-muted rounded-lg">
-                      <div className="text-sm text-muted-foreground mb-1">Data Quality Score</div>
-                      <div className="text-2xl font-bold">
-                        {stats && stats.total_observations > 0
-                          ? Math.round((stats.observations_with_location / stats.total_observations) * 100)
-                          : 0}%
-                      </div>
-                      <Progress 
-                        value={stats && stats.total_observations > 0
-                          ? (stats.observations_with_location / stats.total_observations) * 100
-                          : 0} 
-                        className="h-2 mt-2" 
+      {/* Main Layout: Content + Sidebar */}
+      <div className="relative z-10 flex h-screen">
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-6 pb-20">
+              {/* Header */}
+              <motion.header 
+                className="mb-6"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <motion.div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: "linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)",
+                          boxShadow: "0 0 30px rgba(139, 92, 246, 0.5)"
+                        }}
+                        animate={{
+                          boxShadow: [
+                            "0 0 30px rgba(139, 92, 246, 0.5)",
+                            "0 0 50px rgba(139, 92, 246, 0.8)",
+                            "0 0 30px rgba(139, 92, 246, 0.5)"
+                          ]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Database className="h-6 w-6 text-white" />
+                      </motion.div>
+                      <GlowingStatus 
+                        status={healthStatus.status as any}
+                        size={14}
+                        animated
                       />
                     </div>
-                    <div className="p-4 bg-muted rounded-lg">
-                      <div className="text-sm text-muted-foreground mb-1">Enrichment Rate</div>
-                      <div className="text-2xl font-bold">
-                        {stats && stats.total_observations > 0
-                          ? Math.round((stats.observations_with_images / stats.total_observations) * 100)
-                          : 0}%
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {stats?.observations_with_images || 0} with images
-                      </div>
+                    <div>
+                      <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <NeonText color="purple" size="xl">MINDEX</NeonText>
+                        <span className="text-gray-400 font-normal text-lg">Infrastructure</span>
+                      </h1>
+                      <p className="text-sm text-gray-500">
+                        Cryptographic Intelligence Database • v{health?.version || "2.0"}
+                      </p>
                     </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Learning & Access Tracking */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Learning & Access Analytics
-              </CardTitle>
-              <CardDescription>Track data usage, modifications, and learning patterns</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">API Requests (24h)</div>
-                  <div className="text-2xl font-bold">1,234</div>
-                  <div className="text-xs text-green-500 mt-1">↑ 12% from yesterday</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">Data Modifications</div>
-                  <div className="text-2xl font-bold">45</div>
-                  <div className="text-xs text-blue-500 mt-1">Taxa updated</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">Learning Events</div>
-                  <div className="text-2xl font-bold">892</div>
-                  <div className="text-xs text-purple-500 mt-1">ML model updates</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Containers Tab */}
-        <TabsContent value="containers" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5" />
-                MINDEX Docker Containers
-              </CardTitle>
-              <CardDescription>Container status and health monitoring</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {containers.map((container) => (
-                  <div key={container.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-3 w-3 rounded-full ${
-                        container.status === "running" ? "bg-green-500" : "bg-gray-500"
-                      }`} />
-                      <div>
-                        <div className="font-medium">{container.name}</div>
-                        <div className="text-sm text-muted-foreground">{container.image}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={container.status === "running" ? "default" : "secondary"}>
-                        {container.status}
-                      </Badge>
-                      {container.health && (
-                        <Badge variant={container.health === "healthy" ? "default" : "destructive"}>
-                          {container.health}
-                        </Badge>
-                      )}
-                      {container.ports.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          {container.ports.join(", ")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {containers.length === 0 && (
-                  <div className="text-center py-8 space-y-4">
-                    <div className="text-muted-foreground">
-                      No MINDEX containers found
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      <p className="mb-2">Start MINDEX with Docker:</p>
-                      <code className="bg-muted px-3 py-2 rounded block max-w-md mx-auto">
-                        docker-compose -f docker-compose.mindex.yml up -d
-                      </code>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={fetchContainers}>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Check Again
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        fetchHealth()
+                        fetchStats()
+                        fetchContainers()
+                      }}
+                      disabled={isLoading}
+                      className="border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                      Refresh
                     </Button>
                   </div>
-                )}
+                </div>
+              </motion.header>
+
+              {/* Section Content */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeSection}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {activeSection === "overview" && (
+                    <OverviewSection 
+                      health={health}
+                      stats={stats}
+                      observations={observations}
+                      isLoading={isLoading}
+                    />
+                  )}
+
+                  {activeSection === "encyclopedia" && (
+                    <EncyclopediaSection
+                      taxa={taxa}
+                      observations={observations}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      selectedTaxon={selectedTaxon}
+                      setSelectedTaxon={setSelectedTaxon}
+                      stats={stats}
+                      isLoading={isLoading}
+                    />
+                  )}
+
+                  {activeSection === "data" && (
+                    <DataPipelineSection
+                      stats={stats}
+                      etlStatus={etlStatus}
+                      isSyncing={isSyncing}
+                      triggerSync={triggerSync}
+                    />
+                  )}
+
+                  {activeSection === "integrity" && (
+                    <IntegritySection
+                      integrityRecordId={integrityRecordId}
+                      setIntegrityRecordId={setIntegrityRecordId}
+                      setSelectedTaxon={setSelectedTaxon}
+                    />
+                  )}
+
+                  {activeSection === "cryptography" && <CryptographySection />}
+                  
+                  {activeSection === "ledger" && <LedgerSection />}
+                  
+                  {activeSection === "network" && <NetworkSection />}
+                  
+                  {activeSection === "phylogeny" && <PhylogenySection />}
+                  
+                  {activeSection === "devices" && <DevicesSection />}
+                  
+                  {activeSection === "mwave" && <MWaveSection />}
+                  
+                  {activeSection === "containers" && (
+                    <ContainersSection
+                      containers={containers}
+                      fetchContainers={fetchContainers}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Right Sidebar Navigation */}
+        <motion.aside
+          className={`h-full border-l border-purple-500/20 bg-black/60 backdrop-blur-xl ${
+            sidebarCollapsed ? "w-16" : "w-56"
+          }`}
+          initial={false}
+          animate={{ width: sidebarCollapsed ? 64 : 224 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="flex flex-col h-full">
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-purple-500/20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="w-full justify-center text-gray-400 hover:text-purple-400"
+              >
+                <ChevronRight className={`h-4 w-4 transition-transform ${sidebarCollapsed ? "" : "rotate-180"}`} />
+              </Button>
+            </div>
+
+            {/* Navigation Items */}
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {NAV_ITEMS.map((item) => (
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    isActive={activeSection === item.id}
+                    isCollapsed={sidebarCollapsed}
+                    onClick={() => setActiveSection(item.id)}
+                  />
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </ScrollArea>
+
+            {/* Sidebar Footer - Quick Stats */}
+            {!sidebarCollapsed && (
+              <div className="p-4 border-t border-purple-500/20">
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Taxa</span>
+                    <span className="font-mono text-purple-400">{stats?.total_taxa?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Observations</span>
+                    <span className="font-mono text-cyan-400">{stats?.total_observations?.toLocaleString() || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Containers</span>
+                    <span className="font-mono text-green-400">{containers.length}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.aside>
+      </div>
     </div>
   )
 }
 
+// ==================== Navigation Button ====================
+function NavButton({ 
+  item, 
+  isActive, 
+  isCollapsed, 
+  onClick 
+}: { 
+  item: NavItem
+  isActive: boolean
+  isCollapsed: boolean
+  onClick: () => void 
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+        isActive 
+          ? "bg-purple-500/20 text-white" 
+          : "text-gray-400 hover:text-white hover:bg-white/5"
+      }`}
+      style={{
+        boxShadow: isActive ? `0 0 20px ${item.color}40` : undefined,
+        borderLeft: isActive ? `2px solid ${item.color}` : "2px solid transparent"
+      }}
+      whileHover={{ x: 2 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <item.icon 
+        className="h-5 w-5 flex-shrink-0" 
+        style={{ color: isActive ? item.color : undefined }}
+      />
+      {!isCollapsed && (
+        <span className="text-sm font-medium truncate">{item.label}</span>
+      )}
+      {isActive && !isCollapsed && (
+        <motion.div
+          className="ml-auto w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: item.color }}
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        />
+      )}
+    </motion.button>
+  )
+}
 
+// ==================== Overview Section ====================
+function OverviewSection({ 
+  health, 
+  stats, 
+  observations,
+  isLoading 
+}: { 
+  health: MINDEXHealth | null
+  stats: MINDEXStats | null
+  observations: Observation[]
+  isLoading: boolean
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Quick Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="API Status"
+          value={health?.api ? "Online" : "Offline"}
+          icon={Server}
+          color="purple"
+          status={health?.api ? "online" : "offline"}
+          subtitle={`Version ${health?.version || "unknown"}`}
+        />
+        <StatCard
+          title="Database"
+          value={health?.database ? "Connected" : "Disconnected"}
+          icon={Database}
+          color="cyan"
+          status={health?.database ? "online" : "offline"}
+          subtitle="PostGIS"
+        />
+        <StatCard
+          title="ETL Status"
+          value={stats?.etl_status === "running" ? "Running" : "Idle"}
+          icon={Activity}
+          color="green"
+          status={stats?.etl_status === "running" ? "processing" : "warning"}
+          subtitle="Data sync"
+        />
+        <StatCard
+          title="Total Taxa"
+          value={stats?.total_taxa?.toLocaleString() || "0"}
+          icon={BookOpen}
+          color="orange"
+          subtitle="Species cataloged"
+        />
+      </div>
 
+      {/* Live Data Blocks */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GlassCard color="purple">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Hexagon className="h-5 w-5 text-purple-400" />
+              Live Data Blocks
+            </h3>
+            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+              Real-time
+            </Badge>
+          </div>
+          <DataBlockViz 
+            maxBlocks={6}
+            blockSize={45}
+            colorScheme="purple"
+            animated
+            showLabels
+          />
+        </GlassCard>
 
+        <GlassCard color="cyan">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Binary className="h-5 w-5 text-cyan-400" />
+              Hash Stream
+            </h3>
+            <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
+              Live
+            </Badge>
+          </div>
+          <HashStreamViz 
+            colorScheme="cyan"
+            height={120}
+            streamSpeed={1.5}
+          />
+        </GlassCard>
+      </div>
 
+      {/* Statistics & Metrics */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <GlassCard color="purple">
+          <h3 className="text-sm font-medium text-gray-400 mb-2">Observations</h3>
+          <div className="text-3xl font-bold text-white mb-4">
+            {stats?.total_observations?.toLocaleString() || 0}
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">With Location</span>
+              <span className="font-mono text-purple-300">
+                {stats?.observations_with_location?.toLocaleString() || 0}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">With Images</span>
+              <span className="font-mono text-cyan-300">
+                {stats?.observations_with_images?.toLocaleString() || 0}
+              </span>
+            </div>
+          </div>
+          <MiniBlockRow count={8} colorScheme="purple" className="mt-4" />
+        </GlassCard>
 
+        <GlassCard color="cyan">
+          <h3 className="text-sm font-medium text-gray-400 mb-2">Data Sources</h3>
+          <div className="space-y-2">
+            {stats?.taxa_by_source && Object.entries(stats.taxa_by_source).slice(0, 5).map(([source, count]) => (
+              <div key={source} className="flex justify-between text-sm">
+                <span className="text-gray-400 capitalize">{source}</span>
+                <span className="font-mono text-cyan-300">{count.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          <MiniBlockRow count={6} colorScheme="cyan" className="mt-4" />
+        </GlassCard>
 
+        <GlassCard color="green">
+          <h3 className="text-sm font-medium text-gray-400 mb-2">Biological Data</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Genomes</span>
+              <span className="font-mono text-green-300">{stats?.genome_records?.toLocaleString() || 0}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Traits</span>
+              <span className="font-mono text-green-300">{stats?.trait_records?.toLocaleString() || 0}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">Synonyms</span>
+              <span className="font-mono text-green-300">{stats?.synonym_records?.toLocaleString() || 0}</span>
+            </div>
+          </div>
+          <MiniBlockRow count={5} colorScheme="green" className="mt-4" />
+        </GlassCard>
+      </div>
 
+      {/* Recent Activity */}
+      <GlassCard color="purple" padding="p-0">
+        <div className="p-4 border-b border-purple-500/20">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+            <Badge variant="outline" className="font-mono text-xs border-purple-500/30 text-purple-300">
+              {observations.length} records
+            </Badge>
+          </div>
+        </div>
+        <ScrollArea className="h-[250px]">
+          <div className="p-4 space-y-2">
+            {observations.slice(0, 10).map((obs, i) => (
+              <motion.div
+                key={obs.id}
+                className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-purple-400" />
+                  <div>
+                    <div className="text-sm text-white">Observation {obs.id.slice(0, 8)}</div>
+                    <div className="text-xs text-gray-500">
+                      {obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown"}
+                    </div>
+                  </div>
+                </div>
+                <Badge className="bg-purple-500/20 text-purple-300 border-none text-xs">
+                  {obs.source}
+                </Badge>
+              </motion.div>
+            ))}
+          </div>
+        </ScrollArea>
+      </GlassCard>
+    </div>
+  )
+}
 
+// ==================== Stat Card Component ====================
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  status,
+  subtitle
+}: {
+  title: string
+  value: string
+  icon: React.ComponentType<{ className?: string }>
+  color: "purple" | "cyan" | "green" | "orange"
+  status?: "online" | "offline" | "warning" | "processing"
+  subtitle?: string
+}) {
+  const colors = {
+    purple: { bg: "rgba(139, 92, 246, 0.1)", border: "#8B5CF6", text: "#A855F7" },
+    cyan: { bg: "rgba(6, 182, 212, 0.1)", border: "#06B6D4", text: "#22D3EE" },
+    green: { bg: "rgba(34, 197, 94, 0.1)", border: "#22C55E", text: "#4ADE80" },
+    orange: { bg: "rgba(249, 115, 22, 0.1)", border: "#F97316", text: "#FB923C" }
+  }
 
+  const scheme = colors[color]
 
+  return (
+    <motion.div
+      className="relative rounded-xl p-4 overflow-hidden"
+      style={{
+        background: scheme.bg,
+        border: `1px solid ${scheme.border}30`,
+        boxShadow: `0 0 20px ${scheme.border}20`
+      }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-gray-400 mb-1">{title}</p>
+          <p className="text-xl font-bold text-white">{value}</p>
+          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          {status && <GlowingStatus status={status} size={10} />}
+          <Icon className="h-5 w-5" style={{ color: scheme.text }} />
+        </div>
+      </div>
+    </motion.div>
+  )
+}
 
+// ==================== Encyclopedia Section ====================
+function EncyclopediaSection({
+  taxa,
+  observations,
+  searchQuery,
+  setSearchQuery,
+  selectedTaxon,
+  setSelectedTaxon,
+  stats,
+  isLoading
+}: {
+  taxa: Taxon[]
+  observations: Observation[]
+  searchQuery: string
+  setSearchQuery: (q: string) => void
+  selectedTaxon: Taxon | null
+  setSelectedTaxon: (t: Taxon | null) => void
+  stats: MINDEXStats | null
+  isLoading: boolean
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Search */}
+      <GlassCard color="purple">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-purple-400" />
+          Fungi Encyclopedia
+        </h3>
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Search species, common names, or taxonomy..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-black/40 border-purple-500/30 text-white placeholder:text-gray-500 focus:border-purple-500"
+            />
+          </div>
+          <Button variant="outline" className="border-purple-500/30 text-purple-300">
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </Button>
+        </div>
+      </GlassCard>
 
+      {/* Selected Taxon Detail */}
+      {selectedTaxon && (
+        <TravelingBorder color="cyan">
+          <div className="p-4">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-white">{selectedTaxon.canonical_name}</h3>
+                {selectedTaxon.common_name && (
+                  <p className="text-cyan-400">{selectedTaxon.common_name}</p>
+                )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setSelectedTaxon(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Rank:</span>
+                  <span className="text-white capitalize">{selectedTaxon.rank}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Source:</span>
+                  <Badge className="bg-cyan-500/20 text-cyan-300 border-none">
+                    {selectedTaxon.source}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <PixelGridViz
+                  rows={4}
+                  cols={8}
+                  pixelSize={8}
+                  colorScheme="cyan"
+                  showHash={false}
+                  animated={false}
+                />
+              </div>
+            </div>
+          </div>
+        </TravelingBorder>
+      )}
 
+      {/* Taxa Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {taxa.slice(0, 9).map((taxon, i) => (
+          <motion.div
+            key={taxon.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <GlassCard 
+              color="purple" 
+              className="cursor-pointer hover:scale-[1.02] transition-transform"
+              padding="p-4"
+            >
+              <div onClick={() => setSelectedTaxon(taxon)}>
+                <h4 className="font-semibold text-white mb-1">{taxon.canonical_name}</h4>
+                {taxon.common_name && (
+                  <p className="text-sm text-gray-400 mb-2">{taxon.common_name}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-purple-500/20 text-purple-300 border-none text-xs">
+                    {taxon.rank}
+                  </Badge>
+                  <Badge className="bg-cyan-500/20 text-cyan-300 border-none text-xs">
+                    {taxon.source}
+                  </Badge>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        ))}
+      </div>
 
+      {taxa.length > 9 && (
+        <p className="text-center text-sm text-gray-500">
+          Showing 9 of {taxa.length} species
+        </p>
+      )}
+    </div>
+  )
+}
 
+// ==================== Data Pipeline Section ====================
+function DataPipelineSection({
+  stats,
+  etlStatus,
+  isSyncing,
+  triggerSync
+}: {
+  stats: MINDEXStats | null
+  etlStatus: ETLStatus | null
+  isSyncing: boolean
+  triggerSync: (sources?: string[]) => void
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Sync Control */}
+      <TravelingBorder color="green">
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Zap className="h-5 w-5 text-green-400" />
+                Data Sync Control
+              </h3>
+              <p className="text-sm text-gray-400">Trigger manual sync from external databases</p>
+            </div>
+            <Button 
+              onClick={() => triggerSync()}
+              disabled={isSyncing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSyncing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync All
+                </>
+              )}
+            </Button>
+          </div>
 
+          <div className="flex flex-wrap gap-2">
+            {etlStatus?.available_sources?.map((source) => (
+              <Button
+                key={source}
+                variant="outline"
+                size="sm"
+                onClick={() => triggerSync([source])}
+                disabled={isSyncing}
+                className="border-green-500/30 text-green-300 hover:bg-green-500/20"
+              >
+                <Globe className="h-3 w-3 mr-1" />
+                {source}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </TravelingBorder>
 
+      {/* Data Flow Visualization */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GlassCard color="green">
+          <h3 className="text-lg font-semibold text-white mb-4">Transaction Blocks</h3>
+          <TransactionBlockStrip height={80} />
+          <div className="mt-4 flex justify-between text-xs text-gray-500">
+            <span>Low fee</span>
+            <span>Medium fee</span>
+            <span>High fee</span>
+          </div>
+        </GlassCard>
 
+        <GlassCard color="cyan">
+          <h3 className="text-lg font-semibold text-white mb-4">Data Quality</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-400">Location Data</span>
+                <span className="text-cyan-300">
+                  {stats && stats.total_observations > 0
+                    ? Math.round((stats.observations_with_location / stats.total_observations) * 100)
+                    : 0}%
+                </span>
+              </div>
+              <Progress 
+                value={stats && stats.total_observations > 0
+                  ? (stats.observations_with_location / stats.total_observations) * 100
+                  : 0} 
+                className="h-2 bg-gray-800"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-400">Image Enrichment</span>
+                <span className="text-cyan-300">
+                  {stats && stats.total_observations > 0
+                    ? Math.round((stats.observations_with_images / stats.total_observations) * 100)
+                    : 0}%
+                </span>
+              </div>
+              <Progress 
+                value={stats && stats.total_observations > 0
+                  ? (stats.observations_with_images / stats.total_observations) * 100
+                  : 0} 
+                className="h-2 bg-gray-800"
+              />
+            </div>
+          </div>
+        </GlassCard>
+      </div>
 
+      {/* V2 Components */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DataFlow />
+        <QueryMonitor />
+      </div>
+      <AgentActivity />
+    </div>
+  )
+}
 
+// ==================== Integrity Section ====================
+function IntegritySection({
+  integrityRecordId,
+  setIntegrityRecordId,
+  setSelectedTaxon
+}: {
+  integrityRecordId: string
+  setIntegrityRecordId: (id: string) => void
+  setSelectedTaxon: (t: Taxon | null) => void
+}) {
+  return (
+    <div className="space-y-6">
+      <GlassCard color="orange">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Shield className="h-5 w-5 text-orange-400" />
+          Integrity Verification
+        </h3>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-xs text-gray-400">Search Taxa</label>
+            <MINDEXSearchInput
+              onSelectTaxonId={async (taxonId) => {
+                try {
+                  const res = await fetch(`/api/natureos/mindex/taxa/${encodeURIComponent(taxonId)}`)
+                  if (res.ok) {
+                    const data = await res.json()
+                    setSelectedTaxon(data)
+                  }
+                } catch {}
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-gray-400">Verify Record ID</label>
+            <Input
+              value={integrityRecordId}
+              onChange={(e) => setIntegrityRecordId(e.target.value)}
+              placeholder="Enter record ID..."
+              className="bg-black/40 border-orange-500/30 text-white"
+            />
+            {integrityRecordId.trim() && (
+              <MINDEXIntegrityBadge recordId={integrityRecordId.trim()} />
+            )}
+          </div>
+        </div>
+      </GlassCard>
 
+      {/* Hash Comparison */}
+      <GlassCard color="purple">
+        <h3 className="text-lg font-semibold text-white mb-4">Hash Verification</h3>
+        <HashCompareViz />
+      </GlassCard>
 
+      {integrityRecordId.trim() && (
+        <MINDEXVerificationPanel recordId={integrityRecordId.trim()} />
+      )}
+    </div>
+  )
+}
 
+// ==================== Cryptography Section ====================
+function CryptographySection() {
+  return (
+    <div className="space-y-6">
+      {/* Visual Hash/Merkle Displays */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GlassCard color="purple">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Lock className="h-5 w-5 text-purple-400" />
+            Hash Visualization
+          </h3>
+          <div className="flex justify-center">
+            <PixelGridViz
+              rows={8}
+              cols={16}
+              pixelSize={10}
+              colorScheme="purple"
+              animated
+            />
+          </div>
+        </GlassCard>
 
+        <GlassCard color="cyan">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-cyan-400" />
+            Merkle Tree
+          </h3>
+          <MerklePixelTree depth={3} />
+        </GlassCard>
+      </div>
 
+      {/* Cryptographic Data Blocks */}
+      <GlassCard color="purple">
+        <h3 className="text-lg font-semibold text-white mb-4">Cryptographic Blocks</h3>
+        <DataBlockViz 
+          maxBlocks={8}
+          blockSize={55}
+          colorScheme="purple"
+          orientation="horizontal"
+          animated
+          showLabels
+        />
+      </GlassCard>
 
+      {/* V2 Crypto Components */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <HashChainVisualizer />
+        <MerkleTreeViz />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SignaturePanel />
+        <CryptoMonitor />
+      </div>
+    </div>
+  )
+}
 
+// ==================== Ledger Section ====================
+function LedgerSection() {
+  return (
+    <div className="space-y-6">
+      {/* Mempool-style Block Display */}
+      <GlassCard color="cyan">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-cyan-400" />
+          Ledger Blocks
+        </h3>
+        <DataBlockViz 
+          maxBlocks={10}
+          blockSize={50}
+          colorScheme="cyan"
+          animated
+          showLabels
+        />
+      </GlassCard>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <LedgerPanel />
+        <OrdinalsViewer />
+      </div>
+    </div>
+  )
+}
 
+// ==================== Network Section ====================
+function NetworkSection() {
+  return (
+    <div className="space-y-6">
+      <MycorrhizalNetworkViz />
+    </div>
+  )
+}
 
+// ==================== Phylogeny Section ====================
+function PhylogenySection() {
+  return (
+    <div className="space-y-6">
+      <GlassCard color="purple" padding="p-2">
+        <PhylogeneticTree 
+          height={550}
+          showControls={true}
+          showLegend={true}
+          treeType="radial"
+        />
+      </GlassCard>
+
+      <GlassCard color="purple">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Dna className="h-5 w-5 text-purple-400" />
+              Ancestry Integration
+            </h3>
+            <p className="text-sm text-gray-400">
+              DNA ancestry trees, genetic database, sequence alignment
+            </p>
+          </div>
+          <Button variant="outline" size="sm" asChild className="border-purple-500/30 text-purple-300">
+            <a href="/ancestry/phylogeny">
+              Open Ancestry
+              <ExternalLink className="h-4 w-4 ml-2" />
+            </a>
+          </Button>
+        </div>
+      </GlassCard>
+    </div>
+  )
+}
+
+// ==================== Devices Section ====================
+function DevicesSection() {
+  return (
+    <div className="space-y-6">
+      <FCIDeviceMonitor />
+    </div>
+  )
+}
+
+// ==================== M-Wave Section ====================
+function MWaveSection() {
+  return (
+    <div className="space-y-6">
+      <MWaveDashboard />
+    </div>
+  )
+}
+
+// ==================== Containers Section ====================
+function ContainersSection({
+  containers,
+  fetchContainers
+}: {
+  containers: DockerContainer[]
+  fetchContainers: () => void
+}) {
+  return (
+    <div className="space-y-6">
+      <GlassCard color="cyan">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Container className="h-5 w-5 text-cyan-400" />
+            MINDEX Docker Containers
+          </h3>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={fetchContainers}
+            className="border-cyan-500/30 text-cyan-300"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {containers.map((container, i) => (
+            <motion.div
+              key={container.id}
+              className="flex items-center justify-between p-4 rounded-lg bg-white/5"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+            >
+              <div className="flex items-center gap-3">
+                <GlowingStatus 
+                  status={container.status === "running" ? "online" : "offline"}
+                  size={10}
+                />
+                <div>
+                  <div className="font-medium text-white">{container.name}</div>
+                  <div className="text-sm text-gray-500">{container.image}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge className={`${
+                  container.status === "running" 
+                    ? "bg-green-500/20 text-green-300" 
+                    : "bg-gray-500/20 text-gray-300"
+                } border-none`}>
+                  {container.status}
+                </Badge>
+                {container.ports.length > 0 && (
+                  <span className="text-xs text-gray-500 font-mono">
+                    {container.ports.join(", ")}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          ))}
+
+          {containers.length === 0 && (
+            <div className="text-center py-12">
+              <Container className="h-12 w-12 mx-auto mb-4 text-gray-600" />
+              <p className="text-gray-400 mb-2">No MINDEX containers found</p>
+              <code className="text-xs text-gray-500 bg-black/40 px-3 py-2 rounded block max-w-md mx-auto">
+                docker-compose -f docker-compose.mindex.yml up -d
+              </code>
+            </div>
+          )}
+        </div>
+      </GlassCard>
+    </div>
+  )
+}

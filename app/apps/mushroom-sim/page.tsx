@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Play, Pause, RotateCcw, Settings, Maximize2, Camera, Share2 } from "lucide-react"
+import { MINDEXSearchInput } from "@/components/mindex/search-input"
 
 export default function MushroomSimPage() {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [species, setSpecies] = useState("oyster")
+  const [speciesTaxonId, setSpeciesTaxonId] = useState<string | null>(null)
+  const [speciesLabel, setSpeciesLabel] = useState<string>("")
   const [day, setDay] = useState(0)
   const [growthStage, setGrowthStage] = useState("Spore")
   const [environment, setEnvironment] = useState({ temp: 22, humidity: 85, light: 12, substrate: "hardwood" })
@@ -132,16 +133,29 @@ export default function MushroomSimPage() {
           <CardContent className="space-y-6">
             <div>
               <label className="text-sm font-medium mb-2 block">Species</label>
-              <Select value={species} onValueChange={setSpecies}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="oyster">Oyster Mushroom</SelectItem>
-                  <SelectItem value="shiitake">Shiitake</SelectItem>
-                  <SelectItem value="lions-mane">Lion's Mane</SelectItem>
-                  <SelectItem value="reishi">Reishi</SelectItem>
-                  <SelectItem value="maitake">Maitake</SelectItem>
-                </SelectContent>
-              </Select>
+              <MINDEXSearchInput
+                placeholder="Search MINDEX taxa…"
+                onSelectTaxonId={async (taxonId) => {
+                  try {
+                    const res = await fetch(`/api/natureos/mindex/taxa/${encodeURIComponent(taxonId)}`)
+                    if (!res.ok) return
+                    const data = await res.json()
+                    setSpeciesTaxonId(taxonId)
+                    setSpeciesLabel(data?.canonical_name || data?.scientificName || String(taxonId))
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
+              <div className="text-xs text-muted-foreground mt-2">
+                {speciesTaxonId ? (
+                  <>
+                    Selected: <span className="font-medium">{speciesLabel}</span>
+                  </>
+                ) : (
+                  "Pick a species from MINDEX to drive simulation context (no mock species list)."
+                )}
+              </div>
             </div>
 
             <div>

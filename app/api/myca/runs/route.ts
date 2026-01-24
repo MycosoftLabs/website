@@ -7,7 +7,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 import { listAgentRuns, startAgentRun } from "@/lib/integrations/myca-mas"
-import { mockAgentRuns } from "@/lib/integrations/mock-data"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -16,16 +15,12 @@ export async function GET(request: NextRequest) {
   const agentId = searchParams.get("agentId") || undefined
   const status = (searchParams.get("status") as any) || undefined
 
-  // Return mock data if integrations disabled
   if (!env.integrationsEnabled) {
-    let filtered = mockAgentRuns
-    if (agentId) filtered = filtered.filter((r) => r.agentId === agentId)
-    if (status) filtered = filtered.filter((r) => r.status === status)
-
     return NextResponse.json({
-      data: filtered.slice((page - 1) * pageSize, page * pageSize),
-      meta: { total: filtered.length, page, pageSize, hasMore: filtered.length > page * pageSize },
-    })
+      error: "MYCA MAS integration is disabled. This endpoint requires a live MYCA MAS backend.",
+      code: "INTEGRATIONS_DISABLED",
+      requiredEnv: ["INTEGRATIONS_ENABLED=true", "MYCA_MAS_API_BASE_URL", "MYCA_MAS_API_KEY"],
+    }, { status: 503 })
   }
 
   try {

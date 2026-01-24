@@ -1,4 +1,4 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
@@ -62,6 +62,16 @@ const nextConfig = {
       },
     ],
     unoptimized: true,
+  },
+  // Redirects for legacy routes
+  async redirects() {
+    return [
+      {
+        source: '/myca',
+        destination: '/myca-ai',
+        permanent: true,
+      },
+    ]
   },
 }
 

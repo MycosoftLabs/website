@@ -99,6 +99,38 @@ export interface PlaybookActionResult {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// INCIDENT LOG CHAIN (Cryptographic Integrity)
+// ═══════════════════════════════════════════════════════════════
+
+export interface IncidentLogChainEntry {
+  id: string;
+  incident_id: string;
+  sequence_number: number;
+  event_hash: string;           // SHA-256 hash of event data
+  previous_hash: string;        // Chain link to previous entry
+  merkle_root: string | null;   // Periodic Merkle root anchor
+  event_type: string;           // Flexible event type (created, updated, created_critical, status_resolved, etc.)
+  event_data: Record<string, unknown>;
+  reporter_type: 'agent' | 'service' | 'user' | 'system';
+  reporter_id: string;          // Agent ID, service name, or user ID
+  reporter_name: string;
+  created_at: string;
+}
+
+export interface AgentIncidentActivity {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  agent_category: 'security' | 'infrastructure' | 'data' | 'communication' | 'core';
+  incident_id: string | null;
+  action_type: 'detected' | 'investigated' | 'analyzed' | 'fixed' | 'escalated' | 'logged' | 'resolved' | 'notified' | 'monitored';
+  action_data: Record<string, unknown>;
+  event_hash: string;
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  created_at: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // IN-MEMORY FALLBACK STORAGE
 // ═══════════════════════════════════════════════════════════════
 
@@ -108,7 +140,13 @@ const inMemoryStore = {
   auditLogs: new Map<string, AuditLog>(),
   scanResults: new Map<string, ScanResult>(),
   playbookExecutions: new Map<string, PlaybookExecution>(),
+  incidentLogChain: new Map<string, IncidentLogChainEntry>(),
+  agentActivity: new Map<string, AgentIncidentActivity>(),
 };
+
+// Track the latest hash for chain continuity
+let lastChainHash = '0000000000000000000000000000000000000000000000000000000000000000';
+let chainSequence = 0;
 
 // ═══════════════════════════════════════════════════════════════
 // DATABASE CLIENT
@@ -635,6 +673,374 @@ export async function getPlaybookExecutions(limit = 20): Promise<PlaybookExecuti
   return Array.from(inMemoryStore.playbookExecutions.values())
     .sort((a, b) => b.started_at.localeCompare(a.started_at))
     .slice(0, limit);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INCIDENT LOG CHAIN (Cryptographic Integrity)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Create a new entry in the incident log chain
+ * Each entry is cryptographically linked to the previous one
+ */
+export async function createIncidentLogEntry(
+  entry: Omit<IncidentLogChainEntry, 'id' | 'sequence_number' | 'event_hash' | 'previous_hash' | 'created_at'>
+): Promise<IncidentLogChainEntry> {
+  const id = `ilc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+  
+  // Increment sequence
+  chainSequence++;
+  
+  // Create hash input: sequence + previous_hash + event_type + event_data + reporter
+  const hashInput = JSON.stringify({
+    sequence: chainSequence,
+    previous: lastChainHash,
+    type: entry.event_type,
+    data: entry.event_data,
+    reporter: entry.reporter_id,
+    timestamp: now,
+  });
+  
+  // Generate SHA-256 hash (using Web Crypto API compatible approach)
+  const encoder = new TextEncoder();
+  const data = encoder.encode(hashInput);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const eventHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  const fullEntry: IncidentLogChainEntry = {
+    id,
+    ...entry,
+    sequence_number: chainSequence,
+    event_hash: eventHash,
+    previous_hash: lastChainHash,
+    created_at: now,
+  };
+  
+  // Update chain state
+  lastChainHash = eventHash;
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('incident_log_chain').insert({
+        id: fullEntry.id,
+        incident_id: fullEntry.incident_id,
+        sequence_number: fullEntry.sequence_number,
+        event_hash: fullEntry.event_hash,
+        previous_hash: fullEntry.previous_hash,
+        merkle_root: fullEntry.merkle_root,
+        event_type: fullEntry.event_type,
+        event_data: fullEntry.event_data,
+        reporter_type: fullEntry.reporter_type,
+        reporter_id: fullEntry.reporter_id,
+        reporter_name: fullEntry.reporter_name,
+        created_at: fullEntry.created_at,
+      });
+      
+      if (error) {
+        console.error('[SecurityDB] Error creating log chain entry:', error);
+        inMemoryStore.incidentLogChain.set(id, fullEntry);
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception creating log chain entry:', err);
+      inMemoryStore.incidentLogChain.set(id, fullEntry);
+    }
+  } else {
+    inMemoryStore.incidentLogChain.set(id, fullEntry);
+  }
+  
+  console.log(`[IncidentChain] Entry #${chainSequence} created: ${entry.event_type} by ${entry.reporter_name}`);
+  
+  // Store chain entry details for download/audit (async, don't await)
+  storeChainEntryDetails(
+    id,
+    {
+      ...fullEntry,
+      incident_details: entry.event_data,
+    },
+    hashInput,
+    undefined,
+    {
+      compliance_mode: 'cmmc-l2',
+      nist_controls: ['AU-2', 'AU-3', 'AU-8', 'AU-9', 'AU-10'],
+      verified_at: now,
+    }
+  ).catch(err => console.error('[SecurityDB] Failed to store chain details:', err));
+  
+  return fullEntry;
+}
+
+/**
+ * Get incident log chain entries
+ */
+export async function getIncidentLogChain(options: {
+  incident_id?: string;
+  limit?: number;
+  since?: string;
+}): Promise<IncidentLogChainEntry[]> {
+  const { incident_id, limit = 100, since } = options;
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      let query = supabase
+        .from('incident_log_chain')
+        .select('*')
+        .order('sequence_number', { ascending: false })
+        .limit(limit);
+      
+      if (incident_id) query = query.eq('incident_id', incident_id);
+      if (since) query = query.gte('created_at', since);
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('[SecurityDB] Error fetching log chain:', error);
+      } else if (data) {
+        return data as IncidentLogChainEntry[];
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception fetching log chain:', err);
+    }
+  }
+  
+  // Fallback to in-memory
+  let entries = Array.from(inMemoryStore.incidentLogChain.values());
+  if (incident_id) entries = entries.filter(e => e.incident_id === incident_id);
+  if (since) entries = entries.filter(e => e.created_at >= since);
+  return entries.sort((a, b) => b.sequence_number - a.sequence_number).slice(0, limit);
+}
+
+/**
+ * Verify the integrity of the log chain
+ */
+export async function verifyLogChainIntegrity(entries: IncidentLogChainEntry[]): Promise<{
+  valid: boolean;
+  errors: string[];
+  verified_count: number;
+}> {
+  const errors: string[] = [];
+  let verifiedCount = 0;
+  
+  // Sort by sequence number ascending
+  const sorted = [...entries].sort((a, b) => a.sequence_number - b.sequence_number);
+  
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = sorted[i];
+    
+    // Verify hash chain (except first entry)
+    if (i > 0) {
+      const prevEntry = sorted[i - 1];
+      if (entry.previous_hash !== prevEntry.event_hash) {
+        errors.push(`Chain break at sequence ${entry.sequence_number}: previous_hash mismatch`);
+      }
+    }
+    
+    // Recalculate and verify event hash
+    const hashInput = JSON.stringify({
+      sequence: entry.sequence_number,
+      previous: entry.previous_hash,
+      type: entry.event_type,
+      data: entry.event_data,
+      reporter: entry.reporter_id,
+      timestamp: entry.created_at,
+    });
+    
+    const encoder = new TextEncoder();
+    const data = encoder.encode(hashInput);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    if (computedHash !== entry.event_hash) {
+      errors.push(`Tampered entry at sequence ${entry.sequence_number}: hash mismatch`);
+    } else {
+      verifiedCount++;
+    }
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    verified_count: verifiedCount,
+  };
+}
+
+/**
+ * Get the current chain state
+ */
+export function getChainState(): { lastHash: string; sequence: number } {
+  return {
+    lastHash: lastChainHash,
+    sequence: chainSequence,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AGENT INCIDENT ACTIVITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Log an agent's activity related to incidents
+ */
+export async function createAgentActivity(
+  activity: Omit<AgentIncidentActivity, 'id' | 'event_hash' | 'created_at'>
+): Promise<AgentIncidentActivity> {
+  const id = `aia-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+  
+  // Generate hash for this activity
+  const hashInput = JSON.stringify({
+    agent: activity.agent_id,
+    action: activity.action_type,
+    data: activity.action_data,
+    timestamp: now,
+  });
+  
+  const encoder = new TextEncoder();
+  const data = encoder.encode(hashInput);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const eventHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  const fullActivity: AgentIncidentActivity = {
+    id,
+    ...activity,
+    event_hash: eventHash,
+    created_at: now,
+  };
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('agent_incident_activity').insert({
+        id: fullActivity.id,
+        agent_id: fullActivity.agent_id,
+        agent_name: fullActivity.agent_name,
+        agent_category: fullActivity.agent_category,
+        incident_id: fullActivity.incident_id,
+        action_type: fullActivity.action_type,
+        action_data: fullActivity.action_data,
+        event_hash: fullActivity.event_hash,
+        severity: fullActivity.severity,
+        created_at: fullActivity.created_at,
+      });
+      
+      if (error) {
+        console.error('[SecurityDB] Error creating agent activity:', error);
+        inMemoryStore.agentActivity.set(id, fullActivity);
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception creating agent activity:', err);
+      inMemoryStore.agentActivity.set(id, fullActivity);
+    }
+  } else {
+    inMemoryStore.agentActivity.set(id, fullActivity);
+  }
+  
+  console.log(`[AgentActivity] ${activity.agent_name} performed ${activity.action_type}`);
+  return fullActivity;
+}
+
+/**
+ * Get agent activity entries
+ */
+export async function getAgentActivity(options: {
+  agent_id?: string;
+  incident_id?: string;
+  action_type?: string;
+  limit?: number;
+  since?: string;
+}): Promise<AgentIncidentActivity[]> {
+  const { agent_id, incident_id, action_type, limit = 100, since } = options;
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      let query = supabase
+        .from('agent_incident_activity')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (agent_id) query = query.eq('agent_id', agent_id);
+      if (incident_id) query = query.eq('incident_id', incident_id);
+      if (action_type) query = query.eq('action_type', action_type);
+      if (since) query = query.gte('created_at', since);
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('[SecurityDB] Error fetching agent activity:', error);
+      } else if (data) {
+        return data as AgentIncidentActivity[];
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception fetching agent activity:', err);
+    }
+  }
+  
+  // Fallback to in-memory
+  let activities = Array.from(inMemoryStore.agentActivity.values());
+  if (agent_id) activities = activities.filter(a => a.agent_id === agent_id);
+  if (incident_id) activities = activities.filter(a => a.incident_id === incident_id);
+  if (action_type) activities = activities.filter(a => a.action_type === action_type);
+  if (since) activities = activities.filter(a => a.created_at >= since);
+  return activities.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+}
+
+/**
+ * Get agent activity statistics
+ */
+export async function getAgentActivityStats(): Promise<{
+  total_activities: number;
+  activities_last_hour: number;
+  activities_by_agent: Record<string, number>;
+  activities_by_type: Record<string, number>;
+  most_active_agent: { id: string; name: string; count: number } | null;
+}> {
+  const now = new Date();
+  const hourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  
+  const activities = Array.from(inMemoryStore.agentActivity.values());
+  
+  const byAgent: Record<string, { name: string; count: number }> = {};
+  const byType: Record<string, number> = {};
+  
+  activities.forEach(a => {
+    // By agent
+    if (!byAgent[a.agent_id]) {
+      byAgent[a.agent_id] = { name: a.agent_name, count: 0 };
+    }
+    byAgent[a.agent_id].count++;
+    
+    // By type
+    byType[a.action_type] = (byType[a.action_type] || 0) + 1;
+  });
+  
+  // Find most active
+  let mostActive: { id: string; name: string; count: number } | null = null;
+  Object.entries(byAgent).forEach(([id, data]) => {
+    if (!mostActive || data.count > mostActive.count) {
+      mostActive = { id, name: data.name, count: data.count };
+    }
+  });
+  
+  return {
+    total_activities: activities.length,
+    activities_last_hour: activities.filter(a => a.created_at >= hourAgo).length,
+    activities_by_agent: Object.fromEntries(
+      Object.entries(byAgent).map(([id, data]) => [id, data.count])
+    ),
+    activities_by_type: byType,
+    most_active_agent: mostActive,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1530,6 +1936,307 @@ export async function createTrainingRecord(
   
   inMemoryTraining.set(id, newTraining);
   return newTraining;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INCIDENT CAUSALITY
+// ═══════════════════════════════════════════════════════════════
+
+export interface IncidentCausality {
+  id: string;
+  source_incident_id: string;
+  target_incident_id: string;
+  relationship_type: 'caused' | 'related' | 'escalated_to' | 'prevented';
+  confidence: number;
+  predicted_by: string | null;
+  predicted_at: string | null;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  prevented: boolean;
+  prevented_by: string | null;
+  prevented_at: string | null;
+  prevention_action: string | null;
+  created_at: string;
+  notes: string | null;
+}
+
+export interface IncidentChainDetail {
+  chain_entry_id: string;
+  full_event_data: Record<string, unknown>;
+  raw_hash_input: string;
+  verification_proof: Record<string, unknown> | null;
+  compliance_metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+const inMemoryCausality = new Map<string, IncidentCausality>();
+const inMemoryChainDetails = new Map<string, IncidentChainDetail>();
+
+/**
+ * Create a causality relationship between incidents
+ */
+export async function createIncidentCausality(causality: Omit<IncidentCausality, 'id' | 'created_at'>): Promise<IncidentCausality> {
+  const id = `caus-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const now = new Date().toISOString();
+  const fullCausality: IncidentCausality = {
+    id,
+    ...causality,
+    created_at: now,
+  };
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('incident_causality').insert({
+        id,
+        source_incident_id: causality.source_incident_id,
+        target_incident_id: causality.target_incident_id,
+        relationship_type: causality.relationship_type,
+        confidence: causality.confidence,
+        predicted_by: causality.predicted_by,
+        predicted_at: causality.predicted_at,
+        confirmed_by: causality.confirmed_by,
+        confirmed_at: causality.confirmed_at,
+        prevented: causality.prevented,
+        prevented_by: causality.prevented_by,
+        prevented_at: causality.prevented_at,
+        prevention_action: causality.prevention_action,
+        created_at: now,
+        notes: causality.notes,
+      });
+      
+      if (error) {
+        console.error('[SecurityDB] Error creating causality:', error);
+        inMemoryCausality.set(id, fullCausality);
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception creating causality:', err);
+      inMemoryCausality.set(id, fullCausality);
+    }
+  } else {
+    inMemoryCausality.set(id, fullCausality);
+  }
+  
+  console.log(`[SecurityDB] Causality created: ${causality.source_incident_id} -> ${causality.target_incident_id} (${causality.relationship_type})`);
+  return fullCausality;
+}
+
+/**
+ * Get causality relationships for an incident (both caused by and causes)
+ */
+export async function getIncidentCausality(incident_id: string): Promise<{
+  causedBy: IncidentCausality[];
+  causes: IncidentCausality[];
+  prevented: IncidentCausality[];
+}> {
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const [causedByResult, causesResult, preventedResult] = await Promise.all([
+        supabase.from('incident_causality')
+          .select('*')
+          .eq('target_incident_id', incident_id)
+          .eq('prevented', false),
+        supabase.from('incident_causality')
+          .select('*')
+          .eq('source_incident_id', incident_id)
+          .eq('prevented', false),
+        supabase.from('incident_causality')
+          .select('*')
+          .or(`source_incident_id.eq.${incident_id},target_incident_id.eq.${incident_id}`)
+          .eq('prevented', true),
+      ]);
+      
+      return {
+        causedBy: (causedByResult.data || []) as IncidentCausality[],
+        causes: (causesResult.data || []) as IncidentCausality[],
+        prevented: (preventedResult.data || []) as IncidentCausality[],
+      };
+    } catch (err) {
+      console.error('[SecurityDB] Exception fetching causality:', err);
+    }
+  }
+  
+  // Fallback to in-memory
+  const causality = Array.from(inMemoryCausality.values());
+  return {
+    causedBy: causality.filter(c => c.target_incident_id === incident_id && !c.prevented),
+    causes: causality.filter(c => c.source_incident_id === incident_id && !c.prevented),
+    prevented: causality.filter(c => 
+      (c.source_incident_id === incident_id || c.target_incident_id === incident_id) && c.prevented
+    ),
+  };
+}
+
+/**
+ * Get the full causality tree for an incident (recursive)
+ */
+export async function getCausalityTree(incident_id: string, depth: number = 3): Promise<{
+  incident_id: string;
+  children: Array<{
+    incident_id: string;
+    relationship_type: string;
+    confidence: number;
+    prevented: boolean;
+    children?: unknown[];
+  }>;
+}> {
+  const result: { incident_id: string; children: Array<{ incident_id: string; relationship_type: string; confidence: number; prevented: boolean; children?: unknown[] }> } = {
+    incident_id,
+    children: [],
+  };
+  
+  if (depth <= 0) return result;
+  
+  const causality = await getIncidentCausality(incident_id);
+  
+  for (const cause of causality.causes) {
+    const child = await getCausalityTree(cause.target_incident_id, depth - 1);
+    result.children.push({
+      incident_id: cause.target_incident_id,
+      relationship_type: cause.relationship_type,
+      confidence: cause.confidence,
+      prevented: cause.prevented,
+      children: child.children,
+    });
+  }
+  
+  for (const prevented of causality.prevented.filter(p => p.source_incident_id === incident_id)) {
+    result.children.push({
+      incident_id: prevented.target_incident_id,
+      relationship_type: prevented.relationship_type,
+      confidence: prevented.confidence,
+      prevented: true,
+    });
+  }
+  
+  return result;
+}
+
+/**
+ * Mark a potential cascading incident as prevented
+ */
+export async function markCausalityPrevented(
+  causality_id: string,
+  prevented_by: string,
+  prevention_action: string
+): Promise<IncidentCausality | null> {
+  const now = new Date().toISOString();
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('incident_causality')
+        .update({
+          prevented: true,
+          prevented_by,
+          prevented_at: now,
+          prevention_action,
+        })
+        .eq('id', causality_id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('[SecurityDB] Error marking causality prevented:', error);
+        return null;
+      }
+      
+      return data as IncidentCausality;
+    } catch (err) {
+      console.error('[SecurityDB] Exception marking causality prevented:', err);
+    }
+  }
+  
+  // Fallback
+  const existing = inMemoryCausality.get(causality_id);
+  if (existing) {
+    const updated = { ...existing, prevented: true, prevented_by, prevented_at: now, prevention_action };
+    inMemoryCausality.set(causality_id, updated);
+    return updated;
+  }
+  return null;
+}
+
+/**
+ * Store chain entry details for download/audit
+ */
+export async function storeChainEntryDetails(
+  chain_entry_id: string,
+  full_event_data: Record<string, unknown>,
+  raw_hash_input: string,
+  verification_proof?: Record<string, unknown>,
+  compliance_metadata?: Record<string, unknown>
+): Promise<IncidentChainDetail> {
+  const now = new Date().toISOString();
+  const detail: IncidentChainDetail = {
+    chain_entry_id,
+    full_event_data,
+    raw_hash_input,
+    verification_proof: verification_proof || null,
+    compliance_metadata: compliance_metadata || null,
+    created_at: now,
+  };
+  
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('incident_chain_details').upsert({
+        chain_entry_id,
+        full_event_data,
+        raw_hash_input,
+        verification_proof,
+        compliance_metadata,
+        created_at: now,
+      });
+      
+      if (error) {
+        console.error('[SecurityDB] Error storing chain details:', error);
+        inMemoryChainDetails.set(chain_entry_id, detail);
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception storing chain details:', err);
+      inMemoryChainDetails.set(chain_entry_id, detail);
+    }
+  } else {
+    inMemoryChainDetails.set(chain_entry_id, detail);
+  }
+  
+  return detail;
+}
+
+/**
+ * Get chain entry details
+ */
+export async function getChainEntryDetails(chain_entry_id: string): Promise<IncidentChainDetail | null> {
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('incident_chain_details')
+        .select('*')
+        .eq('chain_entry_id', chain_entry_id)
+        .single();
+      
+      if (error) {
+        if (error.code !== 'PGRST116') { // Not found
+          console.error('[SecurityDB] Error fetching chain details:', error);
+        }
+        return null;
+      }
+      
+      return data as IncidentChainDetail;
+    } catch (err) {
+      console.error('[SecurityDB] Exception fetching chain details:', err);
+    }
+  }
+  
+  return inMemoryChainDetails.get(chain_entry_id) || null;
 }
 
 // ═══════════════════════════════════════════════════════════════

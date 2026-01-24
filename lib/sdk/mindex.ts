@@ -6,6 +6,18 @@
  */
 
 const MINDEX_BASE_URL = process.env.NEXT_PUBLIC_MINDEX_API_URL || "/api/natureos/mindex"
+const MINDEX_V2_BASE_URL = "/api/mindex"
+
+export interface MycorrhizaeChannel {
+  type: "device" | "aggregate" | "computed" | "alert"
+  id: string
+  filters?: Record<string, unknown>
+}
+
+export interface MerkleProofStep {
+  sibling: string
+  position: "left" | "right"
+}
 
 export interface MINDEXTaxon {
   id: number
@@ -199,6 +211,62 @@ export class MINDEXClient {
     
     const data = await response.json()
     return data.compounds || []
+  }
+
+  /**
+   * Get a record verification result (v2)
+   */
+  async verifyRecordIntegrity(id: string): Promise<{ valid: boolean; record_id: string }> {
+    const response = await fetch(`${MINDEX_V2_BASE_URL}/verify/${encodeURIComponent(id)}`)
+    if (!response.ok) throw new Error(`Integrity verify failed: ${response.statusText}`)
+    return await response.json()
+  }
+
+  /**
+   * Get record + Merkle proof (v2)
+   *
+   * NOTE: Requires upstream MINDEX integrity endpoints to be available.
+   */
+  async getRecordWithProof(
+    id: string,
+  ): Promise<{ record_id: string; leaf: string; root: string; proof: MerkleProofStep[]; date: string }> {
+    const response = await fetch(`${MINDEX_V2_BASE_URL}/integrity/proof/${encodeURIComponent(id)}`)
+    if (!response.ok) throw new Error(`Merkle proof fetch failed: ${response.statusText}`)
+    return await response.json()
+  }
+
+  /**
+   * Subscribe to a Mycorrhizae channel (v2 - SSE)
+   *
+   * Client-side only (EventSource).
+   */
+  subscribeToChannel(channel: MycorrhizaeChannel): EventSource {
+    if (typeof window === "undefined") {
+      throw new Error("subscribeToChannel must be called in the browser (EventSource)")
+    }
+    const params = new URLSearchParams()
+    params.set("type", channel.type)
+    params.set("id", channel.id)
+    if (channel.filters) params.set("filters", JSON.stringify(channel.filters))
+    return new EventSource(`${MINDEX_V2_BASE_URL}/stream/subscribe?${params.toString()}`)
+  }
+
+  /**
+   * Anchor records to a ledger (v2)
+   *
+   * NOTE: This requires the ledger anchoring backend to be implemented.
+   */
+  async anchorToLedger(
+    recordIds: string[],
+    ledger: "hypergraph" | "solana",
+  ): Promise<{ ok: boolean; ledger: string; tx_id?: string }> {
+    const response = await fetch(`${MINDEX_V2_BASE_URL}/anchor`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ record_ids: recordIds, ledger }),
+    })
+    if (!response.ok) throw new Error(`Anchor request failed: ${response.statusText}`)
+    return await response.json()
   }
 }
 

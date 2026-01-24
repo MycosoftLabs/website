@@ -201,3 +201,237 @@ export function getCompoundsByActivity(activity: string): Compound[] {
 export function getSourceSpecies(): string[] {
   return Array.from(new Set(Object.values(COMPOUND_MAPPING).flatMap((compound) => compound.sourceSpecies)))
 }
+
+// =============================================================================
+// MINDEX API INTEGRATION
+// =============================================================================
+
+const MINDEX_API_URL = process.env.NEXT_PUBLIC_MINDEX_API_URL || "http://localhost:8000"
+
+export interface MINDEXCompound {
+  id: string
+  name: string
+  iupac_name?: string
+  formula?: string
+  molecular_weight?: number
+  smiles?: string
+  inchi?: string
+  inchikey?: string
+  chemspider_id?: number
+  pubchem_id?: number
+  chemical_class?: string
+  compound_type?: string
+  source: string
+  metadata: Record<string, unknown>
+  activities?: Array<{
+    activity_id: string
+    activity_name: string
+    category?: string
+    potency?: string
+    evidence_level?: string
+  }>
+  species_count?: number
+}
+
+export interface CompoundSearchResult {
+  data: MINDEXCompound[]
+  limit: number
+  offset: number
+  total?: number
+}
+
+/**
+ * Fetch compounds from MINDEX API with fallback to static data
+ */
+export async function fetchCompounds(options?: {
+  skip?: number
+  limit?: number
+  search?: string
+  chemicalClass?: string
+  compoundType?: string
+}): Promise<CompoundSearchResult> {
+  const params = new URLSearchParams()
+  if (options?.skip) params.set("skip", options.skip.toString())
+  if (options?.limit) params.set("limit", options.limit.toString())
+  if (options?.search) params.set("search", options.search)
+  if (options?.chemicalClass) params.set("chemical_class", options.chemicalClass)
+  if (options?.compoundType) params.set("compound_type", options.compoundType)
+  
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds?${params.toString()}`)
+    
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.warn("Failed to fetch from MINDEX API, using static data:", error)
+  }
+  
+  // Fallback to static data
+  let compounds = Object.values(COMPOUND_MAPPING).map(c => ({
+    id: c.id,
+    name: c.name,
+    formula: c.formula,
+    molecular_weight: c.molecularWeight,
+    chemical_class: c.chemicalClass,
+    compound_type: c.chemicalClass,
+    source: "static",
+    metadata: { sourceSpecies: c.sourceSpecies, biologicalActivity: c.biologicalActivity },
+  }))
+  
+  // Apply search filter
+  if (options?.search) {
+    const query = options.search.toLowerCase()
+    compounds = compounds.filter(c => 
+      c.name.toLowerCase().includes(query) ||
+      c.chemical_class?.toLowerCase().includes(query)
+    )
+  }
+  
+  // Apply chemical class filter  
+  if (options?.chemicalClass) {
+    compounds = compounds.filter(c => c.chemical_class === options.chemicalClass)
+  }
+  
+  // Apply pagination
+  const skip = options?.skip || 0
+  const limit = options?.limit || 100
+  const paginated = compounds.slice(skip, skip + limit)
+  
+  return {
+    data: paginated as unknown as MINDEXCompound[],
+    limit,
+    offset: skip,
+    total: compounds.length,
+  }
+}
+
+/**
+ * Fetch a single compound by ID from MINDEX API
+ */
+export async function fetchCompoundById(id: string): Promise<MINDEXCompound | null> {
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds/${id}`)
+    
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.warn("Failed to fetch compound from MINDEX API:", error)
+  }
+  
+  // Fallback to static data
+  const staticCompound = findCompoundById(id)
+  if (staticCompound) {
+    return {
+      id: staticCompound.id,
+      name: staticCompound.name,
+      formula: staticCompound.formula,
+      molecular_weight: staticCompound.molecularWeight,
+      chemical_class: staticCompound.chemicalClass,
+      source: "static",
+      metadata: { 
+        sourceSpecies: staticCompound.sourceSpecies, 
+        biologicalActivity: staticCompound.biologicalActivity,
+        description: staticCompound.description,
+      },
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Fetch compounds for a specific species from MINDEX API
+ */
+export async function fetchCompoundsForSpecies(taxonId: string): Promise<MINDEXCompound[]> {
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds/for-taxon/${taxonId}`)
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.compounds || []
+    }
+  } catch (error) {
+    console.warn("Failed to fetch compounds for species:", error)
+  }
+  
+  return []
+}
+
+/**
+ * Search ChemSpider directly via MINDEX API
+ */
+export async function searchChemSpider(query: string, searchType: string = "name", maxResults: number = 10) {
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds/chemspider/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, search_type: searchType, max_results: maxResults }),
+    })
+    
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.warn("ChemSpider search failed:", error)
+  }
+  
+  return { query, search_type: searchType, results: [], total_count: 0 }
+}
+
+/**
+ * Enrich a compound with ChemSpider data
+ */
+export async function enrichCompoundFromChemSpider(options: {
+  compound_id?: string
+  compound_name?: string
+  chemspider_id?: number
+  smiles?: string
+  inchikey?: string
+}) {
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds/enrich`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    })
+    
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.warn("ChemSpider enrichment failed:", error)
+  }
+  
+  return { success: false, message: "Failed to enrich compound" }
+}
+
+/**
+ * Get all biological activities
+ */
+export async function fetchBiologicalActivities() {
+  try {
+    const response = await fetch(`${MINDEX_API_URL}/api/compounds/activities`)
+    
+    if (response.ok) {
+      return await response.json()
+    }
+  } catch (error) {
+    console.warn("Failed to fetch biological activities:", error)
+  }
+  
+  // Return fallback static list
+  return [
+    { id: "1", name: "Antibacterial", category: "antimicrobial" },
+    { id: "2", name: "Antifungal", category: "antimicrobial" },
+    { id: "3", name: "Antiviral", category: "antimicrobial" },
+    { id: "4", name: "Anticancer", category: "oncology" },
+    { id: "5", name: "Immunomodulating", category: "immunology" },
+    { id: "6", name: "Neuroprotective", category: "neurology" },
+    { id: "7", name: "Neurotrophic", category: "neurology" },
+    { id: "8", name: "Psychoactive", category: "neurology" },
+    { id: "9", name: "Anti-inflammatory", category: "general" },
+    { id: "10", name: "Antioxidant", category: "general" },
+  ]
+}

@@ -7,7 +7,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 import { searchTaxa, listTaxa } from "@/lib/integrations/mindex"
-import { mockTaxa } from "@/lib/integrations/mock-data"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -15,20 +14,15 @@ export async function GET(request: NextRequest) {
   const page = Number.parseInt(searchParams.get("page") || "1")
   const pageSize = Number.parseInt(searchParams.get("pageSize") || "20")
 
-  // Return mock data if integrations disabled
   if (!env.integrationsEnabled) {
-    const filtered = query
-      ? mockTaxa.filter(
-          (t) =>
-            t.scientificName.toLowerCase().includes(query.toLowerCase()) ||
-            t.commonName?.toLowerCase().includes(query.toLowerCase()),
-        )
-      : mockTaxa
-
-    return NextResponse.json({
-      data: filtered.slice((page - 1) * pageSize, page * pageSize),
-      meta: { total: filtered.length, page, pageSize, hasMore: filtered.length > page * pageSize },
-    })
+    return NextResponse.json(
+      {
+        error: "MINDEX integration is disabled. This endpoint requires a live MINDEX backend.",
+        code: "INTEGRATIONS_DISABLED",
+        requiredEnv: ["INTEGRATIONS_ENABLED=true", "MINDEX_API_BASE_URL", "MINDEX_API_KEY"],
+      },
+      { status: 503 },
+    )
   }
 
   try {
