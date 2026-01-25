@@ -2,12 +2,20 @@
 
 **Date**: 2026-01-25  
 **Status**: Implementation Complete  
+**Version**: 2.1
 
 ---
 
 ## Overview
 
-MYCA v2 now includes proper ElevenLabs voice integration using the **Arabella** voice (`aEO01A4wXwd1O8GPgGlF`) configured in your ElevenLabs account.
+MYCA v2 now includes full n8n workflow integration and ElevenLabs voice synthesis using the **Arabella** voice (`aEO01A4wXwd1O8GPgGlF`) configured in your ElevenLabs account.
+
+### Key Features
+- **ElevenLabs Arabella Voice** - Female voice with personality
+- **n8n Workflow Integration** - Speech turn, safety, confirmation flows
+- **223 Agent Registry** - Complete agent audit
+- **Memory System** - Short-term and long-term conversation memory
+- **Safety Confirmations** - "Confirm and proceed" for destructive operations
 
 ---
 
@@ -194,4 +202,174 @@ Features:
 
 ---
 
-*Last Updated: 2026-01-25*
+## n8n Workflow Integration
+
+### Available Workflows
+
+The voice system integrates with these n8n workflows:
+
+| Workflow | Webhook | Purpose |
+|----------|---------|---------|
+| Speech Turn | `/webhook/myca/speech_turn` | Intent detection |
+| Speech Safety | `/webhook/myca/speech_safety` | Safety checks for destructive ops |
+| Speech Confirm | `/webhook/myca/speech_confirm` | Confirmation processing |
+| Voice Chat | `/webhook/voice-chat` | Full voice pipeline |
+| MYCA Command | `/webhook/myca-command` | Text command processing |
+| Jarvis Unified | `/webhook/myca/command` | Infrastructure commands |
+
+### Speech Turn Flow
+
+1. User speaks → STT
+2. Call `/webhook/myca/speech_turn` to classify intent
+3. If `intent == "command"` with risk:
+   - Call `/webhook/myca/speech_safety`
+   - Get confirmation challenge
+   - Wait for user response
+   - Call `/webhook/myca/speech_confirm`
+4. Execute action via orchestrator
+5. Generate TTS response
+6. Return audio
+
+### Safety Confirmation Phrases
+
+| Risk Level | Phrase |
+|------------|--------|
+| Write | "Confirm and proceed" |
+| Destructive | "Confirm irreversible action" |
+| Abort | "Abort" or "Cancel that" |
+
+### n8n Environment Variables
+
+```bash
+N8N_URL=http://192.168.0.188:5678
+N8N_USER=admin
+N8N_PASSWORD=your-password
+N8N_ENCRYPTION_KEY=your-key
+```
+
+---
+
+## Voice Processing Flow
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        Browser (AI Studio)                       │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │
+                    ┌────────────▼───────────┐
+                    │   MYCAChatPanel v2.1   │
+                    │   (Voice I/O + Memory) │
+                    └────────────┬───────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+        ▼                        ▼                        ▼
+┌───────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ /api/mas/     │      │ /api/mas/voice/ │      │ /api/mas/voice/ │
+│ voice         │      │ orchestrator    │      │ confirm         │
+│ (TTS only)    │      │ (Full pipeline) │      │ (Safety flow)   │
+└───────┬───────┘      └────────┬────────┘      └────────┬────────┘
+        │                       │                        │
+        │         ┌─────────────┼─────────────┐          │
+        │         │             │             │          │
+        ▼         ▼             ▼             ▼          ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                        n8n Workflows                              │
+│  speech_turn → speech_safety → speech_confirm → myca_command     │
+└────────────────────────────────┬──────────────────────────────────┘
+                                 │
+                    ┌────────────▼───────────┐
+                    │   MAS Orchestrator     │
+                    │   192.168.0.188:8001   │
+                    │   - 223 agents         │
+                    │   - Memory manager     │
+                    │   - Task router        │
+                    └────────────┬───────────┘
+                                 │
+         ┌──────────────────┬────┴────┬──────────────────┐
+         │                  │         │                  │
+         ▼                  ▼         ▼                  ▼
+┌─────────────┐    ┌─────────────┐  ┌────────┐    ┌───────────┐
+│ ElevenLabs  │    │  Whisper    │  │ Ollama │    │   Redis   │
+│ (Arabella)  │    │   (STT)     │  │ (LLM)  │    │ (Broker)  │
+└─────────────┘    └─────────────┘  └────────┘    └───────────┘
+```
+
+---
+
+## Complete API Reference
+
+### Voice Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/mas/voice` | GET | Voice configuration |
+| `/api/mas/voice` | POST | TTS synthesis only |
+| `/api/mas/voice/orchestrator` | POST | Full voice chat |
+| `/api/mas/voice/confirm` | POST | Process confirmation |
+| `/api/mas/voice/confirm` | GET | Get pending confirmations |
+
+### Chat Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/mas/chat` | POST | Text chat with MYCA |
+| `/api/mas/agents` | GET | List all 223 agents |
+| `/api/mas/memory` | GET | Retrieve conversation history |
+| `/api/mas/memory` | POST | Store conversation turn |
+| `/api/mas/health` | GET | System health check |
+
+---
+
+## Deployment Checklist
+
+### 1. Environment Variables (Required)
+
+```bash
+# ElevenLabs (REQUIRED for female voice)
+ELEVENLABS_API_KEY=sk_your_key_here
+MYCA_VOICE_ID=aEO01A4wXwd1O8GPgGlF
+
+# MAS Orchestrator
+MAS_API_URL=http://192.168.0.188:8001
+
+# n8n Workflows
+N8N_URL=http://192.168.0.188:5678
+```
+
+### 2. n8n Workflows
+
+Import these workflows to n8n:
+- `n8n/workflows/myca-speech-complete.json`
+- `n8n/workflows/myca-jarvis-unified.json`
+- `n8n/workflows/speech-interface-v2.json`
+
+Activate all imported workflows.
+
+### 3. MAS Orchestrator
+
+Ensure orchestrator is running with voice endpoints:
+```bash
+docker-compose up -d mas-orchestrator
+```
+
+### 4. ElevenLabs Proxy (Optional)
+
+For local ElevenLabs proxy:
+```bash
+docker-compose --profile voice-premium up -d elevenlabs-proxy
+```
+
+### 5. Verify
+
+Test voice endpoint:
+```bash
+curl -X POST http://localhost:3010/api/mas/voice/orchestrator \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello MYCA","want_audio":true}' \
+  | jq .response_text
+```
+
+---
+
+*Last Updated: 2026-01-25 v2.1*
