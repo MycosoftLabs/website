@@ -1,0 +1,213 @@
+/**
+ * Advanced Agent Topology Types
+ * Types for the 3D visualization system
+ */
+
+export type NodeType = 
+  | "orchestrator"
+  | "agent"
+  | "service" 
+  | "database"
+  | "integration"
+  | "user"
+  | "device"
+  | "workflow"
+  | "queue"
+
+export type NodeCategory =
+  | "core"
+  | "financial"
+  | "mycology"
+  | "research"
+  | "dao"
+  | "communication"
+  | "data"
+  | "infrastructure"
+  | "simulation"
+  | "security"
+  | "integration"
+  | "device"
+  | "chemistry"
+  | "nlm"
+
+export type NodeStatus = 
+  | "active"
+  | "busy"
+  | "idle"
+  | "offline"
+  | "error"
+  | "starting"
+  | "stopping"
+
+export type ConnectionType =
+  | "data"       // Data transfer
+  | "message"    // Message/event
+  | "command"    // Command/instruction
+  | "query"      // Database query
+  | "stream"     // Real-time stream
+  | "sync"       // Synchronization
+
+export interface TopologyNode {
+  id: string
+  name: string
+  shortName: string
+  type: NodeType
+  category: NodeCategory
+  status: NodeStatus
+  description: string
+  
+  // 3D positioning
+  position: [number, number, number]
+  
+  // Metrics
+  metrics: {
+    cpuPercent: number
+    memoryMb: number
+    tasksCompleted: number
+    tasksQueued: number
+    messagesPerSecond: number
+    errorRate: number
+    uptime: number
+    lastActive: string
+  }
+  
+  // Connections (by node ID)
+  connections: string[]
+  
+  // Visual properties
+  size: number
+  priority: number
+  
+  // Operational
+  canStart: boolean
+  canStop: boolean
+  canRestart: boolean
+  canConfigure: boolean
+}
+
+export interface TopologyConnection {
+  id: string
+  sourceId: string
+  targetId: string
+  type: ConnectionType
+  
+  // Traffic metrics
+  traffic: {
+    messagesPerSecond: number
+    bytesPerSecond: number
+    latencyMs: number
+    errorRate: number
+  }
+  
+  // Visual properties
+  animated: boolean
+  active: boolean
+  intensity: number // 0-1, affects glow and particle speed
+  bidirectional: boolean
+}
+
+export interface DataPacket {
+  id: string
+  connectionId: string
+  sourceId: string
+  targetId: string
+  type: "request" | "response" | "event" | "error"
+  size: number
+  timestamp: number
+  progress: number // 0-1
+  payload?: Record<string, unknown>
+}
+
+export interface TopologyData {
+  nodes: TopologyNode[]
+  connections: TopologyConnection[]
+  packets: DataPacket[]
+  
+  // System-wide stats
+  stats: {
+    totalNodes: number
+    activeNodes: number
+    totalConnections: number
+    activeConnections: number
+    messagesPerSecond: number
+    avgLatencyMs: number
+    systemLoad: number
+    uptimeSeconds: number
+  }
+  
+  lastUpdated: string
+}
+
+export interface TopologyFilter {
+  categories: NodeCategory[]
+  types: NodeType[]
+  statuses: NodeStatus[]
+  searchQuery: string
+  showInactive: boolean
+  showConnections: boolean
+  showLabels: boolean
+  showMetrics: boolean
+}
+
+export interface TopologyViewState {
+  zoom: number
+  rotation: [number, number, number]
+  center: [number, number, number]
+  selectedNodeId: string | null
+  hoveredNodeId: string | null
+  detailLevel: "overview" | "category" | "node" | "detail"
+  animationSpeed: number
+  particleEnabled: boolean
+}
+
+// Node category colors for visualization
+export const CATEGORY_COLORS: Record<NodeCategory, string> = {
+  core: "#8b5cf6",       // Purple
+  financial: "#3b82f6",  // Blue
+  mycology: "#22c55e",   // Green
+  research: "#06b6d4",   // Cyan
+  dao: "#eab308",        // Yellow
+  communication: "#ec4899", // Pink
+  data: "#14b8a6",       // Teal
+  infrastructure: "#f97316", // Orange
+  simulation: "#f59e0b", // Amber
+  security: "#ef4444",   // Red
+  integration: "#a855f7", // Violet
+  device: "#84cc16",     // Lime
+  chemistry: "#d946ef",  // Fuchsia
+  nlm: "#6366f1",        // Indigo
+}
+
+// Node type icons/shapes
+export const NODE_TYPE_CONFIG: Record<NodeType, { shape: "sphere" | "box" | "octahedron" | "cylinder" | "torus"; scale: number }> = {
+  orchestrator: { shape: "octahedron", scale: 2.5 },
+  agent: { shape: "sphere", scale: 1 },
+  service: { shape: "box", scale: 1.2 },
+  database: { shape: "cylinder", scale: 1.3 },
+  integration: { shape: "torus", scale: 0.9 },
+  user: { shape: "sphere", scale: 0.8 },
+  device: { shape: "box", scale: 0.9 },
+  workflow: { shape: "octahedron", scale: 1.1 },
+  queue: { shape: "cylinder", scale: 0.8 },
+}
+
+// Connection type visual configs
+export const CONNECTION_COLORS: Record<ConnectionType, string> = {
+  data: "#22c55e",
+  message: "#3b82f6",
+  command: "#f97316",
+  query: "#14b8a6",
+  stream: "#8b5cf6",
+  sync: "#eab308",
+}
+
+// Status colors
+export const STATUS_COLORS: Record<NodeStatus, string> = {
+  active: "#22c55e",
+  busy: "#3b82f6",
+  idle: "#eab308",
+  offline: "#6b7280",
+  error: "#ef4444",
+  starting: "#f97316",
+  stopping: "#f59e0b",
+}

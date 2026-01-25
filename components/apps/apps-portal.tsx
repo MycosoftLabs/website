@@ -70,7 +70,8 @@ const researchApps = [
     icon: PetriDish,
     href: "/apps/petri-dish-sim",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "petri" // Laboratory glass, sterile cyan
   },
   {
     title: "Mushroom Simulator",
@@ -78,7 +79,8 @@ const researchApps = [
     icon: Microscope,
     href: "/apps/mushroom-sim",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "mushroom" // Spore brown, organic earth
   },
   {
     title: "Compound Analyzer",
@@ -86,7 +88,8 @@ const researchApps = [
     icon: Flask,
     href: "/apps/compound-sim",
     status: "active",
-    category: "analysis"
+    category: "analysis",
+    theme: "compound" // Chemical molecular blue
   },
   {
     title: "Spore Tracker",
@@ -94,7 +97,8 @@ const researchApps = [
     icon: Globe,
     href: "/apps/spore-tracker",
     status: "active",
-    category: "monitoring"
+    category: "monitoring",
+    theme: "spore" // Atmospheric blue-green
   },
   {
     title: "Ancestry Database",
@@ -102,7 +106,8 @@ const researchApps = [
     icon: Database,
     href: "/ancestry",
     status: "active",
-    category: "database"
+    category: "database",
+    theme: "ancestry" // Heritage brown/sepia
   },
   {
     title: "Growth Analytics",
@@ -110,7 +115,8 @@ const researchApps = [
     icon: LineChart,
     href: "/apps/growth-analytics",
     status: "active",
-    category: "analytics"
+    category: "analytics",
+    theme: "analytics" // Data teal
   }
 ]
 
@@ -121,7 +127,8 @@ const innovationApps = [
     icon: Zap,
     href: "/apps/physics-sim",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "physics" // Electric blue, quantum effects
   },
   {
     title: "Digital Twin Mycelium",
@@ -129,7 +136,8 @@ const innovationApps = [
     icon: Network,
     href: "/apps/digital-twin",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "mycelium" // Organic green, neural network aesthetic
   },
   {
     title: "Lifecycle Simulator",
@@ -137,7 +145,8 @@ const innovationApps = [
     icon: Activity,
     href: "/apps/lifecycle-sim",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "lifecycle" // Earth tones, growth gradient
   },
   {
     title: "Genetic Circuit Designer",
@@ -145,7 +154,8 @@ const innovationApps = [
     icon: Cpu,
     href: "/apps/genetic-circuit",
     status: "active",
-    category: "simulation"
+    category: "simulation",
+    theme: "genetic" // DNA purple/cyan, bioluminescent
   },
   {
     title: "Symbiosis Mapper",
@@ -153,7 +163,8 @@ const innovationApps = [
     icon: Network,
     href: "/apps/symbiosis",
     status: "active",
-    category: "analysis"
+    category: "analysis",
+    theme: "symbiosis" // Forest/ecosystem greens
   },
   {
     title: "Retrosynthesis Viewer",
@@ -161,7 +172,8 @@ const innovationApps = [
     icon: Flask,
     href: "/apps/retrosynthesis",
     status: "active",
-    category: "analysis"
+    category: "analysis",
+    theme: "retrosynthesis" // Chemical orange/amber
   },
   {
     title: "Alchemy Lab",
@@ -169,7 +181,8 @@ const innovationApps = [
     icon: Flask,
     href: "/apps/alchemy-lab",
     status: "active",
-    category: "design"
+    category: "design",
+    theme: "alchemy" // Mystical purple/gold
   }
 ]
 
@@ -208,7 +221,130 @@ const developerApps = [
   }
 ]
 
-function AppCard({ app, index }: { app: typeof defenseApps[0], index: number }) {
+// Theme styling configuration for unique app appearances
+const THEME_STYLES: Record<string, { 
+  iconBg: string; 
+  iconColor: string; 
+  hoverBorder: string;
+  gradient: string;
+  accentColor: string;
+}> = {
+  // Research themes
+  petri: {
+    iconBg: "bg-cyan-500/10",
+    iconColor: "text-cyan-500",
+    hoverBorder: "hover:border-cyan-500/50",
+    gradient: "from-cyan-500/5 to-transparent",
+    accentColor: "text-cyan-500"
+  },
+  mushroom: {
+    iconBg: "bg-amber-600/10",
+    iconColor: "text-amber-600",
+    hoverBorder: "hover:border-amber-600/50",
+    gradient: "from-amber-600/5 to-transparent",
+    accentColor: "text-amber-600"
+  },
+  compound: {
+    iconBg: "bg-blue-500/10",
+    iconColor: "text-blue-500",
+    hoverBorder: "hover:border-blue-500/50",
+    gradient: "from-blue-500/5 to-transparent",
+    accentColor: "text-blue-500"
+  },
+  spore: {
+    iconBg: "bg-teal-500/10",
+    iconColor: "text-teal-500",
+    hoverBorder: "hover:border-teal-500/50",
+    gradient: "from-teal-500/5 to-transparent",
+    accentColor: "text-teal-500"
+  },
+  ancestry: {
+    iconBg: "bg-orange-700/10",
+    iconColor: "text-orange-700",
+    hoverBorder: "hover:border-orange-700/50",
+    gradient: "from-orange-700/5 to-transparent",
+    accentColor: "text-orange-700"
+  },
+  analytics: {
+    iconBg: "bg-emerald-500/10",
+    iconColor: "text-emerald-500",
+    hoverBorder: "hover:border-emerald-500/50",
+    gradient: "from-emerald-500/5 to-transparent",
+    accentColor: "text-emerald-500"
+  },
+  // Innovation themes
+  physics: {
+    iconBg: "bg-indigo-500/10",
+    iconColor: "text-indigo-500",
+    hoverBorder: "hover:border-indigo-500/50",
+    gradient: "from-indigo-500/5 via-purple-500/5 to-transparent",
+    accentColor: "text-indigo-500"
+  },
+  mycelium: {
+    iconBg: "bg-lime-500/10",
+    iconColor: "text-lime-500",
+    hoverBorder: "hover:border-lime-500/50",
+    gradient: "from-lime-500/5 to-transparent",
+    accentColor: "text-lime-500"
+  },
+  lifecycle: {
+    iconBg: "bg-green-600/10",
+    iconColor: "text-green-600",
+    hoverBorder: "hover:border-green-600/50",
+    gradient: "from-green-600/5 via-amber-500/5 to-transparent",
+    accentColor: "text-green-600"
+  },
+  genetic: {
+    iconBg: "bg-purple-500/10",
+    iconColor: "text-purple-500",
+    hoverBorder: "hover:border-purple-500/50",
+    gradient: "from-purple-500/5 via-cyan-500/5 to-transparent",
+    accentColor: "text-purple-500"
+  },
+  symbiosis: {
+    iconBg: "bg-green-500/10",
+    iconColor: "text-green-500",
+    hoverBorder: "hover:border-green-500/50",
+    gradient: "from-green-500/5 to-transparent",
+    accentColor: "text-green-500"
+  },
+  retrosynthesis: {
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-500",
+    hoverBorder: "hover:border-amber-500/50",
+    gradient: "from-amber-500/5 to-transparent",
+    accentColor: "text-amber-500"
+  },
+  alchemy: {
+    iconBg: "bg-violet-500/10",
+    iconColor: "text-violet-500",
+    hoverBorder: "hover:border-violet-500/50",
+    gradient: "from-violet-500/5 via-yellow-500/5 to-transparent",
+    accentColor: "text-violet-500"
+  },
+  // Default theme
+  default: {
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+    hoverBorder: "hover:border-primary/50",
+    gradient: "from-primary/5 to-transparent",
+    accentColor: "text-primary"
+  }
+}
+
+interface AppWithTheme {
+  title: string
+  description: string
+  icon: React.ElementType
+  href: string
+  status: string
+  category: string
+  theme?: string
+}
+
+function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
+  const theme = THEME_STYLES[app.theme || "default"] || THEME_STYLES.default
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -216,11 +352,14 @@ function AppCard({ app, index }: { app: typeof defenseApps[0], index: number }) 
       transition={{ delay: index * 0.05 }}
     >
       <Link href={app.href}>
-        <Card className="h-full hover:border-primary/50 hover:bg-muted/30 transition-all group cursor-pointer">
-          <CardHeader>
+        <Card className={`h-full ${theme.hoverBorder} hover:bg-muted/30 transition-all group cursor-pointer relative overflow-hidden`}>
+          {/* Subtle gradient overlay based on theme */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
+          
+          <CardHeader className="relative z-10">
             <div className="flex items-start justify-between">
-              <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                <app.icon className="h-6 w-6 text-primary" />
+              <div className={`p-3 rounded-xl ${theme.iconBg} group-hover:scale-110 transition-transform`}>
+                <app.icon className={`h-6 w-6 ${theme.iconColor}`} />
               </div>
               <Badge 
                 variant={app.status === "operational" ? "default" : "secondary"}
@@ -229,15 +368,15 @@ function AppCard({ app, index }: { app: typeof defenseApps[0], index: number }) 
                 {app.status}
               </Badge>
             </div>
-            <CardTitle className="mt-4 group-hover:text-primary transition-colors">
+            <CardTitle className={`mt-4 group-hover:${theme.accentColor} transition-colors`}>
               {app.title}
             </CardTitle>
             <CardDescription className="line-clamp-2">
               {app.description}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+          <CardContent className="relative z-10">
+            <div className={`flex items-center text-sm ${theme.accentColor} opacity-0 group-hover:opacity-100 transition-opacity`}>
               Launch Application
               <ArrowRight className="ml-2 h-4 w-4" />
             </div>

@@ -18,6 +18,7 @@ import {
   AgentCreator,
   AgentGrid,
   AgentTerminal,
+  AdvancedTopology3D,
 } from "@/components/mas"
 import {
   Brain,
@@ -71,6 +72,7 @@ export default function AIStudioPage() {
   const [selectedTab, setSelectedTab] = useState("command")
   const [refreshing, setRefreshing] = useState(false)
   const [orchestratorStatus, setOrchestratorStatus] = useState<"online" | "offline" | "checking">("checking")
+  const [topologyFullScreen, setTopologyFullScreen] = useState(false)
 
   // Check orchestrator health
   const checkOrchestratorHealth = useCallback(async () => {
@@ -329,9 +331,53 @@ export default function AIStudioPage() {
             <AgentGrid masApiUrl="/api/mas" refreshInterval={15000} />
           </TabsContent>
 
-          {/* Topology Tab */}
+          {/* Topology Tab - Advanced 3D Visualization */}
           <TabsContent value="topology" className="space-y-6">
-            <AgentTopology masApiUrl="/api/mas" />
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Network className="h-5 w-5" />
+                  Agent Topology
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Interactive 3D visualization of the Multi-Agent System
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setTopologyFullScreen(true)}
+                className="gap-2"
+              >
+                <Maximize2 className="h-4 w-4" />
+                Full Screen
+              </Button>
+            </div>
+            
+            {/* Embedded 3D Topology */}
+            <div className="h-[700px] rounded-xl overflow-hidden border-2 border-purple-500/20">
+              <AdvancedTopology3D
+                className="h-full"
+                fullScreen={false}
+              />
+            </div>
+            
+            {/* Full-screen mode */}
+            {topologyFullScreen && (
+              <AdvancedTopology3D
+                fullScreen={true}
+                onToggleFullScreen={() => setTopologyFullScreen(false)}
+              />
+            )}
+            
+            {/* Legacy grid view toggle */}
+            <details className="mt-6">
+              <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                Show Legacy Grid View
+              </summary>
+              <div className="mt-4">
+                <AgentTopology masApiUrl="/api/mas" />
+              </div>
+            </details>
           </TabsContent>
 
           {/* Activity Tab */}
