@@ -1,9 +1,10 @@
 "use client"
 
 /**
- * MYCA Chat Panel v2
+ * MYCA Chat Panel v2.1
  * Real-time chat with MYCA using ElevenLabs voice (Arabella)
- * Features: Voice I/O, Memory (short/long-term), Full system access
+ * Full n8n workflow integration
+ * Features: Voice I/O, Memory, Full system access, Safety confirmations
  */
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -29,6 +30,9 @@ import {
   Database,
   History,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react"
 
 interface Message {
@@ -38,7 +42,9 @@ interface Message {
   timestamp: Date
   agent?: string
   thinking?: boolean
-  audio_url?: string
+  audio_base64?: string
+  requires_confirmation?: boolean
+  confirmation_id?: string
 }
 
 interface MYCAChatPanelProps {
@@ -47,7 +53,7 @@ interface MYCAChatPanelProps {
   onAgentAction?: (agentId: string, action: string) => void
 }
 
-// Generate session ID
+// Session ID generator
 function generateSessionId() {
   return `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
@@ -67,60 +73,72 @@ export function MYCAChatPanel({
   const [sessionId] = useState(generateSessionId)
   const [memoryEnabled, setMemoryEnabled] = useState(true)
   const [voiceConfigured, setVoiceConfigured] = useState(false)
-  const [agentStats, setAgentStats] = useState({ total: 0, active: 0 })
+  const [agentStats, setAgentStats] = useState({ total: 223, active: 180 })
+  const [pendingConfirmation, setPendingConfirmation] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "offline" | "checking">("checking")
   
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
 
-  // Check voice configuration
+  // Check orchestrator connection and voice config
   useEffect(() => {
-    fetch(`${masApiUrl}/voice`)
-      .then(res => res.json())
-      .then(data => {
-        setVoiceConfigured(data.elevenlabs_configured)
-      })
-      .catch(() => setVoiceConfigured(false))
-  }, [masApiUrl])
+    const checkConnection = async () => {
+      try {
+        const [healthRes, voiceRes, agentsRes] = await Promise.all([
+          fetch(`${masApiUrl}/health`),
+          fetch(`${masApiUrl}/voice`),
+          fetch(`${masApiUrl}/agents`),
+        ])
 
-  // Fetch agent stats
-  useEffect(() => {
-    fetch(`${masApiUrl}/agents`)
-      .then(res => res.json())
-      .then(data => {
-        setAgentStats({
-          total: data.total_agents || 0,
-          active: data.active_agents || 0,
-        })
-      })
-      .catch(() => {})
-  }, [masApiUrl])
+        if (healthRes.ok) {
+          const health = await healthRes.json()
+          setConnectionStatus(health.status === "offline" ? "offline" : "connected")
+        }
 
-  // Load conversation history
-  useEffect(() => {
-    if (memoryEnabled) {
-      fetch(`${masApiUrl}/memory?session_id=${sessionId}&limit=20`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.conversations && data.conversations.length > 0) {
-            // Restore previous messages
-          }
-        })
-        .catch(() => {})
+        if (voiceRes.ok) {
+          const voice = await voiceRes.json()
+          setVoiceConfigured(voice.elevenlabs_configured)
+        }
+
+        if (agentsRes.ok) {
+          const agents = await agentsRes.json()
+          setAgentStats({
+            total: agents.total_agents || 223,
+            active: agents.active_agents || 180,
+          })
+        }
+      } catch {
+        setConnectionStatus("offline")
+      }
     }
 
-    // Add welcome message
+    checkConnection()
+    const interval = setInterval(checkConnection, 30000)
+    return () => clearInterval(interval)
+  }, [masApiUrl])
+
+  // Add welcome message
+  useEffect(() => {
     if (messages.length === 0) {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `Hello, I'm MYCA - your Mycosoft Cognitive Agent. I'm currently orchestrating ${agentStats.total || "223+"} agents across the system. How can I assist you today?`,
+        content: `Hello, I'm MYCA - your Mycosoft Cognitive Agent. I'm currently orchestrating ${agentStats.total} agents across 14 categories. I speak with the Arabella voice.
+
+How can I assist you today? You can ask me about:
+• System status and health
+• Agent management
+• n8n workflows
+• Infrastructure (Proxmox, UniFi, NAS)
+• Security operations
+• And much more!`,
         timestamp: new Date(),
         agent: "myca-orchestrator"
       }])
     }
-  }, [masApiUrl, sessionId, memoryEnabled, agentStats.total])
+  }, [agentStats.total])
 
   // Auto-scroll
   useEffect(() => {
@@ -149,59 +167,50 @@ export function MYCAChatPanel({
     }
   }, [masApiUrl, sessionId, memoryEnabled])
 
-  // Synthesize speech using ElevenLabs
-  const speakResponse = useCallback(async (text: string) => {
+  // Play audio from base64
+  const playAudio = useCallback((base64Audio: string) => {
     if (!voiceEnabled) return
 
     try {
       setIsSpeaking(true)
-
-      // Call ElevenLabs via our API
-      const response = await fetch(`${masApiUrl}/voice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      })
-
-      if (response.ok) {
-        const audioBlob = await response.blob()
-        const audioUrl = URL.createObjectURL(audioBlob)
-        
-        if (audioRef.current) {
-          audioRef.current.pause()
-        }
-        
-        const audio = new Audio(audioUrl)
-        audioRef.current = audio
-        
-        audio.onended = () => {
-          setIsSpeaking(false)
-          URL.revokeObjectURL(audioUrl)
-        }
-        audio.onerror = () => {
-          setIsSpeaking(false)
-          fallbackTTS(text)
-        }
-        
-        await audio.play()
-      } else {
-        // Fallback to browser TTS
-        fallbackTTS(text)
+      
+      // Convert base64 to audio
+      const audioData = atob(base64Audio)
+      const audioArray = new Uint8Array(audioData.length)
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i)
       }
+      const audioBlob = new Blob([audioArray], { type: "audio/mpeg" })
+      const audioUrl = URL.createObjectURL(audioBlob)
+      
+      if (audioRef.current) {
+        audioRef.current.pause()
+      }
+      
+      const audio = new Audio(audioUrl)
+      audioRef.current = audio
+      
+      audio.onended = () => {
+        setIsSpeaking(false)
+        URL.revokeObjectURL(audioUrl)
+      }
+      audio.onerror = () => {
+        setIsSpeaking(false)
+        URL.revokeObjectURL(audioUrl)
+      }
+      
+      audio.play()
     } catch (error) {
-      console.error("Voice synthesis error:", error)
-      fallbackTTS(text)
-    }
-  }, [masApiUrl, voiceEnabled])
-
-  // Browser TTS fallback (still uses female voice if available)
-  function fallbackTTS(text: string) {
-    if (!window.speechSynthesis) {
+      console.error("Audio playback error:", error)
       setIsSpeaking(false)
-      return
     }
+  }, [voiceEnabled])
 
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_]/g, ""))
+  // Fallback TTS using browser
+  const fallbackSpeak = useCallback((text: string) => {
+    if (!voiceEnabled || !window.speechSynthesis) return
+
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#_`]/g, ""))
     utterance.rate = 1.0
     utterance.pitch = 1.0
     
@@ -211,18 +220,20 @@ export function MYCAChatPanel({
       v.name.toLowerCase().includes("female") || 
       v.name.toLowerCase().includes("samantha") ||
       v.name.toLowerCase().includes("victoria") ||
-      v.name.toLowerCase().includes("karen")
+      v.name.toLowerCase().includes("karen") ||
+      v.name.toLowerCase().includes("zira")
     )
     if (femaleVoice) {
       utterance.voice = femaleVoice
     }
     
+    utterance.onstart = () => setIsSpeaking(true)
     utterance.onend = () => setIsSpeaking(false)
     utterance.onerror = () => setIsSpeaking(false)
     window.speechSynthesis.speak(utterance)
-  }
+  }, [voiceEnabled])
 
-  // Send message to MYCA
+  // Send message to MYCA via voice orchestrator
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return
 
@@ -235,6 +246,7 @@ export function MYCAChatPanel({
     
     setMessages(prev => [...prev, userMessage])
     storeToMemory(input, "user")
+    const messageText = input
     setInput("")
     setIsLoading(true)
 
@@ -249,14 +261,51 @@ export function MYCAChatPanel({
     }])
 
     try {
-      // Send to MYCA chat API
-      const response = await fetch(`${masApiUrl}/chat`, {
+      // Check if this is a confirmation response
+      if (pendingConfirmation) {
+        const confirmRes = await fetch(`${masApiUrl}/voice/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request_id: pendingConfirmation,
+            actor: "user",
+            transcript: messageText,
+          }),
+        })
+
+        if (confirmRes.ok) {
+          const confirmData = await confirmRes.json()
+          setPendingConfirmation(null)
+
+          const assistantMessage: Message = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: confirmData.message,
+            timestamp: new Date(),
+            agent: "myca-orchestrator",
+          }
+
+          setMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantMessage))
+          storeToMemory(assistantMessage.content, "assistant", "myca-orchestrator")
+
+          if (voiceEnabled && confirmData.message) {
+            fallbackSpeak(confirmData.message)
+          }
+
+          setIsLoading(false)
+          return
+        }
+      }
+
+      // Use voice orchestrator endpoint for full processing
+      const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input,
-          session_id: sessionId,
-          context: "command_center",
+          message: messageText,
+          conversation_id: sessionId,
+          want_audio: voiceEnabled && voiceConfigured,
+          actor: "user",
         }),
       })
 
@@ -265,18 +314,29 @@ export function MYCAChatPanel({
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: data.response || data.message || "I understand. How can I help you further?",
+        content: data.response_text || data.response || "I understand. How can I help you further?",
         timestamp: new Date(),
-        agent: data.agent || "myca-orchestrator"
+        agent: data.agent || "myca-orchestrator",
+        audio_base64: data.audio_base64,
+        requires_confirmation: data.requires_confirmation,
+        confirmation_id: data.requires_confirmation ? data.conversation_id : undefined,
+      }
+
+      // Handle confirmation requirement
+      if (data.requires_confirmation) {
+        setPendingConfirmation(data.conversation_id)
       }
 
       // Remove thinking message and add response
       setMessages(prev => prev.filter(m => m.id !== thinkingId).concat(assistantMessage))
       storeToMemory(assistantMessage.content, "assistant", assistantMessage.agent)
 
-      // Speak the response
-      if (voiceEnabled) {
-        speakResponse(assistantMessage.content)
+      // Play audio if available
+      if (data.audio_base64 && voiceEnabled) {
+        playAudio(data.audio_base64)
+      } else if (voiceEnabled && assistantMessage.content) {
+        // Fallback to browser TTS
+        fallbackSpeak(assistantMessage.content)
       }
 
     } catch (error) {
@@ -284,14 +344,14 @@ export function MYCAChatPanel({
       setMessages(prev => prev.filter(m => m.id !== thinkingId).concat({
         id: `error-${Date.now()}`,
         role: "assistant",
-        content: "I apologize, but I encountered an issue. Please try again.",
+        content: "I apologize, but I encountered an issue connecting to the orchestrator. Please try again.",
         timestamp: new Date(),
         agent: "myca-orchestrator"
       }))
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, masApiUrl, sessionId, voiceEnabled, speakResponse, storeToMemory])
+  }, [input, isLoading, masApiUrl, sessionId, voiceEnabled, voiceConfigured, pendingConfirmation, storeToMemory, playAudio, fallbackSpeak])
 
   // Voice input using Web Speech API
   const toggleListening = useCallback(() => {
@@ -303,7 +363,7 @@ export function MYCAChatPanel({
 
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
     if (!SpeechRecognition) {
-      alert("Speech recognition not supported")
+      alert("Speech recognition not supported in this browser")
       return
     }
 
@@ -324,15 +384,18 @@ export function MYCAChatPanel({
       setInput(transcript)
       
       if (event.results[0].isFinal) {
+        // Auto-send after final result
         setTimeout(() => {
-          inputRef.current?.focus()
-        }, 100)
+          if (transcript.trim()) {
+            sendMessage()
+          }
+        }, 500)
       }
     }
 
     recognitionRef.current = recognition
     recognition.start()
-  }, [isListening])
+  }, [isListening, sendMessage])
 
   // Stop audio
   const stopAudio = useCallback(() => {
@@ -347,10 +410,11 @@ export function MYCAChatPanel({
   // Clear chat
   const clearChat = useCallback(() => {
     stopAudio()
+    setPendingConfirmation(null)
     setMessages([{
       id: "welcome",
       role: "assistant",
-      content: `Chat cleared. I'm MYCA, ready to assist. I'm orchestrating ${agentStats.total || "223+"} agents.`,
+      content: `Chat cleared. I'm MYCA, ready to assist. I'm orchestrating ${agentStats.total} agents.`,
       timestamp: new Date(),
       agent: "myca-orchestrator"
     }])
@@ -364,6 +428,17 @@ export function MYCAChatPanel({
     }
   }
 
+  const getStatusIcon = () => {
+    switch (connectionStatus) {
+      case "connected":
+        return <CheckCircle2 className="h-3 w-3 text-green-500" />
+      case "offline":
+        return <XCircle className="h-3 w-3 text-red-500" />
+      default:
+        return <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />
+    }
+  }
+
   return (
     <Card className={`flex flex-col bg-gradient-to-b from-card to-card/95 ${isExpanded ? "fixed inset-4 z-50" : ""} ${className}`}>
       <CardHeader className="py-3 px-4 border-b flex-shrink-0">
@@ -373,16 +448,22 @@ export function MYCAChatPanel({
               <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20">
                 <Brain className="h-5 w-5 text-purple-500" />
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse" />
+              <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${connectionStatus === "connected" ? "bg-green-500 animate-pulse" : connectionStatus === "offline" ? "bg-red-500" : "bg-yellow-500 animate-pulse"}`} />
             </div>
             <div>
               <span className="font-bold">MYCA</span>
               <Badge variant="secondary" className="ml-2 text-[10px] py-0">
-                v2 • Arabella
+                v2.1 • Arabella
               </Badge>
             </div>
           </CardTitle>
           <div className="flex items-center gap-1">
+            {/* Connection Status */}
+            <Badge variant="outline" className="text-[10px] gap-1">
+              {getStatusIcon()}
+              {connectionStatus === "connected" ? "Online" : connectionStatus === "offline" ? "Fallback" : "Checking"}
+            </Badge>
+            
             {/* Voice Status */}
             {voiceConfigured ? (
               <Badge variant="outline" className="text-[10px] text-green-500 border-green-500/30">
@@ -392,7 +473,7 @@ export function MYCAChatPanel({
             ) : (
               <Badge variant="outline" className="text-[10px] text-yellow-500 border-yellow-500/30">
                 <AlertCircle className="h-3 w-3 mr-1" />
-                Browser TTS
+                Browser
               </Badge>
             )}
             
@@ -449,14 +530,23 @@ export function MYCAChatPanel({
         {/* Agent Stats Bar */}
         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
           <span>
-            <span className="text-green-500 font-bold">{agentStats.active || 180}</span>
-            /{agentStats.total || 223} agents active
+            <span className="text-green-500 font-bold">{agentStats.active}</span>
+            /{agentStats.total} agents active
           </span>
           <span>•</span>
           <span className="flex items-center gap-1">
             <History className="h-3 w-3" />
             Session: {sessionId.slice(-8)}
           </span>
+          {pendingConfirmation && (
+            <>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-yellow-500">
+                <AlertTriangle className="h-3 w-3" />
+                Awaiting confirmation
+              </span>
+            </>
+          )}
         </div>
       </CardHeader>
 
@@ -483,7 +573,9 @@ export function MYCAChatPanel({
                       ? "bg-primary text-primary-foreground"
                       : message.thinking
                         ? "bg-muted/50 animate-pulse"
-                        : "bg-muted"
+                        : message.requires_confirmation
+                          ? "bg-yellow-500/10 border border-yellow-500/30"
+                          : "bg-muted"
                   }`}
                 >
                   {message.thinking ? (
@@ -493,12 +585,24 @@ export function MYCAChatPanel({
                     </div>
                   ) : (
                     <>
+                      {message.requires_confirmation && (
+                        <div className="flex items-center gap-2 mb-2 text-yellow-500">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-xs font-medium">Confirmation Required</span>
+                        </div>
+                      )}
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] opacity-60">
                         <span>{message.timestamp.toLocaleTimeString()}</span>
                         {message.agent && (
                           <Badge variant="outline" className="text-[9px] py-0 px-1">
                             {message.agent}
+                          </Badge>
+                        )}
+                        {message.audio_base64 && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 text-green-500">
+                            <Volume2 className="h-2 w-2 mr-1" />
+                            Audio
                           </Badge>
                         )}
                       </div>
@@ -519,6 +623,12 @@ export function MYCAChatPanel({
 
         {/* Input */}
         <div className="p-4 border-t flex-shrink-0 bg-card/50">
+          {pendingConfirmation && (
+            <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm">
+              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <span>Say &quot;Confirm and proceed&quot; or &quot;Cancel&quot;</span>
+            </div>
+          )}
           <div className="flex gap-2">
             <Button
               variant={isListening ? "destructive" : "outline"}
@@ -535,7 +645,7 @@ export function MYCAChatPanel({
             </Button>
             <Input
               ref={inputRef}
-              placeholder="Talk to MYCA..."
+              placeholder={pendingConfirmation ? "Confirm or cancel..." : "Talk to MYCA..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
@@ -570,7 +680,7 @@ export function MYCAChatPanel({
               )}
             </div>
             <span>
-              Try: "status", "list agents", "show workflows"
+              Try: &quot;status&quot;, &quot;list agents&quot;, &quot;show workflows&quot;
             </span>
           </div>
         </div>
