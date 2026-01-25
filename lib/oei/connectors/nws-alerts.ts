@@ -197,7 +197,7 @@ function nwsAlertToOEIEvent(alert: NWSAlert): Event {
   }
 
   return {
-    id: `nws_${props.id.replace(/[^a-zA-Z0-9]/g, "_")}`,
+    id: `nws_${String(props.id).replace(/[^a-zA-Z0-9]/g, "_")}`,
     type: "weather_alert",
     severity: mapSeverity(props.severity),
     title: props.headline || props.event,

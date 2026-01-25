@@ -368,7 +368,7 @@ function TopologyScene({
         if (
           !node.name.toLowerCase().includes(query) &&
           !node.shortName.toLowerCase().includes(query) &&
-          !node.id.toLowerCase().includes(query)
+          !String(node.id).toLowerCase().includes(query)
         ) {
           return false
         }

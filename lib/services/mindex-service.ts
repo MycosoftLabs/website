@@ -224,7 +224,7 @@ function taxonToSpecies(taxon: MINDEXTaxon): Species {
   const metadata = taxon.metadata
   
   return {
-    id: metadata?.inat_id || parseInt(taxon.id.replace(/-/g, "").slice(0, 8), 16),
+    id: metadata?.inat_id || parseInt(String(taxon.id).replace(/-/g, "").slice(0, 8), 16),
     uuid: taxon.id,
     scientific_name: taxon.scientific_name || taxon.canonical_name,
     common_name: taxon.common_name,

@@ -206,7 +206,7 @@ function SearchResultCard({ result, onClick }: { result: SearchResult; onClick: 
   const getDataSource = (result: SearchResult) => {
     if (result.source === "Mycosoft") return "Mycosoft"
     if (result.type === "fungi") return "iNaturalist"
-    if (result.type === "compound") return result.id.startsWith("CS") ? "ChemSpider" : "PubChem"
+    if (result.type === "compound") return String(result.id).startsWith("CS") ? "ChemSpider" : "PubChem"
     return "Elsevier"
   }
 

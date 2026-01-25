@@ -127,7 +127,7 @@ function volcanoAlertToOEIEvent(alert: USGSVolcanoAlert): Event {
   }
 
   return {
-    id: `usgs_volcano_${alert.id.replace(/[^a-zA-Z0-9]/g, "_")}`,
+    id: `usgs_volcano_${String(alert.id).replace(/[^a-zA-Z0-9]/g, "_")}`,
     type: "volcanic_activity",
     severity: mapAlertLevelToSeverity(alert.alert_level),
     title: `${alert.volcano_name} - ${alert.alert_level} Alert`,
