@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useMemo } from "react"
+import { useEffect, useRef, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 
 interface DataBlock {
@@ -24,15 +24,26 @@ interface DataBlockVizProps {
   className?: string
 }
 
-// Generate mock blocks if none provided
-function generateMockBlocks(count: number): DataBlock[] {
+// Seeded pseudo-random number generator for deterministic SSR
+function seededRandom(seed: number): () => number {
+  return () => {
+    seed = (seed * 9301 + 49297) % 233280
+    return seed / 233280
+  }
+}
+
+// Generate mock blocks with deterministic seeded random (SSR-safe)
+function generateMockBlocks(count: number, seed: number = 42): DataBlock[] {
+  const random = seededRandom(seed)
+  const types: DataBlock["type"][] = ["transaction", "merkle", "signature", "hash"]
+  
   return Array.from({ length: count }, (_, i) => ({
     id: `block-${i}`,
-    hash: `0x${Math.random().toString(16).slice(2, 10)}`,
-    value: Math.random() * 100,
-    timestamp: Date.now() - i * 60000,
-    status: i === 0 ? "pending" : i < 3 ? "confirmed" : "anchored",
-    type: ["transaction", "merkle", "signature", "hash"][Math.floor(Math.random() * 4)] as DataBlock["type"]
+    hash: `0x${Math.floor(random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
+    value: random() * 100,
+    timestamp: 1706169600000 - i * 60000, // Fixed base timestamp for SSR
+    status: (i === 0 ? "pending" : i < 3 ? "confirmed" : "anchored") as DataBlock["status"],
+    type: types[Math.floor(random() * 4)]
   }))
 }
 
@@ -248,6 +259,13 @@ export function MiniBlockRow({
 
   const scheme = colors[colorScheme]
 
+  // Use seeded random for deterministic heights (SSR-safe)
+  const random = seededRandom(123)
+  const heights = useMemo(() => 
+    Array.from({ length: count }, () => 12 + random() * 20), 
+    [count]
+  )
+  
   return (
     <div className={`flex items-end gap-1 ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
@@ -256,7 +274,7 @@ export function MiniBlockRow({
           className="rounded-sm"
           style={{
             width: 8,
-            height: 12 + Math.random() * 20,
+            height: heights[i],
             background: `linear-gradient(180deg, ${scheme[i % scheme.length]} 0%, ${scheme[(i + 1) % scheme.length]} 100%)`,
             boxShadow: `0 0 6px ${scheme[i % scheme.length]}40`
           }}
@@ -281,11 +299,12 @@ export function TransactionBlockStrip({
 }) {
   const displayBlocks = useMemo(() => {
     if (blocks) return blocks
-    // Generate mock transaction blocks
+    // Generate mock transaction blocks with seeded random (SSR-safe)
+    const random = seededRandom(456)
     return Array.from({ length: 20 }, (_, i) => ({
-      hash: `0x${Math.random().toString(16).slice(2, 10)}`,
-      size: 0.2 + Math.random() * 0.8,
-      fee: Math.random() * 10
+      hash: `0x${Math.floor(random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
+      size: 0.2 + random() * 0.8,
+      fee: random() * 10
     }))
   }, [blocks])
 

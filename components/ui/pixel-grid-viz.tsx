@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useMemo, useState } from "react"
+import { useEffect, useRef, useMemo, useState, useCallback } from "react"
 import { motion } from "framer-motion"
 
 interface PixelGridVizProps {
@@ -30,8 +30,28 @@ function hashToPixels(hash: string, count: number): number[] {
   return pixels
 }
 
-// Generate random hash
+// Seeded pseudo-random for deterministic SSR
+function seededRandom(seed: number): () => number {
+  return () => {
+    seed = (seed * 9301 + 49297) % 233280
+    return seed / 233280
+  }
+}
+
+// Generate deterministic hash (SSR-safe with seed)
+function generateDeterministicHash(seed: number = 789): string {
+  const random = seededRandom(seed)
+  return `0x${Array.from({ length: 64 }, () => 
+    Math.floor(random() * 16).toString(16)
+  ).join("")}`
+}
+
+// Generate random hash (only use client-side)
 function generateRandomHash(): string {
+  if (typeof window === 'undefined') {
+    // SSR - use deterministic hash
+    return generateDeterministicHash()
+  }
   return `0x${Array.from({ length: 64 }, () => 
     Math.floor(Math.random() * 16).toString(16)
   ).join("")}`
@@ -50,28 +70,42 @@ export function PixelGridViz({
   showHash = true,
   className = ""
 }: PixelGridVizProps) {
-  const [currentHash, setCurrentHash] = useState(hash || generateRandomHash())
+  // Use deterministic initial hash for SSR, then client-side updates
+  const [currentHash, setCurrentHash] = useState(() => hash || generateDeterministicHash())
   const [animationPhase, setAnimationPhase] = useState(0)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Mark as mounted (client-side only)
+  useEffect(() => {
+    setIsMounted(true)
+    if (!hash) {
+      setCurrentHash(generateRandomHash())
+    }
+  }, [hash])
 
   const pixels = useMemo(() => {
     if (data) return data
     return hashToPixels(currentHash, rows * cols)
   }, [currentHash, data, rows, cols])
 
-  // Animate hash changes
+  // Counter for animation randomness
+  const animationCounterRef = useRef(0)
+
+  // Animate hash changes (client-side only)
   useEffect(() => {
-    if (!animated) return
+    if (!animated || !isMounted) return
 
     const interval = setInterval(() => {
       setAnimationPhase(p => (p + 1) % 100)
-      // Occasionally update hash
-      if (Math.random() > 0.95) {
+      animationCounterRef.current++
+      // Occasionally update hash (deterministic based on counter)
+      if (animationCounterRef.current % 20 === 0) {
         setCurrentHash(generateRandomHash())
       }
     }, 100)
 
     return () => clearInterval(interval)
-  }, [animated])
+  }, [animated, isMounted])
 
   const getColor = (value: number, index: number) => {
     const schemes = {
