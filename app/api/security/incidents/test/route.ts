@@ -3,18 +3,75 @@
  * 
  * Creates test incidents to verify the SSE streaming and agent integration.
  * Supports batch generation of up to 100 incidents with chain entries.
+ * Now includes prediction generation and agent resolution simulation.
  * 
- * @version 2.0.0
+ * @version 3.0.0
  * @date January 24, 2026
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { 
   initializeSecurityAgents, 
 } from '@/lib/security/agent-incident-reporter';
 import { createIncident, updateIncident } from '@/lib/security/database';
 import { logIncidentEvent, logAgentAction } from '@/lib/security/incident-chain';
 import { broadcastIncidentEvent } from '../stream/route';
+import { 
+  generatePredictionsForIncident, 
+  savePredictions,
+  logAgentRun,
+} from '@/lib/security/agents/prediction-agent';
+import { resolveIncident } from '@/lib/security/agents/resolution-agent';
+
+// Get Supabase client for causality
+function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey);
+}
+
+/**
+ * Create causality relationship between two incidents
+ */
+async function createCausalityLink(
+  sourceIncidentId: string,
+  targetIncidentId: string,
+  relationshipType: 'causes' | 'caused_by' | 'related' | 'prevented' = 'causes',
+  confidence: number = 0.85,
+  predictedBy: string = 'CascadePredictionAgent'
+) {
+  try {
+    const id = `caus-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const supabase = getSupabase();
+    
+    if (supabase) {
+      const { error } = await supabase.from('incident_causality').insert({
+        id,
+        source_incident_id: sourceIncidentId,
+        target_incident_id: targetIncidentId,
+        relationship_type: relationshipType,
+        confidence,
+        predicted_by: predictedBy,
+        prevented: relationshipType === 'prevented',
+        prevented_by: relationshipType === 'prevented' ? predictedBy : null,
+        prevented_at: relationshipType === 'prevented' ? new Date().toISOString() : null,
+        notes: `Auto-generated causality link for testing`,
+        created_at: new Date().toISOString(),
+      });
+      
+      if (error) {
+        console.error('[Test API] Causality insert error:', error);
+      }
+    }
+    
+    return { id, sourceIncidentId, targetIncidentId };
+  } catch (error) {
+    console.error('[Test API] Failed to create causality link:', error);
+    return null;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +143,10 @@ export async function POST(request: NextRequest) {
     }
     
     // Auto-resolve some incidents if requested
+    let resolvedCount = 0;
+    let predictionsGenerated = 0;
+    let causalityLinksCreated = 0;
+    
     if (withResolutions && created.length > 5) {
       const toResolve = Math.floor(created.length * 0.3); // Resolve 30%
       const resolvePromises = [];
@@ -102,8 +163,81 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      await Promise.allSettled(resolvePromises);
+      const results = await Promise.allSettled(resolvePromises);
+      resolvedCount = results.filter(r => r.status === 'fulfilled').length;
     }
+    
+    // Create causality links between incidents (some incidents cause others)
+    if (created.length >= 3) {
+      // Create a chain of causality: incident1 -> incident2 -> incident3
+      const causalityPromises = [];
+      
+      // Link ~40% of incidents as cascades
+      const numLinks = Math.floor(created.length * 0.4);
+      
+      for (let i = 0; i < numLinks && i < created.length - 1; i++) {
+        const sourceIdx = Math.floor(Math.random() * (created.length - 1));
+        const targetIdx = sourceIdx + 1 + Math.floor(Math.random() * Math.min(3, created.length - sourceIdx - 1));
+        
+        if (targetIdx < created.length) {
+          const relationshipType = Math.random() < 0.25 ? 'prevented' : 'causes';
+          const confidence = 0.6 + Math.random() * 0.35; // 60-95%
+          
+          causalityPromises.push(
+            createCausalityLink(
+              created[sourceIdx],
+              created[targetIdx],
+              relationshipType,
+              confidence
+            )
+          );
+        }
+      }
+      
+      const causalityResults = await Promise.allSettled(causalityPromises);
+      causalityLinksCreated = causalityResults.filter(r => r.status === 'fulfilled' && r.value).length;
+      console.log(`[Test API] Created ${causalityLinksCreated} causality links`);
+    }
+    
+    // Generate predictions for all created incidents
+    const startTime = new Date();
+    for (const incidentId of created) {
+      try {
+        // Get basic incident info for prediction
+        const incidentData = {
+          id: incidentId,
+          title: `Incident ${incidentId}`,
+          severity: type === 'critical' ? 'critical' as const : 
+                   type === 'high' ? 'high' as const : 
+                   type === 'medium' ? 'medium' as const : 'low' as const,
+          status: 'open',
+          created_at: new Date().toISOString(),
+        };
+        
+        const predictions = generatePredictionsForIncident(incidentData);
+        if (predictions.length > 0) {
+          await savePredictions(predictions);
+          predictionsGenerated += predictions.length;
+        }
+      } catch (error) {
+        console.error(`[Test API] Failed to generate predictions for ${incidentId}:`, error);
+      }
+    }
+    
+    // Log agent run for prediction agent
+    await logAgentRun(
+      'cascade-prediction-agent',
+      'CascadePredictionAgent',
+      {
+        incidentsAnalyzed: created.length,
+        predictionsGenerated,
+        incidentsResolved: 0,
+        cascadesPrevented: 0,
+        runType: 'triggered',
+        status: 'completed',
+        startedAt: startTime,
+      }
+    );
     
     return NextResponse.json({
       success: true,
@@ -111,6 +245,9 @@ export async function POST(request: NextRequest) {
       incident_ids: created,
       with_chain: withChain,
       with_resolutions: withResolutions,
+      incidents_resolved: resolvedCount,
+      predictions_generated: predictionsGenerated,
+      causality_links_created: causalityLinksCreated,
     });
   } catch (error) {
     console.error('[Test API] Error:', error);

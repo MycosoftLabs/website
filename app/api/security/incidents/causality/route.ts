@@ -125,21 +125,27 @@ async function getCausalityRelationships(incidentId: string) {
       causedBy: (causedBy || []).map(c => ({
         id: c.id,
         source_incident: c.source_incident_id,
-        relationship: c.relationship_type,
-        confidence: c.confidence,
+        relationship: c.relationship_type || 'causes',
+        confidence: c.confidence || 0.8,
+        notes: c.notes,
       })),
       causes: (causes || []).map(c => ({
         id: c.id,
         target_incident: c.target_incident_id,
-        relationship: c.relationship_type,
-        confidence: c.confidence,
-        prevented: c.prevention_status === 'prevented',
+        relationship: c.relationship_type || 'causes',
+        confidence: c.confidence || 0.8,
+        prevented: c.prevented === true || c.relationship_type === 'prevented',
+        prevented_by: c.prevented_by,
+        prevented_at: c.prevented_at,
+        notes: c.notes,
       })),
       prevented: (prevented || []).map(p => ({
         id: p.id,
         target_incident: p.potential_incident_type,
         prevented_by: p.prevented_by_agent,
         prevention_action: p.prevention_action,
+        confidence: p.confidence,
+        risk_level: p.risk_level,
       })),
     };
   } catch (error) {
@@ -302,7 +308,7 @@ export async function POST(request: NextRequest) {
       }
       
       case 'predict': {
-        const { incident_id, agent_id, agent_name, persist = true } = body;
+        const { incident_id, agent_id, agent_name, persist = true, incident_data } = body;
         
         if (!incident_id) {
           return NextResponse.json(
@@ -311,16 +317,32 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        // First check for existing predictions
-        let predictions = await getPredictionsForIncident(incident_id);
+        // First check for existing predictions (but always generate new if incident_data provided)
+        let predictions = incident_data ? [] : await getPredictionsForIncident(incident_id);
         
         if (predictions.length === 0) {
-          // Get incident data from any source
-          const incident = await getIncidentFromAnySource(incident_id);
+          // Try to get incident data from request, then database, then chain
+          let incident = null;
+          
+          if (incident_data && incident_data.title) {
+            // Use provided incident data
+            incident = {
+              id: incident_id,
+              title: incident_data.title,
+              description: incident_data.description || '',
+              severity: incident_data.severity || 'medium',
+              status: 'open',
+              category: incident_data.category || 'unknown',
+              created_at: new Date().toISOString(),
+            };
+          } else {
+            // Get incident data from database or chain
+            incident = await getIncidentFromAnySource(incident_id);
+          }
           
           if (!incident) {
             // Create a minimal incident from the ID for prediction
-            const minimalIncident = {
+            incident = {
               id: incident_id,
               title: `Incident ${incident_id}`,
               description: '',
@@ -329,26 +351,21 @@ export async function POST(request: NextRequest) {
               category: 'unknown',
               created_at: new Date().toISOString(),
             };
-            
-            predictions = generatePredictionsForIncident(
-              minimalIncident,
-              agent_name || 'CascadePredictionAgent'
-            );
-          } else {
-            // Generate predictions using the prediction agent
-            predictions = generatePredictionsForIncident(
-              {
-                id: incident.id,
-                title: incident.title || `Incident ${incident_id}`,
-                description: incident.description || '',
-                severity: incident.severity || 'medium',
-                status: incident.status || 'open',
-                category: incident.category,
-                created_at: incident.created_at,
-              },
-              agent_name || 'CascadePredictionAgent'
-            );
           }
+          
+          // Generate predictions using the prediction agent
+          predictions = generatePredictionsForIncident(
+            {
+              id: incident.id,
+              title: incident.title || `Incident ${incident_id}`,
+              description: incident.description || '',
+              severity: incident.severity || 'medium',
+              status: incident.status || 'open',
+              category: incident.category,
+              created_at: incident.created_at,
+            },
+            agent_name || 'CascadePredictionAgent'
+          );
           
           // Persist predictions to database
           if (persist && predictions.length > 0) {

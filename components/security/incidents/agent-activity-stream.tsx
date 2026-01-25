@@ -58,7 +58,7 @@ interface AgentActivityStreamProps {
 // ACTION CONFIG
 // ═══════════════════════════════════════════════════════════════
 
-const actionConfig = {
+const actionConfig: Record<string, { icon: typeof AlertTriangle, color: string, bg: string, label: string, isResolution?: boolean, progressPercent?: number }> = {
   detected: {
     icon: AlertTriangle,
     color: 'text-red-400',
@@ -70,18 +70,32 @@ const actionConfig = {
     color: 'text-yellow-400',
     bg: 'bg-yellow-500/10',
     label: 'Investigating',
+    isResolution: true,
+    progressPercent: 25,
   },
   analyzed: {
     icon: Eye,
     color: 'text-blue-400',
     bg: 'bg-blue-500/10',
     label: 'Analyzed',
+    isResolution: true,
+    progressPercent: 50,
+  },
+  contained: {
+    icon: Shield,
+    color: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    label: 'Contained',
+    isResolution: true,
+    progressPercent: 65,
   },
   fixed: {
     icon: Wrench,
     color: 'text-green-400',
     bg: 'bg-green-500/10',
     label: 'Fixed',
+    isResolution: true,
+    progressPercent: 85,
   },
   escalated: {
     icon: ArrowUpRight,
@@ -100,6 +114,8 @@ const actionConfig = {
     color: 'text-emerald-400',
     bg: 'bg-emerald-500/10',
     label: 'Resolved',
+    isResolution: true,
+    progressPercent: 100,
   },
   notified: {
     icon: Bell,
@@ -112,6 +128,20 @@ const actionConfig = {
     color: 'text-cyan-400',
     bg: 'bg-cyan-500/10',
     label: 'Monitoring',
+  },
+  prevented_cascade: {
+    icon: Shield,
+    color: 'text-green-400',
+    bg: 'bg-green-500/10',
+    label: 'Cascade Prevented',
+    isResolution: true,
+    progressPercent: 100,
+  },
+  prediction_generated: {
+    icon: Zap,
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10',
+    label: 'Prediction',
   },
 };
 
@@ -145,7 +175,7 @@ function ActivityCard({
   onClick?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const action = actionConfig[activity.action_type];
+  const action = actionConfig[activity.action_type] || actionConfig.logged;
   const category = categoryConfig[activity.agent_category];
   const Icon = action.icon;
   
@@ -154,6 +184,17 @@ function ActivityCard({
   const handleClick = () => {
     setIsExpanded(!isExpanded);
     onClick?.();
+  };
+  
+  // Get resolution context from action_data
+  const resolutionContext = activity.action_data as {
+    reason?: string;
+    actions_taken?: string[];
+    cascades_prevented?: number;
+    predicted_type?: string;
+    prevention_action?: string;
+    playbook?: string;
+    duration_ms?: number;
   };
   
   return (
@@ -166,22 +207,48 @@ function ActivityCard({
       className={cn(
         'relative rounded-lg border-l-4 overflow-hidden',
         'bg-slate-800/50 transition-colors',
-        severityColors[activity.severity]
+        severityColors[activity.severity],
+        action.isResolution && 'ring-1 ring-green-500/20'
       )}
     >
+      {/* Resolution Progress Bar - shows at top for resolution actions */}
+      {action.isResolution && action.progressPercent && (
+        <div className="h-1 bg-slate-700/50">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${action.progressPercent}%` }}
+            className={cn(
+              'h-full',
+              action.progressPercent === 100 ? 'bg-green-500' :
+              action.progressPercent >= 50 ? 'bg-yellow-500' :
+              'bg-orange-500'
+            )}
+          />
+        </div>
+      )}
+      
       {/* Main Card Content */}
       <button
         onClick={handleClick}
         className="w-full flex items-start gap-3 p-3 text-left hover:bg-slate-800 transition-colors"
       >
-        {/* Action icon */}
-        <div className={cn('p-2 rounded-lg flex-shrink-0', action.bg)}>
+        {/* Action icon with resolution ring */}
+        <div className={cn(
+          'p-2 rounded-lg flex-shrink-0 relative',
+          action.bg,
+          action.isResolution && 'ring-2 ring-green-500/30'
+        )}>
           <Icon className={cn('h-4 w-4', action.color)} />
+          {action.progressPercent === 100 && (
+            <div className="absolute -bottom-1 -right-1">
+              <CheckCircle2 className="h-3 w-3 text-green-400" />
+            </div>
+          )}
         </div>
         
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Bot className={cn('h-4 w-4', category.color)} />
             <span className="font-medium text-white text-sm">
               {activity.agent_name}
@@ -193,7 +260,19 @@ function ActivityCard({
             )}>
               {action.label}
             </span>
+            {action.isResolution && action.progressPercent && (
+              <span className="text-[10px] text-green-400">
+                {action.progressPercent}% complete
+              </span>
+            )}
           </div>
+          
+          {/* Resolution summary when collapsed */}
+          {action.isResolution && resolutionContext.reason && !isExpanded && (
+            <p className="text-xs text-green-400/80 mt-0.5 truncate">
+              {resolutionContext.reason}
+            </p>
+          )}
           
           <p className="text-xs text-slate-400 mt-1 truncate">
             {activity.incident_id ? (
@@ -208,6 +287,14 @@ function ActivityCard({
               <Clock className="h-3 w-3" />
               {timeSince}
             </span>
+            {resolutionContext.duration_ms && (
+              <>
+                <span className="text-slate-600">•</span>
+                <span className="text-[10px] text-cyan-400">
+                  {resolutionContext.duration_ms}ms
+                </span>
+              </>
+            )}
             <span className="text-slate-600">•</span>
             <span className="font-mono text-xs text-emerald-400/60">
               {activity.event_hash.slice(0, 8)}...
@@ -251,6 +338,108 @@ function ActivityCard({
             className="overflow-hidden"
           >
             <div className="px-3 pb-3 pt-1 border-t border-slate-700/50 bg-slate-900/50">
+              
+              {/* Resolution Progress Section - For resolution actions */}
+              {action.isResolution && (
+                <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-green-900/20 to-slate-900/20 border border-green-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-green-400 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Resolution Progress
+                    </span>
+                    <span className="text-xs text-green-400 font-bold">
+                      {action.progressPercent}%
+                    </span>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="h-2 bg-slate-700/50 rounded-full mb-3">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${action.progressPercent}%` }}
+                      transition={{ duration: 0.5 }}
+                      className={cn(
+                        'h-full rounded-full',
+                        action.progressPercent === 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                        action.progressPercent >= 50 ? 'bg-gradient-to-r from-yellow-500 to-orange-400' :
+                        'bg-gradient-to-r from-orange-500 to-red-400'
+                      )}
+                    />
+                  </div>
+                  
+                  {/* Resolution stages */}
+                  <div className="flex justify-between text-[10px]">
+                    <span className={action.progressPercent! >= 25 ? 'text-green-400' : 'text-slate-500'}>
+                      Investigating
+                    </span>
+                    <span className={action.progressPercent! >= 50 ? 'text-green-400' : 'text-slate-500'}>
+                      Analyzed
+                    </span>
+                    <span className={action.progressPercent! >= 65 ? 'text-green-400' : 'text-slate-500'}>
+                      Contained
+                    </span>
+                    <span className={action.progressPercent! >= 85 ? 'text-green-400' : 'text-slate-500'}>
+                      Fixed
+                    </span>
+                    <span className={action.progressPercent! >= 100 ? 'text-green-400' : 'text-slate-500'}>
+                      Resolved
+                    </span>
+                  </div>
+                  
+                  {/* Resolution details */}
+                  {resolutionContext.reason && (
+                    <div className="mt-3 pt-2 border-t border-green-500/10">
+                      <p className="text-xs text-slate-400">
+                        <span className="text-green-400">Reason:</span> {resolutionContext.reason}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {resolutionContext.actions_taken && resolutionContext.actions_taken.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-green-400 mb-1">Actions Taken:</p>
+                      <ul className="space-y-1">
+                        {resolutionContext.actions_taken.map((act, i) => (
+                          <li key={i} className="flex items-center gap-2 text-xs text-slate-300">
+                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                            {act}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {resolutionContext.playbook && (
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <span className="text-slate-500">Playbook:</span>
+                      <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400">
+                        {resolutionContext.playbook}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {resolutionContext.cascades_prevented && resolutionContext.cascades_prevented > 0 && (
+                    <div className="mt-2 p-2 rounded bg-green-500/10 border border-green-500/20">
+                      <p className="text-xs text-green-400 flex items-center gap-1">
+                        <Shield className="h-3 w-3" />
+                        {resolutionContext.cascades_prevented} cascade(s) prevented
+                      </p>
+                    </div>
+                  )}
+                  
+                  {resolutionContext.predicted_type && (
+                    <div className="mt-2 p-2 rounded bg-purple-500/10 border border-purple-500/20">
+                      <p className="text-xs text-purple-400">
+                        Prevented: <span className="text-white">{resolutionContext.predicted_type}</span>
+                      </p>
+                      {resolutionContext.prevention_action && (
+                        <p className="text-[10px] text-slate-400 mt-1">{resolutionContext.prevention_action}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {/* Agent Details */}
               <div className="grid grid-cols-2 gap-3 text-xs mb-3">
                 <div>
@@ -285,8 +474,8 @@ function ActivityCard({
                 </p>
               </div>
               
-              {/* Action Data */}
-              {activity.action_data && Object.keys(activity.action_data).length > 0 && (
+              {/* Action Data - Only show if not a resolution (already shown above) */}
+              {!action.isResolution && activity.action_data && Object.keys(activity.action_data).length > 0 && (
                 <div className="mb-3">
                   <span className="text-xs text-slate-500">Action Data</span>
                   <div className="mt-1 p-2 bg-slate-800/50 rounded text-xs">

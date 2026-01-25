@@ -95,6 +95,14 @@ interface ChainBlock {
   reporter_type: string;
   incident_id: string;
   created_at: string;
+  event_data?: {
+    title?: string;
+    severity?: string;
+    category?: string;
+    description?: string;
+    source_ip?: string;
+    [key: string]: unknown;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -829,27 +837,54 @@ function BlockDetailPanel({ block, onClose }: { block: ChainBlock; onClose: () =
     if (block.incident_id === 'system') return;
     
     setIsLoading(true);
-    Promise.all([
-      fetch(`/api/security/incidents/causality?incident_id=${block.incident_id}&action=relationships`)
-        .then(r => r.json())
-        .catch(() => ({ causedBy: [], causes: [], prevented: [] })),
-      fetch('/api/security/incidents/causality', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'predict', incident_id: block.incident_id }),
+    
+    // Fetch relationships
+    fetch(`/api/security/incidents/causality?incident_id=${block.incident_id}&action=relationships`)
+      .then(r => r.json())
+      .then(causalityData => {
+        setCausality({
+          causedBy: causalityData.causedBy || [],
+          causes: causalityData.causes || [],
+          prevented_cascades: causalityData.prevented || [],
+        });
       })
-        .then(r => r.json())
-        .catch(() => ({ predictions: [] })),
-    ]).then(([causalityData, predictionData]) => {
-      setCausality({
-        causedBy: causalityData.causedBy || [],
-        causes: causalityData.causes || [],
-        prevented_cascades: causalityData.prevented || [],
+      .catch(err => {
+        console.error('[BlockDetail] Failed to fetch causality:', err);
+        setCausality({ causedBy: [], causes: [], prevented_cascades: [] });
       });
-      setPredictions(predictionData.predictions || []);
-      setIsLoading(false);
-    });
-  }, [block.incident_id]);
+    
+    // Fetch predictions with incident data from chain
+    fetch('/api/security/incidents/causality', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'predict', 
+        incident_id: block.incident_id,
+        // Include chain data for better predictions
+        incident_data: {
+          title: block.event_data?.title || block.event_type,
+          severity: block.event_data?.severity || 'medium',
+          category: block.event_data?.category || 'unknown',
+        }
+      }),
+    })
+      .then(r => {
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status}`);
+        }
+        return r.json();
+      })
+      .then(predictionData => {
+        console.log('[BlockDetail] Predictions received:', predictionData);
+        setPredictions(predictionData.predictions || []);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error('[BlockDetail] Failed to fetch predictions:', err);
+        setPredictions([]);
+        setIsLoading(false);
+      });
+  }, [block.incident_id, block.event_data, block.event_type]);
   
   const downloadBlock = async () => {
     const response = await fetch(`/api/security/incidents/chain/${block.id}?format=download`);
@@ -977,67 +1012,174 @@ function BlockDetailPanel({ block, onClose }: { block: ChainBlock; onClose: () =
                   {/* Causality Tree Visualization */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {/* Caused By (Root causes) */}
-                    <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                      <h5 className="text-xs font-medium text-orange-400 mb-2 flex items-center gap-1">
+                    <div className="bg-slate-900/50 rounded-lg p-3 border border-orange-500/30">
+                      <h5 className="text-xs font-medium text-orange-400 mb-3 flex items-center gap-1">
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
                         </svg>
                         Root Causes
+                        {causality && causality.causedBy.length > 0 && (
+                          <span className="ml-auto px-1.5 py-0.5 bg-orange-500/20 rounded text-[10px]">
+                            {causality.causedBy.length}
+                          </span>
+                        )}
                       </h5>
-                      {causality?.causedBy.length === 0 ? (
-                        <p className="text-xs text-slate-500">No known root causes</p>
+                      {(!causality || causality.causedBy.length === 0) ? (
+                        <div className="text-center py-3">
+                          <div className="inline-block p-2 bg-slate-800/50 rounded-lg mb-2">
+                            <svg className="h-5 w-5 text-slate-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                          </div>
+                          <p className="text-xs text-slate-500">This appears to be a</p>
+                          <p className="text-xs text-orange-400 font-medium">Primary Incident</p>
+                          <p className="text-[10px] text-slate-600 mt-1">No upstream incidents detected</p>
+                        </div>
                       ) : (
-                        <div className="space-y-1">
-                          {causality?.causedBy.map(c => (
-                            <div key={c.id} className="text-xs p-2 bg-slate-800/50 rounded flex items-center gap-2">
-                              <span className="font-mono text-orange-300">{c.source_incident.slice(0, 12)}...</span>
-                              <span className="text-slate-500">{Math.round(c.confidence * 100)}%</span>
+                        <div className="space-y-2">
+                          {causality.causedBy.map(c => (
+                            <div key={c.id} className="p-2 bg-slate-800/50 rounded border border-orange-500/20">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-mono text-xs text-orange-300">{c.source_incident.slice(0, 16)}...</span>
+                                <span className="px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-[10px]">
+                                  {Math.round(c.confidence * 100)}%
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500">{c.relationship || 'Caused this incident'}</p>
                             </div>
                           ))}
                         </div>
                       )}
                     </div>
                     
-                    {/* Current Incident */}
+                    {/* Current Incident - Enhanced */}
                     <div className="bg-gradient-to-br from-purple-900/30 to-slate-900/30 rounded-lg p-3 border border-purple-500/30">
                       <h5 className="text-xs font-medium text-purple-400 mb-2 text-center">This Incident</h5>
-                      <div className="text-center">
+                      <div className="text-center space-y-2">
                         <div className="inline-block p-3 bg-purple-500/20 rounded-lg border border-purple-500/30">
-                          <Hash className="h-6 w-6 text-purple-400 mx-auto mb-1" />
-                          <p className="font-mono text-xs text-white">#{block.sequence_number}</p>
+                          <Hash className="h-5 w-5 text-purple-400 mx-auto mb-1" />
+                          <p className="font-mono text-sm text-white font-bold">#{block.sequence_number}</p>
+                        </div>
+                        <div className="text-left bg-slate-800/30 rounded p-2 space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-500 w-14">Type:</span>
+                            <span className={cn(
+                              'text-[10px] px-1 py-0.5 rounded',
+                              block.event_type.includes('critical') ? 'bg-red-500/20 text-red-400' :
+                              block.event_type.includes('high') ? 'bg-orange-500/20 text-orange-400' :
+                              block.event_type.includes('medium') ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-slate-500/20 text-slate-400'
+                            )}>
+                              {block.event_type}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-500 w-14">Reporter:</span>
+                            <span className="text-[10px] text-cyan-400 flex items-center gap-1">
+                              {block.reporter_type === 'agent' && <Bot className="h-2.5 w-2.5" />}
+                              {block.reporter_name}
+                            </span>
+                          </div>
+                          {block.event_data?.title && (
+                            <div className="pt-1 border-t border-slate-700/50">
+                              <p className="text-[10px] text-slate-400 truncate" title={block.event_data.title}>
+                                {block.event_data.title.slice(0, 40)}...
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                     
-                    {/* Caused (Cascading effects) */}
-                    <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-                      <h5 className="text-xs font-medium text-red-400 mb-2 flex items-center gap-1">
+                    {/* Cascading Effects - Enhanced with predictions as potential cascades */}
+                    <div className="bg-slate-900/50 rounded-lg p-3 border border-red-500/30">
+                      <h5 className="text-xs font-medium text-red-400 mb-3 flex items-center gap-1">
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>
                         Cascading Effects
+                        {((causality?.causes.length || 0) + predictions.length) > 0 && (
+                          <span className="ml-auto px-1.5 py-0.5 bg-red-500/20 rounded text-[10px]">
+                            {(causality?.causes.length || 0) + predictions.length}
+                          </span>
+                        )}
                       </h5>
-                      {causality?.causes.length === 0 ? (
-                        <p className="text-xs text-slate-500">No known cascades</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {causality?.causes.map(c => (
+                      
+                      {/* Actual cascades that occurred */}
+                      {causality && causality.causes.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wider">Confirmed Cascades</p>
+                          {causality.causes.map(c => (
                             <div 
                               key={c.id} 
                               className={cn(
-                                'text-xs p-2 rounded flex items-center gap-2',
-                                c.prevented ? 'bg-green-900/30 border border-green-500/30' : 'bg-red-900/30 border border-red-500/30'
+                                'p-2 rounded border',
+                                c.prevented ? 'bg-green-900/20 border-green-500/30' : 'bg-red-900/20 border-red-500/30'
                               )}
                             >
-                              <span className={cn('font-mono', c.prevented ? 'text-green-300' : 'text-red-300')}>
-                                {c.target_incident.slice(0, 12)}...
-                              </span>
-                              {c.prevented && (
-                                <span className="px-1 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px]">PREVENTED</span>
-                              )}
+                              <div className="flex items-center justify-between">
+                                <span className={cn('font-mono text-xs', c.prevented ? 'text-green-300' : 'text-red-300')}>
+                                  {c.target_incident.slice(0, 16)}...
+                                </span>
+                                {c.prevented ? (
+                                  <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded text-[10px]">
+                                    ✓ PREVENTED
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[10px]">
+                                    OCCURRED
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
+                      )}
+                      
+                      {/* Predicted cascades from AI */}
+                      {predictions.length > 0 ? (
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-slate-500 uppercase tracking-wider">Predicted Cascades</p>
+                          {predictions.slice(0, 3).map((pred, i) => (
+                            <div 
+                              key={i}
+                              className={cn(
+                                'p-2 rounded border',
+                                pred.risk_level === 'critical' ? 'bg-red-900/20 border-red-500/20' :
+                                pred.risk_level === 'high' ? 'bg-orange-900/20 border-orange-500/20' :
+                                'bg-yellow-900/20 border-yellow-500/20'
+                              )}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-white">{pred.potential_incident_type}</span>
+                                <span className={cn(
+                                  'px-1.5 py-0.5 rounded text-[10px]',
+                                  pred.risk_level === 'critical' ? 'bg-red-500/20 text-red-400' :
+                                  pred.risk_level === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                                  'bg-yellow-500/20 text-yellow-400'
+                                )}>
+                                  {Math.round(pred.confidence * 100)}%
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate">{pred.recommended_action}</p>
+                            </div>
+                          ))}
+                          {predictions.length > 3 && (
+                            <p className="text-[10px] text-slate-500 text-center">
+                              +{predictions.length - 3} more predictions
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        (!causality || causality.causes.length === 0) && (
+                          <div className="text-center py-3">
+                            <div className="inline-block p-2 bg-slate-800/50 rounded-lg mb-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto" />
+                            </div>
+                            <p className="text-xs text-green-400">No Cascades Predicted</p>
+                            <p className="text-[10px] text-slate-600 mt-1">This incident is contained</p>
+                          </div>
+                        )
                       )}
                     </div>
                   </div>

@@ -191,6 +191,13 @@ function IncidentCard({
   
   const timeSince = getTimeSince(new Date(incident.created_at));
   
+  // Handle card click - toggle expanded state
+  const handleCardClick = () => {
+    setExpanded(!expanded);
+    // Also call onClick if provided (for selection purposes)
+    if (onClick) onClick();
+  };
+  
   return (
     <motion.div
       layout
@@ -206,7 +213,7 @@ function IncidentCard({
         config.pulse && 'animate-pulse',
         'hover:scale-[1.01] hover:shadow-xl'
       )}
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       {/* Severity indicator bar */}
       <div className={cn(
@@ -250,19 +257,14 @@ function IncidentCard({
           </div>
         </div>
         
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded(!expanded);
-          }}
-          className="p-1 hover:bg-slate-700/50 rounded"
-        >
+        {/* Dropdown indicator - visual only, click handled by card */}
+        <div className="p-1 hover:bg-slate-700/50 rounded">
           {expanded ? (
             <ChevronUp className="h-5 w-5 text-slate-400" />
           ) : (
             <ChevronDown className="h-5 w-5 text-slate-400" />
           )}
-        </button>
+        </div>
       </div>
       
       {/* Chain info */}

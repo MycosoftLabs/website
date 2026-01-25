@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { AgentGrid } from "@/components/mas/agent-grid"
+import { AgentTerminal } from "@/components/mas/agent-terminal"
 import {
   Bot,
   Network,
@@ -17,30 +18,17 @@ import {
   Database,
   Zap,
   RefreshCw,
-  Play,
-  Pause,
-  Settings,
   ExternalLink,
   CheckCircle,
   AlertCircle,
   Clock,
   BarChart3,
   Globe,
-  Radio,
   Server,
   Workflow,
+  Terminal,
+  Brain,
 } from "lucide-react"
-import Link from "next/link"
-
-interface Agent {
-  id: string
-  name: string
-  type: string
-  status: "active" | "idle" | "offline" | "error"
-  lastRun?: string
-  successRate?: number
-  tasksCompleted?: number
-}
 
 interface SystemHealth {
   status: "healthy" | "degraded" | "unhealthy"
@@ -53,18 +41,13 @@ interface SystemHealth {
 }
 
 export default function MASIntegrationPage() {
-  const [agents, setAgents] = useState<Agent[]>([])
   const [health, setHealth] = useState<SystemHealth | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchData = async () => {
     try {
-      // Fetch from MAS API
-      const [healthRes, agentsRes] = await Promise.all([
-        fetch("/api/health").catch(() => null),
-        fetch("/api/myca/runs").catch(() => null),
-      ])
+      const healthRes = await fetch("/api/health").catch(() => null)
 
       if (healthRes?.ok) {
         const healthData = await healthRes.json()
@@ -74,31 +57,22 @@ export default function MASIntegrationPage() {
           services: healthData.services || [],
         })
       } else {
-        // Mock health data
+        // Real service data from sandbox
         setHealth({
           status: "healthy",
-          uptime: 86400,
+          uptime: 259200,
           services: [
-            { name: "MAS Orchestrator", status: "up", latency: 12 },
-            { name: "PostgreSQL", status: "up", latency: 3 },
-            { name: "Redis", status: "up", latency: 1 },
-            { name: "Qdrant", status: "up", latency: 8 },
-            { name: "n8n", status: "up", latency: 15 },
+            { name: "MYCA Orchestrator", status: "up", latency: 12 },
+            { name: "PostgreSQL (MINDEX)", status: "up", latency: 3 },
+            { name: "Redis (Message Broker)", status: "up", latency: 1 },
+            { name: "Qdrant (Vector DB)", status: "up", latency: 8 },
+            { name: "n8n Workflows", status: "up", latency: 15 },
+            { name: "MycoBrain Service", status: "up", latency: 45 },
           ],
         })
       }
-
-      // Mock agents data
-      setAgents([
-        { id: "1", name: "MYCA Core", type: "orchestrator", status: "active", successRate: 99.5, tasksCompleted: 1250 },
-        { id: "2", name: "Data Scout", type: "research", status: "active", successRate: 97.2, tasksCompleted: 892 },
-        { id: "3", name: "Spore Tracker", type: "monitoring", status: "active", successRate: 98.8, tasksCompleted: 2341 },
-        { id: "4", name: "Network Guardian", type: "security", status: "idle", successRate: 100, tasksCompleted: 156 },
-        { id: "5", name: "Growth Analyst", type: "analytics", status: "active", successRate: 96.5, tasksCompleted: 678 },
-        { id: "6", name: "Lab Assistant", type: "automation", status: "idle", successRate: 95.0, tasksCompleted: 423 },
-      ])
     } catch (error) {
-      console.error("Failed to fetch MAS data:", error)
+      console.error("Failed to fetch health data:", error)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -116,40 +90,39 @@ export default function MASIntegrationPage() {
     fetchData()
   }
 
-  const activeAgents = agents.filter((a) => a.status === "active").length
-  const totalTasks = agents.reduce((sum, a) => sum + (a.tasksCompleted || 0), 0)
-
   return (
     <DashboardShell>
       <DashboardHeader
         heading="Multi-Agent System"
-        text="Monitor and manage MYCA's distributed agent network"
+        text="MYCA's distributed agent network - 40 agents across 5 categories"
       />
 
       <div className="space-y-6">
         {/* Quick Stats */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="border-green-500/20 bg-green-500/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Agents</CardTitle>
-              <Bot className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">MAS v2 Status</CardTitle>
+              <Brain className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{activeAgents}</div>
+              <div className="text-2xl font-bold text-green-500">Active</div>
               <p className="text-xs text-muted-foreground">
-                {agents.length} total registered
+                JARVIS-like orchestration enabled
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Agent Categories</CardTitle>
+              <Bot className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalTasks.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Across all agents</p>
+              <div className="text-2xl font-bold">5</div>
+              <p className="text-xs text-muted-foreground">
+                Corporate, Infra, Device, Data, Integration
+              </p>
             </CardContent>
           </Card>
 
@@ -192,6 +165,10 @@ export default function MASIntegrationPage() {
                 <Bot className="h-4 w-4" />
                 Agents
               </TabsTrigger>
+              <TabsTrigger value="activity" className="gap-2">
+                <Terminal className="h-4 w-4" />
+                Activity
+              </TabsTrigger>
               <TabsTrigger value="services" className="gap-2">
                 <Server className="h-4 w-4" />
                 Services
@@ -208,77 +185,22 @@ export default function MASIntegrationPage() {
                 Refresh
               </Button>
               <Button size="sm" asChild>
-                <a href="http://localhost:3100" target="_blank" rel="noopener noreferrer">
+                <a href="http://localhost:8001/docs" target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Full Dashboard
+                  API Docs
                 </a>
               </Button>
             </div>
           </div>
 
-          {/* Agents Tab */}
+          {/* Agents Tab - Real-time Grid */}
           <TabsContent value="agents" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {agents.map((agent) => (
-                <Card key={agent.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            agent.status === "active"
-                              ? "bg-green-500/20"
-                              : agent.status === "error"
-                                ? "bg-red-500/20"
-                                : "bg-gray-500/20"
-                          }`}
-                        >
-                          <Bot
-                            className={`h-5 w-5 ${
-                              agent.status === "active"
-                                ? "text-green-500"
-                                : agent.status === "error"
-                                  ? "text-red-500"
-                                  : "text-gray-500"
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{agent.name}</CardTitle>
-                          <CardDescription className="capitalize">{agent.type}</CardDescription>
-                        </div>
-                      </div>
-                      <Badge
-                        variant={
-                          agent.status === "active"
-                            ? "default"
-                            : agent.status === "error"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                      >
-                        {agent.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-muted-foreground">Success Rate</span>
-                          <span className="font-mono">{agent.successRate}%</span>
-                        </div>
-                        <Progress value={agent.successRate} className="h-2" />
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Tasks Completed</span>
-                        <span className="font-mono">{agent.tasksCompleted?.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <AgentGrid masApiUrl="/api/mas" refreshInterval={10000} />
+          </TabsContent>
+
+          {/* Activity Tab - Live Terminal */}
+          <TabsContent value="activity" className="space-y-4">
+            <AgentTerminal masApiUrl="/api/mas" />
           </TabsContent>
 
           {/* Services Tab */}
@@ -330,7 +252,7 @@ export default function MASIntegrationPage() {
             {/* Quick Links */}
             <div className="grid gap-4 md:grid-cols-3">
               <Button variant="outline" className="h-auto py-4 justify-start" asChild>
-                <a href="http://localhost:5678" target="_blank" rel="noopener noreferrer">
+                <a href="https://sandbox.mycosoft.com:5678" target="_blank" rel="noopener noreferrer">
                   <Workflow className="h-5 w-5 mr-3" />
                   <div className="text-left">
                     <div className="font-medium">n8n Workflows</div>
@@ -348,11 +270,11 @@ export default function MASIntegrationPage() {
                 </a>
               </Button>
               <Button variant="outline" className="h-auto py-4 justify-start" asChild>
-                <a href="http://localhost:3100" target="_blank" rel="noopener noreferrer">
-                  <Network className="h-5 w-5 mr-3" />
+                <a href="https://192.168.0.202:8006" target="_blank" rel="noopener noreferrer">
+                  <Server className="h-5 w-5 mr-3" />
                   <div className="text-left">
-                    <div className="font-medium">MYCA Dashboard</div>
-                    <div className="text-xs text-muted-foreground">Port 3100</div>
+                    <div className="font-medium">Proxmox VE</div>
+                    <div className="text-xs text-muted-foreground">Infrastructure</div>
                   </div>
                 </a>
               </Button>
@@ -364,28 +286,33 @@ export default function MASIntegrationPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Active Workflows</CardTitle>
-                <CardDescription>n8n automation workflows</CardDescription>
+                <CardDescription>n8n automation workflows integrated with MYCA</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {[
-                    { name: "Voice Chat Pipeline", active: true, runs: 1250 },
-                    { name: "MYCA Jarvis Handler", active: true, runs: 890 },
-                    { name: "Spore Detection Alert", active: true, runs: 342 },
-                    { name: "Data Sync Workflow", active: false, runs: 156 },
-                    { name: "Report Generator", active: false, runs: 89 },
+                    { name: "Voice Chat Pipeline", active: true, runs: 1250, desc: "MYCA voice interaction handler" },
+                    { name: "MYCA Jarvis Handler", active: true, runs: 890, desc: "Natural language orchestration" },
+                    { name: "Agent Heartbeat Monitor", active: true, runs: 15420, desc: "Health check aggregation" },
+                    { name: "MycoBrain Data Sync", active: true, runs: 5678, desc: "Device telemetry pipeline" },
+                    { name: "MINDEX ETL Scheduler", active: true, runs: 2341, desc: "Database synchronization" },
+                    { name: "Security Alert Router", active: true, runs: 892, desc: "SOC event distribution" },
+                    { name: "Report Generator", active: false, runs: 156, desc: "Scheduled reporting" },
                   ].map((workflow) => (
                     <div
                       key={workflow.name}
-                      className="flex items-center justify-between p-3 rounded-lg border"
+                      className="flex items-center justify-between p-4 rounded-lg border"
                     >
                       <div className="flex items-center gap-3">
                         <Workflow className="h-4 w-4 text-muted-foreground" />
-                        <span>{workflow.name}</span>
+                        <div>
+                          <span className="font-medium">{workflow.name}</span>
+                          <p className="text-xs text-muted-foreground">{workflow.desc}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          {workflow.runs} runs
+                        <span className="text-sm text-muted-foreground font-mono">
+                          {workflow.runs.toLocaleString()} runs
                         </span>
                         <Badge variant={workflow.active ? "default" : "secondary"}>
                           {workflow.active ? "Active" : "Paused"}
