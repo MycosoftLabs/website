@@ -1,0 +1,571 @@
+/* ============================================
+   INNOVATION APPS - UNIQUE CSS THEMES
+   ============================================
+   Each app has its own distinct visual identity
+   ============================================ */
+
+/* ============================================
+   GLOBAL DESIGN TOKENS
+   ============================================ */
+:root {
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+/* ============================================
+   1. PHYSICS SIMULATOR THEME
+   Electric Blue + Cyan + Purple Quantum Effects
+   ============================================ */
+[data-app="physics-sim"],
+.app-physics-sim {
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary: #06b6d4;
+  --accent: #8b5cf6;
+  --glow-color: rgba(59, 130, 246, 0.5);
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  --card-bg: rgba(30, 41, 59, 0.8);
+  --card-border: rgba(59, 130, 246, 0.2);
+  --canvas-bg: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+}
+
+.app-physics-sim .canvas-container {
+  background: var(--canvas-bg);
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 30px var(--glow-color);
+  border-radius: var(--radius-lg);
+}
+
+.app-physics-sim .atom-orbital {
+  animation: orbital-spin 3s linear infinite;
+}
+
+.app-physics-sim .quantum-particle {
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  animation: quantum-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orbital-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes quantum-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Atom colors */
+.app-physics-sim .atom-C { fill: #22c55e; }
+.app-physics-sim .atom-N { fill: #3b82f6; }
+.app-physics-sim .atom-O { fill: #ef4444; }
+.app-physics-sim .atom-P { fill: #f59e0b; }
+.app-physics-sim .atom-H { fill: #e2e8f0; }
+.app-physics-sim .atom-S { fill: #eab308; }
+
+/* ============================================
+   2. DIGITAL TWIN THEME
+   Organic Green + Teal + Bio-luminescent Effects
+   ============================================ */
+[data-app="digital-twin"],
+.app-digital-twin {
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --secondary: #14b8a6;
+  --accent: #f59e0b;
+  --junction: #3b82f6;
+  --glow-color: rgba(34, 197, 94, 0.4);
+  --bg-gradient: linear-gradient(135deg, #0f1a0f 0%, #0f172a 100%);
+  --card-bg: rgba(20, 83, 45, 0.3);
+  --card-border: rgba(34, 197, 94, 0.2);
+  --canvas-bg: radial-gradient(ellipse at center, #1a2e1a 0%, #0f172a 100%);
+}
+
+.app-digital-twin .network-canvas {
+  background: var(--canvas-bg);
+  border: 1px solid var(--primary);
+}
+
+.app-digital-twin .node-tip {
+  fill: var(--primary);
+  filter: drop-shadow(0 0 4px var(--primary));
+}
+
+.app-digital-twin .node-junction {
+  fill: var(--junction);
+  filter: drop-shadow(0 0 6px var(--junction));
+}
+
+.app-digital-twin .node-fruiting {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 8px var(--accent));
+  animation: fruiting-glow 2s ease-in-out infinite;
+}
+
+.app-digital-twin .hypha-connection {
+  stroke: var(--primary);
+  stroke-width: 2;
+  opacity: 0.6;
+}
+
+.app-digital-twin .signal-pulse {
+  fill: var(--secondary);
+  animation: signal-travel 1.5s ease-out infinite;
+}
+
+@keyframes fruiting-glow {
+  0%, 100% { filter: drop-shadow(0 0 8px var(--accent)); }
+  50% { filter: drop-shadow(0 0 16px var(--accent)); }
+}
+
+@keyframes signal-travel {
+  0% { opacity: 1; r: 4; }
+  100% { opacity: 0; r: 12; }
+}
+
+/* ============================================
+   3. LIFECYCLE SIMULATOR THEME
+   Growth Green + Golden Yellow + Seasonal Colors
+   ============================================ */
+[data-app="lifecycle-sim"],
+.app-lifecycle-sim {
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --secondary: #eab308;
+  --accent: #f59e0b;
+  --spore: #9ca3af;
+  --germination: #84cc16;
+  --hyphal: #22c55e;
+  --mycelial: #14b8a6;
+  --primordial: #eab308;
+  --fruiting: #f59e0b;
+  --sporulation: #a855f7;
+  --bg-gradient: linear-gradient(180deg, #14532d 0%, #0f172a 100%);
+  --card-bg: rgba(21, 128, 61, 0.2);
+  --card-border: rgba(234, 179, 8, 0.2);
+}
+
+.app-lifecycle-sim .timeline-bar {
+  background: linear-gradient(90deg, 
+    var(--spore) 0%, 
+    var(--germination) 15%, 
+    var(--hyphal) 30%, 
+    var(--mycelial) 45%, 
+    var(--primordial) 60%, 
+    var(--fruiting) 80%, 
+    var(--sporulation) 100%
+  );
+  border-radius: var(--radius-full);
+  height: 6px;
+}
+
+.app-lifecycle-sim .stage-indicator {
+  transition: all var(--transition-normal);
+}
+
+.app-lifecycle-sim .stage-complete {
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--primary);
+}
+
+.app-lifecycle-sim .stage-active {
+  background: var(--secondary);
+  animation: stage-pulse 1.5s ease-in-out infinite;
+}
+
+.app-lifecycle-sim .stage-pending {
+  background: var(--spore);
+  opacity: 0.5;
+}
+
+@keyframes stage-pulse {
+  0%, 100% { box-shadow: 0 0 10px var(--secondary); }
+  50% { box-shadow: 0 0 20px var(--secondary), 0 0 30px var(--secondary); }
+}
+
+/* Environmental sliders */
+.app-lifecycle-sim .slider-temp { accent-color: #ef4444; }
+.app-lifecycle-sim .slider-humidity { accent-color: #3b82f6; }
+.app-lifecycle-sim .slider-light { accent-color: #fbbf24; }
+.app-lifecycle-sim .slider-co2 { accent-color: #22c55e; }
+
+/* ============================================
+   4. GENETIC CIRCUIT THEME
+   DNA Purple + Bio Blue + Gene Expression Colors
+   ============================================ */
+[data-app="genetic-circuit"],
+.app-genetic-circuit {
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --secondary: #3b82f6;
+  --activated: #22c55e;
+  --repressed: #ef4444;
+  --basal: #3b82f6;
+  --product: #f59e0b;
+  --bg-gradient: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  --card-bg: rgba(88, 28, 135, 0.2);
+  --card-border: rgba(139, 92, 246, 0.2);
+}
+
+.app-genetic-circuit .gene-bar {
+  transition: height var(--transition-normal), background var(--transition-fast);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.app-genetic-circuit .gene-bar.activated {
+  background: linear-gradient(180deg, var(--activated) 0%, #15803d 100%);
+  box-shadow: 0 0 10px var(--activated);
+}
+
+.app-genetic-circuit .gene-bar.basal {
+  background: linear-gradient(180deg, var(--basal) 0%, #1d4ed8 100%);
+}
+
+.app-genetic-circuit .gene-bar.repressed {
+  background: linear-gradient(180deg, var(--repressed) 0%, #991b1b 100%);
+}
+
+.app-genetic-circuit .metabolite-indicator {
+  fill: var(--product);
+  filter: drop-shadow(0 0 12px var(--product));
+  animation: metabolite-grow 2s ease-out infinite;
+}
+
+.app-genetic-circuit .pathway-arrow {
+  stroke: var(--secondary);
+  stroke-width: 2;
+  marker-end: url(#arrowhead);
+}
+
+@keyframes metabolite-grow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* ============================================
+   5. SYMBIOSIS NETWORK THEME
+   Ecosystem Green + Earth Tones + Natural Colors
+   ============================================ */
+[data-app="symbiosis"],
+.app-symbiosis {
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --secondary: #14b8a6;
+  --fungus: #22c55e;
+  --plant: #84cc16;
+  --bacteria: #06b6d4;
+  --animal: #ef4444;
+  --algae: #10b981;
+  --bg-gradient: linear-gradient(135deg, #0d2818 0%, #0f172a 100%);
+  --card-bg: rgba(6, 78, 59, 0.3);
+  --card-border: rgba(34, 197, 94, 0.2);
+  --canvas-bg: radial-gradient(circle at 50% 50%, #1a3a2a 0%, #0f172a 100%);
+}
+
+.app-symbiosis .network-canvas {
+  background: var(--canvas-bg);
+}
+
+/* Node colors by organism type */
+.app-symbiosis .node-fungus { fill: var(--fungus); }
+.app-symbiosis .node-plant { fill: var(--plant); }
+.app-symbiosis .node-bacteria { fill: var(--bacteria); }
+.app-symbiosis .node-animal { fill: var(--animal); }
+.app-symbiosis .node-algae { fill: var(--algae); }
+
+/* Relationship edge colors */
+.app-symbiosis .edge-mycorrhizal { stroke: #22c55e; }
+.app-symbiosis .edge-parasitic { stroke: #ef4444; }
+.app-symbiosis .edge-saprotrophic { stroke: #f59e0b; }
+.app-symbiosis .edge-endophytic { stroke: #3b82f6; }
+.app-symbiosis .edge-lichen { stroke: #8b5cf6; }
+.app-symbiosis .edge-predatory { stroke: #dc2626; }
+
+.app-symbiosis .organism-node {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.app-symbiosis .organism-node:hover {
+  transform: scale(1.5);
+}
+
+.app-symbiosis .organism-node.selected {
+  stroke: white;
+  stroke-width: 3;
+}
+
+/* ============================================
+   6. RETROSYNTHESIS THEME
+   Chemistry Orange + Reaction Red + Flask Blue
+   ============================================ */
+[data-app="retrosynthesis"],
+.app-retrosynthesis {
+  --primary: #f59e0b;
+  --primary-hover: #d97706;
+  --secondary: #ef4444;
+  --enzyme: #3b82f6;
+  --substrate: #22c55e;
+  --product: #f59e0b;
+  --bg-gradient: linear-gradient(135deg, #451a03 0%, #0f172a 100%);
+  --card-bg: rgba(120, 53, 15, 0.3);
+  --card-border: rgba(245, 158, 11, 0.2);
+}
+
+.app-retrosynthesis .pathway-step {
+  border-left: 3px solid var(--primary);
+  transition: all var(--transition-fast);
+}
+
+.app-retrosynthesis .pathway-step:hover {
+  border-left-width: 5px;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.app-retrosynthesis .pathway-step.expanded {
+  border-left-color: var(--secondary);
+}
+
+.app-retrosynthesis .step-number {
+  background: var(--primary);
+  color: #0a0a0a;
+  border-radius: var(--radius-full);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.app-retrosynthesis .step-arrow {
+  color: var(--primary);
+  opacity: 0.5;
+}
+
+.app-retrosynthesis .yield-bar {
+  background: linear-gradient(90deg, 
+    var(--secondary) 0%, 
+    var(--primary) 50%, 
+    var(--substrate) 100%
+  );
+  border-radius: var(--radius-full);
+}
+
+.app-retrosynthesis .enzyme-badge {
+  background: var(--enzyme);
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+/* ============================================
+   7. COMPUTATIONAL ALCHEMY LAB THEME
+   Mystical Purple + Magic Pink + Creation Green
+   ============================================ */
+[data-app="alchemy-lab"],
+.app-alchemy-lab {
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --secondary: #ec4899;
+  --accent: #22c55e;
+  --modification: #f59e0b;
+  --scaffold: #22c55e;
+  --bg-gradient: linear-gradient(135deg, #2e1065 0%, #0f172a 100%);
+  --card-bg: rgba(88, 28, 135, 0.3);
+  --card-border: rgba(139, 92, 246, 0.2);
+  --canvas-bg: radial-gradient(circle at center, #1e1b4b 0%, #0a0a0a 100%);
+}
+
+.app-alchemy-lab .molecule-canvas {
+  background: var(--canvas-bg);
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+.app-alchemy-lab .scaffold-ring {
+  stroke: var(--scaffold);
+  fill: none;
+  stroke-width: 2;
+}
+
+.app-alchemy-lab .scaffold-atom {
+  fill: var(--scaffold);
+}
+
+.app-alchemy-lab .modification-group {
+  fill: var(--modification);
+  filter: drop-shadow(0 0 6px var(--modification));
+}
+
+.app-alchemy-lab .modification-bond {
+  stroke: var(--modification);
+  stroke-width: 2;
+}
+
+.app-alchemy-lab .design-button {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border: none;
+  color: white;
+  font-weight: bold;
+  transition: all var(--transition-fast);
+}
+
+.app-alchemy-lab .design-button:hover {
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
+
+/* Score indicators */
+.app-alchemy-lab .score-high { color: #22c55e; }
+.app-alchemy-lab .score-medium { color: #eab308; }
+.app-alchemy-lab .score-low { color: #ef4444; }
+
+/* Prediction loading animation */
+.app-alchemy-lab .prediction-loading {
+  animation: alchemy-magic 2s ease-in-out infinite;
+}
+
+@keyframes alchemy-magic {
+  0%, 100% { 
+    box-shadow: 0 0 20px var(--primary), 0 0 40px var(--secondary); 
+  }
+  50% { 
+    box-shadow: 0 0 40px var(--primary), 0 0 80px var(--secondary); 
+  }
+}
+
+/* ============================================
+   SHARED COMPONENTS
+   ============================================ */
+
+/* Cards */
+.innovation-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+  transition: all var(--transition-normal);
+}
+
+.innovation-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(var(--primary), 0.2);
+}
+
+/* Buttons */
+.innovation-btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.innovation-btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Status badges */
+.status-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-active { background: #22c55e; color: #0a0a0a; }
+.status-pending { background: #eab308; color: #0a0a0a; }
+.status-error { background: #ef4444; color: white; }
+.status-complete { background: #3b82f6; color: white; }
+
+/* Loading spinners */
+.innovation-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Tooltips */
+.innovation-tooltip {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Canvas overlays */
+.canvas-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.3) 100%);
+}
+
+/* Data visualization colors */
+.viz-positive { color: #22c55e; }
+.viz-negative { color: #ef4444; }
+.viz-neutral { color: #9ca3af; }
+.viz-highlight { color: var(--primary); }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .innovation-card {
+    border-radius: var(--radius-md);
+  }
+  
+  .canvas-container {
+    min-height: 300px;
+  }
+}
+
+/* Print styles */
+@media print {
+  [data-app] {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .canvas-container {
+    border: 1px solid #ccc;
+  }
+}

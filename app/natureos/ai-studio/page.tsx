@@ -60,8 +60,8 @@ interface SystemStats {
 
 export default function AIStudioPage() {
   const [stats, setStats] = useState<SystemStats>({
-    activeAgents: 12,
-    totalAgents: 40,
+    activeAgents: 180,
+    totalAgents: 223,
     tasksQueued: 3,
     tasksCompleted: 24589,
     systemHealth: "healthy",
@@ -288,18 +288,25 @@ export default function AIStudioPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4" />
-                  Agent Categories
+                  Agent Categories ({stats.totalAgents} Total)
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   {[
-                    { name: "Corporate", icon: <Sparkles className="h-5 w-5" />, count: 5, active: 4, color: "blue" },
-                    { name: "Infrastructure", icon: <Server className="h-5 w-5" />, count: 8, active: 7, color: "green" },
-                    { name: "Device", icon: <Radio className="h-5 w-5" />, count: 6, active: 5, color: "orange" },
-                    { name: "Data", icon: <Database className="h-5 w-5" />, count: 7, active: 6, color: "cyan" },
-                    { name: "Integration", icon: <Zap className="h-5 w-5" />, count: 9, active: 8, color: "yellow" },
-                    { name: "Security", icon: <Shield className="h-5 w-5" />, count: 5, active: 5, color: "red" },
+                    { name: "Core", icon: <Brain className="h-5 w-5" />, count: 10, active: 10, color: "purple" },
+                    { name: "Financial", icon: <Sparkles className="h-5 w-5" />, count: 12, active: 10, color: "blue" },
+                    { name: "Mycology", icon: <Sparkles className="h-5 w-5" />, count: 25, active: 23, color: "green" },
+                    { name: "Research", icon: <Database className="h-5 w-5" />, count: 15, active: 14, color: "cyan" },
+                    { name: "DAO", icon: <Zap className="h-5 w-5" />, count: 40, active: 35, color: "yellow" },
+                    { name: "Comms", icon: <MessageSquare className="h-5 w-5" />, count: 10, active: 9, color: "pink" },
+                    { name: "Data", icon: <Database className="h-5 w-5" />, count: 30, active: 28, color: "cyan" },
+                    { name: "Infra", icon: <Server className="h-5 w-5" />, count: 15, active: 14, color: "green" },
+                    { name: "Simulation", icon: <Activity className="h-5 w-5" />, count: 12, active: 11, color: "orange" },
+                    { name: "Security", icon: <Shield className="h-5 w-5" />, count: 8, active: 8, color: "red" },
+                    { name: "Integration", icon: <Zap className="h-5 w-5" />, count: 20, active: 18, color: "yellow" },
+                    { name: "Device", icon: <Radio className="h-5 w-5" />, count: 18, active: 15, color: "orange" },
+                    { name: "Chemistry", icon: <Sparkles className="h-5 w-5" />, count: 8, active: 7, color: "purple" },
                   ].map((cat) => (
                     <div
                       key={cat.name}
