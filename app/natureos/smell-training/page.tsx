@@ -513,7 +513,7 @@ export default function SmellTrainingPage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Session ID</span>
-                        <span className="font-mono text-xs">{session.session_id.slice(0, 20)}...</span>
+                        <span className="font-mono text-xs">{String(session.session_id).slice(0, 20)}...</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Port</span>

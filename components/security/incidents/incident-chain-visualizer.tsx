@@ -177,7 +177,7 @@ function Block3D({
           {/* Hash preview */}
           <div className="mt-auto">
             <div className="font-mono text-[10px] text-white/60 truncate">
-              {block.event_hash.slice(0, 12)}...
+              {String(block.event_hash || '').slice(0, 12)}...
             </div>
             
             {/* Events count */}
@@ -392,7 +392,7 @@ function Treemap({
                 dominantBaseline="middle"
                 className="text-[10px] fill-white font-mono pointer-events-none"
               >
-                {rect.hash.slice(0, 6)}
+                {String(rect.hash || '').slice(0, 6)}
               </text>
             )}
           </g>

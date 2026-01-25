@@ -416,7 +416,7 @@ export function RecentIncidentsTable({
             >
               <td className="py-2">
                 <span className="font-mono text-cyan-400 text-xs">
-                  {incident.hash.slice(0, 8)}...{incident.hash.slice(-4)}
+                  {String(incident.hash || '').slice(0, 8)}...{String(incident.hash || '').slice(-4)}
                 </span>
               </td>
               <td className="py-2">
@@ -503,7 +503,7 @@ export function RecentReplacementsTable({
               >
                 <td className="py-2">
                   <span className="font-mono text-cyan-400 text-xs">
-                    {r.hash.slice(0, 8)}...
+                    {String(r.hash || '').slice(0, 8)}...
                   </span>
                 </td>
                 <td className="py-2 text-xs text-slate-500">

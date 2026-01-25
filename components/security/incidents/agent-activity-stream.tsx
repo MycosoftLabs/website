@@ -276,7 +276,7 @@ function ActivityCard({
           
           <p className="text-xs text-slate-400 mt-1 truncate">
             {activity.incident_id ? (
-              <>Incident: {activity.incident_id.slice(0, 12)}...</>
+              <>Incident: {String(activity.incident_id).slice(0, 12)}...</>
             ) : (
               <>System activity</>
             )}
@@ -297,7 +297,7 @@ function ActivityCard({
             )}
             <span className="text-slate-600">•</span>
             <span className="font-mono text-xs text-emerald-400/60">
-              {activity.event_hash.slice(0, 8)}...
+              {activity.event_hash ? String(activity.event_hash).slice(0, 8) : ''}...
             </span>
           </div>
         </div>

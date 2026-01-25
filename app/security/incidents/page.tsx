@@ -270,8 +270,10 @@ function ChainIntegrityBadge({ chainStats }: { chainStats: ChainStats | null }) 
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TEST INCIDENT GENERATOR CONTROLS
+// TEST INCIDENT GENERATOR CONTROLS (Hidden in production)
 // ═══════════════════════════════════════════════════════════════
+
+const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENABLE_TEST_MODE === 'true';
 
 function TestControls({ onGenerate, isGenerating }: { onGenerate: (count: number) => void; isGenerating: boolean }) {
   const [autoGenerate, setAutoGenerate] = useState(false);
@@ -287,12 +289,17 @@ function TestControls({ onGenerate, isGenerating }: { onGenerate: (count: number
     return () => clearInterval(id);
   }, [autoGenerate, interval, onGenerate]);
   
+  // Hide test controls in production
+  if (!isDevelopment) {
+    return null;
+  }
+  
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700">
       <Tooltip content="Generate test incidents to see the live dashboard in action. Use batch generation or auto-generate for continuous testing.">
         <span className="text-xs text-slate-400 flex items-center gap-1">
           <Zap className="h-3 w-3" />
-          Test Mode
+          Dev Mode
         </span>
       </Tooltip>
       
@@ -737,7 +744,7 @@ function BlockChainVisualization({ blocks }: { blocks: ChainBlock[] }) {
         <div className="text-center">
           <Hash className="h-8 w-8 text-slate-600 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">No blocks in the chain yet</p>
-          <p className="text-slate-600 text-xs mt-1">Generate test incidents to see blocks appear</p>
+          <p className="text-slate-600 text-xs mt-1">Waiting for incident chain data...</p>
         </div>
       </div>
     );
@@ -1772,7 +1779,7 @@ function TimelineView({ blocks }: { blocks: ChainBlock[] }) {
         <div className="flex flex-col items-center justify-center py-12 text-slate-500">
           <Hash className="h-12 w-12 mb-4 text-slate-600" />
           <p className="text-lg">No blocks in the chain yet</p>
-          <p className="text-sm mt-2">Generate test incidents to create chain blocks</p>
+          <p className="text-sm mt-2">Chain blocks will appear as incidents are logged</p>
         </div>
       ) : (
         <div className="relative">
