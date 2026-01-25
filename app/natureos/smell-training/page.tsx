@@ -863,7 +863,7 @@ export default function SmellTrainingPage() {
                               <div>
                                 <h4 className="font-medium">{blob.name}</h4>
                                 <p className="text-xs text-muted-foreground font-mono">
-                                  {blob.id.slice(0, 16)}...
+                                  {String(blob.id).slice(0, 16)}...
                                 </p>
                               </div>
                               <Badge

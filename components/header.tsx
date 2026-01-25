@@ -200,7 +200,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
               onMouseEnter={handleDropdownMouseEnter}
               onMouseLeave={handleDropdownMouseLeave}
               className={cn(
-                "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-50",
+                "absolute top-full left-0 mt-2 w-80 rounded-xl overflow-hidden z-[60]",
                 "bg-background/95 backdrop-blur-xl",
                 "border shadow-2xl",
                 colorVariants[accentColor],

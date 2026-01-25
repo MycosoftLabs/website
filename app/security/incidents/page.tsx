@@ -1657,7 +1657,7 @@ function RecentTable({ title, incidents }: { title: string; incidents: Incident[
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                <span className="font-mono">{incident.id.slice(0, 8)}</span>
+                <span className="font-mono">{String(incident.id).slice(0, 8)}</span>
                 <span>•</span>
                 <span>{new Date(incident.created_at).toLocaleTimeString()}</span>
               </div>

@@ -394,7 +394,7 @@ export function AgentActivity({ className, channelId = "agent-activity" }: Agent
                           </div>
                           {r.error ? <div className="text-xs text-red-200/90">{r.error}</div> : null}
                         </div>
-                        <div className="text-right text-xs text-muted-foreground font-mono">{r.id.slice(0, 8)}…</div>
+                        <div className="text-right text-xs text-muted-foreground font-mono">{String(r.id).slice(0, 8)}…</div>
                       </div>
                     </motion.button>
                   ))

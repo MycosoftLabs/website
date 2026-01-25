@@ -775,7 +775,7 @@ function OverviewSection({
                 <div className="flex items-center gap-3">
                   <MapPin className="h-4 w-4 text-purple-400" />
                   <div>
-                    <div className="text-sm text-white">Observation {obs.id.slice(0, 8)}</div>
+                    <div className="text-sm text-white">Observation {String(obs.id).slice(0, 8)}</div>
                     <div className="text-xs text-gray-500">
                       {obs.observed_at ? new Date(obs.observed_at).toLocaleDateString() : "Unknown"}
                     </div>

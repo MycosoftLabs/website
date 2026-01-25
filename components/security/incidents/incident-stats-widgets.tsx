@@ -364,7 +364,7 @@ export function RecentIncidentsTable({
             created_at: string;
           }) => ({
             id: i.id,
-            hash: i.event_hash || i.id.slice(0, 16),
+            hash: i.event_hash || String(i.id).slice(0, 16),
             severity: i.severity,
             status: i.status,
             timestamp: i.created_at,
