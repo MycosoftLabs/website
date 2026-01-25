@@ -144,9 +144,47 @@ const inMemoryStore = {
   agentActivity: new Map<string, AgentIncidentActivity>(),
 };
 
-// Track the latest hash for chain continuity
+// Track the latest hash for chain continuity (in-memory cache, synced from DB)
 let lastChainHash = '0000000000000000000000000000000000000000000000000000000000000000';
 let chainSequence = 0;
+let chainStateInitialized = false;
+
+// Genesis hash constant
+const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
+
+/**
+ * Synchronize chain state from database
+ * Ensures consistency between in-memory state and database
+ */
+async function syncChainStateFromDB(): Promise<void> {
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      // Get the latest entry from the database
+      const { data, error } = await supabase
+        .from('incident_log_chain')
+        .select('sequence_number, event_hash')
+        .order('sequence_number', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (data && !error) {
+        chainSequence = data.sequence_number;
+        lastChainHash = data.event_hash;
+        console.log(`[SecurityDB] Chain state synced from DB: sequence=${chainSequence}, hash=${lastChainHash.substring(0, 16)}...`);
+      } else if (error?.code === 'PGRST116') {
+        // No rows found - this is a fresh chain
+        chainSequence = 0;
+        lastChainHash = GENESIS_HASH;
+        console.log('[SecurityDB] Chain is empty, starting fresh');
+      }
+      chainStateInitialized = true;
+    } catch (err) {
+      console.error('[SecurityDB] Failed to sync chain state:', err);
+    }
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DATABASE CLIENT
@@ -682,6 +720,7 @@ export async function getPlaybookExecutions(limit = 20): Promise<PlaybookExecuti
 /**
  * Create a new entry in the incident log chain
  * Each entry is cryptographically linked to the previous one
+ * Uses atomic database RPC to prevent race conditions
  */
 export async function createIncidentLogEntry(
   entry: Omit<IncidentLogChainEntry, 'id' | 'sequence_number' | 'event_hash' | 'previous_hash' | 'created_at'>
@@ -689,10 +728,104 @@ export async function createIncidentLogEntry(
   const id = `ilc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const now = new Date().toISOString();
   
+  const supabase = await getSupabaseClient();
+  
+  if (supabase) {
+    try {
+      // Use atomic database function to create chain entry
+      const { data, error } = await supabase.rpc('create_chain_entry', {
+        p_id: id,
+        p_incident_id: entry.incident_id,
+        p_event_type: entry.event_type,
+        p_event_data: entry.event_data,
+        p_reporter_type: entry.reporter_type,
+        p_reporter_id: entry.reporter_id,
+        p_reporter_name: entry.reporter_name,
+        p_merkle_root: entry.merkle_root || null,
+      });
+      
+      if (error) {
+        console.error('[SecurityDB] RPC error creating log chain entry:', error);
+        // Fallback to in-memory (will be out of sync but preserves data)
+        return createInMemoryChainEntry(id, entry, now);
+      }
+      
+      if (data) {
+        const fullEntry: IncidentLogChainEntry = {
+          id: data.id,
+          incident_id: data.incident_id,
+          sequence_number: data.sequence_number,
+          event_hash: data.event_hash,
+          previous_hash: data.previous_hash,
+          merkle_root: data.merkle_root,
+          event_type: data.event_type,
+          event_data: data.event_data,
+          reporter_type: data.reporter_type,
+          reporter_id: data.reporter_id,
+          reporter_name: data.reporter_name,
+          created_at: data.created_at,
+        };
+        
+        // Update in-memory cache
+        chainSequence = fullEntry.sequence_number;
+        lastChainHash = fullEntry.event_hash;
+        chainStateInitialized = true;
+        
+        console.log(`[IncidentChain] Entry #${fullEntry.sequence_number} created: ${entry.event_type} by ${entry.reporter_name}`);
+        
+        // Store chain entry details for download/audit (async, don't await)
+        const hashInput = JSON.stringify({
+          sequence: fullEntry.sequence_number,
+          previous: fullEntry.previous_hash,
+          type: fullEntry.event_type,
+          data: fullEntry.event_data,
+          reporter: fullEntry.reporter_id,
+          timestamp: fullEntry.created_at,
+        });
+        
+        storeChainEntryDetails(
+          fullEntry.id,
+          {
+            ...fullEntry,
+            incident_details: entry.event_data,
+          },
+          hashInput,
+          undefined,
+          {
+            compliance_mode: 'cmmc-l2',
+            nist_controls: ['AU-2', 'AU-3', 'AU-8', 'AU-9', 'AU-10'],
+            verified_at: now,
+          }
+        ).catch(err => console.error('[SecurityDB] Failed to store chain details:', err));
+        
+        return fullEntry;
+      }
+    } catch (err) {
+      console.error('[SecurityDB] Exception creating log chain entry:', err);
+    }
+  }
+  
+  // Fallback to in-memory
+  return createInMemoryChainEntry(id, entry, now);
+}
+
+/**
+ * Create chain entry in memory (fallback when database is unavailable)
+ */
+async function createInMemoryChainEntry(
+  id: string,
+  entry: Omit<IncidentLogChainEntry, 'id' | 'sequence_number' | 'event_hash' | 'previous_hash' | 'created_at'>,
+  now: string
+): Promise<IncidentLogChainEntry> {
+  // Ensure chain state is synced
+  if (!chainStateInitialized) {
+    await syncChainStateFromDB();
+  }
+  
   // Increment sequence
   chainSequence++;
   
-  // Create hash input: sequence + previous_hash + event_type + event_data + reporter
+  // Create hash input
   const hashInput = JSON.stringify({
     sequence: chainSequence,
     previous: lastChainHash,
@@ -702,7 +835,7 @@ export async function createIncidentLogEntry(
     timestamp: now,
   });
   
-  // Generate SHA-256 hash (using Web Crypto API compatible approach)
+  // Generate SHA-256 hash
   const encoder = new TextEncoder();
   const data = encoder.encode(hashInput);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -721,38 +854,8 @@ export async function createIncidentLogEntry(
   // Update chain state
   lastChainHash = eventHash;
   
-  const supabase = await getSupabaseClient();
-  
-  if (supabase) {
-    try {
-      const { error } = await supabase.from('incident_log_chain').insert({
-        id: fullEntry.id,
-        incident_id: fullEntry.incident_id,
-        sequence_number: fullEntry.sequence_number,
-        event_hash: fullEntry.event_hash,
-        previous_hash: fullEntry.previous_hash,
-        merkle_root: fullEntry.merkle_root,
-        event_type: fullEntry.event_type,
-        event_data: fullEntry.event_data,
-        reporter_type: fullEntry.reporter_type,
-        reporter_id: fullEntry.reporter_id,
-        reporter_name: fullEntry.reporter_name,
-        created_at: fullEntry.created_at,
-      });
-      
-      if (error) {
-        console.error('[SecurityDB] Error creating log chain entry:', error);
-        inMemoryStore.incidentLogChain.set(id, fullEntry);
-      }
-    } catch (err) {
-      console.error('[SecurityDB] Exception creating log chain entry:', err);
-      inMemoryStore.incidentLogChain.set(id, fullEntry);
-    }
-  } else {
-    inMemoryStore.incidentLogChain.set(id, fullEntry);
-  }
-  
-  console.log(`[IncidentChain] Entry #${chainSequence} created: ${entry.event_type} by ${entry.reporter_name}`);
+  inMemoryStore.incidentLogChain.set(id, fullEntry);
+  console.log(`[IncidentChain] In-memory entry #${chainSequence} created: ${entry.event_type} by ${entry.reporter_name}`);
   
   // Store chain entry details for download/audit (async, don't await)
   storeChainEntryDetails(
@@ -873,11 +976,29 @@ export async function verifyLogChainIntegrity(entries: IncidentLogChainEntry[]):
 /**
  * Get the current chain state
  */
-export function getChainState(): { lastHash: string; sequence: number } {
+export function getChainState(): { lastHash: string; sequence: number; initialized: boolean } {
   return {
     lastHash: lastChainHash,
     sequence: chainSequence,
+    initialized: chainStateInitialized,
   };
+}
+
+/**
+ * Initialize chain state from database
+ * Call this on server startup to ensure consistency
+ */
+export async function initializeChainState(): Promise<void> {
+  await syncChainStateFromDB();
+}
+
+/**
+ * Reset chain state (for testing purposes only)
+ */
+export function resetChainState(): void {
+  chainSequence = 0;
+  lastChainHash = GENESIS_HASH;
+  chainStateInitialized = false;
 }
 
 // ═══════════════════════════════════════════════════════════════

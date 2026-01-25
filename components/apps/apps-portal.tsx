@@ -114,6 +114,65 @@ const researchApps = [
   }
 ]
 
+const innovationApps = [
+  {
+    title: "Physics Simulator",
+    description: "Quantum-inspired molecular simulations with QISE engine and field physics",
+    icon: Zap,
+    href: "/apps/physics-sim",
+    status: "active",
+    category: "simulation"
+  },
+  {
+    title: "Digital Twin Mycelium",
+    description: "Real-time mycelial network modeling with MycoBrain sensor integration",
+    icon: Network,
+    href: "/apps/digital-twin",
+    status: "active",
+    category: "simulation"
+  },
+  {
+    title: "Lifecycle Simulator",
+    description: "Complete fungal lifecycle modeling from spore to fruiting body",
+    icon: Activity,
+    href: "/apps/lifecycle-sim",
+    status: "active",
+    category: "simulation"
+  },
+  {
+    title: "Genetic Circuit Designer",
+    description: "Gene regulatory network simulation and metabolic pathway modeling",
+    icon: Cpu,
+    href: "/apps/genetic-circuit",
+    status: "active",
+    category: "simulation"
+  },
+  {
+    title: "Symbiosis Mapper",
+    description: "Inter-species relationship mapping and ecosystem dynamics analysis",
+    icon: Network,
+    href: "/apps/symbiosis",
+    status: "active",
+    category: "analysis"
+  },
+  {
+    title: "Retrosynthesis Viewer",
+    description: "Biosynthetic pathway analysis and enzyme mapping for compound production",
+    icon: Flask,
+    href: "/apps/retrosynthesis",
+    status: "active",
+    category: "analysis"
+  },
+  {
+    title: "Alchemy Lab",
+    description: "Virtual compound design with AI-powered property predictions",
+    icon: Flask,
+    href: "/apps/alchemy-lab",
+    status: "active",
+    category: "design"
+  }
+]
+
 const developerApps = [
   {
     title: "Shell",
@@ -257,10 +316,14 @@ export function AppsPortal() {
         <div className="container px-4 max-w-7xl mx-auto">
           <Tabs defaultValue="research" className="w-full">
             <div className="flex justify-center mb-12">
-              <TabsList className="grid grid-cols-3 w-full max-w-lg">
+              <TabsList className="grid grid-cols-4 w-full max-w-2xl">
                 <TabsTrigger value="research" className="gap-2">
                   <Microscope className="h-4 w-4" />
                   Research
+                </TabsTrigger>
+                <TabsTrigger value="innovation" className="gap-2">
+                  <Zap className="h-4 w-4" />
+                  Innovation
                 </TabsTrigger>
                 <TabsTrigger value="defense" className="gap-2">
                   <Shield className="h-4 w-4" />
@@ -282,6 +345,20 @@ export function AppsPortal() {
               </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
                 {researchApps.map((app, index) => (
+                  <AppCard key={app.title} app={app} index={index} />
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="innovation">
+              <div className="mb-8 text-center max-w-3xl mx-auto">
+                <h2 className="text-2xl font-bold mb-2">Innovation Suite</h2>
+                <p className="text-muted-foreground">
+                  Cutting-edge NLM-powered simulations for physics, biology, and chemistry computations.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                {innovationApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>

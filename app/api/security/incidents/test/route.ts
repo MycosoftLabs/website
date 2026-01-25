@@ -87,13 +87,32 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      type = 'random', 
-      count = 1, 
-      withChain = true,
-      withResolutions = true,
-    } = body;
+    // Support both body JSON and query parameters
+    let type = 'random';
+    let count = 1;
+    let withChain = true;
+    let withResolutions = true;
+    
+    // Try to parse body if present
+    try {
+      const contentType = request.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const body = await request.json();
+        type = body.type || type;
+        count = body.count || count;
+        withChain = body.withChain !== undefined ? body.withChain : withChain;
+        withResolutions = body.withResolutions !== undefined ? body.withResolutions : withResolutions;
+      }
+    } catch {
+      // Body parsing failed, use query parameters
+    }
+    
+    // Override with query parameters if present
+    const url = new URL(request.url);
+    type = url.searchParams.get('type') || type;
+    count = parseInt(url.searchParams.get('count') || String(count), 10);
+    withChain = url.searchParams.get('withChain') !== 'false';
+    withResolutions = url.searchParams.get('withResolutions') !== 'false';
     
     // Initialize agents
     initializeSecurityAgents();
