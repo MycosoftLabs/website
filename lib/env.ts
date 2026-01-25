@@ -20,8 +20,10 @@ export const env = {
   // NatureOS Platform API (optional domain layer)
   natureosApiBaseUrl: process.env.NATUREOS_API_BASE_URL || "https://natureos.mycosoft.org/api/v1",
 
-  // Mycorrhizae Streaming Configuration
+  // Mycorrhizae Protocol Configuration
+  mycorrhizaeApiUrl: process.env.MYCORRHIZAE_API_URL || "http://192.168.0.187:8002",
   mycorrhizaePublishKey: process.env.MYCORRHIZAE_PUBLISH_KEY,
+  mycorrhizaeAdminKey: process.env.MYCORRHIZAE_ADMIN_KEY,
 
   // Ledger RPC Endpoints
   solanaRpcUrl: process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_QUICKNODE_SOLANA_URL,
