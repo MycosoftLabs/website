@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useSession } from "next-auth/react"
+import { useSupabaseUser } from "./use-supabase-user"
 
 // Types for user settings
 export interface UserSettings {
@@ -104,7 +104,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 }
 
 export function useUserSettings(): UseUserSettingsReturn {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading } = useSupabaseUser()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -112,9 +112,12 @@ export function useUserSettings(): UseUserSettingsReturn {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [changelog, setChangelog] = useState<SettingsChange[]>([])
 
+  // Determine authentication status based on loading and user state
+  const isAuthenticated = !authLoading && !!user
+
   // Load settings from API
   const refreshSettings = useCallback(async () => {
-    if (status !== "authenticated") {
+    if (!isAuthenticated) {
       setLoading(false)
       return
     }
@@ -139,11 +142,11 @@ export function useUserSettings(): UseUserSettingsReturn {
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [isAuthenticated])
 
   // Load changelog
   const loadChangelog = useCallback(async () => {
-    if (status !== "authenticated") return
+    if (!isAuthenticated) return
     
     try {
       const response = await fetch("/api/user/settings/changelog?limit=50")
@@ -154,7 +157,7 @@ export function useUserSettings(): UseUserSettingsReturn {
     } catch (err) {
       console.error("Error loading changelog:", err)
     }
-  }, [status])
+  }, [isAuthenticated])
 
   // Update a single setting
   const updateSetting = useCallback(async <K extends keyof UserSettings>(
@@ -279,15 +282,18 @@ export function useUserSettings(): UseUserSettingsReturn {
     }
   }, [])
 
-  // Load settings on mount and when session changes
+  // Load settings on mount and when auth state changes
   useEffect(() => {
-    if (status === "authenticated") {
+    if (authLoading) {
+      return // Wait for auth to finish loading
+    }
+    if (user) {
       refreshSettings()
-    } else if (status === "unauthenticated") {
+    } else {
       setSettings(null)
       setLoading(false)
     }
-  }, [status, refreshSettings])
+  }, [authLoading, user, refreshSettings])
 
   return {
     settings,

@@ -60,6 +60,8 @@ import {
   Route,
   History,
   Plus,
+  Box,
+  Square,
 } from "lucide-react"
 import { TopologyNode3D } from "./topology-node"
 import { TopologyConnection3D } from "./topology-connection"
@@ -96,20 +98,50 @@ interface AdvancedTopology3DProps {
   onToggleFullScreen?: () => void
 }
 
-// Camera controller for smooth animations
-function CameraController({ target, zoom }: { target: THREE.Vector3; zoom: number }) {
+// Camera controller for smooth animations - only animates to selected node, does NOT override user controls
+function CameraController({ 
+  target, 
+  shouldAnimate,
+  onAnimationComplete 
+}: { 
+  target: THREE.Vector3
+  shouldAnimate: boolean
+  onAnimationComplete: () => void
+}) {
   const { camera } = useThree()
+  const animatingRef = useRef(false)
+  const startPosRef = useRef<THREE.Vector3 | null>(null)
+  const progressRef = useRef(0)
   
   useFrame(() => {
-    camera.position.lerp(
-      new THREE.Vector3(
-        target.x + Math.sin(Date.now() * 0.0001) * 2,
-        target.y + 15 + (50 - zoom),
-        target.z + 25 + (50 - zoom) * 0.5
-      ),
-      0.02
-    )
-    camera.lookAt(target)
+    if (!shouldAnimate) {
+      animatingRef.current = false
+      startPosRef.current = null
+      progressRef.current = 0
+      return
+    }
+    
+    // Start animation
+    if (!animatingRef.current) {
+      animatingRef.current = true
+      startPosRef.current = camera.position.clone()
+      progressRef.current = 0
+    }
+    
+    // Animate to target
+    progressRef.current += 0.02
+    if (progressRef.current >= 1) {
+      onAnimationComplete()
+      return
+    }
+    
+    // Smooth ease-out animation
+    const t = 1 - Math.pow(1 - progressRef.current, 3)
+    const targetPos = new THREE.Vector3(target.x, target.y + 15, target.z + 25)
+    
+    if (startPosRef.current) {
+      camera.position.lerpVectors(startPosRef.current, targetPos, t)
+    }
   })
   
   return null
@@ -378,6 +410,9 @@ function TopologyScene({
   setViewState: (v: TopologyViewState) => void
   onNodeAction: (nodeId: string, action: string, params?: Record<string, unknown>) => Promise<void>
 }) {
+  const [shouldAnimateCamera, setShouldAnimateCamera] = useState(false)
+  const lastSelectedRef = useRef<string | null>(null)
+  
   // Filter nodes based on filter state
   const filteredNodes = useMemo(() => {
     return data.nodes.filter(node => {
@@ -422,6 +457,14 @@ function TopologyScene({
     return filteredNodes.find(n => n.id === viewState.selectedNodeId)
   }, [filteredNodes, viewState.selectedNodeId])
   
+  // Detect when a new node is selected and trigger camera animation
+  useEffect(() => {
+    if (viewState.selectedNodeId && viewState.selectedNodeId !== lastSelectedRef.current) {
+      setShouldAnimateCamera(true)
+      lastSelectedRef.current = viewState.selectedNodeId
+    }
+  }, [viewState.selectedNodeId])
+  
   // Camera target
   const cameraTarget = useMemo(() => {
     if (selectedNode) {
@@ -432,15 +475,22 @@ function TopologyScene({
   
   return (
     <>
-      {/* Camera */}
+      {/* Camera with full controls - zoom, pan, rotate */}
       <PerspectiveCamera makeDefault position={[0, 30, 50]} fov={60} />
-      <CameraController target={cameraTarget} zoom={viewState.zoom} />
+      <CameraController 
+        target={cameraTarget} 
+        shouldAnimate={shouldAnimateCamera}
+        onAnimationComplete={() => setShouldAnimateCamera(false)}
+      />
       <OrbitControls
         enableDamping
-        dampingFactor={0.05}
-        minDistance={10}
-        maxDistance={100}
-        maxPolarAngle={Math.PI / 2}
+        dampingFactor={0.1}
+        minDistance={5}
+        maxDistance={200}
+        enablePan
+        panSpeed={1}
+        rotateSpeed={0.5}
+        zoomSpeed={1.2}
       />
       
       {/* Environment */}
@@ -449,6 +499,7 @@ function TopologyScene({
       <pointLight position={[-20, 20, -20]} intensity={0.5} color="#4f46e5" />
       <pointLight position={[20, -10, 20]} intensity={0.3} color="#06b6d4" />
       <Stars radius={100} depth={50} count={2000} factor={4} fade speed={0.5} />
+          <AmbientParticles />
       <AmbientParticles />
       <GridFloor />
       
@@ -511,6 +562,7 @@ export function AdvancedTopology3D({
   const [error, setError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(true)
   const [isLive, setIsLive] = useState(true)
+  const [is2DMode, setIs2DMode] = useState(false) // 2D/3D toggle
   
   // v2.1: Incident and path highlighting state
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([])
@@ -711,7 +763,12 @@ export function AdvancedTopology3D({
   return (
     <div className={`relative bg-black overflow-hidden ${fullScreen ? "fixed inset-0 z-50" : className}`}>
       {/* 3D Canvas */}
-      <Canvas shadows className="w-full h-full">
+      <Canvas 
+        shadows 
+        className="w-full h-full"
+        orthographic={is2DMode}
+        camera={is2DMode ? { position: [0, 100, 0], zoom: 5 } : undefined}
+      >
         <Suspense fallback={null}>
           {data && (
             <TopologyScene
@@ -720,6 +777,7 @@ export function AdvancedTopology3D({
               viewState={viewState}
               setViewState={setViewState}
               onNodeAction={handleNodeAction}
+              is2DMode={is2DMode}
             />
           )}
         </Suspense>
@@ -774,8 +832,29 @@ export function AdvancedTopology3D({
         </Button>
       )}
       
-      {/* WebSocket connection status and Layout Manager */}
+      {/* WebSocket connection status, 2D/3D toggle, and Layout Manager */}
       <div className="absolute top-4 right-[340px] flex items-center gap-2">
+        {/* 2D/3D Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIs2DMode(!is2DMode)}
+          className="bg-black/70 hover:bg-black/90 text-white border border-white/10 px-3"
+          title={is2DMode ? "Switch to 3D view" : "Switch to 2D view (birds-eye)"}
+        >
+          {is2DMode ? (
+            <>
+              <Box className="h-4 w-4 mr-2" />
+              <span className="text-xs">3D</span>
+            </>
+          ) : (
+            <>
+              <Square className="h-4 w-4 mr-2" />
+              <span className="text-xs">2D</span>
+            </>
+          )}
+        </Button>
+        
         {/* Layout Manager */}
         <LayoutManager
           currentViewState={viewState}
