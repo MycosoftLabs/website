@@ -34,6 +34,8 @@ const natureOSItems = [
   { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map, description: "Common Relevant Environmental Picture" },
   { title: "Device Network", href: "/natureos/devices", icon: Network, description: "Connected device management" },
   { title: "MINDEX", href: "/mindex", icon: Database, description: "Cryptographic data integrity index" },
+  { title: "Species Explorer", href: "/natureos/mindex/explorer", icon: Globe, description: "Spatial species visualization" },
+  { title: "AI Explainer", href: "/natureos/ai-studio/explainer", icon: Bot, description: "Understand how MYCA AI works" },
   { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe, description: "Global environmental modeling" },
 ]
 
@@ -51,6 +53,7 @@ const appsItems = [
   { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical, description: "Chemical compound analysis" },
   { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, description: "Spore dispersal mapping" },
   { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
+  { title: "Genomics Tools", href: "/ancestry/tools#genomics", icon: Microscope, description: "Genome browsers & visualization" },
   { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, description: "Performance metrics & insights" },
 ]
 
@@ -365,7 +368,7 @@ export function Header() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-40">
+    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50">
       <div className="container max-w-7xl mx-auto flex h-14 items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
           <Link href="/" className="flex items-center gap-2 font-semibold group">

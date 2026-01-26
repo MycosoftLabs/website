@@ -29,6 +29,11 @@ import { FCIDeviceMonitor } from "@/components/mindex/fci-device-monitor"
 import { MWaveDashboard } from "@/components/mindex/mwave-dashboard"
 import { PhylogeneticTree } from "@/components/ancestry/phylogenetic-tree"
 import { 
+  GenomeTrackViewerLazy as GenomeTrackViewer,
+  CircosViewerLazy as CircosViewer,
+  JBrowseViewerLazy as JBrowseViewer
+} from "@/components/mindex/lazy-viewers"
+import { 
   Database, 
   Activity, 
   RefreshCw, 
@@ -148,6 +153,7 @@ type WidgetSection =
   | "ledger"
   | "network"
   | "phylogeny"
+  | "genomics"
   | "devices"
   | "mwave"
   | "containers"
@@ -168,6 +174,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "ledger", label: "Ledger", icon: Wallet, color: "#3B82F6" },
   { id: "network", label: "Network", icon: Network, color: "#06B6D4" },
   { id: "phylogeny", label: "Phylogeny", icon: GitBranch, color: "#EC4899" },
+  { id: "genomics", label: "Genomics", icon: Dna, color: "#22C55E" },
   { id: "devices", label: "Devices", icon: Cpu, color: "#8B5CF6" },
   { id: "mwave", label: "M-Wave", icon: Waves, color: "#F97316" },
   { id: "containers", label: "Containers", icon: Container, color: "#6366F1" }
@@ -481,6 +488,8 @@ export function MINDEXDashboard() {
                   {activeSection === "network" && <NetworkSection />}
                   
                   {activeSection === "phylogeny" && <PhylogenySection />}
+                  
+                  {activeSection === "genomics" && <GenomicsSection />}
                   
                   {activeSection === "devices" && <DevicesSection />}
                   
@@ -1287,6 +1296,89 @@ function PhylogenySection() {
           </Button>
         </div>
       </GlassCard>
+    </div>
+  )
+}
+
+// ==================== Genomics Section ====================
+function GenomicsSection() {
+  return (
+    <div className="space-y-6">
+      {/* JBrowse Genome Browser - Full Width */}
+      <JBrowseViewer className="bg-black/40 border-indigo-500/30" />
+      
+      {/* Gosling and Circos side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GenomeTrackViewer className="bg-black/40 border-green-500/30" />
+        <CircosViewer className="bg-black/40 border-purple-500/30" />
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <GlassCard color="green">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Dna className="h-5 w-5 text-green-400" />
+              Genome Browser
+            </h3>
+            <Badge className="bg-green-500/20 text-green-300 border-none">
+              Gosling.js
+            </Badge>
+          </div>
+          <p className="text-sm text-gray-400 mb-4">
+            Interactive genome track visualization powered by Gosling.js grammar. 
+            Explore genes, variants, expression levels, and annotations across fungal species.
+          </p>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-3 bg-white/5 rounded-lg">
+              <div className="text-green-300 font-semibold">4</div>
+              <div className="text-gray-500">Track Types</div>
+            </div>
+            <div className="p-3 bg-white/5 rounded-lg">
+              <div className="text-green-300 font-semibold">50kb</div>
+              <div className="text-gray-500">Demo Region</div>
+            </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard color="green">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Activity className="h-5 w-5 text-green-400" />
+              Track Types
+            </h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+              <div className="w-3 h-3 rounded-sm bg-green-500" />
+              <div>
+                <div className="text-sm text-white">Predicted Genes</div>
+                <div className="text-xs text-gray-500">Gene annotations with strand direction</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+              <div className="w-3 h-3 rounded-sm bg-amber-500" />
+              <div>
+                <div className="text-sm text-white">Genetic Variants</div>
+                <div className="text-xs text-gray-500">SNPs and structural variations</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+              <div className="w-3 h-3 rounded-sm bg-purple-500" />
+              <div>
+                <div className="text-sm text-white">Expression Levels</div>
+                <div className="text-xs text-gray-500">RNA-seq coverage plots</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+              <div className="w-3 h-3 rounded-sm bg-cyan-500" />
+              <div>
+                <div className="text-sm text-white">Functional Annotations</div>
+                <div className="text-xs text-gray-500">Gene clusters and regions</div>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import type React from "react"
 import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
+import { AppStateProvider } from "@/contexts/app-state-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import "./globals.css"
@@ -42,11 +43,13 @@ export default function RootLayout({
         />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <div className="min-h-screen flex flex-col relative">
-              <Header />
-              <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
-              <Footer />
-            </div>
+            <AppStateProvider>
+              <div className="min-h-screen flex flex-col relative">
+                <Header />
+                <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
+                <Footer />
+              </div>
+            </AppStateProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
