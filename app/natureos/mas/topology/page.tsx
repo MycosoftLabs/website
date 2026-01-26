@@ -40,9 +40,9 @@ export default function TopologyFullscreenPage() {
           asChild
           className="bg-black/50 hover:bg-black/70 border-white/10 text-white"
         >
-          <Link href="/natureos/mas">
+          <Link href="/natureos">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to MAS
+            Back to NatureOS
           </Link>
         </Button>
       </div>

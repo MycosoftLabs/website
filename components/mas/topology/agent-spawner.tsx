@@ -195,9 +195,9 @@ export function AgentSpawner({ gaps, onSpawn, className = "" }: AgentSpawnerProp
               <span>Detected Gaps ({gaps.length})</span>
             </div>
             <div className="space-y-2">
-              {gaps.slice(0, 3).map((gap) => (
+              {gaps.slice(0, 3).map((gap, index) => (
                 <div
-                  key={gap.id}
+                  key={gap.id || `gap-${index}`}
                   className="p-3 bg-yellow-950/30 border border-yellow-500/30 rounded-lg"
                 >
                   <div className="flex items-start justify-between gap-2">

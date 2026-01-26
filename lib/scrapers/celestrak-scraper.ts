@@ -7,7 +7,7 @@
  */
 
 import { BaseScraper, type ScraperResult, type ScraperConfig } from "./base-scraper"
-import { getCache } from "./cache"
+import { getScraperCache } from "./cache"
 
 interface TLEData {
   OBJECT_NAME: string
@@ -69,7 +69,7 @@ export class CelesTrakScraper extends BaseScraper {
       },
     }
 
-    const cache = getCache()
+    const cache = getScraperCache()
     let totalSatellites = 0
 
     // Fetch each category
@@ -142,7 +142,7 @@ export class CelesTrakScraper extends BaseScraper {
     }
 
     // Try shared cache
-    const cache = getCache()
+    const cache = getScraperCache()
     const cached = cache.get<TLEData[]>(`celestrak_${group}`)
     if (cached) {
       return cached
