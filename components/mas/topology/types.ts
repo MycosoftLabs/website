@@ -211,3 +211,145 @@ export const STATUS_COLORS: Record<NodeStatus, string> = {
   starting: "#f97316",
   stopping: "#f59e0b",
 }
+
+// ============================================
+// v2.1 Additions - Incident & Layout Types
+// ============================================
+
+export type IncidentSeverity = "critical" | "high" | "medium" | "low" | "info"
+export type IncidentStatus = "active" | "investigating" | "resolved" | "ignored"
+
+export interface TopologyIncident {
+  id: string
+  title: string
+  description: string
+  severity: IncidentSeverity
+  status: IncidentStatus
+  affectedNodeIds: string[]
+  causedByNodeId?: string
+  detectedAt: string
+  resolvedAt?: string
+  resolverAgentId?: string
+  causalityChain?: CausalityLink[]
+  playbook?: string
+  confidence: number // 0-1
+}
+
+export interface CausalityLink {
+  fromNodeId: string
+  toNodeId: string
+  probability: number
+  impactType: "direct" | "cascade" | "dependency"
+}
+
+export interface TopologySnapshot {
+  id: string
+  timestamp: string
+  nodes: TopologyNode[]
+  connections: TopologyConnection[]
+  stats: TopologyData["stats"]
+  incidents: TopologyIncident[]
+}
+
+export interface LayoutPreset {
+  id: string
+  name: string
+  userId?: string
+  algorithm: "cola" | "force" | "hierarchical" | "radial" | "grid"
+  nodePositions?: Record<string, [number, number, number]>
+  settings: LayoutSettings
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LayoutSettings {
+  nodeSpacing: number
+  edgeLength: number
+  avoidOverlap: boolean
+  animate: boolean
+  animationDuration: number
+  showLabels: boolean
+  showMetrics: boolean
+  clusterByCategory: boolean
+  edgeBundling: boolean
+}
+
+// WebSocket message types for real-time updates
+export type TopologyWSMessageType =
+  | "agent_update"
+  | "agent_event"
+  | "metric_update"
+  | "connection_update"
+  | "incident_created"
+  | "incident_updated"
+  | "incident_resolved"
+  | "task_assigned"
+  | "task_completed"
+
+export interface TopologyWSMessage {
+  type: TopologyWSMessageType
+  timestamp: string
+  payload: unknown
+}
+
+export interface AgentUpdatePayload {
+  agentId: string
+  status: NodeStatus
+  metrics?: TopologyNode["metrics"]
+}
+
+export interface IncidentUpdatePayload {
+  incident: TopologyIncident
+}
+
+export interface ConnectionUpdatePayload {
+  connectionId: string
+  traffic: TopologyConnection["traffic"]
+  active: boolean
+}
+
+// Gap detection types
+export interface DetectedGap {
+  id: string
+  gapType: "route_coverage" | "device_monitoring" | "integration" | "security" | "data_pipeline"
+  description: string
+  suggestedAgentType: string
+  suggestedCategory: NodeCategory
+  priority: "critical" | "high" | "medium" | "low"
+  autoSpawnRecommended: boolean
+}
+
+// Action types for topology operations
+export type TopologyAction =
+  | { type: "spawn"; agentType: string; category: NodeCategory; config?: Record<string, unknown> }
+  | { type: "stop"; agentId: string; force?: boolean }
+  | { type: "restart"; agentId: string }
+  | { type: "configure"; agentId: string; config: Record<string, unknown> }
+  | { type: "assign_task"; agentId: string; task: string; payload?: Record<string, unknown> }
+
+// Extended topology data with incidents and gaps
+export interface ExtendedTopologyData extends TopologyData {
+  incidents: TopologyIncident[]
+  gaps: DetectedGap[]
+  predictions: TopologyIncident[] // Predicted future incidents
+}
+
+// Path trace result
+export interface PathTraceResult {
+  path: string[] // Node IDs in order
+  edges: string[] // Edge IDs in order
+  totalLatencyMs: number
+  hopCount: number
+  bottleneckNodeId?: string
+}
+
+// Historical playback state
+export interface PlaybackState {
+  isPlaying: boolean
+  currentTime: Date
+  startTime: Date
+  endTime: Date
+  speed: number // 1x, 2x, 4x, etc.
+  snapshots: TopologySnapshot[]
+  currentSnapshotIndex: number
+}

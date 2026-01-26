@@ -22,6 +22,7 @@ interface AppStateStore {
   tools: Record<string, StateEntry>
   lastSyncedAt: number | null
   syncInProgress: boolean
+  tableAvailable: boolean // Track if table exists
 }
 
 interface AppStateContextType {
@@ -48,72 +49,84 @@ interface AppStateContextType {
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined)
 
 // Debounce delay for saving state (ms)
-const SAVE_DEBOUNCE_MS = 1000
+const SAVE_DEBOUNCE_MS = 2000
 // Max time between forced syncs (ms)
-const MAX_SYNC_INTERVAL_MS = 30000
+const MAX_SYNC_INTERVAL_MS = 60000
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const supabase = createClient()
   
   const [store, setStore] = useState<AppStateStore>({
     tools: {},
     lastSyncedAt: null,
     syncInProgress: false,
+    tableAvailable: false, // Assume table doesn't exist until verified
   })
   
   const activeTools = useRef<Set<string>>(new Set())
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSaveAttemptRef = useRef<number>(0)
   const mountedRef = useRef(true)
+  const supabaseRef = useRef(createClient())
 
-  // Load state from Supabase on user login
+  // Load state from Supabase on user login - NON-BLOCKING
   useEffect(() => {
     if (!user?.id) {
-      // Clear state when logged out but keep structure
-      setStore(prev => ({
-        ...prev,
-        lastSyncedAt: null,
-      }))
       return
     }
 
-    const loadState = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("user_app_state")
-          .select("tool_states, updated_at")
-          .eq("user_id", user.id)
-          .single()
+    // Use setTimeout to make this completely non-blocking
+    const timeoutId = setTimeout(() => {
+      const loadState = async () => {
+        if (!mountedRef.current) return
+        
+        try {
+          const { data, error } = await supabaseRef.current
+            .from("user_app_state")
+            .select("tool_states, updated_at")
+            .eq("user_id", user.id)
+            .single()
 
-        if (error && error.code !== "PGRST116") { // Not found is ok
-          console.error("Error loading app state:", error)
-          return
-        }
-
-        if (data?.tool_states && mountedRef.current) {
-          const loadedTools: Record<string, StateEntry> = {}
-          for (const [toolId, state] of Object.entries(data.tool_states as Record<string, ToolState>)) {
-            loadedTools[toolId] = {
-              toolId,
-              state: state as ToolState,
-              lastUpdated: new Date(data.updated_at).getTime(),
-              dirty: false,
+          // Table doesn't exist or other schema error - silently ignore
+          if (error) {
+            if (error.code === "PGRST116") {
+              // No data found - table exists but no row, that's fine
+              if (mountedRef.current) {
+                setStore(prev => ({ ...prev, tableAvailable: true }))
+              }
             }
+            // PGRST205 = table doesn't exist - silently ignore
+            // Any other error - also silently ignore
+            return
           }
-          setStore(prev => ({
-            ...prev,
-            tools: { ...prev.tools, ...loadedTools },
-            lastSyncedAt: new Date(data.updated_at).getTime(),
-          }))
-        }
-      } catch (err) {
-        console.error("Failed to load app state:", err)
-      }
-    }
 
-    loadState()
-  }, [user?.id, supabase])
+          if (data?.tool_states && mountedRef.current) {
+            const loadedTools: Record<string, StateEntry> = {}
+            for (const [toolId, state] of Object.entries(data.tool_states as Record<string, ToolState>)) {
+              loadedTools[toolId] = {
+                toolId,
+                state: state as ToolState,
+                lastUpdated: new Date(data.updated_at).getTime(),
+                dirty: false,
+              }
+            }
+            setStore(prev => ({
+              ...prev,
+              tools: { ...prev.tools, ...loadedTools },
+              lastSyncedAt: new Date(data.updated_at).getTime(),
+              tableAvailable: true,
+            }))
+          }
+        } catch {
+          // Silently ignore all errors - don't block the app
+        }
+      }
+
+      loadState()
+    }, 100) // Small delay to not block initial render
+
+    return () => clearTimeout(timeoutId)
+  }, [user?.id])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -126,9 +139,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Save dirty state to Supabase (debounced)
+  // Save dirty state to Supabase (debounced) - NON-BLOCKING
   const syncToServer = useCallback(async (force = false) => {
     if (!user?.id) return
+    if (!store.tableAvailable) return // Don't try if table doesn't exist
     if (store.syncInProgress && !force) return
 
     const dirtyTools = Object.values(store.tools).filter(t => t.dirty)
@@ -142,7 +156,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         toolStates[entry.toolId] = entry.state
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseRef.current
         .from("user_app_state")
         .upsert({
           user_id: user.id,
@@ -153,7 +167,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         })
 
       if (error) {
-        console.error("Error saving app state:", error)
+        // Silently ignore - don't log errors
+        if (mountedRef.current) {
+          setStore(prev => ({ ...prev, syncInProgress: false }))
+        }
         return
       }
 
@@ -172,13 +189,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         }))
         lastSaveAttemptRef.current = now
       }
-    } catch (err) {
-      console.error("Failed to sync app state:", err)
+    } catch {
+      // Silently ignore all errors
       if (mountedRef.current) {
         setStore(prev => ({ ...prev, syncInProgress: false }))
       }
     }
-  }, [user?.id, store.tools, store.syncInProgress, supabase])
+  }, [user?.id, store.tools, store.syncInProgress, store.tableAvailable])
 
   // Debounced save trigger
   const scheduleSave = useCallback(() => {
@@ -191,11 +208,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, SAVE_DEBOUNCE_MS)
   }, [syncToServer])
 
-  // Force sync before page unload
+  // Force sync before page unload - only if table exists
   useEffect(() => {
+    if (!store.tableAvailable) return
+
     const handleBeforeUnload = () => {
       const dirtyTools = Object.values(store.tools).filter(t => t.dirty)
-      if (dirtyTools.length > 0 && user?.id) {
+      if (dirtyTools.length > 0 && user?.id && store.tableAvailable) {
         // Use sendBeacon for reliable unload sync
         const toolStates: Record<string, ToolState> = {}
         for (const entry of Object.values(store.tools)) {
@@ -210,10 +229,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("beforeunload", handleBeforeUnload)
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [store.tools, user?.id])
+  }, [store.tools, store.tableAvailable, user?.id])
 
-  // Periodic sync for long sessions
+  // Periodic sync for long sessions - only if table exists
   useEffect(() => {
+    if (!store.tableAvailable) return
+
     const interval = setInterval(() => {
       const now = Date.now()
       if (now - lastSaveAttemptRef.current > MAX_SYNC_INTERVAL_MS) {
@@ -222,7 +243,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }, MAX_SYNC_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [syncToServer])
+  }, [syncToServer, store.tableAvailable])
 
   // Context methods
   const getToolState = useCallback(<T extends ToolState>(toolId: string): T | null => {

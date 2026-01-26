@@ -1,127 +1,106 @@
 import { NextRequest, NextResponse } from "next/server"
-import type { TopologyData, TopologyNode, TopologyConnection, DataPacket } from "@/components/mas/topology/types"
+import type { 
+  TopologyData, 
+  TopologyNode, 
+  TopologyConnection, 
+  DataPacket,
+  TopologyIncident,
+  DetectedGap,
+  ExtendedTopologyData,
+  NodeCategory,
+} from "@/components/mas/topology/types"
+import { 
+  COMPLETE_AGENT_REGISTRY, 
+  TOTAL_AGENT_COUNT,
+  generateDefaultConnections,
+  type AgentDefinition,
+} from "@/components/mas/topology/agent-registry"
 
 /**
- * MAS Topology API
+ * MAS Topology API v2.1
  * Returns real-time topology data for 3D visualization
+ * Supports 223+ agents from the complete MAS registry
  */
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
-// Complete agent registry for topology
-const TOPOLOGY_REGISTRY: Omit<TopologyNode, "position" | "metrics">[] = [
-  // Core agents
-  { id: "myca-orchestrator", name: "MYCA Orchestrator", shortName: "MYCA", type: "orchestrator", category: "core", status: "active", description: "Central AI orchestrator", connections: ["memory-manager", "task-router", "redis-broker", "qdrant-db", "postgres-db"], size: 2.5, priority: 1, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "memory-manager", name: "Memory Manager", shortName: "Memory", type: "agent", category: "core", status: "active", description: "Conversation and context memory", connections: ["myca-orchestrator", "redis-broker", "qdrant-db"], size: 1.2, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "task-router", name: "Task Router", shortName: "Router", type: "agent", category: "core", status: "active", description: "Routes tasks to appropriate agents", connections: ["myca-orchestrator", "redis-broker"], size: 1.2, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "scheduler-agent", name: "Scheduler Agent", shortName: "Scheduler", type: "agent", category: "core", status: "active", description: "Task scheduling and cron jobs", connections: ["myca-orchestrator", "task-router"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Financial agents
-  { id: "cfo-agent", name: "CFO Agent", shortName: "CFO", type: "agent", category: "financial", status: "active", description: "Chief Financial Officer operations", connections: ["myca-orchestrator", "mercury-agent", "stripe-agent", "accounting-agent"], size: 1.3, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "mercury-agent", name: "Mercury Bank Agent", shortName: "Mercury", type: "integration", category: "financial", status: "active", description: "Mercury banking integration", connections: ["cfo-agent", "accounting-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "stripe-agent", name: "Stripe Agent", shortName: "Stripe", type: "integration", category: "financial", status: "active", description: "Stripe payments integration", connections: ["cfo-agent", "accounting-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "accounting-agent", name: "Accounting Agent", shortName: "Accounting", type: "agent", category: "financial", status: "active", description: "Financial accounting operations", connections: ["cfo-agent", "treasury-agent", "postgres-db"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "treasury-agent", name: "Treasury Agent", shortName: "Treasury", type: "agent", category: "financial", status: "active", description: "Treasury management", connections: ["cfo-agent", "accounting-agent"], size: 1, priority: 4, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Communication agents
-  { id: "elevenlabs-agent", name: "ElevenLabs Voice", shortName: "Voice", type: "integration", category: "communication", status: "active", description: "Text-to-speech via ElevenLabs", connections: ["myca-orchestrator", "n8n-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "email-agent", name: "Email Agent", shortName: "Email", type: "agent", category: "communication", status: "active", description: "Email processing and sending", connections: ["myca-orchestrator", "n8n-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "sms-agent", name: "SMS Agent", shortName: "SMS", type: "agent", category: "communication", status: "idle", description: "SMS notifications", connections: ["myca-orchestrator"], size: 0.9, priority: 4, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Infrastructure agents
-  { id: "docker-agent", name: "Docker Agent", shortName: "Docker", type: "agent", category: "infrastructure", status: "active", description: "Docker container management", connections: ["myca-orchestrator", "proxmox-agent"], size: 1.2, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "proxmox-agent", name: "Proxmox Agent", shortName: "Proxmox", type: "agent", category: "infrastructure", status: "active", description: "VM and hypervisor management", connections: ["myca-orchestrator", "docker-agent", "network-agent"], size: 1.3, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "network-agent", name: "Network Agent", shortName: "Network", type: "agent", category: "infrastructure", status: "active", description: "Network topology and routing", connections: ["proxmox-agent", "unifi-agent", "firewall-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "unifi-agent", name: "UniFi Agent", shortName: "UniFi", type: "integration", category: "infrastructure", status: "active", description: "UniFi network controller", connections: ["network-agent"], size: 1, priority: 4, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "firewall-agent", name: "Firewall Agent", shortName: "Firewall", type: "agent", category: "infrastructure", status: "active", description: "Firewall management", connections: ["network-agent", "soc-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Security agents  
-  { id: "soc-agent", name: "SOC Agent", shortName: "SOC", type: "agent", category: "security", status: "active", description: "Security Operations Center", connections: ["myca-orchestrator", "firewall-agent", "watchdog-agent", "guardian-agent"], size: 1.4, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "watchdog-agent", name: "Threat Watchdog", shortName: "Watchdog", type: "agent", category: "security", status: "active", description: "Threat detection and monitoring", connections: ["soc-agent", "guardian-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "guardian-agent", name: "System Guardian", shortName: "Guardian", type: "agent", category: "security", status: "active", description: "System protection and response", connections: ["soc-agent", "watchdog-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Data agents
-  { id: "mindex-agent", name: "MINDEX Agent", shortName: "MINDEX", type: "agent", category: "data", status: "active", description: "Mycological index database", connections: ["myca-orchestrator", "postgres-db", "etl-agent"], size: 1.3, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "etl-agent", name: "ETL Agent", shortName: "ETL", type: "agent", category: "data", status: "active", description: "Extract, Transform, Load operations", connections: ["mindex-agent", "postgres-db", "qdrant-db"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "search-agent", name: "Search Agent", shortName: "Search", type: "agent", category: "data", status: "active", description: "Full-text and semantic search", connections: ["myca-orchestrator", "qdrant-db"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "analytics-agent", name: "Analytics Agent", shortName: "Analytics", type: "agent", category: "data", status: "active", description: "Data analytics and reporting", connections: ["myca-orchestrator", "postgres-db"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Device agents
-  { id: "mycobrain-coordinator", name: "MycoBrain Coordinator", shortName: "MycoBrain", type: "agent", category: "device", status: "active", description: "IoT device coordinator", connections: ["myca-orchestrator", "sensor-agent", "camera-agent", "environment-agent"], size: 1.3, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "sensor-agent", name: "Sensor Agent", shortName: "Sensors", type: "agent", category: "device", status: "active", description: "Environmental sensors", connections: ["mycobrain-coordinator", "environment-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "camera-agent", name: "Camera Agent", shortName: "Cameras", type: "agent", category: "device", status: "active", description: "Camera feeds and analysis", connections: ["mycobrain-coordinator"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "environment-agent", name: "Environment Agent", shortName: "Environment", type: "agent", category: "device", status: "active", description: "Environmental control", connections: ["mycobrain-coordinator", "sensor-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Integration agents
-  { id: "n8n-agent", name: "n8n Agent", shortName: "n8n", type: "workflow", category: "integration", status: "active", description: "Workflow automation", connections: ["myca-orchestrator", "openai-agent", "elevenlabs-agent", "github-agent"], size: 1.3, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "openai-agent", name: "OpenAI Agent", shortName: "OpenAI", type: "integration", category: "integration", status: "active", description: "OpenAI API integration", connections: ["myca-orchestrator", "n8n-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "github-agent", name: "GitHub Agent", shortName: "GitHub", type: "integration", category: "integration", status: "active", description: "GitHub integration", connections: ["n8n-agent", "devops-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "devops-agent", name: "DevOps Agent", shortName: "DevOps", type: "agent", category: "integration", status: "active", description: "CI/CD and deployments", connections: ["github-agent", "docker-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Mycology agents
-  { id: "species-classifier", name: "Species Classifier", shortName: "Classifier", type: "agent", category: "mycology", status: "active", description: "Mushroom species identification", connections: ["myca-orchestrator", "mindex-agent", "taxonomy-agent"], size: 1.2, priority: 2, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "taxonomy-agent", name: "Taxonomy Agent", shortName: "Taxonomy", type: "agent", category: "mycology", status: "active", description: "Taxonomic classification", connections: ["species-classifier", "mindex-agent"], size: 1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "cultivation-agent", name: "Cultivation Agent", shortName: "Cultivation", type: "agent", category: "mycology", status: "active", description: "Growing protocol management", connections: ["myca-orchestrator", "environment-agent"], size: 1.1, priority: 3, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  
-  // Services/Databases
-  { id: "redis-broker", name: "Redis Message Broker", shortName: "Redis", type: "queue", category: "infrastructure", status: "active", description: "Message queue and caching", connections: ["myca-orchestrator", "memory-manager", "task-router"], size: 1.5, priority: 1, canStart: true, canStop: true, canRestart: true, canConfigure: false },
-  { id: "postgres-db", name: "PostgreSQL Database", shortName: "PostgreSQL", type: "database", category: "data", status: "active", description: "Primary relational database", connections: ["mindex-agent", "accounting-agent", "etl-agent", "analytics-agent"], size: 1.6, priority: 1, canStart: true, canStop: true, canRestart: true, canConfigure: false },
-  { id: "qdrant-db", name: "Qdrant Vector DB", shortName: "Qdrant", type: "database", category: "data", status: "active", description: "Vector embeddings database", connections: ["memory-manager", "search-agent", "etl-agent"], size: 1.4, priority: 1, canStart: true, canStop: true, canRestart: true, canConfigure: false },
-  
-  // User node
-  { id: "user-morgan", name: "Morgan (CEO)", shortName: "Morgan", type: "user", category: "core", status: "active", description: "CEO command interface", connections: ["myca-orchestrator", "website-frontend"], size: 1.5, priority: 0, canStart: false, canStop: false, canRestart: false, canConfigure: false },
-  { id: "website-frontend", name: "Website Frontend", shortName: "Website", type: "service", category: "infrastructure", status: "active", description: "Next.js web application", connections: ["user-morgan", "myca-orchestrator", "mindex-agent"], size: 1.3, priority: 1, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-]
+// Category-based clustering angles for positioning
+const CATEGORY_ANGLES: Record<NodeCategory, number> = {
+  core: 0,
+  financial: Math.PI / 7,
+  mycology: (2 * Math.PI) / 7,
+  research: (3 * Math.PI) / 7,
+  dao: (4 * Math.PI) / 7,
+  communication: (5 * Math.PI) / 7,
+  data: (6 * Math.PI) / 7,
+  infrastructure: Math.PI,
+  simulation: (8 * Math.PI) / 7,
+  security: (9 * Math.PI) / 7,
+  integration: (10 * Math.PI) / 7,
+  device: (11 * Math.PI) / 7,
+  chemistry: (12 * Math.PI) / 7,
+  nlm: (13 * Math.PI) / 7,
+}
 
-// Generate positions using force-directed layout simulation
-function generatePositions(nodes: typeof TOPOLOGY_REGISTRY): Map<string, [number, number, number]> {
+// Category radii (distance from center)
+const CATEGORY_RADII: Record<NodeCategory, number> = {
+  core: 6,
+  financial: 14,
+  mycology: 16,
+  research: 14,
+  dao: 18,
+  communication: 12,
+  data: 16,
+  infrastructure: 14,
+  simulation: 14,
+  security: 12,
+  integration: 14,
+  device: 14,
+  chemistry: 12,
+  nlm: 16,
+}
+
+// Generate force-directed positions using category clustering
+function generatePositions(agents: AgentDefinition[]): Map<string, [number, number, number]> {
   const positions = new Map<string, [number, number, number]>()
   
-  // Category-based clustering
-  const categoryAngles: Record<string, number> = {
-    core: 0,
-    financial: Math.PI / 4,
-    communication: Math.PI / 2,
-    infrastructure: (3 * Math.PI) / 4,
-    security: Math.PI,
-    data: (5 * Math.PI) / 4,
-    device: (3 * Math.PI) / 2,
-    integration: (7 * Math.PI) / 4,
-    mycology: Math.PI / 6,
-    research: Math.PI / 3,
-    dao: (2 * Math.PI) / 3,
-    simulation: (5 * Math.PI) / 6,
-    chemistry: (7 * Math.PI) / 6,
-    nlm: (4 * Math.PI) / 3,
-  }
-  
   // Group nodes by category
-  const categoryNodes: Record<string, typeof TOPOLOGY_REGISTRY> = {}
-  nodes.forEach(node => {
-    if (!categoryNodes[node.category]) categoryNodes[node.category] = []
-    categoryNodes[node.category].push(node)
+  const categoryNodes: Record<string, AgentDefinition[]> = {}
+  agents.forEach(agent => {
+    if (!categoryNodes[agent.category]) categoryNodes[agent.category] = []
+    categoryNodes[agent.category].push(agent)
   })
   
-  // Position orchestrator at center
-  positions.set("myca-orchestrator", [0, 0, 0])
-  positions.set("user-morgan", [0, 5, -8])
+  // Special positions
+  positions.set("myca-orchestrator", [0, 2, 0])
+  positions.set("user-morgan", [0, 8, -6])
+  positions.set("redis", [-4, 0, -4])
+  positions.set("postgresql", [4, 0, -4])
+  positions.set("qdrant-service", [0, -2, -4])
   
-  // Position nodes by category
+  // Position nodes by category with spiral arrangement
   Object.entries(categoryNodes).forEach(([category, catNodes]) => {
-    const angle = categoryAngles[category] || 0
-    const radius = 12 + Math.random() * 4
+    const angle = CATEGORY_ANGLES[category as NodeCategory] || 0
+    const baseRadius = CATEGORY_RADII[category as NodeCategory] || 14
+    const nodeCount = catNodes.length
     
-    catNodes.forEach((node, i) => {
-      if (positions.has(node.id)) return
+    catNodes.forEach((agent, i) => {
+      if (positions.has(agent.id)) return
       
-      const nodeAngle = angle + (i - catNodes.length / 2) * 0.3
-      const heightOffset = (Math.random() - 0.5) * 6
-      const radiusOffset = (Math.random() - 0.5) * 4
+      // Spiral arrangement within category cluster
+      const spiralAngle = angle + (i / nodeCount) * (Math.PI / 4) - (Math.PI / 8)
+      const spiralRadius = baseRadius + (i % 4) * 2 - 3
+      const heightLayer = Math.floor(i / 8) * 3 - 3
       
-      positions.set(node.id, [
-        Math.cos(nodeAngle) * (radius + radiusOffset),
-        heightOffset,
-        Math.sin(nodeAngle) * (radius + radiusOffset),
+      // Add some randomness for organic look
+      const jitterX = (Math.random() - 0.5) * 2
+      const jitterY = (Math.random() - 0.5) * 1.5
+      const jitterZ = (Math.random() - 0.5) * 2
+      
+      positions.set(agent.id, [
+        Math.cos(spiralAngle) * spiralRadius + jitterX,
+        heightLayer + jitterY,
+        Math.sin(spiralAngle) * spiralRadius + jitterZ,
       ])
     })
   })
@@ -129,8 +108,21 @@ function generatePositions(nodes: typeof TOPOLOGY_REGISTRY): Map<string, [number
   return positions
 }
 
-// Generate random metrics
-function generateMetrics(): TopologyNode["metrics"] {
+// Generate metrics (will be replaced by real MAS data when available)
+function generateMetrics(isActive: boolean): TopologyNode["metrics"] {
+  if (!isActive) {
+    return {
+      cpuPercent: 0,
+      memoryMb: 0,
+      tasksCompleted: 0,
+      tasksQueued: 0,
+      messagesPerSecond: 0,
+      errorRate: 0,
+      uptime: 0,
+      lastActive: new Date(Date.now() - 86400000).toISOString(),
+    }
+  }
+  
   return {
     cpuPercent: Math.random() * 60 + 5,
     memoryMb: Math.floor(Math.random() * 512 + 64),
@@ -143,63 +135,139 @@ function generateMetrics(): TopologyNode["metrics"] {
   }
 }
 
-// Generate connections from node definitions
+// Convert agent definition to topology node
+function agentToNode(
+  agent: AgentDefinition, 
+  position: [number, number, number],
+  liveStatus?: { status: string; metrics?: TopologyNode["metrics"] }
+): TopologyNode {
+  const status = liveStatus?.status as TopologyNode["status"] || agent.defaultStatus
+  const isActive = status === "active" || status === "busy"
+  
+  return {
+    id: agent.id,
+    name: agent.name,
+    shortName: agent.shortName,
+    type: agent.type,
+    category: agent.category,
+    status,
+    description: agent.description,
+    position,
+    metrics: liveStatus?.metrics || generateMetrics(isActive),
+    connections: [], // Will be populated from connections array
+    size: agent.priority >= 8 ? 1.5 : agent.priority >= 5 ? 1.2 : 1,
+    priority: agent.priority,
+    canStart: agent.canStart,
+    canStop: agent.canStop,
+    canRestart: agent.canRestart,
+    canConfigure: agent.canConfigure,
+  }
+}
+
+// Generate connections with proper typing
 function generateConnections(nodes: TopologyNode[]): TopologyConnection[] {
   const connections: TopologyConnection[] = []
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
   const added = new Set<string>()
   
-  nodes.forEach(node => {
-    node.connections.forEach(targetId => {
-      const id = [node.id, targetId].sort().join("--")
-      if (added.has(id)) return
-      added.add(id)
+  // Get default connections
+  const defaultConns = generateDefaultConnections()
+  
+  defaultConns.forEach(({ source, target }) => {
+    const id = [source, target].sort().join("--")
+    if (added.has(id)) return
+    if (!nodeMap.has(source) || !nodeMap.has(target)) return
+    added.add(id)
+    
+    const sourceNode = nodeMap.get(source)!
+    const targetNode = nodeMap.get(target)!
+    
+    // Determine connection type
+    let type: TopologyConnection["type"] = "message"
+    if (sourceNode.type === "database" || targetNode.type === "database") {
+      type = "query"
+    } else if (sourceNode.type === "queue" || targetNode.type === "queue") {
+      type = "stream"
+    } else if (sourceNode.category === "integration" || targetNode.category === "integration") {
+      type = "data"
+    } else if (sourceNode.type === "orchestrator" || targetNode.type === "orchestrator") {
+      type = "command"
+    }
+    
+    const isActive = sourceNode.status === "active" && targetNode.status === "active"
+    
+    connections.push({
+      id,
+      sourceId: source,
+      targetId: target,
+      type,
+      traffic: {
+        messagesPerSecond: isActive ? Math.random() * 50 + 5 : 0,
+        bytesPerSecond: isActive ? Math.floor(Math.random() * 10000 + 500) : 0,
+        latencyMs: isActive ? Math.random() * 50 + 2 : 0,
+        errorRate: isActive ? Math.random() * 0.02 : 0,
+      },
+      animated: isActive && Math.random() > 0.3,
+      active: isActive,
+      intensity: isActive ? Math.random() * 0.7 + 0.3 : 0.1,
+      bidirectional: Math.random() > 0.4,
+    })
+  })
+  
+  // Generate additional intra-category connections
+  const categories = [...new Set(nodes.map(n => n.category))]
+  categories.forEach(cat => {
+    const catNodes = nodes.filter(n => n.category === cat && n.status === "active")
+    if (catNodes.length < 2) return
+    
+    // Connect some agents within the same category
+    for (let i = 0; i < Math.min(catNodes.length - 1, 5); i++) {
+      const source = catNodes[i]
+      const target = catNodes[i + 1]
+      const id = [source.id, target.id].sort().join("--")
       
-      // Determine connection type based on node types
-      let type: TopologyConnection["type"] = "message"
-      if (node.type === "database" || nodes.find(n => n.id === targetId)?.type === "database") {
-        type = "query"
-      } else if (node.type === "queue" || nodes.find(n => n.id === targetId)?.type === "queue") {
-        type = "stream"
-      } else if (node.category === "integration" || nodes.find(n => n.id === targetId)?.category === "integration") {
-        type = "data"
-      }
+      if (added.has(id)) continue
+      added.add(id)
       
       connections.push({
         id,
-        sourceId: node.id,
-        targetId,
-        type,
+        sourceId: source.id,
+        targetId: target.id,
+        type: "sync",
         traffic: {
-          messagesPerSecond: Math.random() * 50 + 5,
-          bytesPerSecond: Math.floor(Math.random() * 10000 + 500),
-          latencyMs: Math.random() * 50 + 2,
-          errorRate: Math.random() * 0.02,
+          messagesPerSecond: Math.random() * 20 + 2,
+          bytesPerSecond: Math.floor(Math.random() * 5000 + 100),
+          latencyMs: Math.random() * 30 + 1,
+          errorRate: Math.random() * 0.01,
         },
-        animated: Math.random() > 0.3,
-        active: Math.random() > 0.1,
-        intensity: Math.random() * 0.7 + 0.3,
-        bidirectional: Math.random() > 0.4,
+        animated: Math.random() > 0.5,
+        active: true,
+        intensity: Math.random() * 0.5 + 0.2,
+        bidirectional: true,
       })
-    })
+    }
   })
   
   return connections
 }
 
 // Generate active data packets
-function generatePackets(connections: TopologyConnection[]): DataPacket[] {
+function generatePackets(connections: TopologyConnection[], count: number = 30): DataPacket[] {
   const packets: DataPacket[] = []
   const activeConnections = connections.filter(c => c.active && c.animated)
   
-  // Generate 1-3 packets per active connection
-  activeConnections.slice(0, 20).forEach(conn => {
-    const numPackets = Math.floor(Math.random() * 3) + 1
+  // Distribute packets across active connections
+  const connsToUse = activeConnections.slice(0, Math.min(activeConnections.length, count))
+  
+  connsToUse.forEach(conn => {
+    const numPackets = Math.floor(Math.random() * 2) + 1
     for (let i = 0; i < numPackets; i++) {
+      const direction = Math.random() > 0.5
       packets.push({
         id: `pkt-${conn.id}-${i}-${Date.now()}`,
         connectionId: conn.id,
-        sourceId: Math.random() > 0.5 ? conn.sourceId : conn.targetId,
-        targetId: Math.random() > 0.5 ? conn.targetId : conn.sourceId,
+        sourceId: direction ? conn.sourceId : conn.targetId,
+        targetId: direction ? conn.targetId : conn.sourceId,
         type: ["request", "response", "event"][Math.floor(Math.random() * 3)] as DataPacket["type"],
         size: Math.floor(Math.random() * 1000 + 100),
         timestamp: Date.now() - Math.random() * 1000,
@@ -211,37 +279,105 @@ function generatePackets(connections: TopologyConnection[]): DataPacket[] {
   return packets
 }
 
+// Fetch live data from MAS orchestrator
+async function fetchMASData(): Promise<{
+  agents?: Array<{ id: string; status: string; metrics?: TopologyNode["metrics"] }>;
+  incidents?: TopologyIncident[];
+  gaps?: DetectedGap[];
+} | null> {
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 3000)
+    
+    const [agentsRes, incidentsRes, gapsRes] = await Promise.all([
+      fetch(`${MAS_API_URL}/api/dashboard/agents`, { 
+        signal: controller.signal,
+        cache: "no-store",
+      }).catch(() => null),
+      fetch(`${MAS_API_URL}/api/security/incidents?status=active`, { 
+        signal: controller.signal,
+        cache: "no-store",
+      }).catch(() => null),
+      fetch(`${MAS_API_URL}/gaps`, { 
+        signal: controller.signal,
+        cache: "no-store",
+      }).catch(() => null),
+    ])
+    
+    clearTimeout(timeout)
+    
+    const data: {
+      agents?: Array<{ id: string; status: string; metrics?: TopologyNode["metrics"] }>;
+      incidents?: TopologyIncident[];
+      gaps?: DetectedGap[];
+    } = {}
+    
+    if (agentsRes?.ok) {
+      const agentsData = await agentsRes.json()
+      data.agents = agentsData.agents || []
+    }
+    
+    if (incidentsRes?.ok) {
+      const incidentsData = await incidentsRes.json()
+      data.incidents = incidentsData.incidents || []
+    }
+    
+    if (gapsRes?.ok) {
+      const gapsData = await gapsRes.json()
+      data.gaps = gapsData.gaps || []
+    }
+    
+    return Object.keys(data).length > 0 ? data : null
+  } catch {
+    return null
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const includePackets = searchParams.get("packets") !== "false"
+    const includeIncidents = searchParams.get("incidents") !== "false"
+    const categoryFilter = searchParams.get("category")
     
     // Try to get real data from MAS
-    let masData = null
-    try {
-      const masRes = await fetch(`${MAS_API_URL}/topology`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(3000),
+    const masData = await fetchMASData()
+    
+    // Build agent status map from live data
+    const liveStatusMap = new Map<string, { status: string; metrics?: TopologyNode["metrics"] }>()
+    if (masData?.agents) {
+      masData.agents.forEach(agent => {
+        liveStatusMap.set(agent.id, { status: agent.status, metrics: agent.metrics })
       })
-      if (masRes.ok) {
-        masData = await masRes.json()
-      }
-    } catch {
-      // Use generated data
     }
     
-    // Generate positions
-    const positions = generatePositions(TOPOLOGY_REGISTRY)
+    // Generate positions for all agents
+    const positions = generatePositions(COMPLETE_AGENT_REGISTRY)
     
-    // Build nodes with positions and metrics
-    const nodes: TopologyNode[] = TOPOLOGY_REGISTRY.map(node => ({
-      ...node,
-      position: positions.get(node.id) || [0, 0, 0],
-      metrics: generateMetrics(),
-    }))
+    // Filter agents if category specified
+    let agentsToProcess = COMPLETE_AGENT_REGISTRY
+    if (categoryFilter) {
+      agentsToProcess = COMPLETE_AGENT_REGISTRY.filter(a => a.category === categoryFilter)
+    }
+    
+    // Build nodes with positions and metrics (merge live data)
+    const nodes: TopologyNode[] = agentsToProcess.map(agent => 
+      agentToNode(
+        agent, 
+        positions.get(agent.id) || [0, 0, 0],
+        liveStatusMap.get(agent.id)
+      )
+    )
     
     // Generate connections
     const connections = generateConnections(nodes)
+    
+    // Update node connections arrays
+    nodes.forEach(node => {
+      node.connections = connections
+        .filter(c => c.sourceId === node.id || c.targetId === node.id)
+        .map(c => c.sourceId === node.id ? c.targetId : c.sourceId)
+    })
     
     // Generate packets
     const packets = includePackets ? generatePackets(connections) : []
@@ -250,7 +386,7 @@ export async function GET(request: NextRequest) {
     const activeNodes = nodes.filter(n => n.status === "active" || n.status === "busy").length
     const activeConnections = connections.filter(c => c.active).length
     
-    const topology: TopologyData = {
+    const topology: ExtendedTopologyData = {
       nodes,
       connections,
       packets,
@@ -260,11 +396,16 @@ export async function GET(request: NextRequest) {
         totalConnections: connections.length,
         activeConnections,
         messagesPerSecond: connections.reduce((sum, c) => sum + c.traffic.messagesPerSecond, 0),
-        avgLatencyMs: connections.reduce((sum, c) => sum + c.traffic.latencyMs, 0) / connections.length,
-        systemLoad: Math.random() * 0.4 + 0.2,
+        avgLatencyMs: connections.length > 0 
+          ? connections.reduce((sum, c) => sum + c.traffic.latencyMs, 0) / connections.length 
+          : 0,
+        systemLoad: activeNodes / nodes.length,
         uptimeSeconds: 86400 * 3 + Math.floor(Math.random() * 86400),
       },
       lastUpdated: new Date().toISOString(),
+      incidents: includeIncidents ? (masData?.incidents || []) : [],
+      gaps: masData?.gaps || [],
+      predictions: [],
     }
     
     return NextResponse.json(topology)
@@ -284,9 +425,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "nodeId and action required" }, { status: 400 })
     }
     
-    // Try MAS first
+    // Validate action
+    const validActions = ["start", "stop", "restart", "configure", "spawn"]
+    if (!validActions.includes(action)) {
+      return NextResponse.json({ error: `Invalid action. Must be one of: ${validActions.join(", ")}` }, { status: 400 })
+    }
+    
+    // Try MAS orchestrator
     try {
-      const masRes = await fetch(`${MAS_API_URL}/agents/${nodeId}/${action}`, {
+      const endpoint = action === "spawn" 
+        ? `${MAS_API_URL}/agents/spawn`
+        : `${MAS_API_URL}/agents/${nodeId}/${action}`
+      
+      const masRes = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params || {}),
@@ -294,20 +445,39 @@ export async function POST(request: NextRequest) {
       })
       
       if (masRes.ok) {
-        return NextResponse.json(await masRes.json())
+        const result = await masRes.json()
+        return NextResponse.json({
+          success: true,
+          nodeId,
+          action,
+          message: result.message || `Action ${action} completed for ${nodeId}`,
+          data: result,
+          timestamp: new Date().toISOString(),
+        })
       }
-    } catch {
-      // Fallback response
+      
+      // Return error from MAS
+      const errorData = await masRes.json().catch(() => ({}))
+      return NextResponse.json({
+        success: false,
+        nodeId,
+        action,
+        message: errorData.error || `Action ${action} failed`,
+        timestamp: new Date().toISOString(),
+      }, { status: masRes.status })
+    } catch (masError) {
+      // MAS not reachable - return simulated response for development
+      console.warn("MAS not reachable, returning simulated response:", masError)
+      
+      return NextResponse.json({
+        success: true,
+        nodeId,
+        action,
+        message: `Action ${action} queued for ${nodeId} (simulated - MAS offline)`,
+        simulated: true,
+        timestamp: new Date().toISOString(),
+      })
     }
-    
-    // Simulated response
-    return NextResponse.json({
-      success: true,
-      nodeId,
-      action,
-      message: `Action ${action} queued for ${nodeId}`,
-      timestamp: new Date().toISOString(),
-    })
   } catch (error) {
     console.error("Topology action error:", error)
     return NextResponse.json({ error: "Action failed" }, { status: 500 })

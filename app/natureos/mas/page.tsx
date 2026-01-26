@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
+import dynamic from "next/dynamic"
+import Link from "next/link"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { AgentGrid } from "@/components/mas/agent-grid"
 import { AgentTerminal } from "@/components/mas/agent-terminal"
+import { TOTAL_AGENT_COUNT } from "@/components/mas/topology"
 import {
   Bot,
   Network,
@@ -28,7 +31,24 @@ import {
   Workflow,
   Terminal,
   Brain,
+  Maximize2,
 } from "lucide-react"
+
+// Dynamic import for 3D topology to avoid SSR issues
+const AdvancedTopology3D = dynamic(
+  () => import("@/components/mas/topology/advanced-topology-3d").then(mod => ({ default: mod.AdvancedTopology3D })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[600px] flex items-center justify-center bg-slate-950 rounded-lg">
+        <div className="text-center text-white">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Loading 3D Topology...</p>
+        </div>
+      </div>
+    )
+  }
+)
 
 interface SystemHealth {
   status: "healthy" | "degraded" | "unhealthy"
@@ -94,7 +114,7 @@ export default function MASIntegrationPage() {
     <DashboardShell>
       <DashboardHeader
         heading="Multi-Agent System"
-        text="MYCA's distributed agent network - 40 agents across 5 categories"
+        text={`MYCA's distributed agent network - ${TOTAL_AGENT_COUNT} agents across 14 categories`}
       />
 
       <div className="space-y-6">
@@ -119,9 +139,9 @@ export default function MASIntegrationPage() {
               <Bot className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">14</div>
               <p className="text-xs text-muted-foreground">
-                Corporate, Infra, Device, Data, Integration
+                Core, Financial, Mycology, Research, DAO, +9 more
               </p>
             </CardContent>
           </Card>
@@ -158,9 +178,13 @@ export default function MASIntegrationPage() {
           </Card>
         </div>
 
-        <Tabs defaultValue="agents" className="space-y-4">
+        <Tabs defaultValue="topology" className="space-y-4">
           <div className="flex items-center justify-between">
             <TabsList>
+              <TabsTrigger value="topology" className="gap-2">
+                <Network className="h-4 w-4" />
+                Topology
+              </TabsTrigger>
               <TabsTrigger value="agents" className="gap-2">
                 <Bot className="h-4 w-4" />
                 Agents
@@ -192,6 +216,40 @@ export default function MASIntegrationPage() {
               </Button>
             </div>
           </div>
+
+          {/* Topology Tab - 3D Visualization v2.1 */}
+          <TabsContent value="topology" className="space-y-4">
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Network className="h-5 w-5 text-cyan-500" />
+                    Agent Topology v2.1
+                  </CardTitle>
+                  <CardDescription>
+                    3D visualization of {TOTAL_AGENT_COUNT} agents with real-time WebSocket updates
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  asChild
+                >
+                  <Link href="/natureos/mas/topology">
+                    <Maximize2 className="h-4 w-4 mr-2" />
+                    Fullscreen
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-[600px] w-full">
+                  <AdvancedTopology3D 
+                    className="w-full h-full"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Agents Tab - Real-time Grid */}
           <TabsContent value="agents" className="space-y-4">

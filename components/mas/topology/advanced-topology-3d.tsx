@@ -1,8 +1,17 @@
 "use client"
 
 /**
- * Advanced 3D Agent Topology Visualization
+ * Advanced 3D Agent Topology Visualization v2.1
  * Full-featured 3D command center for MAS orchestration
+ * 
+ * Features:
+ * - 223+ agent support with force-directed layout
+ * - Real-time WebSocket updates from MAS Dashboard API
+ * - Security incident overlay with causality chains
+ * - Path tracing with latency visualization
+ * - Historical playback with timeline scrubbing
+ * - Agent spawning from templates
+ * - Level-of-detail (LOD) rendering
  */
 
 import { useState, useEffect, useCallback, useMemo, Suspense, useRef } from "react"
@@ -45,10 +54,23 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  Wifi,
+  WifiOff,
+  AlertTriangle,
+  Route,
+  History,
+  Plus,
 } from "lucide-react"
 import { TopologyNode3D } from "./topology-node"
 import { TopologyConnection3D } from "./topology-connection"
 import { NodeDetailPanel } from "./node-detail-panel"
+import { IncidentOverlay } from "./incident-overlay"
+import { PathTracer } from "./path-tracer"
+import { TimelinePlayer } from "./timeline-player"
+import { AgentSpawner } from "./agent-spawner"
+import { useLODSystem, LODIndicator, type DetailLevel } from "./lod-system"
+import { useTopologyWebSocket, executeAgentAction } from "./use-topology-websocket"
+import { TOTAL_AGENT_COUNT } from "./agent-registry"
 import type {
   TopologyData,
   TopologyNode,
@@ -58,6 +80,10 @@ import type {
   TopologyViewState,
   NodeCategory,
   NodeStatus,
+  TopologyIncident,
+  TopologySnapshot,
+  ExtendedTopologyData,
+  DetectedGap,
 } from "./types"
 import { CATEGORY_COLORS, STATUS_COLORS } from "./types"
 
@@ -477,10 +503,15 @@ export function AdvancedTopology3D({
   fullScreen = false,
   onToggleFullScreen,
 }: AdvancedTopology3DProps) {
-  const [data, setData] = useState<TopologyData | null>(null)
+  const [data, setData] = useState<ExtendedTopologyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(true)
+  const [isLive, setIsLive] = useState(true)
+  
+  // v2.1: Incident and path highlighting state
+  const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([])
+  const [highlightedEdgeIds, setHighlightedEdgeIds] = useState<string[]>([])
   
   const [viewState, setViewState] = useState<TopologyViewState>({
     zoom: 30,
@@ -504,13 +535,52 @@ export function AdvancedTopology3D({
     showMetrics: false,
   })
   
+  // v2.1: WebSocket connection for real-time updates
+  const wsHandlers = useMemo(() => ({
+    onAgentUpdate: (agentId: string, status: NodeStatus, metrics?: TopologyNode["metrics"]) => {
+      setData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          nodes: prev.nodes.map(n => 
+            n.id === agentId ? { ...n, status, metrics: metrics || n.metrics } : n
+          ),
+        }
+      })
+    },
+    onIncidentCreated: (incident: TopologyIncident) => {
+      setData(prev => {
+        if (!prev) return prev
+        return { ...prev, incidents: [...prev.incidents, incident] }
+      })
+    },
+    onIncidentResolved: (incidentId: string) => {
+      setData(prev => {
+        if (!prev) return prev
+        return { ...prev, incidents: prev.incidents.filter(i => i.id !== incidentId) }
+      })
+    },
+  }), [])
+  
+  const { state: wsState, connect: wsConnect, disconnect: wsDisconnect } = useTopologyWebSocket(wsHandlers)
+  
+  // Connect WebSocket when in live mode
+  useEffect(() => {
+    if (isLive) {
+      wsConnect()
+    } else {
+      wsDisconnect()
+    }
+    return () => wsDisconnect()
+  }, [isLive, wsConnect, wsDisconnect])
+  
   // Fetch topology data
   const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/mas/topology")
+      const res = await fetch("/api/mas/topology?incidents=true")
       if (!res.ok) throw new Error("Failed to fetch topology")
-      const topologyData = await res.json()
+      const topologyData: ExtendedTopologyData = await res.json()
       setData(topologyData)
       setError(null)
     } catch (err) {
@@ -524,28 +594,75 @@ export function AdvancedTopology3D({
     fetchData()
   }, [fetchData])
   
-  // Auto-refresh when playing
+  // Auto-refresh when playing (fallback if WebSocket not connected)
   useEffect(() => {
-    if (!isPlaying) return
-    const interval = setInterval(fetchData, 5000)
+    if (!isPlaying || !isLive) return
+    // Reduce polling frequency when WebSocket is connected
+    const interval = setInterval(fetchData, wsState.connected ? 30000 : 5000)
     return () => clearInterval(interval)
-  }, [isPlaying, fetchData])
+  }, [isPlaying, isLive, wsState.connected, fetchData])
   
-  // Handle node actions
+  // v2.1: Handle node actions via real MAS orchestrator
   const handleNodeAction = async (nodeId: string, action: string, params?: Record<string, unknown>) => {
     try {
-      const res = await fetch("/api/mas/topology", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodeId, action, params }),
-      })
-      if (!res.ok) throw new Error("Action failed")
-      // Refresh data after action
-      await fetchData()
+      const result = await executeAgentAction(nodeId, action as "spawn" | "stop" | "restart" | "configure", params)
+      if (result.success) {
+        // Refresh data after action
+        await fetchData()
+      } else {
+        console.error("Node action failed:", result.message)
+      }
     } catch (err) {
       console.error("Node action error:", err)
     }
   }
+  
+  // v2.1: Handle agent spawn
+  const handleSpawnAgent = async (template: string, config: Record<string, unknown>) => {
+    try {
+      const result = await executeAgentAction("spawn", "spawn", { template, ...config })
+      if (result.success) {
+        await fetchData()
+      }
+      return result
+    } catch (err) {
+      return { success: false, message: err instanceof Error ? err.message : "Spawn failed" }
+    }
+  }
+  
+  // v2.1: Handle incident resolution
+  const handleIncidentResolve = async (incidentId: string) => {
+    try {
+      await fetch(`/api/security/incidents/${incidentId}/resolve`, { method: "POST" })
+      await fetchData()
+    } catch (err) {
+      console.error("Incident resolve error:", err)
+    }
+  }
+  
+  // v2.1: Handle path highlighting
+  const handleHighlightPath = useCallback((nodeIds: string[], edgeIds: string[]) => {
+    setHighlightedNodeIds(nodeIds)
+    setHighlightedEdgeIds(edgeIds)
+  }, [])
+  
+  const handleClearHighlight = useCallback(() => {
+    setHighlightedNodeIds([])
+    setHighlightedEdgeIds([])
+  }, [])
+  
+  // v2.1: Handle historical snapshot load
+  const handleSnapshotLoad = useCallback((snapshot: TopologySnapshot) => {
+    setIsLive(false)
+    setData(prev => prev ? {
+      ...prev,
+      nodes: snapshot.nodes,
+      connections: snapshot.connections,
+      stats: snapshot.stats,
+      incidents: snapshot.incidents,
+      lastUpdated: snapshot.timestamp,
+    } : null)
+  }, [])
   
   // Toggle category filter
   const handleToggleCategory = (category: NodeCategory) => {
@@ -639,6 +756,21 @@ export function AdvancedTopology3D({
         </Button>
       )}
       
+      {/* WebSocket connection status */}
+      <div className="absolute top-4 right-[340px] flex items-center gap-2 px-3 py-1.5 bg-black/70 backdrop-blur-md rounded-lg border border-white/10">
+        {wsState.connected ? (
+          <>
+            <Wifi className="h-4 w-4 text-green-400" />
+            <span className="text-xs text-green-400">LIVE</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="h-4 w-4 text-yellow-400" />
+            <span className="text-xs text-yellow-400">POLLING</span>
+          </>
+        )}
+      </div>
+      
       {/* Node Detail Panel */}
       {selectedNode && data && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
@@ -652,9 +784,53 @@ export function AdvancedTopology3D({
         </div>
       )}
       
-      {/* Title */}
+      {/* v2.1: Incident Overlay */}
+      {data && data.incidents && (
+        <IncidentOverlay
+          incidents={data.incidents}
+          predictions={data.predictions || []}
+          nodes={data.nodes}
+          onNodeHighlight={(nodeIds) => setHighlightedNodeIds(nodeIds)}
+          onNodeSelect={(nodeId) => setViewState(prev => ({ ...prev, selectedNodeId: nodeId }))}
+          onIncidentResolve={handleIncidentResolve}
+        />
+      )}
+      
+      {/* v2.1: Path Tracer */}
+      {data && (
+        <PathTracer
+          nodes={data.nodes}
+          connections={data.connections}
+          onHighlightPath={handleHighlightPath}
+          onClearHighlight={handleClearHighlight}
+          onNodeSelect={(nodeId) => setViewState(prev => ({ ...prev, selectedNodeId: nodeId }))}
+        />
+      )}
+      
+      {/* v2.1: Agent Spawner */}
+      {data && (
+        <AgentSpawner
+          gaps={data.gaps || []}
+          onSpawn={handleSpawnAgent}
+        />
+      )}
+      
+      {/* v2.1: Timeline Player */}
+      {data && (
+        <TimelinePlayer
+          currentData={data}
+          onSnapshotLoad={handleSnapshotLoad}
+          onLiveMode={() => {
+            setIsLive(true)
+            fetchData()
+          }}
+          isLive={isLive}
+        />
+      )}
+      
+      {/* Title with version and agent count */}
       <div className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">
-        MYCA Topology v2.0 | {data?.stats.totalNodes || 0} nodes | {data?.stats.totalConnections || 0} connections
+        MYCA Topology v2.1 | {data?.stats.activeNodes || 0}/{data?.stats.totalNodes || 0} active | {TOTAL_AGENT_COUNT} registered
       </div>
     </div>
   )
