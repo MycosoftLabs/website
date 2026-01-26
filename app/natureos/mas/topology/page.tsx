@@ -5,10 +5,10 @@
  * Dedicated fullscreen view for 3D agent topology visualization
  */
 
-import { useState } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, ArrowLeft, Minimize2 } from "lucide-react"
+import { RefreshCw, ArrowLeft, Maximize2, Minimize2 } from "lucide-react"
 import Link from "next/link"
 
 // Dynamic import for 3D topology to avoid SSR issues
@@ -29,9 +29,35 @@ const AdvancedTopology3D = dynamic(
 
 export default function TopologyFullscreenPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Listen for fullscreen changes (including Escape key exit)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
+  }, [])
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen on the container element
+        if (containerRef.current) {
+          await containerRef.current.requestFullscreen()
+        }
+      } else {
+        await document.exitFullscreen()
+      }
+    } catch (err) {
+      console.error("Fullscreen error:", err)
+    }
+  }, [])
 
   return (
-    <div className="relative w-full h-screen bg-black">
+    <div ref={containerRef} className="relative w-full h-screen bg-black">
       {/* Back button */}
       <div className="absolute top-4 left-4 z-50">
         <Button 
@@ -53,25 +79,26 @@ export default function TopologyFullscreenPage() {
           variant="outline"
           size="sm"
           className="bg-black/50 hover:bg-black/70 border-white/10 text-white"
-          onClick={() => {
-            if (!document.fullscreenElement) {
-              document.documentElement.requestFullscreen()
-              setIsFullscreen(true)
-            } else {
-              document.exitFullscreen()
-              setIsFullscreen(false)
-            }
-          }}
+          onClick={toggleFullscreen}
         >
-          <Minimize2 className="h-4 w-4 mr-2" />
-          {isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          {isFullscreen ? (
+            <>
+              <Minimize2 className="h-4 w-4 mr-2" />
+              Exit Fullscreen
+            </>
+          ) : (
+            <>
+              <Maximize2 className="h-4 w-4 mr-2" />
+              Enter Fullscreen
+            </>
+          )}
         </Button>
       </div>
 
       {/* Topology Component */}
       <AdvancedTopology3D 
         className="w-full h-full"
-        fullScreen={false}
+        fullScreen={isFullscreen}
       />
     </div>
   )

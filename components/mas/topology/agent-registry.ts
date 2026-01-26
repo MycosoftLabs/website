@@ -411,37 +411,89 @@ export function getActiveAgents(): AgentDefinition[] {
   return COMPLETE_AGENT_REGISTRY.filter((a) => a.defaultStatus === "active")
 }
 
-// Default connections based on topology structure
+// Category heads - first agent in each category or designated lead
+const CATEGORY_HEADS: Record<NodeCategory, string> = {
+  core: "myca-orchestrator",
+  financial: "financial",
+  mycology: "mycology-bio",
+  research: "research-coordinator",
+  dao: "dao-orchestrator",
+  communication: "voice",
+  data: "mindex",
+  infrastructure: "docker-manager",
+  simulation: "earth-simulator",
+  security: "auth",
+  integration: "n8n",
+  device: "mycobrain",
+  chemistry: "chemspider-sync",
+  nlm: "nlm-trainer",
+}
+
+// Default connections - ensures ALL agents are connected to the orchestrator
+// via their category heads, creating a fully connected topology
 export function generateDefaultConnections(): Array<{ source: string; target: string }> {
   const connections: Array<{ source: string; target: string }> = []
+  const added = new Set<string>()
+  
+  const addConnection = (source: string, target: string) => {
+    const key = [source, target].sort().join("--")
+    if (!added.has(key) && source !== target) {
+      added.add(key)
+      connections.push({ source, target })
+    }
+  }
 
   // User to Orchestrator
-  connections.push({ source: "user-morgan", target: "myca-orchestrator" })
+  addConnection("user-morgan", "myca-orchestrator")
 
   // Orchestrator to all core services
   CORE_AGENTS.forEach((agent) => {
     if (agent.id !== "myca-orchestrator") {
-      connections.push({ source: "myca-orchestrator", target: agent.id })
+      addConnection("myca-orchestrator", agent.id)
     }
   })
 
-  // Orchestrator to category heads
-  const categoryHeads = [
-    "financial", "mycology-bio", "research-coordinator", "dao-orchestrator",
-    "voice", "mindex", "docker-manager", "earth-simulator", "auth",
-    "n8n", "mycobrain", "chemspider-sync", "nlm-trainer"
-  ]
-  categoryHeads.forEach((head) => {
-    connections.push({ source: "myca-orchestrator", target: head })
+  // Orchestrator to ALL category heads
+  Object.values(CATEGORY_HEADS).forEach((head) => {
+    if (head !== "myca-orchestrator") {
+      addConnection("myca-orchestrator", head)
+    }
+  })
+
+  // Connect EVERY agent to their category head
+  // This ensures all agents have at least one connection to core systems
+  COMPLETE_AGENT_REGISTRY.forEach((agent) => {
+    const categoryHead = CATEGORY_HEADS[agent.category]
+    
+    // Skip if this agent IS the category head
+    if (agent.id === categoryHead) return
+    
+    // Skip core agents (already connected to orchestrator)
+    if (agent.category === "core") return
+    
+    // Connect to category head
+    if (categoryHead) {
+      addConnection(agent.id, categoryHead)
+    }
   })
 
   // Core services to databases
-  connections.push({ source: "memory-manager", target: "redis" })
-  connections.push({ source: "memory-manager", target: "postgresql" })
-  connections.push({ source: "memory-manager", target: "qdrant-service" })
-  connections.push({ source: "vector-store", target: "qdrant-service" })
-  connections.push({ source: "mindex", target: "postgresql" })
-  connections.push({ source: "cache-manager", target: "redis" })
-
+  addConnection("memory-manager", "redis")
+  addConnection("memory-manager", "postgresql")
+  addConnection("memory-manager", "qdrant-service")
+  addConnection("vector-store", "qdrant-service")
+  addConnection("mindex", "postgresql")
+  addConnection("cache-manager", "redis")
+  
+  // Additional infrastructure connections
+  addConnection("postgresql", "myca-orchestrator")
+  addConnection("redis", "myca-orchestrator")
+  addConnection("qdrant-service", "myca-orchestrator")
+  
+  // Integration agents to data sources
+  addConnection("n8n", "postgresql")
+  addConnection("n8n", "redis")
+  addConnection("mycobrain", "qdrant-service")
+  
   return connections
 }

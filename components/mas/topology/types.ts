@@ -46,6 +46,25 @@ export type ConnectionType =
   | "query"      // Database query
   | "stream"     // Real-time stream
   | "sync"       // Synchronization
+  | "heartbeat"  // Health check pings
+  | "broadcast"  // One-to-many
+  | "subscribe"  // Pub/sub subscription
+  | "rpc"        // Remote procedure call
+
+// Line style for connection visualization
+export type LineStyle = "solid" | "dashed" | "dotted"
+
+// Data packet types for visualization
+export type PacketType = 
+  | "request"    // Outgoing request (white dots)
+  | "response"   // Incoming response (blue dots)
+  | "event"      // Event notification (cyan dots)
+  | "error"      // Error packet (red dots)
+  | "heartbeat"  // Health ping (green dots)
+  | "broadcast"  // Broadcast message (purple dots)
+
+// Packet priority for visualization
+export type PacketPriority = "low" | "normal" | "high" | "critical"
 
 export interface TopologyNode {
   id: string
@@ -111,11 +130,33 @@ export interface DataPacket {
   connectionId: string
   sourceId: string
   targetId: string
-  type: "request" | "response" | "event" | "error"
-  size: number
+  type: PacketType
+  priority: PacketPriority
+  size: number           // Affects dot size: small (<100), medium (100-1000), large (>1000)
+  latency: number        // Affects dot speed: fast (<50ms), normal (50-200ms), slow (>200ms)
   timestamp: number
-  progress: number // 0-1
+  progress: number       // 0-1, position along connection line
+  direction: "forward" | "reverse" // For bidirectional connections
+  streamId?: string      // Group packets into streams
   payload?: Record<string, unknown>
+}
+
+// Enhanced TopologyConnection with visual properties
+export interface TopologyConnectionVisual extends TopologyConnection {
+  lineStyle: LineStyle
+  streams: ConnectionStream[]
+  packetQueue: DataPacket[]
+}
+
+// Represents a single stream on a connection (multiple can exist)
+export interface ConnectionStream {
+  id: string
+  connectionId: string
+  type: PacketType
+  active: boolean
+  direction: "forward" | "reverse" | "bidirectional"
+  intensity: number    // 0-1, affects particle density
+  color?: string       // Override default color
 }
 
 export interface TopologyData {
@@ -193,13 +234,48 @@ export const NODE_TYPE_CONFIG: Record<NodeType, { shape: "sphere" | "box" | "oct
 
 // Connection type visual configs
 export const CONNECTION_COLORS: Record<ConnectionType, string> = {
-  data: "#22c55e",
-  message: "#3b82f6",
-  command: "#f97316",
-  query: "#14b8a6",
-  stream: "#8b5cf6",
-  sync: "#eab308",
+  data: "#22c55e",      // Green
+  message: "#3b82f6",   // Blue
+  command: "#f97316",   // Orange
+  query: "#14b8a6",     // Teal
+  stream: "#8b5cf6",    // Purple
+  sync: "#eab308",      // Yellow
+  heartbeat: "#10b981", // Emerald
+  broadcast: "#ec4899", // Pink
+  subscribe: "#06b6d4", // Cyan
+  rpc: "#f59e0b",       // Amber
 }
+
+// Packet type colors for dots
+export const PACKET_COLORS: Record<PacketType, string> = {
+  request: "#ffffff",   // White
+  response: "#3b82f6",  // Blue
+  event: "#06b6d4",     // Cyan
+  error: "#ef4444",     // Red
+  heartbeat: "#22c55e", // Green
+  broadcast: "#a855f7", // Purple
+}
+
+// Line style configurations
+export const LINE_STYLES: Record<LineStyle, { dashArray?: string; opacity: number }> = {
+  solid: { opacity: 0.8 },
+  dashed: { dashArray: "8,4", opacity: 0.6 },
+  dotted: { dashArray: "2,4", opacity: 0.5 },
+}
+
+// Packet size thresholds (bytes)
+export const PACKET_SIZE_THRESHOLDS = {
+  small: 100,
+  medium: 1000,
+  large: 10000,
+} as const
+
+// Latency thresholds (ms)
+export const LATENCY_THRESHOLDS = {
+  fast: 50,
+  normal: 200,
+  slow: 500,
+} as const
 
 // Status colors
 export const STATUS_COLORS: Record<NodeStatus, string> = {

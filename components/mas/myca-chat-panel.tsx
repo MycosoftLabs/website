@@ -1,10 +1,12 @@
 "use client"
 
 /**
- * MYCA Chat Panel v2.1
+ * MYCA Chat Panel v2.2
  * Real-time chat with MYCA using ElevenLabs voice (Arabella)
- * Full n8n workflow integration
- * Features: Voice I/O, Memory, Full system access, Safety confirmations
+ * Full n8n workflow integration + NLQ Engine
+ * Features: Voice I/O, Memory, Full system access, Safety confirmations, NLQ queries
+ * 
+ * Updated: Jan 26, 2026
  */
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -33,6 +35,11 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  Bot,
+  Play,
+  Network,
+  FileText,
+  Cpu,
 } from "lucide-react"
 
 interface Message {
@@ -45,6 +52,10 @@ interface Message {
   audio_base64?: string
   requires_confirmation?: boolean
   confirmation_id?: string
+  // NLQ data
+  nlqData?: Array<{ id: string; type: string; title: string; subtitle?: string }>
+  nlqActions?: Array<{ id: string; label: string; endpoint: string; method: string }>
+  nlqSources?: Array<{ name: string; type: string }>
 }
 
 interface MYCAChatPanelProps {
@@ -297,34 +308,90 @@ How can I assist you today? You can ask me about:
         }
       }
 
-      // Use voice orchestrator endpoint for full processing
-      const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: messageText,
-          conversation_id: sessionId,
-          want_audio: voiceEnabled && voiceConfigured,
-          actor: "user",
-        }),
-      })
+      // Try NLQ API first for enhanced responses
+      let nlqResponse = null
+      try {
+        const nlqRes = await fetch("/api/myca/nlq", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: messageText,
+            context: {
+              sessionId,
+              currentPage: window.location.pathname,
+            },
+            options: {
+              wantAudio: voiceEnabled && voiceConfigured,
+              maxResults: 5,
+              includeActions: true,
+            },
+          }),
+        })
+        if (nlqRes.ok) {
+          nlqResponse = await nlqRes.json()
+        }
+      } catch {
+        // Fall through to voice orchestrator
+      }
 
-      const data = await response.json()
+      // Use NLQ response if available, otherwise fall back to voice orchestrator
+      let responseText = ""
+      let audioBase64 = ""
+      let nlqData = undefined
+      let nlqActions = undefined
+      let nlqSources = undefined
+      let agentName = "myca-orchestrator"
+      let requiresConfirmation = false
+
+      if (nlqResponse && nlqResponse.text) {
+        responseText = nlqResponse.text
+        audioBase64 = nlqResponse.audio_base64 || ""
+        nlqData = nlqResponse.data?.slice(0, 5)
+        nlqActions = nlqResponse.actions
+        nlqSources = nlqResponse.sources
+        agentName = nlqResponse.metadata?.intent?.type?.includes("agent") ? "agent-router" : "myca-nlq"
+        requiresConfirmation = nlqResponse.type === "action" && nlqResponse.actions?.some((a: { requiresConfirmation?: boolean }) => a.requiresConfirmation)
+      } else {
+        // Fallback to voice orchestrator endpoint
+        const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: messageText,
+            conversation_id: sessionId,
+            want_audio: voiceEnabled && voiceConfigured,
+            actor: "user",
+          }),
+        })
+
+        const data = await response.json()
+        responseText = data.response_text || data.response || "I understand. How can I help you further?"
+        audioBase64 = data.audio_base64 || ""
+        agentName = data.agent || "myca-orchestrator"
+        requiresConfirmation = data.requires_confirmation || false
+        
+        if (data.requires_confirmation) {
+          setPendingConfirmation(data.conversation_id)
+        }
+      }
       
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: data.response_text || data.response || "I understand. How can I help you further?",
+        content: responseText,
         timestamp: new Date(),
-        agent: data.agent || "myca-orchestrator",
-        audio_base64: data.audio_base64,
-        requires_confirmation: data.requires_confirmation,
-        confirmation_id: data.requires_confirmation ? data.conversation_id : undefined,
+        agent: agentName,
+        audio_base64: audioBase64 || undefined,
+        requires_confirmation: requiresConfirmation,
+        confirmation_id: requiresConfirmation ? sessionId : undefined,
+        nlqData,
+        nlqActions,
+        nlqSources,
       }
 
       // Handle confirmation requirement
-      if (data.requires_confirmation) {
-        setPendingConfirmation(data.conversation_id)
+      if (requiresConfirmation && !nlqResponse) {
+        setPendingConfirmation(sessionId)
       }
 
       // Remove thinking message and add response
@@ -332,8 +399,8 @@ How can I assist you today? You can ask me about:
       storeToMemory(assistantMessage.content, "assistant", assistantMessage.agent)
 
       // Play audio if available
-      if (data.audio_base64 && voiceEnabled) {
-        playAudio(data.audio_base64)
+      if (audioBase64 && voiceEnabled) {
+        playAudio(audioBase64)
       } else if (voiceEnabled && assistantMessage.content) {
         // Fallback to browser TTS
         fallbackSpeak(assistantMessage.content)
@@ -592,6 +659,54 @@ How can I assist you today? You can ask me about:
                         </div>
                       )}
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      
+                      {/* NLQ Data Results */}
+                      {message.nlqData && message.nlqData.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          <div className="text-[10px] text-muted-foreground mb-1">Results ({message.nlqData.length})</div>
+                          {message.nlqData.map((item) => (
+                            <div 
+                              key={item.id}
+                              className="flex items-center gap-2 p-1.5 rounded bg-black/10 dark:bg-white/5"
+                            >
+                              {item.type === "agent" && <Bot className="h-3 w-3 text-purple-500" />}
+                              {item.type === "document" && <FileText className="h-3 w-3 text-blue-500" />}
+                              {item.type === "telemetry" && <Cpu className="h-3 w-3 text-green-500" />}
+                              {!["agent", "document", "telemetry"].includes(item.type) && <Database className="h-3 w-3 text-gray-500" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium truncate">{item.title}</div>
+                                {item.subtitle && <div className="text-[10px] opacity-60 truncate">{item.subtitle}</div>}
+                              </div>
+                              <Badge variant="outline" className="text-[8px]">{item.type}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* NLQ Actions */}
+                      {message.nlqActions && message.nlqActions.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          {message.nlqActions.map((action) => (
+                            <Button
+                              key={action.id}
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[10px] px-2"
+                              onClick={() => {
+                                // Execute action
+                                fetch(action.endpoint, {
+                                  method: action.method,
+                                  headers: { "Content-Type": "application/json" },
+                                })
+                              }}
+                            >
+                              <Play className="h-2 w-2 mr-1" />
+                              {action.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] opacity-60">
                         <span>{message.timestamp.toLocaleTimeString()}</span>
                         {message.agent && (
@@ -604,6 +719,12 @@ How can I assist you today? You can ask me about:
                             <Volume2 className="h-2 w-2 mr-1" />
                             Audio
                           </Badge>
+                        )}
+                        {message.nlqSources && message.nlqSources.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Network className="h-2 w-2" />
+                            {message.nlqSources.map(s => s.name).join(", ")}
+                          </span>
                         )}
                       </div>
                     </>

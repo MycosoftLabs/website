@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 
 /**
- * MYCA Voice Orchestrator API
+ * MYCA Voice Orchestrator API v2.0
+ * Now powered by NLQ Engine for unified processing
  * Integrates with n8n workflows and ElevenLabs for full voice processing
  * 
- * Flow: User Speech → STT → n8n → Orchestrator → LLM → TTS → Audio
+ * Updated: Jan 26, 2026
+ * 
+ * Flow: User Speech → STT → NLQ Engine → Data Sources → LLM → TTS → Audio
  */
 
 // MAS Orchestrator
@@ -33,11 +37,16 @@ interface ChatResponse {
   routed_to?: string
   requires_confirmation?: boolean
   confirmation_prompt?: string
+  // NLQ data for structured responses
+  nlq_data?: NLQResponse["data"]
+  nlq_actions?: NLQResponse["actions"]
+  nlq_sources?: NLQResponse["sources"]
 }
 
 /**
  * POST /api/mas/voice/orchestrator
  * Main voice chat endpoint - handles text and optionally returns audio
+ * Now routes through NLQ engine first for enhanced responses
  */
 export async function POST(request: NextRequest) {
   try {
@@ -48,30 +57,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    let response: ChatResponse = {
+    const response: ChatResponse = {
       conversation_id: conversation_id || `conv-${Date.now()}`,
       response_text: "",
       agent: "myca-orchestrator",
     }
 
-    // Step 1: Try n8n speech_turn workflow for intent detection
+    // Step 1: Process through NLQ Engine first
+    let nlqResponse: NLQResponse | null = null
     try {
-      const turnResponse = await fetch(`${N8N_URL}/webhook/myca/speech_turn`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          request_id: response.conversation_id,
-          actor,
-          transcript: message,
-        }),
-      })
-
-      if (turnResponse.ok) {
-        const turnData = await turnResponse.json()
-        
-        // Check if command requires safety confirmation
-        if (turnData.intent === "command" && turnData.requires_safety) {
-          // Route to safety workflow
+      const nlqEngine = MycaNLQEngine.getInstance()
+      const intent = nlqEngine.parseIntent(message)
+      
+      // For action intents, check if safety confirmation is needed
+      if (intent.type.startsWith("action_")) {
+        // Route to n8n safety workflow
+        try {
           const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/speech_safety`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -79,7 +80,10 @@ export async function POST(request: NextRequest) {
               request_id: response.conversation_id,
               actor,
               transcript: message,
+              intent: intent.type,
+              entities: intent.entities,
             }),
+            signal: AbortSignal.timeout(5000),
           })
 
           if (safetyResponse.ok) {
@@ -90,13 +94,101 @@ export async function POST(request: NextRequest) {
               response.response_text = safetyData.prompt
             }
           }
+        } catch {
+          // Safety check not available, proceed with NLQ
         }
       }
-    } catch (n8nError) {
-      console.log("n8n speech_turn not available, using direct orchestrator")
+      
+      // If no confirmation required, get NLQ response
+      if (!response.requires_confirmation) {
+        // Call NLQ API for full response
+        const nlqApiResponse = await fetch(`${request.url.replace(/\/voice\/orchestrator$/, "")}/myca/nlq`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: message,
+            context: {
+              sessionId: response.conversation_id,
+              currentPage: "voice",
+            },
+            options: {
+              wantAudio: false, // We'll generate audio separately
+              maxResults: 5,
+              includeActions: true,
+            },
+          }),
+        })
+        
+        if (nlqApiResponse.ok) {
+          nlqResponse = await nlqApiResponse.json()
+          if (nlqResponse && nlqResponse.text) {
+            response.response_text = nlqResponse.text
+            response.agent = nlqResponse.metadata?.intent?.type.includes("agent") 
+              ? "agent-router" 
+              : "myca-nlq"
+            response.nlq_data = nlqResponse.data
+            response.nlq_actions = nlqResponse.actions
+            response.nlq_sources = nlqResponse.sources
+          }
+        }
+      }
+    } catch (nlqError) {
+      console.log("NLQ processing failed, falling back to orchestrator:", nlqError)
     }
 
-    // Step 2: If no confirmation needed, call orchestrator directly
+    // Step 2: Try n8n speech_turn workflow for additional intent detection
+    if (!response.response_text && !response.requires_confirmation) {
+      try {
+        const turnResponse = await fetch(`${N8N_URL}/webhook/myca/speech_turn`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request_id: response.conversation_id,
+            actor,
+            transcript: message,
+          }),
+          signal: AbortSignal.timeout(5000),
+        })
+
+        if (turnResponse.ok) {
+          const turnData = await turnResponse.json()
+          
+          // Check if command requires safety confirmation
+          if (turnData.intent === "command" && turnData.requires_safety) {
+            // Route to safety workflow
+            const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/speech_safety`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                request_id: response.conversation_id,
+                actor,
+                transcript: message,
+              }),
+              signal: AbortSignal.timeout(5000),
+            })
+
+            if (safetyResponse.ok) {
+              const safetyData = await safetyResponse.json()
+              if (safetyData.confirmation_required) {
+                response.requires_confirmation = true
+                response.confirmation_prompt = safetyData.prompt
+                response.response_text = safetyData.prompt
+              }
+            }
+          }
+          
+          // Use n8n response if available
+          if (turnData.response && !response.response_text) {
+            response.response_text = turnData.response
+            response.agent = turnData.agent || "n8n-workflow"
+          }
+        }
+      } catch {
+        console.log("n8n speech_turn not available")
+      }
+    }
+
+    // Step 3: If no response yet, call MAS orchestrator directly
     if (!response.requires_confirmation && !response.response_text) {
       try {
         const orchResponse = await fetch(`${MAS_API_URL}/voice/orchestrator/chat`, {
@@ -105,8 +197,9 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             message,
             conversation_id: response.conversation_id,
-            want_audio: false, // We'll generate audio separately
+            want_audio: false,
           }),
+          signal: AbortSignal.timeout(10000),
         })
 
         if (orchResponse.ok) {
@@ -115,17 +208,17 @@ export async function POST(request: NextRequest) {
           response.agent = orchData.agent || "myca-orchestrator"
           response.routed_to = orchData.routed_to
         }
-      } catch (orchError) {
-        console.log("Orchestrator not available, using fallback")
+      } catch {
+        console.log("MAS orchestrator not available, using fallback")
       }
     }
 
-    // Step 3: Generate fallback response if needed
+    // Step 4: Generate fallback response if needed
     if (!response.response_text) {
       response.response_text = generateSmartResponse(message)
     }
 
-    // Step 4: Generate audio if requested
+    // Step 5: Generate audio if requested
     if (want_audio && response.response_text) {
       try {
         const audioBase64 = await generateAudio(response.response_text)
@@ -195,6 +288,7 @@ async function generateAudio(text: string): Promise<string | null> {
         text: cleanTextForSpeech(text),
         voice_id: MYCA_VOICE_ID,
       }),
+      signal: AbortSignal.timeout(10000),
     })
 
     if (response.ok) {
@@ -221,6 +315,7 @@ function cleanTextForSpeech(text: string): string {
     .replace(/\n/g, " ")                // Replace single newlines
     .replace(/[•●]/g, "")               // Remove bullets
     .replace(/\s{2,}/g, " ")            // Collapse spaces
+    .slice(0, 1000)                      // Limit length for TTS
     .trim()
 }
 
@@ -260,6 +355,14 @@ function generateSmartResponse(message: string): string {
   
   if (lowerMessage.includes("network") || lowerMessage.includes("unifi")) {
     return "The UniFi Network agent is monitoring network topology. All access points and switches are online. Would you like to see connected clients or network stats?"
+  }
+  
+  if (lowerMessage.includes("document") || lowerMessage.includes("docs")) {
+    return "I can search our document knowledge base. What topic would you like me to find documentation for? I have access to deployment guides, API references, and system documentation."
+  }
+  
+  if (lowerMessage.includes("memory") || lowerMessage.includes("remember")) {
+    return "I maintain conversation memory across sessions. I can recall our previous discussions and use that context to help you. What would you like me to remember or recall?"
   }
   
   return `I understand you're asking about "${message}". Let me coordinate with the relevant agents. Is there something specific you'd like me to focus on?`

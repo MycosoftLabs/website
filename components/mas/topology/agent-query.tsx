@@ -1,17 +1,21 @@
 "use client"
 
 /**
- * Agent Query Component
+ * Agent Query Component v2.0
  * Metabase-style natural language query for agents
- * Inspired by: https://github.com/metabase/metabase (Metabot AI)
+ * Now powered by MYCA NLQ Engine for full system queries
+ * 
+ * Updated: Jan 26, 2026
  * 
  * Allows users to ask questions like:
  * - "Which agents have high CPU usage?"
  * - "Show me all agents connected to Redis"
  * - "What's the error rate for financial agents?"
+ * - "Find documentation about deployment"
+ * - "Run the health check workflow"
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react"
+import { useState, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,9 +36,14 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Play,
+  FileText,
+  Database,
+  Workflow,
 } from "lucide-react"
 import type { TopologyNode, TopologyConnection, NodeCategory, NodeStatus } from "./types"
 import { CATEGORY_COLORS, STATUS_COLORS } from "./types"
+import type { NLQResponse, NLQDataItem, NLQAction } from "@/lib/services/myca-nlq"
 
 interface AgentQueryProps {
   nodes: TopologyNode[]
@@ -354,29 +363,68 @@ export function AgentQuery({
 }: AgentQueryProps) {
   const [query, setQuery] = useState("")
   const [result, setResult] = useState<QueryResult | null>(null)
+  const [nlqResponse, setNlqResponse] = useState<NLQResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [showExamples, setShowExamples] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
+  const [useNlqApi, setUseNlqApi] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (!query.trim()) return
     
     setIsLoading(true)
-    // Simulate AI processing delay
-    setTimeout(() => {
-      const queryResult = executeQuery(query, nodes, connections)
-      setResult(queryResult)
-      setIsLoading(false)
-      setIsExpanded(true)
-      
-      // Highlight matching nodes
-      if (queryResult.agents) {
-        onHighlightNodes(queryResult.agents.map(a => a.id))
+    setResult(null)
+    setNlqResponse(null)
+    
+    // Try NLQ API first for enhanced system-wide queries
+    if (useNlqApi) {
+      try {
+        const response = await fetch("/api/myca/nlq", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: query,
+            context: { currentPage: "topology" },
+            options: { maxResults: 15, includeActions: true },
+          }),
+        })
+        
+        if (response.ok) {
+          const data: NLQResponse = await response.json()
+          setNlqResponse(data)
+          setIsExpanded(true)
+          
+          // Highlight agents from response
+          if (data.data) {
+            const agentIds = data.data
+              .filter((d: NLQDataItem) => d.type === "agent")
+              .map((d: NLQDataItem) => d.id)
+            if (agentIds.length > 0) {
+              onHighlightNodes(agentIds)
+            }
+          }
+          
+          setIsLoading(false)
+          return
+        }
+      } catch {
+        // Fall back to local query
       }
-    }, 300)
-  }, [query, nodes, connections, onHighlightNodes])
+    }
+    
+    // Fallback to local pattern-based query
+    const queryResult = executeQuery(query, nodes, connections)
+    setResult(queryResult)
+    setIsLoading(false)
+    setIsExpanded(true)
+    
+    // Highlight matching nodes
+    if (queryResult.agents) {
+      onHighlightNodes(queryResult.agents.map(a => a.id))
+    }
+  }, [query, nodes, connections, onHighlightNodes, useNlqApi])
   
   const handleExampleClick = (example: string) => {
     setQuery(example)
@@ -485,8 +533,96 @@ export function AgentQuery({
             </div>
           )}
           
-          {/* Results */}
-          {result && (
+          {/* NLQ API Results */}
+          {nlqResponse && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">{nlqResponse.text}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
+              </div>
+              
+              {isExpanded && (
+                <>
+                  {/* NLQ Data results */}
+                  {nlqResponse.data && nlqResponse.data.length > 0 && (
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-1">
+                        {nlqResponse.data.slice(0, 15).map((item: NLQDataItem) => (
+                          <button
+                            key={item.id}
+                            className="w-full p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+                            onClick={() => {
+                              if (item.type === "agent") {
+                                onNodeSelect(item.id)
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {item.type === "agent" && <Bot className="h-3 w-3 text-purple-400" />}
+                              {item.type === "document" && <FileText className="h-3 w-3 text-blue-400" />}
+                              {item.type === "workflow" && <Workflow className="h-3 w-3 text-orange-400" />}
+                              {!["agent", "document", "workflow"].includes(item.type) && <Database className="h-3 w-3 text-cyan-400" />}
+                              <span className="text-sm font-medium flex-1 truncate">{item.title}</span>
+                              <Badge variant="outline" className="text-[9px]">
+                                {item.type}
+                              </Badge>
+                            </div>
+                            {item.subtitle && (
+                              <div className="text-[10px] text-gray-400 mt-1 truncate">
+                                {item.subtitle}
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                  
+                  {/* NLQ Actions */}
+                  {nlqResponse.actions && nlqResponse.actions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {nlqResponse.actions.map((action: NLQAction) => (
+                        <Button
+                          key={action.id}
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[10px] px-2 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+                          onClick={() => {
+                            fetch(action.endpoint, {
+                              method: action.method,
+                              headers: { "Content-Type": "application/json" },
+                              body: action.params ? JSON.stringify(action.params) : undefined,
+                            })
+                          }}
+                        >
+                          <Play className="h-2 w-2 mr-1" />
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Sources */}
+                  {nlqResponse.sources && nlqResponse.sources.length > 0 && (
+                    <div className="flex items-center gap-1 text-[9px] text-gray-500 mt-2">
+                      <Network className="h-2.5 w-2.5" />
+                      {nlqResponse.sources.map(s => s.name).join(", ")}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          
+          {/* Local Query Results (fallback) */}
+          {result && !nlqResponse && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">{result.answer}</span>

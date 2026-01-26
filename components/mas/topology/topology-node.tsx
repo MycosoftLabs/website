@@ -21,6 +21,7 @@ interface TopologyNodeProps {
   showLabels: boolean
   showMetrics: boolean
   animationSpeed: number
+  isConnectionTarget?: boolean // When true, node is a potential connection target
 }
 
 // Custom pulsing glow shader
@@ -71,12 +72,16 @@ export function TopologyNode3D({
   showLabels,
   showMetrics,
   animationSpeed,
+  isConnectionTarget = false,
 }: TopologyNodeProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const glowRef = useRef<THREE.Mesh>(null)
+  const connectionRingRef = useRef<THREE.Mesh>(null)
   const [localHover, setLocalHover] = useState(false)
   
-  const color = useMemo(() => new THREE.Color(CATEGORY_COLORS[node.category]), [node.category])
+  // Use connection target color when in connection mode
+  const baseColor = isConnectionTarget && localHover ? "#22d3ee" : CATEGORY_COLORS[node.category]
+  const color = useMemo(() => new THREE.Color(baseColor), [baseColor])
   const statusColor = useMemo(() => new THREE.Color(STATUS_COLORS[node.status]), [node.status])
   
   // Glow material
@@ -103,15 +108,16 @@ export function TopologyNode3D({
         meshRef.current.rotation.y += delta * 0.2 * animationSpeed
       }
       
-      // Pulse scale for busy nodes
-      if (node.status === "busy") {
+      // Pulse scale for busy nodes or connection targets
+      if (node.status === "busy" || (isConnectionTarget && localHover)) {
         const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.05 + 1
         meshRef.current.scale.setScalar(pulse)
       }
       
-      // Hover effect
+      // Hover effect - larger for connection targets
       if (localHover || hovered || selected) {
-        meshRef.current.scale.lerp(new THREE.Vector3(1.15, 1.15, 1.15), 0.1)
+        const targetScale = isConnectionTarget && localHover ? 1.3 : 1.15
+        meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1)
       } else {
         meshRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1)
       }
@@ -119,11 +125,22 @@ export function TopologyNode3D({
     
     if (glowRef.current && glowMaterial.uniforms) {
       glowMaterial.uniforms.time.value = state.clock.elapsedTime
+      // Brighter glow for connection targets
+      const targetIntensity = isConnectionTarget 
+        ? (localHover ? 1.2 : 0.6) 
+        : (selected ? 1.0 : localHover || hovered ? 0.7 : 0.3)
       glowMaterial.uniforms.intensity.value = THREE.MathUtils.lerp(
         glowMaterial.uniforms.intensity.value,
-        selected ? 1.0 : localHover || hovered ? 0.7 : 0.3,
+        targetIntensity,
         0.1
       )
+    }
+    
+    // Animate connection target ring
+    if (connectionRingRef.current && isConnectionTarget) {
+      connectionRingRef.current.rotation.z = state.clock.elapsedTime * 2
+      const scale = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.1
+      connectionRingRef.current.scale.setScalar(scale)
     }
   })
   
@@ -136,7 +153,8 @@ export function TopologyNode3D({
     e.stopPropagation()
     setLocalHover(true)
     onHover(node.id)
-    document.body.style.cursor = "pointer"
+    // Show crosshair cursor for connection targets
+    document.body.style.cursor = isConnectionTarget ? "crosshair" : "pointer"
   }
   
   const handlePointerOut = () => {
@@ -177,6 +195,14 @@ export function TopologyNode3D({
         <ringGeometry args={[node.size * 0.8, node.size * 0.95, 32]} />
         <meshBasicMaterial color={statusColor} transparent opacity={0.8} />
       </mesh>
+      
+      {/* Connection target indicator ring - shows when in connection mode */}
+      {isConnectionTarget && (
+        <mesh ref={connectionRingRef} rotation={[Math.PI / 2, 0, 0]} position={[0, node.size * 0.1, 0]}>
+          <ringGeometry args={[node.size * 1.3, node.size * 1.5, 32]} />
+          <meshBasicMaterial color="#22d3ee" transparent opacity={localHover ? 0.8 : 0.4} />
+        </mesh>
+      )}
       
       {/* Label */}
       {(showLabels || localHover || hovered || selected) && (

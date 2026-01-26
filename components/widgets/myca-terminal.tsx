@@ -1,20 +1,35 @@
 "use client";
 
 /**
- * MYCA Terminal Widget
+ * MYCA Terminal Widget v2.0
  * 
  * A terminal-style display showing system-wide events from MYCA (Mycosoft Autonomous Cognitive Agent).
  * Displays real-time events in a scrolling terminal format with color-coded severity.
+ * Now with NLQ input capability for natural language queries.
  * 
- * Replaces the BME688 sensor widget in NatureOS Overview Analysis tab.
+ * Updated: Jan 26, 2026
  */
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Terminal, Bot, RefreshCw, Pause, Play, Maximize2, Minimize2, X } from "lucide-react";
+import { 
+  Terminal, 
+  Bot, 
+  RefreshCw, 
+  Pause, 
+  Play, 
+  Maximize2, 
+  Minimize2, 
+  X,
+  Send,
+  Sparkles,
+  Loader2,
+} from "lucide-react";
+import type { NLQResponse } from "@/lib/services/myca-nlq";
 
 interface MYCAEvent {
   id: string;
@@ -63,6 +78,91 @@ export function MYCATerminal({
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+  
+  // NLQ input state
+  const [nlqQuery, setNlqQuery] = useState("");
+  const [nlqLoading, setNlqLoading] = useState(false);
+  const [showNlqInput, setShowNlqInput] = useState(false);
+  const nlqInputRef = useRef<HTMLInputElement>(null);
+  
+  // Handle NLQ query submission
+  const handleNlqSubmit = useCallback(async () => {
+    if (!nlqQuery.trim() || nlqLoading) return;
+    
+    setNlqLoading(true);
+    
+    // Add user query as event
+    const userEvent: MYCAEvent = {
+      id: `nlq-user-${Date.now()}`,
+      timestamp: new Date(),
+      level: "info",
+      source: "USER",
+      message: `> ${nlqQuery}`,
+    };
+    setEvents(prev => [userEvent, ...prev].slice(0, maxEvents));
+    
+    try {
+      const response = await fetch("/api/myca/nlq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: nlqQuery,
+          context: { currentPage: "terminal" },
+          options: { maxResults: 5 },
+        }),
+      });
+      
+      if (response.ok) {
+        const data: NLQResponse = await response.json();
+        
+        // Add MYCA response as event
+        const responseEvent: MYCAEvent = {
+          id: `nlq-response-${Date.now()}`,
+          timestamp: new Date(),
+          level: data.type === "error" ? "error" : "success",
+          source: "MYCA",
+          message: data.text,
+          agent: "nlq-engine",
+        };
+        setEvents(prev => [responseEvent, ...prev].slice(0, maxEvents));
+        
+        // Add data items as events if present
+        if (data.data && data.data.length > 0) {
+          data.data.slice(0, 3).forEach((item, idx) => {
+            const dataEvent: MYCAEvent = {
+              id: `nlq-data-${Date.now()}-${idx}`,
+              timestamp: new Date(),
+              level: "debug",
+              source: "DATA",
+              message: `  → ${item.title}${item.subtitle ? ` (${item.subtitle})` : ""}`,
+            };
+            setEvents(prev => [dataEvent, ...prev].slice(0, maxEvents));
+          });
+        }
+      } else {
+        const errorEvent: MYCAEvent = {
+          id: `nlq-error-${Date.now()}`,
+          timestamp: new Date(),
+          level: "error",
+          source: "MYCA",
+          message: "Query failed. Please try again.",
+        };
+        setEvents(prev => [errorEvent, ...prev].slice(0, maxEvents));
+      }
+    } catch (error) {
+      const errorEvent: MYCAEvent = {
+        id: `nlq-error-${Date.now()}`,
+        timestamp: new Date(),
+        level: "error",
+        source: "SYSTEM",
+        message: `NLQ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      };
+      setEvents(prev => [errorEvent, ...prev].slice(0, maxEvents));
+    } finally {
+      setNlqLoading(false);
+      setNlqQuery("");
+    }
+  }, [nlqQuery, nlqLoading, maxEvents]);
 
   const fetchEvents = useCallback(async () => {
     if (isPaused) return;
@@ -204,6 +304,18 @@ export function MYCATerminal({
           <Button
             variant="ghost"
             size="icon"
+            className={`h-6 w-6 ${showNlqInput ? "text-purple-400" : "text-gray-400"} hover:text-purple-400`}
+            onClick={() => {
+              setShowNlqInput(!showNlqInput);
+              setTimeout(() => nlqInputRef.current?.focus(), 100);
+            }}
+            title="Ask MYCA (NLQ)"
+          >
+            <Sparkles className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-6 w-6 text-gray-400 hover:text-white"
             onClick={() => setIsPaused(!isPaused)}
           >
@@ -240,6 +352,36 @@ export function MYCATerminal({
           )}
         </div>
       </CardHeader>
+      
+      {/* NLQ Input Bar */}
+      {showNlqInput && (
+        <div className="px-3 py-2 border-b border-gray-800 bg-gray-900/50">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-purple-400 flex-shrink-0" />
+            <Input
+              ref={nlqInputRef}
+              value={nlqQuery}
+              onChange={(e) => setNlqQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleNlqSubmit()}
+              placeholder="Ask MYCA... (e.g., 'show agent status', 'list errors')"
+              className="h-7 text-xs bg-transparent border-gray-700 text-gray-200 placeholder:text-gray-500 focus:border-purple-500"
+              disabled={nlqLoading}
+            />
+            <Button
+              size="sm"
+              className="h-7 px-2 bg-purple-600 hover:bg-purple-700"
+              onClick={handleNlqSubmit}
+              disabled={nlqLoading || !nlqQuery.trim()}
+            >
+              {nlqLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Send className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
       <CardContent className="p-0">
         <ScrollArea className={isMaximized ? "h-[600px]" : "h-[200px]"}>
           <div
