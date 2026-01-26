@@ -562,7 +562,6 @@ export function AdvancedTopology3D({
   const [error, setError] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(true)
   const [isLive, setIsLive] = useState(true)
-  const [is2DMode, setIs2DMode] = useState(false) // 2D/3D toggle
   
   // v2.1: Incident and path highlighting state
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([])
@@ -766,8 +765,6 @@ export function AdvancedTopology3D({
       <Canvas 
         shadows 
         className="w-full h-full"
-        orthographic={is2DMode}
-        camera={is2DMode ? { position: [0, 100, 0], zoom: 5 } : undefined}
       >
         <Suspense fallback={null}>
           {data && (
@@ -777,7 +774,6 @@ export function AdvancedTopology3D({
               viewState={viewState}
               setViewState={setViewState}
               onNodeAction={handleNodeAction}
-              is2DMode={is2DMode}
             />
           )}
         </Suspense>
@@ -832,27 +828,17 @@ export function AdvancedTopology3D({
         </Button>
       )}
       
-      {/* WebSocket connection status, 2D/3D toggle, and Layout Manager */}
+      {/* WebSocket connection status and Layout Manager */}
       <div className="absolute top-4 right-[340px] flex items-center gap-2">
-        {/* 2D/3D Toggle */}
+        {/* View Mode - currently 3D only, 2D mode planned for future */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setIs2DMode(!is2DMode)}
-          className="bg-black/70 hover:bg-black/90 text-white border border-white/10 px-3"
-          title={is2DMode ? "Switch to 3D view" : "Switch to 2D view (birds-eye)"}
+          className="bg-black/70 hover:bg-black/90 text-white border border-white/10 px-3 cursor-default"
+          title="3D View (use mouse to pan, zoom, and rotate)"
         >
-          {is2DMode ? (
-            <>
-              <Box className="h-4 w-4 mr-2" />
-              <span className="text-xs">3D</span>
-            </>
-          ) : (
-            <>
-              <Square className="h-4 w-4 mr-2" />
-              <span className="text-xs">2D</span>
-            </>
-          )}
+          <Box className="h-4 w-4 mr-2" />
+          <span className="text-xs">3D</span>
         </Button>
         
         {/* Layout Manager */}
