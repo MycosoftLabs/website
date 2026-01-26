@@ -68,6 +68,9 @@ import { IncidentOverlay } from "./incident-overlay"
 import { PathTracer } from "./path-tracer"
 import { TimelinePlayer } from "./timeline-player"
 import { AgentSpawner } from "./agent-spawner"
+import { AgentQuery } from "./agent-query"
+import { TelemetryWidgets } from "./telemetry-widgets"
+import { LayoutManager } from "./layout-manager"
 import { useLODSystem, LODIndicator, type DetailLevel } from "./lod-system"
 import { useTopologyWebSocket, executeAgentAction } from "./use-topology-websocket"
 import { TOTAL_AGENT_COUNT } from "./agent-registry"
@@ -706,7 +709,7 @@ export function AdvancedTopology3D({
   }
   
   return (
-    <div className={`relative bg-black ${fullScreen ? "fixed inset-0 z-50" : className}`}>
+    <div className={`relative bg-black overflow-hidden ${fullScreen ? "fixed inset-0 z-50" : className}`}>
       {/* 3D Canvas */}
       <Canvas shadows className="w-full h-full">
         <Suspense fallback={null}>
@@ -736,6 +739,15 @@ export function AdvancedTopology3D({
       {data && (
         <>
           <SystemStatsHUD data={data} />
+          
+          {/* Metabase-style natural language query */}
+          <AgentQuery
+            nodes={data.nodes}
+            connections={data.connections}
+            onNodeSelect={(nodeId) => setViewState(prev => ({ ...prev, selectedNodeId: nodeId }))}
+            onHighlightNodes={setHighlightedNodeIds}
+          />
+          
           <CategoryLegend filter={filter} onToggleCategory={handleToggleCategory} />
           <ControlPanel
             viewState={viewState}
@@ -762,19 +774,32 @@ export function AdvancedTopology3D({
         </Button>
       )}
       
-      {/* WebSocket connection status */}
-      <div className="absolute top-4 right-[340px] flex items-center gap-2 px-3 py-1.5 bg-black/70 backdrop-blur-md rounded-lg border border-white/10">
-        {wsState.connected ? (
-          <>
-            <Wifi className="h-4 w-4 text-green-400" />
-            <span className="text-xs text-green-400">LIVE</span>
-          </>
-        ) : (
-          <>
-            <WifiOff className="h-4 w-4 text-yellow-400" />
-            <span className="text-xs text-yellow-400">POLLING</span>
-          </>
-        )}
+      {/* WebSocket connection status and Layout Manager */}
+      <div className="absolute top-4 right-[340px] flex items-center gap-2">
+        {/* Layout Manager */}
+        <LayoutManager
+          currentViewState={viewState}
+          currentFilter={filter}
+          onLoadLayout={(newViewState, newFilter) => {
+            setViewState(newViewState)
+            setFilter(newFilter)
+          }}
+        />
+        
+        {/* Connection Status */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/70 backdrop-blur-md rounded-lg border border-white/10">
+          {wsState.connected ? (
+            <>
+              <Wifi className="h-4 w-4 text-green-400" />
+              <span className="text-xs text-green-400">LIVE</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="h-4 w-4 text-yellow-400" />
+              <span className="text-xs text-yellow-400">POLLING</span>
+            </>
+          )}
+        </div>
       </div>
       
       {/* Node Detail Panel */}
@@ -831,6 +856,14 @@ export function AdvancedTopology3D({
             fetchData()
           }}
           isLive={isLive}
+        />
+      )}
+      
+      {/* Serial-Studio inspired telemetry widgets */}
+      {data && (
+        <TelemetryWidgets
+          nodes={data.nodes}
+          selectedNodeId={viewState.selectedNodeId}
         />
       )}
       

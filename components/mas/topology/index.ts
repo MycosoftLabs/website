@@ -17,6 +17,7 @@ export { AdvancedTopology3D } from "./advanced-topology-3d"
 export { TopologyNode3D } from "./topology-node"
 export { TopologyConnection3D } from "./topology-connection"
 export { NodeDetailPanel } from "./node-detail-panel"
+export { MetricsChart } from "./metrics-chart"
 
 // v2.1 Layout Engine
 export { CytoscapeLayout } from "./cytoscape-layout"
@@ -35,6 +36,9 @@ export { IncidentOverlay } from "./incident-overlay"
 export { PathTracer } from "./path-tracer"
 export { TimelinePlayer } from "./timeline-player"
 export { AgentSpawner } from "./agent-spawner"
+export { AgentQuery } from "./agent-query"
+export { TelemetryWidgets } from "./telemetry-widgets"
+export { LayoutManager } from "./layout-manager"
 
 // v2.1 LOD System
 export { 

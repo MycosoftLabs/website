@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import type { TopologyNode, TopologyConnection } from "./types"
 import { CATEGORY_COLORS, STATUS_COLORS } from "./types"
+import { MetricsChart } from "./metrics-chart"
 
 interface NodeDetailPanelProps {
   node: TopologyNode
@@ -136,8 +137,9 @@ export function NodeDetailPanel({
       </CardHeader>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="mx-4 grid grid-cols-4">
+        <TabsList className="mx-4 grid grid-cols-5">
           <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+          <TabsTrigger value="charts" className="text-xs">Charts</TabsTrigger>
           <TabsTrigger value="metrics" className="text-xs">Metrics</TabsTrigger>
           <TabsTrigger value="connections" className="text-xs">Links</TabsTrigger>
           <TabsTrigger value="terminal" className="text-xs">Terminal</TabsTrigger>
@@ -211,6 +213,11 @@ export function NodeDetailPanel({
               <div className="text-xs text-muted-foreground">
                 Last active: {new Date(node.metrics.lastActive).toLocaleString()}
               </div>
+            </TabsContent>
+            
+            {/* Charts Tab - Grafana-style time-series */}
+            <TabsContent value="charts" className="mt-0">
+              <MetricsChart node={node} />
             </TabsContent>
             
             {/* Metrics Tab */}
