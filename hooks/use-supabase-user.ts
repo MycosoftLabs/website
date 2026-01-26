@@ -50,41 +50,39 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
   }, [supabase.auth])
 
   useEffect(() => {
-    const getUser = async () => {
+    // Single call to getSession - it contains the user
+    const getInitialSession = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser()
-        if (error && error.message !== "Auth session missing!") {
-          throw error
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          // Silently handle missing session - not an error
+          if (error.message !== "Auth session missing!") {
+            console.warn("Session error:", error.message)
+          }
         }
-        setUser(user)
-        
-        const { data: { session } } = await supabase.auth.getSession()
         setSession(session)
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error("Failed to get user"))
+        setUser(session?.user ?? null)
+      } catch {
+        // Silently fail - don't block the app
       } finally {
         setLoading(false)
       }
     }
 
-    getUser()
+    // Use setTimeout to not block initial render
+    const timeoutId = setTimeout(getInitialSession, 0)
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
-        
-        // Handle specific events
-        if (event === "SIGNED_OUT") {
-          setUser(null)
-          setSession(null)
-        }
       }
     )
 
     return () => {
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [supabase.auth])

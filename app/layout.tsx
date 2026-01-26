@@ -6,20 +6,17 @@ import { AppStateProvider } from "@/contexts/app-state-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import "./globals.css"
-import Script from "next/script"
 
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  display: "swap", // Prevent font blocking
 })
-
-// Force dynamic rendering for all pages (client components like useSidebar need runtime)
-export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: "Mycosoft - The Fungal Intelligence Platform",
   description: "Search engine and tools for mycology research and fungal intelligence",
-    generator: 'v0.app'
+  generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -29,18 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css"
-          type="text/css"
-        />
-      </head>
       <body className={geistSans.className}>
-        <Script
-          src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"
-          strategy="beforeInteractive"
-        />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <AppStateProvider>

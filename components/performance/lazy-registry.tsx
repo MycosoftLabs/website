@@ -109,11 +109,20 @@ export const LazyTransformerExplainer = dynamic(
 )
 
 // ============================================================================
-// Map Components
+// Map Components (Local/Self-hosted - no cloud dependencies)
 // ============================================================================
 
+export const LazyLocalMap = dynamic(
+  () => import("@/components/maps/local-map"),
+  { 
+    ssr: false, 
+    loading: () => <AppSkeleton icon={Map} title="Map" description="Loading map..." />
+  }
+)
+
+// Deprecated: Use LazyLocalMap instead - kept for backward compatibility
 export const LazyAzureMap = dynamic(
-  () => import("@/components/maps/azure-map"),
+  () => import("@/components/maps/local-map"), // Redirects to local map
   { 
     ssr: false, 
     loading: () => <AppSkeleton icon={Map} title="Map" description="Loading map..." />

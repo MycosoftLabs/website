@@ -3,6 +3,8 @@
 /**
  * WebSocket Hook for Real-Time Topology Updates
  * Connects to MAS Dashboard API at 192.168.0.188:8001
+ * 
+ * Falls back gracefully to polling mode when WebSocket is unavailable
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
@@ -17,11 +19,13 @@ import type {
   ExtendedTopologyData,
 } from "./types"
 
-// MAS Dashboard WebSocket URL
+// MAS Dashboard WebSocket URL - can be disabled with NEXT_PUBLIC_MAS_WS_ENABLED=false
+const WS_ENABLED = process.env.NEXT_PUBLIC_MAS_WS_ENABLED !== "false"
 const WS_URL = process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://192.168.0.188:8001/api/dashboard/ws"
-const RECONNECT_DELAY = 3000
-const MAX_RECONNECT_ATTEMPTS = 10
+const RECONNECT_DELAY = 5000
+const MAX_RECONNECT_ATTEMPTS = 3 // Reduced from 10 to avoid spam
 const HEARTBEAT_INTERVAL = 30000
+const INITIAL_CONNECT_TIMEOUT = 5000 // Timeout for initial connection
 
 export interface TopologyWebSocketState {
   connected: boolean
@@ -200,7 +204,35 @@ export function useTopologyWebSocket(
 
   // Connect to WebSocket
   const connect = useCallback(() => {
+    // Skip if WebSocket is disabled or already connected/connecting
+    if (!WS_ENABLED) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[TopologyWS] WebSocket disabled, using polling mode")
+      }
+      setState((prev) => ({
+        ...prev,
+        connected: false,
+        connecting: false,
+        error: "WebSocket disabled - using polling",
+      }))
+      return
+    }
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    // Don't attempt reconnect if we've exceeded max attempts
+    if (state.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[TopologyWS] Max reconnect attempts reached, staying in polling mode")
+      }
+      setState((prev) => ({
+        ...prev,
+        connected: false,
+        connecting: false,
+        error: "MAS WebSocket unavailable - using polling mode",
+      }))
       return
     }
 
@@ -208,8 +240,19 @@ export function useTopologyWebSocket(
 
     try {
       const ws = new WebSocket(WS_URL)
+      
+      // Connection timeout - if no open event in 5 seconds, abort
+      const connectTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          ws.close()
+          if (process.env.NODE_ENV === "development") {
+            console.log("[TopologyWS] Connection timeout, MAS server may be unavailable")
+          }
+        }
+      }, INITIAL_CONNECT_TIMEOUT)
 
       ws.onopen = () => {
+        clearTimeout(connectTimeout)
         console.log("[TopologyWS] Connected to MAS Dashboard")
         setState((prev) => ({
           ...prev,
@@ -226,16 +269,20 @@ export function useTopologyWebSocket(
 
       ws.onmessage = handleMessage
 
-      ws.onerror = (error) => {
-        console.error("[TopologyWS] WebSocket error:", error)
+      ws.onerror = () => {
+        clearTimeout(connectTimeout)
+        // Only log in development to avoid console spam
+        if (process.env.NODE_ENV === "development" && state.reconnectAttempts === 0) {
+          console.log("[TopologyWS] Connection failed - MAS server may be unavailable. Falling back to polling mode.")
+        }
         setState((prev) => ({
           ...prev,
-          error: "WebSocket connection error",
+          error: "MAS WebSocket unavailable",
         }))
       }
 
       ws.onclose = (event) => {
-        console.log("[TopologyWS] WebSocket closed:", event.code, event.reason)
+        clearTimeout(connectTimeout)
         stopHeartbeat()
         setState((prev) => ({
           ...prev,
@@ -243,10 +290,9 @@ export function useTopologyWebSocket(
           connecting: false,
         }))
 
-        // Auto-reconnect with exponential backoff
+        // Auto-reconnect with exponential backoff (limited attempts)
         if (state.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          const delay = RECONNECT_DELAY * Math.pow(2, state.reconnectAttempts)
-          console.log(`[TopologyWS] Reconnecting in ${delay}ms...`)
+          const delay = RECONNECT_DELAY * Math.pow(1.5, state.reconnectAttempts)
           reconnectRef.current = setTimeout(() => {
             setState((prev) => ({
               ...prev,
@@ -254,16 +300,22 @@ export function useTopologyWebSocket(
             }))
             connect()
           }, delay)
+        } else {
+          // After max attempts, stay in polling mode silently
+          setState((prev) => ({
+            ...prev,
+            error: "Using polling mode (WebSocket unavailable)",
+          }))
         }
       }
 
       wsRef.current = ws
     } catch (err) {
-      console.error("[TopologyWS] Failed to connect:", err)
+      // Catch and suppress - WebSocket simply not available
       setState((prev) => ({
         ...prev,
         connecting: false,
-        error: err instanceof Error ? err.message : "Connection failed",
+        error: "Using polling mode",
       }))
     }
   }, [handleMessage, startHeartbeat, stopHeartbeat, state.reconnectAttempts])
@@ -343,11 +395,13 @@ export function useTopologyLogStream(enabled: boolean = false) {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
+  const [attemptedConnection, setAttemptedConnection] = useState(false)
 
   const SSE_URL = process.env.NEXT_PUBLIC_MAS_SSE_URL || "http://192.168.0.188:8001/api/dashboard/stream"
+  const SSE_ENABLED = process.env.NEXT_PUBLIC_MAS_SSE_ENABLED !== "false"
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !SSE_ENABLED) {
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
         eventSourceRef.current = null
@@ -356,42 +410,56 @@ export function useTopologyLogStream(enabled: boolean = false) {
       return
     }
 
-    const eventSource = new EventSource(SSE_URL)
-
-    eventSource.onopen = () => {
-      console.log("[TopologySSE] Connected to log stream")
-      setConnected(true)
+    // Only attempt connection once per mount
+    if (attemptedConnection && !connected) {
+      return
     }
 
-    eventSource.onmessage = (event) => {
-      try {
-        const log: LogEntry = JSON.parse(event.data)
-        setLogs((prev) => {
-          const newLogs = [...prev, log]
-          // Keep only last 1000 logs
-          if (newLogs.length > 1000) {
-            return newLogs.slice(-1000)
-          }
-          return newLogs
-        })
-      } catch (err) {
-        console.error("[TopologySSE] Failed to parse log:", err)
+    try {
+      const eventSource = new EventSource(SSE_URL)
+      setAttemptedConnection(true)
+
+      eventSource.onopen = () => {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[TopologySSE] Connected to log stream")
+        }
+        setConnected(true)
       }
-    }
 
-    eventSource.onerror = (error) => {
-      console.error("[TopologySSE] Stream error:", error)
+      eventSource.onmessage = (event) => {
+        try {
+          const log: LogEntry = JSON.parse(event.data)
+          setLogs((prev) => {
+            const newLogs = [...prev, log]
+            // Keep only last 1000 logs
+            if (newLogs.length > 1000) {
+              return newLogs.slice(-1000)
+            }
+            return newLogs
+          })
+        } catch {
+          // Silently ignore parse errors
+        }
+      }
+
+      eventSource.onerror = () => {
+        // Silently close - SSE not available
+        eventSource.close()
+        setConnected(false)
+      }
+
+      eventSourceRef.current = eventSource
+
+      return () => {
+        eventSource.close()
+        eventSourceRef.current = null
+        setConnected(false)
+      }
+    } catch {
+      // SSE not available, silently fail
       setConnected(false)
     }
-
-    eventSourceRef.current = eventSource
-
-    return () => {
-      eventSource.close()
-      eventSourceRef.current = null
-      setConnected(false)
-    }
-  }, [enabled, SSE_URL])
+  }, [enabled, SSE_URL, SSE_ENABLED, attemptedConnection, connected])
 
   const clearLogs = useCallback(() => {
     setLogs([])
@@ -406,23 +474,38 @@ export function useTopologyLogStream(enabled: boolean = false) {
 
 const API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
 
+/**
+ * Fetch topology data from MAS Dashboard API
+ * Note: The /api/mas/topology route handles fallback to simulated data
+ * This function is for direct API calls and may fail if MAS is unavailable
+ */
 export async function fetchTopologyData(): Promise<ExtendedTopologyData | null> {
   try {
+    // Use AbortController for timeout
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+
     const [agentsRes, topologyRes, statsRes, incidentsRes, gapsRes] = await Promise.all([
-      fetch(`${API_BASE}/api/dashboard/agents`),
-      fetch(`${API_BASE}/api/dashboard/topology`),
-      fetch(`${API_BASE}/api/dashboard/stats`),
-      fetch(`${API_BASE}/api/security/incidents?status=active`).catch(() => null),
-      fetch(`${API_BASE}/gaps`).catch(() => null),
+      fetch(`${API_BASE}/api/dashboard/agents`, { signal: controller.signal }).catch(() => null),
+      fetch(`${API_BASE}/api/dashboard/topology`, { signal: controller.signal }).catch(() => null),
+      fetch(`${API_BASE}/api/dashboard/stats`, { signal: controller.signal }).catch(() => null),
+      fetch(`${API_BASE}/api/security/incidents?status=active`, { signal: controller.signal }).catch(() => null),
+      fetch(`${API_BASE}/gaps`, { signal: controller.signal }).catch(() => null),
     ])
 
-    if (!agentsRes.ok || !topologyRes.ok) {
-      throw new Error("Failed to fetch topology data")
+    clearTimeout(timeout)
+
+    // If core endpoints fail, return null (let caller handle fallback)
+    if (!agentsRes?.ok || !topologyRes?.ok) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Topology API] MAS Dashboard API unavailable, using local route fallback")
+      }
+      return null
     }
 
     const agents = await agentsRes.json()
     const topology = await topologyRes.json()
-    const stats = await statsRes.json()
+    const stats = statsRes?.ok ? await statsRes.json() : {}
     const incidents = incidentsRes?.ok ? await incidentsRes.json() : []
     const gaps = gapsRes?.ok ? await gapsRes.json() : []
 
@@ -445,62 +528,73 @@ export async function fetchTopologyData(): Promise<ExtendedTopologyData | null> 
       gaps: gaps.gaps || [],
       predictions: [],
     }
-  } catch (error) {
-    console.error("[Topology API] Failed to fetch data:", error)
+  } catch {
+    // Silently fail - the /api/mas/topology route will provide fallback data
     return null
   }
 }
 
+/**
+ * Execute an agent action via the local API route (which proxies to MAS)
+ * Falls back gracefully when MAS is unavailable
+ */
 export async function executeAgentAction(
   agentId: string,
   action: "spawn" | "stop" | "restart" | "configure",
   params?: Record<string, unknown>
 ): Promise<{ success: boolean; message: string; data?: unknown }> {
   try {
-    const endpoint = action === "spawn" 
-      ? `${API_BASE}/agents/spawn`
-      : `${API_BASE}/agents/${agentId}/${action}`
-
-    const response = await fetch(endpoint, {
+    // Use local API route which handles MAS proxy and fallback
+    const response = await fetch("/api/mas/topology", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params || {}),
+      body: JSON.stringify({ agentId, action, ...params }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      return { success: false, message: data.error || "Action failed" }
+      return { 
+        success: false, 
+        message: data.error || data.message || "Action failed - MAS may be unavailable" 
+      }
     }
 
     return { success: true, message: data.message || "Action completed", data }
-  } catch (error) {
-    console.error(`[Topology API] Failed to execute ${action}:`, error)
-    return { success: false, message: error instanceof Error ? error.message : "Network error" }
+  } catch {
+    return { 
+      success: false, 
+      message: "Cannot connect to MAS orchestrator. Please check if the service is running." 
+    }
   }
 }
 
+/**
+ * Submit a task to an agent via the local API route
+ */
 export async function submitTask(
   agentId: string,
   task: string,
   payload?: Record<string, unknown>
 ): Promise<{ success: boolean; taskId?: string; message: string }> {
   try {
-    const response = await fetch(`${API_BASE}/tasks`, {
+    const response = await fetch("/api/mas/topology", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agentId, task, payload }),
+      body: JSON.stringify({ agentId, action: "task", task, payload }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      return { success: false, message: data.error || "Task submission failed" }
+      return { success: false, message: data.error || "Task submission failed - MAS may be unavailable" }
     }
 
     return { success: true, taskId: data.taskId, message: "Task submitted" }
-  } catch (error) {
-    console.error("[Topology API] Failed to submit task:", error)
-    return { success: false, message: error instanceof Error ? error.message : "Network error" }
+  } catch {
+    return { 
+      success: false, 
+      message: "Cannot connect to MAS orchestrator. Please check if the service is running." 
+    }
   }
 }

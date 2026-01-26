@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Search, Cloud, Bot, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import { Chat } from "@/components/chat/chat"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,8 +19,16 @@ import {
 import { useSupabaseUser } from "@/hooks/use-supabase-user"
 import { useRouter } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, memo } from "react"
 import { cn } from "@/lib/utils"
+
+// Lazy load Chat component - it's heavy and only used when dialog opens
+const Chat = dynamic(() => import("@/components/chat/chat").then(mod => mod.Chat), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
+})
+
+// Import motion only what we need (tree-shaken by bundler)
 import { motion, AnimatePresence } from "framer-motion"
 
 // Navigation dropdown items configuration

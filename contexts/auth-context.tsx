@@ -46,29 +46,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Initialize auth state
+  // Initialize auth state - non-blocking
   useEffect(() => {
-    const initAuth = async () => {
+    // Use setTimeout to not block initial render
+    const timeoutId = setTimeout(async () => {
       try {
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession()
-        if (error) {
-          console.error("Error getting session:", error)
-        }
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
         setSession(currentSession)
         setUser(transformUser(currentSession?.user ?? null))
-      } catch (err) {
-        console.error("Auth initialization error:", err)
+      } catch {
+        // Silently fail - don't block the app
       } finally {
         setIsLoading(false)
       }
-    }
-
-    initAuth()
+    }, 0)
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log("Auth state changed:", event)
+      (event, newSession) => {
         setSession(newSession)
         setUser(transformUser(newSession?.user ?? null))
         setIsLoading(false)
@@ -76,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     return () => {
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [supabase.auth, transformUser])

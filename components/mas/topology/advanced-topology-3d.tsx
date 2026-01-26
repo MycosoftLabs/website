@@ -564,15 +564,21 @@ export function AdvancedTopology3D({
   
   const { state: wsState, connect: wsConnect, disconnect: wsDisconnect } = useTopologyWebSocket(wsHandlers)
   
-  // Connect WebSocket when in live mode
+  // Connect WebSocket when in live mode (deferred to avoid initial connection spam)
   useEffect(() => {
-    if (isLive) {
-      wsConnect()
-    } else {
-      wsDisconnect()
+    // Only attempt WebSocket connection after initial data load succeeds
+    if (isLive && data && !loading) {
+      // Delay WebSocket connection attempt
+      const timer = setTimeout(() => {
+        wsConnect()
+      }, 2000)
+      return () => {
+        clearTimeout(timer)
+        wsDisconnect()
+      }
     }
     return () => wsDisconnect()
-  }, [isLive, wsConnect, wsDisconnect])
+  }, [isLive, data, loading, wsConnect, wsDisconnect])
   
   // Fetch topology data
   const fetchData = useCallback(async () => {
