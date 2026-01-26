@@ -50,60 +50,41 @@ const TYPE_CONFIG = {
   alert: { icon: Bell, color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/30" },
 }
 
-// Simulated notifications - in production these come from the MAS API
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    type: "success",
-    title: "MAS v2 Deployed",
-    message: "MYCA Orchestrator is now running on 192.168.0.188:8001",
-    source: "System",
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "2",
-    type: "info",
-    title: "Agent Pool Updated",
-    message: "12 agents are now active and processing tasks",
-    source: "MYCA Orchestrator",
-    timestamp: new Date(Date.now() - 15 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: "3",
-    type: "warning",
-    title: "High Memory Usage",
-    message: "MINDEX Agent is using 512MB of memory (threshold: 500MB)",
-    source: "Resource Monitor",
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: "4",
-    type: "success",
-    title: "Workflow Completed",
-    message: "MycoBrain Data Sync workflow completed successfully",
-    source: "n8n Agent",
-    timestamp: new Date(Date.now() - 45 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: "5",
-    type: "alert",
-    title: "Security Scan Complete",
-    message: "Weekly security audit completed. No vulnerabilities found.",
-    source: "SOC Agent",
-    timestamp: new Date(Date.now() - 60 * 60 * 1000),
-    read: true,
-  },
+// Simulated notifications data (timestamps generated client-side to avoid hydration mismatch)
+const NOTIFICATION_DATA = [
+  { id: "1", type: "success" as const, title: "MAS v2 Deployed", message: "MYCA Orchestrator is now running on 192.168.0.188:8001", source: "System", minutesAgo: 5, read: false },
+  { id: "2", type: "info" as const, title: "Agent Pool Updated", message: "12 agents are now active and processing tasks", source: "MYCA Orchestrator", minutesAgo: 15, read: false },
+  { id: "3", type: "warning" as const, title: "High Memory Usage", message: "MINDEX Agent is using 512MB of memory (threshold: 500MB)", source: "Resource Monitor", minutesAgo: 30, read: true },
+  { id: "4", type: "success" as const, title: "Workflow Completed", message: "MycoBrain Data Sync workflow completed successfully", source: "n8n Agent", minutesAgo: 45, read: true },
+  { id: "5", type: "alert" as const, title: "Security Scan Complete", message: "Weekly security audit completed. No vulnerabilities found.", source: "SOC Agent", minutesAgo: 60, read: true },
 ]
 
+// Generate notifications with timestamps (called client-side only)
+function generateInitialNotifications(): Notification[] {
+  const now = Date.now()
+  return NOTIFICATION_DATA.map(n => ({
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    source: n.source,
+    timestamp: new Date(now - n.minutesAgo * 60 * 1000),
+    read: n.read,
+  }))
+}
+
 export function NotificationCenter({ className = "", maxNotifications = 50 }: NotificationCenterProps) {
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS)
+  const [notifications, setNotifications] = useState<Notification[]>([]) // Start empty to avoid hydration mismatch
+  const [mounted, setMounted] = useState(false)
   const [filter, setFilter] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [loading, setLoading] = useState(false)
+
+  // Initialize notifications client-side to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+    setNotifications(generateInitialNotifications())
+  }, [])
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true)

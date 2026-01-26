@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo, useId } from "react"
 import { cn } from "@/lib/utils"
 
 // TypeScript interface for Clusterize options
@@ -289,8 +289,9 @@ export function useVirtualScroll<T>(
     onScrollProgress?: (progress: number) => void
   }
 ) {
-  const [scrollId] = useState(`vs-scroll-${Math.random().toString(36).substr(2, 9)}`)
-  const [contentId] = useState(`vs-content-${Math.random().toString(36).substr(2, 9)}`)
+  const uniqueId = useId()
+  const scrollId = `vs-scroll-${uniqueId.replace(/:/g, '')}`
+  const contentId = `vs-content-${uniqueId.replace(/:/g, '')}`
   const clusterizeRef = useRef<any>(null)
   const [isReady, setIsReady] = useState(false)
 

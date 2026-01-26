@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
@@ -213,7 +213,8 @@ const intelligencePackets = [
     icon: AlertTriangle,
     description: "Standardized format for communicating environmental hazard intelligence to decision-makers.",
     importance: "Enables commanders to understand environmental risks in their operational area and make informed decisions about force protection and mission planning.",
-    liveCount: Math.floor(Math.random() * 1000) + 500,
+    baseCount: 500, // Base value - live count generated client-side
+    maxVariance: 1000,
     jsonExample: `{
   "packet_type": "ETA",
   "version": "1.2.0",
@@ -237,7 +238,8 @@ const intelligencePackets = [
     icon: Activity,
     description: "Quantitative measure of environmental condition and risk level, providing continuous situational awareness.",
     importance: "Establishes baselines and tracks deviations over time. Rising ESI values indicate degrading conditions that may require intervention.",
-    liveCount: Math.floor(Math.random() * 5000) + 2000,
+    baseCount: 2000, // Base value - live count generated client-side
+    maxVariance: 5000,
     jsonExample: `{
   "packet_type": "ESI",
   "version": "2.0.1",
@@ -261,7 +263,8 @@ const intelligencePackets = [
     icon: Bug,
     description: "Alert format for detected biological deviations from established baseline conditions.",
     importance: "Critical for early detection of biological threats, contamination events, or ecosystem disruptions that require immediate attention.",
-    liveCount: Math.floor(Math.random() * 200) + 50,
+    baseCount: 50, // Base value - live count generated client-side
+    maxVariance: 200,
     jsonExample: `{
   "packet_type": "BAR",
   "version": "1.1.0",
@@ -284,7 +287,8 @@ const intelligencePackets = [
     icon: BarChart3,
     description: "Assessment of cleanup and mitigation operation success, tracking progress toward environmental restoration.",
     importance: "Enables data-driven decisions about remediation strategies and provides accountability for cleanup efforts.",
-    liveCount: Math.floor(Math.random() * 100) + 20,
+    baseCount: 20, // Base value - live count generated client-side
+    maxVariance: 100,
     jsonExample: `{
   "packet_type": "RER",
   "version": "1.0.0",
@@ -309,7 +313,8 @@ const intelligencePackets = [
     icon: Zap,
     description: "Predictive alert for emerging environmental threats based on pattern analysis and trend detection.",
     importance: "Provides advance warning of environmental conditions that may impact operations, enabling proactive rather than reactive response.",
-    liveCount: Math.floor(Math.random() * 50) + 10,
+    baseCount: 10, // Base value - live count generated client-side
+    maxVariance: 50,
     jsonExample: `{
   "packet_type": "EEW",
   "version": "1.3.0",
@@ -441,11 +446,46 @@ export function DefensePortal() {
   const [selectedMission, setSelectedMission] = useState<MissionModalData | null>(null)
   const [hoveredPacket, setHoveredPacket] = useState<string | null>(null)
   const [selectedDodItem, setSelectedDodItem] = useState<typeof dodIntegrationItems[0] | null>(dodIntegrationItems[0])
+  
+  // Live counts state - generated client-side to avoid hydration mismatch
+  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({})
 
-  // Prevent hydration mismatch by only rendering diagram on client
-  useState(() => {
+  // Generate initial live counts on mount and update periodically
+  useEffect(() => {
     setIsMounted(true)
-  })
+    
+    // Generate initial random counts
+    const generateCounts = () => {
+      const counts: Record<string, number> = {}
+      intelligencePackets.forEach(packet => {
+        counts[packet.acronym] = packet.baseCount + Math.floor(Math.random() * packet.maxVariance)
+      })
+      return counts
+    }
+    
+    setLiveCounts(generateCounts())
+    
+    // Update counts every 5 seconds to simulate live data
+    const interval = setInterval(() => {
+      setLiveCounts(prev => {
+        const newCounts = { ...prev }
+        // Randomly adjust counts slightly
+        intelligencePackets.forEach(packet => {
+          const current = newCounts[packet.acronym] || packet.baseCount
+          const variance = Math.floor(Math.random() * 20) - 10 // -10 to +10
+          newCounts[packet.acronym] = Math.max(packet.baseCount, current + variance)
+        })
+        return newCounts
+      })
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [])
+  
+  // Helper to get live count for a packet
+  const getLiveCount = (acronym: string, baseCount: number) => {
+    return liveCounts[acronym] ?? baseCount
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1228,7 +1268,7 @@ export function DefensePortal() {
                     <div className="text-2xl font-bold mb-1">{product.acronym}</div>
                     <div className="text-sm text-muted-foreground">{product.name}</div>
                     <div className="mt-3 text-xs text-primary/80">
-                      {product.liveCount.toLocaleString()} packets/24h
+                      {getLiveCount(product.acronym, product.baseCount).toLocaleString()} packets/24h
                     </div>
                   </CardContent>
                 </Card>
@@ -1273,7 +1313,7 @@ export function DefensePortal() {
                         <div className="flex items-center justify-between pt-2 border-t">
                           <Badge variant="outline" className="text-xs">
                             <Activity className="h-3 w-3 mr-1" />
-                            {product.liveCount.toLocaleString()} active
+                            {getLiveCount(product.acronym, product.baseCount).toLocaleString()} active
                           </Badge>
                           <Badge variant="secondary" className="text-xs">
                             <Terminal className="h-3 w-3 mr-1" />

@@ -50,11 +50,13 @@ export function TimelinePlayer({
   className = "",
 }: TimelinePlayerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  // Use null dates initially to avoid hydration mismatch - set real dates after mount
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
-    currentTime: new Date(),
-    startTime: new Date(Date.now() - 3600000), // 1 hour ago
-    endTime: new Date(),
+    currentTime: null as unknown as Date, // Will be set client-side
+    startTime: null as unknown as Date,
+    endTime: null as unknown as Date,
     speed: 1,
     snapshots: [],
     currentSnapshotIndex: -1,
@@ -65,6 +67,18 @@ export function TimelinePlayer({
 
   const playbackInterval = useRef<NodeJS.Timeout | null>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
+
+  // Initialize dates client-side to avoid hydration mismatch
+  useEffect(() => {
+    const now = new Date()
+    setPlaybackState(prev => ({
+      ...prev,
+      currentTime: now,
+      startTime: new Date(now.getTime() - 3600000), // 1 hour ago
+      endTime: now,
+    }))
+    setMounted(true)
+  }, [])
 
   // Generate simulated snapshots for demo (replace with real API call)
   const loadSnapshots = useCallback(async (hours: number) => {

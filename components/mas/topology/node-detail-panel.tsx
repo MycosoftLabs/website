@@ -5,7 +5,7 @@
  * Interactive popup showing node details, metrics, and controls
  */
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -68,6 +68,17 @@ export function NodeDetailPanel({
   const [activeTab, setActiveTab] = useState("overview")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [commandInput, setCommandInput] = useState("")
+  
+  // Generate stable PID based on node ID to avoid hydration mismatch
+  const nodePid = useMemo(() => {
+    // Use a simple hash of the node ID to generate a consistent PID
+    let hash = 0
+    for (let i = 0; i < node.id.length; i++) {
+      hash = ((hash << 5) - hash) + node.id.charCodeAt(i)
+      hash = hash & hash // Convert to 32-bit integer
+    }
+    return 1000 + Math.abs(hash % 9000)
+  }, [node.id])
   
   // Get connected nodes
   const connectedNodes = connections
@@ -308,7 +319,7 @@ export function NodeDetailPanel({
                 <div>$ agent status {node.id}</div>
                 <div className="text-gray-400">Agent: {node.name}</div>
                 <div className="text-gray-400">Status: <span style={{ color: STATUS_COLORS[node.status] }}>{node.status}</span></div>
-                <div className="text-gray-400">PID: {Math.floor(Math.random() * 10000 + 1000)}</div>
+                <div className="text-gray-400">PID: {nodePid}</div>
                 <div className="text-gray-400">CPU: {node.metrics.cpuPercent.toFixed(1)}%</div>
                 <div className="text-gray-400">MEM: {node.metrics.memoryMb}MB</div>
                 <div className="text-gray-400">Uptime: {formatUptime(node.metrics.uptime)}</div>

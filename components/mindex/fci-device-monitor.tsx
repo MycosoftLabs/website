@@ -171,8 +171,8 @@ export function FCIDeviceMonitor({ className }: { className?: string }) {
                           <div className="space-y-1">
                             <div className="text-sm font-medium flex items-center gap-2">
                               {d.name}
-                              {d.status === "online" && (
-                                <SignalStrength value={Math.random() * 100} />
+                              {d.status === "online" && signalData[d.id]?.length > 0 && (
+                                <SignalStrength value={signalData[d.id][signalData[d.id].length - 1] || 50} />
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground font-mono">

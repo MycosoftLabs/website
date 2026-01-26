@@ -541,13 +541,22 @@ export function RecentReplacementsTable({
 // ═══════════════════════════════════════════════════════════════
 
 export function ResolutionProgressWidget({ className }: { className?: string }) {
+  // Use placeholder initially to avoid hydration mismatch
   const [stats, setStats] = useState({
     averageResolutionTime: '2.5h',
     resolutionRate: 85,
     previousRate: 82,
     nextReview: '2 days',
-    reviewDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    reviewDate: '', // Will be set client-side
   });
+  
+  // Set date client-side to avoid hydration mismatch
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      reviewDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    }));
+  }, []);
   
   const rateChange = stats.resolutionRate - stats.previousRate;
   const isPositive = rateChange > 0;

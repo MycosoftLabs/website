@@ -32,9 +32,12 @@ export function HUD({ title = "NATUREOS", subtitle = "Observation & Environmenta
     humidity: 65,
   });
 
-  const [time, setTime] = useState(new Date());
+  // Use null initially to avoid hydration mismatch
+  const [time, setTime] = useState<Date | null>(null);
 
+  // Set time client-side only
   useEffect(() => {
+    setTime(new Date()); // Set initial time after mount
     const interval = setInterval(() => {
       setTime(new Date());
     }, 1000);
@@ -111,14 +114,14 @@ export function HUD({ title = "NATUREOS", subtitle = "Observation & Environmenta
       {/* Top Right Panel */}
       <div className="hud-panel top-right">
         <div className="hud-time">
-          {time.toLocaleTimeString("en-US", { hour12: false })}
+          {time?.toLocaleTimeString("en-US", { hour12: false }) ?? "--:--:--"}
         </div>
         <div className="hud-date">
-          {time.toLocaleDateString("en-US", {
+          {time?.toLocaleDateString("en-US", {
             weekday: "short",
             month: "short",
             day: "numeric",
-          })}
+          }) ?? "---"}
         </div>
         <div className="hud-divider" />
         <div className="hud-env">
