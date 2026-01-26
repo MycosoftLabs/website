@@ -605,7 +605,7 @@ export function EnhancedSpawnAgent({
                                 "bg-green-500/20 text-green-400"
                               )}
                             >
-                              {gap.priority.toUpperCase()}
+                              {(gap.priority ?? 'medium').toUpperCase()}
                             </Badge>
                           </div>
                           <p className="text-sm text-white/60 mb-2">{gap.description}</p>
@@ -1138,7 +1138,7 @@ export function ConnectionWidget({
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className={`h-4 w-4 ${getRiskColor()}`} />
                   <span className={`text-sm font-medium ${getRiskColor()}`}>
-                    Risk: {proposal.riskAssessment.level.toUpperCase()}
+                    Risk: {(proposal.riskAssessment?.level ?? 'unknown').toUpperCase()}
                   </span>
                 </div>
                 {proposal.riskAssessment.factors.length > 0 && (
