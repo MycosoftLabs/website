@@ -11,12 +11,16 @@ import Anthropic from "@anthropic-ai/sdk"
  */
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
+const METABASE_URL = process.env.METABASE_URL || "http://192.168.0.188:3000"
 
 // API Keys
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
+const N8N_USERNAME = process.env.N8N_USERNAME || "admin"
+const N8N_PASSWORD = process.env.N8N_PASSWORD || "Mushroom1!"
 
 // MYCA System Context - This defines who MYCA is
 const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), the central AI orchestrator for Mycosoft - a mycology research and technology company.
@@ -73,6 +77,61 @@ async function getMASStatus(): Promise<{agents: number, health: string}> {
     // MAS offline
   }
   return { agents: 16, health: "checking" }
+}
+
+// Check n8n status
+async function getN8NStatus(): Promise<{ healthy: boolean; workflows?: number }> {
+  try {
+    const response = await fetch(`${N8N_URL}/healthz`, {
+      signal: AbortSignal.timeout(3000),
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${N8N_USERNAME}:${N8N_PASSWORD}`).toString("base64")}`
+      }
+    })
+    return { healthy: response.ok }
+  } catch {
+    return { healthy: false }
+  }
+}
+
+// Check Metabase status
+async function getMetabaseStatus(): Promise<{ healthy: boolean }> {
+  try {
+    const response = await fetch(`${METABASE_URL}/api/health`, {
+      signal: AbortSignal.timeout(3000)
+    })
+    return { healthy: response.ok }
+  } catch {
+    return { healthy: false }
+  }
+}
+
+// Try n8n workflow for chat (primary method when available)
+async function tryN8NChat(message: string, sessionId: string, context: Record<string, unknown>): Promise<string | null> {
+  try {
+    const response = await fetch(`${N8N_URL}/webhook/myca-chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(`${N8N_USERNAME}:${N8N_PASSWORD}`).toString("base64")}`
+      },
+      body: JSON.stringify({
+        message,
+        session_id: sessionId,
+        context,
+        timestamp: new Date().toISOString()
+      }),
+      signal: AbortSignal.timeout(30000)
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.response || null
+    }
+  } catch (error) {
+    console.log("n8n workflow not available, falling back to direct AI")
+  }
+  return null
 }
 
 // Call Anthropic Claude
@@ -195,25 +254,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    // Get live MAS status for context
-    const masStatus = await getMASStatus()
+    // Get live system status in parallel
+    const [masStatus, n8nStatus, metabaseStatus] = await Promise.all([
+      getMASStatus(),
+      getN8NStatus(),
+      getMetabaseStatus()
+    ])
     
-    // Build dynamic system context
+    // Build dynamic system context with integration status
     const dynamicContext = `${MYCA_SYSTEM_PROMPT}
 
 ## Live Status (as of ${new Date().toISOString()})
 - Active Agent Containers: ${masStatus.agents}
 - MAS Backend: ${masStatus.health}
-- User Query Context: ${context?.source || 'topology-dashboard'}`
+- n8n Workflow Engine: ${n8nStatus.healthy ? "online" : "offline"}
+- Metabase Analytics: ${metabaseStatus.healthy ? "online" : "initializing"}
+- User Query Context: ${context?.source || 'topology-dashboard'}
+
+## Available Integrations
+- n8n: ${n8nStatus.healthy ? "Can execute workflows via /webhook/myca-chat" : "Not available"}
+- Metabase: ${metabaseStatus.healthy ? "Can query databases for insights" : "Starting up (first run takes 2-3 minutes)"}`
 
     let responseText: string | null = null
     let provider = "unknown"
 
-    // Try AI providers in order of preference
+    // Try n8n workflow first (when available and configured)
+    if (n8nStatus.healthy) {
+      responseText = await tryN8NChat(message, session_id || `session-${Date.now()}`, context || {})
+      if (responseText) {
+        provider = "n8n-workflow"
+      }
+    }
+
+    // Fallback to direct AI providers
     // 1. Anthropic Claude (best for nuanced conversation)
-    responseText = await callAnthropic(message, dynamicContext)
-    if (responseText) {
-      provider = "claude"
+    if (!responseText) {
+      responseText = await callAnthropic(message, dynamicContext)
+      if (responseText) {
+        provider = "claude"
+      }
     }
     
     // 2. OpenAI GPT-4o
@@ -250,7 +329,7 @@ What would you like me to help you with once connectivity is restored?`
       provider = "fallback"
     }
 
-    console.log(`[MYCA Chat] Provider: ${provider}, Message: "${message.slice(0, 50)}..."`)
+    console.log(`[MYCA Chat] Provider: ${provider}, n8n: ${n8nStatus.healthy}, Metabase: ${metabaseStatus.healthy}, Message: "${message.slice(0, 50)}..."`)
 
     return NextResponse.json({
       response: responseText,
@@ -258,7 +337,11 @@ What would you like me to help you with once connectivity is restored?`
       provider,
       session_id,
       timestamp: new Date().toISOString(),
-      masStatus,
+      integrations: {
+        mas: masStatus,
+        n8n: n8nStatus,
+        metabase: metabaseStatus
+      }
     })
   } catch (error) {
     console.error("Chat API error:", error)
