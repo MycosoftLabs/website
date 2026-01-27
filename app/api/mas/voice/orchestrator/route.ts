@@ -71,9 +71,9 @@ export async function POST(request: NextRequest) {
       
       // For action intents, check if safety confirmation is needed
       if (intent.type.startsWith("action_")) {
-        // Route to n8n safety workflow
+        // Route to n8n command workflow for safety checks
         try {
-          const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/speech_safety`, {
+          const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/command`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -139,7 +139,8 @@ export async function POST(request: NextRequest) {
     // Step 2: Try n8n speech_turn workflow for additional intent detection
     if (!response.response_text && !response.requires_confirmation) {
       try {
-        const turnResponse = await fetch(`${N8N_URL}/webhook/myca/speech_turn`, {
+        // Use main command webhook for turn processing (speech_turn not available)
+        const turnResponse = await fetch(`${N8N_URL}/webhook/myca/command`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -155,8 +156,8 @@ export async function POST(request: NextRequest) {
           
           // Check if command requires safety confirmation
           if (turnData.intent === "command" && turnData.requires_safety) {
-            // Route to safety workflow
-            const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/speech_safety`, {
+            // Route to command workflow for safety
+            const safetyResponse = await fetch(`${N8N_URL}/webhook/myca/command`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

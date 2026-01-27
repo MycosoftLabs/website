@@ -10,6 +10,7 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, ArrowLeft, Maximize2, Minimize2 } from "lucide-react"
 import Link from "next/link"
+import { VoiceSessionOverlay } from "@/components/mas/topology/voice-session-overlay"
 
 // Dynamic import for 3D topology to avoid SSR issues
 const AdvancedTopology3D = dynamic(
@@ -93,6 +94,13 @@ export default function TopologyFullscreenPage() {
             </>
           )}
         </Button>
+      </div>
+
+      {/* Voice Session Overlay */}
+      <div className="absolute bottom-4 left-4 z-50 w-80">
+        <VoiceSessionOverlay 
+          className="bg-black/80 backdrop-blur-sm border-white/10 text-white"
+        />
       </div>
 
       {/* Topology Component */}

@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
     if (isConfirmed) {
       // Try n8n confirmation workflow first
       try {
-        const n8nResponse = await fetch(`${N8N_URL}/webhook/myca/speech_confirm`, {
+        // Use main command webhook for confirmation (speech_confirm redirected)
+        const n8nResponse = await fetch(`${N8N_URL}/webhook/myca/command`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

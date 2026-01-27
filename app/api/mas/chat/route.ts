@@ -84,10 +84,7 @@ async function getMASStatus(): Promise<{agents: number, health: string}> {
 async function getN8NStatus(): Promise<{ healthy: boolean; workflows?: number }> {
   try {
     const response = await fetch(`${N8N_URL}/healthz`, {
-      signal: AbortSignal.timeout(3000),
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${N8N_USERNAME}:${N8N_PASSWORD}`).toString("base64")}`
-      }
+      signal: AbortSignal.timeout(3000)
     })
     return { healthy: response.ok }
   } catch {
@@ -110,24 +107,27 @@ async function getMetabaseStatus(): Promise<{ healthy: boolean }> {
 // Try n8n workflow for chat (primary method when available)
 async function tryN8NChat(message: string, sessionId: string, context: Record<string, unknown>): Promise<string | null> {
   try {
-    const response = await fetch(`${N8N_URL}/webhook/myca-chat`, {
+    const response = await fetch(`${N8N_URL}/webhook/myca/command`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${N8N_USERNAME}:${N8N_PASSWORD}`).toString("base64")}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         message,
         session_id: sessionId,
         context,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        action: "chat"
       }),
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(15000)
     })
     
     if (response.ok) {
       const data = await response.json()
-      return data.response || null
+      // Only return if we got a real response
+      if (data.response && typeof data.response === "string" && data.response.length > 10) {
+        return data.response
+      }
     }
   } catch (error) {
     console.log("n8n workflow not available, falling back to direct AI")
