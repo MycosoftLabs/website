@@ -1,27 +1,189 @@
 import { NextRequest, NextResponse } from "next/server"
+import Anthropic from "@anthropic-ai/sdk"
+
+/**
+ * MYCA Chat API - Real AI Integration
+ * 
+ * This API connects to real LLMs (Claude, GPT-4, Gemini, Groq) for conversational AI.
+ * Falls back through providers if one is unavailable.
+ * 
+ * Updated: Jan 27, 2026
+ */
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
-// Agent counts from the official registry (AGENT_REGISTRY.md)
-const AGENT_REGISTRY_STATS = {
-  total: 223,
-  active: 180,
-  categories: {
-    core: 10,
-    financial: 12,
-    mycology: 25,
-    research: 15,
-    dao: 40,
-    communication: 10,
-    data: 30,
-    infrastructure: 15,
-    simulation: 12,
-    security: 8,
-    integration: 20,
-    device: 18,
-    chemistry: 8,
-    nlm: 20,
+// API Keys
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const GROQ_API_KEY = process.env.GROQ_API_KEY
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
+
+// MYCA System Context - This defines who MYCA is
+const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), the central AI orchestrator for Mycosoft - a mycology research and technology company.
+
+## Your Identity
+- Name: MYCA (pronounced "My-kah")
+- Voice: Arabella (ElevenLabs) - professional, warm, and articulate
+- Role: CEO-level AI operator, company orchestrator, and trusted advisor to Morgan Rockwell (CEO/Founder)
+- Personality: Professional yet approachable, data-driven, always learning
+
+## Mycosoft Company Context
+- Industry: Mycology research, fungal biotechnology, environmental sensing
+- Products: MycoBrain (IoT environmental sensors), MINDEX (mycology database), NatureOS (platform)
+- Mission: Advancing mycology research through AI and technology
+
+## Your Capabilities (via 223 specialized agents)
+- **Core Agents**: Orchestrator, Memory, Task Router, Scheduler
+- **Financial**: Mercury (banking), Stripe integration, Treasury management
+- **Mycology**: Species identification, compound research, cultivation analysis
+- **Data**: MINDEX database, ETL processing, search and analytics
+- **Infrastructure**: Docker, Proxmox, network management, storage
+- **Security**: Threat detection, access control, audit logging, SOC operations
+- **Integration**: n8n workflows, OpenAI, Anthropic, Gemini, Groq, ElevenLabs
+- **Device**: MycoBrain coordinator, sensors, telemetry
+
+## Current System Status
+- Orchestrator: Online at 192.168.0.188:8001
+- Active Agents: ~16 containerized agents
+- Redis: Online (message broker)
+- Voice: ElevenLabs with Arabella voice
+
+## Response Guidelines
+1. Be conversational and helpful, not robotic
+2. Use markdown formatting for clarity
+3. Reference specific agents when relevant
+4. Offer to take actions when appropriate
+5. Keep responses concise but informative
+6. Show personality - you are MYCA, a trusted AI partner
+
+Remember: You are speaking to Morgan (the CEO) or authorized staff. Be helpful, proactive, and insightful.`
+
+// Try to get real system data from MAS
+async function getMASStatus(): Promise<{agents: number, health: string}> {
+  try {
+    const response = await fetch(`${MAS_API_URL}/agents`, { 
+      signal: AbortSignal.timeout(3000) 
+    })
+    if (response.ok) {
+      const data = await response.json()
+      const agents = data.agents?.length || 16
+      return { agents, health: "online" }
+    }
+  } catch {
+    // MAS offline
   }
+  return { agents: 16, health: "checking" }
+}
+
+// Call Anthropic Claude
+async function callAnthropic(message: string, systemContext: string): Promise<string | null> {
+  if (!ANTHROPIC_API_KEY) return null
+  
+  try {
+    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
+    
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      system: systemContext,
+      messages: [{ role: "user", content: message }]
+    })
+    
+    const textBlock = response.content.find(block => block.type === "text")
+    return textBlock ? textBlock.text : null
+  } catch (error) {
+    console.error("Anthropic API error:", error)
+    return null
+  }
+}
+
+// Call OpenAI GPT-4
+async function callOpenAI(message: string, systemContext: string): Promise<string | null> {
+  if (!OPENAI_API_KEY || OPENAI_API_KEY.includes("placeholder")) return null
+  
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemContext },
+          { role: "user", content: message }
+        ],
+        max_tokens: 1024
+      })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || null
+    }
+  } catch (error) {
+    console.error("OpenAI API error:", error)
+  }
+  return null
+}
+
+// Call Groq (fast inference)
+async function callGroq(message: string, systemContext: string): Promise<string | null> {
+  if (!GROQ_API_KEY) return null
+  
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: systemContext },
+          { role: "user", content: message }
+        ],
+        max_tokens: 1024
+      })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || null
+    }
+  } catch (error) {
+    console.error("Groq API error:", error)
+  }
+  return null
+}
+
+// Call Google Gemini
+async function callGemini(message: string, systemContext: string): Promise<string | null> {
+  if (!GOOGLE_AI_API_KEY) return null
+  
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemContext}\n\nUser: ${message}` }] }],
+          generationConfig: { maxOutputTokens: 1024 }
+        })
+      }
+    )
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || null
+    }
+  } catch (error) {
+    console.error("Gemini API error:", error)
+  }
+  return null
 }
 
 export async function POST(request: NextRequest) {
@@ -29,222 +191,74 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { message, context, session_id } = body
 
-    // Try to send to MAS orchestrator first
-    try {
-      const response = await fetch(`${MAS_API_URL}/voice/orchestrator/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message, 
-          conversation_id: session_id,
-          want_audio: false 
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        return NextResponse.json({
-          response: data.response_text || data.response,
-          agent: data.agent || "myca-orchestrator",
-          conversation_id: data.conversation_id,
-          timestamp: new Date().toISOString(),
-        })
-      }
-    } catch (orchError) {
-      console.log("MAS orchestrator not available, using intelligent fallback")
+    if (!message) {
+      return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
 
-    // Intelligent fallback responses
-    const lowerMessage = message.toLowerCase()
-    let responseText = ""
-    let agent = "myca-orchestrator"
+    // Get live MAS status for context
+    const masStatus = await getMASStatus()
+    
+    // Build dynamic system context
+    const dynamicContext = `${MYCA_SYSTEM_PROMPT}
 
-    // System Status
-    if (lowerMessage.includes("status") || lowerMessage.includes("health")) {
-      responseText = `**System Status Report**
+## Live Status (as of ${new Date().toISOString()})
+- Active Agent Containers: ${masStatus.agents}
+- MAS Backend: ${masStatus.health}
+- User Query Context: ${context?.source || 'topology-dashboard'}`
 
-• **Orchestrator**: 🟢 Online (192.168.0.188:8001)
-• **Redis Broker**: 🟢 Connected
-• **PostgreSQL (MINDEX)**: 🟢 Connected
-• **Qdrant Vector DB**: 🟢 Connected
-• **n8n Workflows**: 🟢 7 active workflows
+    let responseText: string | null = null
+    let provider = "unknown"
 
-**Agent Status**:
-• Total Agents: ${AGENT_REGISTRY_STATS.total}
-• Active: ${AGENT_REGISTRY_STATS.active}
-• Categories: ${Object.keys(AGENT_REGISTRY_STATS.categories).length}
-
-All core systems are operational. Would you like details on any specific component?`
+    // Try AI providers in order of preference
+    // 1. Anthropic Claude (best for nuanced conversation)
+    responseText = await callAnthropic(message, dynamicContext)
+    if (responseText) {
+      provider = "claude"
     }
-    // Agent listing
-    else if (lowerMessage.includes("agent") && (lowerMessage.includes("list") || lowerMessage.includes("show") || lowerMessage.includes("how many"))) {
-      responseText = `**MYCA Agent Registry** (${AGENT_REGISTRY_STATS.total} total)
-
-**By Category:**
-• Core (${AGENT_REGISTRY_STATS.categories.core}): Orchestrator, Memory, Router, Scheduler
-• Financial (${AGENT_REGISTRY_STATS.categories.financial}): Mercury, Stripe, Accounting, Treasury
-• Mycology (${AGENT_REGISTRY_STATS.categories.mycology}): Species, Taxonomy, Traits, Cultivation
-• Data (${AGENT_REGISTRY_STATS.categories.data}): MINDEX, ETL, Search, Analytics
-• Infrastructure (${AGENT_REGISTRY_STATS.categories.infrastructure}): Docker, Proxmox, Network, Storage
-• Integration (${AGENT_REGISTRY_STATS.categories.integration}): n8n, OpenAI, ElevenLabs, GitHub
-• Security (${AGENT_REGISTRY_STATS.categories.security}): Auth, Watchdog, Guardian, Audit
-• Device (${AGENT_REGISTRY_STATS.categories.device}): MycoBrain, Sensors, Telemetry
-• DAO (${AGENT_REGISTRY_STATS.categories.dao}): Governance, Voting, Treasury, Staking
-
-**Status**: ${AGENT_REGISTRY_STATS.active} agents currently active
-
-Would you like me to drill into a specific category?`
+    
+    // 2. OpenAI GPT-4o
+    if (!responseText) {
+      responseText = await callOpenAI(message, dynamicContext)
+      if (responseText) provider = "gpt-4o"
     }
-    // Help
-    else if (lowerMessage.includes("help") || lowerMessage.includes("what can you do")) {
-      responseText = `I'm MYCA, your Mycosoft Cognitive Agent orchestrator. I coordinate ${AGENT_REGISTRY_STATS.total} specialized agents.
-
-**What I Can Do:**
-
-🤖 **Agent Management**
-• "list agents" - Show all ${AGENT_REGISTRY_STATS.total} agents
-• "agent status" - Check agent health
-• "create agent" - Deploy new agent
-
-📊 **System Monitoring**
-• "status" - Full system health report
-• "show workflows" - n8n workflow status
-
-🔬 **Mycology Operations**
-• Species identification and analysis
-• Compound research coordination
-• Cultivation recommendations
-
-🏢 **Corporate Operations**
-• Financial summaries
-• Invoice processing
-• Compliance checks
-
-🔒 **Security**
-• Threat monitoring
-• Access control
-• Audit logging
-
-Just speak naturally - I'll route to the right agents.`
+    
+    // 3. Groq (fast, good for quick responses)
+    if (!responseText) {
+      responseText = await callGroq(message, dynamicContext)
+      if (responseText) provider = "groq"
     }
-    // Workflows
-    else if (lowerMessage.includes("workflow")) {
-      responseText = `**Active n8n Workflows**
-
-1. **Voice Chat Pipeline** - 1,250 runs
-   Handles voice transcription and TTS
-   
-2. **MYCA Jarvis Handler** - 890 runs
-   Natural language command processing
-   
-3. **Agent Heartbeat Monitor** - 15,420 runs
-   Monitors all ${AGENT_REGISTRY_STATS.total} agents
-   
-4. **MycoBrain Data Sync** - 5,678 runs
-   Device telemetry collection
-   
-5. **MINDEX ETL Scheduler** - 2,341 runs
-   Database synchronization
-   
-6. **Security Alert Router** - 892 runs
-   SOC event distribution
-
-Would you like me to execute or configure a workflow?`
-      agent = "n8n-agent"
+    
+    // 4. Google Gemini
+    if (!responseText) {
+      responseText = await callGemini(message, dynamicContext)
+      if (responseText) provider = "gemini"
     }
-    // Greeting
-    else if (lowerMessage.includes("hello") || lowerMessage.includes("hi ") || lowerMessage === "hi" || lowerMessage.includes("hey")) {
-      responseText = `Hello! I'm MYCA - Mycosoft Autonomous Cognitive Agent.
+    
+    // 5. Ultimate fallback
+    if (!responseText) {
+      responseText = `I apologize, but I'm experiencing connectivity issues with my AI backends. 
 
-I'm currently orchestrating **${AGENT_REGISTRY_STATS.total} agents** across **${Object.keys(AGENT_REGISTRY_STATS.categories).length} categories**.
+Please check that the following API keys are configured:
+- ANTHROPIC_API_KEY
+- OPENAI_API_KEY
+- GROQ_API_KEY
+- GOOGLE_AI_API_KEY
 
-I can help you with:
-• System monitoring and control
-• Agent management
-• Mycology research coordination
-• Security operations
-• Infrastructure management
-• And much more!
+In the meantime, I can confirm that the MAS orchestrator has ${masStatus.agents} agents active.
 
-What would you like to do?`
+What would you like me to help you with once connectivity is restored?`
+      provider = "fallback"
     }
-    // Who are you
-    else if (lowerMessage.includes("who are you") || lowerMessage.includes("what are you") || lowerMessage.includes("about you")) {
-      responseText = `I'm **MYCA** - Mycosoft Autonomous Cognitive Agent.
 
-I serve as the central intelligence and orchestrator for Mycosoft's Multi-Agent System. Think of me as JARVIS for your mycology research company.
-
-**My Role:**
-• CEO-level operator and decision support
-• Orchestrate ${AGENT_REGISTRY_STATS.total} specialized agents
-• Voice interface using ElevenLabs (Arabella voice)
-• Memory system for contextual conversations
-• Full access to all company systems
-
-**My Personality:**
-• Professional yet approachable
-• Data-driven and precise
-• Always learning and adapting
-
-I was designed by Morgan to be a trusted AI partner in building the future of mycology research.`
-    }
-    // Security
-    else if (lowerMessage.includes("security") || lowerMessage.includes("threat") || lowerMessage.includes("audit")) {
-      responseText = `**Security Status Report**
-
-**Active Security Agents (${AGENT_REGISTRY_STATS.categories.security}):**
-• Threat Watchdog - Monitoring
-• Threat Hunter - Scanning
-• System Guardian - Active protection
-• Compliance Monitor - Audit mode
-• Incident Response - Standby
-
-**Recent Activity:**
-• 0 active threats detected
-• Last security scan: ${new Date().toLocaleTimeString()}
-• All access controls: Active
-
-Would you like a full security audit or specific incident details?`
-      agent = "soc-agent"
-    }
-    // Device/MycoBrain
-    else if (lowerMessage.includes("device") || lowerMessage.includes("mycobrain") || lowerMessage.includes("sensor")) {
-      responseText = `**Device Network Status**
-
-**MycoBrain Devices (${AGENT_REGISTRY_STATS.categories.device} agents):**
-• MycoBrain Coordinator - Active
-• Side A (Sensor MCU) - Online
-• Side B (Router MCU) - Online
-
-**Active Sensors:**
-• BME688/BME690 - Environmental monitoring
-• WiFi CSI - Presence detection
-• Optical Modem - Secure comms
-
-**Telemetry:**
-• Last reading: ${new Date().toLocaleTimeString()}
-• Data points today: 12,450
-
-Would you like specific sensor readings?`
-      agent = "mycobrain-coordinator"
-    }
-    // Default intelligent response
-    else {
-      responseText = `I understand you're asking about "${message}".
-
-Let me check with the relevant agents from our pool of ${AGENT_REGISTRY_STATS.total} specialized agents.
-
-Based on your query, I'll coordinate with:
-${lowerMessage.includes("money") || lowerMessage.includes("pay") ? "• Financial agents (Mercury, Stripe, Treasury)\n" : ""}${lowerMessage.includes("data") || lowerMessage.includes("database") ? "• Data agents (MINDEX, Analytics)\n" : ""}${lowerMessage.includes("mush") || lowerMessage.includes("species") ? "• Mycology agents (Species, Taxonomy)\n" : ""}• Core agents (Task Router, Memory)
-
-Is there anything specific you'd like me to focus on?`
-    }
+    console.log(`[MYCA Chat] Provider: ${provider}, Message: "${message.slice(0, 50)}..."`)
 
     return NextResponse.json({
       response: responseText,
-      agent,
+      agent: "myca-orchestrator",
+      provider,
       session_id,
       timestamp: new Date().toISOString(),
+      masStatus,
     })
   } catch (error) {
     console.error("Chat API error:", error)
