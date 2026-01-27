@@ -1704,14 +1704,29 @@ export function AdvancedTopology3D({
   const handleCreateConnection = useCallback(async (config: ConnectionConfig) => {
     console.log("[Create Connection]", config)
     try {
-      await fetch("/api/mas/connections", {
+      const response = await fetch("/api/mas/connections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config)
+        body: JSON.stringify(config),
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        console.error("Connection create failed:", result)
+        throw new Error(result.error || "Failed to create connection")
+      }
+      
+      console.log("[Create Connection] Success:", result)
+      
+      // Refresh topology data to show new connection
       await fetchData()
+      
+      return result
     } catch (err) {
       console.error("Connection create error:", err)
+      throw err // Re-throw so the caller can handle it
     }
   }, [fetchData])
   

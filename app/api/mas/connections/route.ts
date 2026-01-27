@@ -14,9 +14,18 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
-// Initialize Supabase client for server-side operations
+// Initialize Supabase client for server-side operations with service role
+// The service role key bypasses RLS and has full access
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_KEY 
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      db: {
+        schema: 'public',
+      },
+    })
   : null
 
 // Fallback in-memory store when Supabase is not available

@@ -787,6 +787,7 @@ export function ConnectionWidget({
     priority: 5,
   })
   const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [proposal, setProposal] = useState<ConnectionProposal | null>(null)
   const [showImplementation, setShowImplementation] = useState(false)
   const [llmLoading, setLlmLoading] = useState(false)
@@ -879,50 +880,71 @@ export function ConnectionWidget({
   const handleCreate = async () => {
     if (!sourceNode || !targetNode) return
     setIsProcessing(true)
+    setError(null)
+    
+    // Timeout protection - 30 second max
+    const timeoutId = setTimeout(() => {
+      setIsProcessing(false)
+      setError("Connection creation timed out. Please try again.")
+    }, 30000)
     
     try {
-      // Create main connection
-      await onCreateConnection({
+      // Create main connection via API
+      const connectionResult = await onCreateConnection({
         ...config,
         sourceId: sourceNode.id,
         targetId: targetNode.id,
       })
       
-      await onExecuteAction("create_connection", {
+      // Notify orchestrator (non-blocking, don't wait for result)
+      onExecuteAction("create_connection", {
         source: sourceNode.id,
         target: targetNode.id,
         config,
+      }).catch((err) => {
+        console.warn("Orchestrator notification failed (non-critical):", err)
       })
       
-      // Create cascade connections if selected
+      // Create cascade connections if selected (in parallel for speed)
       if (proposal?.cascadeConnections) {
+        const cascadePromises: Promise<void>[] = []
+        
         for (const cascade of proposal.cascadeConnections) {
           const key = `${cascade.from}-${cascade.to}`
           if (selectedCascades.has(key)) {
-            await onCreateConnection({
-              type: cascade.type,
-              bidirectional: true,
-              priority: 5,
-              sourceId: cascade.from,
-              targetId: cascade.to,
-            })
-            
-            await onExecuteAction("create_connection", {
-              source: cascade.from,
-              target: cascade.to,
-              config: { type: cascade.type, bidirectional: true, priority: 5 },
-              cascade: true,
-            })
+            cascadePromises.push(
+              onCreateConnection({
+                type: cascade.type,
+                bidirectional: true,
+                priority: 5,
+                sourceId: cascade.from,
+                targetId: cascade.to,
+              }).then(() => {
+                // Non-blocking orchestrator notification
+                onExecuteAction("create_connection", {
+                  source: cascade.from,
+                  target: cascade.to,
+                  config: { type: cascade.type, bidirectional: true, priority: 5 },
+                  cascade: true,
+                }).catch(() => {})
+              })
+            )
           }
         }
+        
+        // Wait for all cascade connections
+        await Promise.allSettled(cascadePromises)
       }
       
+      clearTimeout(timeoutId)
+      setIsProcessing(false)
       onClose()
     } catch (error) {
+      clearTimeout(timeoutId)
       console.error("Failed to create connection:", error)
+      setError(error instanceof Error ? error.message : "Failed to create connection")
+      setIsProcessing(false)
     }
-    
-    setIsProcessing(false)
   }
   
   const handleDelete = async () => {
@@ -1244,6 +1266,17 @@ export function ConnectionWidget({
             </>
           )}
         </div>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mx-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-300">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         
         {/* Actions */}
         <div className="p-4 border-t border-white/10 bg-black/20">
