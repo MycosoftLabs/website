@@ -19,6 +19,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
+const XAI_API_KEY = process.env.XAI_API_KEY
 const N8N_USERNAME = process.env.N8N_USERNAME || "admin"
 const N8N_PASSWORD = process.env.N8N_PASSWORD || "Mushroom1!"
 
@@ -245,6 +246,41 @@ async function callGemini(message: string, systemContext: string): Promise<strin
   return null
 }
 
+// Call xAI Grok
+async function callGrok(message: string, systemContext: string): Promise<string | null> {
+  if (!XAI_API_KEY) return null
+  
+  try {
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "grok-2-latest",
+        messages: [
+          { role: "system", content: systemContext },
+          { role: "user", content: message }
+        ],
+        max_tokens: 1024,
+        temperature: 0.7
+      })
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || null
+    } else {
+      const error = await response.text()
+      console.error("Grok API error:", response.status, error)
+    }
+  } catch (error) {
+    console.error("Grok API error:", error)
+  }
+  return null
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -313,7 +349,13 @@ export async function POST(request: NextRequest) {
       if (responseText) provider = "gemini"
     }
     
-    // 5. Ultimate fallback
+    // 5. xAI Grok (great for code and reasoning)
+    if (!responseText) {
+      responseText = await callGrok(message, dynamicContext)
+      if (responseText) provider = "grok"
+    }
+    
+    // 6. Ultimate fallback
     if (!responseText) {
       responseText = `I apologize, but I'm experiencing connectivity issues with my AI backends. 
 
