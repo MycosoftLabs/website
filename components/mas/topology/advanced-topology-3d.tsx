@@ -86,6 +86,11 @@ import {
   Terminal,
   Workflow,
   Brain,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Loader2,
 } from "lucide-react"
 import { TopologyNode3D } from "./topology-node"
 import { TopologyConnection3D, MultiStreamConnection, groupConnectionsByNodePair } from "./topology-connection"
@@ -713,25 +718,134 @@ function BottomControlBar({
   onToggleConnectionMode?: () => void
 }) {
   const [mycaQuery, setMycaQuery] = useState("")
+  const [mycaResponse, setMycaResponse] = useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
   
-  const handleMycaSubmit = useCallback(() => {
-    if (mycaQuery.trim()) {
-      // In production, this calls MYCA AI with full context
-      console.log("[MYCA Query]:", mycaQuery)
-      // Parse intent and route to appropriate handler
-      const query = mycaQuery.toLowerCase()
-      if (query.includes("spawn") || query.includes("create agent")) {
-        onSpawnAgent()
-      } else if (query.includes("path") || query.includes("route") || query.includes("trace")) {
-        onPathTrace()
-      } else if (query.includes("history") || query.includes("timeline")) {
-        onTimeline()
-      } else if (query.includes("command") || query.includes("control") || query.includes("orchestrator") || query.includes("terminal")) {
-        onCommandCenter()
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = false
+      recognitionRef.current.interimResults = false
+      recognitionRef.current.lang = 'en-US'
+      
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript
+        setMycaQuery(transcript)
+        setIsListening(false)
+        // Auto-submit after voice input
+        setTimeout(() => handleMycaSubmit(transcript), 100)
       }
-      setMycaQuery("")
+      
+      recognitionRef.current.onerror = () => {
+        setIsListening(false)
+      }
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false)
+      }
     }
-  }, [mycaQuery, onSpawnAgent, onPathTrace, onTimeline, onCommandCenter])
+  }, [])
+  
+  // Handle voice input toggle
+  const toggleVoiceInput = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+    } else if (recognitionRef.current) {
+      recognitionRef.current.start()
+      setIsListening(true)
+    }
+  }, [isListening])
+  
+  // Speak MYCA's response using ElevenLabs
+  const speakResponse = useCallback(async (text: string) => {
+    if (!voiceEnabled || !text) return
+    
+    try {
+      setIsSpeaking(true)
+      const response = await fetch('/api/mas/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.replace(/\*\*/g, '').replace(/•/g, '').slice(0, 500) })
+      })
+      
+      if (response.ok) {
+        const audioBlob = await response.blob()
+        const audioUrl = URL.createObjectURL(audioBlob)
+        
+        if (audioRef.current) {
+          audioRef.current.src = audioUrl
+          audioRef.current.play()
+          audioRef.current.onended = () => {
+            setIsSpeaking(false)
+            URL.revokeObjectURL(audioUrl)
+          }
+        }
+      } else {
+        setIsSpeaking(false)
+      }
+    } catch (err) {
+      console.error('Voice synthesis failed:', err)
+      setIsSpeaking(false)
+    }
+  }, [voiceEnabled])
+  
+  // Handle MYCA chat submission - REAL API CALL
+  const handleMycaSubmit = useCallback(async (queryOverride?: string) => {
+    const query = queryOverride || mycaQuery
+    if (!query.trim()) return
+    
+    setIsProcessing(true)
+    setMycaResponse(null)
+    
+    // First check for local tool triggers
+    const lowerQuery = query.toLowerCase()
+    if (lowerQuery.includes("spawn") || lowerQuery.includes("create agent")) {
+      onSpawnAgent()
+    } else if (lowerQuery.includes("path") || lowerQuery.includes("route") || lowerQuery.includes("trace")) {
+      onPathTrace()
+    } else if (lowerQuery.includes("history") || lowerQuery.includes("timeline")) {
+      onTimeline()
+    } else if (lowerQuery.includes("command") || lowerQuery.includes("control") || lowerQuery.includes("terminal")) {
+      onCommandCenter()
+    }
+    
+    // Call the real MYCA chat API
+    try {
+      const response = await fetch('/api/mas/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: query,
+          session_id: `topology-${Date.now()}`,
+          context: { source: 'topology-dashboard' }
+        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setMycaResponse(data.response)
+        
+        // Auto-speak if voice is enabled
+        if (voiceEnabled && data.response) {
+          speakResponse(data.response)
+        }
+      }
+    } catch (err) {
+      console.error('MYCA chat failed:', err)
+      setMycaResponse('Failed to reach MYCA. Please check the connection.')
+    }
+    
+    setMycaQuery("")
+    setIsProcessing(false)
+  }, [mycaQuery, onSpawnAgent, onPathTrace, onTimeline, onCommandCenter, voiceEnabled, speakResponse])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 h-14 bg-black/90 backdrop-blur-md border-t border-white/10 z-30">
@@ -875,30 +989,92 @@ function BottomControlBar({
           </TooltipProvider>
         </div>
         
-        {/* Center - MYCA AI Search */}
-        <div className="flex-1 max-w-2xl">
+        {/* Center - MYCA AI Search with Voice */}
+        <div className="flex-1 max-w-2xl relative">
+          {/* Hidden audio element for MYCA voice */}
+          <audio ref={audioRef} className="hidden" />
+          
+          {/* MYCA Response Popup */}
+          {mycaResponse && (
+            <div className="absolute bottom-full mb-2 left-0 right-0 max-h-48 overflow-auto bg-black/95 backdrop-blur-xl rounded-lg border border-cyan-500/30 p-3 shadow-xl">
+              <div className="flex items-start gap-2">
+                <Brain className="h-5 w-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 text-sm text-white/90 whitespace-pre-wrap">
+                  {mycaResponse.split('\n').map((line, i) => (
+                    <p key={i} className={line.startsWith('**') ? 'font-semibold text-cyan-300' : 'text-white/80'}>
+                      {line.replace(/\*\*/g, '')}
+                    </p>
+                  ))}
+                </div>
+                <button 
+                  onClick={() => setMycaResponse(null)}
+                  className="text-white/50 hover:text-white/80 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-cyan-500/10 rounded-full border border-cyan-500/20 focus-within:border-cyan-500/50 transition-colors">
-            <Brain className="h-5 w-5 text-cyan-400" />
+            {/* Microphone Button */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn(
+                "h-7 w-7 transition-colors",
+                isListening 
+                  ? "text-red-400 bg-red-500/20 animate-pulse" 
+                  : "text-white/60 hover:text-cyan-400"
+              )}
+              onClick={toggleVoiceInput}
+              title={isListening ? "Stop listening" : "Speak to MYCA"}
+            >
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+            
+            <Brain className={cn(
+              "h-5 w-5 transition-colors",
+              isProcessing ? "text-yellow-400 animate-pulse" : isSpeaking ? "text-purple-400" : "text-cyan-400"
+            )} />
+            
             <input
               type="text"
               value={mycaQuery}
               onChange={(e) => setMycaQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleMycaSubmit()}
-              placeholder="Ask MYCA... (e.g., 'Show path from MYCA to Financial', 'Spawn security agent', 'Show timeline')"
+              placeholder={isListening ? "Listening..." : isProcessing ? "MYCA is thinking..." : "Ask MYCA... (voice or text)"}
               className="flex-1 bg-transparent text-white text-sm placeholder:text-white/40 focus:outline-none"
+              disabled={isProcessing || isListening}
             />
-            <div className="flex items-center gap-1.5 text-[10px] text-white/30">
+            
+            {/* Voice Output Toggle */}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={cn(
+                "h-6 w-6",
+                voiceEnabled ? "text-purple-400" : "text-white/30"
+              )}
+              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              title={voiceEnabled ? "Voice output ON" : "Voice output OFF"}
+            >
+              {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+            </Button>
+            
+            <div className="flex items-center gap-1 text-[10px] text-white/30">
               <Database className="h-3 w-3" />
               <Workflow className="h-3 w-3" />
-              <Terminal className="h-3 w-3" />
             </div>
+            
             <Button 
               variant="ghost" 
               size="icon" 
               className="h-7 w-7 text-cyan-400 hover:text-cyan-300"
-              onClick={handleMycaSubmit}
+              onClick={() => handleMycaSubmit()}
+              disabled={isProcessing || !mycaQuery.trim()}
             >
-              <Send className="h-4 w-4" />
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </div>
