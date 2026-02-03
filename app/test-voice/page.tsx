@@ -1,15 +1,16 @@
 ﻿"use client"
 
 /**
- * MYCA Voice Test Suite - Iron Man Style
- * "Good morning, Morgan. I've prepared the diagnostic suite."
- * 
+ * MYCA Voice Test Suite - Enhanced Debug Version
  * Created: February 3, 2026
  * 
- * Uses the WORKING approach from voice-duplex:
- * 1. Web Speech API for speech-to-text (browser-native)
- * 2. PersonaPlex Bridge (8999) for MYCA integration
- * 3. Native Moshi UI (8998) embedded for full-duplex
+ * ENHANCED with visual debugging for voice speed and talking issues:
+ * - Real-time waveform visualization
+ * - Duplex timeline (who's talking when)
+ * - Latency metrics (STT, LLM, TTS)
+ * - Audio buffer status
+ * - Speaking rate detection
+ * - Overlap detection
  */
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -27,11 +28,14 @@ import {
   Cpu,
   ExternalLink,
   Maximize2,
-  Send
+  Send,
+  Activity,
+  Clock,
+  Zap,
+  BarChart2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Web Speech API type declarations
 declare global {
   interface Window {
     SpeechRecognition: typeof SpeechRecognition
@@ -49,18 +53,36 @@ interface ServiceStatus {
 
 interface TestLog {
   timestamp: Date
-  level: "info" | "success" | "error" | "warn" | "debug"
+  level: "info" | "success" | "error" | "warn" | "debug" | "metric"
   message: string
   details?: string
 }
 
+// Timeline event for duplex visualization
+interface TimelineEvent {
+  id: string
+  type: "user_speaking" | "myca_speaking" | "processing" | "silence"
+  startTime: number
+  endTime?: number
+  label?: string
+}
+
+// Latency metrics
+interface LatencyMetrics {
+  sttLatency: number[]
+  llmLatency: number[]
+  ttsLatency: number[]
+  totalLatency: number[]
+  audioBufferMs: number
+  lastUpdate: number
+}
+
 export default function VoiceTestPage() {
-  // Service statuses
+  // Service statuses - Note: Moshi check goes through Bridge to avoid CORS
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Native Moshi (Full-Duplex)", url: "http://localhost:8998", status: "checking" },
-    { name: "PersonaPlex Bridge (MYCA)", url: "http://localhost:8999/health", status: "checking" },
+    { name: "Moshi Server (8998)", url: "_via_bridge_", status: "checking" },
+    { name: "PersonaPlex Bridge (8999)", url: "http://localhost:8999/health", status: "checking" },
     { name: "Voice Orchestrator", url: "/api/mas/voice/orchestrator", status: "checking" },
-    { name: "Memory API", url: "/api/memory", status: "checking" },
   ])
   
   // Test logs
@@ -69,14 +91,10 @@ export default function VoiceTestPage() {
   
   // Test state
   const [testPhase, setTestPhase] = useState<"idle" | "checking" | "ready" | "listening" | "complete">("idle")
-  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA systems, Morgan...")
+  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA systems...")
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown")
   
-  // Voice mode
-  const [voiceMode, setVoiceMode] = useState<"native-duplex" | "myca-connected">("native-duplex")
-  const [showNativeEmbed, setShowNativeEmbed] = useState(false)
-  
-  // MYCA-connected mode state
+  // Voice state
   const [wsConnected, setWsConnected] = useState(false)
   const [isRecognizing, setIsRecognizing] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState("")
@@ -84,17 +102,52 @@ export default function VoiceTestPage() {
   const [lastResponse, setLastResponse] = useState<string>("")
   const [textInput, setTextInput] = useState("")
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [micLevel, setMicLevel] = useState(0)  // 0-100 for visual indicator
+  const [micLevel, setMicLevel] = useState(0)
+  const [outputLevel, setOutputLevel] = useState(0)
+  
+  // ===== DEBUG METRICS =====
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([])
+  const [latencyMetrics, setLatencyMetrics] = useState<LatencyMetrics>({
+    sttLatency: [],
+    llmLatency: [],
+    ttsLatency: [],
+    totalLatency: [],
+    audioBufferMs: 0,
+    lastUpdate: Date.now()
+  })
+  const [audioStats, setAudioStats] = useState({
+    bytesIn: 0,
+    bytesOut: 0,
+    chunksIn: 0,
+    chunksOut: 0,
+    droppedFrames: 0,
+    bufferUnderruns: 0
+  })
+  const [overlapDetected, setOverlapDetected] = useState(false)
+  const [speakingRate, setSpeakingRate] = useState(0) // words per minute
+  
+  // Waveform data
+  const [inputWaveform, setInputWaveform] = useState<number[]>(new Array(64).fill(0))
+  const [outputWaveform, setOutputWaveform] = useState<number[]>(new Array(64).fill(0))
   
   const wsRef = useRef<WebSocket | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
+  const outputAnalyserRef = useRef<AnalyserNode | null>(null)
   const micLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const timelineStartRef = useRef<number>(Date.now())
+  const currentEventRef = useRef<TimelineEvent | null>(null)
+  
+  // Timing refs for latency tracking
+  const sttStartRef = useRef<number>(0)
+  const llmStartRef = useRef<number>(0)
+  const ttsStartRef = useRef<number>(0)
+  const utteranceStartRef = useRef<number>(0)
   
   // Add log entry
   const addLog = useCallback((level: TestLog["level"], message: string, details?: string) => {
-    setLogs(prev => [...prev.slice(-100), {
+    setLogs(prev => [...prev.slice(-200), {
       timestamp: new Date(),
       level,
       message,
@@ -107,19 +160,81 @@ export default function VoiceTestPage() {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [logs])
   
+  // Add timeline event
+  const addTimelineEvent = useCallback((type: TimelineEvent["type"], label?: string) => {
+    const now = Date.now()
+    
+    // End previous event
+    if (currentEventRef.current) {
+      setTimeline(prev => prev.map(e => 
+        e.id === currentEventRef.current?.id ? { ...e, endTime: now } : e
+      ))
+    }
+    
+    // Check for overlap
+    if (type === "myca_speaking" && currentEventRef.current?.type === "user_speaking") {
+      setOverlapDetected(true)
+      addLog("warn", "OVERLAP DETECTED: MYCA started speaking while user still talking!")
+      setTimeout(() => setOverlapDetected(false), 3000)
+    }
+    
+    // Create new event
+    const event: TimelineEvent = {
+      id: `${now}_${Math.random().toString(36).slice(2)}`,
+      type,
+      startTime: now,
+      label
+    }
+    currentEventRef.current = event
+    setTimeline(prev => [...prev.slice(-50), event])
+  }, [addLog])
+  
+  // Update latency metric
+  const recordLatency = useCallback((type: "stt" | "llm" | "tts" | "total", value: number) => {
+    setLatencyMetrics(prev => {
+      const key = `${type}Latency` as keyof LatencyMetrics
+      const arr = prev[key] as number[]
+      return {
+        ...prev,
+        [key]: [...arr.slice(-20), value],
+        lastUpdate: Date.now()
+      }
+    })
+    addLog("metric", `${type.toUpperCase()} Latency: ${value}ms`)
+  }, [addLog])
+  
+  // Calculate average latency
+  const getAvgLatency = (arr: number[]) => {
+    if (arr.length === 0) return 0
+    return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
+  }
+  
   // Check services
   const checkServices = async () => {
     setTestPhase("checking")
-    addLog("info", "Running diagnostics, Morgan...")
+    addLog("info", "Running diagnostics...")
     setJarvisMessage("Running full diagnostics on all voice systems...")
     
     const updatedServices = [...services]
+    let bridgeHealth: { moshi_available?: boolean } | null = null
     
     for (let i = 0; i < updatedServices.length; i++) {
       const service = updatedServices[i]
       addLog("info", `Checking ${service.name}...`)
       
       try {
+        // Special case: Check Moshi through Bridge to avoid CORS
+        if (service.url === "_via_bridge_") {
+          if (bridgeHealth?.moshi_available) {
+            updatedServices[i] = { ...service, status: "online", latency: 0 }
+            addLog("success", `${service.name}: ONLINE (via Bridge)`)
+          } else {
+            // Bridge not checked yet, skip for now
+            updatedServices[i] = { ...service, status: "checking" }
+          }
+          continue
+        }
+        
         const start = performance.now()
         const response = await fetch(service.url, { 
           method: "GET",
@@ -127,110 +242,97 @@ export default function VoiceTestPage() {
         })
         const latency = Math.round(performance.now() - start)
         
-        if (response.ok || response.status === 405 || response.status === 400) {
+        // 426 = WebSocket server, 405/400 = other valid responses
+        if (response.ok || response.status === 426 || response.status === 405 || response.status === 400) {
           updatedServices[i] = { ...service, status: "online", latency }
           addLog("success", `${service.name}: ONLINE (${latency}ms)`)
+          
+          // If this is the bridge, get moshi_available from response
+          if (service.url.includes("8999/health")) {
+            try {
+              bridgeHealth = await response.json()
+              // Now update Moshi status
+              if (bridgeHealth?.moshi_available) {
+                updatedServices[0] = { ...updatedServices[0], status: "online", latency: 0 }
+                addLog("success", `Moshi Server (8998): ONLINE (via Bridge)`)
+              } else {
+                updatedServices[0] = { ...updatedServices[0], status: "offline", error: "Bridge reports Moshi unavailable" }
+                addLog("error", `Moshi Server (8998): OFFLINE (Bridge reports unavailable)`)
+              }
+            } catch {}
+          }
         } else {
           updatedServices[i] = { ...service, status: "error", error: `HTTP ${response.status}` }
           addLog("error", `${service.name}: Error ${response.status}`)
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-          updatedServices[i] = { ...service, status: "offline", error: "Connection refused" }
-          addLog("error", `${service.name}: OFFLINE - Connection refused`)
-        } else {
-          updatedServices[i] = { ...service, status: "error", error: errorMsg }
-          addLog("error", `${service.name}: ${errorMsg}`)
-        }
+        updatedServices[i] = { ...service, status: "offline", error: errorMsg }
+        addLog("error", `${service.name}: OFFLINE`)
       }
       
       setServices([...updatedServices])
     }
     
-    // Check microphone permission
-    addLog("info", "Checking microphone permission...")
+    // Check microphone
     try {
       const permission = await navigator.permissions.query({ name: "microphone" as PermissionName })
       setMicPermission(permission.state === "granted" ? "granted" : permission.state === "denied" ? "denied" : "unknown")
-      addLog(permission.state === "granted" ? "success" : "warn", 
-        `Microphone permission: ${permission.state}`)
-    } catch {
-      addLog("warn", "Could not check microphone permission (will prompt when needed)")
-    }
+    } catch {}
     
-    // Determine readiness
-    const nativeOnline = updatedServices[0].status === "online"
     const bridgeOnline = updatedServices[1].status === "online"
-    
-    if (nativeOnline || bridgeOnline) {
+    if (bridgeOnline) {
       setTestPhase("ready")
-      if (nativeOnline && bridgeOnline) {
-        setJarvisMessage("All systems operational, Morgan. Choose your voice mode and click the microphone.")
-        addLog("success", "Both Native Moshi and MYCA Bridge are online!")
-      } else if (nativeOnline) {
-        setJarvisMessage("Native Moshi is online. Use Full-Duplex mode for the best experience.")
-        addLog("success", "Native Moshi online. MYCA Bridge offline - use Native mode.")
-        setVoiceMode("native-duplex")
-      } else {
-        setJarvisMessage("MYCA Bridge is online. Use MYCA-Connected mode.")
-        addLog("success", "MYCA Bridge online. Native Moshi offline - use MYCA mode.")
-        setVoiceMode("myca-connected")
-      }
+      setJarvisMessage("Systems ready. Click 'Start Voice Session' to begin.")
     } else {
       setTestPhase("idle")
-      setJarvisMessage("Both voice services are offline. Start the Moshi server or PersonaPlex Bridge.")
-      addLog("error", "No voice services available!")
+      setJarvisMessage("PersonaPlex Bridge offline. Start it with: python personaplex_bridge_nvidia.py")
     }
   }
   
-  // Media recorder for Opus audio
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
+  const opusRecorderRef = useRef<any>(null)
   
-  // Start MYCA-connected voice
+  // Start voice session
   const startMycaVoice = async () => {
-    addLog("info", "Starting MYCA-connected voice...")
-    setJarvisMessage("Connecting to MYCA systems...")
+    addLog("info", "Starting MYCA voice session...")
+    setJarvisMessage("Connecting to PersonaPlex Bridge...")
+    timelineStartRef.current = Date.now()
+    setTimeline([])
+    setAudioStats({ bytesIn: 0, bytesOut: 0, chunksIn: 0, chunksOut: 0, droppedFrames: 0, bufferUnderruns: 0 })
     
     try {
-      // Request microphone with constraints matching native PersonaPlex client
+      // Get microphone
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,  // CRITICAL: Boosts quiet audio automatically
+          autoGainControl: true,
           channelCount: 1,
         } 
       })
       mediaStreamRef.current = stream
       setMicPermission("granted")
       
-      // Set up audio level monitoring for visual feedback
-      try {
-        const monitorCtx = new AudioContext()
-        const source = monitorCtx.createMediaStreamSource(stream)
-        const analyser = monitorCtx.createAnalyser()
-        analyser.fftSize = 256
-        source.connect(analyser)
-        analyserRef.current = analyser
-        
-        // Start monitoring mic level
-        const dataArray = new Uint8Array(analyser.frequencyBinCount)
-        micLevelIntervalRef.current = setInterval(() => {
-          if (analyserRef.current) {
-            analyserRef.current.getByteFrequencyData(dataArray)
-            // Get average volume level
-            const sum = dataArray.reduce((a, b) => a + b, 0)
-            const avg = sum / dataArray.length
-            const level = Math.min(100, Math.round(avg * 1.5))  // Scale to 0-100
-            setMicLevel(level)
-          }
-        }, 100)
-        addLog("debug", "Microphone level monitoring started")
-      } catch (e) {
-        addLog("warn", "Could not set up mic level monitoring")
-      }
+      // Set up input audio analysis for waveform
+      const monitorCtx = new AudioContext()
+      const source = monitorCtx.createMediaStreamSource(stream)
+      const analyser = monitorCtx.createAnalyser()
+      analyser.fftSize = 128
+      source.connect(analyser)
+      analyserRef.current = analyser
+      
+      // Monitor input levels and waveform
+      const dataArray = new Uint8Array(analyser.frequencyBinCount)
+      micLevelIntervalRef.current = setInterval(() => {
+        if (analyserRef.current) {
+          analyserRef.current.getByteFrequencyData(dataArray)
+          const sum = dataArray.reduce((a, b) => a + b, 0)
+          const avg = sum / dataArray.length
+          setMicLevel(Math.min(100, Math.round(avg * 1.5)))
+          setInputWaveform(Array.from(dataArray.slice(0, 64)))
+        }
+      }, 50)
       
       // Create session on bridge
       addLog("info", "Creating session on PersonaPlex Bridge...")
@@ -240,98 +342,118 @@ export default function VoiceTestPage() {
         body: JSON.stringify({ persona: "myca", voice: "myca" })
       })
       
-      if (!bridgeRes.ok) {
-        throw new Error(`Bridge session failed: ${bridgeRes.status}`)
-      }
+      if (!bridgeRes.ok) throw new Error(`Bridge session failed: ${bridgeRes.status}`)
       
       const session = await bridgeRes.json()
-      addLog("success", `Session created: ${session.session_id}`)
+      addLog("success", `Session: ${session.session_id}`)
       
-      // Connect directly to Moshi for audio, bridge for text
-      // Build Moshi URL with MYCA persona
-      // Note: Keep text_prompt short for Moshi - it's not a system prompt, just a persona hint
-      const moshiParams = new URLSearchParams({
-        text_prompt: "You are MYCA, a friendly AI assistant for Mycosoft created by Morgan. You coordinate 40+ specialized agents and help manage infrastructure. Be warm, professional, and speak naturally. Listen carefully and respond helpfully.",
-        voice_prompt: "NATF2.pt",
-        audio_temperature: "0.7",  // Slightly lower for more consistent output
-        text_temperature: "0.7",
-        text_topk: "25",
-        audio_topk: "250",
-        pad_mult: "0",  // Reduce padding for faster response
-      })
+      // Connect WebSocket
+      const bridgeWsUrl = `ws://localhost:8999/ws/${session.session_id}`
+      addLog("info", `Connecting WebSocket: ${bridgeWsUrl}`)
       
-      const moshiUrl = `ws://localhost:8998/api/chat?${moshiParams.toString()}`
-      addLog("info", "Connecting to Moshi for full-duplex audio...")
-      
-      const ws = new WebSocket(moshiUrl)
+      const ws = new WebSocket(bridgeWsUrl)
       ws.binaryType = "arraybuffer"
       
       ws.onopen = () => {
-        addLog("success", "Connected to Moshi!")
-        addLog("info", "Waiting for handshake...")
+        addLog("success", "WebSocket connected!")
       }
-      
-      // Track audio bytes for debugging
-      let totalAudioIn = 0
-      let totalAudioOut = 0
       
       ws.onmessage = async (event) => {
         try {
+          if (typeof event.data === "string") {
+            const msg = JSON.parse(event.data)
+            
+            if (msg.type === "text") {
+              // User's speech transcribed
+              if (msg.text?.trim()) {
+                const now = Date.now()
+                if (sttStartRef.current > 0) {
+                  recordLatency("stt", now - sttStartRef.current)
+                }
+                setTranscript(msg.text.trim())
+                addLog("info", `You: "${msg.text.trim()}"`)
+                addTimelineEvent("processing", "Processing...")
+                llmStartRef.current = now
+                
+                // Calculate speaking rate
+                const words = msg.text.trim().split(/\s+/).length
+                const duration = (now - utteranceStartRef.current) / 1000 / 60 // minutes
+                if (duration > 0) {
+                  setSpeakingRate(Math.round(words / duration))
+                }
+              }
+            } else if (msg.type === "orchestrator_response") {
+              // MYCA's response
+              const now = Date.now()
+              if (llmStartRef.current > 0) {
+                recordLatency("llm", now - llmStartRef.current)
+              }
+              ttsStartRef.current = now
+              
+              if (msg.text?.trim()) {
+                setLastResponse(msg.text.trim())
+                addLog("success", `MYCA: "${msg.text.trim().slice(0, 100)}..."`)
+                addTimelineEvent("myca_speaking", "MYCA")
+              }
+            } else if (msg.type === "error") {
+              addLog("error", `Error: ${msg.message}`)
+            }
+            return
+          }
+          
+          // Binary audio from Moshi
           const data = new Uint8Array(event.data as ArrayBuffer)
           if (data.length === 0) return
           
           const kind = data[0]
           const payload = data.slice(1)
           
-          // Handle handshake (0x00)
+          // Handshake
           if (data.length === 1 && kind === 0) {
-            addLog("success", "Handshake received! Starting audio...")
+            addLog("success", "Moshi handshake OK!")
             setWsConnected(true)
             setTestPhase("listening")
-            setJarvisMessage("I'm listening, Morgan. Speak naturally - this is full-duplex!")
+            setJarvisMessage("Connected! Speak naturally - watch the debug panels for issues.")
             
-            // Initialize audio context FIRST, then decoder
             if (!audioContextRef.current) {
               audioContextRef.current = new AudioContext({ sampleRate: 48000 })
             }
             
-            // Initialize decoder (async) and start audio capture
-            // Don't await - let audio capture start immediately while decoder initializes
-            initDecoderWorker().catch(e => addLog("error", `Decoder init failed: ${e}`))
+            initDecoderWorker().catch(e => addLog("error", `Decoder init: ${e}`))
             startAudioCapture(ws)
+            addTimelineEvent("silence", "Ready")
             return
           }
           
-          // Handle audio (kind 1)
+          // Audio from MYCA
           if (kind === 1 && payload.length > 0) {
-            totalAudioIn += payload.length
-            // Log first few and every 10KB
-            if (totalAudioIn < 5000 || totalAudioIn % 10000 < payload.length) {
-              addLog("debug", `Audio IN: ${payload.length}B (total: ${totalAudioIn}B)`)
+            const now = Date.now()
+            if (ttsStartRef.current > 0 && !isSpeaking) {
+              recordLatency("tts", now - ttsStartRef.current)
+              ttsStartRef.current = 0
             }
+            
+            setAudioStats(prev => ({
+              ...prev,
+              bytesIn: prev.bytesIn + payload.length,
+              chunksIn: prev.chunksIn + 1
+            }))
+            setIsSpeaking(true)
             handleMoshiAudio(payload)
-          }
-          
-          // Handle text (kind 2)
-          if (kind === 2 && payload.length > 0) {
-            const text = new TextDecoder().decode(payload)
-            setLastResponse(prev => prev + text)
-            if (text.length > 2) {
-              addLog("info", `MYCA: "${text.slice(0, 60)}..."`)
-            }
+            scheduleSpeakingEnd()
           }
         } catch (err) {
           addLog("debug", `Message error: ${err}`)
         }
       }
       
-      ws.onerror = (e) => {
-        addLog("error", "WebSocket error - check if Moshi is running")
+      ws.onerror = () => {
+        addLog("error", "WebSocket error")
         setWsConnected(false)
       }
       
       ws.onclose = () => {
-        addLog("info", "Disconnected from Moshi")
+        addLog("info", "Disconnected")
         setWsConnected(false)
         stopAudioCapture()
       }
@@ -346,151 +468,49 @@ export default function VoiceTestPage() {
     }
   }
   
-  // Start speech recognition (Web Speech API)
-  const startSpeechRecognition = (ws: WebSocket) => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognitionAPI) {
-      addLog("warn", "Speech recognition not supported - use text input")
-      return
-    }
-    
-    const recognition = new SpeechRecognitionAPI()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = "en-US"
-    
-    recognition.onstart = () => {
-      setIsRecognizing(true)
-      addLog("info", "Speech recognition started")
-    }
-    
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interim = ""
-      let final = ""
-      
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const text = event.results[i][0].transcript
-        if (event.results[i].isFinal) {
-          final += text
-        } else {
-          interim += text
-        }
-      }
-      
-      setInterimTranscript(interim)
-      
-      if (final.trim() && ws.readyState === WebSocket.OPEN) {
-        setTranscript(final.trim())
-        addLog("info", `You said: "${final.trim()}"`)
-        ws.send(JSON.stringify({
-          type: "text_input",
-          text: final.trim(),
-          source: "voice"
-        }))
-        setInterimTranscript("")
-      }
-    }
-    
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error !== "aborted") {
-        addLog("error", `Speech error: ${event.error}`)
-        setTimeout(() => {
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            try { recognition.start() } catch {}
-          }
-        }, 1000)
-      }
-    }
-    
-    recognition.onend = () => {
-      setIsRecognizing(false)
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        try { recognition.start() } catch {}
-      }
-    }
-    
-    recognitionRef.current = recognition
-    try { recognition.start() } catch {}
-  }
-  
-  // Stop speech recognition
-  const stopSpeechRecognition = () => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop() } catch {}
-      recognitionRef.current = null
-    }
-    setIsRecognizing(false)
-    setInterimTranscript("")
-  }
-  
-  // Start audio capture with opus-recorder for proper Ogg/Opus output
+  // Start audio capture with opus-recorder
   const startAudioCapture = async (ws: WebSocket) => {
-    if (!mediaStreamRef.current) {
-      addLog("error", "No microphone stream available")
-      return
-    }
+    if (!mediaStreamRef.current) return
     
     try {
-      // Dynamically load opus-recorder
-      const Recorder = (window as any).Recorder
-      if (!Recorder) {
-        // Load the script first
-        await new Promise<void>((resolve, reject) => {
-          if ((window as any).Recorder) {
-            resolve()
-            return
-          }
-          const script = document.createElement("script")
-          script.src = "/assets/recorder.min.js"
-          script.onload = () => resolve()
-          script.onerror = () => reject(new Error("Failed to load opus-recorder"))
-          document.head.appendChild(script)
-        })
-      }
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).Recorder) { resolve(); return }
+        const script = document.createElement("script")
+        script.src = "/assets/recorder.min.js"
+        script.onload = () => resolve()
+        script.onerror = () => reject(new Error("Failed to load opus-recorder"))
+        document.head.appendChild(script)
+      })
       
       const RecorderClass = (window as any).Recorder
-      if (!RecorderClass) {
-        throw new Error("Recorder not loaded")
-      }
+      if (!RecorderClass) throw new Error("Recorder not loaded")
       
-      addLog("debug", "Using opus-recorder for Ogg/Opus encoding")
-      
-      // Configure recorder to EXACTLY match native PersonaPlex client
-      // See: personaplex-repo/client/src/pages/Conversation/hooks/useUserAudio.ts
       const recorderOptions = {
         encoderPath: "/assets/encoderWorker.min.js",
         encoderSampleRate: 24000,
-        encoderFrameSize: 20,  // 20ms frames
+        encoderFrameSize: 20,
         maxFramesPerPage: 2,
         numberOfChannels: 1,
-        streamPages: true,  // Stream Ogg pages as they're ready
-        encoderApplication: 2049,  // Voice application (OPUS_APPLICATION_VOIP)
-        encoderComplexity: 0,  // From native client
+        streamPages: true,
+        encoderApplication: 2049,
+        encoderComplexity: 0,
         resampleQuality: 3,
-        recordingGain: 1.5,  // Boost gain for better voice pickup (was 1)
-        bufferLength: Math.round(960 * 48000 / 24000),  // From native client: 960 * sampleRate / 24000
+        recordingGain: 1.5,
+        bufferLength: Math.round(960 * 48000 / 24000),
       }
       
       const recorder = new RecorderClass(recorderOptions)
       
-      // Track audio output
-      let audioChunks = 0
-      let totalAudioOut = 0
-      
-      // Handle Ogg pages as they come
       recorder.ondataavailable = (data: Uint8Array) => {
         if (data && data.length > 0 && ws.readyState === WebSocket.OPEN) {
-          audioChunks++
-          totalAudioOut += data.length
+          setAudioStats(prev => ({
+            ...prev,
+            bytesOut: prev.bytesOut + data.length,
+            chunksOut: prev.chunksOut + 1
+          }))
           
-          // Log first few and every 10KB
-          if (audioChunks <= 5 || totalAudioOut % 10000 < data.length) {
-            addLog("debug", `Audio OUT: ${data.length}B (chunks: ${audioChunks}, total: ${totalAudioOut}B)`)
-          }
-          
-          // Send as audio message (kind 1)
           const message = new Uint8Array(1 + data.length)
-          message[0] = 0x01  // Audio kind
+          message[0] = 0x01
           message.set(data, 1)
           ws.send(message)
         }
@@ -498,7 +518,10 @@ export default function VoiceTestPage() {
       
       recorder.onstart = () => {
         setIsRecognizing(true)
-        addLog("info", "Audio capture started (Ogg/Opus) - speak now!")
+        addLog("info", "Audio capture started - speak now!")
+        utteranceStartRef.current = Date.now()
+        sttStartRef.current = Date.now()
+        addTimelineEvent("user_speaking", "You")
       }
       
       recorder.onstop = () => {
@@ -506,43 +529,29 @@ export default function VoiceTestPage() {
         addLog("info", "Audio capture stopped")
       }
       
-      recorder.onerror = (error: Error) => {
-        addLog("error", `Opus recorder error: ${error.message}`)
-      }
-      
-      // Start recording
       recorder.start(mediaStreamRef.current)
       opusRecorderRef.current = recorder
       
+      // Moshi handles all STT - text is cloned to MAS for memory (async, non-blocking)
+      addLog("success", "Moshi full-duplex active - MAS memory cloning enabled")
+      
     } catch (e) {
-      addLog("error", `Failed to start audio capture: ${e}`)
+      addLog("error", `Audio capture failed: ${e}`)
     }
   }
   
-  // Reference to opus-recorder instance
-  const opusRecorderRef = useRef<any>(null)
-  
   // Stop audio capture
   const stopAudioCapture = () => {
-    // Stop mic level monitoring
     if (micLevelIntervalRef.current) {
       clearInterval(micLevelIntervalRef.current)
       micLevelIntervalRef.current = null
     }
-    analyserRef.current = null
     setMicLevel(0)
     
-    // Stop opus-recorder
     if (opusRecorderRef.current) {
       try { opusRecorderRef.current.stop() } catch {}
       opusRecorderRef.current = null
     }
-    // Stop MediaRecorder (fallback)
-    if (mediaRecorderRef.current) {
-      try { mediaRecorderRef.current.stop() } catch {}
-      mediaRecorderRef.current = null
-    }
-    // Stop media stream
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(t => t.stop())
       mediaStreamRef.current = null
@@ -550,18 +559,16 @@ export default function VoiceTestPage() {
     setIsRecognizing(false)
   }
   
-  // Opus decoder worker for Moshi audio
+  // Opus decoder
   const decoderWorkerRef = useRef<Worker | null>(null)
   const decoderReadyRef = useRef(false)
   const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null)
   const workletReadyRef = useRef(false)
+  const pendingAudioRef = useRef<Uint8Array[]>([])
+  const decoderInitializingRef = useRef(false)
   
-  // Track playback for logging
-  const playbackCountRef = useRef(0)
-  
-  // Initialize AudioWorklet for smooth playback (like native PersonaPlex client)
   const initAudioWorklet = useCallback(async () => {
-    if (workletReadyRef.current || audioWorkletNodeRef.current) return
+    if (workletReadyRef.current) return
     
     try {
       if (!audioContextRef.current) {
@@ -569,41 +576,51 @@ export default function VoiceTestPage() {
       }
       
       const ctx = audioContextRef.current
-      if (ctx.state === "suspended") {
-        await ctx.resume()
-        addLog("debug", "AudioContext resumed")
-      }
+      if (ctx.state === "suspended") await ctx.resume()
       
-      // Load the AudioWorklet module
       await ctx.audioWorklet.addModule("/assets/audio-processor.js")
       
-      // Create the worklet node
       const workletNode = new AudioWorkletNode(ctx, "moshi-processor")
       workletNode.connect(ctx.destination)
       
-      // Handle messages from worklet (stats)
-      workletNode.port.onmessage = (e) => {
-        if (e.data && e.data.actualAudioPlayed > 0) {
-          setIsSpeaking(true)
+      // Create output analyser for waveform
+      const outputAnalyser = ctx.createAnalyser()
+      outputAnalyser.fftSize = 128
+      workletNode.connect(outputAnalyser)
+      outputAnalyserRef.current = outputAnalyser
+      
+      // Monitor output levels
+      setInterval(() => {
+        if (outputAnalyserRef.current && isSpeaking) {
+          const dataArray = new Uint8Array(outputAnalyserRef.current.frequencyBinCount)
+          outputAnalyserRef.current.getByteFrequencyData(dataArray)
+          const sum = dataArray.reduce((a, b) => a + b, 0)
+          setOutputLevel(Math.min(100, Math.round(sum / dataArray.length * 1.5)))
+          setOutputWaveform(Array.from(dataArray.slice(0, 64)))
+        } else {
+          setOutputLevel(0)
         }
-        // Could add delay stats here if needed
+      }, 50)
+      
+      workletNode.port.onmessage = (e) => {
+        if (e.data?.bufferUnderrun) {
+          setAudioStats(prev => ({ ...prev, bufferUnderruns: prev.bufferUnderruns + 1 }))
+          addLog("warn", "Audio buffer underrun - may cause choppy audio")
+        }
       }
       
       audioWorkletNodeRef.current = workletNode
       workletReadyRef.current = true
-      addLog("debug", "AudioWorklet initialized for smooth playback")
+      addLog("debug", "AudioWorklet ready")
     } catch (e) {
-      addLog("error", `Failed to init AudioWorklet: ${e}`)
-      workletReadyRef.current = false
+      addLog("error", `AudioWorklet init failed: ${e}`)
     }
-  }, [addLog])
+  }, [addLog, isSpeaking])
   
-  // Initialize Opus decoder worker
   const initDecoderWorker = useCallback(async () => {
     if (decoderWorkerRef.current) return
     
     try {
-      // Ensure AudioWorklet is ready first
       await initAudioWorklet()
       
       const worker = new Worker("/assets/decoderWorker.min.js")
@@ -611,15 +628,8 @@ export default function VoiceTestPage() {
       worker.onmessage = (e: MessageEvent) => {
         if (!e.data) return
         
-        // Decoded PCM audio (Float32Array)
         const pcmData = e.data[0] as Float32Array
-        if (pcmData && pcmData.length > 0) {
-          playbackCountRef.current++
-          if (playbackCountRef.current <= 5) {
-            addLog("debug", `Decoded PCM: ${pcmData.length} samples`)
-          }
-          
-          // Send to AudioWorklet for smooth playback
+        if (pcmData?.length > 0) {
           if (audioWorkletNodeRef.current && workletReadyRef.current) {
             audioWorkletNodeRef.current.port.postMessage({
               frame: pcmData,
@@ -631,11 +641,6 @@ export default function VoiceTestPage() {
         }
       }
       
-      worker.onerror = (e) => {
-        addLog("error", `Decoder worker error: ${e.message}`)
-      }
-      
-      // Initialize the decoder
       const sampleRate = audioContextRef.current?.sampleRate || 48000
       worker.postMessage({
         command: "init",
@@ -647,37 +652,24 @@ export default function VoiceTestPage() {
       
       decoderWorkerRef.current = worker
       decoderReadyRef.current = true
-      addLog("debug", "Opus decoder initialized")
+      addLog("debug", "Opus decoder ready")
     } catch (e) {
-      addLog("error", `Failed to init decoder: ${e}`)
+      addLog("error", `Decoder init failed: ${e}`)
     }
   }, [addLog, initAudioWorklet])
   
-  // Pending audio data if decoder not ready
-  const pendingAudioRef = useRef<Uint8Array[]>([])
-  
-  // Flag to prevent multiple async init calls
-  const decoderInitializingRef = useRef(false)
-  
-  // Handle Moshi audio (Opus/Ogg)
   const handleMoshiAudio = useCallback((data: Uint8Array) => {
-    // Queue if decoder not ready
     if (!decoderWorkerRef.current || !decoderReadyRef.current) {
-      pendingAudioRef.current.push(data.slice()) // Copy the data
+      pendingAudioRef.current.push(data.slice())
       
-      // Start initialization if not already in progress
       if (!decoderInitializingRef.current) {
         decoderInitializingRef.current = true
         initDecoderWorker().then(() => {
           decoderInitializingRef.current = false
-          // Process pending queue
           while (pendingAudioRef.current.length > 0 && decoderWorkerRef.current) {
             const pending = pendingAudioRef.current.shift()
             if (pending) {
-              decoderWorkerRef.current.postMessage({
-                command: "decode",
-                pages: pending,
-              }, [pending.buffer])
+              decoderWorkerRef.current.postMessage({ command: "decode", pages: pending }, [pending.buffer])
             }
           }
         })
@@ -685,58 +677,27 @@ export default function VoiceTestPage() {
       return
     }
     
-    // Process any pending audio first
     while (pendingAudioRef.current.length > 0) {
       const pending = pendingAudioRef.current.shift()
       if (pending) {
-        decoderWorkerRef.current.postMessage({
-          command: "decode",
-          pages: pending,
-        }, [pending.buffer])
+        decoderWorkerRef.current.postMessage({ command: "decode", pages: pending }, [pending.buffer])
       }
     }
     
-    // Send current data to decoder worker
-    // Need to copy because the buffer might be transferred
     const dataCopy = data.slice()
-    decoderWorkerRef.current.postMessage({
-      command: "decode",
-      pages: dataCopy,
-    }, [dataCopy.buffer])
+    decoderWorkerRef.current.postMessage({ command: "decode", pages: dataCopy }, [dataCopy.buffer])
   }, [initDecoderWorker])
   
-  // Speaking timeout - set to false after no audio for a while
   const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
-  // Reset speaking state after audio stops
   const scheduleSpeakingEnd = useCallback(() => {
-    if (speakingTimeoutRef.current) {
-      clearTimeout(speakingTimeoutRef.current)
-    }
+    if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
     speakingTimeoutRef.current = setTimeout(() => {
       setIsSpeaking(false)
-    }, 500) // 500ms after last audio
-  }, [])
-  
-  // Cleanup decoder and worklet on unmount
-  useEffect(() => {
-    return () => {
-      if (decoderWorkerRef.current) {
-        decoderWorkerRef.current.terminate()
-        decoderWorkerRef.current = null
-      }
-      if (audioWorkletNodeRef.current) {
-        audioWorkletNodeRef.current.disconnect()
-        audioWorkletNodeRef.current = null
-      }
-      if (speakingTimeoutRef.current) {
-        clearTimeout(speakingTimeoutRef.current)
-      }
-      workletReadyRef.current = false
-      decoderReadyRef.current = false
-    }
-  }, [])
-  
+      setOutputLevel(0)
+      addTimelineEvent("silence", "")
+    }, 500)
+  }, [addTimelineEvent])
   
   // Send text message
   const sendTextMessage = () => {
@@ -751,13 +712,14 @@ export default function VoiceTestPage() {
       setTranscript(textInput.trim())
       addLog("info", `Sent: "${textInput.trim()}"`)
       setTextInput("")
+      llmStartRef.current = Date.now()
+      addTimelineEvent("processing", "Processing...")
     }
   }
   
-  // Stop voice session
+  // Stop voice
   const stopVoice = () => {
     stopAudioCapture()
-    stopSpeechRecognition()
     if (wsRef.current) {
       wsRef.current.close()
       wsRef.current = null
@@ -765,283 +727,188 @@ export default function VoiceTestPage() {
     setWsConnected(false)
     setTestPhase("ready")
     setLastResponse("")
-    setJarvisMessage("Voice session ended. Ready for another test.")
-    addLog("info", "Voice session stopped")
+    setJarvisMessage("Voice session ended.")
+    addLog("info", "Session stopped")
   }
   
-  // Open native Moshi
-  const openNativeMoshi = () => {
-    window.open("http://localhost:8998", "_blank", "noopener,noreferrer")
-    addLog("info", "Opened native Moshi in new tab")
-  }
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (decoderWorkerRef.current) decoderWorkerRef.current.terminate()
+      if (audioWorkletNodeRef.current) audioWorkletNodeRef.current.disconnect()
+      if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
+    }
+  }, [])
   
   // Run on mount
   useEffect(() => {
-    addLog("info", "MYCA Voice Test Suite initialized")
-    addLog("info", "Created: February 3, 2026")
-    addLog("info", "Using PersonaPlex Bridge with Moshi audio")
+    addLog("info", "MYCA Voice Debug Suite initialized")
+    addLog("info", "Enhanced debug version - February 3, 2026")
     checkServices()
   }, [])
   
-  // Status icon
-  const StatusIcon = ({ status }: { status: ServiceStatus["status"] }) => {
-    switch (status) {
-      case "online": return <CheckCircle2 className="w-5 h-5 text-green-500" />
-      case "offline": return <XCircle className="w-5 h-5 text-red-500" />
-      case "error": return <AlertCircle className="w-5 h-5 text-yellow-500" />
-      default: return <RefreshCw className="w-5 h-5 text-zinc-400 animate-spin" />
-    }
-  }
+  // Waveform component
+  const Waveform = ({ data, color, label }: { data: number[], color: string, label: string }) => (
+    <div className="bg-zinc-900 rounded-lg p-3">
+      <div className="text-xs text-zinc-500 mb-2">{label}</div>
+      <div className="flex items-end gap-px h-16">
+        {data.map((value, i) => (
+          <div 
+            key={i}
+            className="flex-1 rounded-t transition-all duration-75"
+            style={{ 
+              height: `${Math.max(2, value / 4)}%`,
+              backgroundColor: color
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
   
-  // Log color
-  const getLogColor = (level: TestLog["level"]) => {
-    switch (level) {
-      case "success": return "text-green-400"
-      case "error": return "text-red-400"
-      case "warn": return "text-yellow-400"
-      case "debug": return "text-zinc-500"
-      default: return "text-blue-400"
-    }
+  // Timeline visualization
+  const TimelineViz = () => {
+    const now = Date.now()
+    const windowMs = 30000 // 30 seconds
+    const startTime = now - windowMs
+    
+    return (
+      <div className="bg-zinc-900 rounded-lg p-3">
+        <div className="text-xs text-zinc-500 mb-2">Duplex Timeline (last 30s)</div>
+        <div className="relative h-12 bg-zinc-800 rounded overflow-hidden">
+          {timeline.filter(e => (e.endTime || now) > startTime).map(event => {
+            const left = Math.max(0, ((event.startTime - startTime) / windowMs) * 100)
+            const right = Math.min(100, (((event.endTime || now) - startTime) / windowMs) * 100)
+            const width = right - left
+            
+            const colors = {
+              user_speaking: "bg-green-500",
+              myca_speaking: "bg-blue-500",
+              processing: "bg-yellow-500",
+              silence: "bg-zinc-700"
+            }
+            
+            return (
+              <div
+                key={event.id}
+                className={cn("absolute h-full", colors[event.type])}
+                style={{ left: `${left}%`, width: `${width}%` }}
+                title={event.label}
+              />
+            )
+          })}
+          
+          {/* Labels */}
+          <div className="absolute top-0 left-2 text-xs text-white/70 leading-6">You</div>
+          <div className="absolute bottom-0 left-2 text-xs text-white/70 leading-6">MYCA</div>
+          
+          {/* Now indicator */}
+          <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-red-500" />
+        </div>
+        
+        {/* Legend */}
+        <div className="flex gap-4 mt-2 text-xs">
+          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded" /> You Speaking</div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 rounded" /> MYCA Speaking</div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-yellow-500 rounded" /> Processing</div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-zinc-950 text-white p-4">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            MYCA Voice Diagnostic Suite
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+            MYCA Voice Debug Suite
           </h1>
-          <p className="text-zinc-400 mt-2">
-            "Just like JARVIS, but with better mycology knowledge"
-          </p>
+          <p className="text-zinc-500 text-sm mt-1">Enhanced visual debugging for voice speed and talking issues</p>
         </div>
         
-        {/* JARVIS-style message */}
-        <div className="bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border border-cyan-800/30 rounded-xl p-6 mb-8">
+        {/* Status bar */}
+        <div className={cn(
+          "rounded-xl p-4 mb-6 border",
+          overlapDetected ? "bg-red-900/30 border-red-500" : "bg-cyan-900/20 border-cyan-800/30"
+        )}>
           <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
-            <p className="text-lg text-cyan-100 font-light">{jarvisMessage}</p>
+            <div className={cn("w-3 h-3 rounded-full", overlapDetected ? "bg-red-500 animate-pulse" : "bg-cyan-400 animate-pulse")} />
+            <p className="text-lg">{overlapDetected ? "âš ï¸ OVERLAP DETECTED - MYCA speaking over you!" : jarvisMessage}</p>
           </div>
         </div>
         
-        {/* Native Moshi Embed */}
-        {showNativeEmbed && (
-          <div className="mb-6 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <h2 className="font-semibold">Native Moshi Full-Duplex Voice</h2>
-              <Button variant="outline" size="sm" onClick={() => setShowNativeEmbed(false)}>
-                Close Embed
-              </Button>
-            </div>
-            <iframe 
-              src="http://localhost:8998" 
-              className="w-full h-[500px] border-0"
-              allow="microphone"
-              title="Moshi Full-Duplex Voice"
-            />
-            <p className="text-xs text-zinc-500 p-2 text-center">
-              Click the microphone in the interface above to start speaking
-            </p>
-          </div>
-        )}
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Service Status */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Server className="w-5 h-5 text-cyan-400" />
-                  System Status
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left: Controls */}
+          <div className="space-y-4">
+            {/* Services */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold flex items-center gap-2">
+                  <Server className="w-4 h-4 text-cyan-400" />
+                  Services
                 </h2>
                 <Button variant="outline" size="sm" onClick={checkServices} disabled={testPhase === "checking"}>
-                  <RefreshCw className={cn("w-4 h-4 mr-2", testPhase === "checking" && "animate-spin")} />
-                  Recheck
+                  <RefreshCw className={cn("w-3 h-3", testPhase === "checking" && "animate-spin")} />
                 </Button>
               </div>
               
-              <div className="space-y-3">
-                {services.map((service, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <StatusIcon status={service.status} />
-                      <div>
-                        <div className="font-medium">{service.name}</div>
-                        <div className="text-xs text-zinc-500">{service.url}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {service.latency && <div className="text-sm text-green-400">{service.latency}ms</div>}
-                      {service.error && <div className="text-xs text-red-400">{service.error}</div>}
-                    </div>
+              {services.map((service, idx) => (
+                <div key={idx} className="flex items-center justify-between py-2 border-b border-zinc-800 last:border-0">
+                  <div className="flex items-center gap-2">
+                    {service.status === "online" ? <CheckCircle2 className="w-4 h-4 text-green-500" /> :
+                     service.status === "offline" ? <XCircle className="w-4 h-4 text-red-500" /> :
+                     <RefreshCw className="w-4 h-4 text-zinc-400 animate-spin" />}
+                    <span className="text-sm">{service.name}</span>
                   </div>
-                ))}
-                
-                {/* Mic permission */}
-                <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {micPermission === "granted" ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : 
-                     micPermission === "denied" ? <XCircle className="w-5 h-5 text-red-500" /> :
-                     <AlertCircle className="w-5 h-5 text-yellow-500" />}
-                    <div>
-                      <div className="font-medium">Microphone Permission</div>
-                      <div className="text-xs text-zinc-500">Browser audio access</div>
-                    </div>
-                  </div>
-                  <span className={micPermission === "granted" ? "text-green-400" : 
-                                   micPermission === "denied" ? "text-red-400" : "text-yellow-400"}>
-                    {micPermission === "granted" ? "Granted" : micPermission === "denied" ? "Denied" : "Pending"}
-                  </span>
+                  {service.latency && <span className="text-xs text-green-400">{service.latency}ms</span>}
                 </div>
-                
-                {/* WebSocket status */}
-                <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {wsConnected ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : 
-                     <Wifi className="w-5 h-5 text-zinc-500" />}
-                    <div>
-                      <div className="font-medium">WebSocket Connection</div>
-                      <div className="text-xs text-zinc-500">Real-time communication</div>
-                    </div>
-                  </div>
-                  <span className={wsConnected ? "text-green-400" : "text-zinc-500"}>
-                    {wsConnected ? "Connected" : "Disconnected"}
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
             
-            {/* Voice Mode Selection */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
-                <Mic className="w-5 h-5 text-cyan-400" />
-                Voice Mode
+            {/* Voice Controls */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <h2 className="font-semibold flex items-center gap-2 mb-4">
+                <Mic className="w-4 h-4 text-cyan-400" />
+                Voice Control
               </h2>
               
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {/* Native Duplex */}
-                <div 
-                  className={cn(
-                    "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                    voiceMode === "native-duplex" ? "border-yellow-500 bg-yellow-500/10" : "border-zinc-700 hover:border-yellow-500/50"
-                  )}
-                  onClick={() => setVoiceMode("native-duplex")}
+              {wsConnected ? (
+                <Button onClick={stopVoice} variant="destructive" className="w-full">
+                  <MicOff className="w-4 h-4 mr-2" />
+                  Stop Voice Session
+                </Button>
+              ) : (
+                <Button 
+                  onClick={startMycaVoice}
+                  disabled={services[1].status !== "online"}
+                  className="w-full bg-green-600 hover:bg-green-700"
                 >
-                  <div className="font-medium text-yellow-400">Full-Duplex</div>
-                  <div className="text-xs text-zinc-400 mt-1">Native Moshi @ 8998</div>
-                  <div className="text-xs text-zinc-500 mt-2">Best experience, ~40ms latency</div>
-                  <div className="text-xs text-orange-400 mt-1">âš ï¸ Not MYCA-connected</div>
-                </div>
-                
-                {/* MYCA Connected */}
-                <div 
-                  className={cn(
-                    "p-4 rounded-lg border-2 cursor-pointer transition-all",
-                    voiceMode === "myca-connected" ? "border-green-500 bg-green-500/10" : "border-zinc-700 hover:border-green-500/50"
-                  )}
-                  onClick={() => setVoiceMode("myca-connected")}
-                >
-                  <div className="font-medium text-green-400">MYCA-Connected</div>
-                  <div className="text-xs text-zinc-400 mt-1">Bridge @ 8999</div>
-                  <div className="text-xs text-zinc-500 mt-2">Access to MAS, agents, data</div>
-                  <div className="text-xs text-green-400 mt-1">âœ“ Full integration</div>
-                </div>
-              </div>
+                  <Mic className="w-4 h-4 mr-2" />
+                  Start Voice Session
+                </Button>
+              )}
               
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-3">
-                {voiceMode === "native-duplex" ? (
-                  <>
-                    <Button 
-                      onClick={() => setShowNativeEmbed(true)}
-                      disabled={services[0].status !== "online"}
-                      className="w-full bg-yellow-600 hover:bg-yellow-700"
-                    >
-                      <Maximize2 className="w-4 h-4 mr-2" />
-                      Embed Native Moshi Here
-                    </Button>
-                    <Button 
-                      onClick={openNativeMoshi}
-                      disabled={services[0].status !== "online"}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open in New Tab
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    {wsConnected ? (
-                      <Button onClick={stopVoice} variant="destructive" className="w-full">
-                        <MicOff className="w-4 h-4 mr-2" />
-                        Stop Voice Session
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={startMycaVoice}
-                        disabled={services[1].status !== "online" || testPhase === "checking"}
-                        className="w-full bg-green-600 hover:bg-green-700"
-                      >
-                        <Mic className="w-4 h-4 mr-2" />
-                        Start MYCA Voice Session
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-              
-              {/* Status Indicators */}
+              {/* Connection status */}
               {wsConnected && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", isRecognizing ? "bg-green-500 animate-pulse" : "bg-gray-500")} />
-                      <span className="text-zinc-400">{isRecognizing ? "Listening..." : "Ready"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", isSpeaking ? "bg-blue-500 animate-pulse" : "bg-gray-500")} />
-                      <span className="text-zinc-400">{isSpeaking ? "Speaking..." : "Silent"}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Microphone Level Indicator */}
-                  {isRecognizing && (
-                    <div className="flex items-center gap-3">
-                      <Mic className={cn("w-4 h-4", micLevel > 20 ? "text-green-400" : "text-zinc-500")} />
-                      <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden">
-                        <div 
-                          className={cn(
-                            "h-full transition-all duration-100 rounded-full",
-                            micLevel > 60 ? "bg-green-500" : micLevel > 30 ? "bg-yellow-500" : micLevel > 10 ? "bg-orange-500" : "bg-red-500"
-                          )}
-                          style={{ width: `${micLevel}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-zinc-500 w-8">{micLevel}%</span>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Interim transcript */}
-              {interimTranscript && (
-                <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
+                <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <Mic className="w-4 h-4 text-green-400 animate-pulse" />
-                    <span className="text-zinc-300 italic">{interimTranscript}</span>
+                    <div className={cn("w-2 h-2 rounded-full", isRecognizing ? "bg-green-500 animate-pulse" : "bg-gray-500")} />
+                    <span>{isRecognizing ? "ðŸŽ¤ Listening" : "Ready"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className={cn("w-2 h-2 rounded-full", isSpeaking ? "bg-blue-500 animate-pulse" : "bg-gray-500")} />
+                    <span>{isSpeaking ? "ðŸ”Š MYCA Speaking" : "Silent"}</span>
                   </div>
                 </div>
               )}
               
-              {/* Text Input */}
+              {/* Text input */}
               {wsConnected && (
                 <div className="mt-4 flex gap-2">
                   <input
                     type="text"
-                    placeholder="Or type a message..."
+                    placeholder="Type a message..."
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendTextMessage()}
@@ -1052,81 +919,155 @@ export default function VoiceTestPage() {
                   </Button>
                 </div>
               )}
-              
-              {/* Last transcript/response */}
-              {transcript && (
-                <div className="mt-4 p-3 bg-zinc-800/50 rounded-lg">
-                  <div className="text-xs text-zinc-400 mb-1">You said:</div>
-                  <div className="text-sm">{transcript}</div>
-                </div>
-              )}
-              {lastResponse && (
-                <div className="mt-2 p-3 bg-green-900/30 border border-green-800/50 rounded-lg">
-                  <div className="text-xs text-green-400 mb-1">MYCA:</div>
-                  <div className="text-sm text-green-100">{lastResponse}</div>
-                </div>
-              )}
             </div>
+            
+            {/* Conversation */}
+            {(transcript || lastResponse) && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+                {transcript && (
+                  <div className="p-2 bg-green-900/30 rounded-lg">
+                    <div className="text-xs text-green-400 mb-1">You:</div>
+                    <div className="text-sm">{transcript}</div>
+                  </div>
+                )}
+                {lastResponse && (
+                  <div className="p-2 bg-blue-900/30 rounded-lg">
+                    <div className="text-xs text-blue-400 mb-1">MYCA:</div>
+                    <div className="text-sm">{lastResponse}</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
-          {/* Right Column - Logs */}
-          <div className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
-                <Cpu className="w-5 h-5 text-cyan-400" />
-                Diagnostic Logs
-              </h2>
-              
-              <div className="bg-zinc-950 rounded-lg p-4 h-[500px] overflow-y-auto font-mono text-xs">
-                {logs.map((log, idx) => (
-                  <div key={idx} className="mb-1">
-                    <span className="text-zinc-600">[{log.timestamp.toLocaleTimeString()}]</span>{" "}
-                    <span className={getLogColor(log.level)}>[{log.level.toUpperCase()}]</span>{" "}
-                    <span className="text-zinc-300">{log.message}</span>
-                    {log.details && <div className="ml-6 text-zinc-500">{log.details}</div>}
-                  </div>
-                ))}
-                <div ref={logsEndRef} />
+          {/* Center: Debug Visualizations */}
+          <div className="space-y-4">
+            {/* Waveforms */}
+            <Waveform data={inputWaveform} color="#22c55e" label="ðŸŽ¤ Your Voice Input" />
+            <Waveform data={outputWaveform} color="#3b82f6" label="ðŸ”Š MYCA Voice Output" />
+            
+            {/* Timeline */}
+            <TimelineViz />
+            
+            {/* Level meters */}
+            <div className="bg-zinc-900 rounded-lg p-3 grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">Input Level</div>
+                <div className="h-4 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className={cn("h-full transition-all", 
+                      micLevel > 60 ? "bg-green-500" : micLevel > 30 ? "bg-yellow-500" : "bg-red-500"
+                    )}
+                    style={{ width: `${micLevel}%` }}
+                  />
+                </div>
+                <div className="text-xs text-center mt-1">{micLevel}%</div>
               </div>
-              
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setLogs([])}>
-                  Clear Logs
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const logText = logs.map(l => 
-                      `[${l.timestamp.toISOString()}] [${l.level}] ${l.message}${l.details ? ` - ${l.details}` : ""}`
-                    ).join("\n")
-                    navigator.clipboard.writeText(logText)
-                    addLog("info", "Logs copied to clipboard")
-                  }}
-                >
-                  Copy Logs
-                </Button>
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">Output Level</div>
+                <div className="h-4 bg-zinc-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 transition-all"
+                    style={{ width: `${outputLevel}%` }}
+                  />
+                </div>
+                <div className="text-xs text-center mt-1">{outputLevel}%</div>
               </div>
             </div>
             
-            {/* Quick Commands */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-              <h2 className="text-lg font-semibold mb-4">Try Saying...</h2>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div className="p-2 bg-zinc-800/50 rounded-lg">"MYCA, what's the system status?"</div>
-                <div className="p-2 bg-zinc-800/50 rounded-lg">"Show me the agent topology"</div>
-                <div className="p-2 bg-zinc-800/50 rounded-lg">"How many agents are running?"</div>
-                <div className="p-2 bg-zinc-800/50 rounded-lg">"What can you help me with?"</div>
+            {/* Metrics */}
+            <div className="bg-zinc-900 rounded-lg p-3">
+              <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+                <BarChart2 className="w-3 h-3" /> Latency Metrics
               </div>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="text-lg font-bold text-green-400">{getAvgLatency(latencyMetrics.sttLatency)}</div>
+                  <div className="text-xs text-zinc-500">STT ms</div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="text-lg font-bold text-yellow-400">{getAvgLatency(latencyMetrics.llmLatency)}</div>
+                  <div className="text-xs text-zinc-500">LLM ms</div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="text-lg font-bold text-blue-400">{getAvgLatency(latencyMetrics.ttsLatency)}</div>
+                  <div className="text-xs text-zinc-500">TTS ms</div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="text-lg font-bold text-purple-400">{speakingRate}</div>
+                  <div className="text-xs text-zinc-500">WPM</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Audio Stats */}
+            <div className="bg-zinc-900 rounded-lg p-3">
+              <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
+                <Activity className="w-3 h-3" /> Audio Stats
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="p-2 bg-zinc-800 rounded text-center">
+                  <div className="font-mono">{(audioStats.bytesOut / 1024).toFixed(1)}KB</div>
+                  <div className="text-zinc-500">Sent</div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded text-center">
+                  <div className="font-mono">{(audioStats.bytesIn / 1024).toFixed(1)}KB</div>
+                  <div className="text-zinc-500">Received</div>
+                </div>
+                <div className={cn("p-2 rounded text-center", 
+                  audioStats.bufferUnderruns > 0 ? "bg-red-900" : "bg-zinc-800"
+                )}>
+                  <div className="font-mono">{audioStats.bufferUnderruns}</div>
+                  <div className="text-zinc-500">Underruns</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Right: Logs */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              Debug Logs
+            </h2>
+            
+            <div className="bg-zinc-950 rounded-lg p-3 h-[600px] overflow-y-auto font-mono text-xs">
+              {logs.map((log, idx) => (
+                <div key={idx} className="mb-1">
+                  <span className="text-zinc-600">[{log.timestamp.toLocaleTimeString()}]</span>{" "}
+                  <span className={cn(
+                    log.level === "success" ? "text-green-400" :
+                    log.level === "error" ? "text-red-400" :
+                    log.level === "warn" ? "text-yellow-400" :
+                    log.level === "metric" ? "text-purple-400" :
+                    log.level === "debug" ? "text-zinc-500" : "text-blue-400"
+                  )}>[{log.level.toUpperCase()}]</span>{" "}
+                  <span className="text-zinc-300">{log.message}</span>
+                  {log.details && <div className="ml-16 text-zinc-500">{log.details}</div>}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+            
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setLogs([])}>Clear</Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const logText = logs.map(l => 
+                  `[${l.timestamp.toISOString()}] [${l.level}] ${l.message}`
+                ).join("\n")
+                navigator.clipboard.writeText(logText)
+                addLog("info", "Logs copied")
+              }}>Copy</Button>
             </div>
           </div>
         </div>
         
         {/* Footer */}
-        <div className="mt-8 text-center text-zinc-600 text-sm">
-          MYCA Voice Test Suite | February 3, 2026 | Web Speech API + PersonaPlex Bridge
+        <div className="mt-6 text-center text-zinc-600 text-sm">
+          MYCA Voice Debug Suite | February 3, 2026 | PersonaPlex + Moshi Full-Duplex
         </div>
       </div>
     </div>
   )
 }
+
