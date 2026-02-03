@@ -1,4 +1,4 @@
-# Mycosoft Website
+﻿# Mycosoft Website
 
 > **Version**: 2.0.0  
 > **Last Updated**: 2026-01-15T14:30:00Z  
@@ -14,7 +14,7 @@ The Mycosoft Website is the primary platform for the Mycosoft ecosystem, providi
 - **Species Database** - Comprehensive fungal species information
 - **Ancestry Tools** - Phylogenetic analysis and species relationships
 
-## 🚀 Quick Start
+## ðŸš€ Quick Start
 
 ```bash
 # Install dependencies
@@ -30,32 +30,32 @@ npm run build
 npm run start
 ```
 
-## 📁 Project Structure
+## ðŸ“ Project Structure
 
 ```
 website/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── dashboard/         # CREP dashboard
-│   ├── natureos/          # NatureOS pages
-│   ├── devices/           # Device management
-│   └── ...
-├── components/            # React components
-│   ├── crep/             # CREP dashboard components
-│   ├── natureos/         # NatureOS components
-│   └── ui/               # Shadcn UI components
-├── lib/                   # Utilities and clients
-│   ├── oei/              # OEI data connectors
-│   └── ...
-├── services/             # Backend Python services
-│   ├── collectors/       # Data collector services
-│   ├── geocoding/        # Geocoding pipeline
-│   └── mycobrain/        # Device communication
-├── docs/                 # Documentation
-└── scripts/              # Deployment scripts
+â”œâ”€â”€ app/                    # Next.js App Router
+â”‚   â”œâ”€â”€ api/               # API routes
+â”‚   â”œâ”€â”€ dashboard/         # CREP dashboard
+â”‚   â”œâ”€â”€ natureos/          # NatureOS pages
+â”‚   â”œâ”€â”€ devices/           # Device management
+â”‚   â””â”€â”€ ...
+â”œâ”€â”€ components/            # React components
+â”‚   â”œâ”€â”€ crep/             # CREP dashboard components
+â”‚   â”œâ”€â”€ natureos/         # NatureOS components
+â”‚   â””â”€â”€ ui/               # Shadcn UI components
+â”œâ”€â”€ lib/                   # Utilities and clients
+â”‚   â”œâ”€â”€ oei/              # OEI data connectors
+â”‚   â””â”€â”€ ...
+â”œâ”€â”€ services/             # Backend Python services
+â”‚   â”œâ”€â”€ collectors/       # Data collector services
+â”‚   â”œâ”€â”€ geocoding/        # Geocoding pipeline
+â”‚   â””â”€â”€ mycobrain/        # Device communication
+â”œâ”€â”€ docs/                 # Documentation
+â””â”€â”€ scripts/              # Deployment scripts
 ```
 
-## 🐳 Docker Deployment
+## ðŸ³ Docker Deployment
 
 ```bash
 # Build and start all services
@@ -68,7 +68,7 @@ docker-compose logs -f
 docker-compose down
 ```
 
-## 📊 Services
+## ðŸ“Š Services
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -82,7 +82,7 @@ docker-compose down
 | PostgreSQL | 5432 | Database |
 | Redis | 6379 | Cache |
 
-## 📚 Documentation
+## ðŸ“š Documentation
 
 - [System Architecture](./docs/SYSTEM_ARCHITECTURE.md)
 - [CREP Dashboard Guide](./docs/CREP_DASHBOARD_GUIDE.md)
@@ -90,7 +90,7 @@ docker-compose down
 - [Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md)
 - [MycoBrain Integration](./docs/MYCOBRAIN_INTEGRATION_COMPLETE.md)
 
-## 🔧 Configuration
+## ðŸ”§ Configuration
 
 Copy `.env.example` to `.env.local` and configure:
 
@@ -100,7 +100,7 @@ REDIS_URL=redis://localhost:6379
 MINDEX_API_URL=http://localhost:8001
 ```
 
-## 🧪 Testing
+## ðŸ§ª Testing
 
 ```bash
 # Run linter
@@ -113,7 +113,7 @@ npm run test
 npm run test:integration
 ```
 
-## 🚢 Production Deployment
+## ðŸš¢ Production Deployment
 
 See [Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md) for full instructions.
 
@@ -122,16 +122,16 @@ See [Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md) for full instructions
 .\scripts\deploy-to-proxmox.ps1
 ```
 
-## ⚠️ Important Notes
+## âš ï¸ Important Notes
 
 1. **This is the ACTIVE codebase** - All development should happen here
 2. The deprecated `mycosoft-mas` dashboard (port 3001) should NOT be used
 3. All services are containerized for single-snapshot deployment
 
-## 📝 Changelog
+## ðŸ“ Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
-## 📜 License
+## ðŸ“œ License
 
-Copyright © 2026 Mycosoft. All rights reserved.
+Copyright Â© 2026 Mycosoft. All rights reserved.
