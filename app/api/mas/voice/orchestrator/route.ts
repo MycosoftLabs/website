@@ -2,13 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 
 /**
- * MYCA Voice Orchestrator API v2.0
- * Now powered by NLQ Engine for unified processing
- * Integrates with n8n workflows and ElevenLabs for full voice processing
+ * MYCA Voice Orchestrator API v3.0 - Single Brain Architecture
  * 
- * Updated: Jan 26, 2026
+ * ARCHITECTURE PRINCIPLE: This is the ONLY component that makes decisions.
+ * All business logic is centralized here:
+ * - Memory persistence (automatic)
+ * - n8n workflow execution
+ * - Agent routing
+ * - Safety confirmation
  * 
- * Flow: User Speech → STT → NLQ Engine → Data Sources → LLM → TTS → Audio
+ * The hook (usePersonaPlex) sends transcripts HERE and receives structured responses.
+ * This ensures consistent behavior across voice, chat, API, and future interfaces.
+ * 
+ * Updated: February 3, 2026
+ * 
+ * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → Response
  */
 
 // MAS Orchestrator
@@ -21,11 +29,23 @@ const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
 const MYCA_VOICE_ID = process.env.MYCA_VOICE_ID || "aEO01A4wXwd1O8GPgGlF" // Arabella
 
+// Memory API (internal)
+const MEMORY_URL = process.env.MEMORY_URL || "/api/memory"
+
 interface ChatRequest {
   message: string
   conversation_id?: string
+  session_id?: string
   want_audio?: boolean
   actor?: string
+  source?: "personaplex" | "web-speech" | "elevenlabs" | "api"
+  context?: {
+    voice_prompt?: string
+    voice_prompt_hash?: string
+    timestamp?: string
+    previous_turns?: number
+    persona?: string
+  }
 }
 
 interface ChatResponse {
@@ -37,6 +57,19 @@ interface ChatResponse {
   routed_to?: string
   requires_confirmation?: boolean
   confirmation_prompt?: string
+  
+  // Action transparency - what the orchestrator did
+  actions: {
+    memory_saved: boolean
+    workflow_executed?: string
+    agent_routed?: string
+    confirmation_required?: boolean
+  }
+  
+  // Telemetry
+  latency_ms: number
+  rtf?: number
+  
   // NLQ data for structured responses
   nlq_data?: NLQResponse["data"]
   nlq_actions?: NLQResponse["actions"]
@@ -44,23 +77,90 @@ interface ChatResponse {
 }
 
 /**
+ * Save conversation turn to memory
+ * This is called automatically by the orchestrator - not by clients
+ */
+async function saveToMemory(
+  conversationId: string,
+  input: string,
+  output: string,
+  metadata: Record<string, unknown> = {}
+): Promise<boolean> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010"
+    const response = await fetch(`${baseUrl}/api/memory`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: `${conversationId}_turn_${Date.now()}`,
+        value: {
+          conversation_id: conversationId,
+          input,
+          output,
+          timestamp: new Date().toISOString(),
+          ...metadata,
+        },
+        type: "voice_session",
+      }),
+    })
+    return response.ok
+  } catch (error) {
+    console.error("[Orchestrator] Memory save failed:", error)
+    return false
+  }
+}
+
+/**
  * POST /api/mas/voice/orchestrator
- * Main voice chat endpoint - handles text and optionally returns audio
- * Now routes through NLQ engine first for enhanced responses
+ * 
+ * SINGLE BRAIN: This endpoint handles ALL voice/chat processing.
+ * Clients should NOT call memory, n8n, or MAS directly.
+ * 
+ * This ensures:
+ * - Consistent behavior across all interfaces
+ * - Centralized memory persistence
+ * - Unified safety checks
+ * - Action transparency in responses
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
   try {
     const body: ChatRequest = await request.json()
-    const { message, conversation_id, want_audio = true, actor = "user" } = body
+    const { 
+      message, 
+      conversation_id, 
+      session_id,
+      want_audio = true, 
+      actor = "user",
+      source = "api",
+      context = {},
+    } = body
 
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
+    }
+
+    // Track what actions we take for transparency
+    const actions: ChatResponse["actions"] = {
+      memory_saved: false,
+      workflow_executed: undefined,
+      agent_routed: undefined,
+      confirmation_required: false,
     }
 
     const response: ChatResponse = {
       conversation_id: conversation_id || `conv-${Date.now()}`,
       response_text: "",
       agent: "myca-orchestrator",
+      actions,
+      latency_ms: 0,
+    }
+    
+    // Log incoming request
+    console.log(`[Orchestrator] Request from ${source}: "${message.substring(0, 50)}..."`)
+    if (context.voice_prompt) {
+      console.log(`[Orchestrator] Voice prompt: ${context.voice_prompt}`)
     }
 
     // Step 1: Process through NLQ Engine first
@@ -92,6 +192,7 @@ export async function POST(request: NextRequest) {
               response.requires_confirmation = true
               response.confirmation_prompt = safetyData.prompt
               response.response_text = safetyData.prompt
+              actions.confirmation_required = true
             }
           }
         } catch {
@@ -182,6 +283,7 @@ export async function POST(request: NextRequest) {
           if (turnData.response && !response.response_text) {
             response.response_text = turnData.response
             response.agent = turnData.agent || "n8n-workflow"
+            actions.workflow_executed = "myca/command"
           }
         }
       } catch {
@@ -208,6 +310,7 @@ export async function POST(request: NextRequest) {
           response.response_text = orchData.response_text || orchData.response
           response.agent = orchData.agent || "myca-orchestrator"
           response.routed_to = orchData.routed_to
+          actions.agent_routed = orchData.agent || "myca-orchestrator"
         }
       } catch {
         console.log("MAS orchestrator not available, using fallback")
@@ -232,11 +335,37 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Step 6: ALWAYS save to memory (orchestrator responsibility)
+    // This is automatic - clients don't need to call memory API directly
+    const memorySaved = await saveToMemory(
+      response.conversation_id,
+      message,
+      response.response_text,
+      {
+        agent: response.agent,
+        source,
+        session_id,
+        voice_prompt: context.voice_prompt,
+        has_audio: !!response.audio_base64,
+      }
+    )
+    actions.memory_saved = memorySaved
+    
+    // Calculate latency
+    response.latency_ms = Date.now() - startTime
+    
+    // Log completion
+    console.log(`[Orchestrator] Response (${response.latency_ms}ms): "${response.response_text.substring(0, 50)}..."`)
+    console.log(`[Orchestrator] Actions: memory=${memorySaved}, agent=${response.agent}`)
+
     return NextResponse.json(response)
   } catch (error) {
     console.error("Voice orchestrator error:", error)
     return NextResponse.json(
-      { error: "Voice processing failed" },
+      { 
+        error: "Voice processing failed",
+        latency_ms: Date.now() - startTime,
+      },
       { status: 500 }
     )
   }

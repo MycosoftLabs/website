@@ -1,12 +1,45 @@
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Voice Duplex Session API - January 27, 2026
+ * Voice Duplex Session API - January 29, 2026
  * Creates and manages duplex voice sessions with PersonaPlex
+ * Supports local GPU (RTX 5090) and remote/cloud deployment
+ * 
+ * FIXED: WebSocket URL now uses request host for proper connectivity
  */
 
-const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || "wss://192.168.0.188:8998"
+// Local development mode - uses local GPU
+const IS_LOCAL = process.env.PERSONAPLEX_LOCAL === "true" || process.env.NODE_ENV === "development"
+
+// PersonaPlex internal URLs (server-side only)
+const PERSONAPLEX_BRIDGE_URL = process.env.PERSONAPLEX_BRIDGE_URL || (IS_LOCAL ? "http://localhost:8999" : "http://192.168.0.188:8999")
+const PERSONAPLEX_BRIDGE_PORT = process.env.PERSONAPLEX_BRIDGE_PORT || "8999"
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+
+// Build WebSocket URL based on request host (for browser connection)
+function getWebSocketUrl(request: NextRequest, sessionId: string): string {
+  // Get host from request headers
+  const host = request.headers.get("host") || "localhost:3010"
+  const hostname = host.split(":")[0]
+  
+  // Determine WebSocket protocol (wss for https, ws for http)
+  const proto = request.headers.get("x-forwarded-proto") || "http"
+  const wsProto = proto === "https" ? "wss" : "ws"
+  
+  // Use explicit environment variable if set
+  if (process.env.PERSONAPLEX_WS_URL) {
+    return `${process.env.PERSONAPLEX_WS_URL}/${sessionId}`
+  }
+  
+  // For localhost, connect directly to bridge port
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `ws://${hostname}:${PERSONAPLEX_BRIDGE_PORT}/ws/${sessionId}`
+  }
+  
+  // For network access, use the same hostname with bridge port
+  // The client browser will connect directly to the PersonaPlex bridge
+  return `${wsProto}://${hostname}:${PERSONAPLEX_BRIDGE_PORT}/ws/${sessionId}`
+}
 
 interface SessionRequest {
   conversation_id?: string
@@ -39,22 +72,25 @@ interface VoiceSession {
   created_at: string
 }
 
-// Check if PersonaPlex is available
+// Check if PersonaPlex is available via bridge health endpoint
 async function checkPersonaPlexAvailable(): Promise<boolean> {
   try {
-    // Convert wss to https for health check
-    const httpUrl = PERSONAPLEX_URL.replace("wss://", "https://").replace("ws://", "http://")
-    
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 3000)
     
-    const res = await fetch(httpUrl, {
+    // Check bridge health which includes PersonaPlex status
+    const res = await fetch(`${PERSONAPLEX_BRIDGE_URL}/health`, {
       signal: controller.signal,
     }).catch(() => null)
     
     clearTimeout(timeoutId)
     
-    return res?.ok ?? false
+    if (res?.ok) {
+      const data = await res.json()
+      return data.personaplex === true
+    }
+    
+    return false
   } catch {
     return false
   }
@@ -92,15 +128,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Create session
+    const sessionId = generateSessionId()
+    const wsUrl = getWebSocketUrl(request, sessionId)
+    
     const session: VoiceSession = {
-      session_id: generateSessionId(),
+      session_id: sessionId,
       conversation_id: conversation_id || generateSessionId(),
       mode: actualMode,
       personaplex_available: personaplexAvailable,
       transport: actualMode === "personaplex" 
         ? {
             type: "websocket",
-            url: PERSONAPLEX_URL,
+            url: wsUrl,
           }
         : {
             type: "http",
@@ -141,17 +180,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   // Return available modes and status
   const personaplexAvailable = await checkPersonaPlexAvailable()
+  const wsUrl = getWebSocketUrl(request, "test")
 
   return NextResponse.json({
     modes: {
       personaplex: {
         available: personaplexAvailable,
-        url: PERSONAPLEX_URL,
+        url: wsUrl.replace("/test", ""),
         features: ["full_duplex", "barge_in", "backchannels"],
-        voice: "NATF2.pt",
+        voice: "NATF2.pt (Native Moshi TTS)",
         latency_ms: 170,
       },
       elevenlabs: {
