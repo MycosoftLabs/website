@@ -581,8 +581,15 @@ export default function VoiceTestPage() {
             setTestPhase("listening")
             setJarvisMessage("Connected! Speak naturally. MAS Event Engine is listening.")
             
+            // Initialize AudioContext and resume it (requires user gesture which we have from button click)
             if (!audioContextRef.current) {
               audioContextRef.current = new AudioContext({ sampleRate: 48000 })
+            }
+            // CRITICAL: Resume AudioContext - browsers require user gesture
+            if (audioContextRef.current.state === "suspended") {
+              audioContextRef.current.resume().then(() => {
+                addLog("success", "AudioContext resumed for playback")
+              }).catch(e => addLog("error", `AudioContext resume failed: ${e}`))
             }
             
             initDecoderWorker().catch(e => addLog("error", `Decoder init: ${e}`))
@@ -598,11 +605,18 @@ export default function VoiceTestPage() {
               ttsStartRef.current = 0
             }
             
+            const newChunks = audioStats.chunksIn + 1
             setAudioStats(prev => ({
               ...prev,
               bytesIn: prev.bytesIn + payload.length,
               chunksIn: prev.chunksIn + 1
             }))
+            
+            // Log first few audio packets for debugging
+            if (newChunks <= 5) {
+              addLog("debug", `Audio packet #${newChunks}: ${payload.length} bytes`)
+            }
+            
             setIsSpeaking(true)
             handleMoshiAudio(payload)
             scheduleSpeakingEnd()
