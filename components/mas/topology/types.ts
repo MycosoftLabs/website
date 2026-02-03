@@ -13,6 +13,7 @@ export type NodeType =
   | "device"
   | "workflow"
   | "queue"
+  | "voice_session"  // Ephemeral voice session nodes
 
 export type NodeCategory =
   | "core"
@@ -230,6 +231,7 @@ export const NODE_TYPE_CONFIG: Record<NodeType, { shape: "sphere" | "box" | "oct
   device: { shape: "box", scale: 0.9 },
   workflow: { shape: "octahedron", scale: 1.1 },
   queue: { shape: "cylinder", scale: 0.8 },
+  voice_session: { shape: "sphere", scale: 0.7 },  // Small pulsing spheres for active voice sessions
 }
 
 // Connection type visual configs

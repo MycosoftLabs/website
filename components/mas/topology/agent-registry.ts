@@ -4,9 +4,12 @@
  * 
  * This file defines all known agents in the Mycosoft Multi-Agent System
  * for use in the topology visualization.
+ * 
+ * Updated: February 3, 2026 - Added voice session ephemeral nodes
  */
 
 import type { NodeType, NodeCategory, NodeStatus, TopologyNode } from "./types"
+import type { RTFStatus } from "@/lib/voice/rtf-watchdog"
 
 export interface AgentDefinition {
   id: string
@@ -22,6 +25,125 @@ export interface AgentDefinition {
   canStop: boolean
   canRestart: boolean
   canConfigure: boolean
+}
+
+// ============================================
+// VOICE SESSION NODES (Ephemeral)
+// ============================================
+
+/**
+ * Voice Session Node - Represents an active voice conversation
+ * These are ephemeral nodes that appear in the topology during active sessions
+ * and disappear when sessions end.
+ */
+export interface VoiceSessionNode {
+  id: string                           // "voice_session:conv_123"
+  type: "voice_session"
+  lifetime: "ephemeral"
+  transport: "personaplex" | "elevenlabs" | "web-speech"
+  conversationId: string
+  sessionId: string
+  userId?: string
+  startedAt: string
+  endedAt?: string
+  
+  // Real-time metrics
+  rtf: number                          // Current Real-Time Factor
+  rtfAvg: number                       // Rolling average
+  rtfStatus: RTFStatus                 // healthy | warning | critical
+  latencyMs: number
+  audioDurationMs: number
+  
+  // Topology relationships
+  invokedAgents: string[]              // Agent IDs that were called
+  
+  // Voice settings
+  voicePrompt: string
+  voicePromptHash: string
+  personaId: string
+}
+
+/**
+ * Create a voice session node ID
+ */
+export function createVoiceSessionId(conversationId: string): string {
+  return `voice_session:${conversationId}`
+}
+
+/**
+ * Check if a node ID is a voice session
+ */
+export function isVoiceSessionId(nodeId: string): boolean {
+  return nodeId.startsWith("voice_session:")
+}
+
+/**
+ * Parse conversation ID from voice session node ID
+ */
+export function parseVoiceSessionId(nodeId: string): string | null {
+  if (!isVoiceSessionId(nodeId)) return null
+  return nodeId.replace("voice_session:", "")
+}
+
+/**
+ * Create a voice session topology node for display
+ */
+export function createVoiceSessionTopologyNode(session: VoiceSessionNode): TopologyNode {
+  return {
+    id: session.id,
+    name: `Voice Session ${session.conversationId.slice(-8)}`,
+    shortName: session.transport === "personaplex" ? "PersonaPlex" : session.transport,
+    type: "voice_session",
+    category: "communication",
+    status: session.endedAt ? "offline" : "active",
+    description: `Active voice session via ${session.transport}`,
+    position: [0, 0, 0], // Will be positioned by layout algorithm
+    metrics: {
+      cpuPercent: 0,
+      memoryMb: 0,
+      tasksCompleted: session.invokedAgents.length,
+      tasksQueued: 0,
+      messagesPerSecond: 0,
+      errorRate: session.rtfStatus === "critical" ? 0.5 : 0,
+      uptime: session.endedAt 
+        ? new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()
+        : Date.now() - new Date(session.startedAt).getTime(),
+      lastActive: new Date().toISOString(),
+    },
+    connections: ["myca-orchestrator", ...session.invokedAgents],
+    size: 0.7,
+    priority: 5,
+    canStart: false,
+    canStop: true,
+    canRestart: false,
+    canConfigure: false,
+  }
+}
+
+/**
+ * Generate connections for a voice session
+ */
+export function generateVoiceSessionConnections(
+  session: VoiceSessionNode
+): Array<{ source: string; target: string }> {
+  const connections: Array<{ source: string; target: string }> = []
+  
+  // User → Voice Session
+  if (session.userId) {
+    connections.push({ source: session.userId, target: session.id })
+  } else {
+    connections.push({ source: "user-morgan", target: session.id })
+  }
+  
+  // Voice Session → Orchestrator
+  connections.push({ source: session.id, target: "myca-orchestrator" })
+  
+  // Voice Session → Invoked Agents
+  session.invokedAgents.forEach(agentId => {
+    connections.push({ source: session.id, target: agentId })
+  })
+  
+  return connections
 }
 
 // ============================================

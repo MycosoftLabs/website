@@ -1,16 +1,20 @@
-﻿"use client"
+"use client"
 
 /**
- * MYCA Voice Test Suite - Enhanced Debug Version
+ * MYCA Voice Test Suite v7.0.0 - MAS Event Engine Integration
  * Created: February 3, 2026
  * 
- * ENHANCED with visual debugging for voice speed and talking issues:
- * - Real-time waveform visualization
- * - Duplex timeline (who's talking when)
- * - Latency metrics (STT, LLM, TTS)
- * - Audio buffer status
- * - Speaking rate detection
- * - Overlap detection
+ * NEW in v7.0.0:
+ * - MAS Event Engine with real-time feedback injection to Moshi
+ * - Text cloning from STT to MAS (background, non-blocking)
+ * - Injection queue visualization (what MYCA is receiving from MAS)
+ * - Memory session integration (8-scope system)
+ * - Agent activity feed
+ * - Improved UI with dedicated MAS feedback panel
+ * 
+ * Architecture:
+ * PersonaPlex (full-duplex audio) → STT text cloned to MAS → 
+ * MAS processes (tools, memory, agents) → Feedback injected back to Moshi
  */
 
 import { useState, useEffect, useRef, useCallback } from "react"
@@ -21,18 +25,23 @@ import {
   RefreshCw, 
   CheckCircle2, 
   XCircle, 
-  AlertCircle,
-  Volume2,
-  Wifi,
   Server,
   Cpu,
-  ExternalLink,
-  Maximize2,
   Send,
   Activity,
-  Clock,
+  BarChart2,
+  Wrench,
   Zap,
-  BarChart2
+  Database,
+  Bot,
+  MessageSquare,
+  Brain,
+  ArrowRight,
+  AlertCircle,
+  Clock,
+  Users,
+  HardDrive,
+  Sparkles
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -48,50 +57,77 @@ interface ServiceStatus {
   url: string
   status: "checking" | "online" | "offline" | "error"
   latency?: number
-  error?: string
+  version?: string
+  features?: Record<string, boolean>
 }
 
 interface TestLog {
   timestamp: Date
-  level: "info" | "success" | "error" | "warn" | "debug" | "metric"
+  level: "info" | "success" | "error" | "warn" | "debug" | "metric" | "tool" | "event" | "injection" | "clone"
   message: string
   details?: string
 }
 
-// Timeline event for duplex visualization
-interface TimelineEvent {
+interface MASEvent {
   id: string
-  type: "user_speaking" | "myca_speaking" | "processing" | "silence"
-  startTime: number
-  endTime?: number
-  label?: string
+  type: "tool_call" | "memory_write" | "memory_read" | "agent_invoke" | "system" | "feedback"
+  source: string
+  message: string
+  timestamp: string
+  data?: Record<string, unknown>
+  injectedToMoshi?: boolean
 }
 
-// Latency metrics
-interface LatencyMetrics {
-  sttLatency: number[]
-  llmLatency: number[]
-  ttsLatency: number[]
-  totalLatency: number[]
-  audioBufferMs: number
-  lastUpdate: number
+interface ToolCall {
+  id: string
+  tool: string
+  query: string
+  result?: string
+  status: "pending" | "running" | "success" | "error"
+  timestamp: Date
+  duration?: number
+}
+
+interface AgentActivity {
+  id: string
+  agentId: string
+  agentName: string
+  action: string
+  status: "invoked" | "processing" | "completed" | "failed"
+  timestamp: Date
+}
+
+interface MemorySession {
+  sessionId: string
+  conversationId: string
+  turnCount: number
+  memoryWrites: number
+  memoryReads: number
+  activeScopes: string[]
+}
+
+interface InjectionItem {
+  id: string
+  type: "tool_result" | "agent_update" | "system_alert" | "memory_insight"
+  content: string
+  timestamp: Date
+  status: "queued" | "injecting" | "injected"
 }
 
 export default function VoiceTestPage() {
-  // Service statuses - Note: Moshi check goes through Bridge to avoid CORS
+  // Service statuses
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Moshi Server (8998)", url: "_via_bridge_", status: "checking" },
+    { name: "Moshi Server (8998)", url: "http://localhost:8998/health", status: "checking" },
     { name: "PersonaPlex Bridge (8999)", url: "http://localhost:8999/health", status: "checking" },
-    { name: "Voice Orchestrator", url: "/api/mas/voice/orchestrator", status: "checking" },
+    { name: "MAS Orchestrator", url: "http://192.168.0.188:8001/health", status: "checking" },
+    { name: "Memory API", url: "http://192.168.0.188:8001/api/memory/health", status: "checking" },
   ])
   
-  // Test logs
   const [logs, setLogs] = useState<TestLog[]>([])
   const logsEndRef = useRef<HTMLDivElement>(null)
   
-  // Test state
   const [testPhase, setTestPhase] = useState<"idle" | "checking" | "ready" | "listening" | "complete">("idle")
-  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA systems...")
+  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v7.0.0...")
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown")
   
   // Voice state
@@ -105,47 +141,50 @@ export default function VoiceTestPage() {
   const [micLevel, setMicLevel] = useState(0)
   const [outputLevel, setOutputLevel] = useState(0)
   
-  // ===== DEBUG METRICS =====
-  const [timeline, setTimeline] = useState<TimelineEvent[]>([])
-  const [latencyMetrics, setLatencyMetrics] = useState<LatencyMetrics>({
-    sttLatency: [],
-    llmLatency: [],
-    ttsLatency: [],
-    totalLatency: [],
-    audioBufferMs: 0,
-    lastUpdate: Date.now()
+  // MAS Event Engine
+  const [masEvents, setMasEvents] = useState<MASEvent[]>([])
+  const [toolCalls, setToolCalls] = useState<ToolCall[]>([])
+  const [agentActivity, setAgentActivity] = useState<AgentActivity[]>([])
+  const [injectionQueue, setInjectionQueue] = useState<InjectionItem[]>([])
+  const [textCloneStatus, setTextCloneStatus] = useState<"idle" | "cloning" | "success" | "error">("idle")
+  const [lastClonedText, setLastClonedText] = useState("")
+  const [bridgeFeatures, setBridgeFeatures] = useState<Record<string, boolean>>({})
+  
+  // Memory Session
+  const [memorySession, setMemorySession] = useState<MemorySession | null>(null)
+  
+  // Debug metrics
+  const [latencyMetrics, setLatencyMetrics] = useState({
+    sttLatency: [] as number[],
+    llmLatency: [] as number[],
+    ttsLatency: [] as number[],
+    masLatency: [] as number[],
   })
   const [audioStats, setAudioStats] = useState({
     bytesIn: 0,
     bytesOut: 0,
     chunksIn: 0,
     chunksOut: 0,
-    droppedFrames: 0,
-    bufferUnderruns: 0
   })
-  const [overlapDetected, setOverlapDetected] = useState(false)
-  const [speakingRate, setSpeakingRate] = useState(0) // words per minute
   
-  // Waveform data
   const [inputWaveform, setInputWaveform] = useState<number[]>(new Array(64).fill(0))
   const [outputWaveform, setOutputWaveform] = useState<number[]>(new Array(64).fill(0))
   
   const wsRef = useRef<WebSocket | null>(null)
+  const masEventSourceRef = useRef<EventSource | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const outputAnalyserRef = useRef<AnalyserNode | null>(null)
   const micLevelIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const timelineStartRef = useRef<number>(Date.now())
-  const currentEventRef = useRef<TimelineEvent | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const opusRecorderRef = useRef<any>(null)
   
-  // Timing refs for latency tracking
   const sttStartRef = useRef<number>(0)
   const llmStartRef = useRef<number>(0)
   const ttsStartRef = useRef<number>(0)
-  const utteranceStartRef = useRef<number>(0)
+  const sessionIdRef = useRef<string>("")
   
-  // Add log entry
   const addLog = useCallback((level: TestLog["level"], message: string, details?: string) => {
     setLogs(prev => [...prev.slice(-200), {
       timestamp: new Date(),
@@ -155,86 +194,165 @@ export default function VoiceTestPage() {
     }])
   }, [])
   
-  // Auto-scroll logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [logs])
   
-  // Add timeline event
-  const addTimelineEvent = useCallback((type: TimelineEvent["type"], label?: string) => {
-    const now = Date.now()
-    
-    // End previous event
-    if (currentEventRef.current) {
-      setTimeline(prev => prev.map(e => 
-        e.id === currentEventRef.current?.id ? { ...e, endTime: now } : e
-      ))
+  const recordLatency = useCallback((type: "stt" | "llm" | "tts" | "mas", value: number) => {
+    setLatencyMetrics(prev => ({
+      ...prev,
+      [`${type}Latency`]: [...(prev[`${type}Latency` as keyof typeof prev] as number[]).slice(-20), value],
+    }))
+    if (type !== "mas") { // Don't log MAS latency as metric, it's in the events
+      addLog("metric", `${type.toUpperCase()}: ${value}ms`)
     }
-    
-    // Check for overlap
-    if (type === "myca_speaking" && currentEventRef.current?.type === "user_speaking") {
-      setOverlapDetected(true)
-      addLog("warn", "OVERLAP DETECTED: MYCA started speaking while user still talking!")
-      setTimeout(() => setOverlapDetected(false), 3000)
-    }
-    
-    // Create new event
-    const event: TimelineEvent = {
-      id: `${now}_${Math.random().toString(36).slice(2)}`,
-      type,
-      startTime: now,
-      label
-    }
-    currentEventRef.current = event
-    setTimeline(prev => [...prev.slice(-50), event])
   }, [addLog])
   
-  // Update latency metric
-  const recordLatency = useCallback((type: "stt" | "llm" | "tts" | "total", value: number) => {
-    setLatencyMetrics(prev => {
-      const key = `${type}Latency` as keyof LatencyMetrics
-      const arr = prev[key] as number[]
-      return {
-        ...prev,
-        [key]: [...arr.slice(-20), value],
-        lastUpdate: Date.now()
-      }
-    })
-    addLog("metric", `${type.toUpperCase()} Latency: ${value}ms`)
-  }, [addLog])
-  
-  // Calculate average latency
   const getAvgLatency = (arr: number[]) => {
     if (arr.length === 0) return 0
     return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
   }
   
+  // Clone text to MAS (non-blocking background operation)
+  const cloneTextToMAS = useCallback(async (text: string, sessionId: string) => {
+    if (!text.trim()) return
+    
+    setTextCloneStatus("cloning")
+    setLastClonedText(text)
+    addLog("clone", `Cloning to MAS: "${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`)
+    
+    const masStart = Date.now()
+    
+    try {
+      const response = await fetch("http://192.168.0.188:8001/voice/orchestrator/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          session_id: sessionId,
+          conversation_id: sessionIdRef.current,
+          mode: "clone", // Tell MAS this is a clone, not primary
+          return_injection: true, // Request any feedback to inject
+        }),
+        signal: AbortSignal.timeout(5000),
+      })
+      
+      const masLatency = Date.now() - masStart
+      recordLatency("mas", masLatency)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTextCloneStatus("success")
+        
+        // Update memory session stats
+        if (data.memory_stats) {
+          setMemorySession(prev => prev ? {
+            ...prev,
+            turnCount: prev.turnCount + 1,
+            memoryWrites: prev.memoryWrites + (data.memory_stats.writes || 0),
+            memoryReads: prev.memoryReads + (data.memory_stats.reads || 0),
+          } : null)
+        }
+        
+        // Handle tool calls
+        if (data.tool_calls) {
+          for (const tc of data.tool_calls) {
+            const toolCall: ToolCall = {
+              id: `tc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              tool: tc.tool,
+              query: tc.query || text,
+              status: tc.status || "success",
+              result: tc.result,
+              timestamp: new Date(),
+              duration: tc.duration,
+            }
+            setToolCalls(prev => [...prev.slice(-10), toolCall])
+            addLog("tool", `Tool: ${tc.tool} → ${tc.result?.slice(0, 50) || 'completed'}`)
+            
+            // Add to injection queue if there's a result to inject
+            if (tc.result && tc.inject_to_moshi) {
+              addInjection("tool_result", tc.result)
+            }
+          }
+        }
+        
+        // Handle agent invocations
+        if (data.agents_invoked) {
+          for (const agent of data.agents_invoked) {
+            const activity: AgentActivity = {
+              id: `ag_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              agentId: agent.id,
+              agentName: agent.name,
+              action: agent.action,
+              status: agent.status || "completed",
+              timestamp: new Date(),
+            }
+            setAgentActivity(prev => [...prev.slice(-10), activity])
+            addLog("event", `Agent: ${agent.name} - ${agent.action}`)
+            
+            // Add to injection queue if agent has feedback
+            if (agent.feedback && agent.inject_to_moshi) {
+              addInjection("agent_update", agent.feedback)
+            }
+          }
+        }
+        
+        // Handle direct feedback injection
+        if (data.injection) {
+          addInjection(data.injection.type || "system_alert", data.injection.content)
+        }
+        
+        addLog("success", `MAS clone: ${masLatency}ms`)
+      } else {
+        setTextCloneStatus("error")
+        addLog("error", `MAS clone failed: ${response.status}`)
+      }
+    } catch (error) {
+      setTextCloneStatus("error")
+      addLog("error", `MAS clone error: ${error}`)
+    }
+    
+    // Reset status after a moment
+    setTimeout(() => setTextCloneStatus("idle"), 2000)
+  }, [addLog, recordLatency])
+  
+  // Add item to injection queue
+  const addInjection = useCallback((type: InjectionItem["type"], content: string) => {
+    const item: InjectionItem = {
+      id: `inj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      type,
+      content,
+      timestamp: new Date(),
+      status: "queued",
+    }
+    setInjectionQueue(prev => [...prev.slice(-10), item])
+    addLog("injection", `Queued: [${type}] ${content.slice(0, 40)}...`)
+    
+    // Send to bridge for injection into Moshi
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "inject_feedback",
+        injection: item,
+      }))
+      setInjectionQueue(prev => prev.map(i => 
+        i.id === item.id ? { ...i, status: "injecting" } : i
+      ))
+    }
+  }, [addLog])
+  
   // Check services
   const checkServices = async () => {
     setTestPhase("checking")
     addLog("info", "Running diagnostics...")
-    setJarvisMessage("Running full diagnostics on all voice systems...")
+    setJarvisMessage("Running full diagnostics on voice systems...")
     
     const updatedServices = [...services]
-    let bridgeHealth: { moshi_available?: boolean } | null = null
     
     for (let i = 0; i < updatedServices.length; i++) {
       const service = updatedServices[i]
       addLog("info", `Checking ${service.name}...`)
       
       try {
-        // Special case: Check Moshi through Bridge to avoid CORS
-        if (service.url === "_via_bridge_") {
-          if (bridgeHealth?.moshi_available) {
-            updatedServices[i] = { ...service, status: "online", latency: 0 }
-            addLog("success", `${service.name}: ONLINE (via Bridge)`)
-          } else {
-            // Bridge not checked yet, skip for now
-            updatedServices[i] = { ...service, status: "checking" }
-          }
-          continue
-        }
-        
         const start = performance.now()
         const response = await fetch(service.url, { 
           method: "GET",
@@ -242,32 +360,30 @@ export default function VoiceTestPage() {
         })
         const latency = Math.round(performance.now() - start)
         
-        // 426 = WebSocket server, 405/400 = other valid responses
-        if (response.ok || response.status === 426 || response.status === 405 || response.status === 400) {
-          updatedServices[i] = { ...service, status: "online", latency }
+        if (response.ok) {
+          const data = await response.json()
+          updatedServices[i] = { 
+            ...service, 
+            status: "online", 
+            latency,
+            version: data.version,
+            features: data.features
+          }
           addLog("success", `${service.name}: ONLINE (${latency}ms)`)
           
-          // If this is the bridge, get moshi_available from response
-          if (service.url.includes("8999/health")) {
-            try {
-              bridgeHealth = await response.json()
-              // Now update Moshi status
-              if (bridgeHealth?.moshi_available) {
-                updatedServices[0] = { ...updatedServices[0], status: "online", latency: 0 }
-                addLog("success", `Moshi Server (8998): ONLINE (via Bridge)`)
-              } else {
-                updatedServices[0] = { ...updatedServices[0], status: "offline", error: "Bridge reports Moshi unavailable" }
-                addLog("error", `Moshi Server (8998): OFFLINE (Bridge reports unavailable)`)
-              }
-            } catch {}
+          // Store bridge features
+          if (service.url.includes("8999") && data.features) {
+            setBridgeFeatures(data.features)
           }
+        } else if (response.status === 426) {
+          updatedServices[i] = { ...service, status: "online", latency }
+          addLog("success", `${service.name}: ONLINE (WebSocket) (${latency}ms)`)
         } else {
-          updatedServices[i] = { ...service, status: "error", error: `HTTP ${response.status}` }
+          updatedServices[i] = { ...service, status: "error" }
           addLog("error", `${service.name}: Error ${response.status}`)
         }
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error"
-        updatedServices[i] = { ...service, status: "offline", error: errorMsg }
+        updatedServices[i] = { ...service, status: "offline" }
         addLog("error", `${service.name}: OFFLINE`)
       }
       
@@ -281,25 +397,30 @@ export default function VoiceTestPage() {
     } catch {}
     
     const bridgeOnline = updatedServices[1].status === "online"
-    if (bridgeOnline) {
+    const moshiOnline = updatedServices[0].status === "online"
+    const masOnline = updatedServices[2].status === "online"
+    
+    if (bridgeOnline && moshiOnline && masOnline) {
       setTestPhase("ready")
-      setJarvisMessage("Systems ready. Click 'Start Voice Session' to begin.")
+      setJarvisMessage("All systems ready. Click 'Start MYCA Voice' for full-duplex + MAS Event Engine.")
+    } else if (bridgeOnline) {
+      setTestPhase("ready")
+      setJarvisMessage("Bridge ready. Some services may still be loading...")
     } else {
       setTestPhase("idle")
       setJarvisMessage("PersonaPlex Bridge offline. Start it with: python personaplex_bridge_nvidia.py")
     }
   }
   
-  const mediaStreamRef = useRef<MediaStream | null>(null)
-  const opusRecorderRef = useRef<any>(null)
-  
-  // Start voice session
+  // Start voice session with MAS Event Engine
   const startMycaVoice = async () => {
-    addLog("info", "Starting MYCA voice session...")
-    setJarvisMessage("Connecting to PersonaPlex Bridge...")
-    timelineStartRef.current = Date.now()
-    setTimeline([])
-    setAudioStats({ bytesIn: 0, bytesOut: 0, chunksIn: 0, chunksOut: 0, droppedFrames: 0, bufferUnderruns: 0 })
+    addLog("info", "Starting MYCA Voice v7.0.0 with MAS Event Engine...")
+    setJarvisMessage("Connecting to PersonaPlex + MAS Event Engine...")
+    setAudioStats({ bytesIn: 0, bytesOut: 0, chunksIn: 0, chunksOut: 0 })
+    setToolCalls([])
+    setMasEvents([])
+    setAgentActivity([])
+    setInjectionQueue([])
     
     try {
       // Get microphone
@@ -314,7 +435,7 @@ export default function VoiceTestPage() {
       mediaStreamRef.current = stream
       setMicPermission("granted")
       
-      // Set up input audio analysis for waveform
+      // Set up input audio analysis
       const monitorCtx = new AudioContext()
       const source = monitorCtx.createMediaStreamSource(stream)
       const analyser = monitorCtx.createAnalyser()
@@ -322,7 +443,7 @@ export default function VoiceTestPage() {
       source.connect(analyser)
       analyserRef.current = analyser
       
-      // Monitor input levels and waveform
+      // Monitor input levels
       const dataArray = new Uint8Array(analyser.frequencyBinCount)
       micLevelIntervalRef.current = setInterval(() => {
         if (analyserRef.current) {
@@ -339,15 +460,43 @@ export default function VoiceTestPage() {
       const bridgeRes = await fetch("http://localhost:8999/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: "myca", voice: "myca" })
+        body: JSON.stringify({ persona: "myca", voice: "myca", enable_mas_events: true })
       })
       
       if (!bridgeRes.ok) throw new Error(`Bridge session failed: ${bridgeRes.status}`)
       
       const session = await bridgeRes.json()
-      addLog("success", `Session: ${session.session_id}`)
+      sessionIdRef.current = session.session_id
+      addLog("success", `Session: ${session.session_id.slice(0, 8)}...`)
       
-      // Connect WebSocket
+      // Initialize memory session
+      setMemorySession({
+        sessionId: session.session_id,
+        conversationId: session.conversation_id || session.session_id,
+        turnCount: 0,
+        memoryWrites: 0,
+        memoryReads: 0,
+        activeScopes: ["conversation", "user"],
+      })
+      
+      // Create voice session in MAS memory
+      try {
+        await fetch("http://192.168.0.188:8001/api/voice/session/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: session.session_id,
+            conversation_id: session.conversation_id || session.session_id,
+            mode: "personaplex",
+            persona: "myca",
+          }),
+        })
+        addLog("success", "MAS voice session created")
+      } catch (e) {
+        addLog("warn", `MAS voice session create: ${e}`)
+      }
+      
+      // Connect WebSocket to bridge
       const bridgeWsUrl = `ws://localhost:8999/ws/${session.session_id}`
       addLog("info", `Connecting WebSocket: ${bridgeWsUrl}`)
       
@@ -355,7 +504,7 @@ export default function VoiceTestPage() {
       ws.binaryType = "arraybuffer"
       
       ws.onopen = () => {
-        addLog("success", "WebSocket connected!")
+        addLog("success", "WebSocket connected to bridge!")
       }
       
       ws.onmessage = async (event) => {
@@ -364,37 +513,41 @@ export default function VoiceTestPage() {
             const msg = JSON.parse(event.data)
             
             if (msg.type === "text") {
-              // User's speech transcribed
-              if (msg.text?.trim()) {
-                const now = Date.now()
-                if (sttStartRef.current > 0) {
-                  recordLatency("stt", now - sttStartRef.current)
+              // Text from Moshi (MYCA speaking)
+              const text = msg.text?.trim()
+              if (text) {
+                // Check if this is injected content
+                if (text.includes("[TOOL]") || text.includes("[AGENT]") || text.includes("[SYSTEM]")) {
+                  addLog("injection", `MYCA injected: ${text}`)
+                  // Update injection queue status
+                  setInjectionQueue(prev => {
+                    const updated = [...prev]
+                    const pending = updated.find(i => i.status === "injecting")
+                    if (pending) pending.status = "injected"
+                    return updated
+                  })
+                } else {
+                  setLastResponse(prev => prev + text)
+                  addLog("info", `MYCA: ${text}`)
                 }
-                setTranscript(msg.text.trim())
-                addLog("info", `You: "${msg.text.trim()}"`)
-                addTimelineEvent("processing", "Processing...")
-                llmStartRef.current = now
                 
-                // Calculate speaking rate
-                const words = msg.text.trim().split(/\s+/).length
-                const duration = (now - utteranceStartRef.current) / 1000 / 60 // minutes
-                if (duration > 0) {
-                  setSpeakingRate(Math.round(words / duration))
+                const now = Date.now()
+                if (llmStartRef.current > 0) {
+                  recordLatency("llm", now - llmStartRef.current)
+                  llmStartRef.current = 0
                 }
               }
-            } else if (msg.type === "orchestrator_response") {
-              // MYCA's response
-              const now = Date.now()
-              if (llmStartRef.current > 0) {
-                recordLatency("llm", now - llmStartRef.current)
-              }
-              ttsStartRef.current = now
-              
-              if (msg.text?.trim()) {
-                setLastResponse(msg.text.trim())
-                addLog("success", `MYCA: "${msg.text.trim().slice(0, 100)}..."`)
-                addTimelineEvent("myca_speaking", "MYCA")
-              }
+            } else if (msg.type === "mas_event") {
+              // MAS event from bridge
+              const masEvent = msg.event as MASEvent
+              setMasEvents(prev => [...prev.slice(-20), masEvent])
+              addLog("event", `MAS: [${masEvent.type}] ${masEvent.message}`)
+            } else if (msg.type === "injection_ack") {
+              // Injection acknowledged by Moshi
+              setInjectionQueue(prev => prev.map(i => 
+                i.id === msg.injection_id ? { ...i, status: "injected" } : i
+              ))
+              addLog("success", `Injection delivered: ${msg.injection_id}`)
             } else if (msg.type === "error") {
               addLog("error", `Error: ${msg.message}`)
             }
@@ -408,12 +561,12 @@ export default function VoiceTestPage() {
           const kind = data[0]
           const payload = data.slice(1)
           
-          // Handshake
+          // Handshake (0x00)
           if (data.length === 1 && kind === 0) {
-            addLog("success", "Moshi handshake OK!")
+            addLog("success", "Moshi handshake OK! Full-duplex + MAS Event Engine active.")
             setWsConnected(true)
             setTestPhase("listening")
-            setJarvisMessage("Connected! Speak naturally - watch the debug panels for issues.")
+            setJarvisMessage("Connected! Speak naturally. MAS Event Engine is listening.")
             
             if (!audioContextRef.current) {
               audioContextRef.current = new AudioContext({ sampleRate: 48000 })
@@ -421,11 +574,10 @@ export default function VoiceTestPage() {
             
             initDecoderWorker().catch(e => addLog("error", `Decoder init: ${e}`))
             startAudioCapture(ws)
-            addTimelineEvent("silence", "Ready")
             return
           }
           
-          // Audio from MYCA
+          // Audio from MYCA (kind=1)
           if (kind === 1 && payload.length > 0) {
             const now = Date.now()
             if (ttsStartRef.current > 0 && !isSpeaking) {
@@ -442,6 +594,12 @@ export default function VoiceTestPage() {
             handleMoshiAudio(payload)
             scheduleSpeakingEnd()
           }
+          
+          // Control/ACK (kind=3)
+          if (kind === 3) {
+            const ack = payload.length > 0 ? new TextDecoder().decode(payload) : ""
+            addLog("debug", `Control: ${ack}`)
+          }
         } catch (err) {
           addLog("debug", `Message error: ${err}`)
         }
@@ -453,7 +611,7 @@ export default function VoiceTestPage() {
       }
       
       ws.onclose = () => {
-        addLog("info", "Disconnected")
+        addLog("info", "Disconnected from bridge")
         setWsConnected(false)
         stopAudioCapture()
       }
@@ -519,9 +677,7 @@ export default function VoiceTestPage() {
       recorder.onstart = () => {
         setIsRecognizing(true)
         addLog("info", "Audio capture started - speak now!")
-        utteranceStartRef.current = Date.now()
         sttStartRef.current = Date.now()
-        addTimelineEvent("user_speaking", "You")
       }
       
       recorder.onstop = () => {
@@ -532,21 +688,95 @@ export default function VoiceTestPage() {
       recorder.start(mediaStreamRef.current)
       opusRecorderRef.current = recorder
       
-      // Moshi handles all STT - text is cloned to MAS for memory (async, non-blocking)
-      addLog("success", "Moshi full-duplex active - MAS memory cloning enabled")
+      // Web Speech API for transcription display (backup + MAS cloning)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = "en-US"
+        
+        let finalTranscript = ""
+        let silenceTimer: NodeJS.Timeout | null = null
+        
+        recognition.onresult = (event) => {
+          let interim = ""
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + " "
+            } else {
+              interim = transcript
+            }
+          }
+          
+          if (interim) {
+            setInterimTranscript(interim)
+          }
+          
+          if (silenceTimer) clearTimeout(silenceTimer)
+          
+          if (finalTranscript.trim()) {
+            silenceTimer = setTimeout(() => {
+              const text = finalTranscript.trim()
+              finalTranscript = ""
+              setInterimTranscript("")
+              
+              if (text.length > 2) {
+                const now = Date.now()
+                recordLatency("stt", now - sttStartRef.current)
+                sttStartRef.current = now
+                llmStartRef.current = now
+                
+                setTranscript(text)
+                setLastResponse("")
+                addLog("info", `You: "${text}"`)
+                
+                // Clone text to MAS (non-blocking, background)
+                // Moshi hears the audio directly, this is for MAS processing
+                cloneTextToMAS(text, sessionIdRef.current)
+              }
+            }, 800)
+          }
+        }
+        
+        recognition.onerror = (e) => {
+          if (e.error !== "no-speech" && e.error !== "aborted") {
+            addLog("warn", `Speech recognition: ${e.error}`)
+          }
+        }
+        
+        recognition.onend = () => {
+          if (opusRecorderRef.current) {
+            try { recognition.start() } catch {}
+          }
+        }
+        
+        try {
+          recognition.start()
+          recognitionRef.current = recognition
+          addLog("success", "Web Speech API active for transcription display")
+        } catch (e) {
+          addLog("warn", `Could not start speech recognition: ${e}`)
+        }
+      }
       
     } catch (e) {
       addLog("error", `Audio capture failed: ${e}`)
     }
   }
   
-  // Stop audio capture
   const stopAudioCapture = () => {
     if (micLevelIntervalRef.current) {
       clearInterval(micLevelIntervalRef.current)
       micLevelIntervalRef.current = null
     }
     setMicLevel(0)
+    
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
+      recognitionRef.current = null
+    }
     
     if (opusRecorderRef.current) {
       try { opusRecorderRef.current.stop() } catch {}
@@ -583,13 +813,11 @@ export default function VoiceTestPage() {
       const workletNode = new AudioWorkletNode(ctx, "moshi-processor")
       workletNode.connect(ctx.destination)
       
-      // Create output analyser for waveform
       const outputAnalyser = ctx.createAnalyser()
       outputAnalyser.fftSize = 128
       workletNode.connect(outputAnalyser)
       outputAnalyserRef.current = outputAnalyser
       
-      // Monitor output levels
       setInterval(() => {
         if (outputAnalyserRef.current && isSpeaking) {
           const dataArray = new Uint8Array(outputAnalyserRef.current.frequencyBinCount)
@@ -602,16 +830,8 @@ export default function VoiceTestPage() {
         }
       }, 50)
       
-      workletNode.port.onmessage = (e) => {
-        if (e.data?.bufferUnderrun) {
-          setAudioStats(prev => ({ ...prev, bufferUnderruns: prev.bufferUnderruns + 1 }))
-          addLog("warn", "Audio buffer underrun - may cause choppy audio")
-        }
-      }
-      
       audioWorkletNodeRef.current = workletNode
       workletReadyRef.current = true
-      addLog("debug", "AudioWorklet ready")
     } catch (e) {
       addLog("error", `AudioWorklet init failed: ${e}`)
     }
@@ -652,7 +872,6 @@ export default function VoiceTestPage() {
       
       decoderWorkerRef.current = worker
       decoderReadyRef.current = true
-      addLog("debug", "Opus decoder ready")
     } catch (e) {
       addLog("error", `Decoder init failed: ${e}`)
     }
@@ -695,9 +914,8 @@ export default function VoiceTestPage() {
     speakingTimeoutRef.current = setTimeout(() => {
       setIsSpeaking(false)
       setOutputLevel(0)
-      addTimelineEvent("silence", "")
     }, 500)
-  }, [addTimelineEvent])
+  }, [])
   
   // Send text message
   const sendTextMessage = () => {
@@ -705,28 +923,47 @@ export default function VoiceTestPage() {
     
     if (wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
-        type: "text_input",
+        type: "user_speech",
         text: textInput.trim(),
-        source: "keyboard"
+        forward_to_moshi: true
       }))
       setTranscript(textInput.trim())
+      setLastResponse("")
       addLog("info", `Sent: "${textInput.trim()}"`)
+      
+      // Also clone to MAS
+      cloneTextToMAS(textInput.trim(), sessionIdRef.current)
+      
       setTextInput("")
       llmStartRef.current = Date.now()
-      addTimelineEvent("processing", "Processing...")
     }
   }
   
   // Stop voice
-  const stopVoice = () => {
+  const stopVoice = async () => {
+    // End memory session
+    if (sessionIdRef.current) {
+      try {
+        await fetch(`http://192.168.0.188:8001/api/voice/session/${sessionIdRef.current}/end`, {
+          method: "POST",
+        })
+        addLog("info", "MAS voice session ended")
+      } catch {}
+    }
+    
     stopAudioCapture()
     if (wsRef.current) {
       wsRef.current.close()
       wsRef.current = null
     }
+    if (masEventSourceRef.current) {
+      masEventSourceRef.current.close()
+      masEventSourceRef.current = null
+    }
     setWsConnected(false)
     setTestPhase("ready")
     setLastResponse("")
+    setMemorySession(null)
     setJarvisMessage("Voice session ended.")
     addLog("info", "Session stopped")
   }
@@ -737,13 +974,13 @@ export default function VoiceTestPage() {
       if (decoderWorkerRef.current) decoderWorkerRef.current.terminate()
       if (audioWorkletNodeRef.current) audioWorkletNodeRef.current.disconnect()
       if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
+      if (masEventSourceRef.current) masEventSourceRef.current.close()
     }
   }, [])
   
-  // Run on mount
   useEffect(() => {
-    addLog("info", "MYCA Voice Debug Suite initialized")
-    addLog("info", "Enhanced debug version - February 3, 2026")
+    addLog("info", "MYCA Voice Suite v7.0.0 - MAS Event Engine")
+    addLog("info", "February 3, 2026")
     checkServices()
   }, [])
   
@@ -751,7 +988,7 @@ export default function VoiceTestPage() {
   const Waveform = ({ data, color, label }: { data: number[], color: string, label: string }) => (
     <div className="bg-zinc-900 rounded-lg p-3">
       <div className="text-xs text-zinc-500 mb-2">{label}</div>
-      <div className="flex items-end gap-px h-16">
+      <div className="flex items-end gap-px h-12">
         {data.map((value, i) => (
           <div 
             key={i}
@@ -765,86 +1002,47 @@ export default function VoiceTestPage() {
       </div>
     </div>
   )
-  
-  // Timeline visualization
-  const TimelineViz = () => {
-    const now = Date.now()
-    const windowMs = 30000 // 30 seconds
-    const startTime = now - windowMs
-    
-    return (
-      <div className="bg-zinc-900 rounded-lg p-3">
-        <div className="text-xs text-zinc-500 mb-2">Duplex Timeline (last 30s)</div>
-        <div className="relative h-12 bg-zinc-800 rounded overflow-hidden">
-          {timeline.filter(e => (e.endTime || now) > startTime).map(event => {
-            const left = Math.max(0, ((event.startTime - startTime) / windowMs) * 100)
-            const right = Math.min(100, (((event.endTime || now) - startTime) / windowMs) * 100)
-            const width = right - left
-            
-            const colors = {
-              user_speaking: "bg-green-500",
-              myca_speaking: "bg-blue-500",
-              processing: "bg-yellow-500",
-              silence: "bg-zinc-700"
-            }
-            
-            return (
-              <div
-                key={event.id}
-                className={cn("absolute h-full", colors[event.type])}
-                style={{ left: `${left}%`, width: `${width}%` }}
-                title={event.label}
-              />
-            )
-          })}
-          
-          {/* Labels */}
-          <div className="absolute top-0 left-2 text-xs text-white/70 leading-6">You</div>
-          <div className="absolute bottom-0 left-2 text-xs text-white/70 leading-6">MYCA</div>
-          
-          {/* Now indicator */}
-          <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-red-500" />
-        </div>
-        
-        {/* Legend */}
-        <div className="flex gap-4 mt-2 text-xs">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded" /> You Speaking</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-blue-500 rounded" /> MYCA Speaking</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-yellow-500 rounded" /> Processing</div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 text-center">
+        <div className="mb-4 text-center">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            MYCA Voice Debug Suite
+            MYCA Voice Suite v7.0.0
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">Enhanced visual debugging for voice speed and talking issues</p>
+          <p className="text-zinc-500 text-sm">Full-Duplex Voice + MAS Event Engine + Feedback Injection</p>
         </div>
         
         {/* Status bar */}
-        <div className={cn(
-          "rounded-xl p-4 mb-6 border",
-          overlapDetected ? "bg-red-900/30 border-red-500" : "bg-cyan-900/20 border-cyan-800/30"
-        )}>
-          <div className="flex items-center gap-3">
-            <div className={cn("w-3 h-3 rounded-full", overlapDetected ? "bg-red-500 animate-pulse" : "bg-cyan-400 animate-pulse")} />
-            <p className="text-lg">{overlapDetected ? "âš ï¸ OVERLAP DETECTED - MYCA speaking over you!" : jarvisMessage}</p>
+        <div className="rounded-xl p-3 mb-4 border bg-cyan-900/20 border-cyan-800/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse" />
+              <p className="text-sm">{jarvisMessage}</p>
+            </div>
+            {/* Text Clone Status */}
+            {textCloneStatus !== "idle" && (
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1 rounded-full text-xs",
+                textCloneStatus === "cloning" && "bg-yellow-900/50 text-yellow-400",
+                textCloneStatus === "success" && "bg-green-900/50 text-green-400",
+                textCloneStatus === "error" && "bg-red-900/50 text-red-400",
+              )}>
+                <ArrowRight className="w-3 h-3" />
+                <span>MAS: {textCloneStatus}</span>
+              </div>
+            )}
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left: Controls */}
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left Column: Controls + Conversation */}
+          <div className="lg:col-span-3 space-y-4">
             {/* Services */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold flex items-center gap-2">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold text-sm flex items-center gap-2">
                   <Server className="w-4 h-4 text-cyan-400" />
                   Services
                 </h2>
@@ -853,222 +1051,434 @@ export default function VoiceTestPage() {
                 </Button>
               </div>
               
-              {services.map((service, idx) => (
-                <div key={idx} className="flex items-center justify-between py-2 border-b border-zinc-800 last:border-0">
-                  <div className="flex items-center gap-2">
-                    {service.status === "online" ? <CheckCircle2 className="w-4 h-4 text-green-500" /> :
-                     service.status === "offline" ? <XCircle className="w-4 h-4 text-red-500" /> :
-                     <RefreshCw className="w-4 h-4 text-zinc-400 animate-spin" />}
-                    <span className="text-sm">{service.name}</span>
+              <div className="space-y-1">
+                {services.map((service, idx) => (
+                  <div key={idx} className="flex items-center justify-between py-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      {service.status === "online" ? <CheckCircle2 className="w-3 h-3 text-green-500" /> :
+                       service.status === "offline" ? <XCircle className="w-3 h-3 text-red-500" /> :
+                       <RefreshCw className="w-3 h-3 text-zinc-400 animate-spin" />}
+                      <span className="truncate">{service.name}</span>
+                    </div>
+                    {service.latency && <span className="text-green-400">{service.latency}ms</span>}
                   </div>
-                  {service.latency && <span className="text-xs text-green-400">{service.latency}ms</span>}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
             
             {/* Voice Controls */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-              <h2 className="font-semibold flex items-center gap-2 mb-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h2 className="font-semibold text-sm flex items-center gap-2 mb-3">
                 <Mic className="w-4 h-4 text-cyan-400" />
                 Voice Control
               </h2>
               
               {wsConnected ? (
-                <Button onClick={stopVoice} variant="destructive" className="w-full">
+                <Button onClick={stopVoice} variant="destructive" className="w-full" size="sm">
                   <MicOff className="w-4 h-4 mr-2" />
-                  Stop Voice Session
+                  Stop Session
                 </Button>
               ) : (
                 <Button 
                   onClick={startMycaVoice}
                   disabled={services[1].status !== "online"}
                   className="w-full bg-green-600 hover:bg-green-700"
+                  size="sm"
                 >
                   <Mic className="w-4 h-4 mr-2" />
-                  Start Voice Session
+                  Start MYCA Voice
                 </Button>
               )}
               
-              {/* Connection status */}
               {wsConnected && (
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className={cn("w-2 h-2 rounded-full", isRecognizing ? "bg-green-500 animate-pulse" : "bg-gray-500")} />
-                    <span>{isRecognizing ? "ðŸŽ¤ Listening" : "Ready"}</span>
+                <>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={cn("w-2 h-2 rounded-full", isRecognizing ? "bg-green-500 animate-pulse" : "bg-gray-500")} />
+                      <span>{isRecognizing ? "Listening" : "Ready"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={cn("w-2 h-2 rounded-full", isSpeaking ? "bg-blue-500 animate-pulse" : "bg-gray-500")} />
+                      <span>{isSpeaking ? "MYCA Speaking" : "Silent"}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className={cn("w-2 h-2 rounded-full", isSpeaking ? "bg-blue-500 animate-pulse" : "bg-gray-500")} />
-                    <span>{isSpeaking ? "ðŸ”Š MYCA Speaking" : "Silent"}</span>
+                  
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Type..."
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && sendTextMessage()}
+                      className="flex-1 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs"
+                    />
+                    <Button onClick={sendTextMessage} disabled={!textInput.trim()} size="sm">
+                      <Send className="w-3 h-3" />
+                    </Button>
                   </div>
-                </div>
-              )}
-              
-              {/* Text input */}
-              {wsConnected && (
-                <div className="mt-4 flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendTextMessage()}
-                    className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm"
-                  />
-                  <Button onClick={sendTextMessage} disabled={!textInput.trim()} size="icon">
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
+                </>
               )}
             </div>
             
+            {/* Memory Session */}
+            {memorySession && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                <h2 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                  <Database className="w-4 h-4 text-purple-400" />
+                  Memory Session
+                </h2>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="text-center p-2 bg-zinc-800 rounded">
+                    <div className="text-lg font-bold text-purple-400">{memorySession.turnCount}</div>
+                    <div className="text-zinc-500">Turns</div>
+                  </div>
+                  <div className="text-center p-2 bg-zinc-800 rounded">
+                    <div className="text-lg font-bold text-green-400">{memorySession.memoryWrites}</div>
+                    <div className="text-zinc-500">Writes</div>
+                  </div>
+                  <div className="text-center p-2 bg-zinc-800 rounded">
+                    <div className="text-lg font-bold text-blue-400">{memorySession.memoryReads}</div>
+                    <div className="text-zinc-500">Reads</div>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {memorySession.activeScopes.map(scope => (
+                    <span key={scope} className="text-[10px] bg-purple-900/50 text-purple-400 px-1.5 py-0.5 rounded">
+                      {scope}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {/* Conversation */}
-            {(transcript || lastResponse) && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+            {(transcript || lastResponse || interimTranscript) && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-2">
+                <h2 className="font-semibold text-sm flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-cyan-400" />
+                  Conversation
+                </h2>
+                {interimTranscript && (
+                  <div className="p-2 bg-yellow-900/30 rounded border border-yellow-800/30 text-xs">
+                    <span className="text-yellow-400">Speaking: </span>
+                    <span className="italic text-yellow-200/70">{interimTranscript}</span>
+                  </div>
+                )}
                 {transcript && (
-                  <div className="p-2 bg-green-900/30 rounded-lg">
-                    <div className="text-xs text-green-400 mb-1">You:</div>
-                    <div className="text-sm">{transcript}</div>
+                  <div className="p-2 bg-green-900/30 rounded text-xs">
+                    <span className="text-green-400">You: </span>
+                    <span>{transcript}</span>
                   </div>
                 )}
                 {lastResponse && (
-                  <div className="p-2 bg-blue-900/30 rounded-lg">
-                    <div className="text-xs text-blue-400 mb-1">MYCA:</div>
-                    <div className="text-sm">{lastResponse}</div>
+                  <div className="p-2 bg-blue-900/30 rounded text-xs">
+                    <span className="text-blue-400">MYCA: </span>
+                    <span>{lastResponse}</span>
                   </div>
                 )}
               </div>
             )}
           </div>
           
-          {/* Center: Debug Visualizations */}
-          <div className="space-y-4">
-            {/* Waveforms */}
-            <Waveform data={inputWaveform} color="#22c55e" label="ðŸŽ¤ Your Voice Input" />
-            <Waveform data={outputWaveform} color="#3b82f6" label="ðŸ”Š MYCA Voice Output" />
-            
-            {/* Timeline */}
-            <TimelineViz />
-            
-            {/* Level meters */}
-            <div className="bg-zinc-900 rounded-lg p-3 grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-xs text-zinc-500 mb-1">Input Level</div>
-                <div className="h-4 bg-zinc-800 rounded-full overflow-hidden">
-                  <div 
-                    className={cn("h-full transition-all", 
-                      micLevel > 60 ? "bg-green-500" : micLevel > 30 ? "bg-yellow-500" : "bg-red-500"
-                    )}
-                    style={{ width: `${micLevel}%` }}
-                  />
+          {/* Center Column: MAS Event Engine */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* MAS Event Engine Header */}
+            <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-800/30 rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                  MAS Event Engine
+                </h2>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    wsConnected ? "bg-green-500 animate-pulse" : "bg-gray-500"
+                  )} />
+                  <span className="text-xs text-zinc-400">{wsConnected ? "Active" : "Inactive"}</span>
                 </div>
-                <div className="text-xs text-center mt-1">{micLevel}%</div>
               </div>
-              <div>
-                <div className="text-xs text-zinc-500 mb-1">Output Level</div>
-                <div className="h-4 bg-zinc-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 transition-all"
-                    style={{ width: `${outputLevel}%` }}
-                  />
-                </div>
-                <div className="text-xs text-center mt-1">{outputLevel}%</div>
-              </div>
+              <p className="text-xs text-zinc-500 mt-1">
+                Real-time processing of your speech → MAS tools/agents → Feedback injection to MYCA
+              </p>
             </div>
             
-            {/* Metrics */}
-            <div className="bg-zinc-900 rounded-lg p-3">
-              <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
-                <BarChart2 className="w-3 h-3" /> Latency Metrics
+            {/* Text Clone Display */}
+            {lastClonedText && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <ArrowRight className="w-4 h-4 text-yellow-400" />
+                  <span className="text-xs text-zinc-400">Last cloned to MAS:</span>
+                </div>
+                <div className="p-2 bg-yellow-900/20 border border-yellow-800/30 rounded text-xs">
+                  "{lastClonedText}"
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-2 text-center">
+            )}
+            
+            {/* Waveforms */}
+            <div className="grid grid-cols-2 gap-2">
+              <Waveform data={inputWaveform} color="#22c55e" label="Your Voice" />
+              <Waveform data={outputWaveform} color="#3b82f6" label="MYCA Voice" />
+            </div>
+            
+            {/* Injection Queue */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-pink-400" />
+                Feedback Injection Queue
+                <span className="text-xs text-zinc-500">({injectionQueue.length})</span>
+              </h3>
+              {injectionQueue.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic">No pending injections</p>
+              ) : (
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {injectionQueue.slice(-5).map((item) => (
+                    <div key={item.id} className="p-2 bg-zinc-800 rounded text-xs flex items-start gap-2">
+                      <div className={cn(
+                        "w-2 h-2 rounded-full mt-1 flex-shrink-0",
+                        item.status === "queued" && "bg-yellow-500",
+                        item.status === "injecting" && "bg-blue-500 animate-pulse",
+                        item.status === "injected" && "bg-green-500",
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "text-[10px] px-1 rounded",
+                            item.type === "tool_result" && "bg-yellow-900 text-yellow-400",
+                            item.type === "agent_update" && "bg-purple-900 text-purple-400",
+                            item.type === "system_alert" && "bg-red-900 text-red-400",
+                            item.type === "memory_insight" && "bg-blue-900 text-blue-400",
+                          )}>{item.type}</span>
+                          <span className="text-zinc-500">{item.status}</span>
+                        </div>
+                        <div className="text-zinc-300 truncate">{item.content}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Tool Calls */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <Wrench className="w-4 h-4 text-yellow-400" />
+                Tool Calls
+                <span className="text-xs text-zinc-500">({toolCalls.length})</span>
+              </h3>
+              {toolCalls.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic">No tool calls yet</p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {toolCalls.slice(-5).map((call) => (
+                    <div key={call.id} className="p-2 bg-zinc-800 rounded text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-3 h-3 text-yellow-400" />
+                          <span className="font-mono text-yellow-400">{call.tool}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {call.duration && <span className="text-zinc-500">{call.duration}ms</span>}
+                          <span className={cn(
+                            "px-1.5 rounded text-[10px]",
+                            call.status === "pending" && "bg-yellow-900 text-yellow-400",
+                            call.status === "running" && "bg-blue-900 text-blue-400",
+                            call.status === "success" && "bg-green-900 text-green-400",
+                            call.status === "error" && "bg-red-900 text-red-400",
+                          )}>{call.status}</span>
+                        </div>
+                      </div>
+                      {call.result && (
+                        <div className="mt-1 text-zinc-400 truncate">{call.result}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Agent Activity */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <Users className="w-4 h-4 text-purple-400" />
+                Agent Activity
+                <span className="text-xs text-zinc-500">({agentActivity.length})</span>
+              </h3>
+              {agentActivity.length === 0 ? (
+                <p className="text-xs text-zinc-500 italic">No agents invoked yet</p>
+              ) : (
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {agentActivity.slice(-5).map((agent) => (
+                    <div key={agent.id} className="p-2 bg-zinc-800 rounded text-xs flex items-center gap-2">
+                      <Bot className="w-3 h-3 text-purple-400" />
+                      <span className="font-medium text-purple-400">{agent.agentName}</span>
+                      <ArrowRight className="w-3 h-3 text-zinc-500" />
+                      <span className="text-zinc-300 flex-1 truncate">{agent.action}</span>
+                      <span className={cn(
+                        "px-1.5 rounded text-[10px]",
+                        agent.status === "invoked" && "bg-yellow-900 text-yellow-400",
+                        agent.status === "processing" && "bg-blue-900 text-blue-400",
+                        agent.status === "completed" && "bg-green-900 text-green-400",
+                        agent.status === "failed" && "bg-red-900 text-red-400",
+                      )}>{agent.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Right Column: Metrics + Logs */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Latency Metrics */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <BarChart2 className="w-4 h-4 text-cyan-400" />
+                Latency Metrics
+              </h3>
+              <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 <div className="p-2 bg-zinc-800 rounded">
                   <div className="text-lg font-bold text-green-400">{getAvgLatency(latencyMetrics.sttLatency)}</div>
-                  <div className="text-xs text-zinc-500">STT ms</div>
+                  <div className="text-zinc-500">STT</div>
                 </div>
                 <div className="p-2 bg-zinc-800 rounded">
                   <div className="text-lg font-bold text-yellow-400">{getAvgLatency(latencyMetrics.llmLatency)}</div>
-                  <div className="text-xs text-zinc-500">LLM ms</div>
+                  <div className="text-zinc-500">LLM</div>
                 </div>
                 <div className="p-2 bg-zinc-800 rounded">
                   <div className="text-lg font-bold text-blue-400">{getAvgLatency(latencyMetrics.ttsLatency)}</div>
-                  <div className="text-xs text-zinc-500">TTS ms</div>
+                  <div className="text-zinc-500">TTS</div>
                 </div>
                 <div className="p-2 bg-zinc-800 rounded">
-                  <div className="text-lg font-bold text-purple-400">{speakingRate}</div>
-                  <div className="text-xs text-zinc-500">WPM</div>
+                  <div className="text-lg font-bold text-purple-400">{getAvgLatency(latencyMetrics.masLatency)}</div>
+                  <div className="text-zinc-500">MAS</div>
                 </div>
               </div>
             </div>
             
             {/* Audio Stats */}
-            <div className="bg-zinc-900 rounded-lg p-3">
-              <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1">
-                <Activity className="w-3 h-3" /> Audio Stats
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <Activity className="w-4 h-4 text-cyan-400" />
+                Audio Stats
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Sent</span>
+                    <span className="font-mono">{(audioStats.bytesOut / 1024).toFixed(1)}KB ({audioStats.chunksOut})</span>
+                  </div>
+                </div>
+                <div className="p-2 bg-zinc-800 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Received</span>
+                    <span className="font-mono">{(audioStats.bytesIn / 1024).toFixed(1)}KB ({audioStats.chunksIn})</span>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="p-2 bg-zinc-800 rounded text-center">
-                  <div className="font-mono">{(audioStats.bytesOut / 1024).toFixed(1)}KB</div>
-                  <div className="text-zinc-500">Sent</div>
+              {/* Level Meters */}
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs text-zinc-500 mb-1">Input</div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div 
+                      className={cn("h-full transition-all", 
+                        micLevel > 60 ? "bg-green-500" : micLevel > 30 ? "bg-yellow-500" : "bg-red-500"
+                      )}
+                      style={{ width: `${micLevel}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="p-2 bg-zinc-800 rounded text-center">
-                  <div className="font-mono">{(audioStats.bytesIn / 1024).toFixed(1)}KB</div>
-                  <div className="text-zinc-500">Received</div>
-                </div>
-                <div className={cn("p-2 rounded text-center", 
-                  audioStats.bufferUnderruns > 0 ? "bg-red-900" : "bg-zinc-800"
-                )}>
-                  <div className="font-mono">{audioStats.bufferUnderruns}</div>
-                  <div className="text-zinc-500">Underruns</div>
+                <div>
+                  <div className="text-xs text-zinc-500 mb-1">Output</div>
+                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${outputLevel}%` }} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          
-          {/* Right: Logs */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-            <h2 className="font-semibold flex items-center gap-2 mb-3">
-              <Cpu className="w-4 h-4 text-cyan-400" />
-              Debug Logs
-            </h2>
             
-            <div className="bg-zinc-950 rounded-lg p-3 h-[600px] overflow-y-auto font-mono text-xs">
-              {logs.map((log, idx) => (
-                <div key={idx} className="mb-1">
-                  <span className="text-zinc-600">[{log.timestamp.toLocaleTimeString()}]</span>{" "}
-                  <span className={cn(
-                    log.level === "success" ? "text-green-400" :
-                    log.level === "error" ? "text-red-400" :
-                    log.level === "warn" ? "text-yellow-400" :
-                    log.level === "metric" ? "text-purple-400" :
-                    log.level === "debug" ? "text-zinc-500" : "text-blue-400"
-                  )}>[{log.level.toUpperCase()}]</span>{" "}
-                  <span className="text-zinc-300">{log.message}</span>
-                  {log.details && <div className="ml-16 text-zinc-500">{log.details}</div>}
-                </div>
-              ))}
-              <div ref={logsEndRef} />
+            {/* MAS Events */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <HardDrive className="w-4 h-4 text-pink-400" />
+                MAS Events
+                <span className="text-xs text-zinc-500">({masEvents.length})</span>
+              </h3>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
+                {masEvents.length === 0 ? (
+                  <p className="text-xs text-zinc-500 italic">No MAS events yet</p>
+                ) : (
+                  masEvents.slice(-5).map((event, i) => (
+                    <div key={i} className="p-1.5 bg-zinc-800 rounded text-xs">
+                      <span className={cn(
+                        "text-[10px] px-1 rounded mr-1",
+                        event.type === "tool_call" && "bg-yellow-900 text-yellow-400",
+                        event.type === "memory_write" && "bg-green-900 text-green-400",
+                        event.type === "memory_read" && "bg-blue-900 text-blue-400",
+                        event.type === "agent_invoke" && "bg-purple-900 text-purple-400",
+                        event.type === "system" && "bg-gray-900 text-gray-400",
+                        event.type === "feedback" && "bg-pink-900 text-pink-400",
+                      )}>{event.type}</span>
+                      <span className="text-zinc-300">{event.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
             
-            <div className="mt-3 flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setLogs([])}>Clear</Button>
-              <Button variant="outline" size="sm" onClick={() => {
-                const logText = logs.map(l => 
-                  `[${l.timestamp.toISOString()}] [${l.level}] ${l.message}`
-                ).join("\n")
-                navigator.clipboard.writeText(logText)
-                addLog("info", "Logs copied")
-              }}>Copy</Button>
+            {/* Debug Logs */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-cyan-400" />
+                  Debug Logs
+                </h3>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => setLogs([])} className="h-6 text-xs px-2">
+                    Clear
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const logText = logs.map(l => 
+                      `[${l.timestamp.toISOString()}] [${l.level}] ${l.message}`
+                    ).join("\n")
+                    navigator.clipboard.writeText(logText)
+                    addLog("info", "Logs copied")
+                  }} className="h-6 text-xs px-2">
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="bg-zinc-950 rounded p-2 h-[200px] overflow-y-auto font-mono text-[10px]">
+                {logs.map((log, idx) => (
+                  <div key={idx} className="mb-0.5">
+                    <span className="text-zinc-600">[{log.timestamp.toLocaleTimeString()}]</span>{" "}
+                    <span className={cn(
+                      log.level === "success" ? "text-green-400" :
+                      log.level === "error" ? "text-red-400" :
+                      log.level === "warn" ? "text-yellow-400" :
+                      log.level === "metric" ? "text-purple-400" :
+                      log.level === "tool" ? "text-orange-400" :
+                      log.level === "event" ? "text-pink-400" :
+                      log.level === "injection" ? "text-cyan-400" :
+                      log.level === "clone" ? "text-yellow-400" :
+                      log.level === "debug" ? "text-zinc-500" : "text-blue-400"
+                    )}>[{log.level.toUpperCase()}]</span>{" "}
+                    <span className="text-zinc-300">{log.message}</span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
             </div>
           </div>
         </div>
         
         {/* Footer */}
-        <div className="mt-6 text-center text-zinc-600 text-sm">
-          MYCA Voice Debug Suite | February 3, 2026 | PersonaPlex + Moshi Full-Duplex
+        <div className="mt-4 text-center text-zinc-600 text-xs">
+          MYCA Voice Suite v7.0.0 | February 3, 2026 | PersonaPlex Full-Duplex + MAS Event Engine
         </div>
       </div>
     </div>
   )
 }
-
-

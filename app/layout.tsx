@@ -5,6 +5,8 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { AppStateProvider } from "@/contexts/app-state-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { PersonaPlexProvider } from "@/components/voice/PersonaPlexProvider"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -30,11 +32,14 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <AppStateProvider>
-              <div className="min-h-screen flex flex-col relative">
-                <Header />
-                <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
-                <Footer />
-              </div>
+              <PersonaPlexProvider enabled={true}>
+                <div className="min-h-screen flex flex-col relative">
+                  <Header />
+                  <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
+                  <Footer />
+                </div>
+                <Toaster richColors position="top-right" />
+              </PersonaPlexProvider>
             </AppStateProvider>
           </AuthProvider>
         </ThemeProvider>

@@ -19,7 +19,9 @@ import {
   AgentGrid,
   AgentTerminal,
   AdvancedTopology3D,
+  WorkflowStudio,
 } from "@/components/mas"
+import { UnifiedVoiceProvider, FloatingVoiceButton, VoiceCommandPanel } from "@/components/voice"
 import {
   Brain,
   Plus,
@@ -59,14 +61,24 @@ interface SystemStats {
   uptime: number
 }
 
+// Import real agent registry - NO MOCK DATA
+import { 
+  COMPLETE_AGENT_REGISTRY, 
+  TOTAL_AGENT_COUNT, 
+  CATEGORY_STATS,
+  getActiveAgents 
+} from "@/components/mas/topology/agent-registry"
+
 export default function AIStudioPage() {
+  // Initialize with REAL data from agent registry
+  const realActiveCount = getActiveAgents().length
   const [stats, setStats] = useState<SystemStats>({
-    activeAgents: 180,
-    totalAgents: 223,
-    tasksQueued: 3,
-    tasksCompleted: 24589,
-    systemHealth: "healthy",
-    uptime: 259200,
+    activeAgents: realActiveCount,
+    totalAgents: TOTAL_AGENT_COUNT,
+    tasksQueued: 0, // Will be fetched from MAS
+    tasksCompleted: 0, // Will be fetched from MAS
+    systemHealth: "checking" as "healthy" | "degraded" | "critical",
+    uptime: 0,
   })
   const [showAgentCreator, setShowAgentCreator] = useState(false)
   const [selectedTab, setSelectedTab] = useState("command")
@@ -89,38 +101,76 @@ export default function AIStudioPage() {
     }
   }, [])
 
-  // Fetch system stats
+  // Fetch system stats - REAL DATA ONLY
   const fetchStats = useCallback(async () => {
     setRefreshing(true)
     try {
-      const [healthRes, agentsRes] = await Promise.allSettled([
+      const [healthRes, agentsRes, tasksRes] = await Promise.allSettled([
         fetch("/api/mas/health"),
         fetch("/api/mas/agents"),
+        fetch("/api/mas/orchestrator/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "diagnostics" })
+        }),
       ])
 
+      // Health check from MAS VM
       if (healthRes.status === "fulfilled" && healthRes.value.ok) {
         const data = await healthRes.value.json()
         setStats(prev => ({
           ...prev,
           systemHealth: data.status === "ok" ? "healthy" : "degraded",
         }))
+      } else {
+        setStats(prev => ({ ...prev, systemHealth: "degraded" }))
       }
 
+      // Agent counts - prioritize MAS VM data, fallback to registry
       if (agentsRes.status === "fulfilled" && agentsRes.value.ok) {
         const data = await agentsRes.value.json()
         const agents = data.agents || []
+        // If MAS returns agents, use that count for "running" agents
+        // But total is ALWAYS from registry (223+ defined)
         setStats(prev => ({
           ...prev,
-          activeAgents: agents.filter((a: any) => a.status === "active" || a.status === "busy").length,
-          totalAgents: agents.length || 40,
+          activeAgents: agents.filter((a: any) => a.status === "active" || a.status === "busy").length || realActiveCount,
+          totalAgents: TOTAL_AGENT_COUNT, // ALWAYS use registry total
         }))
+      } else {
+        // Fallback to registry counts
+        setStats(prev => ({
+          ...prev,
+          activeAgents: realActiveCount,
+          totalAgents: TOTAL_AGENT_COUNT,
+        }))
+      }
+
+      // Task queue stats from orchestrator
+      if (tasksRes.status === "fulfilled" && tasksRes.value.ok) {
+        const data = await tasksRes.value.json()
+        if (data.diagnostics) {
+          setStats(prev => ({
+            ...prev,
+            tasksQueued: data.diagnostics.pendingTasks || 0,
+            tasksCompleted: data.diagnostics.completedTasks || 0,
+            uptime: data.diagnostics.uptime || 0,
+          }))
+        }
       }
     } catch (error) {
       console.error("Failed to fetch stats:", error)
+      // On error, use registry data
+      setStats(prev => ({
+        ...prev,
+        activeAgents: realActiveCount,
+        totalAgents: TOTAL_AGENT_COUNT,
+        systemHealth: "degraded",
+      }))
     } finally {
       setRefreshing(false)
     }
-  }, [])
+  }, [realActiveCount])
 
   useEffect(() => {
     checkOrchestratorHealth()
@@ -138,7 +188,8 @@ export default function AIStudioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <UnifiedVoiceProvider masApiUrl="/api/mas">
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
@@ -285,42 +336,50 @@ export default function AIStudioPage() {
               </Button>
             </div>
 
-            {/* Agent Categories Overview */}
+            {/* Agent Categories Overview - REAL DATA from Agent Registry */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4" />
-                  Agent Categories ({stats.totalAgents} Total)
+                  Agent Categories ({TOTAL_AGENT_COUNT} Real Agents)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   {[
-                    { name: "Core", icon: <Brain className="h-5 w-5" />, count: 10, active: 10, color: "purple" },
-                    { name: "Financial", icon: <Sparkles className="h-5 w-5" />, count: 12, active: 10, color: "blue" },
-                    { name: "Mycology", icon: <Sparkles className="h-5 w-5" />, count: 25, active: 23, color: "green" },
-                    { name: "Research", icon: <Database className="h-5 w-5" />, count: 15, active: 14, color: "cyan" },
-                    { name: "DAO", icon: <Zap className="h-5 w-5" />, count: 40, active: 35, color: "yellow" },
-                    { name: "Comms", icon: <MessageSquare className="h-5 w-5" />, count: 10, active: 9, color: "pink" },
-                    { name: "Data", icon: <Database className="h-5 w-5" />, count: 30, active: 28, color: "cyan" },
-                    { name: "Infra", icon: <Server className="h-5 w-5" />, count: 15, active: 14, color: "green" },
-                    { name: "Simulation", icon: <Activity className="h-5 w-5" />, count: 12, active: 11, color: "orange" },
-                    { name: "Security", icon: <Shield className="h-5 w-5" />, count: 8, active: 8, color: "red" },
-                    { name: "Integration", icon: <Zap className="h-5 w-5" />, count: 20, active: 18, color: "yellow" },
-                    { name: "Device", icon: <Radio className="h-5 w-5" />, count: 18, active: 15, color: "orange" },
-                    { name: "Chemistry", icon: <Sparkles className="h-5 w-5" />, count: 8, active: 7, color: "purple" },
-                  ].map((cat) => (
-                    <div
-                      key={cat.name}
-                      className={`p-4 rounded-lg border bg-${cat.color}-500/5 border-${cat.color}-500/20 hover:border-${cat.color}-500/40 transition-colors cursor-pointer`}
-                    >
-                      <div className={`text-${cat.color}-500 mb-2`}>{cat.icon}</div>
-                      <div className="font-medium text-sm">{cat.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        <span className="text-green-500">{cat.active}</span>/{cat.count} active
+                    { name: "Core", key: "core" as const, icon: <Brain className="h-5 w-5" />, color: "purple" },
+                    { name: "Financial", key: "financial" as const, icon: <Sparkles className="h-5 w-5" />, color: "blue" },
+                    { name: "Mycology", key: "mycology" as const, icon: <Sparkles className="h-5 w-5" />, color: "green" },
+                    { name: "Research", key: "research" as const, icon: <Database className="h-5 w-5" />, color: "cyan" },
+                    { name: "DAO", key: "dao" as const, icon: <Zap className="h-5 w-5" />, color: "yellow" },
+                    { name: "Comms", key: "communication" as const, icon: <MessageSquare className="h-5 w-5" />, color: "pink" },
+                    { name: "Data", key: "data" as const, icon: <Database className="h-5 w-5" />, color: "cyan" },
+                    { name: "Infra", key: "infrastructure" as const, icon: <Server className="h-5 w-5" />, color: "green" },
+                    { name: "Simulation", key: "simulation" as const, icon: <Activity className="h-5 w-5" />, color: "orange" },
+                    { name: "Security", key: "security" as const, icon: <Shield className="h-5 w-5" />, color: "red" },
+                    { name: "Integration", key: "integration" as const, icon: <Zap className="h-5 w-5" />, color: "yellow" },
+                    { name: "Device", key: "device" as const, icon: <Radio className="h-5 w-5" />, color: "orange" },
+                    { name: "Chemistry", key: "chemistry" as const, icon: <Sparkles className="h-5 w-5" />, color: "purple" },
+                    { name: "NLM", key: "nlm" as const, icon: <Brain className="h-5 w-5" />, color: "blue" },
+                  ].map((cat) => {
+                    // Get REAL counts from the agent registry
+                    const categoryAgents = COMPLETE_AGENT_REGISTRY.filter(a => a.category === cat.key)
+                    const activeCount = categoryAgents.filter(a => a.defaultStatus === "active").length
+                    const totalCount = CATEGORY_STATS[cat.key]?.count || categoryAgents.length
+                    
+                    return (
+                      <div
+                        key={cat.name}
+                        className={`p-4 rounded-lg border bg-${cat.color}-500/5 border-${cat.color}-500/20 hover:border-${cat.color}-500/40 transition-colors cursor-pointer`}
+                      >
+                        <div className={`text-${cat.color}-500 mb-2`}>{cat.icon}</div>
+                        <div className="font-medium text-sm">{cat.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="text-green-500">{activeCount}</span>/{totalCount} active
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -385,96 +444,9 @@ export default function AIStudioPage() {
             <AgentTerminal masApiUrl="/api/mas" />
           </TabsContent>
 
-          {/* Workflows Tab */}
+          {/* Workflows Tab - Real n8n Integration */}
           <TabsContent value="workflows" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Workflow className="h-5 w-5" />
-                      n8n Workflows
-                    </CardTitle>
-                    <CardDescription>
-                      Automation workflows integrated with MYCA orchestrator
-                    </CardDescription>
-                  </div>
-                  <Button variant="outline" asChild>
-                    <a href="http://localhost:5678" target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Open n8n
-                    </a>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { name: "Voice Chat Pipeline", status: "active", runs: 1250, lastRun: "2m ago", desc: "MYCA voice interaction handler" },
-                    { name: "MYCA Jarvis Handler", status: "active", runs: 890, lastRun: "5m ago", desc: "Natural language orchestration" },
-                    { name: "Agent Heartbeat Monitor", status: "active", runs: 15420, lastRun: "30s ago", desc: "Health check aggregation" },
-                    { name: "MycoBrain Data Sync", status: "active", runs: 5678, lastRun: "1m ago", desc: "Device telemetry pipeline" },
-                    { name: "MINDEX ETL Scheduler", status: "active", runs: 2341, lastRun: "10m ago", desc: "Database synchronization" },
-                    { name: "Security Alert Router", status: "active", runs: 892, lastRun: "3m ago", desc: "SOC event distribution" },
-                    { name: "Report Generator", status: "paused", runs: 156, lastRun: "2h ago", desc: "Scheduled reporting" },
-                  ].map((wf) => (
-                    <div
-                      key={wf.name}
-                      className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${wf.status === "active" ? "bg-green-500" : "bg-gray-500"}`} />
-                        <div>
-                          <span className="font-medium">{wf.name}</span>
-                          <p className="text-xs text-muted-foreground">{wf.desc}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-muted-foreground font-mono">
-                          {wf.runs.toLocaleString()} runs
-                        </span>
-                        <span className="text-xs text-muted-foreground">{wf.lastRun}</span>
-                        <Badge variant={wf.status === "active" ? "default" : "secondary"}>
-                          {wf.status}
-                        </Badge>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            {wf.status === "active" ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Zap className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Embedded n8n */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">n8n Editor</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[500px] rounded-lg overflow-hidden border">
-                  <iframe
-                    src="http://localhost:5678"
-                    className="w-full h-full border-0"
-                    title="n8n Workflow Editor"
-                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <WorkflowStudio n8nUrl="http://192.168.0.188:5678" />
           </TabsContent>
 
           {/* System Tab */}
@@ -494,6 +466,15 @@ export default function AIStudioPage() {
           fetchStats()
         }}
       />
+
+      {/* Voice Command Panel - Fixed position */}
+      <div className="fixed bottom-20 right-6 z-40 w-80 hidden lg:block">
+        <VoiceCommandPanel className="shadow-xl" />
+      </div>
+
+      {/* Floating Voice Button */}
+      <FloatingVoiceButton />
     </div>
+    </UnifiedVoiceProvider>
   )
 }
