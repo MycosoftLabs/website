@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { RefreshCw, ArrowLeft, Maximize2, Minimize2 } from "lucide-react"
 import Link from "next/link"
 import { VoiceSessionOverlay } from "@/components/mas/topology/voice-session-overlay"
+import { MemoryMonitor } from "@/components/mas/topology/memory-monitor"
 
 // Dynamic import for 3D topology to avoid SSR issues
 const AdvancedTopology3D = dynamic(
@@ -102,6 +103,9 @@ export default function TopologyFullscreenPage() {
           className="bg-black/80 backdrop-blur-sm border-white/10 text-white"
         />
       </div>
+
+      {/* Memory Monitor Widget */}
+      <MemoryMonitor />
 
       {/* Topology Component */}
       <AdvancedTopology3D 

@@ -40,6 +40,10 @@ export { AgentQuery } from "./agent-query"
 export { TelemetryWidgets } from "./telemetry-widgets"
 export { LayoutManager } from "./layout-manager"
 
+// v2.2 Memory Monitor (Feb 3, 2026)
+export { MemoryMonitor } from "./memory-monitor"
+export { MemoryDashboard } from "./memory-dashboard"
+
 // v2.1 LOD System
 export { 
   useLODSystem,

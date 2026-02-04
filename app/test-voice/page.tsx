@@ -1,8 +1,14 @@
 "use client"
 
 /**
- * MYCA Voice Test Suite v7.0.0 - MAS Event Engine Integration
- * Created: February 3, 2026
+ * MYCA Voice Test Suite v7.1.0 - MAS Event Engine Integration
+ * Updated: February 4, 2026
+ * 
+ * FIXES in v7.1.0:
+ * - Extended handshake timeout to 120s for CUDA graphs compilation
+ * - Added CUDA warmup progress indicator
+ * - Better error messages for timeout conditions
+ * - Updated date in UI
  * 
  * NEW in v7.0.0:
  * - MAS Event Engine with real-time feedback injection to Moshi
@@ -153,6 +159,12 @@ export default function VoiceTestPage() {
   // Memory Session
   const [memorySession, setMemorySession] = useState<MemorySession | null>(null)
   
+  // MYCA Brain State
+  const [brainStatus, setBrainStatus] = useState<"idle" | "thinking" | "responding">("idle")
+  const [brainResponse, setBrainResponse] = useState("")
+  const [brainProvider, setBrainProvider] = useState<string>("")
+  const brainThinkingStartRef = useRef<number>(0)
+  
   // Debug metrics
   const [latencyMetrics, setLatencyMetrics] = useState({
     sttLatency: [] as number[],
@@ -171,6 +183,8 @@ export default function VoiceTestPage() {
   const [outputWaveform, setOutputWaveform] = useState<number[]>(new Array(64).fill(0))
   
   const wsRef = useRef<WebSocket | null>(null)
+  const wsConnectedRef = useRef<boolean>(false)
+  const warmupIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const masEventSourceRef = useRef<EventSource | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const outputAnalyserRef = useRef<AnalyserNode | null>(null)
@@ -184,6 +198,8 @@ export default function VoiceTestPage() {
   const llmStartRef = useRef<number>(0)
   const ttsStartRef = useRef<number>(0)
   const sessionIdRef = useRef<string>("")
+  const audioChunksInRef = useRef<number>(0)  // For accurate packet counting
+  const isSpeakingRef = useRef<boolean>(false)  // For echo cancellation - pause recognition when MYCA speaks
   
   const addLog = useCallback((level: TestLog["level"], message: string, details?: string) => {
     setLogs(prev => [...prev.slice(-200), {
@@ -194,9 +210,10 @@ export default function VoiceTestPage() {
     }])
   }, [])
   
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [logs])
+  // DISABLED: Auto-scroll was causing annoying UX - user can scroll manually
+  // useEffect(() => {
+  //   logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  // }, [logs])
   
   const recordLatency = useCallback((type: "stt" | "llm" | "tts" | "mas", value: number) => {
     setLatencyMetrics(prev => ({
@@ -428,12 +445,26 @@ export default function VoiceTestPage() {
   // Start voice session with MAS Event Engine
   const startMycaVoice = async () => {
     addLog("info", "Starting MYCA Voice v7.0.0 with MAS Event Engine...")
-    setJarvisMessage("Connecting to PersonaPlex + MAS Event Engine...")
+    setJarvisMessage("Initializing audio decoder...")
     setAudioStats({ bytesIn: 0, bytesOut: 0, chunksIn: 0, chunksOut: 0 })
+    audioChunksInRef.current = 0  // Reset packet counter
     setToolCalls([])
     setMasEvents([])
     setAgentActivity([])
     setInjectionQueue([])
+    
+    // CRITICAL: Initialize decoder BEFORE connecting WebSocket
+    // This ensures audio playback is ready when data arrives
+    try {
+      await initDecoderWorker()
+      // Wait a bit more for decoder to be fully ready with BOS page
+      await new Promise(resolve => setTimeout(resolve, 600))
+      addLog("success", "Audio decoder pre-initialized")
+    } catch (e) {
+      addLog("warn", `Decoder pre-init warning: ${e}`)
+    }
+    
+    setJarvisMessage("Connecting to PersonaPlex + MAS Event Engine...")
     
     try {
       // Get microphone
@@ -518,6 +549,22 @@ export default function VoiceTestPage() {
       
       ws.onopen = () => {
         addLog("success", "WebSocket connected to bridge!")
+        addLog("info", "Waiting for Moshi handshake (CUDA graphs may compile on first run)...")
+        setJarvisMessage("CUDA graphs compiling... This can take 60-90 seconds on first connection.")
+        
+        // Start CUDA warmup timeout counter
+        let warmupSeconds = 0
+        const warmupInterval = setInterval(() => {
+          warmupSeconds++
+          if (warmupSeconds <= 90 && !wsConnectedRef.current) {
+            setJarvisMessage(`CUDA graphs compiling... ${warmupSeconds}s (can take 60-90s on first run)`)
+          } else {
+            clearInterval(warmupInterval)
+          }
+        }, 1000)
+        
+        // Store for cleanup
+        warmupIntervalRef.current = warmupInterval
       }
       
       ws.onmessage = async (event) => {
@@ -561,6 +608,27 @@ export default function VoiceTestPage() {
                 i.id === msg.injection_id ? { ...i, status: "injected" } : i
               ))
               addLog("success", `Injection delivered: ${msg.injection_id}`)
+            } else if (msg.type === "brain_response") {
+              // MYCA Brain response from frontier LLM
+              const brainText = msg.text?.trim()
+              if (brainText) {
+                setBrainStatus("responding")
+                setBrainResponse(brainText)
+                if (msg.source) {
+                  setBrainProvider(msg.source)
+                }
+                addLog("success", `[BRAIN] ${brainText.substring(0, 100)}...`)
+                
+                // Record brain latency
+                if (brainThinkingStartRef.current > 0) {
+                  const latency = Date.now() - brainThinkingStartRef.current
+                  recordLatency("llm", latency)
+                  brainThinkingStartRef.current = 0
+                }
+                
+                // Clear brain status after a delay
+                setTimeout(() => setBrainStatus("idle"), 2000)
+              }
             } else if (msg.type === "error") {
               addLog("error", `Error: ${msg.message}`)
             }
@@ -576,6 +644,12 @@ export default function VoiceTestPage() {
           
           // Handshake (0x00)
           if (data.length === 1 && kind === 0) {
+            // Clear warmup interval
+            if (warmupIntervalRef.current) {
+              clearInterval(warmupIntervalRef.current)
+              warmupIntervalRef.current = null
+            }
+            wsConnectedRef.current = true
             addLog("success", "Moshi handshake OK! Full-duplex + MAS Event Engine active.")
             setWsConnected(true)
             setTestPhase("listening")
@@ -605,19 +679,29 @@ export default function VoiceTestPage() {
               ttsStartRef.current = 0
             }
             
-            const newChunks = audioStats.chunksIn + 1
+            // Use ref for accurate counting (React state batching causes issues)
+            audioChunksInRef.current++
+            
             setAudioStats(prev => ({
               ...prev,
               bytesIn: prev.bytesIn + payload.length,
-              chunksIn: prev.chunksIn + 1
+              chunksIn: audioChunksInRef.current
             }))
             
             // Log first few audio packets for debugging
-            if (newChunks <= 5) {
-              addLog("debug", `Audio packet #${newChunks}: ${payload.length} bytes`)
+            if (audioChunksInRef.current <= 5) {
+              addLog("debug", `Audio packet #${audioChunksInRef.current}: ${payload.length} bytes`)
             }
             
             setIsSpeaking(true)
+            isSpeakingRef.current = true
+            
+            // ECHO CANCELLATION: Pause speech recognition while MYCA is speaking
+            // This prevents MYCA from hearing herself and creating a feedback loop
+            if (recognitionRef.current) {
+              try { recognitionRef.current.stop() } catch {}
+            }
+            
             handleMoshiAudio(payload)
             scheduleSpeakingEnd()
           }
@@ -633,12 +717,29 @@ export default function VoiceTestPage() {
       }
       
       ws.onerror = () => {
-        addLog("error", "WebSocket error")
+        if (warmupIntervalRef.current) {
+          clearInterval(warmupIntervalRef.current)
+          warmupIntervalRef.current = null
+        }
+        wsConnectedRef.current = false
+        addLog("error", "WebSocket error - check if Moshi is fully loaded")
         setWsConnected(false)
       }
       
-      ws.onclose = () => {
-        addLog("info", "Disconnected from bridge")
+      ws.onclose = (event) => {
+        if (warmupIntervalRef.current) {
+          clearInterval(warmupIntervalRef.current)
+          warmupIntervalRef.current = null
+        }
+        wsConnectedRef.current = false
+        
+        // Check for timeout-related closes
+        if (!wsConnectedRef.current && event.code !== 1000) {
+          addLog("warn", "Connection closed before handshake - CUDA graphs may still be compiling")
+          addLog("info", "Run START_VOICE_SYSTEM.py to warm up Moshi, then try again")
+        } else {
+          addLog("info", "Disconnected from bridge")
+        }
         setWsConnected(false)
         stopAudioCapture()
       }
@@ -670,6 +771,12 @@ export default function VoiceTestPage() {
       const RecorderClass = (window as any).Recorder
       if (!RecorderClass) throw new Error("Recorder not loaded")
       
+      // CRITICAL: Create AudioContext and sourceNode for the recorder
+      // opus-recorder doesn't accept a stream in start() - it needs a sourceNode in config
+      const recorderAudioContext = new AudioContext({ sampleRate: 48000 })
+      await recorderAudioContext.resume()
+      const sourceNode = recorderAudioContext.createMediaStreamSource(mediaStreamRef.current)
+      
       const recorderOptions = {
         encoderPath: "/assets/encoderWorker.min.js",
         encoderSampleRate: 24000,
@@ -682,17 +789,28 @@ export default function VoiceTestPage() {
         resampleQuality: 3,
         recordingGain: 1.5,
         bufferLength: Math.round(960 * 48000 / 24000),
+        // CRITICAL: Provide sourceNode so recorder uses our existing mic stream
+        sourceNode: sourceNode,
       }
+      
+      addLog("debug", `Recorder config: sourceNode provided, ctx sampleRate=${recorderAudioContext.sampleRate}`)
       
       const recorder = new RecorderClass(recorderOptions)
       
+      let audioSentCount = 0
       recorder.ondataavailable = (data: Uint8Array) => {
         if (data && data.length > 0 && ws.readyState === WebSocket.OPEN) {
+          audioSentCount++
           setAudioStats(prev => ({
             ...prev,
             bytesOut: prev.bytesOut + data.length,
-            chunksOut: prev.chunksOut + 1
+            chunksOut: audioSentCount
           }))
+          
+          // Log first few outgoing audio packets for debugging
+          if (audioSentCount <= 5 || audioSentCount % 100 === 0) {
+            addLog("debug", `Sending audio #${audioSentCount}: ${data.length} bytes`)
+          }
           
           const message = new Uint8Array(1 + data.length)
           message[0] = 0x01
@@ -703,7 +821,7 @@ export default function VoiceTestPage() {
       
       recorder.onstart = () => {
         setIsRecognizing(true)
-        addLog("info", "Audio capture started - speak now!")
+        addLog("success", "Opus encoder started - audio will be sent to Moshi")
         sttStartRef.current = Date.now()
       }
       
@@ -712,7 +830,12 @@ export default function VoiceTestPage() {
         addLog("info", "Audio capture stopped")
       }
       
-      recorder.start(mediaStreamRef.current)
+      recorder.onerror = (err: any) => {
+        addLog("error", `Opus encoder error: ${err?.message || err}`)
+      }
+      
+      addLog("info", "Starting Opus recorder (sourceNode mode)...")
+      await recorder.start()  // No parameter needed - uses sourceNode from config
       opusRecorderRef.current = recorder
       
       // Web Speech API for transcription display (backup + MAS cloning)
@@ -759,6 +882,11 @@ export default function VoiceTestPage() {
                 setLastResponse("")
                 addLog("info", `You: "${text}"`)
                 
+                // MYCA Brain: Set thinking state
+                setBrainStatus("thinking")
+                brainThinkingStartRef.current = Date.now()
+                setBrainResponse("")
+                
                 // Clone text to MAS (non-blocking, background)
                 // Moshi hears the audio directly, this is for MAS processing
                 cloneTextToMAS(text, sessionIdRef.current)
@@ -774,7 +902,9 @@ export default function VoiceTestPage() {
         }
         
         recognition.onend = () => {
-          if (opusRecorderRef.current) {
+          // Only restart if we're still recording AND MYCA is not speaking
+          // This prevents echo (MYCA hearing herself)
+          if (opusRecorderRef.current && !isSpeakingRef.current) {
             try { recognition.start() } catch {}
           }
         }
@@ -782,7 +912,7 @@ export default function VoiceTestPage() {
         try {
           recognition.start()
           recognitionRef.current = recognition
-          addLog("success", "Web Speech API active for transcription display")
+          addLog("success", "Web Speech API active (pauses when MYCA speaks)")
         } catch (e) {
           addLog("warn", `Could not start speech recognition: ${e}`)
         }
@@ -864,6 +994,38 @@ export default function VoiceTestPage() {
     }
   }, [addLog, isSpeaking])
   
+  // Create warmup BOS page for Opus decoder (from NVIDIA PersonaPlex client)
+  const createWarmupBosPage = useCallback(() => {
+    // OpusHead: "OpusHead" + version + channels + preskip + samplerate + gain + mapping
+    const opusHead = new Uint8Array([
+      0x4F, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64, // "OpusHead"
+      0x01,       // Version 1
+      0x01,       // 1 channel (mono)
+      0x38, 0x01, // Pre-skip: 312 samples (little-endian)
+      0x80, 0xBB, 0x00, 0x00, // Sample rate: 48000 Hz (little-endian)
+      0x00, 0x00, // Output gain: 0
+      0x00,       // Channel mapping: 0 (mono/stereo)
+    ])
+    
+    // Ogg page header
+    const pageHeader = new Uint8Array([
+      0x4F, 0x67, 0x67, 0x53, // "OggS" magic
+      0x00,       // Version 0
+      0x02,       // BOS flag (Beginning of Stream)
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Granule position: 0
+      0x01, 0x00, 0x00, 0x00, // Stream serial: 1
+      0x00, 0x00, 0x00, 0x00, // Page sequence: 0
+      0x00, 0x00, 0x00, 0x00, // CRC (decoder doesn't check)
+      0x01,       // 1 segment
+      0x13,       // Segment size: 19 bytes (OpusHead)
+    ])
+    
+    const bosPage = new Uint8Array(pageHeader.length + opusHead.length)
+    bosPage.set(pageHeader, 0)
+    bosPage.set(opusHead, pageHeader.length)
+    return bosPage
+  }, [])
+
   const initDecoderWorker = useCallback(async () => {
     if (decoderWorkerRef.current) return
     
@@ -871,6 +1033,10 @@ export default function VoiceTestPage() {
       await initAudioWorklet()
       
       const worker = new Worker("/assets/decoderWorker.min.js")
+      
+      worker.onerror = (event) => {
+        addLog("error", `Decoder worker error: ${event.message}`)
+      }
       
       worker.onmessage = (e: MessageEvent) => {
         if (!e.data) return
@@ -889,6 +1055,9 @@ export default function VoiceTestPage() {
       }
       
       const sampleRate = audioContextRef.current?.sampleRate || 48000
+      addLog("info", `Initializing decoder: 24kHz → ${sampleRate}Hz`)
+      
+      // Send init command
       worker.postMessage({
         command: "init",
         bufferLength: 960 * sampleRate / 24000,
@@ -897,12 +1066,34 @@ export default function VoiceTestPage() {
         resampleQuality: 0,
       })
       
+      // CRITICAL: Send warmup BOS page to trigger decoder internal init
+      // This is required by the Opus decoder to start properly
+      setTimeout(() => {
+        const bosPage = createWarmupBosPage()
+        addLog("debug", "Sending warmup BOS page to decoder")
+        worker.postMessage({
+          command: "decode",
+          pages: bosPage,
+        })
+      }, 100)
+      
       decoderWorkerRef.current = worker
-      decoderReadyRef.current = true
+      
+      // Wait for decoder to be fully ready before marking as ready
+      setTimeout(() => {
+        decoderReadyRef.current = true
+        addLog("success", "Opus decoder initialized and ready")
+        
+        // Reset the worklet state for fresh playback
+        if (audioWorkletNodeRef.current) {
+          audioWorkletNodeRef.current.port.postMessage({ type: "reset" })
+        }
+      }, 500)
+      
     } catch (e) {
       addLog("error", `Decoder init failed: ${e}`)
     }
-  }, [addLog, initAudioWorklet])
+  }, [addLog, initAudioWorklet, createWarmupBosPage])
   
   const handleMoshiAudio = useCallback((data: Uint8Array) => {
     if (!decoderWorkerRef.current || !decoderReadyRef.current) {
@@ -940,8 +1131,14 @@ export default function VoiceTestPage() {
     if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
     speakingTimeoutRef.current = setTimeout(() => {
       setIsSpeaking(false)
+      isSpeakingRef.current = false
       setOutputLevel(0)
-    }, 500)
+      
+      // ECHO CANCELLATION: Resume speech recognition now that MYCA stopped speaking
+      if (recognitionRef.current && opusRecorderRef.current) {
+        try { recognitionRef.current.start() } catch {}
+      }
+    }, 800)  // Slightly longer delay to ensure audio fully stops
   }, [])
   
   // Send text message
@@ -1006,8 +1203,9 @@ export default function VoiceTestPage() {
   }, [])
   
   useEffect(() => {
-    addLog("info", "MYCA Voice Suite v7.0.0 - MAS Event Engine")
-    addLog("info", "February 3, 2026")
+    addLog("info", "MYCA Voice Suite v7.1.0 - MAS Event Engine")
+    addLog("info", "February 4, 2026")
+    addLog("info", "CUDA graphs warmup support added - first connection may take 60-90s")
     checkServices()
   }, [])
   
@@ -1147,6 +1345,39 @@ export default function VoiceTestPage() {
               )}
             </div>
             
+            {/* MYCA Brain Status */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h2 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                <Brain className="w-4 h-4 text-purple-400" />
+                MYCA Brain
+              </h2>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs">
+                  <div className={cn(
+                    "w-2 h-2 rounded-full",
+                    brainStatus === "idle" ? "bg-gray-500" :
+                    brainStatus === "thinking" ? "bg-yellow-500 animate-pulse" :
+                    "bg-green-500 animate-pulse"
+                  )} />
+                  <span>
+                    {brainStatus === "idle" ? "Ready" :
+                     brainStatus === "thinking" ? "Thinking..." :
+                     "Responding"}
+                  </span>
+                  {brainProvider && <span className="text-purple-400 ml-auto">{brainProvider}</span>}
+                </div>
+                
+                {brainResponse && (
+                  <div className="mt-2 p-2 bg-purple-900/20 border border-purple-700/30 rounded text-xs overflow-hidden">
+                    <p className="text-purple-200 break-words whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      {brainResponse.length > 200 ? brainResponse.substring(0, 200) + "..." : brainResponse}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             {/* Memory Session */}
             {memorySession && (
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
@@ -1180,25 +1411,25 @@ export default function VoiceTestPage() {
             
             {/* Conversation */}
             {(transcript || lastResponse || interimTranscript) && (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-2">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 space-y-2 overflow-hidden">
                 <h2 className="font-semibold text-sm flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-cyan-400" />
                   Conversation
                 </h2>
                 {interimTranscript && (
-                  <div className="p-2 bg-yellow-900/30 rounded border border-yellow-800/30 text-xs">
+                  <div className="p-2 bg-yellow-900/30 rounded border border-yellow-800/30 text-xs break-all whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <span className="text-yellow-400">Speaking: </span>
                     <span className="italic text-yellow-200/70">{interimTranscript}</span>
                   </div>
                 )}
                 {transcript && (
-                  <div className="p-2 bg-green-900/30 rounded text-xs">
+                  <div className="p-2 bg-green-900/30 rounded text-xs break-all whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <span className="text-green-400">You: </span>
                     <span>{transcript}</span>
                   </div>
                 )}
                 {lastResponse && (
-                  <div className="p-2 bg-blue-900/30 rounded text-xs">
+                  <div className="p-2 bg-blue-900/30 rounded text-xs break-all whitespace-pre-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     <span className="text-blue-400">MYCA: </span>
                     <span>{lastResponse}</span>
                   </div>
@@ -1477,9 +1708,9 @@ export default function VoiceTestPage() {
                 </div>
               </div>
               
-              <div className="bg-zinc-950 rounded p-2 h-[200px] overflow-y-auto font-mono text-[10px]">
+              <div className="bg-zinc-950 rounded p-2 h-[200px] overflow-y-auto overflow-x-hidden font-mono text-[10px]">
                 {logs.map((log, idx) => (
-                  <div key={idx} className="mb-0.5">
+                  <div key={idx} className="mb-0.5 break-all" style={{ wordBreak: 'break-word' }}>
                     <span className="text-zinc-600">[{log.timestamp.toLocaleTimeString()}]</span>{" "}
                     <span className={cn(
                       log.level === "success" ? "text-green-400" :

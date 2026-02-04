@@ -47,7 +47,10 @@ import {
   Play,
   Pause,
   Eye,
+  HardDrive,
 } from "lucide-react"
+import { MemoryMonitor } from "@/components/mas/topology/memory-monitor"
+import { MemoryDashboard } from "@/components/mas/topology/memory-dashboard"
 
 // MAS API URL - points to the MAS VM orchestrator
 const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
@@ -251,7 +254,7 @@ export default function AIStudioPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto gap-1 p-1">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7 h-auto gap-1 p-1">
             <TabsTrigger value="command" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Command</span>
@@ -263,6 +266,10 @@ export default function AIStudioPage() {
             <TabsTrigger value="topology" className="gap-2 py-2">
               <Network className="h-4 w-4" />
               <span className="hidden sm:inline">Topology</span>
+            </TabsTrigger>
+            <TabsTrigger value="memory" className="gap-2 py-2">
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">Memory</span>
             </TabsTrigger>
             <TabsTrigger value="activity" className="gap-2 py-2">
               <Terminal className="h-4 w-4" />
@@ -437,6 +444,11 @@ export default function AIStudioPage() {
                 <AgentTopology masApiUrl="/api/mas" />
               </div>
             </details>
+          </TabsContent>
+
+          {/* Memory Tab - Full Memory System Control */}
+          <TabsContent value="memory" className="space-y-6">
+            <MemoryDashboard />
           </TabsContent>
 
           {/* Activity Tab */}
