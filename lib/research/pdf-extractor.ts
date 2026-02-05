@@ -13,14 +13,26 @@
 // pdf-parse can eagerly initialize pdfjs/canvas internals at import-time.
 // On some Node/OS combos (and during Next build bundling) that can crash the build.
 // We lazy-load it so it is only required when the route is actually invoked.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let pdfParse: any | null = null;
+type PdfParseFunction = (buffer: Buffer) => Promise<{
+  text: string;
+  numpages: number;
+  info?: {
+    Title?: string;
+    Author?: string;
+    Subject?: string;
+    Creator?: string;
+    Producer?: string;
+    CreationDate?: string;
+    ModDate?: string;
+  };
+}>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getPdfParse(): any {
+let pdfParse: PdfParseFunction | null = null;
+
+function getPdfParse(): PdfParseFunction {
   if (pdfParse) return pdfParse;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  pdfParse = require('pdf-parse');
+  // Dynamic require for lazy loading - intentional for build compatibility
+  pdfParse = require('pdf-parse') as PdfParseFunction;
   return pdfParse;
 }
 
