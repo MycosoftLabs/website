@@ -3,6 +3,7 @@
  * February 5, 2026
  * 
  * Returns wind vector data for map visualization
+ * Generates realistic global circulation patterns
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -43,16 +44,32 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(windData);
 }
 
+export const dynamic = "force-dynamic";
+
+// Noise function for wind perturbations
+function windNoise(x: number, y: number, timeSeed: number, scale: number = 1): number {
+  const sx = x * scale;
+  const sy = y * scale;
+  return (
+    Math.sin(sx * 0.8 + sy * 0.6 + timeSeed) * 0.6 +
+    Math.sin(sx * 1.5 - sy * 1.0 + timeSeed * 1.2) * 0.4
+  );
+}
+
 function generateWindVectors(
   forecastHours: number,
   bounds: { north: number; south: number; east: number; west: number }
 ): { u: number[][]; v: number[][]; speed: number[][]; direction: number[][] } {
-  const latSteps = 15;
-  const lonSteps = 30;
+  const latSteps = 20;
+  const lonSteps = 35;
   const u: number[][] = [];
   const v: number[][] = [];
   const speed: number[][] = [];
   const direction: number[][] = [];
+  
+  // Time-based seed for wind patterns that evolve
+  const timeSeed = Date.now() / (1000 * 60 * 60);
+  const forecastOffset = forecastHours * 0.1;
 
   for (let i = 0; i < latSteps; i++) {
     const uRow: number[] = [];
@@ -60,39 +77,51 @@ function generateWindVectors(
     const speedRow: number[] = [];
     const dirRow: number[] = [];
     const lat = bounds.south + ((bounds.north - bounds.south) * i) / latSteps;
+    const latRad = (lat * Math.PI) / 180;
 
     for (let j = 0; j < lonSteps; j++) {
       const lon = bounds.west + ((bounds.east - bounds.west) * j) / lonSteps;
       
-      // Global wind pattern simulation
       let uVal: number, vVal: number;
-      const timeVariation = Math.sin(forecastHours * 0.1) * 2;
       
-      if (Math.abs(lat) < 30) {
-        // Trade winds (easterlies in tropics)
-        uVal = -8 - Math.random() * 5 + timeVariation;
-        vVal = lat * 0.1;
-      } else if (Math.abs(lat) < 60) {
-        // Westerlies (mid-latitudes)
-        uVal = 10 + Math.random() * 10 + timeVariation;
-        vVal = Math.random() * 5 - 2.5;
+      // Global circulation patterns
+      const absLat = Math.abs(lat);
+      
+      if (absLat < 30) {
+        // Trade winds (easterly) - NE in Northern Hemisphere, SE in Southern
+        const tradeStrength = 8 + windNoise(lon, lat, timeSeed, 0.1) * 4;
+        uVal = -tradeStrength; // Easterly
+        vVal = (lat > 0 ? -2 : 2) + windNoise(lon, lat, timeSeed, 0.15) * 3;
+      } else if (absLat < 60) {
+        // Westerlies - strongest around 40-50 degrees
+        const westStrength = 12 + (1 - Math.abs(absLat - 45) / 15) * 8;
+        uVal = westStrength + windNoise(lon, lat, timeSeed, 0.12) * 6;
+        vVal = windNoise(lon + 10, lat, timeSeed, 0.08) * 8;
+        // Add jet stream influence
+        if (absLat > 35 && absLat < 55) {
+          uVal += 5 * Math.sin(lon * 0.05 + forecastOffset);
+        }
       } else {
         // Polar easterlies
-        uVal = -5 - Math.random() * 3 + timeVariation;
-        vVal = Math.random() * 2 - 1;
+        const polarStrength = 5 + windNoise(lon, lat, timeSeed, 0.1) * 3;
+        uVal = -polarStrength;
+        vVal = windNoise(lon, lat, timeSeed, 0.15) * 4;
       }
-
-      // Add some geographic variation
-      const lonVariation = Math.sin(lon * 0.05) * 3;
-      uVal += lonVariation;
+      
+      // Add synoptic-scale perturbations (weather systems)
+      const pertU = windNoise(lon + forecastOffset * 5, lat, timeSeed, 0.03) * 8;
+      const pertV = windNoise(lon, lat + forecastOffset * 5, timeSeed, 0.03) * 6;
+      uVal += pertU;
+      vVal += pertV;
 
       const s = Math.sqrt(uVal * uVal + vVal * vVal);
-      const d = (Math.atan2(vVal, uVal) * 180) / Math.PI;
+      // Meteorological direction (direction wind is coming FROM)
+      const d = (270 - Math.atan2(vVal, uVal) * (180 / Math.PI) + 360) % 360;
 
-      uRow.push(uVal);
-      vRow.push(vVal);
-      speedRow.push(s);
-      dirRow.push(d);
+      uRow.push(Math.round(uVal * 10) / 10);
+      vRow.push(Math.round(vVal * 10) / 10);
+      speedRow.push(Math.round(s * 10) / 10);
+      dirRow.push(Math.round(d));
     }
 
     u.push(uRow);

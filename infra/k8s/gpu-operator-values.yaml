@@ -1,0 +1,150 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# NVIDIA GPU Operator Helm Values - February 5, 2026
+# 
+# Deploy with:
+# helm install gpu-operator nvidia/gpu-operator \
+#   --namespace gpu-operator \
+#   --create-namespace \
+#   -f gpu-operator-values.yaml
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Platform configuration
+platform:
+  openshift: false
+
+# Operator configuration
+operator:
+  defaultRuntime: containerd
+  initContainer:
+    image: cuda
+    repository: nvcr.io/nvidia
+    version: "12.4.1-base-ubi8"
+  # Use NVIDIA repository images
+  upgradeCRD: true
+  cleanupCRD: false
+
+# Driver configuration
+# Set enabled: false if drivers are pre-installed on host
+driver:
+  enabled: false  # We install drivers via vm-setup-ubuntu.sh
+  version: "560.35.03"
+  repository: nvcr.io/nvidia
+  image: driver
+  
+# Container Toolkit
+toolkit:
+  enabled: true
+  repository: nvcr.io/nvidia/k8s
+  image: container-toolkit
+  version: v1.15.0
+  installDir: "/usr/local/nvidia"
+  
+# Device Plugin - exposes nvidia.com/gpu resources
+devicePlugin:
+  enabled: true
+  repository: nvcr.io/nvidia
+  image: k8s-device-plugin
+  version: v0.15.0
+  # Resource naming
+  config:
+    name: device-plugin-config
+    default: default
+  # Resources per GPU
+  resources:
+    - name: nvidia.com/gpu
+      replicas: 1
+
+# DCGM Exporter for GPU metrics
+dcgmExporter:
+  enabled: true
+  repository: nvcr.io/nvidia/k8s
+  image: dcgm-exporter
+  version: 3.3.5-3.4.0-ubuntu22.04
+  # Metrics to export
+  config:
+    name: dcgm-exporter-config
+
+# GPU Feature Discovery
+gfd:
+  enabled: true
+  repository: nvcr.io/nvidia
+  image: gpu-feature-discovery
+  version: v0.8.2
+
+# MIG Manager (Multi-Instance GPU) - not needed for RTX 5090
+migManager:
+  enabled: false
+
+# Node Feature Discovery
+nfd:
+  enabled: true
+  # Let GPU Operator manage NFD
+  topologyUpdater:
+    enable: true
+
+# Validator - ensures GPU access works
+validator:
+  repository: nvcr.io/nvidia/cloud-native
+  image: gpu-operator-validator
+  version: v24.3.0
+  # Run validation pod
+  plugin:
+    env:
+      - name: WITH_WORKLOAD
+        value: "true"
+
+# MPS (Multi-Process Service) - useful for inference servers
+mps:
+  enabled: false  # Enable if running multiple inference processes
+
+# Sandbox configuration
+sandboxDevicePlugin:
+  enabled: false
+
+# vGPU - not applicable for passthrough
+vgpuManager:
+  enabled: false
+
+vgpuDeviceManager:
+  enabled: false
+
+vfioManager:
+  enabled: false
+
+# Pod Security
+podSecurityContext:
+  runAsNonRoot: false
+
+# Node selector for GPU nodes
+nodeSelector: {}
+
+# Tolerations
+tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Resource Configuration for Earth-2 Workloads
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ConfigMap for device plugin
+# This controls how GPU resources are exposed
+---
+# Apply separately if needed:
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: device-plugin-config
+#   namespace: gpu-operator
+# data:
+#   default: |
+#     version: v1
+#     flags:
+#       migStrategy: none
+#       failOnInitError: true
+#       nvidiaDriverRoot: "/"
+#       plugin:
+#         passDeviceSpecs: true
+#         deviceListStrategy: envvar
+#         deviceIDStrategy: uuid

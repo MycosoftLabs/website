@@ -1,6 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+/**
+ * NatureOS Dashboard
+ * Updated: Feb 4, 2026 - PersonaPlex voice integration
+ */
+
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   Activity,
   AlertCircle,
@@ -46,7 +51,10 @@ import {
   Ship,
   Sparkles,
   Leaf,
+  Mic,
+  MicOff,
 } from "lucide-react"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -255,6 +263,53 @@ export function NatureOSDashboard() {
   const [observations, setObservations] = useState<any[]>([])
   const [mindexStats, setMindexStats] = useState<MindexStats | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [voiceCommand, setVoiceCommand] = useState<string | null>(null)
+  
+  // PersonaPlex voice context
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+  }
+  
+  // Handle voice commands for NatureOS navigation
+  useEffect(() => {
+    if (!lastTranscript) return
+    
+    const command = lastTranscript.toLowerCase()
+    setVoiceCommand(lastTranscript)
+    
+    // Clear command display after 3 seconds
+    const timeout = setTimeout(() => setVoiceCommand(null), 3000)
+    
+    // Tab navigation via voice
+    if (command.includes("overview") || command.includes("show overview")) {
+      setActiveTab("overview")
+    } else if (command.includes("devices") || command.includes("show devices")) {
+      setActiveTab("devices")
+    } else if (command.includes("network") || command.includes("show network")) {
+      setActiveTab("network")
+    } else if (command.includes("analytics") || command.includes("show analytics")) {
+      setActiveTab("analytics")
+    } else if (command.includes("agents") || command.includes("show agents")) {
+      setActiveTab("agents")
+    } else if (command.includes("earth") || command.includes("globe") || command.includes("map")) {
+      setActiveTab("earth")
+    } else if (command.includes("mycobrain")) {
+      setActiveTab("mycobrain")
+    } else if (command.includes("topology") || command.includes("go to topology")) {
+      window.location.href = "/natureos/mas/topology"
+    } else if (command.includes("ai studio") || command.includes("command center")) {
+      window.location.href = "/natureos/ai-studio"
+    } else if (command.includes("mindex")) {
+      window.location.href = "/natureos/mindex"
+    }
+    
+    return () => clearTimeout(timeout)
+  }, [lastTranscript])
 
   // API hooks - handle errors gracefully
   const metricsResult = useSystemMetrics()

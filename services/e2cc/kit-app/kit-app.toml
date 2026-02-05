@@ -1,0 +1,82 @@
+# Earth-2 Command Center Kit Application - February 5, 2026
+# Omniverse Kit configuration for RTX rendering and WebRTC streaming
+
+[package]
+title = "Earth-2 Command Center"
+version = "1.0.0"
+description = "NVIDIA Earth-2 visualization with RTX rendering and WebRTC streaming"
+
+[dependencies]
+# Core Omniverse extensions
+"omni.kit.window.viewport" = {}
+"omni.kit.viewport.rtx" = {}
+"omni.hydra.rtx" = {}
+"omni.usd" = {}
+"omni.ui" = {}
+
+# Streaming
+"omni.services.livestream.webrtc" = {}
+"omni.kit.livestream.webrtc" = {}
+
+# Weather visualization
+"omni.kit.cloud.extension" = {}
+
+# Mycosoft custom extensions
+"mycosoft.earth2.globe" = { path = "../extensions/mycosoft.earth2.globe" }
+"mycosoft.earth2.fusarium" = { path = "../extensions/mycosoft.earth2.fusarium" }
+"mycosoft.earth2.crep" = { path = "../extensions/mycosoft.earth2.crep" }
+
+[settings]
+# Application settings
+app.window.title = "Earth-2 Command Center"
+app.window.width = 1920
+app.window.height = 1080
+app.window.fullscreen = false
+
+# Renderer settings
+renderer.active = "rtx"
+renderer.enabled = "rtx"
+
+# RTX settings for high-quality rendering
+rtx.ecoMode.enabled = false
+rtx.post.histogram.enabled = true
+rtx.post.tonemap.op = "aces"
+rtx.directLighting.enabled = true
+rtx.indirectDiffuse.enabled = true
+rtx.reflections.enabled = true
+rtx.translucency.enabled = true
+rtx.shadows.enabled = true
+rtx.ambientOcclusion.enabled = true
+
+# Volumetric effects for clouds
+rtx.volumetric.enabled = true
+rtx.volumetric.quality = 2
+
+[settings.exts."omni.services.livestream.webrtc"]
+enabled = true
+port = 8211
+auto_start = true
+bitrate = 15000000
+resolution = [1920, 1080]
+fps = 30
+codec = "h264"
+
+[settings.exts."omni.kit.livestream.webrtc"]
+enabled = true
+port = 8211
+server.enabled = true
+server.port = 8211
+
+[settings.exts."mycosoft.earth2.globe"]
+enabled = true
+initial_view = "north_america"
+atmosphere.enabled = true
+clouds.volumetric = true
+
+[settings.exts."mycosoft.earth2.fusarium"]
+enabled = true
+api_url = "http://localhost:3010/api/fusarium"
+
+[settings.exts."mycosoft.earth2.crep"]
+enabled = true
+api_url = "http://localhost:3010/api"

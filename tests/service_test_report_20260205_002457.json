@@ -1,0 +1,254 @@
+{
+  "suite": "Comprehensive Service Tests",
+  "host": "localhost",
+  "summary": {
+    "total": 30,
+    "passed": 0,
+    "failed": 30,
+    "pass_rate": "0.0%",
+    "avg_response_ms": "2509"
+  },
+  "results": [
+    {
+      "name": "api_gateway Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2524.157,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:44.393770"
+    },
+    {
+      "name": "e2cc Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2505.09,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:46.898903"
+    },
+    {
+      "name": "signaling Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2508.956,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:49.407902"
+    },
+    {
+      "name": "dfm Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2503.318,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:51.911254"
+    },
+    {
+      "name": "fcn3 Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2492.01,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:54.403300"
+    },
+    {
+      "name": "stormscope Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2510.4570000000003,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:56.913792"
+    },
+    {
+      "name": "orchestrator Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2499.8520000000003,
+      "details": {},
+      "timestamp": "2026-02-05T08:23:59.413679"
+    },
+    {
+      "name": "api_gateway /",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2494.7490000000003,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:01.908512"
+    },
+    {
+      "name": "api_gateway /services",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2510.697,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:04.419240"
+    },
+    {
+      "name": "api_gateway /stream/config",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2518.265,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:06.937539"
+    },
+    {
+      "name": "dfm /sources",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2509.098,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:09.446671"
+    },
+    {
+      "name": "fcn3 /status",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2495.5609999999997,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:11.942265"
+    },
+    {
+      "name": "fcn3 /metrics",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2509.232,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:14.451532"
+    },
+    {
+      "name": "stormscope /status",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2509.5190000000002,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:16.961088"
+    },
+    {
+      "name": "orchestrator /",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2507.835,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:19.468959"
+    },
+    {
+      "name": "orchestrator /models",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 2539.567,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:22.008563"
+    },
+    {
+      "name": "Layer Toggle",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:24.504214"
+    },
+    {
+      "name": "Time Control",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:27.021064"
+    },
+    {
+      "name": "Bounds Control",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:29.523885"
+    },
+    {
+      "name": "Stream Config",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:32.081197"
+    },
+    {
+      "name": "DFM Sources",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:34.696053"
+    },
+    {
+      "name": "ERA5 Source",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:37.298234"
+    },
+    {
+      "name": "GFS Source",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:39.789265"
+    },
+    {
+      "name": "HRRR Source",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:42.296431"
+    },
+    {
+      "name": "Orchestrator Models",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:44.824585"
+    },
+    {
+      "name": "VRAM Availability",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:47.339025"
+    },
+    {
+      "name": "Model Status",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:49.835454"
+    },
+    {
+      "name": "FCN3 Status",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:52.347672"
+    },
+    {
+      "name": "FCN3 Metrics",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:54.851333"
+    },
+    {
+      "name": "StormScope Status",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "response_time_ms": 0,
+      "details": {},
+      "timestamp": "2026-02-05T08:24:57.372864"
+    }
+  ],
+  "timestamp": "2026-02-05T08:24:57.372961"
+}

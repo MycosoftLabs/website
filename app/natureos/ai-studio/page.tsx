@@ -3,6 +3,7 @@
 /**
  * MYCA v2 Command Center
  * The CEO's command and control dashboard for the Multi-Agent System
+ * Updated: Feb 4, 2026 - PersonaPlex voice integration
  */
 
 import { useState, useEffect, useCallback } from "react"
@@ -21,7 +22,7 @@ import {
   AdvancedTopology3D,
   WorkflowStudio,
 } from "@/components/mas"
-import { UnifiedVoiceProvider, FloatingVoiceButton, VoiceCommandPanel } from "@/components/voice"
+import { usePersonaPlexContext, VoiceCommandPanel } from "@/components/voice"
 import {
   Brain,
   Plus,
@@ -190,9 +191,47 @@ export default function AIStudioPage() {
     // In production, this would call the MAS API
   }
 
+  // Use PersonaPlex context from app-level provider
+  const personaplex = usePersonaPlexContext()
+  const { isConnected, isListening, startListening, stopListening, lastTranscript, connectionState } = personaplex || {
+    isConnected: false,
+    isListening: false,
+    startListening: () => {},
+    stopListening: () => {},
+    lastTranscript: "",
+    connectionState: "disconnected",
+  }
+
+  // Handle voice commands for AI Studio navigation
+  useEffect(() => {
+    if (!lastTranscript) return
+    
+    const command = lastTranscript.toLowerCase()
+    
+    // Tab navigation via voice
+    if (command.includes("show command") || command.includes("command tab")) {
+      setSelectedTab("command")
+    } else if (command.includes("show agents") || command.includes("agents tab")) {
+      setSelectedTab("agents")
+    } else if (command.includes("show topology")) {
+      setSelectedTab("topology")
+    } else if (command.includes("show memory")) {
+      setSelectedTab("memory")
+    } else if (command.includes("show activity")) {
+      setSelectedTab("activity")
+    } else if (command.includes("show workflows")) {
+      setSelectedTab("workflows")
+    } else if (command.includes("show system")) {
+      setSelectedTab("system")
+    } else if (command.includes("create agent") || command.includes("new agent")) {
+      setShowAgentCreator(true)
+    } else if (command.includes("refresh") || command.includes("update")) {
+      fetchStats()
+    }
+  }, [lastTranscript, fetchStats])
+
   return (
-    <UnifiedVoiceProvider masApiUrl="/api/mas">
-      <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
@@ -479,14 +518,41 @@ export default function AIStudioPage() {
         }}
       />
 
-      {/* Voice Command Panel - Fixed position */}
-      <div className="fixed bottom-20 right-6 z-40 w-80 hidden lg:block">
-        <VoiceCommandPanel className="shadow-xl" />
-      </div>
-
-      {/* Floating Voice Button */}
-      <FloatingVoiceButton />
+      {/* Voice Status Indicator */}
+      {isConnected && (
+        <div className="fixed bottom-20 right-6 z-40 hidden lg:block">
+          <Card className="p-3 shadow-xl bg-background/95 backdrop-blur border-purple-500/20">
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${isListening ? "bg-red-500 animate-pulse" : "bg-green-500"}`} />
+              <span className="text-xs text-muted-foreground">
+                {isListening ? "Listening..." : "PersonaPlex Ready"}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => isListening ? stopListening() : startListening()}
+              >
+                <Volume2 className="h-3 w-3" />
+              </Button>
+            </div>
+            {lastTranscript && (
+              <p className="text-xs text-muted-foreground mt-2 truncate max-w-[200px]">
+                "{lastTranscript}"
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
+      
+      {/* Connection Status for PersonaPlex */}
+      {!isConnected && connectionState !== "disconnected" && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+            {connectionState === "connecting" ? "Connecting to PersonaPlex..." : "Voice Offline"}
+          </Badge>
+        </div>
+      )}
     </div>
-    </UnifiedVoiceProvider>
   )
 }

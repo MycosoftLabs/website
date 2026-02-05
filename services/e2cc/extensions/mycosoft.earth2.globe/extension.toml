@@ -1,0 +1,15 @@
+[package]
+title = "Mycosoft Earth-2 Globe"
+version = "1.0.0"
+description = "High-fidelity RTX globe rendering with weather data overlays"
+category = "Visualization"
+keywords = ["earth2", "globe", "weather", "rtx", "volumetric"]
+
+[[python.module]]
+name = "mycosoft.earth2.globe"
+
+[dependencies]
+"omni.ui" = {}
+"omni.usd" = {}
+"omni.kit.viewport.window" = {}
+"omni.kit.viewport.rtx" = {}

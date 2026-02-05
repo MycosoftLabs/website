@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  e2cc:
+    image: nvcr.io/nvidia/omniverse/kit:106.0.0
+    container_name: earth2-command-center
+    runtime: nvidia
+    
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - ACCEPT_EULA=Y
+      - E2CC_DATA_DIR=/opt/earth2/data
+      - E2CC_CACHE_DIR=/opt/earth2/cache
+      - STREAMING_ENABLED=true
+      - STREAMING_PORT=8211
+    
+    ports:
+      - "8211:8211"
+      - "8011:8011"
+      - "8111:8111"
+    
+    volumes:
+      - ./kit-app:/app/kit-app:ro
+      - ./extensions:/app/extensions:ro
+      - e2cc-cache:/opt/earth2/cache
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    restart: unless-stopped
+    networks:
+      - earth2-network
+
+  signaling:
+    image: node:20-slim
+    container_name: e2cc-signaling
+    working_dir: /app
+    command: sh -c "npm install && node server.js"
+    volumes:
+      - ./signaling:/app
+    ports:
+      - "8212:8212"
+    environment:
+      - PORT=8212
+      - E2CC_URL=http://e2cc:8211
+    restart: unless-stopped
+    networks:
+      - earth2-network
+
+networks:
+  earth2-network:
+    driver: bridge
+
+volumes:
+  e2cc-cache:
+    driver: local

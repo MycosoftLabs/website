@@ -42,6 +42,18 @@ const RISK_PRIORITY = {
   critical: 4,
 };
 
+const SPORE_LAYER_IDS = [CIRCLE_LAYER_ID, GRADIENT_LAYER_ID, LABEL_LAYER_ID];
+
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function SporeDispersalLayer({
   map,
   visible,
@@ -53,35 +65,21 @@ export function SporeDispersalLayer({
   onDataLoaded,
 }: SporeDispersalLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const [zones, setZones] = useState<SporeZone[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const clientRef = useRef(getEarth2Client());
   
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
+
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
     
-    // Remove existing layers/source
-    try {
-      if (map.getLayer(LABEL_LAYER_ID)) map.removeLayer(LABEL_LAYER_ID);
-      if (map.getLayer(GRADIENT_LAYER_ID)) map.removeLayer(GRADIENT_LAYER_ID);
-      if (map.getLayer(CIRCLE_LAYER_ID)) map.removeLayer(CIRCLE_LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
-
-    setIsLoading(true);
+    fetchingRef.current = true;
 
     try {
-      // Fetch spore zones from Earth-2 API
-      const fetchedZones = await clientRef.current.getSporeZones(forecastHours);
+      const fetchedZones = await clientRef.current.getSporeZones(debouncedHours);
       
-      // Apply species filter if provided
       let filteredZones = fetchedZones;
       if (speciesFilter && speciesFilter.length > 0) {
         filteredZones = fetchedZones.filter(z => 
@@ -92,19 +90,41 @@ export function SporeDispersalLayer({
       setZones(filteredZones);
       onDataLoaded?.(filteredZones);
 
-      // Convert to GeoJSON
       const geoJsonData = zonesToGeoJSON(filteredZones);
 
-      // Add GeoJSON source
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: geoJsonData,
-      });
+      // Check if source exists - UPDATE it
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(geoJsonData);
+      } else {
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: geoJsonData,
+        });
 
-      // Add gradient circles (larger, more transparent)
-      if (showConcentrationGradient) {
+        if (showConcentrationGradient) {
+          map.addLayer({
+            id: GRADIENT_LAYER_ID,
+            type: "circle",
+            source: SOURCE_ID,
+            paint: {
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                3, ["*", ["get", "radius"], 0.15],
+                6, ["*", ["get", "radius"], 0.4],
+                10, ["*", ["get", "radius"], 1.2],
+              ],
+              "circle-color": ["get", "color"],
+              "circle-opacity": opacity * 0.2,
+              "circle-blur": 0.8,
+            },
+          });
+        }
+
         map.addLayer({
-          id: GRADIENT_LAYER_ID,
+          id: CIRCLE_LAYER_ID,
           type: "circle",
           source: SOURCE_ID,
           paint: {
@@ -112,116 +132,109 @@ export function SporeDispersalLayer({
               "interpolate",
               ["linear"],
               ["zoom"],
-              3, ["*", ["get", "radius"], 0.15],
-              6, ["*", ["get", "radius"], 0.4],
-              10, ["*", ["get", "radius"], 1.2],
+              3, ["*", ["get", "radius"], 0.08],
+              6, ["*", ["get", "radius"], 0.25],
+              10, ["*", ["get", "radius"], 0.6],
             ],
             "circle-color": ["get", "color"],
-            "circle-opacity": opacity * 0.2,
-            "circle-blur": 0.8,
+            "circle-opacity": opacity * 0.5,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": ["get", "color"],
+            "circle-stroke-opacity": opacity * 0.9,
           },
         });
-      }
 
-      // Add main circle layer
-      map.addLayer({
-        id: CIRCLE_LAYER_ID,
-        type: "circle",
-        source: SOURCE_ID,
-        paint: {
-          "circle-radius": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            3, ["*", ["get", "radius"], 0.08],
-            6, ["*", ["get", "radius"], 0.25],
-            10, ["*", ["get", "radius"], 0.6],
-          ],
-          "circle-color": ["get", "color"],
-          "circle-opacity": opacity * 0.5,
-          "circle-stroke-width": 2,
-          "circle-stroke-color": ["get", "color"],
-          "circle-stroke-opacity": opacity * 0.9,
-        },
-      });
+        map.addLayer({
+          id: LABEL_LAYER_ID,
+          type: "symbol",
+          source: SOURCE_ID,
+          filter: ["in", ["get", "riskLevel"], ["literal", ["high", "critical"]]],
+          layout: {
+            "text-field": ["get", "species"],
+            "text-size": 10,
+            "text-offset": [0, 1.5],
+            "text-anchor": "top",
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "#000000",
+            "text-halo-width": 1,
+            "text-opacity": opacity,
+          },
+        });
 
-      // Add labels for high/critical zones
-      map.addLayer({
-        id: LABEL_LAYER_ID,
-        type: "symbol",
-        source: SOURCE_ID,
-        filter: ["in", ["get", "riskLevel"], ["literal", ["high", "critical"]]],
-        layout: {
-          "text-field": ["get", "species"],
-          "text-size": 10,
-          "text-offset": [0, 1.5],
-          "text-anchor": "top",
-        },
-        paint: {
-          "text-color": "#ffffff",
-          "text-halo-color": "#000000",
-          "text-halo-width": 1,
-          "text-opacity": opacity,
-        },
-      });
-
-      // Add click handler
-      if (onZoneClick) {
-        map.on("click", CIRCLE_LAYER_ID, (e: any) => {
-          if (e.features && e.features.length > 0) {
-            const props = e.features[0].properties;
-            const zone: SporeZone = {
-              id: props.id,
-              lat: props.lat,
-              lon: props.lon,
-              radius: props.radius,
-              concentration: props.concentration,
-              riskLevel: props.riskLevel,
-              species: props.species,
-            };
-            onZoneClick(zone);
-          }
-        });
-        
-        map.on("mouseenter", CIRCLE_LAYER_ID, () => {
-          map.getCanvas().style.cursor = "pointer";
-        });
-        map.on("mouseleave", CIRCLE_LAYER_ID, () => {
-          map.getCanvas().style.cursor = "";
-        });
+        if (onZoneClick) {
+          map.on("click", CIRCLE_LAYER_ID, (e: any) => {
+            if (e.features && e.features.length > 0) {
+              const props = e.features[0].properties;
+              const zone: SporeZone = {
+                id: props.id,
+                lat: props.lat,
+                lon: props.lon,
+                radius: props.radius,
+                concentration: props.concentration,
+                riskLevel: props.riskLevel,
+                species: props.species,
+              };
+              onZoneClick(zone);
+            }
+          });
+          
+          map.on("mouseenter", CIRCLE_LAYER_ID, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", CIRCLE_LAYER_ID, () => {
+            map.getCanvas().style.cursor = "";
+          });
+        }
       }
 
       layerAddedRef.current = true;
-      console.log(`[Earth-2] Spore dispersal: ${filteredZones.length} zones, ${forecastHours}h forecast`);
     } catch (error) {
       console.error("[Earth-2] Spore dispersal error:", error);
     } finally {
-      setIsLoading(false);
+      fetchingRef.current = false;
     }
-  }, [map, visible, forecastHours, opacity, speciesFilter, showConcentrationGradient, onZoneClick, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, speciesFilter, showConcentrationGradient, onZoneClick, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;
-
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-
-    return () => {
-      try {
-        if (map?.getLayer?.(LABEL_LAYER_ID)) map.removeLayer(LABEL_LAYER_ID);
-        if (map?.getLayer?.(GRADIENT_LAYER_ID)) map.removeLayer(GRADIENT_LAYER_ID);
-        if (map?.getLayer?.(CIRCLE_LAYER_ID)) map.removeLayer(CIRCLE_LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {
-        // Ignore cleanup errors
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        try {
+          SPORE_LAYER_IDS.forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+          });
+        } catch {}
       }
     };
-  }, [map, visible, forecastHours, speciesFilter, setupLayer]);
 
-  // Update opacity
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      SPORE_LAYER_IDS.forEach(id => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      });
+    } catch {}
+  }, [map, visible]);
+
   useEffect(() => {
     if (!map) return;
     try {
@@ -235,10 +248,19 @@ export function SporeDispersalLayer({
       if (map.getLayer(LABEL_LAYER_ID)) {
         map.setPaintProperty(LABEL_LAYER_ID, "text-opacity", opacity);
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }, [map, opacity]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        SPORE_LAYER_IDS.forEach(id => {
+          if (map?.getLayer?.(id)) map.removeLayer(id);
+        });
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

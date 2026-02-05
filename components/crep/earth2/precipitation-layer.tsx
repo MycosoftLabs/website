@@ -8,7 +8,7 @@
  * Uses Earth-2 total precipitation (tp) data with animated rain effects
  */
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { getEarth2Client, type GeoBounds } from "@/lib/earth2/client";
 
 interface PrecipitationLayerProps {
@@ -60,6 +60,16 @@ function getPrecipIntensity(value: number): string {
   return "none";
 }
 
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function PrecipitationLayer({
   map,
   visible,
@@ -70,31 +80,18 @@ export function PrecipitationLayer({
   onDataLoaded,
 }: PrecipitationLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
   const dropsRef = useRef<GeoJSON.FeatureCollection | null>(null);
   const clientRef = useRef(getEarth2Client());
+  
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
 
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
-
-    // Cleanup existing layers
-    try {
-      if (map.getLayer(DROPS_LAYER_ID)) map.removeLayer(DROPS_LAYER_ID);
-      if (map.getLayer(INTENSITY_LAYER_ID)) map.removeLayer(INTENSITY_LAYER_ID);
-      if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-      if (map.getSource(DROPS_SOURCE_ID)) map.removeSource(DROPS_SOURCE_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {}
-
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
+    
+    fetchingRef.current = true;
 
     try {
       const mapBounds = map.getBounds();
@@ -105,17 +102,13 @@ export function PrecipitationLayer({
         west: mapBounds.getWest(),
       };
 
-      console.log(`[Earth-2] Fetching precipitation data: ${forecastHours}h forecast`);
-
-      // Fetch precipitation data
       const { grid, min, max } = await clientRef.current.getWeatherGrid({
         variable: "tp",
-        forecastHours,
+        forecastHours: debouncedHours,
         bounds,
         resolution: 0.5,
       });
 
-      // Calculate statistics
       let totalPrecip = 0;
       let maxIntensity = 0;
       let precipCells = 0;
@@ -132,85 +125,97 @@ export function PrecipitationLayer({
       const coverage = (precipCells / totalCells) * 100;
       onDataLoaded?.({ totalPrecip, maxIntensity, coverage });
 
-      // Generate precipitation GeoJSON
       const precipData = generatePrecipGeoJSON(grid, bounds);
-      console.log(`[Earth-2] Precipitation: ${precipData.features.length} cells, max=${maxIntensity.toFixed(1)}mm, ${coverage.toFixed(1)}% coverage`);
 
-      // Add main precipitation source
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: precipData,
-      });
-
-      // Add fill layer for precipitation areas
-      map.addLayer({
-        id: FILL_LAYER_ID,
-        type: "fill",
-        source: SOURCE_ID,
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": opacity * 0.6,
-        },
-      });
-
-      // Add intensity outlines for heavy precipitation
-      map.addLayer({
-        id: INTENSITY_LAYER_ID,
-        type: "line",
-        source: SOURCE_ID,
-        filter: [">=", ["get", "value"], 5],
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["get", "value"],
-            5, 1,
-            25, 3,
-            50, 5,
-          ],
-          "line-opacity": opacity * 0.8,
-        },
-      });
-
-      // Add animated rain drops if enabled
-      if (showAnimation && precipCells > 0) {
-        const dropsData = generateRainDrops(grid, bounds);
-        dropsRef.current = dropsData;
-
-        map.addSource(DROPS_SOURCE_ID, {
+      // Check if source exists - UPDATE it
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(precipData);
+        
+        // Update drops if animation is enabled
+        if (showAnimation && dropsRef.current) {
+          const dropsData = generateRainDrops(grid, bounds);
+          dropsRef.current = dropsData;
+          const dropsSource = map.getSource(DROPS_SOURCE_ID);
+          if (dropsSource) {
+            dropsSource.setData(dropsData);
+          }
+        }
+      } else {
+        // First time - create sources and layers
+        map.addSource(SOURCE_ID, {
           type: "geojson",
-          data: dropsData,
+          data: precipData,
         });
 
         map.addLayer({
-          id: DROPS_LAYER_ID,
-          type: "circle",
-          source: DROPS_SOURCE_ID,
+          id: FILL_LAYER_ID,
+          type: "fill",
+          source: SOURCE_ID,
           paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["get", "size"],
-              1, 2,
-              3, 4,
-              5, 6,
-            ],
-            "circle-color": ["get", "color"],
-            "circle-opacity": ["*", ["get", "opacity"], opacity],
-            "circle-blur": 0.3,
+            "fill-color": ["get", "color"],
+            "fill-opacity": opacity * 0.6,
           },
         });
 
-        // Start animation
-        startAnimation(map);
+        map.addLayer({
+          id: INTENSITY_LAYER_ID,
+          type: "line",
+          source: SOURCE_ID,
+          filter: [">=", ["get", "value"], 5],
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["get", "value"],
+              5, 1,
+              25, 3,
+              50, 5,
+            ],
+            "line-opacity": opacity * 0.8,
+          },
+        });
+
+        if (showAnimation && precipCells > 0) {
+          const dropsData = generateRainDrops(grid, bounds);
+          dropsRef.current = dropsData;
+
+          map.addSource(DROPS_SOURCE_ID, {
+            type: "geojson",
+            data: dropsData,
+          });
+
+          map.addLayer({
+            id: DROPS_LAYER_ID,
+            type: "circle",
+            source: DROPS_SOURCE_ID,
+            paint: {
+              "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["get", "size"],
+                1, 2,
+                3, 4,
+                5, 6,
+              ],
+              "circle-color": ["get", "color"],
+              "circle-opacity": ["*", ["get", "opacity"], opacity],
+              "circle-blur": 0.3,
+            },
+          });
+
+          startAnimation(map);
+        }
       }
 
       layerAddedRef.current = true;
     } catch (error) {
       console.error("[Earth-2] Precipitation layer error:", error);
+    } finally {
+      fetchingRef.current = false;
     }
-  }, [map, visible, forecastHours, opacity, showAnimation, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, showAnimation, onDataLoaded]);
 
   const startAnimation = useCallback((mapInstance: any) => {
     if (!dropsRef.current) return;
@@ -249,24 +254,45 @@ export function PrecipitationLayer({
 
   useEffect(() => {
     if (!map) return;
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+        try {
+          [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID].forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+          });
+        } catch {}
       }
-      try {
-        if (map?.getLayer?.(DROPS_LAYER_ID)) map.removeLayer(DROPS_LAYER_ID);
-        if (map?.getLayer?.(INTENSITY_LAYER_ID)) map.removeLayer(INTENSITY_LAYER_ID);
-        if (map?.getLayer?.(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-        if (map?.getSource?.(DROPS_SOURCE_ID)) map.removeSource(DROPS_SOURCE_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {}
     };
-  }, [map, visible, forecastHours, setupLayer]);
+
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID].forEach(id => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      });
+    } catch {}
+  }, [map, visible]);
 
   useEffect(() => {
     if (!map) return;
@@ -279,6 +305,21 @@ export function PrecipitationLayer({
       }
     } catch {}
   }, [map, opacity]);
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      try {
+        if (map?.getLayer?.(DROPS_LAYER_ID)) map.removeLayer(DROPS_LAYER_ID);
+        if (map?.getLayer?.(INTENSITY_LAYER_ID)) map.removeLayer(INTENSITY_LAYER_ID);
+        if (map?.getLayer?.(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
+        if (map?.getSource?.(DROPS_SOURCE_ID)) map.removeSource(DROPS_SOURCE_ID);
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

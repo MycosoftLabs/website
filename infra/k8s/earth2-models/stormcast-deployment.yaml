@@ -1,0 +1,92 @@
+# StormCast Model Deployment - February 5, 2026
+# NVIDIA StormCast - regional high-resolution forecasts
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-stormcast
+  namespace: earth2-models
+  labels:
+    app: earth2-stormcast
+    model: stormcast
+    tier: on-demand
+spec:
+  replicas: 0  # On-demand
+  selector:
+    matchLabels:
+      app: earth2-stormcast
+  template:
+    metadata:
+      labels:
+        app: earth2-stormcast
+        model: stormcast
+    spec:
+      containers:
+        - name: stormcast
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8308
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "stormcast"
+            - name: MODEL_PATH
+              value: "/models/stormcast"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8308"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "24Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "16Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8308
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8308
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "8Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-stormcast
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-stormcast
+  ports:
+    - port: 8308
+      targetPort: 8308
+      name: http
+  type: ClusterIP

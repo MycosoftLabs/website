@@ -53,6 +53,8 @@ function getIntensityLabel(reflectivity: number): string {
   return "WEAK";
 }
 
+const STORM_LAYER_IDS = [FILL_LAYER_ID, OUTLINE_LAYER_ID, MOVEMENT_LAYER_ID, THREAT_LAYER_ID, ICON_LAYER_ID];
+
 export function StormCellsLayer({
   map,
   visible,
@@ -63,24 +65,14 @@ export function StormCellsLayer({
   onDataLoaded,
 }: StormCellsLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const clientRef = useRef(getEarth2Client());
 
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
-
-    try {
-      if (map.getLayer(ICON_LAYER_ID)) map.removeLayer(ICON_LAYER_ID);
-      if (map.getLayer(MOVEMENT_LAYER_ID)) map.removeLayer(MOVEMENT_LAYER_ID);
-      if (map.getLayer(THREAT_LAYER_ID)) map.removeLayer(THREAT_LAYER_ID);
-      if (map.getLayer(OUTLINE_LAYER_ID)) map.removeLayer(OUTLINE_LAYER_ID);
-      if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {}
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
+    
+    fetchingRef.current = true;
 
     try {
       const mapBounds = map.getBounds();
@@ -91,131 +83,143 @@ export function StormCellsLayer({
         west: mapBounds.getWest(),
       };
 
-      // Fetch storm cell data
       const cells = await clientRef.current.getStormCells(bounds);
       const severeCount = cells.filter(c => c.reflectivity >= 50).length;
       
       onDataLoaded?.({ cells, severeCount });
-      console.log(`[Earth-2] Storm cells: ${cells.length} detected, ${severeCount} severe`);
 
-      // Generate storm cell GeoJSON
       const stormData = generateStormGeoJSON(cells, forecastHours, showMovement, showThreatAreas);
 
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: stormData,
-      });
+      // Check if source exists - UPDATE it
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(stormData);
+      } else {
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: stormData,
+        });
 
-      // Add threat area (projected path)
-      if (showThreatAreas) {
+        if (showThreatAreas) {
+          map.addLayer({
+            id: THREAT_LAYER_ID,
+            type: "fill",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "featureType"], "threat"],
+            paint: {
+              "fill-color": ["get", "color"],
+              "fill-opacity": opacity * 0.2,
+            },
+          });
+        }
+
         map.addLayer({
-          id: THREAT_LAYER_ID,
+          id: FILL_LAYER_ID,
           type: "fill",
           source: SOURCE_ID,
-          filter: ["==", ["get", "featureType"], "threat"],
+          filter: ["==", ["get", "featureType"], "cell"],
           paint: {
             "fill-color": ["get", "color"],
-            "fill-opacity": opacity * 0.2,
-            "fill-pattern": "diagonal-stripes", // Would need custom pattern
+            "fill-opacity": opacity * 0.5,
           },
         });
-      }
 
-      // Add storm cell fill
-      map.addLayer({
-        id: FILL_LAYER_ID,
-        type: "fill",
-        source: SOURCE_ID,
-        filter: ["==", ["get", "featureType"], "cell"],
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": opacity * 0.5,
-        },
-      });
-
-      // Add storm cell outline
-      map.addLayer({
-        id: OUTLINE_LAYER_ID,
-        type: "line",
-        source: SOURCE_ID,
-        filter: ["==", ["get", "featureType"], "cell"],
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["get", "reflectivity"],
-            20, 2,
-            40, 3,
-            60, 5,
-          ],
-          "line-opacity": opacity,
-        },
-      });
-
-      // Add movement vectors
-      if (showMovement) {
         map.addLayer({
-          id: MOVEMENT_LAYER_ID,
+          id: OUTLINE_LAYER_ID,
           type: "line",
           source: SOURCE_ID,
-          filter: ["==", ["get", "featureType"], "movement"],
+          filter: ["==", ["get", "featureType"], "cell"],
           paint: {
-            "line-color": "#ffffff",
-            "line-width": 2,
-            "line-opacity": opacity * 0.8,
+            "line-color": ["get", "color"],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["get", "reflectivity"],
+              20, 2,
+              40, 3,
+              60, 5,
+            ],
+            "line-opacity": opacity,
           },
+        });
+
+        if (showMovement) {
+          map.addLayer({
+            id: MOVEMENT_LAYER_ID,
+            type: "line",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "featureType"], "movement"],
+            paint: {
+              "line-color": "#ffffff",
+              "line-width": 2,
+              "line-opacity": opacity * 0.8,
+            },
+            layout: {
+              "line-cap": "round",
+            },
+          });
+        }
+
+        map.addLayer({
+          id: ICON_LAYER_ID,
+          type: "symbol",
+          source: SOURCE_ID,
+          filter: ["==", ["get", "featureType"], "label"],
           layout: {
-            "line-cap": "round",
+            "text-field": ["get", "label"],
+            "text-size": 11,
+            "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+            "text-allow-overlap": true,
+            "text-anchor": "bottom",
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": ["get", "color"],
+            "text-halo-width": 2,
+            "text-opacity": opacity,
           },
         });
       }
-
-      // Add storm icons/labels
-      map.addLayer({
-        id: ICON_LAYER_ID,
-        type: "symbol",
-        source: SOURCE_ID,
-        filter: ["==", ["get", "featureType"], "label"],
-        layout: {
-          "text-field": ["get", "label"],
-          "text-size": 11,
-          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-          "text-allow-overlap": true,
-          "text-anchor": "bottom",
-        },
-        paint: {
-          "text-color": "#ffffff",
-          "text-halo-color": ["get", "color"],
-          "text-halo-width": 2,
-          "text-opacity": opacity,
-        },
-      });
 
       layerAddedRef.current = true;
     } catch (error) {
       console.error("[Earth-2] Storm cells layer error:", error);
+    } finally {
+      fetchingRef.current = false;
     }
   }, [map, visible, forecastHours, opacity, showMovement, showThreatAreas, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-    return () => {
-      try {
-        if (map?.getLayer?.(ICON_LAYER_ID)) map.removeLayer(ICON_LAYER_ID);
-        if (map?.getLayer?.(MOVEMENT_LAYER_ID)) map.removeLayer(MOVEMENT_LAYER_ID);
-        if (map?.getLayer?.(THREAT_LAYER_ID)) map.removeLayer(THREAT_LAYER_ID);
-        if (map?.getLayer?.(OUTLINE_LAYER_ID)) map.removeLayer(OUTLINE_LAYER_ID);
-        if (map?.getLayer?.(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {}
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        try {
+          STORM_LAYER_IDS.forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+          });
+        } catch {}
+      }
     };
-  }, [map, visible, forecastHours, setupLayer]);
+
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      STORM_LAYER_IDS.forEach(id => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      });
+    } catch {}
+  }, [map, visible]);
 
   useEffect(() => {
     if (!map) return;
@@ -228,6 +232,17 @@ export function StormCellsLayer({
       }
     } catch {}
   }, [map, opacity]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        STORM_LAYER_IDS.forEach(id => {
+          if (map?.getLayer?.(id)) map.removeLayer(id);
+        });
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

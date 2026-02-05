@@ -1,0 +1,92 @@
+# Precipitation AFNO Model Deployment - February 5, 2026
+# NVIDIA Precipitation AFNO - precipitation forecasting
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-precipitation-afno
+  namespace: earth2-models
+  labels:
+    app: earth2-precipitation-afno
+    model: precipitation-afno
+    tier: on-demand
+spec:
+  replicas: 0  # On-demand
+  selector:
+    matchLabels:
+      app: earth2-precipitation-afno
+  template:
+    metadata:
+      labels:
+        app: earth2-precipitation-afno
+        model: precipitation-afno
+    spec:
+      containers:
+        - name: precipitation-afno
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8309
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "precipitation_afno"
+            - name: MODEL_PATH
+              value: "/models/precipitation_afno"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8309"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "16Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "10Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8309
+            initialDelaySeconds: 90
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8309
+            initialDelaySeconds: 45
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "4Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-precipitation-afno
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-precipitation-afno
+  ports:
+    - port: 8309
+      targetPort: 8309
+      name: http
+  type: ClusterIP

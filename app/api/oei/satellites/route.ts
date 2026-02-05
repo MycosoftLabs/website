@@ -51,7 +51,16 @@ export async function GET(request: Request) {
       limit: limit ? parseInt(limit) : undefined, // No default limit - fetch all available
     }
 
-    const satellites = await client.fetchSatellites(query)
+    // Add timeout to prevent long hangs
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error("Satellite fetch timeout")), 8000)
+    );
+    
+    const satellites = await Promise.race([
+      client.fetchSatellites(query),
+      timeoutPromise
+    ]);
+    
     const latency = Date.now() - startTime
     
     // Log to MINDEX
@@ -63,13 +72,21 @@ export async function GET(request: Request) {
       category: validCategory,
       total: satellites.length,
       satellites,
+      available: true,
     })
   } catch (error) {
     console.error("[API] Satellite tracking error:", error)
     logAPIError("satellites", "celestrak.org", String(error))
-    return NextResponse.json(
-      { error: "Failed to fetch satellite data" },
-      { status: 500 }
-    )
+    
+    // Graceful fallback - return empty array with 200 status to prevent dashboard crashes
+    return NextResponse.json({
+      source: "celestrak",
+      timestamp: new Date().toISOString(),
+      category: searchParams.get("category") || "stations",
+      total: 0,
+      satellites: [],
+      available: false,
+      message: error instanceof Error ? error.message : "Failed to fetch satellite data"
+    })
   }
 }

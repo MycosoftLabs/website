@@ -47,6 +47,16 @@ function getWindColor(speed: number): string {
   return SPEED_COLORS[0].color;
 }
 
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function WindVectorLayer({
   map,
   visible,
@@ -58,37 +68,19 @@ export function WindVectorLayer({
   onDataLoaded,
 }: WindVectorLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const clientRef = useRef(getEarth2Client());
   
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
+
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
     
-    // Remove existing layers/source
-    try {
-      if (map.getLayer(STREAM_LAYER_ID)) map.removeLayer(STREAM_LAYER_ID);
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    // Stop animation
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
-
-    setIsLoading(true);
+    fetchingRef.current = true;
 
     try {
-      // Get current map bounds
       const mapBounds = map.getBounds();
       const bounds: GeoBounds = {
         north: Math.min(85, mapBounds.getNorth()),
@@ -97,13 +89,11 @@ export function WindVectorLayer({
         west: mapBounds.getWest(),
       };
 
-      // Fetch wind vectors from Earth-2 API
       const windData = await clientRef.current.getWindVectors({
-        forecastHours,
+        forecastHours: debouncedHours,
         bounds,
       });
 
-      // Calculate statistics
       let minSpeed = Infinity, maxSpeed = -Infinity, totalSpeed = 0, count = 0;
       for (const row of windData.speed) {
         for (const s of row) {
@@ -116,100 +106,115 @@ export function WindVectorLayer({
       const avgSpeed = totalSpeed / count;
       onDataLoaded?.({ minSpeed, maxSpeed, avgSpeed });
 
-      // Convert to GeoJSON
       const geoJsonData = windToGeoJSON(windData, bounds, density);
 
-      // Add GeoJSON source
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: geoJsonData,
-      });
+      // Check if source exists - UPDATE it
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(geoJsonData);
+      } else {
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: geoJsonData,
+        });
 
-      // Add wind streamlines (subtle lines showing flow direction)
-      if (animated) {
+        if (animated) {
+          map.addLayer({
+            id: STREAM_LAYER_ID,
+            type: "line",
+            source: SOURCE_ID,
+            filter: ["==", ["geometry-type"], "LineString"],
+            paint: {
+              "line-color": showSpeedColors ? ["get", "color"] : "#4a9eda",
+              "line-width": [
+                "interpolate",
+                ["linear"],
+                ["get", "speed"],
+                0, 1,
+                15, 2,
+                30, 3,
+              ],
+              "line-opacity": opacity * 0.4,
+            },
+          });
+        }
+
         map.addLayer({
-          id: STREAM_LAYER_ID,
-          type: "line",
+          id: LAYER_ID,
+          type: "symbol",
           source: SOURCE_ID,
-          filter: ["==", ["geometry-type"], "LineString"],
-          paint: {
-            "line-color": showSpeedColors ? ["get", "color"] : "#4a9eda",
-            "line-width": [
+          filter: ["==", ["geometry-type"], "Point"],
+          layout: {
+            "symbol-placement": "point",
+            "text-field": "→",
+            "text-size": [
               "interpolate",
               ["linear"],
               ["get", "speed"],
-              0, 1,
-              15, 2,
-              30, 3,
+              0, 14,
+              15, 20,
+              30, 28,
             ],
-            "line-opacity": opacity * 0.4,
+            "text-rotate": ["get", "rotation"],
+            "text-rotation-alignment": "map",
+            "text-allow-overlap": true,
+            "text-ignore-placement": true,
+          },
+          paint: {
+            "text-color": showSpeedColors ? ["get", "color"] : "#4a9eda",
+            "text-opacity": opacity,
+            "text-halo-color": "rgba(0,0,0,0.6)",
+            "text-halo-width": 1,
           },
         });
       }
 
-      // Add arrow symbols
-      map.addLayer({
-        id: LAYER_ID,
-        type: "symbol",
-        source: SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Point"],
-        layout: {
-          "symbol-placement": "point",
-          "text-field": "→",
-          "text-size": [
-            "interpolate",
-            ["linear"],
-            ["get", "speed"],
-            0, 14,
-            15, 20,
-            30, 28,
-          ],
-          "text-rotate": ["get", "rotation"],
-          "text-rotation-alignment": "map",
-          "text-allow-overlap": true,
-          "text-ignore-placement": true,
-        },
-        paint: {
-          "text-color": showSpeedColors ? ["get", "color"] : "#4a9eda",
-          "text-opacity": opacity,
-          "text-halo-color": "rgba(0,0,0,0.6)",
-          "text-halo-width": 1,
-        },
-      });
-
       layerAddedRef.current = true;
-      console.log(`[Earth-2] Wind vectors: ${geoJsonData.features.length} points, ${forecastHours}h, speed range=[${minSpeed.toFixed(1)}, ${maxSpeed.toFixed(1)}] m/s`);
     } catch (error) {
       console.error("[Earth-2] Wind vector error:", error);
     } finally {
-      setIsLoading(false);
+      fetchingRef.current = false;
     }
-  }, [map, visible, forecastHours, opacity, animated, density, showSpeedColors, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, animated, density, showSpeedColors, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;
-
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      try {
-        if (map?.getLayer?.(STREAM_LAYER_ID)) map.removeLayer(STREAM_LAYER_ID);
-        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {
-        // Ignore cleanup errors
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        try {
+          [LAYER_ID, STREAM_LAYER_ID].forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+          });
+        } catch {}
       }
     };
-  }, [map, visible, forecastHours, density, setupLayer]);
 
-  // Update opacity
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      [LAYER_ID, STREAM_LAYER_ID].forEach(id => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      });
+    } catch {}
+  }, [map, visible]);
+
   useEffect(() => {
     if (!map) return;
     try {
@@ -219,10 +224,21 @@ export function WindVectorLayer({
       if (map.getLayer(STREAM_LAYER_ID)) {
         map.setPaintProperty(STREAM_LAYER_ID, "line-opacity", opacity * 0.4);
       }
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }, [map, opacity]);
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      try {
+        if (map?.getLayer?.(STREAM_LAYER_ID)) map.removeLayer(STREAM_LAYER_ID);
+        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

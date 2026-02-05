@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { MemoryHealthWidget } from "@/components/memory"
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useSupabaseUser()
@@ -204,6 +205,9 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Memory & Brain Health */}
+        <MemoryHealthWidget />
 
         {/* Quick Actions */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

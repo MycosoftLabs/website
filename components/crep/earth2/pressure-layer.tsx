@@ -6,6 +6,8 @@
  * 
  * Renders atmospheric pressure contours (isobars) on MapLibre
  * Uses mean sea level pressure (msl) data from Earth-2
+ * 
+ * FIXED: Proper source management to prevent "source already exists" errors
  */
 
 import { useEffect, useRef, useCallback, useState } from "react";
@@ -26,12 +28,17 @@ const LABEL_LAYER_ID = "earth2-pressure-labels";
 const HL_LAYER_ID = "earth2-pressure-hl";
 const SOURCE_ID = "earth2-pressure-source";
 
-// Pressure colors for fill (optional background)
-const PRESSURE_COLORS = {
-  low: "#5c7cfa",     // Blue for low pressure
-  normal: "#868e96",  // Gray for normal
-  high: "#ff6b6b",    // Red for high pressure
-};
+const PRESSURE_LAYER_IDS = [CONTOUR_LAYER_ID, LABEL_LAYER_ID, HL_LAYER_ID];
+
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export function PressureLayer({
   map,
@@ -43,22 +50,16 @@ export function PressureLayer({
   onDataLoaded,
 }: PressureLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const clientRef = useRef(getEarth2Client());
+  
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
 
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
-
-    try {
-      if (map.getLayer(HL_LAYER_ID)) map.removeLayer(HL_LAYER_ID);
-      if (map.getLayer(LABEL_LAYER_ID)) map.removeLayer(LABEL_LAYER_ID);
-      if (map.getLayer(CONTOUR_LAYER_ID)) map.removeLayer(CONTOUR_LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {}
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
+    
+    fetchingRef.current = true;
 
     try {
       const mapBounds = map.getBounds();
@@ -72,7 +73,7 @@ export function PressureLayer({
       // Fetch pressure data (using surface pressure, convert to hPa)
       const { grid, min, max } = await clientRef.current.getWeatherGrid({
         variable: "sp",
-        forecastHours,
+        forecastHours: debouncedHours,
         bounds,
         resolution: 0.5,
       });
@@ -86,105 +87,139 @@ export function PressureLayer({
       const pressureData = generatePressureGeoJSON(grid, bounds);
       console.log(`[Earth-2] Pressure: ${pressureData.features.length} features, range=${minPressure.toFixed(0)}-${maxPressure.toFixed(0)} hPa`);
 
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: pressureData,
-      });
-
-      // Add contour lines
-      map.addLayer({
-        id: CONTOUR_LAYER_ID,
-        type: "line",
-        source: SOURCE_ID,
-        filter: ["==", ["get", "type"], "contour"],
-        paint: {
-          "line-color": ["get", "color"],
-          "line-width": [
-            "case",
-            ["==", ["get", "major"], true], 2,
-            1,
-          ],
-          "line-opacity": opacity * 0.7,
-          "line-dasharray": [
-            "case",
-            ["==", ["get", "major"], true],
-            ["literal", [1]],
-            ["literal", [2, 2]],
-          ],
-        },
-      });
-
-      // Add pressure labels
-      if (showLabels) {
-        map.addLayer({
-          id: LABEL_LAYER_ID,
-          type: "symbol",
-          source: SOURCE_ID,
-          filter: ["==", ["get", "type"], "label"],
-          layout: {
-            "text-field": ["concat", ["get", "pressure"], " hPa"],
-            "text-size": 10,
-            "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-            "symbol-placement": "point",
-          },
-          paint: {
-            "text-color": "#ffffff",
-            "text-halo-color": "#000000",
-            "text-halo-width": 1,
-            "text-opacity": opacity,
-          },
+      // Check if source exists - UPDATE it, don't recreate
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(pressureData);
+      } else {
+        // First time - create source and all layers
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: pressureData,
         });
-      }
 
-      // Add High/Low markers
-      if (showHighLow) {
+        // Add contour lines
         map.addLayer({
-          id: HL_LAYER_ID,
-          type: "symbol",
+          id: CONTOUR_LAYER_ID,
+          type: "line",
           source: SOURCE_ID,
-          filter: ["in", ["get", "type"], ["literal", ["high", "low"]]],
-          layout: {
-            "text-field": ["get", "symbol"],
-            "text-size": 24,
-            "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-            "text-allow-overlap": true,
-          },
+          filter: ["==", ["get", "type"], "contour"],
           paint: {
-            "text-color": [
+            "line-color": ["get", "color"],
+            "line-width": [
               "case",
-              ["==", ["get", "type"], "high"], "#ff6b6b",
-              "#5c7cfa",
+              ["==", ["get", "major"], true], 2,
+              1,
             ],
-            "text-halo-color": "#000000",
-            "text-halo-width": 2,
-            "text-opacity": opacity,
+            "line-opacity": opacity * 0.7,
+            "line-dasharray": [
+              "case",
+              ["==", ["get", "major"], true],
+              ["literal", [1]],
+              ["literal", [2, 2]],
+            ],
           },
         });
+
+        // Add pressure labels
+        if (showLabels) {
+          map.addLayer({
+            id: LABEL_LAYER_ID,
+            type: "symbol",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "type"], "label"],
+            layout: {
+              "text-field": ["concat", ["get", "pressure"], " hPa"],
+              "text-size": 10,
+              "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+              "symbol-placement": "point",
+            },
+            paint: {
+              "text-color": "#ffffff",
+              "text-halo-color": "#000000",
+              "text-halo-width": 1,
+              "text-opacity": opacity,
+            },
+          });
+        }
+
+        // Add High/Low markers
+        if (showHighLow) {
+          map.addLayer({
+            id: HL_LAYER_ID,
+            type: "symbol",
+            source: SOURCE_ID,
+            filter: ["in", ["get", "type"], ["literal", ["high", "low"]]],
+            layout: {
+              "text-field": ["get", "symbol"],
+              "text-size": 24,
+              "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+              "text-allow-overlap": true,
+            },
+            paint: {
+              "text-color": [
+                "case",
+                ["==", ["get", "type"], "high"], "#ff6b6b",
+                "#5c7cfa",
+              ],
+              "text-halo-color": "#000000",
+              "text-halo-width": 2,
+              "text-opacity": opacity,
+            },
+          });
+        }
       }
 
       layerAddedRef.current = true;
     } catch (error) {
       console.error("[Earth-2] Pressure layer error:", error);
+    } finally {
+      fetchingRef.current = false;
     }
-  }, [map, visible, forecastHours, opacity, showLabels, showHighLow, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, showLabels, showHighLow, onDataLoaded]);
 
+  // Initial setup and visibility changes
   useEffect(() => {
     if (!map) return;
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-    return () => {
-      try {
-        if (map?.getLayer?.(HL_LAYER_ID)) map.removeLayer(HL_LAYER_ID);
-        if (map?.getLayer?.(LABEL_LAYER_ID)) map.removeLayer(LABEL_LAYER_ID);
-        if (map?.getLayer?.(CONTOUR_LAYER_ID)) map.removeLayer(CONTOUR_LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {}
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        try {
+          PRESSURE_LAYER_IDS.forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+          });
+        } catch {}
+      }
     };
-  }, [map, visible, forecastHours, setupLayer]);
 
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  // Update when debounced hours change
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  // Toggle visibility
+  useEffect(() => {
+    if (!map) return;
+    try {
+      PRESSURE_LAYER_IDS.forEach(id => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      });
+    } catch {}
+  }, [map, visible]);
+
+  // Update opacity
   useEffect(() => {
     if (!map) return;
     try {
@@ -199,6 +234,18 @@ export function PressureLayer({
       }
     } catch {}
   }, [map, opacity]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      try {
+        PRESSURE_LAYER_IDS.forEach(id => {
+          if (map?.getLayer?.(id)) map.removeLayer(id);
+        });
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

@@ -124,6 +124,7 @@ export interface StormCell {
   hasTornado: boolean;
   hasLightning: boolean;
   reflectivity: number;
+  size: number; // Storm diameter in km
 }
 
 // Spore Dispersal Types
@@ -362,14 +363,19 @@ export class Earth2Client {
     });
   }
 
-  async getStormCells(): Promise<StormCell[]> {
+  async getStormCells(bounds?: GeoBounds): Promise<StormCell[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/nowcast/storms`);
-      if (!response.ok) return this.generateStormCells();
+      let url = `${this.baseUrl}/nowcast/storms`;
+      if (bounds) {
+        url += `?north=${bounds.north}&south=${bounds.south}&east=${bounds.east}&west=${bounds.west}`;
+      }
+      const response = await fetch(url);
+      if (!response.ok) return this.generateStormCells(bounds);
       const data = await response.json();
-      return data.stormCells || this.generateStormCells();
+      // The API returns 'cells', not 'stormCells'
+      return data.cells || data.stormCells || this.generateStormCells(bounds);
     } catch {
-      return this.generateStormCells();
+      return this.generateStormCells(bounds);
     }
   }
 
@@ -732,51 +738,59 @@ export class Earth2Client {
     };
   }
 
-  private generateStormCells(): StormCell[] {
-    return [
-      {
-        id: "storm-1",
-        lat: 40.0,
-        lon: -89.5,
-        intensity: "severe",
-        type: "supercell",
-        topAltitude: 15000,
-        movementDirection: 45,
-        movementSpeed: 15,
-        hasHail: true,
-        hasTornado: false,
-        hasLightning: true,
-        reflectivity: 65,
-      },
-      {
-        id: "storm-2",
-        lat: 41.5,
-        lon: -91.0,
-        intensity: "strong",
-        type: "thunderstorm",
-        topAltitude: 12000,
-        movementDirection: 60,
-        movementSpeed: 12,
-        hasHail: false,
-        hasTornado: false,
-        hasLightning: true,
-        reflectivity: 50,
-      },
-      {
-        id: "storm-3",
-        lat: 35.2,
-        lon: -97.5,
-        intensity: "moderate",
-        type: "squall_line",
-        topAltitude: 10000,
-        movementDirection: 30,
-        movementSpeed: 20,
-        hasHail: false,
-        hasTornado: false,
-        hasLightning: true,
-        reflectivity: 45,
-      },
-    ];
+  private generateStormCells(bounds?: GeoBounds): StormCell[] {
+    // Generate storms within the bounds if provided
+    const cells: StormCell[] = [];
+    const effectiveBounds = bounds || { north: 50, south: 25, east: -65, west: -125 };
+    
+    // Seed based on current hour for consistency
+    const hourSeed = Math.floor(Date.now() / (1000 * 60 * 60));
+    const seededRandom = (seed: number) => {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    };
+    
+    // Determine number of storms (5-15)
+    const numStorms = 5 + Math.floor(seededRandom(hourSeed) * 10);
+    
+    for (let i = 0; i < numStorms; i++) {
+      const cellSeed = hourSeed + i * 1000;
+      
+      const lat = effectiveBounds.south + seededRandom(cellSeed * 1.1) * (effectiveBounds.north - effectiveBounds.south);
+      const lon = effectiveBounds.west + seededRandom(cellSeed * 1.2) * (effectiveBounds.east - effectiveBounds.west);
+      
+      const reflectivity = 25 + seededRandom(cellSeed * 1.3) * 45; // 25-70 dBZ
+      
+      let intensity: StormCell["intensity"];
+      if (reflectivity >= 55) intensity = "severe";
+      else if (reflectivity >= 45) intensity = "strong";
+      else if (reflectivity >= 35) intensity = "moderate";
+      else intensity = "weak";
+      
+      let type: StormCell["type"];
+      if (reflectivity >= 60 && seededRandom(cellSeed * 1.4) > 0.7) type = "supercell";
+      else if (reflectivity >= 50) type = "thunderstorm";
+      else if (seededRandom(cellSeed * 1.5) > 0.6) type = "squall_line";
+      else type = "thunderstorm";
+      
+      cells.push({
+        id: `storm-${i}`,
+        lat,
+        lon,
+        intensity,
+        type,
+        topAltitude: 8000 + seededRandom(cellSeed * 1.6) * 10000,
+        movementDirection: seededRandom(cellSeed * 1.7) * 360,
+        movementSpeed: 5 + seededRandom(cellSeed * 1.8) * 25,
+        hasHail: reflectivity > 55 && seededRandom(cellSeed * 1.9) > 0.5,
+        hasTornado: reflectivity > 60 && seededRandom(cellSeed * 2.0) > 0.9,
+        hasLightning: reflectivity > 35,
+        reflectivity: Math.round(reflectivity),
+        size: 10 + seededRandom(cellSeed * 2.1) * 30, // Added size property
+      });
+    }
+    
+    return cells;
   }
 
   private generateSporeZones(forecastHours: number, origin?: { lat: number; lon: number; species: string }): SporeZone[] {
@@ -821,33 +835,120 @@ export class Earth2Client {
     forecastHours: number,
     bounds: GeoBounds
   ): { grid: number[][]; min: number; max: number } {
-    const latSteps = 20;
-    const lonSteps = 40;
+    const latSteps = 30;
+    const lonSteps = 50;
     const grid: number[][] = [];
 
     let min = Infinity;
     let max = -Infinity;
+    
+    // Time-based seed for weather systems that move
+    const timeSeed = Date.now() / (1000 * 60 * 60); // Changes hourly
+    const forecastOffset = forecastHours * 0.15; // Weather moves with time
+    
+    // Simplex-like noise function for realistic patterns
+    const noise2D = (x: number, y: number, scale: number = 1) => {
+      const sx = x * scale;
+      const sy = y * scale;
+      return (
+        Math.sin(sx * 0.7 + sy * 0.5 + timeSeed) * 0.5 +
+        Math.sin(sx * 1.3 - sy * 0.8 + timeSeed * 1.3) * 0.3 +
+        Math.sin(sx * 2.1 + sy * 1.7 + timeSeed * 0.7) * 0.2
+      );
+    };
+    
+    // Weather system positions that move with forecast
+    const weatherSystems = [
+      { lon: -95 + forecastOffset * 0.8, lat: 42, radius: 8, intensity: 1.0 },
+      { lon: -85 + forecastOffset * 0.6, lat: 35, radius: 6, intensity: 0.8 },
+      { lon: -75 + forecastOffset * 0.5, lat: 45, radius: 10, intensity: 0.9 },
+      { lon: -110 + forecastOffset * 0.4, lat: 38, radius: 7, intensity: 0.7 },
+    ];
 
     for (let i = 0; i < latSteps; i++) {
       const row: number[] = [];
       const lat = bounds.south + ((bounds.north - bounds.south) * i) / latSteps;
+      const latRad = (lat * Math.PI) / 180;
 
       for (let j = 0; j < lonSteps; j++) {
         const lon = bounds.west + ((bounds.east - bounds.west) * j) / lonSteps;
         
         let value: number;
-        const latFactor = Math.cos((lat * Math.PI) / 180);
-        const noise = Math.sin(lon * 0.1 + lat * 0.1 + forecastHours * 0.05) * 0.3;
+        const latFactor = Math.cos(latRad);
+        
+        // Base noise patterns (different scales for different weather features)
+        const largeScale = noise2D(lon + forecastOffset, lat, 0.05);
+        const medScale = noise2D(lon + forecastOffset * 1.5, lat, 0.15);
+        const smallScale = noise2D(lon + forecastOffset * 2, lat, 0.4);
+        
+        // Weather system influence
+        let systemInfluence = 0;
+        for (const sys of weatherSystems) {
+          const dx = lon - sys.lon;
+          const dy = lat - sys.lat;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < sys.radius) {
+            systemInfluence += sys.intensity * (1 - dist / sys.radius);
+          }
+        }
 
         switch (variable) {
-          case "t2m":
-            value = -30 + latFactor * 60 + noise * 15 + 15;
+          case "t2m": // Temperature in Celsius
+            // Base: latitude-dependent temperature (-30 to +35)
+            const baseTemp = -30 + latFactor * 55 + 10;
+            // Diurnal cycle
+            const hourOfDay = (forecastHours % 24);
+            const diurnal = Math.sin((hourOfDay - 6) * Math.PI / 12) * 8;
+            // Weather system cooling (fronts/clouds)
+            const systemCooling = systemInfluence * -5;
+            // Natural variation
+            const tempVariation = largeScale * 8 + medScale * 4;
+            value = baseTemp + diurnal + systemCooling + tempVariation;
             break;
-          case "tp":
-            value = Math.max(0, noise + 0.3) * 20;
+            
+          case "tp": // Total precipitation in mm
+            // Precipitation is patchy and tied to weather systems
+            const precipBase = Math.max(0, systemInfluence * 15);
+            const precipNoise = Math.max(0, medScale * 10 + smallScale * 5);
+            // Only rain where there's moisture
+            const moistureFactor = Math.max(0, noise2D(lon, lat, 0.08) + 0.3);
+            value = (precipBase + precipNoise) * moistureFactor;
+            if (value < 0.1) value = 0; // Clear threshold
             break;
+            
+          case "tcwv": // Total column water vapor (kg/m²)
+            // More moisture near equator and in weather systems
+            const baseMoisture = 20 + latFactor * 25;
+            const moistureVariation = largeScale * 15 + medScale * 8;
+            const systemMoisture = systemInfluence * 20;
+            value = Math.max(5, baseMoisture + moistureVariation + systemMoisture);
+            break;
+            
+          case "sp": // Surface pressure in Pa
+            // Standard pressure with synoptic patterns
+            const basePressure = 101325;
+            const pressurePattern = largeScale * 2000 + medScale * 500;
+            // Low pressure in weather systems
+            const systemLow = systemInfluence * -1500;
+            value = basePressure + pressurePattern + systemLow;
+            break;
+            
+          case "u10": // U wind component (m/s)
+            // Westerlies at mid-latitudes, easterlies at tropics
+            const baseU = lat > 30 ? 8 : lat < -30 ? 8 : -6;
+            const uVariation = medScale * 10 + smallScale * 5;
+            value = baseU + uVariation;
+            break;
+            
+          case "v10": // V wind component (m/s)
+            // Meridional (north-south) wind
+            const baseV = largeScale * 8;
+            const vVariation = medScale * 6;
+            value = baseV + vVariation;
+            break;
+            
           default:
-            value = 50 + noise * 20;
+            value = 50 + largeScale * 30 + medScale * 15;
         }
 
         row.push(value);
@@ -864,12 +965,26 @@ export class Earth2Client {
     forecastHours: number,
     bounds: GeoBounds
   ): { u: number[][]; v: number[][]; speed: number[][]; direction: number[][] } {
-    const latSteps = 15;
-    const lonSteps = 30;
+    const latSteps = 20;
+    const lonSteps = 35;
     const u: number[][] = [];
     const v: number[][] = [];
     const speed: number[][] = [];
     const direction: number[][] = [];
+    
+    // Time-based seed for wind patterns that evolve
+    const timeSeed = Date.now() / (1000 * 60 * 60);
+    const forecastOffset = forecastHours * 0.1;
+    
+    // Noise function for wind perturbations
+    const windNoise = (x: number, y: number, scale: number = 1) => {
+      const sx = x * scale;
+      const sy = y * scale;
+      return (
+        Math.sin(sx * 0.8 + sy * 0.6 + timeSeed + forecastOffset) * 0.6 +
+        Math.sin(sx * 1.5 - sy * 1.0 + timeSeed * 1.2) * 0.4
+      );
+    };
 
     for (let i = 0; i < latSteps; i++) {
       const uRow: number[] = [];
@@ -877,34 +992,51 @@ export class Earth2Client {
       const speedRow: number[] = [];
       const dirRow: number[] = [];
       const lat = bounds.south + ((bounds.north - bounds.south) * i) / latSteps;
+      const latRad = (lat * Math.PI) / 180;
 
       for (let j = 0; j < lonSteps; j++) {
         const lon = bounds.west + ((bounds.east - bounds.west) * j) / lonSteps;
         
-        // Global wind pattern simulation
         let uVal: number, vVal: number;
         
-        if (Math.abs(lat) < 30) {
-          // Trade winds
-          uVal = -8 - Math.random() * 5;
-          vVal = lat * 0.1;
-        } else if (Math.abs(lat) < 60) {
-          // Westerlies
-          uVal = 10 + Math.random() * 10;
-          vVal = Math.random() * 5 - 2.5;
+        // Global circulation patterns
+        const absLat = Math.abs(lat);
+        
+        if (absLat < 30) {
+          // Trade winds (easterly) - NE in Northern Hemisphere, SE in Southern
+          const tradeStrength = 8 + windNoise(lon, lat, 0.1) * 4;
+          uVal = -tradeStrength; // Easterly
+          vVal = (lat > 0 ? -2 : 2) + windNoise(lon, lat, 0.15) * 3;
+        } else if (absLat < 60) {
+          // Westerlies - strongest around 40-50 degrees
+          const westStrength = 12 + (1 - Math.abs(absLat - 45) / 15) * 8;
+          uVal = westStrength + windNoise(lon, lat, 0.12) * 6;
+          vVal = windNoise(lon + 10, lat, 0.08) * 8;
+          // Add jet stream influence
+          if (absLat > 35 && absLat < 55) {
+            uVal += 5 * Math.sin(lon * 0.05 + forecastOffset);
+          }
         } else {
           // Polar easterlies
-          uVal = -5 - Math.random() * 3;
-          vVal = Math.random() * 2 - 1;
+          const polarStrength = 5 + windNoise(lon, lat, 0.1) * 3;
+          uVal = -polarStrength;
+          vVal = windNoise(lon, lat, 0.15) * 4;
         }
+        
+        // Add synoptic-scale perturbations (weather systems)
+        const pertU = windNoise(lon + forecastOffset * 5, lat, 0.03) * 8;
+        const pertV = windNoise(lon, lat + forecastOffset * 5, 0.03) * 6;
+        uVal += pertU;
+        vVal += pertV;
 
         const s = Math.sqrt(uVal * uVal + vVal * vVal);
-        const d = Math.atan2(vVal, uVal) * (180 / Math.PI);
+        // Meteorological direction (direction wind is coming FROM)
+        const d = (270 - Math.atan2(vVal, uVal) * (180 / Math.PI) + 360) % 360;
 
-        uRow.push(uVal);
-        vRow.push(vVal);
-        speedRow.push(s);
-        dirRow.push(d);
+        uRow.push(Math.round(uVal * 10) / 10);
+        vRow.push(Math.round(vVal * 10) / 10);
+        speedRow.push(Math.round(s * 10) / 10);
+        dirRow.push(Math.round(d));
       }
 
       u.push(uRow);
