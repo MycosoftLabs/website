@@ -1,19 +1,26 @@
 "use client"
 
-import { SearchSection } from "@/components/search-section"
 import { motion, useScroll, useTransform } from "framer-motion"
+import HeroSearch from "./hero-search"
 
 /**
- * ParallaxSearch - Client component that wraps SearchSection with scroll-based parallax
- * Separated from the main page to enable code-splitting and dynamic import
+ * ParallaxSearch - Client component with revolutionary search UI
+ * Updated: February 5, 2026
+ * 
+ * Features:
+ * - New glass morphism HeroSearch component
+ * - Voice search integration
+ * - AI-powered suggestions
+ * - Scroll-based parallax effect
  */
 export default function ParallaxSearch() {
   const { scrollY } = useScroll()
-  const y = useTransform(scrollY, [0, 300], [0, 100])
+  const y = useTransform(scrollY, [0, 300], [0, 50])
+  const opacity = useTransform(scrollY, [0, 200], [1, 0.8])
 
   return (
-    <motion.div style={{ y }}>
-      <SearchSection />
+    <motion.div style={{ y, opacity }}>
+      <HeroSearch />
     </motion.div>
   )
 }
