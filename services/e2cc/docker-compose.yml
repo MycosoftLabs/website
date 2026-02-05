@@ -5,17 +5,9 @@ services:
     image: python:3.11-slim
     container_name: e2cc-stub
     working_dir: /app
-    command: >
-      sh -c "pip install fastapi uvicorn && python -c \"
-      from fastapi import FastAPI
-      import uvicorn
-      app = FastAPI()
-      @app.get('/')
-      def root(): return {'service': 'e2cc-stub', 'status': 'GPU required for full E2CC'}
-      @app.get('/health')
-      def health(): return {'status': 'stub-mode', 'gpu': False}
-      uvicorn.run(app, host='0.0.0.0', port=8211)
-      \""
+    command: sh -c "pip install --quiet fastapi uvicorn && python main.py"
+    volumes:
+      - ./stub:/app:ro
     ports:
       - "8211:8211"
     restart: unless-stopped
