@@ -1,0 +1,14 @@
+[package]
+title = "Mycosoft CREP Integration"
+version = "1.0.0"
+description = "CREP environmental data visualization for Earth-2"
+category = "Visualization"
+keywords = ["earth2", "crep", "environmental", "monitoring"]
+
+[[python.module]]
+name = "mycosoft.earth2.crep"
+
+[dependencies]
+"omni.ui" = {}
+"omni.usd" = {}
+"omni.kit.viewport.window" = {}

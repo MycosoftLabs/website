@@ -1,0 +1,92 @@
+# SFNO Model Deployment - February 5, 2026
+# Spherical Fourier Neural Operator
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-sfno
+  namespace: earth2-models
+  labels:
+    app: earth2-sfno
+    model: sfno
+    tier: on-demand
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: earth2-sfno
+  template:
+    metadata:
+      labels:
+        app: earth2-sfno
+        model: sfno
+    spec:
+      containers:
+        - name: sfno
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8311
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "sfno"
+            - name: MODEL_PATH
+              value: "/models/sfno"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8311"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "18Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "12Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8311
+            initialDelaySeconds: 90
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8311
+            initialDelaySeconds: 45
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "6Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-sfno
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-sfno
+  ports:
+    - port: 8311
+      targetPort: 8311
+      name: http
+  type: ClusterIP

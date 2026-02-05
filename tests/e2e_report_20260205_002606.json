@@ -1,0 +1,116 @@
+{
+  "summary": {
+    "total": 15,
+    "passed": 0,
+    "failed": 15,
+    "pass_rate": "0.0%",
+    "timestamp": "2026-02-05T08:26:06.351516"
+  },
+  "results": [
+    {
+      "name": "GPU Availability",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2540.976,
+      "timestamp": "2026-02-05T08:25:29.531875"
+    },
+    {
+      "name": "Kubernetes Health",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2492.143,
+      "timestamp": "2026-02-05T08:25:32.024051"
+    },
+    {
+      "name": "GPU Operator",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2505.711,
+      "timestamp": "2026-02-05T08:25:34.529793"
+    },
+    {
+      "name": "FCN3 Model Health",
+      "passed": false,
+      "message": "FCN3 not reachable: All connection attempts failed",
+      "duration_ms": 2504.266,
+      "timestamp": "2026-02-05T08:25:37.034095"
+    },
+    {
+      "name": "StormScope Model Health",
+      "passed": false,
+      "message": "StormScope not reachable: All connection attempts failed",
+      "duration_ms": 2505.176,
+      "timestamp": "2026-02-05T08:25:39.539302"
+    },
+    {
+      "name": "Model Orchestrator",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2531.842,
+      "timestamp": "2026-02-05T08:25:42.071176"
+    },
+    {
+      "name": "Data Federation Mesh",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2545.613,
+      "timestamp": "2026-02-05T08:25:44.616822"
+    },
+    {
+      "name": "ERA5 Data Source",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2514.3520000000003,
+      "timestamp": "2026-02-05T08:25:47.131203"
+    },
+    {
+      "name": "GFS Data Source",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2516.068,
+      "timestamp": "2026-02-05T08:25:49.647303"
+    },
+    {
+      "name": "E2CC Health",
+      "passed": false,
+      "message": "E2CC not reachable: All connection attempts failed",
+      "duration_ms": 2544.4680000000003,
+      "timestamp": "2026-02-05T08:25:52.191811"
+    },
+    {
+      "name": "Signaling Server",
+      "passed": false,
+      "message": "[WinError 1225] The remote computer refused the network connection",
+      "duration_ms": 4127.7699999999995,
+      "timestamp": "2026-02-05T08:25:56.319614"
+    },
+    {
+      "name": "API Gateway",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2513.654,
+      "timestamp": "2026-02-05T08:25:58.833301"
+    },
+    {
+      "name": "FCN3 Inference",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2505.5209999999997,
+      "timestamp": "2026-02-05T08:26:01.338852"
+    },
+    {
+      "name": "Layer Toggle",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2503.716,
+      "timestamp": "2026-02-05T08:26:03.842598"
+    },
+    {
+      "name": "Stream Config",
+      "passed": false,
+      "message": "All connection attempts failed",
+      "duration_ms": 2508.824,
+      "timestamp": "2026-02-05T08:26:06.351449"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "suite": "RTX 5090 GPU Passthrough",
+  "target": "localhost",
+  "summary": {
+    "total": 12,
+    "passed": 6,
+    "failed": 6,
+    "pass_rate": "50.0%"
+  },
+  "results": [
+    {
+      "name": "NVIDIA Driver",
+      "passed": true,
+      "message": "Driver version: 580.97",
+      "details": {
+        "driver_version": "580.97"
+      },
+      "timestamp": "2026-02-05T08:23:01.970422"
+    },
+    {
+      "name": "GPU Detected",
+      "passed": true,
+      "message": "GPU: NVIDIA GeForce RTX 5090",
+      "details": {
+        "gpu_name": "NVIDIA GeForce RTX 5090"
+      },
+      "timestamp": "2026-02-05T08:23:02.062420"
+    },
+    {
+      "name": "RTX 5090 ID",
+      "passed": true,
+      "message": "RTX 5090 confirmed: NVIDIA GeForce RTX 5090",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.142880"
+    },
+    {
+      "name": "VRAM Size",
+      "passed": true,
+      "message": "VRAM: 31.8GB",
+      "details": {
+        "vram_gb": 31.8427734375
+      },
+      "timestamp": "2026-02-05T08:23:02.220700"
+    },
+    {
+      "name": "CUDA Available",
+      "passed": false,
+      "message": "CUDA not available:  Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.\n",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.332264"
+    },
+    {
+      "name": "CUDA Version",
+      "passed": true,
+      "message": "Driver: 580.97",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.415393"
+    },
+    {
+      "name": "IOMMU Enabled",
+      "passed": false,
+      "message": "IOMMU not detected",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.430901"
+    },
+    {
+      "name": "PCIe Width",
+      "passed": true,
+      "message": "PCIe x16",
+      "details": {
+        "pcie_width": "16"
+      },
+      "timestamp": "2026-02-05T08:23:02.523186"
+    },
+    {
+      "name": "Container Toolkit",
+      "passed": false,
+      "message": "NVIDIA Container Toolkit not found",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.544047"
+    },
+    {
+      "name": "Docker GPU",
+      "passed": false,
+      "message": "Docker GPU access failed: The system cannot find the path specified.\n",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.559622"
+    },
+    {
+      "name": "GPU Operator",
+      "passed": false,
+      "message": "GPU Operator not running",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.572310"
+    },
+    {
+      "name": "GPU Allocatable",
+      "passed": false,
+      "message": "No GPUs allocatable",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:02.588751"
+    }
+  ],
+  "timestamp": "2026-02-05T08:23:02.588831"
+}

@@ -30,7 +30,10 @@ import {
   MemoryStick,
   Workflow,
   AlertCircle,
+  Mic,
+  MicOff,
 } from "lucide-react"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { MouseIcon as Mushroom, FlaskRoundIcon as Flask, Microscope } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -52,6 +55,28 @@ export function CommandSearch({ ...props }: DialogProps) {
   const [aiLoading, setAiLoading] = React.useState(false)
   
   const { query, setQuery, suggestions, isLoading } = useSearch()
+  
+  // PersonaPlex voice context for voice input
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+  }
+  
+  // Handle voice transcript to populate search
+  React.useEffect(() => {
+    if (lastTranscript && open) {
+      if (aiMode) {
+        setAiQuery(lastTranscript)
+      } else {
+        setQuery(lastTranscript)
+      }
+    }
+  }, [lastTranscript, open, aiMode, setQuery])
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -184,20 +209,30 @@ export function CommandSearch({ ...props }: DialogProps) {
 
   return (
     <>
-      <Button
-        variant="outline"
-        className="relative h-10 w-full justify-start rounded-[0.5rem] bg-background text-sm font-normal text-muted-foreground shadow-none sm:pr-12 md:w-96 lg:w-[30rem]"
-        onClick={() => setOpen(true)}
-        {...props}
-      >
-        <span className="inline-flex">
-          <Search className="mr-2 h-4 w-4" />
-          Search or ask MYCA...
-        </span>
-        <kbd className="pointer-events-none absolute right-[0.3rem] top-[0.3rem] hidden h-8 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
-          <span className="text-xs">⌘</span>K
-        </kbd>
-      </Button>
+      <div className="relative flex items-center">
+        <Button
+          variant="outline"
+          className="relative h-10 w-full justify-start rounded-[0.5rem] bg-background text-sm font-normal text-muted-foreground shadow-none sm:pr-20 md:w-96 lg:w-[30rem]"
+          onClick={() => setOpen(true)}
+          {...props}
+        >
+          <span className="inline-flex">
+            <Search className="mr-2 h-4 w-4" />
+            Search or ask MYCA...
+          </span>
+          <div className="pointer-events-none absolute right-[0.3rem] top-[0.3rem] hidden h-8 select-none items-center gap-1 sm:flex">
+            <span className={cn(
+              "flex items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium",
+              isConnected && "text-green-500"
+            )}>
+              <Mic className="h-3 w-3" />
+            </span>
+            <kbd className="rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </div>
+        </Button>
+      </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="overflow-hidden p-0 shadow-lg max-w-2xl">
           <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
@@ -250,6 +285,25 @@ export function CommandSearch({ ...props }: DialogProps) {
                   className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 />
               )}
+              {/* PersonaPlex Voice Input Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "ml-2 h-8 w-8 p-0 shrink-0",
+                  isListening && "bg-red-500/10 text-red-500 hover:bg-red-500/20",
+                  !isConnected && "opacity-50"
+                )}
+                onClick={() => isListening ? stopListening() : startListening()}
+                disabled={!isConnected && connectionState !== "connecting"}
+                title={isListening ? "Stop listening" : isConnected ? "Voice input" : "PersonaPlex not connected"}
+              >
+                {isListening ? (
+                  <MicOff className="h-4 w-4 animate-pulse" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
               {aiMode && aiQuery && (
                 <Button 
                   size="sm" 
@@ -498,12 +552,17 @@ export function CommandSearch({ ...props }: DialogProps) {
             {/* Footer */}
             <div className="mt-2 px-3 py-2 border-t bg-muted/30">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
+                <span className="flex items-center gap-2">
                   {aiMode ? (
                     <><kbd className="px-1 rounded bg-muted">Enter</kbd> to ask</>
                   ) : (
                     <><kbd className="px-1 rounded bg-muted">⌘K</kbd> to search</>
                   )}
+                  <span className="mx-1">•</span>
+                  <span className={cn("flex items-center gap-1", isConnected ? "text-green-500" : "text-muted-foreground")}>
+                    <Mic className="h-3 w-3" />
+                    {isConnected ? "Voice ready" : "Voice offline"}
+                  </span>
                 </span>
                 <span>
                   <kbd className="px-1 rounded bg-muted">⌘⇧K</kbd> AI mode

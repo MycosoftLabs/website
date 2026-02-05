@@ -1,0 +1,92 @@
+# FuXi Model Deployment - February 5, 2026
+# Fudan FuXi - 15-day forecasts
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-fuxi
+  namespace: earth2-models
+  labels:
+    app: earth2-fuxi
+    model: fuxi
+    tier: on-demand
+spec:
+  replicas: 0  # On-demand
+  selector:
+    matchLabels:
+      app: earth2-fuxi
+  template:
+    metadata:
+      labels:
+        app: earth2-fuxi
+        model: fuxi
+    spec:
+      containers:
+        - name: fuxi
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8306
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "fuxi"
+            - name: MODEL_PATH
+              value: "/models/fuxi"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8306"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "20Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "14Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8306
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8306
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "8Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-fuxi
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-fuxi
+  ports:
+    - port: 8306
+      targetPort: 8306
+      name: http
+  type: ClusterIP

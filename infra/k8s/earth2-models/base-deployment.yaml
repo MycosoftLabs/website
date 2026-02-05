@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Earth2Studio Base Model Deployment Template - February 5, 2026
+# 
+# Common configuration for all Earth-2 model deployments
+# Use as a template and override specific values in model-specific files
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: earth2-common-config
+  namespace: earth2-models
+data:
+  MODEL_CACHE_DIR: "/opt/earth2/models"
+  DATA_CACHE_DIR: "/opt/earth2/data"
+  LOG_LEVEL: "INFO"
+  MAX_CONCURRENT_RUNS: "2"
+  ENABLE_FP16: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: earth2-secrets
+  namespace: earth2-models
+type: Opaque
+stringData:
+  HF_TOKEN: ""  # Add your HuggingFace token here if needed
+  NGC_API_KEY: ""  # Add your NGC API key here if needed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-inference
+  namespace: earth2-models
+  labels:
+    app: earth2-inference
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8300
+      targetPort: 8300
+      protocol: TCP
+      name: http
+  selector:
+    app: earth2-inference
+---
+# Resource Quota to prevent OOM
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: earth2-gpu-quota
+  namespace: earth2-models
+spec:
+  hard:
+    requests.nvidia.com/gpu: "1"
+    limits.nvidia.com/gpu: "1"

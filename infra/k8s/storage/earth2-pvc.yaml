@@ -1,0 +1,140 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Earth-2 Persistent Storage Configuration - February 5, 2026
+# 
+# Storage for:
+# - Model weights cache (~100GB per major model)
+# - Weather data cache (ERA5, GFS, HRRR)
+# - Inference outputs
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+# Storage Class for local NVMe/SSD storage
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: earth2-fast
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+---
+# Model Cache Volume (for downloaded model weights)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: earth2-models-pv
+  labels:
+    type: earth2-models
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: earth2-fast
+  local:
+    path: /opt/earth2/models
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: nvidia.com/gpu.present
+          operator: In
+          values:
+          - "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: earth2-models-pvc
+  namespace: earth2-models
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: earth2-fast
+  resources:
+    requests:
+      storage: 200Gi
+  selector:
+    matchLabels:
+      type: earth2-models
+---
+# Data Cache Volume (for weather data)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: earth2-data-pv
+  labels:
+    type: earth2-data
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: earth2-fast
+  local:
+    path: /opt/earth2/data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: nvidia.com/gpu.present
+          operator: In
+          values:
+          - "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: earth2-data-pvc
+  namespace: earth2-services
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: earth2-fast
+  resources:
+    requests:
+      storage: 500Gi
+  selector:
+    matchLabels:
+      type: earth2-data
+---
+# Omniverse Assets Volume
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: omniverse-assets-pv
+  labels:
+    type: omniverse-assets
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: earth2-fast
+  local:
+    path: /opt/earth2/omniverse
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: nvidia.com/gpu.present
+          operator: In
+          values:
+          - "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omniverse-assets-pvc
+  namespace: earth2-omniverse
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: earth2-fast
+  resources:
+    requests:
+      storage: 100Gi
+  selector:
+    matchLabels:
+      type: omniverse-assets

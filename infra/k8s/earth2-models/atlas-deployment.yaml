@@ -1,0 +1,136 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Atlas ERA5 Model Deployment - February 5, 2026
+# 
+# Ensemble diffusion model for probabilistic forecasting
+# VRAM Usage: ~12GB
+# On-demand scaling (scale to 0 when not in use)
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-atlas
+  namespace: earth2-models
+  labels:
+    app: earth2-inference
+    model: atlas
+    priority: medium
+spec:
+  replicas: 0  # Scale to 0 by default, scale up on demand
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: earth2-inference
+      model: atlas
+  template:
+    metadata:
+      labels:
+        app: earth2-inference
+        model: atlas
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8302"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      
+      containers:
+        - name: earth2-atlas
+          image: earth2-inference:latest
+          imagePullPolicy: Always
+          
+          ports:
+            - containerPort: 8302
+              name: http
+          
+          env:
+            - name: DEFAULT_MODEL
+              value: "atlas"
+            - name: PRELOAD_MODEL
+              value: "true"
+            - name: SERVICE_PORT
+              value: "8302"
+          
+          envFrom:
+            - configMapRef:
+                name: earth2-common-config
+            - secretRef:
+                name: earth2-secrets
+          
+          command:
+            - python
+            - -m
+            - uvicorn
+            - inference_server:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8302"
+          
+          resources:
+            requests:
+              memory: "24Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "48Gi"
+              cpu: "8"
+              nvidia.com/gpu: "1"
+          
+          volumeMounts:
+            - name: model-cache
+              mountPath: /opt/earth2/models
+            - name: data-cache
+              mountPath: /opt/earth2/data
+            - name: shm
+              mountPath: /dev/shm
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 15
+      
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-models-pvc
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-data-pvc
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "12Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-atlas
+  namespace: earth2-models
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8302
+      targetPort: 8302
+      name: http
+  selector:
+    app: earth2-inference
+    model: atlas

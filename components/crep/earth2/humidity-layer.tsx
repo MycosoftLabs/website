@@ -8,7 +8,7 @@
  * Uses Earth-2 2m relative humidity (r2) or derived from dewpoint
  */
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { getEarth2Client, type GeoBounds } from "@/lib/earth2/client";
 
 interface HumidityLayerProps {
@@ -77,6 +77,16 @@ function getHumidityLabel(value: number): string {
   return "Very Dry";
 }
 
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function HumidityLayer({
   map,
   visible,
@@ -85,20 +95,16 @@ export function HumidityLayer({
   onDataLoaded,
 }: HumidityLayerProps) {
   const layerAddedRef = useRef(false);
+  const fetchingRef = useRef(false);
   const clientRef = useRef(getEarth2Client());
+  
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
 
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
-
-    try {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {}
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return;
+    
+    fetchingRef.current = true;
 
     try {
       const mapBounds = map.getBounds();
@@ -109,27 +115,18 @@ export function HumidityLayer({
         west: mapBounds.getWest(),
       };
 
-      console.log(`[Earth-2] Fetching humidity data: ${forecastHours}h forecast`);
-
-      // Fetch humidity data (using tcwv as proxy for humidity visualization)
       const { grid, min, max } = await clientRef.current.getWeatherGrid({
         variable: "tcwv",
-        forecastHours,
+        forecastHours: debouncedHours,
         bounds,
         resolution: 0.5,
       });
 
-      // Convert tcwv (0-70 kg/m²) to humidity percentage (0-100%)
       const humidityGrid = grid.map(row => 
         row.map(val => Math.min(100, (val / 60) * 100))
       );
 
-      // Calculate statistics
-      let sum = 0;
-      let minH = 100;
-      let maxH = 0;
-      let count = 0;
-
+      let sum = 0, minH = 100, maxH = 0, count = 0;
       for (const row of humidityGrid) {
         for (const val of row) {
           sum += val;
@@ -142,56 +139,80 @@ export function HumidityLayer({
       const avgHumidity = count > 0 ? sum / count : 0;
       onDataLoaded?.({ avgHumidity, minHumidity: minH, maxHumidity: maxH });
 
-      // Generate humidity GeoJSON
       const humidityData = generateHumidityGeoJSON(humidityGrid, bounds);
-      console.log(`[Earth-2] Humidity: ${humidityData.features.length} cells, range=${minH.toFixed(0)}-${maxH.toFixed(0)}%`);
 
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: humidityData,
-      });
+      // Check if source exists - UPDATE it
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(humidityData);
+      } else {
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: humidityData,
+        });
 
-      // Add layer with beforeId to ensure proper layering
-      const layerConfig: any = {
-        id: LAYER_ID,
-        type: "fill",
-        source: SOURCE_ID,
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": opacity * 0.55,
-        },
-      };
+        const layerConfig: any = {
+          id: LAYER_ID,
+          type: "fill",
+          source: SOURCE_ID,
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": opacity * 0.55,
+          },
+        };
 
-      try {
-        if (map.getLayer("waterway")) {
-          map.addLayer(layerConfig, "waterway");
-        } else {
+        try {
+          if (map.getLayer("waterway")) {
+            map.addLayer(layerConfig, "waterway");
+          } else {
+            map.addLayer(layerConfig);
+          }
+        } catch {
           map.addLayer(layerConfig);
         }
-      } catch {
-        map.addLayer(layerConfig);
       }
 
       layerAddedRef.current = true;
     } catch (error) {
       console.error("[Earth-2] Humidity layer error:", error);
+    } finally {
+      fetchingRef.current = false;
     }
-  }, [map, visible, forecastHours, opacity, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-    return () => {
-      try {
-        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {}
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        try {
+          if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, "visibility", "none");
+        } catch {}
+      }
     };
-  }, [map, visible, forecastHours, setupLayer]);
+
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  useEffect(() => {
+    if (!map) return;
+    try {
+      if (map.getLayer(LAYER_ID)) {
+        map.setLayoutProperty(LAYER_ID, "visibility", visible ? "visible" : "none");
+      }
+    } catch {}
+  }, [map, visible]);
 
   useEffect(() => {
     if (map?.getLayer?.(LAYER_ID)) {
@@ -200,6 +221,15 @@ export function HumidityLayer({
       } catch {}
     }
   }, [map, opacity]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

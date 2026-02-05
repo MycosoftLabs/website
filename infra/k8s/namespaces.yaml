@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# NVIDIA Earth-2 Kubernetes Namespaces - February 5, 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: earth2-models
+  labels:
+    app.kubernetes.io/part-of: earth2
+    app.kubernetes.io/component: ai-models
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: earth2-services
+  labels:
+    app.kubernetes.io/part-of: earth2
+    app.kubernetes.io/component: services
+    pod-security.kubernetes.io/enforce: baseline
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: earth2-omniverse
+  labels:
+    app.kubernetes.io/part-of: earth2
+    app.kubernetes.io/component: visualization
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-operator
+  labels:
+    app.kubernetes.io/part-of: nvidia
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged

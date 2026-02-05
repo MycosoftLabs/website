@@ -1,0 +1,158 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# FourCastNet3 (FCN3) Model Deployment - February 5, 2026
+# 
+# Primary global forecast model - 0.25° resolution
+# VRAM Usage: ~8GB
+# Always running (high priority)
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-fcn3
+  namespace: earth2-models
+  labels:
+    app: earth2-inference
+    model: fcn3
+    priority: high
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # GPU workloads can't do rolling updates easily
+  selector:
+    matchLabels:
+      app: earth2-inference
+      model: fcn3
+  template:
+    metadata:
+      labels:
+        app: earth2-inference
+        model: fcn3
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8300"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      
+      # GPU node scheduling
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      
+      # Init container to download model weights
+      initContainers:
+        - name: model-downloader
+          image: python:3.11-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              pip install huggingface-hub
+              python -c "
+              from huggingface_hub import snapshot_download
+              import os
+              cache_dir = os.environ.get('MODEL_CACHE_DIR', '/opt/earth2/models')
+              # FCN3 weights are automatically downloaded by earth2studio
+              print('Model cache ready')
+              "
+          envFrom:
+            - configMapRef:
+                name: earth2-common-config
+            - secretRef:
+                name: earth2-secrets
+          volumeMounts:
+            - name: model-cache
+              mountPath: /opt/earth2/models
+      
+      containers:
+        - name: earth2-fcn3
+          image: earth2-inference:latest
+          imagePullPolicy: Always
+          
+          ports:
+            - containerPort: 8300
+              name: http
+              protocol: TCP
+          
+          env:
+            - name: DEFAULT_MODEL
+              value: "fcn3"
+            - name: PRELOAD_MODEL
+              value: "true"
+          
+          envFrom:
+            - configMapRef:
+                name: earth2-common-config
+            - secretRef:
+                name: earth2-secrets
+          
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "32Gi"
+              cpu: "8"
+              nvidia.com/gpu: "1"
+          
+          volumeMounts:
+            - name: model-cache
+              mountPath: /opt/earth2/models
+            - name: data-cache
+              mountPath: /opt/earth2/data
+            - name: shm
+              mountPath: /dev/shm
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-models-pvc
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-data-pvc
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "8Gi"  # Shared memory for PyTorch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-fcn3
+  namespace: earth2-models
+  labels:
+    app: earth2-inference
+    model: fcn3
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8300
+      targetPort: 8300
+      name: http
+  selector:
+    app: earth2-inference
+    model: fcn3

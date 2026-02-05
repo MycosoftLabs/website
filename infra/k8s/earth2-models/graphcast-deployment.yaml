@@ -1,0 +1,92 @@
+# GraphCast Model Deployment - February 5, 2026
+# Google DeepMind GraphCast - graph neural network weather
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-graphcast
+  namespace: earth2-models
+  labels:
+    app: earth2-graphcast
+    model: graphcast
+    tier: on-demand
+spec:
+  replicas: 0  # On-demand
+  selector:
+    matchLabels:
+      app: earth2-graphcast
+  template:
+    metadata:
+      labels:
+        app: earth2-graphcast
+        model: graphcast
+    spec:
+      containers:
+        - name: graphcast
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8307
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "graphcast"
+            - name: MODEL_PATH
+              value: "/models/graphcast"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8307"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "28Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "20Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8307
+            initialDelaySeconds: 180
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8307
+            initialDelaySeconds: 90
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "10Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-graphcast
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-graphcast
+  ports:
+    - port: 8307
+      targetPort: 8307
+      name: http
+  type: ClusterIP

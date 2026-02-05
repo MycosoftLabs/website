@@ -1,0 +1,136 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# CorrDiff Model Deployment - February 5, 2026
+# 
+# AI-powered downscaling model (25km -> 1km resolution)
+# VRAM Usage: ~8GB
+# On-demand scaling
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-corrdiff
+  namespace: earth2-models
+  labels:
+    app: earth2-inference
+    model: corrdiff
+    priority: medium
+spec:
+  replicas: 0  # On-demand
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: earth2-inference
+      model: corrdiff
+  template:
+    metadata:
+      labels:
+        app: earth2-inference
+        model: corrdiff
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8303"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      
+      containers:
+        - name: earth2-corrdiff
+          image: earth2-inference:latest
+          imagePullPolicy: Always
+          
+          ports:
+            - containerPort: 8303
+              name: http
+          
+          env:
+            - name: DEFAULT_MODEL
+              value: "corrdiff"
+            - name: PRELOAD_MODEL
+              value: "true"
+            - name: SERVICE_PORT
+              value: "8303"
+          
+          envFrom:
+            - configMapRef:
+                name: earth2-common-config
+            - secretRef:
+                name: earth2-secrets
+          
+          command:
+            - python
+            - -m
+            - uvicorn
+            - inference_server:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8303"
+          
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "32Gi"
+              cpu: "8"
+              nvidia.com/gpu: "1"
+          
+          volumeMounts:
+            - name: model-cache
+              mountPath: /opt/earth2/models
+            - name: data-cache
+              mountPath: /opt/earth2/data
+            - name: shm
+              mountPath: /dev/shm
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-models-pvc
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-data-pvc
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "8Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-corrdiff
+  namespace: earth2-models
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8303
+      targetPort: 8303
+      name: http
+  selector:
+    app: earth2-inference
+    model: corrdiff

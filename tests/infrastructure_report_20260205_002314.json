@@ -1,0 +1,135 @@
+{
+  "suite": "Infrastructure Tests",
+  "target": "localhost",
+  "summary": {
+    "total": 16,
+    "passed": 3,
+    "failed": 13,
+    "pass_rate": "18.8%"
+  },
+  "results": [
+    {
+      "name": "Docker Installed",
+      "passed": true,
+      "message": "Docker version 29.1.3, build f52814d",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:11.627572"
+    },
+    {
+      "name": "Docker Running",
+      "passed": false,
+      "message": "Docker not running: failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine; check if the path is correct and if the daemon is running: open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified.\n",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:12.256559"
+    },
+    {
+      "name": "Docker Compose",
+      "passed": true,
+      "message": "Docker Compose version v2.40.3-desktop.1",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:12.788413"
+    },
+    {
+      "name": "K3s Installed",
+      "passed": false,
+      "message": "K3s not installed",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:12.802433"
+    },
+    {
+      "name": "K3s Running",
+      "passed": false,
+      "message": "K3s not running: ",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:12.818393"
+    },
+    {
+      "name": "Kubectl Access",
+      "passed": false,
+      "message": "Cannot access cluster: E0205 00:23:13.144752  200420 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.147885  200420 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.148409  200420 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.150478  200420 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.151528  200420 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nUnable to connect to the server: dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\n",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:13.564116"
+    },
+    {
+      "name": "Nodes Ready",
+      "passed": false,
+      "message": "kubectl failed: E0205 00:23:13.707811  198340 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.710022  198340 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.710547  198340 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.712105  198340 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nE0205 00:23:13.713166  198340 memcache.go:265] \"Unhandled Error\" err=\"couldn't get current server API group list: Get \\\"http://localhost:8080/api?timeout=32s\\\": dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\"\nUnable to connect to the server: dial tcp [::1]:8080: connectex: No connection could be made because the target machine actively refused it.\n",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.524883"
+    },
+    {
+      "name": "earth2-models NS",
+      "passed": false,
+      "message": "Namespace not found or not active",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.540066"
+    },
+    {
+      "name": "earth2-services NS",
+      "passed": false,
+      "message": "Namespace not found or not active",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.553368"
+    },
+    {
+      "name": "gpu-operator NS",
+      "passed": false,
+      "message": "Namespace not found or not active",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.567682"
+    },
+    {
+      "name": "Model Weights PVC",
+      "passed": false,
+      "message": "PVC not found or not bound",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.582328"
+    },
+    {
+      "name": "Weather Data PVC",
+      "passed": false,
+      "message": "PVC not found or not bound",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.596818"
+    },
+    {
+      "name": "Storage Directories",
+      "passed": false,
+      "message": "/opt/earth2 directories not found",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.610536"
+    },
+    {
+      "name": "DNS Resolution",
+      "passed": false,
+      "message": "DNS resolution failed",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.627014"
+    },
+    {
+      "name": "Internet Connectivity",
+      "passed": false,
+      "message": "No internet: '200'",
+      "details": {},
+      "timestamp": "2026-02-05T08:23:14.862934"
+    },
+    {
+      "name": "Port Availability",
+      "passed": true,
+      "message": "Available: 6, In use: 0",
+      "details": {
+        "available": [
+          8210,
+          8211,
+          8212,
+          8300,
+          8310,
+          8320
+        ],
+        "in_use": []
+      },
+      "timestamp": "2026-02-05T08:23:14.968384"
+    }
+  ],
+  "timestamp": "2026-02-05T08:23:14.968471"
+}

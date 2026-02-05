@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Data Federation Mesh Deployment - February 5, 2026
+# ═══════════════════════════════════════════════════════════════════════════════
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-federation-mesh
+  namespace: earth2-services
+  labels:
+    app: data-federation-mesh
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-federation-mesh
+  template:
+    metadata:
+      labels:
+        app: data-federation-mesh
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8310"
+    spec:
+      containers:
+        - name: dfm
+          image: data-federation-mesh:latest
+          imagePullPolicy: Always
+          
+          ports:
+            - containerPort: 8310
+              name: http
+          
+          env:
+            - name: DATA_CACHE_DIR
+              value: "/opt/earth2/data"
+            - name: DATA_CACHE_TTL_HOURS
+              value: "24"
+            - name: MAX_CACHE_SIZE_GB
+              value: "100"
+          
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+          
+          volumeMounts:
+            - name: data-cache
+              mountPath: /opt/earth2/data
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      
+      volumes:
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-federation-mesh
+  namespace: earth2-services
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8310
+      targetPort: 8310
+      name: http
+  selector:
+    app: data-federation-mesh

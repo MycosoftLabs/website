@@ -1,9 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import useSWR from "swr"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { Mic, MicOff } from "lucide-react"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 
 interface MINDEXSearchInputProps {
   className?: string
@@ -21,6 +23,24 @@ function fetcher(url: string) {
 export function MINDEXSearchInput({ className, placeholder, onSelectTaxonId }: MINDEXSearchInputProps) {
   const [query, setQuery] = useState("")
   const enabled = query.trim().length >= 2
+  
+  // PersonaPlex voice context
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+  }
+  
+  // Handle voice transcript to populate search
+  useEffect(() => {
+    if (lastTranscript) {
+      setQuery(lastTranscript)
+    }
+  }, [lastTranscript])
 
   const url = useMemo(() => {
     if (!enabled) return null
@@ -32,11 +52,33 @@ export function MINDEXSearchInput({ className, placeholder, onSelectTaxonId }: M
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholder || "Search MINDEX…"}
-      />
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder || "Search MINDEX…"}
+          className="pr-10"
+        />
+        {/* Voice Input Button */}
+        <button
+          type="button"
+          onClick={() => isListening ? stopListening() : startListening()}
+          disabled={!isConnected && connectionState !== "connecting"}
+          className={cn(
+            "absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-full transition-colors",
+            isListening && "bg-red-500/10 text-red-500",
+            !isConnected && "opacity-50 cursor-not-allowed",
+            isConnected && !isListening && "hover:bg-muted text-muted-foreground"
+          )}
+          title={isListening ? "Stop listening" : isConnected ? "Voice search" : "Voice offline"}
+        >
+          {isListening ? (
+            <MicOff className="w-4 h-4 animate-pulse" />
+          ) : (
+            <Mic className="w-4 h-4" />
+          )}
+        </button>
+      </div>
       {enabled ? (
         <div className="rounded-md border bg-background p-2">
           {isLoading ? (

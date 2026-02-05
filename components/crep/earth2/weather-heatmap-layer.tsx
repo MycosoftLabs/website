@@ -6,6 +6,8 @@
  * 
  * Renders temperature/precipitation overlay on MapLibre using fill layers
  * Fetches real data from Earth-2 API with intelligent fallback
+ * 
+ * FIXED: Proper source management to prevent flickering
  */
 
 import { useEffect, useRef, useCallback, useState } from "react";
@@ -24,6 +26,16 @@ interface WeatherHeatmapLayerProps {
 
 const LAYER_ID = "earth2-weather-heatmap";
 const SOURCE_ID = "earth2-weather-source";
+
+// Debounce helper
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 // Color scales for different variables (NOAA-style)
 const COLOR_SCALES = {
@@ -93,29 +105,24 @@ export function WeatherHeatmapLayer({
   onError,
 }: WeatherHeatmapLayerProps) {
   const layerAddedRef = useRef(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const fetchingRef = useRef(false);
+  const lastFetchKey = useRef("");
   const clientRef = useRef(getEarth2Client());
   
-  const setupLayer = useCallback(async () => {
-    if (!map) return;
+  // Debounce forecastHours to prevent rapid updates during timeline scrubbing
+  const debouncedHours = useDebouncedValue(forecastHours, 300);
+  
+  // Update data function - uses setData() for existing sources
+  const updateData = useCallback(async () => {
+    if (!map || !visible) return;
+    if (fetchingRef.current) return; // Prevent concurrent fetches
     
-    // Remove existing layer/source if present
-    try {
-      if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-    } catch {
-      // Ignore cleanup errors
-    }
-
-    if (!visible) {
-      layerAddedRef.current = false;
-      return;
-    }
-
-    setIsLoading(true);
+    const fetchKey = `${variable}-${debouncedHours}`;
+    if (fetchKey === lastFetchKey.current && layerAddedRef.current) return;
+    
+    fetchingRef.current = true;
 
     try {
-      // Get current map bounds
       const mapBounds = map.getBounds();
       const bounds: GeoBounds = {
         north: Math.min(85, mapBounds.getNorth()),
@@ -124,93 +131,120 @@ export function WeatherHeatmapLayer({
         west: mapBounds.getWest(),
       };
 
-      // Fetch weather grid from Earth-2 API
       const apiVariable = VARIABLE_MAP[variable] || "t2m";
-      console.log(`[Earth-2] Fetching weather grid: ${apiVariable}, ${forecastHours}h, bounds:`, bounds);
       
       const { grid, min, max } = await clientRef.current.getWeatherGrid({
         variable: apiVariable,
-        forecastHours,
+        forecastHours: debouncedHours,
         bounds,
         resolution: 0.5,
       });
 
-      console.log(`[Earth-2] Grid received: ${grid.length}x${grid[0]?.length || 0} cells, range: ${min.toFixed(1)} - ${max.toFixed(1)}`);
-
-      // Generate GeoJSON from grid data
       const weatherData = generateWeatherGeoJSON(grid, bounds, variable, min, max);
-      console.log(`[Earth-2] GeoJSON generated: ${weatherData.features.length} features`);
 
-      // Add GeoJSON source
-      map.addSource(SOURCE_ID, {
-        type: "geojson",
-        data: weatherData,
-      });
+      // Check if source exists - UPDATE it, don't recreate
+      const source = map.getSource(SOURCE_ID);
+      if (source) {
+        source.setData(weatherData);
+      } else {
+        // First time - create source and layer
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: weatherData,
+        });
 
-      // Add fill layer (add before waterway if it exists, otherwise just add)
-      const layerConfig = {
-        id: LAYER_ID,
-        type: "fill" as const,
-        source: SOURCE_ID,
-        paint: {
-          "fill-color": ["get", "color"],
-          "fill-opacity": opacity * 0.65,
-        },
-      };
-      
-      // Try to add before waterway layer, fall back to just adding
-      try {
-        if (map.getLayer("waterway")) {
-          map.addLayer(layerConfig, "waterway");
-        } else {
+        const layerConfig = {
+          id: LAYER_ID,
+          type: "fill" as const,
+          source: SOURCE_ID,
+          paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": opacity * 0.65,
+          },
+        };
+        
+        try {
+          if (map.getLayer("waterway")) {
+            map.addLayer(layerConfig, "waterway");
+          } else {
+            map.addLayer(layerConfig);
+          }
+        } catch {
           map.addLayer(layerConfig);
         }
-      } catch (e) {
-        console.log("[Earth-2] Adding layer without reference:", e);
-        map.addLayer(layerConfig);
       }
 
       layerAddedRef.current = true;
-      
+      lastFetchKey.current = fetchKey;
       onDataLoaded?.({ min, max, variable });
-      console.log(`[Earth-2] Weather layer: ${variable}, ${forecastHours}h, model=${model}, range=[${min.toFixed(1)}, ${max.toFixed(1)}]`);
     } catch (error) {
       console.error("[Earth-2] Weather layer error:", error);
       onError?.(String(error));
     } finally {
-      setIsLoading(false);
+      fetchingRef.current = false;
     }
-  }, [map, visible, variable, forecastHours, opacity, model, onDataLoaded, onError]);
+  }, [map, visible, variable, debouncedHours, opacity, onDataLoaded, onError]);
 
+  // Initial setup and visibility changes
   useEffect(() => {
     if (!map) return;
 
-    if (map.isStyleLoaded()) {
-      setupLayer();
-    } else {
-      map.once("style.load", setupLayer);
-    }
-
-    return () => {
-      try {
-        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
-      } catch {
-        // Ignore cleanup errors
+    const handleSetup = () => {
+      if (visible) {
+        updateData();
+      } else {
+        // Hide layers when not visible
+        try {
+          if (map.getLayer(LAYER_ID)) {
+            map.setLayoutProperty(LAYER_ID, "visibility", "none");
+          }
+        } catch {}
+        layerAddedRef.current = false;
       }
     };
-  }, [map, visible, variable, forecastHours, model, setupLayer]);
 
-  // Update opacity when it changes
+    if (map.isStyleLoaded()) {
+      handleSetup();
+    } else {
+      map.once("style.load", handleSetup);
+    }
+  }, [map, visible, updateData]);
+
+  // Update when debounced hours change
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) {
+      updateData();
+    }
+  }, [debouncedHours, visible, map, updateData]);
+
+  // Show layer when it becomes visible
+  useEffect(() => {
+    if (!map) return;
+    try {
+      if (map.getLayer(LAYER_ID)) {
+        map.setLayoutProperty(LAYER_ID, "visibility", visible ? "visible" : "none");
+      }
+    } catch {}
+  }, [map, visible]);
+
+  // Update opacity
   useEffect(() => {
     if (map?.getLayer?.(LAYER_ID)) {
       try {
         map.setPaintProperty(LAYER_ID, "fill-opacity", opacity * 0.65);
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
   }, [map, opacity]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      try {
+        if (map?.getLayer?.(LAYER_ID)) map.removeLayer(LAYER_ID);
+        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      } catch {}
+    };
+  }, [map]);
 
   return null;
 }

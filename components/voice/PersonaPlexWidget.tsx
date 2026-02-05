@@ -38,7 +38,8 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
   showMonitor = true,
   voicePrompt = "NATURAL_F2.pt",
   textPrompt = MYCA_PERSONAPLEX_PROMPT,
-  serverUrl = "ws://localhost:8998/api/chat",
+  // Default to PersonaPlex Bridge (8999) for MAS Event Engine integration
+  serverUrl = "ws://localhost:8999/api/chat",
   onTranscript,
   onResponse,
   onCommand,

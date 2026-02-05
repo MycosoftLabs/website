@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# GRUB IOMMU Configuration Reference - February 5, 2026
+# 
+# Manual GRUB configuration for GPU passthrough
+# File: /etc/default/grub
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INTEL CPU CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# For Intel CPUs, modify GRUB_CMDLINE_LINUX_DEFAULT:
+GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction nofb nomodeset video=vesafb:off video=efifb:off"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AMD CPU CONFIGURATION  
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# For AMD CPUs, modify GRUB_CMDLINE_LINUX_DEFAULT:
+GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_iommu=on iommu=pt pcie_acs_override=downstream,multifunction nofb nomodeset video=vesafb:off video=efifb:off"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARAMETER EXPLANATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# intel_iommu=on / amd_iommu=on
+#   - Enables IOMMU (Input/Output Memory Management Unit)
+#   - Required for PCIe device passthrough
+#   - Allows VMs to have direct hardware access
+
+# iommu=pt (passthrough)
+#   - Sets IOMMU to passthrough mode
+#   - Improves performance for devices not using IOMMU translation
+#   - Reduces overhead for host devices
+
+# pcie_acs_override=downstream,multifunction
+#   - Separates IOMMU groups for devices behind PCIe switches
+#   - Useful when GPU and other devices share IOMMU group
+#   - May be needed if GPU is grouped with other devices
+
+# nofb nomodeset video=vesafb:off video=efifb:off
+#   - Disables framebuffer on host
+#   - Prevents host from grabbing GPU at boot
+#   - Required for clean GPU passthrough
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AFTER EDITING /etc/default/grub, RUN:
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# update-grub
+# reboot
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VERIFICATION COMMANDS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Check IOMMU is enabled:
+# dmesg | grep -e DMAR -e IOMMU
+
+# Expected output (Intel):
+# [    0.000000] DMAR: IOMMU enabled
+
+# Expected output (AMD):
+# [    0.000000] AMD-Vi: IOMMU performance counters supported
+
+# List IOMMU groups:
+# for g in /sys/kernel/iommu_groups/*; do
+#     echo "IOMMU Group ${g##*/}:"
+#     for d in $g/devices/*; do
+#         echo -e "\t$(lspci -nns ${d##*/})"
+#     done
+# done
+
+# Check GPU IOMMU group specifically:
+# lspci -nnk | grep -A3 -i nvidia
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RTX 5090 SPECIFIC NOTES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# The RTX 5090 uses the Blackwell architecture
+# PCI Device IDs (verify with lspci -nn):
+#   - GPU: 10de:2684 (tentative, verify on actual hardware)
+#   - Audio: 10de:2685 (tentative, verify on actual hardware)
+
+# For best performance:
+#   - Use PCIe Gen 5 slot if available
+#   - Ensure adequate cooling (350W+ TDP)
+#   - Configure VM with 64GB+ RAM for Earth-2 models

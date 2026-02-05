@@ -1,14 +1,18 @@
 "use client"
 
+/**
+ * Voice Map Controls for CREP
+ * Updated: Feb 4, 2026 - PersonaPlex integration
+ */
+
 import { useState, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Mic, MicOff, MapPin, Layers, Filter, Navigation, Volume2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useVoiceChat } from "@/hooks/useVoiceChat"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useMapVoiceControl } from "@/hooks/useMapVoiceControl"
-import { parseCommand } from "@/lib/voice/command-parser"
 
 interface VoiceMapControlsProps {
   // Map control callbacks
@@ -62,16 +66,26 @@ export function VoiceMapControls({
   const [commandLog, setCommandLog] = useState<CommandLog[]>([])
   const [lastCommand, setLastCommand] = useState<string | null>(null)
   
-  // Voice chat hook
-  const voice = useVoiceChat({
-    mode: "web-speech",
-    handlers: {
-      "reset view": () => onResetView?.(),
-      "clear filters": () => onClearFilters?.(),
-      "zoom in": () => onZoom?.("in"),
-      "zoom out": () => onZoom?.("out"),
-    },
-  })
+  // PersonaPlex context (from app-level provider)
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState, isSpeaking } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+    isSpeaking: false,
+  }
+  
+  // Toggle listening
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
+    }
+  }, [isListening, startListening, stopListening])
   
   // Map voice control hook
   const mapVoice = useMapVoiceControl({
@@ -109,13 +123,25 @@ export function VoiceMapControls({
     },
   })
   
-  // Process voice transcript
+  // Process PersonaPlex voice transcript
   useEffect(() => {
-    if (voice.transcript) {
-      mapVoice.processVoiceCommand(voice.transcript)
-      voice.clearTranscript()
+    if (lastTranscript) {
+      mapVoice.processVoiceCommand(lastTranscript)
+      setLastCommand(lastTranscript)
+      
+      // Also handle basic commands directly
+      const cmd = lastTranscript.toLowerCase()
+      if (cmd.includes("reset view") || cmd.includes("reset")) {
+        onResetView?.()
+      } else if (cmd.includes("clear filters")) {
+        onClearFilters?.()
+      } else if (cmd.includes("zoom in")) {
+        onZoom?.("in")
+      } else if (cmd.includes("zoom out")) {
+        onZoom?.("out")
+      }
     }
-  }, [voice.transcript])
+  }, [lastTranscript, mapVoice, onResetView, onClearFilters, onZoom])
   
   if (collapsed) {
     return (
@@ -125,11 +151,12 @@ export function VoiceMapControls({
       )}>
         <Button
           size="icon"
-          variant={voice.isListening ? "destructive" : "secondary"}
-          onClick={voice.toggleListening}
+          variant={isListening ? "destructive" : "secondary"}
+          onClick={toggleListening}
+          disabled={!isConnected && connectionState !== "connecting"}
           className="h-10 w-10 rounded-full shadow-lg"
         >
-          {voice.isListening ? (
+          {isListening ? (
             <Mic className="h-5 w-5 animate-pulse" />
           ) : (
             <MicOff className="h-5 w-5" />
@@ -147,8 +174,8 @@ export function VoiceMapControls({
             <Navigation className="h-4 w-4" />
             Voice Map Control
           </CardTitle>
-          <Badge variant={voice.isConnected ? "default" : "secondary"} className="text-xs">
-            {voice.isListening ? "Listening" : "Ready"}
+          <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
+            {isListening ? "Listening" : isConnected ? "Ready" : "Offline"}
           </Badge>
         </div>
       </CardHeader>
@@ -157,31 +184,42 @@ export function VoiceMapControls({
         {/* Main control button */}
         <Button
           className="w-full gap-2"
-          variant={voice.isListening ? "destructive" : "default"}
-          onClick={voice.toggleListening}
+          variant={isListening ? "destructive" : "default"}
+          onClick={toggleListening}
+          disabled={!isConnected && connectionState !== "connecting"}
         >
-          {voice.isListening ? (
+          {isListening ? (
             <>
               <Mic className="h-4 w-4 animate-pulse" />
-              Listening...
+              Listening (PersonaPlex)
             </>
-          ) : voice.isSpeaking ? (
+          ) : isSpeaking ? (
             <>
               <Volume2 className="h-4 w-4 animate-pulse" />
               Speaking...
             </>
-          ) : (
+          ) : connectionState === "connecting" ? (
+            <>
+              <Mic className="h-4 w-4 animate-pulse" />
+              Connecting...
+            </>
+          ) : !isConnected ? (
             <>
               <MicOff className="h-4 w-4" />
+              Voice Offline
+            </>
+          ) : (
+            <>
+              <Mic className="h-4 w-4" />
               Start Voice Control
             </>
           )}
         </Button>
         
-        {/* Interim transcript */}
-        {voice.interimTranscript && (
-          <div className="p-2 bg-muted/50 rounded text-sm italic text-muted-foreground">
-            {voice.interimTranscript}
+        {/* PersonaPlex connection status */}
+        {!isConnected && connectionState !== "connecting" && (
+          <div className="p-2 bg-yellow-500/10 rounded text-xs text-yellow-500">
+            PersonaPlex not connected. Voice requires PersonaPlex Bridge (8999).
           </div>
         )}
         

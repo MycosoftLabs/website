@@ -64,7 +64,9 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const [lastResult, setLastResult] = useState<any>(null)
   
   const personaplex = usePersonaPlex({
-    serverUrl: "ws://localhost:8998/api/chat",
+    // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
+    // Bridge provides MAS Event Engine integration with tool calls, agents, memory
+    serverUrl: "ws://localhost:8999/api/chat",
     voicePrompt: "NATURAL_F2.pt",
     textPrompt: MYCA_PERSONAPLEX_PROMPT,
     enableMasRouting: true,
@@ -231,7 +233,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       <PersonaPlexWidget
         position="bottom-right"
         showMonitor={true}
-        serverUrl="ws://localhost:8998/api/chat"
+        serverUrl="ws://localhost:8999/api/chat"
         voicePrompt="NATURAL_F2.pt"
         textPrompt={MYCA_PERSONAPLEX_PROMPT}
         onTranscript={(text) => {

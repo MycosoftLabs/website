@@ -1198,6 +1198,7 @@ export default function VoiceTestPage() {
       if (decoderWorkerRef.current) decoderWorkerRef.current.terminate()
       if (audioWorkletNodeRef.current) audioWorkletNodeRef.current.disconnect()
       if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current)
+      if (warmupIntervalRef.current) clearInterval(warmupIntervalRef.current)
       if (masEventSourceRef.current) masEventSourceRef.current.close()
     }
   }, [])
@@ -1234,9 +1235,9 @@ export default function VoiceTestPage() {
         {/* Header */}
         <div className="mb-4 text-center">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            MYCA Voice Suite v7.0.0
+            MYCA Voice Suite v7.1.0
           </h1>
-          <p className="text-zinc-500 text-sm">Full-Duplex Voice + MAS Event Engine + Feedback Injection</p>
+          <p className="text-zinc-500 text-sm">Full-Duplex Voice + MAS Event Engine + CUDA Warmup Support</p>
         </div>
         
         {/* Status bar */}

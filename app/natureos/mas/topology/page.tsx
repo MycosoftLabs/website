@@ -3,15 +3,19 @@
 /**
  * MAS Topology Fullscreen Page
  * Dedicated fullscreen view for 3D agent topology visualization
+ * Updated: Feb 4, 2026 - PersonaPlex voice integration
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, ArrowLeft, Maximize2, Minimize2 } from "lucide-react"
+import { RefreshCw, ArrowLeft, Maximize2, Minimize2, Mic, MicOff } from "lucide-react"
 import Link from "next/link"
 import { VoiceSessionOverlay } from "@/components/mas/topology/voice-session-overlay"
 import { MemoryMonitor } from "@/components/mas/topology/memory-monitor"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 // Dynamic import for 3D topology to avoid SSR issues
 const AdvancedTopology3D = dynamic(
@@ -31,7 +35,53 @@ const AdvancedTopology3D = dynamic(
 
 export default function TopologyFullscreenPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
+  const [voiceCommand, setVoiceCommand] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  
+  // PersonaPlex voice context for voice commands
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+  }
+  
+  // Handle voice commands for topology navigation
+  useEffect(() => {
+    if (!lastTranscript) return
+    
+    const command = lastTranscript.toLowerCase()
+    setVoiceCommand(lastTranscript)
+    
+    // Clear command after showing
+    const timeout = setTimeout(() => setVoiceCommand(null), 3000)
+    
+    // Parse voice commands
+    if (command.includes("show agent") || command.includes("select agent") || command.includes("find agent")) {
+      // Extract agent name from command
+      const agentMatch = command.match(/(?:show|select|find)\s+(?:agent\s+)?(.+)/i)
+      if (agentMatch) {
+        const agentName = agentMatch[1].trim()
+        setSelectedAgent(agentName)
+      }
+    } else if (command.includes("fullscreen") || command.includes("full screen")) {
+      if (!document.fullscreenElement) {
+        containerRef.current?.requestFullscreen()
+      }
+    } else if (command.includes("exit fullscreen") || command.includes("minimize")) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen()
+      }
+    } else if (command.includes("go back") || command.includes("back to natureos")) {
+      window.location.href = "/natureos"
+    }
+    
+    return () => clearTimeout(timeout)
+  }, [lastTranscript])
 
   // Listen for fullscreen changes (including Escape key exit)
   useEffect(() => {
@@ -75,8 +125,32 @@ export default function TopologyFullscreenPage() {
         </Button>
       </div>
 
-      {/* Fullscreen toggle */}
-      <div className="absolute top-4 right-4 z-50">
+      {/* Fullscreen toggle and Voice Button */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+        {/* Voice Command Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "bg-black/50 hover:bg-black/70 border-white/10 text-white",
+            isListening && "bg-red-500/20 border-red-500/50"
+          )}
+          onClick={() => isListening ? stopListening() : startListening()}
+          disabled={!isConnected && connectionState !== "connecting"}
+        >
+          {isListening ? (
+            <>
+              <MicOff className="h-4 w-4 mr-2 animate-pulse" />
+              Stop Voice
+            </>
+          ) : (
+            <>
+              <Mic className="h-4 w-4 mr-2" />
+              Voice Commands
+            </>
+          )}
+        </Button>
+        
         <Button
           variant="outline"
           size="sm"
@@ -96,6 +170,25 @@ export default function TopologyFullscreenPage() {
           )}
         </Button>
       </div>
+      
+      {/* Voice Command Display */}
+      {voiceCommand && (
+        <div className="absolute top-16 right-4 z-50">
+          <Badge variant="secondary" className="bg-purple-500/20 text-white border-purple-500/50 px-3 py-1">
+            <Mic className="h-3 w-3 mr-2" />
+            {voiceCommand}
+          </Badge>
+        </div>
+      )}
+      
+      {/* Voice Connection Status */}
+      {!isConnected && (
+        <div className="absolute top-16 right-4 z-50">
+          <Badge variant="outline" className="bg-black/50 text-yellow-500 border-yellow-500/30">
+            Voice: {connectionState === "connecting" ? "Connecting..." : "Offline"}
+          </Badge>
+        </div>
+      )}
 
       {/* Voice Session Overlay */}
       <div className="absolute bottom-4 left-4 z-50 w-80">

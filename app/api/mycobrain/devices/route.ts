@@ -17,10 +17,14 @@ export async function GET() {
     clearTimeout(timeoutId)
 
     if (!res.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch devices from MycoBrain service" },
-        { status: res.status }
-      )
+      // Return empty array with 200 to prevent dashboard crashes
+      console.log("[MycoBrain] Service returned error, using graceful fallback");
+      return NextResponse.json({ 
+        devices: [], 
+        count: 0, 
+        available: false,
+        message: "MycoBrain service unavailable" 
+      })
     }
 
     const data = await res.json()
@@ -29,17 +33,21 @@ export async function GET() {
     // Pass through the devices array directly
     const devices = data.devices || []
 
-    return NextResponse.json({ devices, count: data.count || devices.length })
+    return NextResponse.json({ 
+      devices, 
+      count: data.count || devices.length,
+      available: true 
+    })
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json(
-        { error: "MycoBrain service timeout", devices: [] },
-        { status: 504 }
-      )
-    }
-    return NextResponse.json(
-      { error: "MycoBrain service not running", devices: [] },
-      { status: 503 }
-    )
+    // Graceful fallback - return empty array with 200 status to prevent dashboard crashes
+    console.log("[MycoBrain] Service not reachable, using graceful fallback");
+    return NextResponse.json({
+      devices: [],
+      count: 0,
+      available: false,
+      message: error instanceof Error && error.name === "AbortError" 
+        ? "MycoBrain service timeout" 
+        : "MycoBrain service not running"
+    })
   }
 }

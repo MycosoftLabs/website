@@ -1,0 +1,14 @@
+[package]
+title = "Mycosoft FUSARIUM Integration"
+version = "1.0.0"
+description = "FUSARIUM fungal species and spore dispersal visualization for Earth-2"
+category = "Visualization"
+keywords = ["earth2", "fusarium", "spore", "fungal", "agriculture"]
+
+[[python.module]]
+name = "mycosoft.earth2.fusarium"
+
+[dependencies]
+"omni.ui" = {}
+"omni.usd" = {}
+"omni.kit.viewport.window" = {}

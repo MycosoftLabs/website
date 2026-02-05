@@ -1,0 +1,92 @@
+# Aurora Model Deployment - February 5, 2026
+# Microsoft Aurora - atmospheric modeling
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: earth2-aurora
+  namespace: earth2-models
+  labels:
+    app: earth2-aurora
+    model: aurora
+    tier: on-demand
+spec:
+  replicas: 0  # On-demand scaling
+  selector:
+    matchLabels:
+      app: earth2-aurora
+  template:
+    metadata:
+      labels:
+        app: earth2-aurora
+        model: aurora
+    spec:
+      containers:
+        - name: aurora
+          image: earth2-inference:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8305
+              name: http
+          env:
+            - name: MODEL_TYPE
+              value: "aurora"
+            - name: MODEL_PATH
+              value: "/models/aurora"
+            - name: DEVICE
+              value: "cuda:0"
+            - name: PORT
+              value: "8305"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              memory: "28Gi"
+            requests:
+              nvidia.com/gpu: 1
+              memory: "20Gi"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+            - name: data-cache
+              mountPath: /data
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8305
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8305
+            initialDelaySeconds: 60
+            periodSeconds: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: earth2-model-weights
+        - name: data-cache
+          persistentVolumeClaim:
+            claimName: earth2-weather-data
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "10Gi"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: earth2-aurora
+  namespace: earth2-models
+spec:
+  selector:
+    app: earth2-aurora
+  ports:
+    - port: 8305
+      targetPort: 8305
+      name: http
+  type: ClusterIP
