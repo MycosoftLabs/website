@@ -416,6 +416,31 @@ MINDEX_DATABASE_URL=postgresql://mycosoft:...@192.168.0.189:5432/mindex
 
 ---
 
+## Deployment Status (Feb 5, 2026)
+
+| Environment | URL | Status |
+|-------------|-----|--------|
+| Development | http://localhost:3010 | ✅ Working |
+| Sandbox | https://sandbox.mycosoft.com | ✅ Deployed |
+
+### Verified Endpoints
+
+| Endpoint | localhost:3010 | sandbox |
+|----------|----------------|---------|
+| Homepage (`/`) | ✅ 200 | ✅ 200 |
+| Search page (`/search?q=mushroom`) | ✅ 200 | ✅ 200 |
+| Test Fluid Search (`/test-fluid-search`) | ✅ 200 | ✅ 200 |
+| Unified API (`/api/search/unified?q=amanita`) | ✅ 200 | ✅ 200 |
+
+### Bug Fixes Applied
+
+1. **debouncedQuery.trim is not a function error** - Fixed by adding safety checks:
+   - `hooks/use-unified-search.ts` - Line 88-89
+   - `components/search/use-search.ts` - Lines 48-53, 170-173
+   - `components/enhanced-search.tsx` - Lines 53-62
+
+---
+
 ## Related Documentation
 
 - [Search Memory Integration](../../../MAS/mycosoft-mas/docs/SEARCH_MEMORY_INTEGRATION_FEB05_2026.md)
