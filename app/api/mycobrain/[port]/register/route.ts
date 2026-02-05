@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 const NATUREOS_API_URL = process.env.NATUREOS_API_URL || "http://localhost:3000/api/natureos"
 const MAS_ORCHESTRATOR_URL = process.env.MAS_ORCHESTRATOR_URL || "http://localhost:8001"

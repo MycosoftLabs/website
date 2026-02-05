@@ -141,8 +141,16 @@ import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
 import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
 import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
 
+// Conservation Demo Widgets (Feb 05, 2026)
+import { SmartFenceWidget, type FenceSegment } from "@/components/crep/smart-fence-widget";
+import { PresenceDetectionWidget, type PresenceReading } from "@/components/crep/presence-detection-widget";
+import { BiosignalWidget } from "@/components/crep/biosignal-widget";
+
 // Map Markers for OEI Data
 import { AircraftMarker, VesselMarker, SatelliteMarker, FungalMarker, type FungalObservation } from "@/components/crep/markers";
+
+// Elephant Conservation Marker (Feb 05, 2026)
+import { ElephantMarker, type ElephantData } from "@/components/crep/markers/elephant-marker";
 
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
@@ -212,6 +220,19 @@ interface Device {
   port?: string;
   firmware?: string;
   protocol?: string;
+  // Sensor data from MycoBrain (Feb 05, 2026)
+  sensorData?: {
+    temperature?: number;
+    humidity?: number;
+    pressure?: number;
+    gasResistance?: number;
+    iaq?: number;
+    iaqAccuracy?: number;
+    co2Equivalent?: number;
+    vocEquivalent?: number;
+    uptime?: number;
+  };
+  lastUpdate?: string;
 }
 
 interface LayerConfig {
@@ -599,6 +620,36 @@ function DeviceMarker({ device, isSelected, onClick }: {
   onClick: () => void;
 }) {
   const isOnline = device.status === "online";
+  const [controlLoading, setControlLoading] = useState<string | null>(null);
+  
+  // Control functions for MycoBrain device
+  const sendControl = async (action: string, params?: Record<string, any>) => {
+    if (!device.port) return;
+    setControlLoading(action);
+    try {
+      await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...params }),
+      });
+    } catch (e) {
+      console.error("Control error:", e);
+    } finally {
+      setControlLoading(null);
+    }
+  };
+  
+  // Get IAQ quality label
+  const getIAQLabel = (iaq?: number) => {
+    if (!iaq) return { label: "N/A", color: "text-gray-400" };
+    if (iaq <= 50) return { label: "Excellent", color: "text-green-400" };
+    if (iaq <= 100) return { label: "Good", color: "text-emerald-400" };
+    if (iaq <= 150) return { label: "Moderate", color: "text-yellow-400" };
+    if (iaq <= 200) return { label: "Poor", color: "text-orange-400" };
+    return { label: "Hazardous", color: "text-red-400" };
+  };
+  
+  const iaqInfo = getIAQLabel(device.sensorData?.iaq);
   
   return (
     <MapMarker 
@@ -628,51 +679,197 @@ function DeviceMarker({ device, isSelected, onClick }: {
       </MarkerContent>
       {isSelected && (
         <MarkerPopup
-          className="min-w-[200px] bg-[#0a1628]/95 backdrop-blur border-green-500/30"
+          className="min-w-[280px] bg-[#0a1628]/95 backdrop-blur border-green-500/30"
           closeButton
           onClose={onClick}
         >
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* Header */}
           <div className="flex items-center gap-2">
             <div className={cn(
-              "w-7 h-7 rounded flex items-center justify-center text-lg",
+              "w-8 h-8 rounded flex items-center justify-center text-lg",
               isOnline ? "bg-green-500/20" : "bg-red-500/20"
             )}>
               🍄
             </div>
-            <div>
+            <div className="flex-1">
               <div className="text-sm font-semibold text-white">{device.name}</div>
-              <div className={cn(
-                "text-[10px] uppercase font-mono",
-                isOnline ? "text-green-400" : "text-red-400"
-              )}>
-                ● {device.status}
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-[10px] uppercase font-mono",
+                  isOnline ? "text-green-400" : "text-red-400"
+                )}>
+                  ● {device.status}
+                </span>
+                {device.port && (
+                  <span className="text-[9px] text-cyan-400 font-mono">{device.port}</span>
+                )}
               </div>
             </div>
+            {device.firmware && (
+              <Badge variant="outline" className="text-[8px] h-4 px-1 border-cyan-500/30 text-cyan-400">
+                v{device.firmware}
+              </Badge>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-1 text-[9px] font-mono">
-            {device.port && (
-              <>
-                <span className="text-gray-500">PORT</span>
-                <span className="text-cyan-400">{device.port}</span>
-              </>
-            )}
-            {device.protocol && (
-              <>
-                <span className="text-gray-500">PROTOCOL</span>
-                <span className="text-cyan-400">{device.protocol}</span>
-              </>
-            )}
-            {device.firmware && device.firmware !== "unknown" && (
-              <>
-                <span className="text-gray-500">FIRMWARE</span>
-                <span className="text-cyan-400">{device.firmware}</span>
-              </>
-            )}
-            <span className="text-gray-500">LAT/LNG</span>
-              <span className="text-gray-400">{typeof device.lat === 'number' ? device.lat.toFixed(4) : '—'}°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : '—'}°</span>
+          
+          {/* Live Sensor Data */}
+          {isOnline && device.sensorData && (
+            <div className="bg-slate-800/50 rounded-lg p-2 space-y-2">
+              <div className="text-[9px] text-gray-400 uppercase font-mono flex items-center gap-1">
+                <Activity className="w-3 h-3" /> Live Sensor Data
+              </div>
+              
+              {/* Temperature & Humidity Row */}
+              <div className="grid grid-cols-2 gap-2">
+                {device.sensorData.temperature !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Thermometer className="w-3 h-3 text-orange-400" />
+                      <span className="text-[8px] text-gray-500">TEMP</span>
+                    </div>
+                    <div className="text-sm font-bold text-orange-400">
+                      {device.sensorData.temperature.toFixed(1)}°C
+                    </div>
+                  </div>
+                )}
+                {device.sensorData.humidity !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Droplets className="w-3 h-3 text-cyan-400" />
+                      <span className="text-[8px] text-gray-500">HUMIDITY</span>
+                    </div>
+                    <div className="text-sm font-bold text-cyan-400">
+                      {device.sensorData.humidity.toFixed(1)}%
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* IAQ & CO2 Row */}
+              <div className="grid grid-cols-2 gap-2">
+                {device.sensorData.iaq !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Wind className="w-3 h-3 text-purple-400" />
+                      <span className="text-[8px] text-gray-500">IAQ</span>
+                    </div>
+                    <div className={cn("text-sm font-bold", iaqInfo.color)}>
+                      {device.sensorData.iaq} <span className="text-[8px] font-normal">{iaqInfo.label}</span>
+                    </div>
+                  </div>
+                )}
+                {device.sensorData.co2Equivalent !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Cloud className="w-3 h-3 text-blue-400" />
+                      <span className="text-[8px] text-gray-500">eCO₂</span>
+                    </div>
+                    <div className="text-sm font-bold text-blue-400">
+                      {device.sensorData.co2Equivalent} <span className="text-[8px] font-normal">ppm</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Pressure & VOC Row */}
+              <div className="grid grid-cols-2 gap-2">
+                {device.sensorData.pressure !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Gauge className="w-3 h-3 text-amber-400" />
+                      <span className="text-[8px] text-gray-500">PRESSURE</span>
+                    </div>
+                    <div className="text-sm font-bold text-amber-400">
+                      {device.sensorData.pressure.toFixed(0)} <span className="text-[8px] font-normal">hPa</span>
+                    </div>
+                  </div>
+                )}
+                {device.sensorData.vocEquivalent !== undefined && (
+                  <div className="bg-slate-900/50 rounded p-1.5">
+                    <div className="flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-pink-400" />
+                      <span className="text-[8px] text-gray-500">bVOC</span>
+                    </div>
+                    <div className="text-sm font-bold text-pink-400">
+                      {device.sensorData.vocEquivalent.toFixed(2)} <span className="text-[8px] font-normal">ppm</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Uptime */}
+              {device.sensorData.uptime !== undefined && (
+                <div className="flex items-center justify-between text-[8px] text-gray-500 pt-1 border-t border-slate-700/50">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Uptime
+                  </span>
+                  <span className="text-cyan-400 font-mono">
+                    {Math.floor(device.sensorData.uptime / 3600)}h {Math.floor((device.sensorData.uptime % 3600) / 60)}m
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Quick Controls */}
+          {isOnline && device.port && (
+            <div className="space-y-1.5">
+              <div className="text-[9px] text-gray-400 uppercase font-mono flex items-center gap-1">
+                <Zap className="w-3 h-3" /> Quick Controls
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-6 px-2 text-[9px] border-green-500/30 text-green-400 hover:bg-green-500/20"
+                  disabled={controlLoading !== null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendControl("neopixel", { effect: "rainbow" });
+                  }}
+                >
+                  {controlLoading === "neopixel" ? "..." : "🌈 Rainbow"}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-6 px-2 text-[9px] border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                  disabled={controlLoading !== null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100 });
+                  }}
+                >
+                  {controlLoading === "buzzer" ? "..." : "🔔 Beep"}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-6 px-2 text-[9px] border-red-500/30 text-red-400 hover:bg-red-500/20"
+                  disabled={controlLoading !== null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendControl("neopixel", { effect: "off" });
+                  }}
+                >
+                  LED Off
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Device Info Footer */}
+          <div className="pt-2 border-t border-slate-700/50 space-y-1">
+            <div className="flex items-center justify-between text-[8px]">
+              <span className="text-gray-500">Location</span>
+              <span className="text-gray-400 font-mono">
+                {typeof device.lat === 'number' ? device.lat.toFixed(4) : '—'}°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : '—'}°
+              </span>
+            </div>
+            <div className="text-[7px] text-gray-600 font-mono truncate">{device.id}</div>
+            <div className="text-[7px] text-emerald-500/60">📍 Chula Vista, San Diego CA 91910</div>
           </div>
-          <div className="text-[8px] text-gray-600 font-mono truncate">{device.id}</div>
         </div>
       </MarkerPopup>
       )}
@@ -1220,6 +1417,13 @@ export default function CREPDashboardPage() {
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Elephant Conservation Demo States (Feb 05, 2026)
+  const [elephants, setElephants] = useState<ElephantData[]>([]);
+  const [fenceSegments, setFenceSegments] = useState<FenceSegment[]>([]);
+  const [presenceReadings, setPresenceReadings] = useState<PresenceReading[]>([]);
+  const [selectedElephant, setSelectedElephant] = useState<ElephantData | null>(null);
+  const [conservationDemoEnabled, setConservationDemoEnabled] = useState(true);
+  
   // Selected entity states for map interaction
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
@@ -1322,6 +1526,9 @@ export default function CREPDashboardPage() {
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
+    // Elephant Conservation Demo (Feb 05, 2026)
+    { id: "elephants", name: "🐘 Elephant Trackers", category: "devices", icon: <PawPrint className="w-3 h-3" />, enabled: true, opacity: 1, color: "#8b5cf6", description: "GPS collars with biosignal monitoring - Ghana/Africa" },
+    { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
@@ -1544,10 +1751,10 @@ export default function CREPDashboardPage() {
           const devicesRes = await fetch("/api/mycobrain/devices");
           if (devicesRes.ok) {
             const data = await devicesRes.json();
-            // MycoBrain devices - ALWAYS default to San Diego 91910 for the primary device
-            // The primary device is on the user's desk in San Diego, CA 91910
+            // MycoBrain devices - ALWAYS default to San Diego 91910 (Chula Vista) for the primary device
+            // The primary device is on the user's desk in Chula Vista, San Diego, CA 91910
             const formattedDevices = (data.devices || []).map((d: any, index: number) => {
-              // San Diego 91910 coordinates: 32.6189, -117.0769
+              // Chula Vista 91910 coordinates: 32.6189, -117.0769
               // ALL devices without explicit GPS should default to San Diego HQ
               const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
               
@@ -1557,23 +1764,82 @@ export default function CREPDashboardPage() {
                 // Reject Vancouver default (49, -123) as it's not correct
                 !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
               
+              // Extract sensor data from the device response
+              const sensorData = d.sensor_data || {};
+              
               return {
                 id: d.device_id || d.id || `device-${index}`,
                 name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
                 // ALWAYS use San Diego unless there's a valid explicit location
                 lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
                 lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
-                status: d.status === "connected" || d.status === "online" ? "online" : "offline",
+                status: d.connected ? "online" : "offline",
                 port: d.port,
-                firmware: d.info?.firmware,
-                protocol: d.protocol,
+                firmware: sensorData.firmware_version || d.info?.firmware,
+                protocol: d.protocol || "MDP",
+                // Include sensor data for display
+                sensorData: {
+                  temperature: sensorData.temperature,
+                  humidity: sensorData.humidity,
+                  pressure: sensorData.pressure,
+                  gasResistance: sensorData.gas_resistance,
+                  iaq: sensorData.iaq,
+                  iaqAccuracy: sensorData.iaq_accuracy,
+                  co2Equivalent: sensorData.co2_equivalent,
+                  vocEquivalent: sensorData.voc_equivalent,
+                  uptime: sensorData.uptime_seconds || sensorData.uptime_s,
+                },
+                lastUpdate: sensorData.last_update || new Date().toISOString(),
               };
             });
-            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (San Diego 91910 default)`);
+            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (Chula Vista 91910)`);
             setDevices(formattedDevices);
           }
         } catch (e) {
           console.warn("[CREP] Failed to fetch MycoBrain devices:", e);
+        }
+
+        // Fetch Elephant Conservation Demo Data (Feb 05, 2026)
+        try {
+          const conservationRes = await fetch("/api/crep/demo/elephant-conservation");
+          if (conservationRes.ok) {
+            const data = await conservationRes.json();
+            if (data.ok) {
+              // Set elephants
+              setElephants(data.elephants || []);
+              // Set fence segments
+              setFenceSegments(data.fenceSegments || []);
+              // Convert environment monitors to presence readings
+              const readings: PresenceReading[] = (data.environmentMonitors || []).map((m: any) => ({
+                monitorId: m.id,
+                monitorName: m.name,
+                zone: m.zone,
+                lat: m.lat,
+                lng: m.lng,
+                presenceDetected: m.readings?.presenceDetected || false,
+                lastMovement: m.readings?.lastMovement || new Date().toISOString(),
+                motionIntensity: m.readings?.presenceDetected ? 75 : 0,
+                smellDetected: m.readings?.smellDetected,
+              }));
+              setPresenceReadings(readings);
+              // Add demo devices to devices list
+              const demoDevices: Device[] = (data.devices || []).map((d: any) => ({
+                id: d.id,
+                name: d.name,
+                lat: d.lat,
+                lng: d.lng,
+                status: d.status as "online" | "offline",
+                type: d.deviceType,
+                port: d.port,
+                firmware: d.firmware,
+                protocol: d.protocol,
+              }));
+              setDevices(prev => [...prev, ...demoDevices]);
+              console.log(`[CREP] Loaded ${data.elephants?.length || 0} elephants, ${data.fenceSegments?.length || 0} fence segments (Demo)`);
+            }
+          }
+        } catch (e) {
+          console.warn("[CREP] Failed to fetch elephant conservation demo:", e);
         }
 
         // Fetch aircraft data from FlightRadar24 API (NO LIMIT - fetch all available)
@@ -3018,6 +3284,16 @@ export default function CREPDashboardPage() {
               />
             ))}
 
+            {/* Elephant Markers (Conservation Demo - Feb 05, 2026) */}
+            {layers.find(l => l.id === "elephants")?.enabled && elephants.map(elephant => (
+              <ElephantMarker
+                key={elephant.id}
+                elephant={elephant}
+                isSelected={selectedElephant?.id === elephant.id}
+                onClick={() => setSelectedElephant(selectedElephant?.id === elephant.id ? null : elephant)}
+              />
+            ))}
+
             {/* Aircraft Markers (FlightRadar24/OpenSky) - Uses filtered data */}
             {layers.find(l => l.id === "aviation")?.enabled && filteredAircraft.map(ac => (
               <AircraftMarker
@@ -3233,6 +3509,50 @@ export default function CREPDashboardPage() {
                       {/* Satellite Tracker Widget */}
                       <SatelliteTrackerWidget compact limit={10} />
                       
+                      {/* Conservation Demo Widgets (Feb 05, 2026) */}
+                      {conservationDemoEnabled && elephants.length > 0 && (
+                        <>
+                          {/* Elephant Biosignal Widget */}
+                          <BiosignalWidget 
+                            elephants={elephants}
+                            onElephantClick={(elephant) => {
+                              setSelectedElephant(elephant);
+                              mapRef?.flyTo({
+                                center: [elephant.lng, elephant.lat],
+                                zoom: 12,
+                                duration: 1500,
+                              });
+                            }}
+                          />
+                          
+                          {/* Smart Fence Network Widget */}
+                          <SmartFenceWidget 
+                            fenceSegments={fenceSegments}
+                            onSegmentClick={(segment) => {
+                              const midLat = (segment.startLat + segment.endLat) / 2;
+                              const midLng = (segment.startLng + segment.endLng) / 2;
+                              mapRef?.flyTo({
+                                center: [midLng, midLat],
+                                zoom: 13,
+                                duration: 1500,
+                              });
+                            }}
+                          />
+                          
+                          {/* Presence Detection Widget */}
+                          <PresenceDetectionWidget 
+                            readings={presenceReadings}
+                            onMonitorClick={(reading) => {
+                              mapRef?.flyTo({
+                                center: [reading.lng, reading.lat],
+                                zoom: 14,
+                                duration: 1500,
+                              });
+                            }}
+                          />
+                        </>
+                      )}
+                      
                       {/* Data Sources Footer */}
                       <div className="pt-2 border-t border-gray-700/30">
                         <div className="flex flex-wrap gap-1 text-[7px]">
@@ -3240,6 +3560,7 @@ export default function CREPDashboardPage() {
                           <Badge variant="outline" className="px-1 py-0 h-3 border-sky-500/30 text-sky-400">FR24</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
+                          {conservationDemoEnabled && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
                         </div>
                       </div>
                     </div>

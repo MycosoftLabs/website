@@ -10,8 +10,14 @@ export { FlightTrackerWidget } from "./flight-tracker-widget"
 export { SatelliteTrackerWidget } from "./satellite-tracker-widget"
 export { VesselTrackerWidget } from "./vessel-tracker-widget"
 
+// Conservation Widgets (Feb 05, 2026)
+export { SmartFenceWidget, type FenceSegment, type FenceSensor } from "./smart-fence-widget"
+export { PresenceDetectionWidget, type PresenceReading } from "./presence-detection-widget"
+export { BiosignalWidget } from "./biosignal-widget"
+
 // Map Markers
-export { AircraftMarker, VesselMarker, SatelliteMarker } from "./markers"
+export { AircraftMarker, VesselMarker, SatelliteMarker, ElephantMarker } from "./markers"
+export type { ElephantData } from "./markers"
 
 // Map Controls
 export {
