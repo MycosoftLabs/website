@@ -1,41 +1,48 @@
-version: "3.8"
-
 services:
-  e2cc:
-    image: nvcr.io/nvidia/omniverse/kit:106.0.0
-    container_name: earth2-command-center
-    runtime: nvidia
-    
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - ACCEPT_EULA=Y
-      - E2CC_DATA_DIR=/opt/earth2/data
-      - E2CC_CACHE_DIR=/opt/earth2/cache
-      - STREAMING_ENABLED=true
-      - STREAMING_PORT=8211
-    
+  # E2CC requires GPU - use stub service on CPU-only VMs
+  # For full E2CC, run on machine with RTX 5090
+  e2cc-stub:
+    image: python:3.11-slim
+    container_name: e2cc-stub
+    working_dir: /app
+    command: >
+      sh -c "pip install fastapi uvicorn && python -c \"
+      from fastapi import FastAPI
+      import uvicorn
+      app = FastAPI()
+      @app.get('/')
+      def root(): return {'service': 'e2cc-stub', 'status': 'GPU required for full E2CC'}
+      @app.get('/health')
+      def health(): return {'status': 'stub-mode', 'gpu': False}
+      uvicorn.run(app, host='0.0.0.0', port=8211)
+      \""
     ports:
       - "8211:8211"
-      - "8011:8011"
-      - "8111:8111"
-    
-    volumes:
-      - ./kit-app:/app/kit-app:ro
-      - ./extensions:/app/extensions:ro
-      - e2cc-cache:/opt/earth2/cache
-    
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    
     restart: unless-stopped
     networks:
       - earth2-network
+
+  # Full E2CC with GPU (uncomment when GPU available)
+  # e2cc:
+  #   image: nvcr.io/nvidia/omniverse/ov-kit-kernel:106.5.3
+  #   container_name: earth2-command-center
+  #   runtime: nvidia
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #     - NVIDIA_DRIVER_CAPABILITIES=all
+  #     - ACCEPT_EULA=Y
+  #   ports:
+  #     - "8211:8211"
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   restart: unless-stopped
+  #   networks:
+  #     - earth2-network
 
   signaling:
     image: node:20-slim
