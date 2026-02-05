@@ -67,8 +67,11 @@ import {
   GitBranch,
   Wallet,
   Waves,
-  Container
+  Container,
+  Mic,
+  MicOff,
 } from "lucide-react"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 
 // ==================== Types ====================
 interface MINDEXHealth {
@@ -195,8 +198,21 @@ export function MINDEXDashboard() {
   const [activeSection, setActiveSection] = useState<WidgetSection>("overview")
   const [integrityRecordId, setIntegrityRecordId] = useState("")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [voiceCommand, setVoiceCommand] = useState<string | null>(null)
+  
+  // PersonaPlex voice context
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+  }
 
   // ==================== Data Fetching ====================
+  // NOTE: These useCallback functions MUST be defined before any useEffect that references them
   const fetchHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/natureos/mindex/health")
@@ -306,6 +322,59 @@ export function MINDEXDashboard() {
       setIsSyncing(false)
     }
   }, [fetchStats, fetchETLStatus])
+  
+  // Handle voice commands for MINDEX navigation
+  useEffect(() => {
+    if (!lastTranscript) return
+    
+    const command = lastTranscript.toLowerCase()
+    setVoiceCommand(lastTranscript)
+    
+    // Clear command display after 3 seconds
+    const timeout = setTimeout(() => setVoiceCommand(null), 3000)
+    
+    // Section navigation via voice
+    if (command.includes("overview") || command.includes("show overview")) {
+      setActiveSection("overview")
+    } else if (command.includes("encyclopedia") || command.includes("species")) {
+      setActiveSection("encyclopedia")
+    } else if (command.includes("data") || command.includes("pipeline")) {
+      setActiveSection("data")
+    } else if (command.includes("integrity") || command.includes("verify")) {
+      setActiveSection("integrity")
+    } else if (command.includes("crypto") || command.includes("cryptography")) {
+      setActiveSection("cryptography")
+    } else if (command.includes("ledger")) {
+      setActiveSection("ledger")
+    } else if (command.includes("network") || command.includes("mycorrhizal")) {
+      setActiveSection("network")
+    } else if (command.includes("phylogeny") || command.includes("tree")) {
+      setActiveSection("phylogeny")
+    } else if (command.includes("genomics") || command.includes("genome")) {
+      setActiveSection("genomics")
+    } else if (command.includes("devices")) {
+      setActiveSection("devices")
+    } else if (command.includes("mwave") || command.includes("m-wave")) {
+      setActiveSection("mwave")
+    } else if (command.includes("containers") || command.includes("docker")) {
+      setActiveSection("containers")
+    } else if (command.includes("sync") || command.includes("synchronize")) {
+      triggerSync()
+    } else if (command.includes("refresh") || command.includes("update")) {
+      fetchHealth()
+      fetchStats()
+      fetchContainers()
+    } else if (command.includes("search")) {
+      // Extract search query
+      const searchMatch = command.match(/search(?:\s+for)?\s+(.+)/i)
+      if (searchMatch) {
+        setSearchQuery(searchMatch[1].trim())
+        setActiveSection("encyclopedia")
+      }
+    }
+    
+    return () => clearTimeout(timeout)
+  }, [lastTranscript, fetchHealth, fetchStats, fetchContainers, triggerSync])
 
   // Initial load
   useEffect(() => {
@@ -415,6 +484,31 @@ export function MINDEXDashboard() {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {/* Voice Command Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => isListening ? stopListening() : startListening()}
+                      disabled={!isConnected && connectionState !== "connecting"}
+                      className={`border-purple-500/30 ${
+                        isListening 
+                          ? "bg-red-500/20 text-red-300 hover:bg-red-500/30" 
+                          : "bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
+                      }`}
+                    >
+                      {isListening ? (
+                        <>
+                          <MicOff className="h-4 w-4 mr-2 animate-pulse" />
+                          Stop
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="h-4 w-4 mr-2" />
+                          Voice
+                        </>
+                      )}
+                    </Button>
+                    
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -430,6 +524,21 @@ export function MINDEXDashboard() {
                       Refresh
                     </Button>
                   </div>
+                  
+                  {/* Voice Command Display */}
+                  {voiceCommand && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-6 top-20 z-50"
+                    >
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 px-3 py-1">
+                        <Mic className="h-3 w-3 mr-2" />
+                        {voiceCommand}
+                      </Badge>
+                    </motion.div>
+                  )}
                 </div>
               </motion.header>
 
