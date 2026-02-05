@@ -153,6 +153,24 @@ import { TrajectoryLines } from "@/components/crep/trajectory-lines";
 // Satellite Orbit Lines for ground track visualization
 import { SatelliteOrbitLines } from "@/components/crep/satellite-orbit-lines";
 
+// NVIDIA Earth-2 AI Weather Components
+import { 
+  Earth2LayerControl,
+  WeatherHeatmapLayer,
+  SporeDispersalLayer,
+  WindVectorLayer,
+  CloudLayer,
+  PrecipitationLayer,
+  PressureLayer,
+  StormCellsLayer,
+  HumidityLayer,
+  ForecastTimeline,
+  AlertPanel,
+  useEarth2Alerts,
+  DEFAULT_EARTH2_FILTER,
+  type Earth2Filter,
+} from "@/components/crep/earth2";
+
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, NOAAScales } from "@/components/crep/map-controls";
@@ -1353,10 +1371,78 @@ export default function CREPDashboardPage() {
     { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#fbbf24", description: "Thermal, nuclear, renewable plants" },
     { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
     { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NVIDIA EARTH-2 AI WEATHER LAYERS
+    // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "earth2Forecast", name: "⚡ Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
+    { id: "earth2Nowcast", name: "⚡ Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
+    { id: "earth2Spore", name: "⚡ Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
+    { id: "earth2Wind", name: "⚡ Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
+    { id: "earth2Temp", name: "⚡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
+    { id: "earth2Precip", name: "⚡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
   ]);
   
   // Filter states
   const [eventFilter, setEventFilter] = useState<string>("all");
+  
+  // Earth-2 AI Weather state - use complete default filter with temperature enabled
+  const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
+    ...DEFAULT_EARTH2_FILTER,
+    showTemperature: true, // Enable temperature layer by default for visibility
+    forecastHours: 24,     // Start at 24 hours forecast
+  });
+  
+  // Use Earth-2 alerts hook for automatic updates
+  const { alerts: fetchedEarth2Alerts } = useEarth2Alerts(60000);
+  const [earth2Alerts, setEarth2Alerts] = useState<Array<{
+    id: string;
+    type: "weather" | "spore" | "severe_weather" | "nowcast";
+    severity: "low" | "moderate" | "high" | "critical";
+    title: string;
+    description: string;
+    location: { lat: number; lon: number; name?: string };
+    timestamp: string;
+    expiresAt?: string;
+    source: "workflow_48" | "workflow_49" | "workflow_50" | "manual";
+  }>>([]);
+  
+  // Sync fetched alerts to state
+  useEffect(() => {
+    if (fetchedEarth2Alerts.length > 0) {
+      setEarth2Alerts(fetchedEarth2Alerts);
+    }
+  }, [fetchedEarth2Alerts]);
+  
+  const [earth2Loading, setEarth2Loading] = useState(false);
+  const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
+  const [earth2Available, setEarth2Available] = useState(false);
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EARTH-2 STATUS CHECK - Fetch status on mount
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const checkEarth2Status = async () => {
+      try {
+        const response = await fetch('/api/earth2');
+        if (response.ok) {
+          const data = await response.json();
+          setEarth2Available(data.available !== false);
+          console.log('[Earth-2] Status:', data.available ? 'ONLINE' : 'OFFLINE');
+        }
+      } catch (error) {
+        console.log('[Earth-2] Status check failed:', error);
+        setEarth2Available(false);
+      }
+    };
+    
+    if (mounted) {
+      checkEarth2Status();
+      // Check status every 60 seconds
+      const interval = setInterval(checkEarth2Status, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [mounted]);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTO-ZOOM TO USER LOCATION ON PAGE LOAD
@@ -1419,65 +1505,75 @@ export default function CREPDashboardPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const eventsRes = await fetch("/api/natureos/global-events");
-        if (eventsRes.ok) {
-          const data = await eventsRes.json();
-          const formattedEvents = (data.events || [])
-            .filter((e: any) => e.location?.latitude && e.location?.longitude)
-            .map((e: any) => ({
-              id: e.id,
-              type: e.type,
-              title: e.title,
-              description: e.description,
-              severity: e.severity,
-              lat: e.location.latitude,
-              lng: e.location.longitude,
-              timestamp: e.timestamp,
-              link: e.link,
-              // Extended data from API
-              source: e.source,
-              sourceUrl: e.sourceUrl,
-              magnitude: e.magnitude,
-              locationName: e.location?.name,
-              depth: e.location?.depth,
-              windSpeed: e.type === "storm" ? e.magnitude : undefined,
-              containment: e.description?.match(/Containment: (\d+)%/)?.[1] ? parseInt(e.description.match(/Containment: (\d+)%/)[1]) : undefined,
-              affectedArea: e.affected?.area_km2,
-              affectedPopulation: e.affected?.population,
-            }));
-          setGlobalEvents(formattedEvents);
+        // Fetch global events - wrapped in try/catch for graceful failure
+        try {
+          const eventsRes = await fetch("/api/natureos/global-events");
+          if (eventsRes.ok) {
+            const data = await eventsRes.json();
+            const formattedEvents = (data.events || [])
+              .filter((e: any) => e.location?.latitude && e.location?.longitude)
+              .map((e: any) => ({
+                id: e.id,
+                type: e.type,
+                title: e.title,
+                description: e.description,
+                severity: e.severity,
+                lat: e.location.latitude,
+                lng: e.location.longitude,
+                timestamp: e.timestamp,
+                link: e.link,
+                // Extended data from API
+                source: e.source,
+                sourceUrl: e.sourceUrl,
+                magnitude: e.magnitude,
+                locationName: e.location?.name,
+                depth: e.location?.depth,
+                windSpeed: e.type === "storm" ? e.magnitude : undefined,
+                containment: e.description?.match(/Containment: (\d+)%/)?.[1] ? parseInt(e.description.match(/Containment: (\d+)%/)[1]) : undefined,
+                affectedArea: e.affected?.area_km2,
+                affectedPopulation: e.affected?.population,
+              }));
+            setGlobalEvents(formattedEvents);
+          }
+        } catch (e) {
+          console.warn("[CREP] Failed to fetch global events:", e);
         }
 
-        const devicesRes = await fetch("/api/mycobrain/devices");
-        if (devicesRes.ok) {
-          const data = await devicesRes.json();
-          // MycoBrain devices - ALWAYS default to San Diego 91910 for the primary device
-          // The primary device is on the user's desk in San Diego, CA 91910
-          const formattedDevices = (data.devices || []).map((d: any, index: number) => {
-            // San Diego 91910 coordinates: 32.6189, -117.0769
-            // ALL devices without explicit GPS should default to San Diego HQ
-            const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
-            
-            // Only use device location if explicitly provided AND valid (not 0,0 or null)
-            const hasValidLocation = d.location?.lat && d.location?.lng && 
-              Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
-              // Reject Vancouver default (49, -123) as it's not correct
-              !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
-            
-            return {
-              id: d.device_id || d.id || `device-${index}`,
-              name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
-              // ALWAYS use San Diego unless there's a valid explicit location
-              lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
-              lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
-              status: d.status === "connected" || d.status === "online" ? "online" : "offline",
-              port: d.port,
-              firmware: d.info?.firmware,
-              protocol: d.protocol,
-            };
-          });
-          console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (San Diego 91910 default)`);
-          setDevices(formattedDevices);
+        // Fetch MycoBrain devices - wrapped in try/catch
+        try {
+          const devicesRes = await fetch("/api/mycobrain/devices");
+          if (devicesRes.ok) {
+            const data = await devicesRes.json();
+            // MycoBrain devices - ALWAYS default to San Diego 91910 for the primary device
+            // The primary device is on the user's desk in San Diego, CA 91910
+            const formattedDevices = (data.devices || []).map((d: any, index: number) => {
+              // San Diego 91910 coordinates: 32.6189, -117.0769
+              // ALL devices without explicit GPS should default to San Diego HQ
+              const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
+              
+              // Only use device location if explicitly provided AND valid (not 0,0 or null)
+              const hasValidLocation = d.location?.lat && d.location?.lng && 
+                Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
+                // Reject Vancouver default (49, -123) as it's not correct
+                !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
+              
+              return {
+                id: d.device_id || d.id || `device-${index}`,
+                name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
+                // ALWAYS use San Diego unless there's a valid explicit location
+                lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
+                lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
+                status: d.status === "connected" || d.status === "online" ? "online" : "offline",
+                port: d.port,
+                firmware: d.info?.firmware,
+                protocol: d.protocol,
+              };
+            });
+            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (San Diego 91910 default)`);
+            setDevices(formattedDevices);
+          }
+        } catch (e) {
+          console.warn("[CREP] Failed to fetch MycoBrain devices:", e);
         }
 
         // Fetch aircraft data from FlightRadar24 API (NO LIMIT - fetch all available)
@@ -2767,6 +2863,98 @@ export default function CREPDashboardPage() {
               showSelected={selectedSatellite?.id}
             />
 
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                NVIDIA EARTH-2 AI WEATHER LAYERS
+                Integrated directly into the MapComponent for real-time visualization
+                ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                NVIDIA Earth-2 AI Weather Layers
+                Rendered with mapRef when Earth-2 layers are enabled
+                ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* Earth-2 Temperature/Precipitation Heatmap */}
+            {mapRef && (earth2Filter.showTemperature || earth2Filter.showPrecipitation || earth2Filter.showForecast) && (
+              <WeatherHeatmapLayer
+                map={mapRef}
+                visible={true}
+                variable={earth2Filter.showTemperature ? "temperature" : "precipitation"}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Spore Dispersal Layer */}
+            {mapRef && earth2Filter.showSporeDispersal && (
+              <SporeDispersalLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Wind Vector Layer */}
+            {mapRef && earth2Filter.showWind && (
+              <WindVectorLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Cloud Cover Layer */}
+            {mapRef && earth2Filter.showClouds && (
+              <CloudLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Precipitation/Rain Layer */}
+            {mapRef && earth2Filter.showPrecipitation && (
+              <PrecipitationLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+                showAnimation={earth2Filter.animated}
+              />
+            )}
+            
+            {/* Earth-2 Atmospheric Pressure Layer */}
+            {mapRef && earth2Filter.showPressure && (
+              <PressureLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Storm Cells Layer (StormScope Nowcast) */}
+            {mapRef && earth2Filter.showStormCells && (
+              <StormCellsLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+            
+            {/* Earth-2 Humidity Layer */}
+            {mapRef && earth2Filter.showHumidity && (
+              <HumidityLayer
+                map={mapRef}
+                visible={true}
+                forecastHours={earth2Filter.forecastHours}
+                opacity={earth2Filter.opacity}
+              />
+            )}
+
             {/* Event Markers - Only render if corresponding layer is enabled */}
             {filteredEvents.map(event => {
               // Check if the specific event type layer is enabled
@@ -2937,48 +3125,49 @@ export default function CREPDashboardPage() {
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-6 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+              <TabsList className="w-full grid grid-cols-7 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
                 <TabsTrigger 
                   value="mission" 
-                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
-                  <Target className="w-3 h-3 mr-0.5" />
-                  MSSN
+                  <Target className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger 
                   value="data" 
-                  className="text-[8px] px-1 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-none"
                 >
-                  <Signal className="w-3 h-3 mr-0.5" />
-                  DATA
+                  <Signal className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger 
                   value="intel" 
-                  className="text-[8px] px-1 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 rounded-none"
                 >
-                  <Users className="w-3 h-3 mr-0.5" />
-                  INTEL
+                  <Users className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger 
                   value="layers" 
-                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
-                  <Layers className="w-3 h-3 mr-0.5" />
-                  LYRS
+                  <Layers className="w-3 h-3" />
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="earth2" 
+                  className="text-[7px] px-0.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 rounded-none"
+                  title="NVIDIA Earth-2 AI Weather"
+                >
+                  <Zap className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger 
                   value="services" 
-                  className="text-[8px] px-1 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
-                  <Cpu className="w-3 h-3 mr-0.5" />
-                  SVCS
+                  <Cpu className="w-3 h-3" />
                 </TabsTrigger>
                 <TabsTrigger 
                   value="myca" 
-                  className="text-[8px] px-1 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
+                  className="text-[7px] px-0.5 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
                 >
-                  <Bot className="w-3 h-3 mr-0.5" />
-                  MYCA
+                  <Bot className="w-3 h-3" />
                 </TabsTrigger>
               </TabsList>
 
@@ -3070,6 +3259,127 @@ export default function CREPDashboardPage() {
                       onToggleLayer={toggleLayer}
                       onOpacityChange={setLayerOpacity}
                     />
+                  </ScrollArea>
+                </TabsContent>
+
+                {/* NVIDIA Earth-2 AI Weather Tab */}
+                <TabsContent value="earth2" className="h-full m-0 p-2 overflow-auto">
+                  <ScrollArea className="h-full">
+                    <div className="space-y-3">
+                      {/* Earth-2 Header */}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-[10px] font-bold text-white">NVIDIA EARTH-2</span>
+                        </div>
+                        <Badge variant="outline" className="px-1.5 py-0 h-4 border-emerald-500/30 text-emerald-400 text-[8px]">
+                          AI WEATHER
+                        </Badge>
+                      </div>
+                      
+                      {/* Earth-2 Layer Controls */}
+                      <Earth2LayerControl 
+                        filter={earth2Filter}
+                        onFilterChange={(filter) => {
+                          setEarth2Filter(prev => ({ ...prev, ...filter }));
+                          // Sync layer visibility with filter state
+                          if (filter.showForecast !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Forecast" ? { ...l, enabled: filter.showForecast! } : l
+                            ));
+                          }
+                          if (filter.showNowcast !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Nowcast" ? { ...l, enabled: filter.showNowcast! } : l
+                            ));
+                          }
+                          if (filter.showSporeDispersal !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Spore" ? { ...l, enabled: filter.showSporeDispersal! } : l
+                            ));
+                          }
+                          if (filter.showWind !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Wind" ? { ...l, enabled: filter.showWind! } : l
+                            ));
+                          }
+                          if (filter.showTemperature !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Temp" ? { ...l, enabled: filter.showTemperature! } : l
+                            ));
+                          }
+                          if (filter.showPrecipitation !== undefined) {
+                            setLayers(prev => prev.map(l => 
+                              l.id === "earth2Precip" ? { ...l, enabled: filter.showPrecipitation! } : l
+                            ));
+                          }
+                          console.log('[Earth-2] Layer filter changed:', filter);
+                        }}
+                        onRefresh={() => {
+                          setEarth2Loading(true);
+                          // Refresh Earth-2 data
+                          fetch('/api/earth2')
+                            .then(r => r.json())
+                            .then(data => {
+                              console.log('[Earth-2] Status refreshed:', data);
+                              setEarth2Available(data.available !== false);
+                            })
+                            .catch(e => {
+                              console.warn('[Earth-2] Failed to refresh status:', e);
+                              setEarth2Available(false);
+                            })
+                            .finally(() => setEarth2Loading(false));
+                        }}
+                        isLoading={earth2Loading}
+                        serviceAvailable={earth2Available}
+                        activeAlerts={earth2Alerts.length}
+                      />
+                      
+                      {/* Forecast Timeline */}
+                      <ForecastTimeline 
+                        minHours={0}
+                        maxHours={360}
+                        stepHours={6}
+                        currentHours={earth2ForecastHours}
+                        modelType="forecast"
+                        forecastStartTime={new Date()}
+                        onTimeChange={(hours) => {
+                          setEarth2ForecastHours(hours);
+                          console.log("[Earth-2] Forecast time changed:", hours, "hours");
+                        }}
+                      />
+                      
+                      {/* Weather Alerts Panel */}
+                      <AlertPanel 
+                        alerts={earth2Alerts}
+                        onAlertClick={(alert) => {
+                          console.log("[Earth-2] Alert clicked:", alert);
+                          // Fly to alert location on map
+                          if (alert.location && mapRef) {
+                            mapRef.flyTo({
+                              center: [alert.location.lon, alert.location.lat],
+                              zoom: 8,
+                              duration: 1500,
+                            });
+                          }
+                        }}
+                        onDismiss={(alertId) => {
+                          setEarth2Alerts(prev => prev.filter(a => a.id !== alertId));
+                        }}
+                        compact={true}
+                      />
+                      
+                      {/* Earth-2 Model Status */}
+                      <div className="pt-2 border-t border-gray-700/30">
+                        <div className="text-[9px] text-gray-400 mb-2">Active Models</div>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400 text-[7px]">Atlas</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-yellow-500/30 text-yellow-400 text-[7px]">StormScope</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400 text-[7px]">CorrDiff</Badge>
+                          <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400 text-[7px]">HealDA</Badge>
+                        </div>
+                      </div>
+                    </div>
                   </ScrollArea>
                 </TabsContent>
 

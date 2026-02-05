@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -19,27 +20,57 @@ import {
   Droplets,
   Satellite,
   Brain,
+  Zap,
+  Radar,
+  CloudRain,
 } from "lucide-react";
 
-interface LayerControlsProps {
-  layers: {
-    fungi?: boolean;      // PRIMARY: Fungal data from MINDEX/iNat/GBIF
-    mycelium: boolean;
-    heat: boolean;
-    organisms: boolean;
-    weather: boolean;
-    // New layers - prepared for future integration
-    devices?: boolean;
-    inat?: boolean;
-    wind?: boolean;
-    precipitation?: boolean;
-    ndvi?: boolean;
-    nlm?: boolean;
-  };
-  onLayersChange: (layers: LayerControlsProps["layers"]) => void;
+interface LayerState {
+  [key: string]: boolean | undefined;
+  // Core layers
+  fungi?: boolean;
+  mycelium?: boolean;
+  heat?: boolean;
+  organisms?: boolean;
+  weather?: boolean;
+  devices?: boolean;
+  inat?: boolean;
+  wind?: boolean;
+  precipitation?: boolean;
+  ndvi?: boolean;
+  nlm?: boolean;
+  // Earth-2 AI Weather layers
+  earth2Forecast?: boolean;
+  earth2Nowcast?: boolean;
+  earth2SporeDisperal?: boolean;
+  earth2WindField?: boolean;
+  earth2StormCells?: boolean;
+  earth2Clouds?: boolean;
 }
 
-const layerGroups = [
+interface LayerControlsProps {
+  layers: LayerState;
+  onLayersChange: (layers: LayerState) => void;
+}
+
+interface LayerItem {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+  description: string;
+  primary?: boolean;
+  comingSoon?: boolean;
+}
+
+interface LayerGroup {
+  name: string;
+  icon: React.ElementType;
+  isPrimary?: boolean;
+  isEarth2?: boolean;
+  layers: LayerItem[];
+}
+
+const layerGroups: LayerGroup[] = [
   {
     name: "🍄 Fungal Data (Primary)",
     icon: TreePine,
@@ -75,6 +106,19 @@ const layerGroups = [
       { key: "ndvi", label: "Vegetation Index", icon: Satellite, description: "NDVI from satellites", comingSoon: true },
     ],
   },
+  {
+    name: "NVIDIA Earth-2",
+    icon: Zap,
+    isEarth2: true,
+    layers: [
+      { key: "earth2Forecast", label: "AI Forecast (Atlas)", icon: Cloud, description: "15-day medium-range forecast" },
+      { key: "earth2Nowcast", label: "Nowcast (StormScope)", icon: Radar, description: "0-6 hour storm prediction" },
+      { key: "earth2SporeDisperal", label: "Spore Dispersal", icon: Wind, description: "AI-powered spore tracking" },
+      { key: "earth2WindField", label: "Wind Field 3D", icon: Wind, description: "3D wind vector arrows" },
+      { key: "earth2StormCells", label: "Storm Cells", icon: CloudRain, description: "3D storm visualization" },
+      { key: "earth2Clouds", label: "Volumetric Clouds", icon: Cloud, description: "3D cloud rendering" },
+    ],
+  },
 ];
 
 export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
@@ -105,10 +149,15 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
           <div key={group.name}>
             {groupIdx > 0 && <Separator className="mb-3 bg-white/10" />}
             <div className="flex items-center gap-2 mb-2">
-              <group.icon className={`h-3 w-3 ${group.isPrimary ? "text-green-400" : "text-gray-400"}`} />
-              <span className={`text-xs font-medium uppercase tracking-wider ${group.isPrimary ? "text-green-400" : "text-gray-400"}`}>
+              <group.icon className={`h-3 w-3 ${group.isPrimary ? "text-green-400" : (group as any).isEarth2 ? "text-cyan-400" : "text-gray-400"}`} />
+              <span className={`text-xs font-medium uppercase tracking-wider ${group.isPrimary ? "text-green-400" : (group as any).isEarth2 ? "text-cyan-400" : "text-gray-400"}`}>
                 {group.name}
               </span>
+              {(group as any).isEarth2 && (
+                <Badge variant="outline" className="text-[10px] py-0 px-1 border-cyan-500/50 text-cyan-400">
+                  NVIDIA
+                </Badge>
+              )}
             </div>
             <div className="space-y-2">
               {group.layers.map((layer) => {
@@ -123,11 +172,11 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
                       layer.comingSoon 
                         ? "opacity-50 cursor-not-allowed" 
                         : "hover:bg-white/5 cursor-pointer"
-                    } ${isPrimary && isEnabled ? "bg-green-500/10 border border-green-500/20" : ""}`}
+                    } ${isPrimary && isEnabled ? "bg-green-500/10 border border-green-500/20" : layer.key.startsWith("earth2") && isEnabled ? "bg-cyan-500/10 border border-cyan-500/20" : ""}`}
                     onClick={() => !layer.comingSoon && handleToggle(layer.key)}
                   >
                     <div className="flex items-center gap-2">
-                      <LayerIcon className={`h-4 w-4 ${isEnabled ? (isPrimary ? "text-green-400" : "text-green-400") : "text-gray-500"}`} />
+                      <LayerIcon className={`h-4 w-4 ${isEnabled ? (isPrimary ? "text-green-400" : layer.key.startsWith("earth2") ? "text-cyan-400" : "text-green-400") : "text-gray-500"}`} />
                       <div>
                         <Label 
                           htmlFor={layer.key} 
@@ -137,6 +186,11 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
                           {isPrimary && (
                             <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-green-500/50 text-green-400">
                               Primary
+                            </Badge>
+                          )}
+                          {layer.key.startsWith("earth2") && (
+                            <Badge variant="outline" className="ml-2 text-[10px] py-0 px-1 border-cyan-500/50 text-cyan-400">
+                              AI
                             </Badge>
                           )}
                           {layer.comingSoon && (
@@ -153,7 +207,7 @@ export function LayerControls({ layers, onLayersChange }: LayerControlsProps) {
                       checked={isEnabled}
                       onCheckedChange={() => !layer.comingSoon && handleToggle(layer.key)}
                       disabled={layer.comingSoon}
-                      className="data-[state=checked]:bg-green-500"
+                      className={layer.key.startsWith("earth2") ? "data-[state=checked]:bg-cyan-500" : "data-[state=checked]:bg-green-500"}
                     />
                   </div>
                 );

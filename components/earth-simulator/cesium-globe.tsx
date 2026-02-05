@@ -1,6 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+/**
+ * Cesium Globe Component
+ * February 5, 2026
+ * 
+ * Full NVIDIA Earth-2 integration with 3D weather visualization
+ * Uses Earth2Client for real data fetching
+ */
+
+import { useEffect, useRef, useState, useCallback } from "react";
+
+// NVIDIA Earth-2 3D Visualization Components
+import { WeatherVolumeLayer } from "./earth2/weather-volume-layer";
+import { StormCellVisualization } from "./earth2/storm-cell-visualization";
+import { WindFieldArrows } from "./earth2/wind-field-arrows";
+import { SporeParticleSystem } from "./earth2/spore-particle-system";
+import { ForecastHUD } from "./earth2/forecast-hud";
 
 interface GridTile {
   id: string;
@@ -43,6 +58,13 @@ interface CesiumGlobeProps {
     organisms: boolean;
     weather: boolean;
     inat: boolean;
+    // NVIDIA Earth-2 AI Weather layers
+    earth2Forecast?: boolean;
+    earth2Nowcast?: boolean;
+    earth2SporeDisperal?: boolean;
+    earth2WindField?: boolean;
+    earth2StormCells?: boolean;
+    earth2Clouds?: boolean;
   };
 }
 
@@ -63,6 +85,11 @@ export function CesiumGlobe({
   const [gridLoaded, setGridLoaded] = useState(false);
   const [gridStats, setGridStats] = useState<{ totalTiles: number; landTiles: number } | null>(null);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
+  
+  // Earth-2 AI Weather State
+  const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
+  const [earth2Opacity, setEarth2Opacity] = useState(0.7);
+  const [viewerReady, setViewerReady] = useState(false);
 
   useEffect(() => {
     if (!cesiumContainerRef.current || initialized) return;
@@ -209,6 +236,7 @@ export function CesiumGlobe({
 
         viewerRef.current = viewer;
         setInitialized(true);
+        setViewerReady(true);
         setError(null);
 
         // Cleanup
@@ -543,6 +571,9 @@ export function CesiumGlobe({
     console.log(`[Earth Simulator] Rendered ${fungalEntitiesRef.current.length} fungal markers`);
   }, [fungalObservations, layers?.fungi, initialized]);
 
+  // NVIDIA Earth-2 layers are now rendered as React components below
+  // This provides proper lifecycle management and uses the Earth2Client for real data
+
   // Add custom overlay layers when enabled
   useEffect(() => {
     if (!viewerRef.current || !initialized || !(window as any).Cesium) return;
@@ -634,13 +665,110 @@ export function CesiumGlobe({
     );
   }
 
+  // Check if any Earth-2 layers are active
+  const hasActiveEarth2Layers = layers?.earth2Forecast || layers?.earth2Nowcast || 
+    layers?.earth2SporeDisperal || layers?.earth2WindField || 
+    layers?.earth2StormCells || layers?.earth2Clouds;
+
   return (
     <div className="w-full h-full relative">
       <div ref={cesiumContainerRef} className="w-full h-full" />
       
+      {/* ═══════════════════════════════════════════════════════════════════════════
+          NVIDIA EARTH-2 AI WEATHER 3D VISUALIZATION COMPONENTS
+          Full integration using Earth2Client for real data from MAS API
+          ═══════════════════════════════════════════════════════════════════════════ */}
+      
+      {/* Earth-2 Forecast HUD - Status Display */}
+      {viewerReady && hasActiveEarth2Layers && (
+        <div className="absolute top-4 right-72 z-20">
+          <ForecastHUD 
+            forecastHours={earth2ForecastHours}
+            selectedModel="atlas-era5"
+            activeLayers={[
+              layers?.earth2Forecast && "Forecast",
+              layers?.earth2Nowcast && "Nowcast",
+              layers?.earth2SporeDisperal && "Spore",
+              layers?.earth2WindField && "Wind",
+              layers?.earth2StormCells && "Storms",
+              layers?.earth2Clouds && "Clouds",
+            ].filter(Boolean) as string[]}
+          />
+        </div>
+      )}
+
+      {/* Earth-2 Weather Volume Layer (Clouds & Precipitation) */}
+      {viewerReady && viewerRef.current && (layers?.earth2Forecast || layers?.earth2Clouds) && (
+        <WeatherVolumeLayer
+          viewer={viewerRef.current}
+          visible={true}
+          forecastHours={earth2ForecastHours}
+          opacity={earth2Opacity}
+          variable={layers?.earth2Clouds ? "clouds" : "precipitation"}
+          model="atlas-era5"
+          onDataLoaded={(stats) => {
+            console.log("[Earth-2] Weather volume stats:", stats);
+          }}
+        />
+      )}
+
+      {/* Earth-2 Storm Cell Visualization (StormScope Nowcast) */}
+      {viewerReady && viewerRef.current && (layers?.earth2Nowcast || layers?.earth2StormCells) && (
+        <StormCellVisualization
+          viewer={viewerRef.current}
+          visible={true}
+          forecastMinutes={60}
+          opacity={earth2Opacity}
+          showLightning={true}
+          showTornadoWarnings={true}
+          onStormClick={(storm) => {
+            console.log("[Earth-2] Storm clicked:", storm);
+          }}
+          onDataLoaded={(storms) => {
+            console.log("[Earth-2] Loaded", storms.length, "storm cells");
+          }}
+        />
+      )}
+
+      {/* Earth-2 Wind Field 3D Arrows */}
+      {viewerReady && viewerRef.current && layers?.earth2WindField && (
+        <WindFieldArrows
+          viewer={viewerRef.current}
+          visible={true}
+          forecastHours={earth2ForecastHours}
+          opacity={earth2Opacity}
+          altitude={10000}
+          density="medium"
+          animated={true}
+          colorBySpeed={true}
+          onDataLoaded={(stats) => {
+            console.log("[Earth-2] Wind field stats:", stats);
+          }}
+        />
+      )}
+
+      {/* Earth-2 Spore Particle System (FUSARIUM Integration) */}
+      {viewerReady && viewerRef.current && layers?.earth2SporeDisperal && (
+        <SporeParticleSystem
+          viewer={viewerRef.current}
+          visible={true}
+          forecastHours={earth2ForecastHours}
+          opacity={earth2Opacity}
+          showConcentrationZones={true}
+          showParticleTrails={true}
+          particleCount={500}
+          onZoneClick={(zone) => {
+            console.log("[Earth-2] Spore zone clicked:", zone);
+          }}
+          onDataLoaded={(zones) => {
+            console.log("[Earth-2] Loaded", zones.length, "spore zones");
+          }}
+        />
+      )}
+      
       {/* Grid Stats Overlay */}
       {showLandGrid && gridStats && (
-        <div className="absolute top-4 left-4 bg-black/70 text-white p-3 rounded-lg text-sm">
+        <div className="absolute top-4 left-4 bg-black/70 text-white p-3 rounded-lg text-sm z-10">
           <div className="font-bold mb-1">24x24 Land Grid</div>
           <div>Total Land Tiles: {gridStats.landTiles.toLocaleString()}</div>
           <div>Tile Size: {gridTileSize}° (~{Math.round(111 * gridTileSize)} km)</div>

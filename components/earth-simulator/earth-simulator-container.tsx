@@ -104,6 +104,13 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
     precipitation: false,
     ndvi: false,      // Vegetation index (coming soon)
     nlm: false,       // Nature Learning Model predictions (coming soon)
+    // NVIDIA Earth-2 AI Weather layers
+    earth2Forecast: false,      // Atlas 15-day forecast
+    earth2Nowcast: false,       // StormScope 0-6hr prediction
+    earth2SporeDisperal: false, // Spore dispersal modeling
+    earth2WindField: false,     // 3D wind field arrows
+    earth2StormCells: false,    // 3D storm cell visualization
+    earth2Clouds: false,        // Volumetric cloud rendering
   });
 
   const handleCellClick = useCallback((cellId: string, lat: number, lon: number) => {
@@ -163,7 +170,10 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
 
           {/* Layer Controls - Collapsible */}
           <ControlPanel title="Layers" defaultOpen={true} badge={Object.values(layers).filter(Boolean).length}>
-            <LayerControls layers={layers} onLayersChange={setLayers} />
+            <LayerControls 
+              layers={layers} 
+              onLayersChange={(newLayers) => setLayers(prev => ({ ...prev, ...newLayers }))} 
+            />
           </ControlPanel>
 
           {/* Grid Controls - Collapsible */}
