@@ -438,6 +438,34 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
+   ANIMATED GRADIENTS - Hero Search
+   ============================================ */
+
+.animate-gradient-x {
+  background-size: 200% 100%;
+  animation: gradient-x 3s ease infinite;
+}
+
+@keyframes gradient-x {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-xy {
+  background-size: 200% 200%;
+  animation: gradient-xy 4s ease infinite;
+}
+
+@keyframes gradient-xy {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+/* ============================================
    LOADING & SKELETON STATES
    ============================================ */
 

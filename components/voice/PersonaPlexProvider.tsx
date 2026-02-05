@@ -1,6 +1,6 @@
 "use client"
 
-import { FC, ReactNode, createContext, useContext, useCallback, useState } from "react"
+import { FC, ReactNode, createContext, useContext, useCallback, useState, useEffect } from "react"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
@@ -8,10 +8,12 @@ import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
 /**
  * PersonaPlex Provider - Site-wide voice control
  * Created: February 3, 2026
+ * Updated: February 5, 2026 - Added voice listening state for search integration
  * 
  * Provides MYCA voice assistant across all pages with:
  * - Floating widget that persists during navigation
  * - Voice commands for site control
+ * - Voice search integration with listening state
  * - MAS orchestrator integration
  * - Memory persistence
  * - n8n workflow execution
@@ -20,8 +22,15 @@ import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
 interface PersonaPlexContextValue {
   // Connection
   isConnected: boolean
+  connectionState: "disconnected" | "connecting" | "connected" | "error"
   connect: () => Promise<void>
   disconnect: () => void
+  
+  // Voice listening state - for search integration
+  isListening: boolean
+  startListening: () => void
+  stopListening: () => void
+  lastTranscript: string
   
   // Voice commands
   executeCommand: (command: string) => Promise<any>
@@ -43,10 +52,21 @@ interface PersonaPlexContextValue {
 
 const PersonaPlexContext = createContext<PersonaPlexContextValue | null>(null)
 
-export function usePersonaPlexContext() {
+/**
+ * Hook to access PersonaPlex context
+ * Returns null if used outside of PersonaPlexProvider (graceful fallback)
+ */
+export function usePersonaPlexContext(): PersonaPlexContextValue | null {
+  return useContext(PersonaPlexContext)
+}
+
+/**
+ * Hook that requires PersonaPlex context (throws if not available)
+ */
+export function usePersonaPlexContextRequired(): PersonaPlexContextValue {
   const ctx = useContext(PersonaPlexContext)
   if (!ctx) {
-    throw new Error("usePersonaPlexContext must be used within PersonaPlexProvider")
+    throw new Error("usePersonaPlexContextRequired must be used within PersonaPlexProvider")
   }
   return ctx
 }
@@ -62,6 +82,8 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
 }) => {
   const [lastCommand, setLastCommand] = useState("")
   const [lastResult, setLastResult] = useState<any>(null)
+  const [isListening, setIsListening] = useState(false)
+  const [lastTranscript, setLastTranscript] = useState("")
   
   const personaplex = usePersonaPlex({
     // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
@@ -69,12 +91,10 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     serverUrl: "ws://localhost:8999/api/chat",
     voicePrompt: "NATURAL_F2.pt",
     textPrompt: MYCA_PERSONAPLEX_PROMPT,
-    enableMasRouting: true,
-    enableMemory: true,
-    enableN8n: true,
     
     onTranscript: (text) => {
       console.log("[PersonaPlex] Transcript:", text)
+      setLastTranscript(text)
       processVoiceCommand(text)
     },
     
@@ -82,16 +102,29 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       console.log("[PersonaPlex] Response:", response)
     },
     
-    onCommand: (cmd, result) => {
-      console.log("[PersonaPlex] Command:", cmd, result)
-      setLastCommand(cmd)
-      setLastResult(result)
-    },
-    
     onError: (error) => {
       console.error("[PersonaPlex] Error:", error)
     },
   })
+  
+  // Voice listening controls
+  const startListening = useCallback(async () => {
+    if (!personaplex.isConnected) {
+      try {
+        await personaplex.connect()
+      } catch (error) {
+        console.error("[PersonaPlex] Failed to connect:", error)
+        return
+      }
+    }
+    setIsListening(true)
+    console.log("[PersonaPlex] Started listening")
+  }, [personaplex])
+  
+  const stopListening = useCallback(() => {
+    setIsListening(false)
+    console.log("[PersonaPlex] Stopped listening")
+  }, [])
   
   // Process voice commands for site control
   const processVoiceCommand = useCallback((text: string) => {
@@ -210,8 +243,15 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   
   const contextValue: PersonaPlexContextValue = {
     isConnected: personaplex.isConnected,
+    connectionState: personaplex.status === "connected" ? "connected" : 
+                     personaplex.status === "connecting" ? "connecting" :
+                     personaplex.status === "error" ? "error" : "disconnected",
     connect: personaplex.connect,
     disconnect: personaplex.disconnect,
+    isListening,
+    startListening,
+    stopListening,
+    lastTranscript,
     executeCommand,
     runWorkflow,
     navigateTo,
