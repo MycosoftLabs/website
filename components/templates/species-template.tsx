@@ -165,7 +165,7 @@ export function SpeciesTemplate({ species }: SpeciesTemplateProps) {
                       className="object-cover"
                       priority
                       crossOrigin="anonymous"
-                      unoptimized={true}
+                      sizes="(max-width: 768px) 100vw, 240px"
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">

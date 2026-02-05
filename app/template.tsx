@@ -1,22 +1,14 @@
-"use client"
-
 import type React from "react"
 
-import { motion } from "framer-motion"
-
+/**
+ * Template - Page transition wrapper
+ * Uses CSS animation instead of framer-motion for zero-JS bundle impact
+ * Provides smooth page fade-in without blocking render
+ */
 export default function Template({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      }}
-    >
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 ease-out">
       {children}
-    </motion.div>
+    </div>
   )
 }

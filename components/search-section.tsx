@@ -13,7 +13,20 @@ import { MouseIcon as Mushroom, FileText, FlaskRoundIcon as Flask, Microscope, A
 import type React from "react"
 import { useSearch } from "./search/use-search"
 import { SearchErrorBoundary } from "@/components/search/error-boundary"
-import { EnhancedSearch } from "./enhanced-search"
+import dynamic from "next/dynamic"
+
+// Dynamic import for heavy EnhancedSearch component (framer-motion)
+const EnhancedSearch = dynamic(
+  () => import("./enhanced-search").then((mod) => ({ default: mod.EnhancedSearch })),
+  {
+    loading: () => (
+      <div className="w-full max-w-xl mx-auto">
+        <div className="h-10 bg-muted/30 rounded-lg animate-pulse" />
+      </div>
+    ),
+    ssr: false, // Desktop only, skip SSR
+  }
+)
 
 export function SearchSection() {
   const { query, setQuery, suggestions, isLoading, error, fetchSuggestions } = useSearch()

@@ -1,15 +1,14 @@
 "use client"
 
-import { useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DataSourceBadge } from "@/components/ui/data-source-badge"
-import { AlertCircle, FileText, FlaskRoundIcon as Flask, MouseIcon as Mushroom, MapPin } from "lucide-react"
+import { AlertCircle, FileText, FlaskRoundIcon as Flask, MouseIcon as Mushroom, MapPin, RefreshCw } from "lucide-react"
 import type { SearchResult } from "@/types/search"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { useSearch } from "./use-search"
+import { useSearchResults } from "./use-search"
 import { findSimilarTerms } from "@/lib/utils/fuzzy-search"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
@@ -20,16 +19,9 @@ interface SearchResultsProps {
 }
 
 export function SearchResults({ query }: SearchResultsProps) {
-  const { results, isLoading, error, fetchResults } = useSearch(query)
+  // Use SWR-powered hook for automatic caching and revalidation
+  const { results, isLoading, isValidating, error, refresh, totalCount, source } = useSearchResults(query)
   const router = useRouter()
-
-  useEffect(() => {
-    if (!query.trim()) return
-
-    const controller = new AbortController()
-    fetchResults(query, controller)
-    return () => controller.abort()
-  }, [query, fetchResults])
 
   // Track result clicks
   const handleResultClick = (result: SearchResult) => {
@@ -70,12 +62,17 @@ export function SearchResults({ query }: SearchResultsProps) {
             <p className="text-sm text-muted-foreground">{error}</p>
             <Button
               variant="outline"
-              onClick={() => {
-                // Retry the search
-                fetchResults(query)
-              }}
+              onClick={refresh}
+              disabled={isValidating}
             >
-              Try Again
+              {isValidating ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                "Try Again"
+              )}
             </Button>
           </div>
         </CardContent>
@@ -137,6 +134,14 @@ export function SearchResults({ query }: SearchResultsProps) {
 
   return (
     <div className="space-y-8">
+      {/* Cache/refresh indicator */}
+      {isValidating && results.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          <span>Refreshing results...</span>
+        </div>
+      )}
+      
       <Tabs defaultValue="all" className="space-y-8">
         <TabsList>
           <TabsTrigger value="all">All Results ({results.length})</TabsTrigger>

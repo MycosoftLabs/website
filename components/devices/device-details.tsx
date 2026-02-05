@@ -51,7 +51,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
               fill
               className="object-cover"
               priority
-              unoptimized={true}
+              sizes="(max-width: 768px) 100vw, 600px"
               onError={() => handleImageError("main")}
             />
           </div>
@@ -209,7 +209,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
                       alt={feature.title}
                       fill
                       className="object-contain md:object-cover p-2 md:p-0"
-                      unoptimized={true}
+                      sizes="(max-width: 768px) 100vw, 400px"
                       onError={() => handleImageError(`feature-${index}`)}
                     />
                   </div>

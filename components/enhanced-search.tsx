@@ -13,6 +13,8 @@ import {
   FlaskRoundIcon as Flask,
   Microscope,
   AlertCircle,
+  Mic,
+  MicOff,
 } from "lucide-react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Button } from "@/components/ui/button"
@@ -20,20 +22,43 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSearch } from "./search/use-search"
 import { searchTracker } from "@/lib/services/search-tracker"
+import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
+import { cn } from "@/lib/utils"
 
 export function EnhancedSearch() {
   const { query, setQuery, suggestions, isLoading, error, fetchSuggestions } = useSearch()
   const [showSuggestions, setShowSuggestions] = useState(false)
   const router = useRouter()
   const debouncedQuery = useDebounce(query, 300)
+  
+  // PersonaPlex voice context
+  const personaplex = usePersonaPlexContext()
+  const { isListening, lastTranscript, startListening, stopListening, isConnected, connectionState } = personaplex || {
+    isListening: false,
+    lastTranscript: "",
+    startListening: () => {},
+    stopListening: () => {},
+    isConnected: false,
+    connectionState: "disconnected",
+  }
+  
+  // Handle voice transcript to populate search
+  useEffect(() => {
+    if (lastTranscript) {
+      setQuery(lastTranscript)
+      setShowSuggestions(true)
+    }
+  }, [lastTranscript, setQuery])
 
   useEffect(() => {
-    if (!debouncedQuery.trim()) {
+    // Ensure string type for safety during hydration
+    const safeQuery = (debouncedQuery || "").trim()
+    if (!safeQuery) {
       return
     }
 
     const controller = new AbortController()
-    fetchSuggestions(debouncedQuery, controller)
+    fetchSuggestions(safeQuery, controller)
 
     return () => controller.abort()
   }, [debouncedQuery, fetchSuggestions])
@@ -111,7 +136,7 @@ export function EnhancedSearch() {
               onChange={handleInputChange}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="pl-3 pr-9 py-1.5 h-10 text-sm rounded-lg focus-visible:ring-offset-0"
+              className="pl-3 pr-16 py-1.5 h-10 text-sm rounded-lg focus-visible:ring-offset-0"
               aria-expanded={showSuggestions}
               aria-controls="search-suggestions"
               aria-label="Search fungi and compounds"
@@ -119,40 +144,64 @@ export function EnhancedSearch() {
               aria-invalid={!!error}
               aria-errormessage={error || undefined}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4">
-              <AnimatePresence mode="wait">
-                {isLoading ? (
-                  <motion.div
-                    key="loading"
-                    initial={{ opacity: 0, rotate: 0 }}
-                    animate={{ opacity: 1, rotate: 360 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                  >
-                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-                  </motion.div>
-                ) : query.length > 0 ? (
-                  <motion.div
-                    key="send"
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 20, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Send className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="search"
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 20, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  </motion.div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {/* Voice Input Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  isListening ? stopListening() : startListening()
+                }}
+                disabled={!isConnected && connectionState !== "connecting"}
+                className={cn(
+                  "h-6 w-6 flex items-center justify-center rounded-full transition-colors",
+                  isListening && "bg-red-500/10 text-red-500",
+                  !isConnected && "opacity-50 cursor-not-allowed",
+                  isConnected && !isListening && "hover:bg-muted text-gray-400 dark:text-gray-500"
                 )}
-              </AnimatePresence>
+                title={isListening ? "Stop listening" : isConnected ? "Voice search" : "Voice offline"}
+              >
+                {isListening ? (
+                  <MicOff className="w-4 h-4 animate-pulse" />
+                ) : (
+                  <Mic className="w-4 h-4" />
+                )}
+              </button>
+              <div className="h-4 w-4">
+                <AnimatePresence mode="wait">
+                  {isLoading ? (
+                    <motion.div
+                      key="loading"
+                      initial={{ opacity: 0, rotate: 0 }}
+                      animate={{ opacity: 1, rotate: 360 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                    >
+                      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                    </motion.div>
+                  ) : query.length > 0 ? (
+                    <motion.div
+                      key="send"
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 20, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Send className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="search"
+                      initial={{ y: -20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 20, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </form>
         </div>
