@@ -87,7 +87,7 @@ export function VoiceOverlay({ open, onClose, className }: VoiceOverlayProps) {
           )}
           {voice.transcript && !voice.interimTranscript && (
             <p className="text-2xl text-center font-medium">
-              "{voice.transcript}"
+              &ldquo;{voice.transcript}&rdquo;
             </p>
           )}
           {!voice.transcript && !voice.interimTranscript && (
@@ -143,7 +143,7 @@ export function VoiceOverlay({ open, onClose, className }: VoiceOverlayProps) {
         
         {/* Quick tips */}
         <div className="absolute bottom-4 text-center text-sm text-muted-foreground">
-          <p>Try: "What's the system status?" • "List all agents" • "Show workflows"</p>
+          <p>Try: &ldquo;What&apos;s the system status?&rdquo; &bull; &ldquo;List all agents&rdquo; &bull; &ldquo;Show workflows&rdquo;</p>
         </div>
       </div>
     </div>
