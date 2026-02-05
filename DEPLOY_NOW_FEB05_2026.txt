@@ -1,0 +1,81 @@
+========================================================
+  EARTH-2 RTX DEPLOYMENT INSTRUCTIONS - February 5, 2026
+========================================================
+
+STATUS: Code pushed to GitHub. Ready for VM deployment.
+BLOCKER: SSH key needs to be authorized on Sandbox VM.
+
+========================================================
+STEP 1: SET UP SSH ACCESS (One-time)
+========================================================
+
+Open a NEW terminal window (PowerShell, Git Bash, or Terminal) and run:
+
+  ssh-copy-id mycosoft@192.168.0.187
+
+Enter the password when prompted. After this, SSH will work without passwords.
+
+Alternative (if ssh-copy-id not available):
+
+  ssh mycosoft@192.168.0.187
+  # Enter password
+  # Then run on VM:
+  mkdir -p ~/.ssh
+  echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQChhe1aLsNjPM6Zv2Du3QqUOuH2L2noBjiiA+3D3QrZ5gOpDCj3eZrBbvFO6mJQABtlKY5zM0sKp9RCj/qSIpfjlml4eZTFp/F/DErZlXxtxRaTZLfZeI+6+yskz+Z4TAv3hx6MD+Qq0ROUul4P5v7aLq5YQKSXCwfARl1qXKLuIXWPl690tJaBEeFyJKAYIoiHKj9pCovjN/c5K9nAu1PA6uVjiw/czB58Hp3/MeAccAnIWJ8KE64AHReAfBc3IOmaUjqAYHk8lKTLXTuZsl56n+q3rtENPez9lum8S63VOTCVCVBPVVC4a0gA4apHiLE41BKbX1bQ8IKGYou4YZnO1P+Km2FVMxDi+ZgJ4/pvJLbIT4MLS1McZwrgiKf+Xn0fB1N+DYIgfzERFpNriu4bwYHa7VNlu0q2H63/0m9O0IcTTWT33VQ2sQS9hQV5TuqQxIJFOcs2KACJPBnkRbsKIchiYAQ3SeyjgSTFCebz26OrDQ0AQfFrAgK3BRNXG1KX5J4b0p8yizkiBMIXJE2rL1ktlNwi1dih2co+sF1GlgdY+zQveo3Y7LGdHoqbPT9kxtFOQlAhDhfchvbbLEGXfuVTqyP4nGulUV1ghfoPNsLU0e5+YS8jtHUsM6YPi2tapZwENFe0z7ezMCNvt4cIteR2pMOqnp17E1oF8xvH+w== admin2@MycoComp" >> ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+  exit
+
+========================================================
+STEP 2: DEPLOY TO SANDBOX VM
+========================================================
+
+Once SSH is configured, run:
+
+  ssh mycosoft@192.168.0.187
+
+Then on the VM:
+
+  cd /home/mycosoft/website
+  git fetch origin && git reset --hard origin/main
+  
+  # Verify GPU
+  nvidia-smi
+  
+  # Deploy K8s resources
+  kubectl apply -f infra/k8s/namespaces.yaml
+  kubectl apply -f infra/k8s/storage/earth2-pvc.yaml
+  
+  # Deploy Earth-2 models
+  chmod +x infra/k8s/deploy-all-models.sh
+  ./infra/k8s/deploy-all-models.sh
+  
+  # Deploy E2CC
+  cd services/e2cc
+  docker compose up -d --build
+  
+  # Verify
+  kubectl get pods -n earth2-models
+  docker ps
+
+========================================================
+STEP 3: RUN VERIFICATION TESTS
+========================================================
+
+From local machine (after deployment):
+
+  python tests/e2e/test_rtx5090_passthrough.py --remote 192.168.0.187
+  python tests/e2e/test_services_comprehensive.py --host 192.168.0.187
+  python tests/e2e/earth2_rtx_e2e_test.py --host 192.168.0.187
+
+========================================================
+FILES READY FOR DEPLOYMENT
+========================================================
+
+- infra/k8s/               - Kubernetes manifests
+- services/e2cc/           - Omniverse Kit + WebRTC
+- services/earth2-inference/ - AI inference server
+- services/data-federation/  - Weather data mesh
+- services/model-orchestrator/ - VRAM management
+- tests/e2e/               - Test suites (70+ tests)
+
+========================================================
