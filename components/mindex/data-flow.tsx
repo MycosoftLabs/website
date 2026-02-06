@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import {
   Activity,
   ArrowRight,
+  CheckCircle2,
   Cloud,
   Copy,
   Database,
