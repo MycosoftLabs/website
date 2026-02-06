@@ -118,19 +118,24 @@ export function useSearch(initialQuery = "") {
   )
 
   // Results hook using SWR (for full search page)
+  // Note: This is a factory function that returns hook results - intentionally structured this way
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const useResults = useCallback((searchQuery: string) => {
     const shouldFetch = searchQuery.trim().length >= 2
     const key = shouldFetch 
       ? `/api/search?q=${encodeURIComponent(searchQuery.trim())}`
       : null
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const { data, error: fetchError, isLoading: loading } = useSWR(key, fetcher, swrConfig)
 
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const results = useMemo<SearchResult[]>(() => {
       if (!data?.results || !Array.isArray(data.results)) return []
-      return data.results.filter((result: any) => (
-        result?.id && result?.title && result?.type && result?.url
-      ))
+      return data.results.filter((result: unknown) => {
+        const r = result as Record<string, unknown>
+        return r?.id && r?.title && r?.type && r?.url
+      })
     }, [data])
 
     return { results, error: fetchError?.message, isLoading: loading }

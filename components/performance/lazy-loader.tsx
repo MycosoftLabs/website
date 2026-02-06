@@ -168,9 +168,9 @@ export function LazyComponent<P extends object>({
     
     setLoading(true)
     try {
-      const module = await loader()
+      const loadedModule = await loader()
       if (mountedRef.current) {
-        setComponent(() => module.default)
+        setComponent(() => loadedModule.default)
       }
     } catch (err) {
       if (mountedRef.current) {
