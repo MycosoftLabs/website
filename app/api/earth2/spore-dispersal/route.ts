@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCachedReal, normalizeError, setCachedReal } from "../_lib/real-cache";
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001";
 
@@ -25,41 +26,25 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      if (!response.ok) {
-        return NextResponse.json(
-          { error: "Spore dispersal run not found", run_id: runId },
-          { status: response.status }
-        );
-      }
-
-      return NextResponse.json(await response.json());
+      if (!response.ok) throw new Error(`MAS spore run ${runId} status ${response.status}`);
+      const runData = await response.json();
+      setCachedReal(`earth2:spore:run:${runId}`, runData, { ttlMs: 10 * 60 * 1000 });
+      return NextResponse.json({ ...runData, source: "mas", cached: false });
     }
 
-    // If hours parameter is provided, return zones data
+    // If hours parameter is provided, return zone data from MAS only
     if (searchParams.has("hours")) {
-      try {
-        const response = await fetch(
-          `${MAS_API_URL}/api/earth2/spore-dispersal?hours=${hours}`,
-          {
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-          }
-        );
-
-        if (response.ok) {
-          return NextResponse.json(await response.json());
+      const zonesResponse = await fetch(
+        `${MAS_API_URL}/api/earth2/spore-dispersal?hours=${hours}`,
+        {
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
         }
-      } catch {
-        // Fall through to generate local data
-      }
-
-      // Generate local spore zones
-      return NextResponse.json({
-        zones: generateSporeZones(hours),
-        forecastHours: hours,
-        available: true,
-        source: "local",
-      });
+      );
+      if (!zonesResponse.ok) throw new Error(`MAS spore zones status ${zonesResponse.status}`);
+      const zonesData = await zonesResponse.json();
+      setCachedReal(`earth2:spore:zones:${hours}`, zonesData, { ttlMs: 10 * 60 * 1000 });
+      return NextResponse.json({ ...zonesData, source: "mas", cached: false });
     }
 
     // List recent spore dispersal runs
@@ -71,56 +56,32 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    if (!response.ok) {
-      console.log("[Earth-2 Spore Dispersal] MAS backend unavailable, returning mock data");
-      return NextResponse.json({
-        runs: [],
-        zones: generateSporeZones(hours),
-        message: "MAS Earth-2 Spore Dispersal API unavailable",
-        available: false,
-      });
-    }
-
-    return NextResponse.json(await response.json());
+    if (!response.ok) throw new Error(`MAS spore list status ${response.status}`);
+    const listData = await response.json();
+    setCachedReal("earth2:spore:list", listData, { ttlMs: 5 * 60 * 1000 });
+    return NextResponse.json({ ...listData, source: "mas", cached: false });
   } catch (error) {
     console.error("Spore Dispersal GET error:", error);
-    return NextResponse.json({
-      runs: [],
-      zones: generateSporeZones(24),
-      message: "Failed to connect to Earth-2 Spore Dispersal API",
-      available: false,
-    });
+    const { searchParams } = new URL(request.url);
+    const runId = searchParams.get("run_id");
+    const hours = parseInt(searchParams.get("hours") || "24", 10);
+    const cacheKey = runId
+      ? `earth2:spore:run:${runId}`
+      : searchParams.has("hours")
+        ? `earth2:spore:zones:${hours}`
+        : "earth2:spore:list";
+    const cached = getCachedReal(cacheKey);
+    if (cached) {
+      return NextResponse.json(
+        { ...(cached.body as Record<string, unknown>), source: "cached_real", cached: true },
+        { status: cached.status },
+      );
+    }
+    return NextResponse.json(
+      { runs: [], zones: [], source: "none", cached: false, available: false, message: `Failed to connect to Earth-2 Spore Dispersal API: ${normalizeError(error)}` },
+      { status: 503 },
+    );
   }
-}
-
-function generateSporeZones(forecastHours: number) {
-  const seed = forecastHours * 0.1;
-  
-  const baseZones = [
-    { lat: 41.5, lon: -93.0, radius: 150, species: "Fusarium graminearum", risk: "high" },
-    { lat: 40.0, lon: -89.5, radius: 100, species: "Fusarium oxysporum", risk: "moderate" },
-    { lat: 47.5, lon: -122.0, radius: 80, species: "Amanita muscaria", risk: "low" },
-    { lat: 45.5, lon: -123.0, radius: 120, species: "Cantharellus cibarius", risk: "low" },
-    { lat: 37.5, lon: -122.5, radius: 90, species: "Armillaria mellea", risk: "moderate" },
-    { lat: 34.0, lon: -118.5, radius: 70, species: "Agaricus bisporus", risk: "low" },
-    { lat: 33.5, lon: -84.5, radius: 110, species: "Ganoderma lucidum", risk: "moderate" },
-    { lat: 30.0, lon: -81.5, radius: 130, species: "Aspergillus flavus", risk: "high" },
-    { lat: 42.5, lon: -71.0, radius: 85, species: "Trametes versicolor", risk: "low" },
-    { lat: 40.7, lon: -74.0, radius: 60, species: "Pleurotus ostreatus", risk: "low" },
-    // San Diego area
-    { lat: 32.7, lon: -117.1, radius: 100, species: "Psilocybe cyanescens", risk: "moderate" },
-    { lat: 32.9, lon: -116.8, radius: 70, species: "Boletus edulis", risk: "low" },
-  ];
-
-  return baseZones.map((zone, i) => ({
-    id: `zone-${i}`,
-    lat: zone.lat,
-    lon: zone.lon,
-    radius: zone.radius * (1 + seed * 0.1),
-    concentration: 1000 + Math.random() * 5000,
-    riskLevel: zone.risk,
-    species: zone.species,
-  }));
 }
 
 export async function POST(request: NextRequest) {

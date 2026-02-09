@@ -6,8 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCachedReal, normalizeError, setCachedReal } from "../_lib/real-cache";
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001";
+const CACHE_KEY = "earth2:models";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,61 +18,22 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      // Return default model list if MAS is unavailable
-      return NextResponse.json({
-        models: [
-          {
-            id: "atlas_era5",
-            name: "Atlas ERA5",
-            type: "forecast",
-            description: "Medium-range global forecast (0-15 days)",
-            variables: 75,
-            resolution: 0.25,
-            available: false,
-          },
-          {
-            id: "atlas_gfs",
-            name: "Atlas GFS",
-            type: "forecast",
-            description: "Medium-range forecast with GFS initialization",
-            variables: 75,
-            resolution: 0.25,
-            available: false,
-          },
-          {
-            id: "stormscope_goes_mrms",
-            name: "StormScope GOES-MRMS",
-            type: "nowcast",
-            description: "Short-range hazardous weather nowcast (0-6 hours)",
-            resolution: 0.0125,
-            available: false,
-          },
-          {
-            id: "corrdiff",
-            name: "CorrDiff",
-            type: "downscale",
-            description: "AI downscaling (500x faster than physics)",
-            available: false,
-          },
-          {
-            id: "healda",
-            name: "HealDA",
-            type: "assimilation",
-            description: "Global data assimilation in seconds",
-            available: false,
-          },
-        ],
-        source: "default",
-      });
-    }
+    if (!response.ok) throw new Error(`MAS models ${response.status}`);
 
     const data = await response.json();
-    return NextResponse.json({ ...data, source: "mas" });
+    setCachedReal(CACHE_KEY, data, { ttlMs: 10 * 60 * 1000 });
+    return NextResponse.json({ ...data, source: "mas", cached: false });
   } catch (error) {
     console.error("Earth-2 Models GET error:", error);
+    const cached = getCachedReal(CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(
+        { ...(cached.body as Record<string, unknown>), source: "cached_real", cached: true },
+        { status: cached.status },
+      );
+    }
     return NextResponse.json(
-      { models: [], error: "Failed to fetch Earth-2 models" },
+      { models: [], source: "none", cached: false, available: false, error: `Failed to fetch Earth-2 models: ${normalizeError(error)}` },
       { status: 503 }
     );
   }

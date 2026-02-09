@@ -6,8 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCachedReal, normalizeError, setCachedReal } from "./_lib/real-cache";
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001";
+const CACHE_KEY = "earth2:status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,26 +21,26 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      console.log("[Earth-2] MAS backend unavailable, returning status");
-      return NextResponse.json({
-        available: false,
-        status: "unavailable",
-        message: "MAS Earth-2 API not connected",
-        models: ["atlas", "stormscope", "corrdiff", "healda"],
-        endpoints: ["/api/earth2/models", "/api/earth2/layers", "/api/earth2/forecast", "/api/earth2/nowcast"],
-      });
-    }
+    if (!response.ok) throw new Error(`MAS status ${response.status}`);
 
     const data = await response.json();
-    return NextResponse.json(data);
+    setCachedReal(CACHE_KEY, data, { ttlMs: 2 * 60 * 1000 });
+    return NextResponse.json({ ...data, source: "mas", cached: false });
   } catch (error) {
     console.error("Earth-2 API error:", error);
+    const cached = getCachedReal(CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(
+        { ...(cached.body as Record<string, unknown>), source: "cached_real", cached: true },
+        { status: cached.status },
+      );
+    }
     return NextResponse.json({
       available: false,
       status: "offline",
-      message: "MAS Earth-2 API not reachable",
-      models: ["atlas", "stormscope", "corrdiff", "healda"],
-    });
+      source: "none",
+      cached: false,
+      message: `MAS Earth-2 API not reachable: ${normalizeError(error)}`,
+    }, { status: 503 });
   }
 }
