@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import useSWR from 'swr'
 import { useCallback } from 'react'
@@ -71,7 +71,7 @@ export function useBioCompute() {
   }, [mutate])
 
   const retrieveData = useCallback(async (id: string) => {
-    const res = await fetch(\/api/bio/dna-storage/\\)
+    const res = await fetch(`/api/bio/dna-storage/${id}`)
     if (!res.ok) throw new Error('Failed to retrieve data')
     return res.json()
   }, [])
