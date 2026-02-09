@@ -1,197 +1,86 @@
-import nodemailer, { Transporter, SendMailOptions } from 'nodemailer'
+/**
+ * Mycosoft Email Service
+ * Wraps nodemailer for transactional emails (notifications, alerts, deployments)
+ * Created: February 9, 2026
+ */
 
-// Email configuration interface
-export interface EmailConfig {
-  host: string
-  port: number
-  secure: boolean
+interface EmailConfig {
+  host: string;
+  port: number;
+  secure: boolean;
   auth: {
-    user: string
-    pass: string
-  }
-  from: string
+    user: string;
+    pass: string;
+  };
 }
 
-// Email template data interfaces
-export interface WelcomeEmailData {
-  userName: string
-  loginUrl: string
+interface EmailMessage {
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+  from?: string;
 }
 
-export interface PasswordResetData {
-  userName: string
-  resetUrl: string
-  expiresIn: string
+interface EmailResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
 }
 
-export interface SecurityAlertData {
-  userName: string
-  alertType: string
-  description: string
-  timestamp: string
-  ipAddress?: string
-  location?: string
-}
+// NOTE: nodemailer must be installed: npm install nodemailer @types/nodemailer
+// Configuration comes from environment variables, never hardcoded
 
-export interface ReportDeliveryData {
-  userName: string
-  reportName: string
-  reportDate: string
-  downloadUrl: string
-}
+const defaultConfig: EmailConfig = {
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+  },
+};
 
-export interface DeviceNotificationData {
-  deviceName: string
-  deviceId: string
-  eventType: 'online' | 'offline' | 'alert' | 'update'
-  message: string
-  timestamp: string
-}
-
-// Singleton transporter instance
-let transporter: Transporter | null = null
-
-/**
- * Get or create the email transporter
- */
-function getTransporter(): Transporter {
-  if (transporter) return transporter
-
-  const config: EmailConfig = {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
-    },
-    from: process.env.SMTP_FROM || 'Mycosoft <noreply@mycosoft.com>',
-  }
-
-  transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: config.auth,
-  })
-
-  return transporter
-}
-
-/**
- * Send an email using the configured transporter
- */
-export async function sendEmail(options: SendMailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendEmail(message: EmailMessage, config?: Partial<EmailConfig>): Promise<EmailResult> {
   try {
-    const transport = getTransporter()
+    const nodemailer = await import('nodemailer');
+    const mergedConfig = { ...defaultConfig, ...config };
     
-    // Use default from address if not specified
-    if (!options.from) {
-      options.from = process.env.SMTP_FROM || 'Mycosoft <noreply@mycosoft.com>'
+    if (!mergedConfig.auth.user || !mergedConfig.auth.pass) {
+      return { success: false, error: 'SMTP credentials not configured. Set SMTP_USER and SMTP_PASS env vars.' };
     }
-
-    const info = await transport.sendMail(options)
     
-    return {
-      success: true,
-      messageId: info.messageId,
-    }
+    const transporter = nodemailer.createTransport(mergedConfig);
+    
+    const info = await transporter.sendMail({
+      from: message.from || `Mycosoft <${mergedConfig.auth.user}>`,
+      to: Array.isArray(message.to) ? message.to.join(', ') : message.to,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+    });
+    
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Failed to send email:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown email error' };
   }
 }
 
-/**
- * Send a welcome email to new users
- */
-export async function sendWelcomeEmail(to: string, data: WelcomeEmailData) {
-  const { welcomeTemplate } = await import('./templates/welcome')
-  
+export async function sendDeploymentNotification(service: string, status: 'success' | 'failure', details: string): Promise<EmailResult> {
+  const statusEmoji = status === 'success' ? 'Deployed' : 'FAILED';
   return sendEmail({
-    to,
-    subject: 'Welcome to Mycosoft!',
-    html: welcomeTemplate(data),
-  })
+    to: process.env.DEPLOY_NOTIFY_EMAIL || '',
+    subject: `[Mycosoft Deploy] ${service} - ${statusEmoji}`,
+    html: `<h2>Deployment ${statusEmoji}: ${service}</h2><pre>${details}</pre><p>Time: ${new Date().toISOString()}</p>`,
+  });
 }
 
-/**
- * Send a password reset email
- */
-export async function sendPasswordResetEmail(to: string, data: PasswordResetData) {
-  const { passwordResetTemplate } = await import('./templates/password-reset')
-  
+export async function sendErrorAlert(component: string, error: string): Promise<EmailResult> {
   return sendEmail({
-    to,
-    subject: 'Reset Your Mycosoft Password',
-    html: passwordResetTemplate(data),
-  })
+    to: process.env.ALERT_EMAIL || '',
+    subject: `[Mycosoft Alert] Error in ${component}`,
+    html: `<h2>Error Alert: ${component}</h2><pre>${error}</pre><p>Time: ${new Date().toISOString()}</p>`,
+  });
 }
 
-/**
- * Send a security alert email
- */
-export async function sendSecurityAlertEmail(to: string, data: SecurityAlertData) {
-  const { securityAlertTemplate } = await import('./templates/security-alert')
-  
-  return sendEmail({
-    to,
-    subject: `Security Alert: ${data.alertType}`,
-    html: securityAlertTemplate(data),
-  })
-}
-
-/**
- * Send a report delivery email
- */
-export async function sendReportEmail(to: string, data: ReportDeliveryData) {
-  const { reportDeliveryTemplate } = await import('./templates/report-delivery')
-  
-  return sendEmail({
-    to,
-    subject: `Your Report: ${data.reportName}`,
-    html: reportDeliveryTemplate(data),
-  })
-}
-
-/**
- * Send a device notification email
- */
-export async function sendDeviceNotificationEmail(to: string, data: DeviceNotificationData) {
-  const { deviceNotificationTemplate } = await import('./templates/device-notification')
-  
-  return sendEmail({
-    to,
-    subject: `MycoBrain Device: ${data.deviceName} - ${data.eventType}`,
-    html: deviceNotificationTemplate(data),
-  })
-}
-
-/**
- * Verify the email configuration is working
- */
-export async function verifyEmailConfig(): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const transport = getTransporter()
-    await transport.verify()
-    return { valid: true }
-  } catch (error) {
-    return {
-      valid: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
-  }
-}
-
-/**
- * Close the transporter connection
- */
-export function closeTransporter() {
-  if (transporter) {
-    transporter.close()
-    transporter = null
-  }
-}
+export type { EmailConfig, EmailMessage, EmailResult };
