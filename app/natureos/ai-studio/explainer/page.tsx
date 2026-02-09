@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Brain, ExternalLink, BookOpen, Lightbulb, Layers, 
-  Cpu, ArrowRight, Code, Sparkles, RefreshCw, Maximize2
+  Cpu, ArrowRight, Code, Sparkles, Maximize2
 } from "lucide-react"
 
 export default function TransformerExplainerPage() {
@@ -29,7 +29,7 @@ export default function TransformerExplainerPage() {
                 <Badge variant="outline">Educational</Badge>
               </h1>
               <p className="text-muted-foreground mt-1">
-                Understand how MYCA AI processes and generates responses using transformer architecture
+                Understand how MYCA&apos;s AI processes and generates responses using transformer architecture
               </p>
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function TransformerExplainerPage() {
                     <Badge variant="secondary">Polo Club</Badge>
                   </CardTitle>
                   <CardDescription>
-                    Interactive visualization of how GPT-2 processes text - runs in your browser
+                    Interactive visualization of how GPT-2 processes text — runs in your browser
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export default function TransformerExplainerPage() {
                       </div>
                     </div>
                     <div className="mt-4 text-xs text-center text-muted-foreground">
-                      Attention = softmax(QK^T / √d) × V
+                      Attention = softmax(QK^T / \u221Ad) \u00D7 V
                     </div>
                   </div>
                 </CardContent>
@@ -316,7 +316,7 @@ export default function TransformerExplainerPage() {
                     </h3>
                     <p className="text-muted-foreground text-sm">
                       Multi-head attention allows MYCA to understand relationships between 
-                      concepts - connecting &ldquo;Psilocybe cubensis&rdquo; with &ldquo;psilocybin biosynthesis&rdquo; 
+                      concepts — connecting &ldquo;Psilocybe cubensis&rdquo; with &ldquo;psilocybin biosynthesis&rdquo; 
                       and &ldquo;mycology research.&rdquo;
                     </p>
                   </div>
@@ -327,8 +327,8 @@ export default function TransformerExplainerPage() {
                       Agent Coordination
                     </h3>
                     <p className="text-muted-foreground text-sm">
-                      MYCA orchestrates 38+ specialized agents. The transformer helps 
-                      route tasks to the right agent by understanding intent - research 
+                      MYCA orchestrates 227+ specialized agents. The transformer helps 
+                      route tasks to the right agent by understanding intent — research 
                       queries go to ResearcherAgent, security to SecurityAgent.
                     </p>
                   </div>
@@ -370,7 +370,7 @@ export default function TransformerExplainerPage() {
                         <Layers className="h-6 w-6 text-green-500" />
                       </div>
                       <div className="text-sm font-medium">MAS v2</div>
-                      <div className="text-xs text-muted-foreground">38 Agents</div>
+                      <div className="text-xs text-muted-foreground">227+ Agents</div>
                     </div>
                     <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block" />
                     <div className="text-center">
