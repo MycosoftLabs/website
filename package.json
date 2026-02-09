@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --port 3010",
+    "dev": "node scripts/start-with-gpu.js",
+    "dev:next-only": "next dev --port 3010",
+    "dev:no-gpu": "next dev --port 3010",
+    "gpu:start": "python ../mycosoft-mas/scripts/local_gpu_services.py",
     "lint": "next lint",
     "start": "next start --port 3000",
     "services:start": "python services/service_manager.py",

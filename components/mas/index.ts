@@ -1,4 +1,4 @@
-﻿// MAS v2 Component Exports
+// MAS v2 Component Exports
 export { AgentGrid } from "./agent-grid"
 export { AgentTerminal } from "./agent-terminal"
 export { MYCAChatPanel } from "./myca-chat-panel"
@@ -7,7 +7,9 @@ export { AgentTopology } from "./agent-topology"
 export { NotificationCenter } from "./notification-center"
 export { AgentCreator } from "./agent-creator"
 export { WorkflowStudio } from "./workflow-studio"
+export { ActivityTopologyView } from "./activity-topology-view"
 
 // Advanced 3D Topology
 export { AdvancedTopology3D } from "./topology"
 export * from "./topology/types"
+export type { ActivityNode, ActivityConnection, ActivityTopologyData, ActivityNodeType } from "./topology/activity-types"

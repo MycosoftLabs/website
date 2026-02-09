@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
+import { ingestVessels } from "@/lib/oei/mindex-ingest"
 
 export const dynamic = "force-dynamic"
 
@@ -105,6 +106,8 @@ export async function GET(request: NextRequest) {
     if (publish) {
       const result = await client.publishCachedVessels(query)
       logDataCollection("aisstream", "aisstream.com", result.entities.length, latency, true, "memory")
+      // Ingest vessel data to MINDEX for persistent storage (non-blocking)
+      ingestVessels("aisstream", result.entities)
       return NextResponse.json({
         success: true,
         published: result.published,
@@ -114,6 +117,8 @@ export async function GET(request: NextRequest) {
       })
     } else {
       logDataCollection("aisstream", "aisstream.com", vessels.length, latency, true, "memory")
+      // Ingest vessel data to MINDEX for persistent storage (non-blocking)
+      ingestVessels("aisstream", vessels)
       return NextResponse.json({
         success: true,
         total: vessels.length,

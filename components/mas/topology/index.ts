@@ -44,6 +44,13 @@ export { LayoutManager } from "./layout-manager"
 export { MemoryMonitor } from "./memory-monitor"
 export { MemoryDashboard } from "./memory-dashboard"
 
+// Activity (Circulatory) 3D – frontend → API → infrastructure (legacy, no flow)
+export { ActivityTopology3D } from "./activity-topology-3d"
+
+// Pipeline Topology 3D – full system with flow/particles (same stack as Agent Topology)
+export { PipelineTopology3D } from "./pipeline-topology-3d"
+export { pipelineToTopologyData } from "./pipeline-adapter"
+
 // v2.1 LOD System
 export { 
   useLODSystem,

@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     // Fetch devices from MycoBrain service
-    const mycobrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003";
+    const mycobrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765";
     
     let devices: any[] = [];
     try {

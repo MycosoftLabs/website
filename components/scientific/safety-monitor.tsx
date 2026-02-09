@@ -1,14 +1,30 @@
-﻿'use client'
+'use client'
 
+import { useState } from 'react'
 import { useSafety } from '@/hooks/scientific/use-safety'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Loader2, RefreshCw, AlertCircle, Shield } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function SafetyMonitor() {
   const { overallStatus, metrics, isLive, isLoading, refresh } = useSafety()
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    const toastId = toast.loading('Refreshing safety metrics...')
+    try {
+      await refresh()
+      toast.success('Safety metrics updated', { id: toastId })
+    } catch (error) {
+      toast.error('Failed to refresh safety data', { id: toastId })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const statusColors: Record<string, string> = {
     ok: 'bg-green-500',
@@ -56,8 +72,8 @@ export function SafetyMonitor() {
              overallStatus === 'warning' ? 'Warnings' : 
              overallStatus === 'critical' ? 'Critical' : 'Unknown'}
           </Badge>
-          <Button size="sm" variant="ghost" onClick={() => refresh()}>
-            <RefreshCw className="h-4 w-4" />
+          <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </CardHeader>

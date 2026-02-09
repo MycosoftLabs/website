@@ -1,147 +1,239 @@
 /**
  * ResearchWidget - Feb 2026
- * 
- * Research paper display widget with:
- * - Paper title and authors
- * - Abstract preview
- * - DOI link
- * - Related species
+ *
+ * CONSOLIDATED: Shows ALL research papers in a single widget.
+ * Click to expand abstract inline. Document viewer stays on page.
  */
 
 "use client"
 
-import { motion } from "framer-motion"
+import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { 
-  FileText, 
+import {
+  FileText,
   Users,
   Calendar,
   ExternalLink,
   BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  GripVertical,
+  Eye,
+  X,
 } from "lucide-react"
 import type { ResearchResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 
 interface ResearchWidgetProps {
-  data: ResearchResult
+  data: ResearchResult | ResearchResult[]
   isFocused: boolean
   onExplore?: (type: string, id: string) => void
+  onFocusWidget?: (target: { type: string; id?: string }) => void
+  onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
   className?: string
 }
 
-export function ResearchWidget({ 
-  data, 
+export function ResearchWidget({
+  data,
   isFocused,
   onExplore,
+  onFocusWidget,
+  onAddToNotepad,
   className,
 }: ResearchWidgetProps) {
+  const items = Array.isArray(data) ? data : [data]
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null)
+  const [showSources, setShowSources] = useState(false)
+
+  const sources = items.map((r: any) => r._source || "Unknown").filter(Boolean)
+  const uniqueSources = [...new Set(sources)]
+
+  const viewingDoc = viewingDocId ? items.find((r) => r.id === viewingDocId) : null
+
+  if (items.length === 0) {
+    return (
+      <div className={cn("text-center py-4 text-sm text-muted-foreground", className)}>
+        No research papers found for this query.
+      </div>
+    )
+  }
+
   return (
     <div className={cn("space-y-3", className)}>
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
-          <FileText className="h-5 w-5 text-blue-500" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className={cn(
-            "font-semibold",
-            !isFocused && "line-clamp-2"
-          )}>
-            {data.title}
-          </h3>
-        </div>
-      </div>
-
-      {/* Authors and year */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Users className="h-3 w-3" />
-        <span className="truncate">
-          {data.authors?.slice(0, 3).join(", ")}
-          {data.authors?.length > 3 && " et al."}
-        </span>
-        {data.year && (
-          <>
-            <span>•</span>
-            <Calendar className="h-3 w-3" />
-            <span>{data.year}</span>
-          </>
+      {/* Document viewer overlay */}
+      <AnimatePresence>
+        {viewingDoc && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="bg-card border rounded-lg p-4 space-y-3"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm">{viewingDoc.title}</h3>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setViewingDocId(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Users className="h-3 w-3" />
+              {viewingDoc.authors?.join(", ")}
+              {viewingDoc.year && (
+                <>
+                  <span>--</span>
+                  <Calendar className="h-3 w-3" />
+                  {viewingDoc.year}
+                </>
+              )}
+            </div>
+            {viewingDoc.journal && (
+              <Badge variant="secondary" className="text-xs">
+                <BookOpen className="h-3 w-3 mr-1" />
+                {viewingDoc.journal}
+              </Badge>
+            )}
+            {viewingDoc.abstract && (
+              <p className="text-sm leading-relaxed">{viewingDoc.abstract}</p>
+            )}
+            <div className="flex gap-2">
+              {viewingDoc.doi && (
+                <Button variant="default" size="sm" asChild>
+                  <a href={`https://doi.org/${viewingDoc.doi}`} target="_blank" rel="noopener noreferrer">
+                    Open Full Paper <ExternalLink className="h-3 w-3 ml-1" />
+                  </a>
+                </Button>
+              )}
+              {onAddToNotepad && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    onAddToNotepad({
+                      type: "research",
+                      title: viewingDoc.title,
+                      content: viewingDoc.abstract?.slice(0, 200) || viewingDoc.title,
+                      source: (viewingDoc as any)._source,
+                    })
+                  }
+                >
+                  <GripVertical className="h-3 w-3 mr-1" />
+                  Save
+                </Button>
+              )}
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
-      {/* Journal */}
-      {data.journal && (
-        <Badge variant="secondary" className="text-xs">
-          <BookOpen className="h-3 w-3 mr-1" />
-          {data.journal}
-        </Badge>
+      {/* Paper list */}
+      {!viewingDoc && (
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {items.map((paper) => {
+            const isExpanded = expandedId === paper.id
+            return (
+              <motion.div
+                key={paper.id}
+                layout
+                className={cn(
+                  "border rounded-lg p-3 cursor-pointer transition-colors",
+                  isExpanded ? "bg-muted/50 border-primary/30" : "hover:bg-muted/30"
+                )}
+                onClick={() => setExpandedId(isExpanded ? null : paper.id)}
+              >
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className={cn("text-sm font-medium", !isExpanded && "line-clamp-2")}>
+                      {paper.title}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        {paper.authors?.slice(0, 2).join(", ")}
+                        {(paper.authors?.length || 0) > 2 && " et al."}
+                      </span>
+                      {paper.year > 0 && <span>{paper.year}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-3 space-y-2"
+                    >
+                      {paper.journal && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {paper.journal}
+                        </Badge>
+                      )}
+                      {paper.abstract && (
+                        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-3">
+                          {paper.abstract}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setViewingDocId(paper.id)
+                          }}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Read
+                        </Button>
+                        {paper.doi && (
+                          <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                            <a
+                              href={`https://doi.org/${paper.doi}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              DOI <ExternalLink className="h-2.5 w-2.5 ml-1" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )
+          })}
+        </div>
       )}
 
-      {/* Focused view - expanded details */}
-      {isFocused && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="space-y-4"
-        >
-          {/* Abstract */}
-          {data.abstract && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Abstract
-              </h4>
-              <p className="text-sm leading-relaxed">
-                {data.abstract}
-              </p>
+      {/* Sources */}
+      {isFocused && uniqueSources.length > 0 && (
+        <div className="pt-2 border-t border-border/50">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-muted-foreground"
+            onClick={() => setShowSources(!showSources)}
+          >
+            {showSources ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
+            <Database className="h-3 w-3 mr-1" />
+            Sources ({uniqueSources.length})
+          </Button>
+          {showSources && (
+            <div className="flex flex-wrap gap-1 mt-1 pl-4">
+              {uniqueSources.map((src) => (
+                <Badge key={src} variant="outline" className="text-[10px]">{src}</Badge>
+              ))}
             </div>
           )}
-
-          {/* Related species */}
-          {data.relatedSpecies && data.relatedSpecies.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Species Mentioned
-              </h4>
-              <div className="flex flex-wrap gap-1">
-                {data.relatedSpecies.map((species, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs italic"
-                    onClick={() => onExplore?.("species", species)}
-                  >
-                    {species}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 pt-2">
-            {data.doi && (
-              <Button variant="default" size="sm" asChild>
-                <a 
-                  href={`https://doi.org/${data.doi}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Paper
-                  <ExternalLink className="h-3 w-3 ml-1" />
-                </a>
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onExplore?.("research", data.authors?.[0] || "")}
-            >
-              More from Authors
-            </Button>
-          </div>
-        </motion.div>
+        </div>
       )}
     </div>
   )

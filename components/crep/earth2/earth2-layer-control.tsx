@@ -34,6 +34,8 @@ import {
   Target,
   Activity,
   TrendingUp,
+  Flame,
+  CloudFog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +82,11 @@ export interface Earth2Filter {
   showClouds: boolean;
   showDownscaled: boolean;
   
+  // Hazard layers (Feb 4, 2026)
+  showFires: boolean;
+  showSmoke: boolean;
+  showLightning: boolean;
+  
   // Model configuration
   selectedModel: Earth2Model;
   ensembleMembers: number;
@@ -112,6 +119,11 @@ export const DEFAULT_EARTH2_FILTER: Earth2Filter = {
   showStormCells: false,
   showClouds: false,
   showDownscaled: false,
+  // Hazard layers
+  showFires: false,
+  showSmoke: false,
+  showLightning: false,
+  // Model config
   selectedModel: "atlas_era5",
   ensembleMembers: 1,
   forecastHours: 0,
@@ -205,6 +217,9 @@ export function Earth2LayerControl({
     filter.showStormCells,
     filter.showClouds,
     filter.showDownscaled,
+    filter.showFires,
+    filter.showSmoke,
+    filter.showLightning,
   ].filter(Boolean).length;
 
   const modelInfo = MODEL_INFO[filter.selectedModel];
@@ -413,6 +428,39 @@ export function Earth2LayerControl({
                       onChange={(v) => onFilterChange({ showStormCells: v })}
                       color="red"
                       hint="Nowcast"
+                    />
+                  </div>
+                </div>
+
+                {/* Hazard Layers (Feb 4, 2026) */}
+                <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
+                  <span className="text-[10px] text-orange-400/70 uppercase flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Hazard Layers
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <LayerToggle
+                      label="Wildfires"
+                      icon={<Flame className="w-3 h-3" />}
+                      checked={filter.showFires}
+                      onChange={(v) => onFilterChange({ showFires: v })}
+                      color="orange"
+                      hint="NASA FIRMS"
+                    />
+                    <LayerToggle
+                      label="Smoke"
+                      icon={<CloudFog className="w-3 h-3" />}
+                      checked={filter.showSmoke}
+                      onChange={(v) => onFilterChange({ showSmoke: v })}
+                      color="gray"
+                      hint="Dispersion"
+                    />
+                    <LayerToggle
+                      label="Lightning"
+                      icon={<Zap className="w-3 h-3" />}
+                      checked={filter.showLightning}
+                      onChange={(v) => onFilterChange({ showLightning: v })}
+                      color="yellow"
+                      hint="Blitzortung"
                     />
                   </div>
                 </div>
@@ -736,6 +784,8 @@ function LayerToggle({ label, icon, checked, onChange, color, hint }: LayerToggl
     red: "border-red-500/50 bg-red-500/20 text-red-400",
     purple: "border-purple-500/50 bg-purple-500/20 text-purple-400",
     pink: "border-pink-500/50 bg-pink-500/20 text-pink-400",
+    gray: "border-gray-500/50 bg-gray-500/20 text-gray-400",
+    slate: "border-slate-500/50 bg-slate-500/20 text-slate-400",
   };
 
   return (

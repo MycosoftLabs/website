@@ -2,13 +2,16 @@
 
 /**
  * Precipitation Layer Component
- * February 5, 2026
+ * February 4, 2026
  * 
  * Renders rain, snow, and precipitation intensity on MapLibre
- * Uses Earth-2 total precipitation (tp) data with animated rain effects
+ * Uses Earth-2 total precipitation (tp) and temperature (t2m) data
+ * 
+ * ENHANCED: Wind-direction rain streaks, snow vs rain differentiation,
+ * intensity-based particle density, realistic weather animations
  */
 
-import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { getEarth2Client, type GeoBounds } from "@/lib/earth2/client";
 
 interface PrecipitationLayerProps {
@@ -18,14 +21,18 @@ interface PrecipitationLayerProps {
   opacity: number;
   showAnimation?: boolean;
   precipType?: "all" | "rain" | "snow" | "mixed";
-  onDataLoaded?: (data: { totalPrecip: number; maxIntensity: number; coverage: number }) => void;
+  onDataLoaded?: (data: { totalPrecip: number; maxIntensity: number; coverage: number; snowCoverage: number }) => void;
 }
 
 const FILL_LAYER_ID = "earth2-precip-fill";
 const INTENSITY_LAYER_ID = "earth2-precip-intensity";
 const DROPS_LAYER_ID = "earth2-precip-drops";
+const SNOW_LAYER_ID = "earth2-precip-snow";
+const STREAK_LAYER_ID = "earth2-precip-streaks";
 const SOURCE_ID = "earth2-precip-source";
 const DROPS_SOURCE_ID = "earth2-precip-drops-source";
+const SNOW_SOURCE_ID = "earth2-precip-snow-source";
+const STREAK_SOURCE_ID = "earth2-precip-streak-source";
 
 // Precipitation color scale (NOAA radar style)
 const PRECIP_COLORS = [
@@ -42,6 +49,14 @@ const PRECIP_COLORS = [
   { value: 100, color: "#ff00ff" },    // Torrential - magenta
 ];
 
+// Snow colors
+const SNOW_COLORS = {
+  light: "#e0f0ff",
+  moderate: "#c0e0ff",
+  heavy: "#a0d0ff",
+  blizzard: "#80c0ff",
+};
+
 function getPrecipColor(value: number): string {
   for (let i = PRECIP_COLORS.length - 1; i >= 0; i--) {
     if (value >= PRECIP_COLORS[i].value) {
@@ -49,6 +64,13 @@ function getPrecipColor(value: number): string {
     }
   }
   return PRECIP_COLORS[0].color;
+}
+
+function getSnowColor(value: number): string {
+  if (value >= 15) return SNOW_COLORS.blizzard;
+  if (value >= 5) return SNOW_COLORS.heavy;
+  if (value >= 1) return SNOW_COLORS.moderate;
+  return SNOW_COLORS.light;
 }
 
 function getPrecipIntensity(value: number): string {
@@ -82,7 +104,13 @@ export function PrecipitationLayer({
   const layerAddedRef = useRef(false);
   const fetchingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
-  const dropsRef = useRef<GeoJSON.FeatureCollection | null>(null);
+  const phaseRef = useRef(0);
+  const dataRef = useRef<{
+    precipGrid: number[][];
+    tempGrid: number[][];
+    windData: any[];
+    bounds: GeoBounds;
+  } | null>(null);
   const clientRef = useRef(getEarth2Client());
   
   const debouncedHours = useDebouncedValue(forecastHours, 300);
@@ -102,45 +130,63 @@ export function PrecipitationLayer({
         west: mapBounds.getWest(),
       };
 
-      const { grid, min, max } = await clientRef.current.getWeatherGrid({
-        variable: "tp",
-        forecastHours: debouncedHours,
-        bounds,
-        resolution: 0.5,
-      });
+      // Fetch precipitation, temperature, and wind data in parallel
+      const [precipResult, tempResult, windVectors] = await Promise.all([
+        clientRef.current.getWeatherGrid({
+          variable: "tp",
+          forecastHours: debouncedHours,
+          bounds,
+          resolution: 0.5,
+        }),
+        clientRef.current.getWeatherGrid({
+          variable: "t2m",
+          forecastHours: debouncedHours,
+          bounds,
+          resolution: 0.5,
+        }),
+        clientRef.current.getWindVectors({
+          forecastHours: debouncedHours,
+          bounds,
+          resolution: 1,
+        }),
+      ]);
+
+      const { grid: precipGrid } = precipResult;
+      const { grid: tempGrid } = tempResult;
+      
+      // Store data for animation
+      dataRef.current = { precipGrid, tempGrid, windData: windVectors, bounds };
 
       let totalPrecip = 0;
       let maxIntensity = 0;
       let precipCells = 0;
-      const totalCells = grid.length * (grid[0]?.length || 1);
+      let snowCells = 0;
+      const totalCells = precipGrid.length * (precipGrid[0]?.length || 1);
 
-      for (const row of grid) {
-        for (const val of row) {
+      for (let i = 0; i < precipGrid.length; i++) {
+        for (let j = 0; j < precipGrid[i].length; j++) {
+          const val = precipGrid[i][j];
+          const temp = tempGrid[i]?.[j] ?? 10;
           totalPrecip += val;
           maxIntensity = Math.max(maxIntensity, val);
-          if (val >= 0.1) precipCells++;
+          if (val >= 0.1) {
+            precipCells++;
+            if (temp <= 2) snowCells++; // Snow when temp <= 2°C
+          }
         }
       }
 
       const coverage = (precipCells / totalCells) * 100;
-      onDataLoaded?.({ totalPrecip, maxIntensity, coverage });
+      const snowCoverage = (snowCells / totalCells) * 100;
+      onDataLoaded?.({ totalPrecip, maxIntensity, coverage, snowCoverage });
 
-      const precipData = generatePrecipGeoJSON(grid, bounds);
+      const precipData = generatePrecipGeoJSON(precipGrid, tempGrid, bounds);
 
       // Check if source exists - UPDATE it
       const source = map.getSource(SOURCE_ID);
       if (source) {
         source.setData(precipData);
-        
-        // Update drops if animation is enabled
-        if (showAnimation && dropsRef.current) {
-          const dropsData = generateRainDrops(grid, bounds);
-          dropsRef.current = dropsData;
-          const dropsSource = map.getSource(DROPS_SOURCE_ID);
-          if (dropsSource) {
-            dropsSource.setData(dropsData);
-          }
-        }
+        updateAnimatedLayers(map, precipGrid, tempGrid, windVectors, bounds, phaseRef.current, precipType);
       } else {
         // First time - create sources and layers
         map.addSource(SOURCE_ID, {
@@ -177,80 +223,30 @@ export function PrecipitationLayer({
           },
         });
 
-        if (showAnimation && precipCells > 0) {
-          const dropsData = generateRainDrops(grid, bounds);
-          dropsRef.current = dropsData;
-
-          map.addSource(DROPS_SOURCE_ID, {
-            type: "geojson",
-            data: dropsData,
-          });
-
-          map.addLayer({
-            id: DROPS_LAYER_ID,
-            type: "circle",
-            source: DROPS_SOURCE_ID,
-            paint: {
-              "circle-radius": [
-                "interpolate",
-                ["linear"],
-                ["get", "size"],
-                1, 2,
-                3, 4,
-                5, 6,
-              ],
-              "circle-color": ["get", "color"],
-              "circle-opacity": ["*", ["get", "opacity"], opacity],
-              "circle-blur": 0.3,
-            },
-          });
-
-          startAnimation(map);
-        }
+        // Create animated layers
+        createAnimatedLayers(map, precipGrid, tempGrid, windVectors, bounds, opacity, precipType);
       }
 
       layerAddedRef.current = true;
+
+      // Start animation loop
+      if (showAnimation && !animationRef.current) {
+        const animate = () => {
+          phaseRef.current += 0.05;
+          if (dataRef.current) {
+            const { precipGrid, tempGrid, windData, bounds } = dataRef.current;
+            updateAnimatedLayers(map, precipGrid, tempGrid, windData, bounds, phaseRef.current, precipType);
+          }
+          animationRef.current = requestAnimationFrame(animate);
+        };
+        animationRef.current = requestAnimationFrame(animate);
+      }
     } catch (error) {
       console.error("[Earth-2] Precipitation layer error:", error);
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, showAnimation, onDataLoaded]);
-
-  const startAnimation = useCallback((mapInstance: any) => {
-    if (!dropsRef.current) return;
-
-    let frame = 0;
-    const animate = () => {
-      if (!dropsRef.current || !mapInstance.getSource(DROPS_SOURCE_ID)) return;
-
-      frame++;
-      const updatedFeatures = dropsRef.current.features.map((feature: any) => {
-        const props = feature.properties;
-        const speed = props.speed || 1;
-        const phase = (frame * speed * 0.1 + props.phase) % 1;
-        
-        return {
-          ...feature,
-          properties: {
-            ...props,
-            opacity: Math.sin(phase * Math.PI) * 0.8,
-          },
-        };
-      });
-
-      try {
-        mapInstance.getSource(DROPS_SOURCE_ID).setData({
-          type: "FeatureCollection",
-          features: updatedFeatures,
-        });
-      } catch {}
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-  }, []);
+  }, [map, visible, debouncedHours, opacity, showAnimation, precipType, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;
@@ -263,7 +259,7 @@ export function PrecipitationLayer({
           animationRef.current = null;
         }
         try {
-          [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID].forEach(id => {
+          [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID, SNOW_LAYER_ID, STREAK_LAYER_ID].forEach(id => {
             if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
           });
         } catch {}
@@ -286,7 +282,7 @@ export function PrecipitationLayer({
   useEffect(() => {
     if (!map) return;
     try {
-      [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID].forEach(id => {
+      [FILL_LAYER_ID, INTENSITY_LAYER_ID, DROPS_LAYER_ID, SNOW_LAYER_ID, STREAK_LAYER_ID].forEach(id => {
         if (map.getLayer(id)) {
           map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
         }
@@ -306,17 +302,19 @@ export function PrecipitationLayer({
     } catch {}
   }, [map, opacity]);
 
+  // Cleanup
   useEffect(() => {
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
       try {
-        if (map?.getLayer?.(DROPS_LAYER_ID)) map.removeLayer(DROPS_LAYER_ID);
-        if (map?.getLayer?.(INTENSITY_LAYER_ID)) map.removeLayer(INTENSITY_LAYER_ID);
-        if (map?.getLayer?.(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID);
-        if (map?.getSource?.(DROPS_SOURCE_ID)) map.removeSource(DROPS_SOURCE_ID);
-        if (map?.getSource?.(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        [DROPS_LAYER_ID, SNOW_LAYER_ID, STREAK_LAYER_ID, INTENSITY_LAYER_ID, FILL_LAYER_ID].forEach(id => {
+          if (map?.getLayer?.(id)) map.removeLayer(id);
+        });
+        [DROPS_SOURCE_ID, SNOW_SOURCE_ID, STREAK_SOURCE_ID, SOURCE_ID].forEach(id => {
+          if (map?.getSource?.(id)) map.removeSource(id);
+        });
       } catch {}
     };
   }, [map]);
@@ -324,22 +322,116 @@ export function PrecipitationLayer({
   return null;
 }
 
+function createAnimatedLayers(
+  map: any,
+  precipGrid: number[][],
+  tempGrid: number[][],
+  windData: any[],
+  bounds: GeoBounds,
+  opacity: number,
+  precipType: string
+) {
+  // Rain drops layer
+  if (precipType === "all" || precipType === "rain") {
+    const rainData = generateRainDrops(precipGrid, tempGrid, windData, bounds, 0);
+    map.addSource(DROPS_SOURCE_ID, { type: "geojson", data: rainData });
+    map.addLayer({
+      id: DROPS_LAYER_ID,
+      type: "circle",
+      source: DROPS_SOURCE_ID,
+      paint: {
+        "circle-radius": ["get", "size"],
+        "circle-color": ["get", "color"],
+        "circle-opacity": ["*", ["get", "opacity"], opacity],
+        "circle-blur": 0.2,
+      },
+    });
+  }
+
+  // Snow layer
+  if (precipType === "all" || precipType === "snow") {
+    const snowData = generateSnowflakes(precipGrid, tempGrid, bounds, 0);
+    map.addSource(SNOW_SOURCE_ID, { type: "geojson", data: snowData });
+    map.addLayer({
+      id: SNOW_LAYER_ID,
+      type: "symbol",
+      source: SNOW_SOURCE_ID,
+      layout: {
+        "text-field": "❄",
+        "text-size": ["get", "size"],
+        "text-allow-overlap": true,
+        "text-rotate": ["get", "rotation"],
+      },
+      paint: {
+        "text-color": ["get", "color"],
+        "text-opacity": ["*", ["get", "opacity"], opacity],
+      },
+    });
+  }
+
+  // Rain streak layer (wind-driven)
+  if (precipType === "all" || precipType === "rain") {
+    const streakData = generateRainStreaks(precipGrid, tempGrid, windData, bounds, 0);
+    map.addSource(STREAK_SOURCE_ID, { type: "geojson", data: streakData });
+    map.addLayer({
+      id: STREAK_LAYER_ID,
+      type: "line",
+      source: STREAK_SOURCE_ID,
+      paint: {
+        "line-color": ["get", "color"],
+        "line-width": ["get", "width"],
+        "line-opacity": ["*", ["get", "opacity"], opacity * 0.4],
+      },
+    });
+  }
+}
+
+function updateAnimatedLayers(
+  map: any,
+  precipGrid: number[][],
+  tempGrid: number[][],
+  windData: any[],
+  bounds: GeoBounds,
+  phase: number,
+  precipType: string
+) {
+  try {
+    if ((precipType === "all" || precipType === "rain") && map.getSource(DROPS_SOURCE_ID)) {
+      const rainData = generateRainDrops(precipGrid, tempGrid, windData, bounds, phase);
+      map.getSource(DROPS_SOURCE_ID).setData(rainData);
+    }
+    
+    if ((precipType === "all" || precipType === "snow") && map.getSource(SNOW_SOURCE_ID)) {
+      const snowData = generateSnowflakes(precipGrid, tempGrid, bounds, phase);
+      map.getSource(SNOW_SOURCE_ID).setData(snowData);
+    }
+    
+    if ((precipType === "all" || precipType === "rain") && map.getSource(STREAK_SOURCE_ID)) {
+      const streakData = generateRainStreaks(precipGrid, tempGrid, windData, bounds, phase);
+      map.getSource(STREAK_SOURCE_ID).setData(streakData);
+    }
+  } catch {}
+}
+
 function generatePrecipGeoJSON(
-  grid: number[][],
+  precipGrid: number[][],
+  tempGrid: number[][],
   bounds: GeoBounds
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
-  const latSteps = grid.length;
-  const lonSteps = grid[0]?.length || 1;
+  const latSteps = precipGrid.length;
+  const lonSteps = precipGrid[0]?.length || 1;
   const latStep = (bounds.north - bounds.south) / latSteps;
   const lonStep = (bounds.east - bounds.west) / lonSteps;
 
   for (let i = 0; i < latSteps; i++) {
     for (let j = 0; j < lonSteps; j++) {
-      const value = grid[i][j];
-      if (value < 0.1) continue; // Skip dry areas
+      const value = precipGrid[i][j];
+      if (value < 0.1) continue;
 
-      const color = getPrecipColor(value);
+      const temp = tempGrid[i]?.[j] ?? 10;
+      const isSnow = temp <= 2;
+      const color = isSnow ? getSnowColor(value) : getPrecipColor(value);
       const intensity = getPrecipIntensity(value);
       const lat = bounds.south + i * latStep;
       const lon = bounds.west + j * lonStep;
@@ -350,6 +442,8 @@ function generatePrecipGeoJSON(
           value: Math.round(value * 10) / 10,
           color,
           intensity,
+          isSnow,
+          temp: Math.round(temp),
         },
         geometry: {
           type: "Polygon",
@@ -369,44 +463,192 @@ function generatePrecipGeoJSON(
 }
 
 function generateRainDrops(
-  grid: number[][],
-  bounds: GeoBounds
+  precipGrid: number[][],
+  tempGrid: number[][],
+  windData: any[],
+  bounds: GeoBounds,
+  phase: number
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
-  const latSteps = grid.length;
-  const lonSteps = grid[0]?.length || 1;
+  const latSteps = precipGrid.length;
+  const lonSteps = precipGrid[0]?.length || 1;
   const latStep = (bounds.north - bounds.south) / latSteps;
   const lonStep = (bounds.east - bounds.west) / lonSteps;
+  
+  // Calculate average wind
+  let avgWindDir = 180;
+  let avgWindSpeed = 5;
+  if (windData.length > 0) {
+    avgWindDir = windData.reduce((sum, w) => sum + (w.direction || 0), 0) / windData.length;
+    avgWindSpeed = windData.reduce((sum, w) => sum + (w.speed || 0), 0) / windData.length;
+  }
 
   for (let i = 0; i < latSteps; i += 2) {
     for (let j = 0; j < lonSteps; j += 2) {
-      const value = grid[i][j];
-      if (value < 0.5) continue;
+      const value = precipGrid[i][j];
+      const temp = tempGrid[i]?.[j] ?? 10;
+      
+      if (value < 0.5 || temp <= 2) continue; // Skip light/snow
 
-      const dropCount = Math.min(5, Math.ceil(value / 5));
-      const lat = bounds.south + i * latStep;
-      const lon = bounds.west + j * lonStep;
+      const dropCount = Math.min(8, Math.ceil(value / 3));
+      const baseLat = bounds.south + i * latStep;
+      const baseLon = bounds.west + j * lonStep;
 
       for (let d = 0; d < dropCount; d++) {
+        const dropPhase = (phase + d * 0.5 + i * 0.1 + j * 0.1) % 3;
+        const fallProgress = dropPhase / 3;
+        
+        // Wind drift
+        const windRad = (avgWindDir * Math.PI) / 180;
+        const driftX = Math.sin(windRad) * avgWindSpeed * 0.0002 * fallProgress;
+        const driftY = Math.cos(windRad) * avgWindSpeed * 0.0002 * fallProgress;
+
+        const dropLat = baseLat + Math.random() * latStep - latStep * fallProgress + driftY;
+        const dropLon = baseLon + Math.random() * lonStep + driftX;
+        
+        // Opacity based on fall position
+        const dropOpacity = Math.sin(fallProgress * Math.PI) * 0.8;
+
         features.push({
           type: "Feature",
           properties: {
             value,
             color: value > 10 ? "#4a9eda" : "#7ec8e3",
-            size: 1 + Math.random() * (value > 10 ? 4 : 2),
-            speed: 0.5 + Math.random() * 1.5,
-            phase: Math.random(),
-            opacity: 0.5,
+            size: 2 + (value > 10 ? 3 : 1),
+            opacity: dropOpacity,
           },
           geometry: {
             type: "Point",
-            coordinates: [
-              lon + Math.random() * lonStep,
-              lat + Math.random() * latStep,
-            ],
+            coordinates: [dropLon, dropLat],
           },
         });
       }
+    }
+  }
+
+  return { type: "FeatureCollection", features };
+}
+
+function generateSnowflakes(
+  precipGrid: number[][],
+  tempGrid: number[][],
+  bounds: GeoBounds,
+  phase: number
+): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  const latSteps = precipGrid.length;
+  const lonSteps = precipGrid[0]?.length || 1;
+  const latStep = (bounds.north - bounds.south) / latSteps;
+  const lonStep = (bounds.east - bounds.west) / lonSteps;
+
+  for (let i = 0; i < latSteps; i += 2) {
+    for (let j = 0; j < lonSteps; j += 2) {
+      const value = precipGrid[i][j];
+      const temp = tempGrid[i]?.[j] ?? 10;
+      
+      if (value < 0.3 || temp > 2) continue; // Only snow when cold
+
+      const flakeCount = Math.min(6, Math.ceil(value / 4));
+      const baseLat = bounds.south + i * latStep;
+      const baseLon = bounds.west + j * lonStep;
+
+      for (let f = 0; f < flakeCount; f++) {
+        const flakePhase = (phase * 0.5 + f * 0.8 + i * 0.2 + j * 0.2) % 4;
+        const fallProgress = flakePhase / 4;
+        
+        // Gentle drift
+        const driftX = Math.sin(phase + f) * 0.001;
+        const driftY = -latStep * fallProgress;
+
+        const flakeLat = baseLat + Math.random() * latStep + driftY;
+        const flakeLon = baseLon + Math.random() * lonStep + driftX;
+        
+        // Tumbling rotation
+        const rotation = (phase * 30 + f * 60) % 360;
+        
+        // Opacity
+        const flakeOpacity = Math.sin(fallProgress * Math.PI) * 0.9;
+
+        features.push({
+          type: "Feature",
+          properties: {
+            value,
+            color: getSnowColor(value),
+            size: 10 + value * 0.5,
+            opacity: flakeOpacity,
+            rotation,
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [flakeLon, flakeLat],
+          },
+        });
+      }
+    }
+  }
+
+  return { type: "FeatureCollection", features };
+}
+
+function generateRainStreaks(
+  precipGrid: number[][],
+  tempGrid: number[][],
+  windData: any[],
+  bounds: GeoBounds,
+  phase: number
+): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  const latSteps = precipGrid.length;
+  const lonSteps = precipGrid[0]?.length || 1;
+  const latStep = (bounds.north - bounds.south) / latSteps;
+  const lonStep = (bounds.east - bounds.west) / lonSteps;
+  
+  // Calculate average wind
+  let avgWindDir = 180;
+  let avgWindSpeed = 10;
+  if (windData.length > 0) {
+    avgWindDir = windData.reduce((sum, w) => sum + (w.direction || 0), 0) / windData.length;
+    avgWindSpeed = windData.reduce((sum, w) => sum + (w.speed || 0), 0) / windData.length;
+  }
+
+  for (let i = 0; i < latSteps; i += 3) {
+    for (let j = 0; j < lonSteps; j += 3) {
+      const value = precipGrid[i][j];
+      const temp = tempGrid[i]?.[j] ?? 10;
+      
+      if (value < 2 || temp <= 2) continue; // Only moderate+ rain
+
+      const baseLat = bounds.south + i * latStep + Math.random() * latStep;
+      const baseLon = bounds.west + j * lonStep + Math.random() * lonStep;
+      
+      // Streak direction based on wind
+      const windRad = (avgWindDir * Math.PI) / 180;
+      const streakLength = 0.01 + (avgWindSpeed / 50) * 0.02;
+      
+      // Animated streak position
+      const streakPhase = (phase + i * 0.1 + j * 0.1) % 2;
+      const animOffset = streakPhase * streakLength;
+      
+      const endLat = baseLat - streakLength * 0.5 - animOffset;
+      const endLon = baseLon + Math.sin(windRad) * streakLength * 0.3;
+      
+      const streakOpacity = Math.sin(streakPhase * Math.PI) * (value / 50);
+
+      features.push({
+        type: "Feature",
+        properties: {
+          color: "#6eb8e8",
+          width: 1 + value * 0.05,
+          opacity: streakOpacity,
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [baseLon, baseLat],
+            [endLon, endLat],
+          ],
+        },
+      });
     }
   }
 
@@ -432,6 +674,9 @@ export function PrecipitationLegend() {
         <span>Light</span>
         <span>Heavy</span>
         <span>Extreme</span>
+      </div>
+      <div className="flex items-center gap-2 mt-1 text-gray-400">
+        <span>❄ Snow (temp ≤2°C)</span>
       </div>
     </div>
   );

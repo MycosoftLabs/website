@@ -1,10 +1,11 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useFCI } from '@/hooks/scientific'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Loader2, RefreshCw } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ElectrodeMapProps {
   sessionId?: string
@@ -15,7 +16,21 @@ interface ElectrodeMapProps {
 export function ElectrodeMap({ sessionId, rows = 8, cols = 8 }: ElectrodeMapProps) {
   const { electrodeStatus, isLoading, refresh } = useFCI()
   const [selectedElectrodes, setSelectedElectrodes] = useState<Set<number>>(new Set())
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const total = rows * cols
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    const toastId = toast.loading('Refreshing electrode data...')
+    try {
+      await refresh()
+      toast.success('Electrode data refreshed', { id: toastId })
+    } catch (error) {
+      toast.error('Failed to refresh electrode data', { id: toastId })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const toggleElectrode = (index: number) => {
     const newSelected = new Set(selectedElectrodes)
@@ -65,8 +80,8 @@ export function ElectrodeMap({ sessionId, rows = 8, cols = 8 }: ElectrodeMapProp
         <CardTitle>Electrode Array ({rows}x{cols})</CardTitle>
         <div className="flex gap-2">
           <span className="text-sm text-muted-foreground">{activeCount}/{total} active</span>
-          <Button size="sm" variant="ghost" onClick={() => refresh()}>
-            <RefreshCw className="h-4 w-4" />
+          <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </CardHeader>

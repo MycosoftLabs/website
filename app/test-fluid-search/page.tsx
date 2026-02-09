@@ -9,6 +9,7 @@
 
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
+import { useRouter } from "next/navigation"
 
 // Dynamic import of FluidSearchCanvas to avoid SSR issues with voice/animation
 const FluidSearchCanvas = dynamic(
@@ -27,6 +28,16 @@ const FluidSearchCanvas = dynamic(
 )
 
 export default function TestFluidSearchPage() {
+  const router = useRouter()
+
+  const handleNavigate = (url: string) => {
+    if (url.startsWith("/")) {
+      router.push(url)
+    } else {
+      window.location.href = url
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background">
       {/* Development banner */}
@@ -49,10 +60,7 @@ export default function TestFluidSearchPage() {
         <FluidSearchCanvas
           initialQuery=""
           voiceEnabled={true}
-          onNavigate={(url) => {
-            console.log("[FluidSearch] Navigation:", url)
-            // In production, use router.push(url)
-          }}
+          onNavigate={handleNavigate}
         />
       </Suspense>
 

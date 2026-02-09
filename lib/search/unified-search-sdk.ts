@@ -44,16 +44,15 @@ export interface CompoundResult {
   structure?: string
 }
 
+/** Matches unified API response: id, accession, speciesName, geneRegion, sequenceLength, gcContent, source */
 export interface GeneticsResult {
-  speciesId: string
-  genomeSize?: string
-  chromosomeCount?: number
-  genBankAccessions: string[]
-  sequencedGenes: Array<{
-    name: string
-    function: string
-    accession: string
-  }>
+  id: string
+  accession: string
+  speciesName: string
+  geneRegion: string
+  sequenceLength: number
+  gcContent?: number
+  source: string
 }
 
 export interface ResearchResult {
@@ -81,7 +80,8 @@ export interface UnifiedSearchResponse {
     mindex: number
     ai?: number
   }
-  source: "live" | "cache"
+  source: "live" | "cache" | "fallback"
+  message?: string
   aiAnswer?: {
     text: string
     confidence: number
@@ -199,7 +199,7 @@ export class UnifiedSearchClient {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        signal: signal || AbortSignal.timeout(10000),
+        signal: signal || AbortSignal.timeout(15000),
       })
 
       if (!response.ok) {
@@ -217,10 +217,18 @@ export class UnifiedSearchClient {
         },
       }
     } catch (error) {
+      // Timeout/abort: return error response so UI shows message instead of throwing
       if (error instanceof Error && error.name === "AbortError") {
-        throw error // Re-throw abort errors
+        return {
+          query: "",
+          results: { species: [], compounds: [], genetics: [], research: [] },
+          totalCount: 0,
+          timing: { total: performance.now() - startTime, mindex: 0 },
+          source: "cache",
+          error: "Search timed out. Try again or check your connection.",
+        }
       }
-      
+
       console.error("Unified search error:", error)
       return {
         query: "",

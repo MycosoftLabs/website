@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,85 +13,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   Brain, Dna, Activity, Zap, Clock, CheckCircle, XCircle, 
-  Plus, RefreshCw, Thermometer, Droplets, Network
+  Plus, RefreshCw, Thermometer, Droplets, Network, Loader2, AlertCircle
 } from 'lucide-react'
-
-interface ComputeJob {
-  id: string
-  mode: string
-  status: 'queued' | 'processing' | 'completed' | 'failed'
-  priority: string
-  processingTime?: number
-  confidence?: number
-  submittedAt: string
-}
-
-interface DNAStorageItem {
-  id: string
-  name: string
-  size: number
-  storedAt: string
-  verified: boolean
-}
-
-interface MycoBrainStats {
-  status: string
-  health: number
-  activeJobs: number
-  queuedJobs: number
-  completedToday: number
-  avgProcessingTime: number
-  temperature: number
-  humidity: number
-  nodeCount: number
-}
+import { toast } from 'sonner'
+import { useBioCompute } from '@/hooks/scientific'
 
 export function BioComputeDashboard() {
-  const [stats, setStats] = useState<MycoBrainStats>({
-    status: 'online',
-    health: 94,
-    activeJobs: 3,
-    queuedJobs: 7,
-    completedToday: 42,
-    avgProcessingTime: 2.3,
-    temperature: 24.5,
-    humidity: 85,
-    nodeCount: 1247,
-  })
-  const [jobs, setJobs] = useState<ComputeJob[]>([])
-  const [dnaStorage, setDnaStorage] = useState<DNAStorageItem[]>([])
+  const { stats, jobs, storage: dnaStorage, isLoading, isLive, submitJob, storeData, retrieveData, refresh } = useBioCompute()
   const [newJobMode, setNewJobMode] = useState('graph_solving')
   const [newJobInput, setNewJobInput] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-
-  // Simulate data
-  useEffect(() => {
-    setJobs([
-      { id: 'job-001', mode: 'graph_solving', status: 'processing', priority: 'high', submittedAt: '2026-02-03T10:00:00Z' },
-      { id: 'job-002', mode: 'pattern_recognition', status: 'processing', priority: 'normal', submittedAt: '2026-02-03T10:05:00Z' },
-      { id: 'job-003', mode: 'optimization', status: 'queued', priority: 'high', submittedAt: '2026-02-03T10:10:00Z' },
-      { id: 'job-004', mode: 'analog_compute', status: 'completed', priority: 'normal', processingTime: 1.8, confidence: 0.96, submittedAt: '2026-02-03T09:30:00Z' },
-      { id: 'job-005', mode: 'graph_solving', status: 'completed', priority: 'low', processingTime: 3.2, confidence: 0.92, submittedAt: '2026-02-03T09:00:00Z' },
-    ])
-
-    setDnaStorage([
-      { id: 'dna-001', name: 'Genome Backup v3', size: 1024 * 1024 * 50, storedAt: '2026-01-15', verified: true },
-      { id: 'dna-002', name: 'Research Dataset Alpha', size: 1024 * 1024 * 120, storedAt: '2026-01-20', verified: true },
-      { id: 'dna-003', name: 'Protocol Archive', size: 1024 * 1024 * 8, storedAt: '2026-02-01', verified: false },
-    ])
-
-    // Simulate real-time updates
-    const interval = setInterval(() => {
-      setStats(prev => ({
-        ...prev,
-        temperature: 24 + Math.random() * 1.5,
-        humidity: 83 + Math.random() * 5,
-        health: Math.min(100, prev.health + (Math.random() - 0.5) * 2),
-      }))
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [retrievingId, setRetrievingId] = useState<string | null>(null)
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -99,17 +33,45 @@ export function BioComputeDashboard() {
     return `${bytes} B`
   }
 
-  const handleSubmitJob = () => {
-    const newJob: ComputeJob = {
-      id: `job-${Date.now()}`,
-      mode: newJobMode,
-      status: 'queued',
-      priority: 'normal',
-      submittedAt: new Date().toISOString(),
+  const handleSubmitJob = async () => {
+    setIsSubmitting(true)
+    const toastId = toast.loading('Submitting compute job to MycoBrain...')
+    try {
+      await submitJob(newJobMode, newJobInput)
+      toast.success('Job submitted successfully', { id: toastId })
+      setNewJobInput('')
+      setIsDialogOpen(false)
+    } catch (error) {
+      toast.error('Failed to submit job', { id: toastId })
+    } finally {
+      setIsSubmitting(false)
     }
-    setJobs([newJob, ...jobs])
-    setNewJobInput('')
-    setIsDialogOpen(false)
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    const toastId = toast.loading('Refreshing MycoBrain data...')
+    try {
+      await refresh()
+      toast.success('Data refreshed', { id: toastId })
+    } catch (error) {
+      toast.error('Failed to refresh', { id: toastId })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const handleRetrieve = async (id: string, name: string) => {
+    setRetrievingId(id)
+    const toastId = toast.loading(`Retrieving ${name}...`)
+    try {
+      await retrieveData(id)
+      toast.success(`${name} retrieved successfully`, { id: toastId })
+    } catch (error) {
+      toast.error('Failed to retrieve data', { id: toastId })
+    } finally {
+      setRetrievingId(null)
+    }
   }
 
   const statusColors = {
@@ -193,8 +155,19 @@ export function BioComputeDashboard() {
 
         <TabsContent value="compute" className="mt-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between py-3">
+          <CardHeader className="flex flex-row items-center justify-between py-3">
+            <div className="flex items-center gap-2">
               <CardTitle className="text-base">Bio-Compute Jobs</CardTitle>
+              {!isLive && (
+                <Badge variant="outline" className="text-yellow-500 border-yellow-500">
+                  <AlertCircle className="h-3 w-3 mr-1" /> Cached
+                </Badge>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="h-4 w-4 mr-1" /> New Job</Button>
@@ -227,13 +200,15 @@ export function BioComputeDashboard() {
                         rows={4}
                       />
                     </div>
-                    <Button onClick={handleSubmitJob} className="w-full">
-                      <Brain className="h-4 w-4 mr-2" /> Submit to MycoBrain
+                    <Button onClick={handleSubmitJob} className="w-full" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
+                      Submit to MycoBrain
                     </Button>
                   </div>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
+            </div>
+          </CardHeader>
             <CardContent>
               <ScrollArea className="h-80">
                 <div className="space-y-2">
@@ -287,7 +262,9 @@ export function BioComputeDashboard() {
                         {formatSize(item.size)} â€¢ Stored {item.storedAt}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline">Retrieve</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleRetrieve(item.id, item.name)} disabled={retrievingId === item.id}>
+                      {retrievingId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Retrieve'}
+                    </Button>
                   </div>
                 ))}
               </div>

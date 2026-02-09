@@ -1,6 +1,6 @@
 /**
  * Earth-2 CREP Components
- * February 5, 2026
+ * February 4, 2026
  * 
  * Full NVIDIA Earth-2 integration for CREP 2D Dashboard
  * Exports all layer components, controls, and hooks
@@ -17,6 +17,11 @@ export { PrecipitationLayer, PrecipitationLegend } from "./precipitation-layer";
 export { PressureLayer, PressureLegend } from "./pressure-layer";
 export { StormCellsLayer, StormCellsLegend } from "./storm-cells-layer";
 export { HumidityLayer, HumidityLegend } from "./humidity-layer";
+
+// Environmental Hazard Layer Components (Feb 4, 2026)
+export { SmokeLayer, SmokeLegend } from "./smoke-layer";
+export { FireLayer, FireLegend } from "./fire-layer";
+export { LightningLayer, LightningLegend } from "./lightning-layer";
 
 // Control Components
 export { 

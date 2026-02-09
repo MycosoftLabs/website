@@ -103,7 +103,12 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     },
     
     onError: (error) => {
-      console.error("[PersonaPlex] Error:", error)
+      // Only log a warning for connection errors (expected when PersonaPlex isn't running)
+      if (error.includes("WebSocket") || error.includes("connection")) {
+        console.warn("[PersonaPlex] Voice server not available (run PersonaPlex to enable voice)")
+      } else {
+        console.error("[PersonaPlex] Error:", error)
+      }
     },
   })
   

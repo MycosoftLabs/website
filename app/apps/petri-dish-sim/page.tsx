@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { MyceliumSimulator } from "@/components/apps/mycelium-simulator"
+import { MyceliumsegValidationPanel } from "@/components/scientific/myceliumseg-validation-panel"
 import { ArrowLeft, Microscope } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -54,6 +55,9 @@ export default function PetriDishSimPage() {
 
       {/* Simulator Component */}
       <MyceliumSimulator />
+
+      {/* MyceliumSeg scientific validation: one-click run, real metrics from MINDEX */}
+      <MyceliumsegValidationPanel />
 
       {/* Info */}
       <div className="text-sm text-muted-foreground text-center space-y-2">

@@ -2,56 +2,43 @@
 
 /**
  * MYCA v2 Command Center
- * The CEO's command and control dashboard for the Multi-Agent System
- * Updated: Feb 4, 2026 - PersonaPlex voice integration
+ * Three tabs: System (command + agents), Topology (nervous system), Activity (circulatory)
+ * Updated: Feb 6, 2026 - Tab rework and Activity topology
  */
 
 import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   MYCAChatPanel,
-  SystemOverview,
   AgentTopology,
   NotificationCenter,
   AgentCreator,
   AgentGrid,
-  AgentTerminal,
   AdvancedTopology3D,
-  WorkflowStudio,
+  ActivityTopologyView,
 } from "@/components/mas"
-import { usePersonaPlexContext, VoiceCommandPanel } from "@/components/voice"
+import { usePersonaPlexContext } from "@/components/voice"
 import {
   Brain,
   Plus,
-  Settings,
   Activity,
   Zap,
   MessageSquare,
   Network,
-  Bell,
   RefreshCw,
-  ExternalLink,
   LayoutDashboard,
-  Bot,
-  Terminal,
-  Workflow,
-  Shield,
-  Radio,
-  Database,
   Server,
   Maximize2,
   Volume2,
   Sparkles,
-  Play,
-  Pause,
-  Eye,
-  HardDrive,
+  Shield,
+  Radio,
+  Database,
+  Workflow,
 } from "lucide-react"
-import { MemoryMonitor } from "@/components/mas/topology/memory-monitor"
-import { MemoryDashboard } from "@/components/mas/topology/memory-dashboard"
 
 // MAS API URL - points to the MAS VM orchestrator
 const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
@@ -85,7 +72,7 @@ export default function AIStudioPage() {
     uptime: 0,
   })
   const [showAgentCreator, setShowAgentCreator] = useState(false)
-  const [selectedTab, setSelectedTab] = useState("command")
+  const [selectedTab, setSelectedTab] = useState("system")
   const [refreshing, setRefreshing] = useState(false)
   const [orchestratorStatus, setOrchestratorStatus] = useState<"online" | "offline" | "checking">("checking")
   const [topologyFullScreen, setTopologyFullScreen] = useState(false)
@@ -135,7 +122,7 @@ export default function AIStudioPage() {
         const data = await agentsRes.value.json()
         const agents = data.agents || []
         // If MAS returns agents, use that count for "running" agents
-        // But total is ALWAYS from registry (223+ defined)
+        // Total is ALWAYS from registry (all agents active 24/7)
         setStats(prev => ({
           ...prev,
           activeAgents: agents.filter((a: any) => a.status === "active" || a.status === "busy").length || realActiveCount,
@@ -202,27 +189,16 @@ export default function AIStudioPage() {
     connectionState: "disconnected",
   }
 
-  // Handle voice commands for AI Studio navigation
+  // Handle voice commands for AI Studio navigation (3 tabs: system, topology, activity)
   useEffect(() => {
     if (!lastTranscript) return
-    
     const command = lastTranscript.toLowerCase()
-    
-    // Tab navigation via voice
-    if (command.includes("show command") || command.includes("command tab")) {
-      setSelectedTab("command")
-    } else if (command.includes("show agents") || command.includes("agents tab")) {
-      setSelectedTab("agents")
+    if (command.includes("show command") || command.includes("command tab") || command.includes("show agents") || command.includes("agents tab") || command.includes("show system")) {
+      setSelectedTab("system")
     } else if (command.includes("show topology")) {
       setSelectedTab("topology")
-    } else if (command.includes("show memory")) {
-      setSelectedTab("memory")
-    } else if (command.includes("show activity")) {
+    } else if (command.includes("show memory") || command.includes("show activity") || command.includes("show workflows")) {
       setSelectedTab("activity")
-    } else if (command.includes("show workflows")) {
-      setSelectedTab("workflows")
-    } else if (command.includes("show system")) {
-      setSelectedTab("system")
     } else if (command.includes("create agent") || command.includes("new agent")) {
       setShowAgentCreator(true)
     } else if (command.includes("refresh") || command.includes("update")) {
@@ -293,39 +269,23 @@ export default function AIStudioPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7 h-auto gap-1 p-1">
-            <TabsTrigger value="command" className="gap-2 py-2">
+          <TabsList className="grid w-full grid-cols-3 h-auto gap-1 p-1">
+            <TabsTrigger value="system" className="gap-2 py-2">
               <LayoutDashboard className="h-4 w-4" />
-              <span className="hidden sm:inline">Command</span>
-            </TabsTrigger>
-            <TabsTrigger value="agents" className="gap-2 py-2">
-              <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">Agents</span>
+              <span className="hidden sm:inline">System</span>
             </TabsTrigger>
             <TabsTrigger value="topology" className="gap-2 py-2">
               <Network className="h-4 w-4" />
               <span className="hidden sm:inline">Topology</span>
             </TabsTrigger>
-            <TabsTrigger value="memory" className="gap-2 py-2">
-              <Brain className="h-4 w-4" />
-              <span className="hidden sm:inline">Memory</span>
-            </TabsTrigger>
             <TabsTrigger value="activity" className="gap-2 py-2">
-              <Terminal className="h-4 w-4" />
+              <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Activity</span>
-            </TabsTrigger>
-            <TabsTrigger value="workflows" className="gap-2 py-2">
-              <Workflow className="h-4 w-4" />
-              <span className="hidden sm:inline">Workflows</span>
-            </TabsTrigger>
-            <TabsTrigger value="system" className="gap-2 py-2">
-              <Server className="h-4 w-4" />
-              <span className="hidden sm:inline">System</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Command Tab - Main CEO Dashboard */}
-          <TabsContent value="command" className="space-y-6">
+          {/* System Tab - Command + Agents (merged) */}
+          <TabsContent value="system" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - MYCA Chat */}
               <div className="lg:col-span-2">
@@ -429,14 +389,12 @@ export default function AIStudioPage() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* Agents Tab */}
-          <TabsContent value="agents" className="space-y-6">
+            {/* Agent Grid - same tab as command */}
             <AgentGrid masApiUrl="/api/mas" refreshInterval={15000} />
           </TabsContent>
 
-          {/* Topology Tab - Advanced 3D Visualization */}
+          {/* Topology Tab - Nervous system (agents, services, tools, integrations) */}
           <TabsContent value="topology" className="space-y-6">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -445,7 +403,7 @@ export default function AIStudioPage() {
                   Agent Topology
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Interactive 3D visualization of the Multi-Agent System
+                  Nervous system – agents, services, tools, integrations
                 </p>
               </div>
               <Button
@@ -485,24 +443,9 @@ export default function AIStudioPage() {
             </details>
           </TabsContent>
 
-          {/* Memory Tab - Full Memory System Control */}
-          <TabsContent value="memory" className="space-y-6">
-            <MemoryDashboard />
-          </TabsContent>
-
-          {/* Activity Tab */}
+          {/* Activity Tab - Circulatory topology (routes, APIs, memory, sitemap, workflows, devices, DB) */}
           <TabsContent value="activity" className="space-y-6">
-            <AgentTerminal masApiUrl="/api/mas" />
-          </TabsContent>
-
-          {/* Workflows Tab - Real n8n Integration */}
-          <TabsContent value="workflows" className="space-y-6">
-            <WorkflowStudio n8nUrl="http://192.168.0.188:5678" />
-          </TabsContent>
-
-          {/* System Tab */}
-          <TabsContent value="system" className="space-y-6">
-            <SystemOverview masApiUrl="/api/mas" refreshInterval={15000} />
+            <ActivityTopologyView />
           </TabsContent>
         </Tabs>
       </div>
