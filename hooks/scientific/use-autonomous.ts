@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import useSWR from 'swr'
 import { useCallback } from 'react'
@@ -49,15 +49,15 @@ export function useAutonomousExperiments() {
   }, [mutate])
 
   const controlExperiment = useCallback(async (id: string, action: 'start' | 'pause' | 'stop' | 'reset') => {
-    const res = await fetch(\/api/autonomous/experiments/\/\\, { method: 'POST' })
-    if (!res.ok) throw new Error(\Failed to \ experiment\)
+    const res = await fetch(`/api/autonomous/experiments/${id}/${action}`, { method: 'POST' })
+    if (!res.ok) throw new Error(`Failed to ${action} experiment`)
     const result = await res.json()
     await mutate()
     return result
   }, [mutate])
 
   const getSteps = useCallback(async (experimentId: string) => {
-    const res = await fetch(\/api/autonomous/experiments/\/steps\)
+    const res = await fetch(`/api/autonomous/experiments/${experimentId}/steps`)
     if (!res.ok) throw new Error('Failed to fetch steps')
     return res.json()
   }, [])
