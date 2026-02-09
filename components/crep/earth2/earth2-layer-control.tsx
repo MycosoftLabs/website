@@ -152,10 +152,10 @@ interface Earth2LayerControlProps {
 
 // Model information
 const MODEL_INFO: Record<Earth2Model, { name: string; description: string; maxHours: number; minStep: number }> = {
-  atlas_era5: { name: "Atlas ERA5", description: "Medium-range forecast (0-15 days)", maxHours: 360, minStep: 6 },
-  atlas_gfs: { name: "Atlas GFS", description: "Medium-range with GFS init", maxHours: 360, minStep: 6 },
-  stormscope: { name: "StormScope", description: "High-res nowcasting (0-6 hours)", maxHours: 6, minStep: 0.25 },
-  corrdiff: { name: "CorrDiff", description: "AI downscaling to 1km", maxHours: 168, minStep: 1 },
+  atlas_era5: { name: "Atlas ERA5", description: "Physics-ML forecast (0-15 days)", maxHours: 360, minStep: 6 },
+  atlas_gfs: { name: "Atlas GFS", description: "Physics-ML forecast with GFS init", maxHours: 360, minStep: 6 },
+  stormscope: { name: "StormScope", description: "Physics-ML nowcasting (0-6 hours)", maxHours: 6, minStep: 0.25 },
+  corrdiff: { name: "CorrDiff", description: "PhysicsNeMo-assisted downscaling to 1km", maxHours: 168, minStep: 1 },
   healda: { name: "HealDA", description: "Data assimilation", maxHours: 0, minStep: 0 },
   fourcastnet: { name: "FourCastNet", description: "Legacy global forecast", maxHours: 168, minStep: 6 },
 };
@@ -234,7 +234,7 @@ export function Earth2LayerControl({
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-emerald-400" />
           <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">
-            NVIDIA Earth-2
+            NVIDIA Earth-2 + PhysicsNeMo
           </span>
           <Badge
             variant="outline"
@@ -419,7 +419,7 @@ export function Earth2LayerControl({
                       checked={filter.showSporeDispersal}
                       onChange={(v) => onFilterChange({ showSporeDispersal: v })}
                       color="amber"
-                      hint="Combined"
+                      hint="Physics-ML"
                     />
                     <LayerToggle
                       label="Storm Cells"
@@ -427,7 +427,7 @@ export function Earth2LayerControl({
                       checked={filter.showStormCells}
                       onChange={(v) => onFilterChange({ showStormCells: v })}
                       color="red"
-                      hint="Nowcast"
+                      hint="Physics-ML"
                     />
                   </div>
                 </div>
@@ -477,7 +477,7 @@ export function Earth2LayerControl({
                       checked={filter.showDownscaled}
                       onChange={(v) => onFilterChange({ showDownscaled: v })}
                       color="purple"
-                      hint="1km"
+                      hint="PhysicsNeMo"
                     />
                     <LayerToggle
                       label="Uncertainty"

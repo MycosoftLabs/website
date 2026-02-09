@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCachedReal, normalizeError, setCachedReal } from "../_lib/real-cache";
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001";
 
@@ -21,55 +22,11 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      // Return default layers if MAS is unavailable
-      return NextResponse.json({
-        layers: [
-          {
-            id: "earth2_temperature",
-            name: "Temperature (2m)",
-            type: "forecast",
-            variable: "t2m",
-            colormap: "temperature",
-            available: false,
-          },
-          {
-            id: "earth2_wind",
-            name: "Wind Speed (10m)",
-            type: "forecast",
-            variable: "wind_speed_10m",
-            colormap: "wind",
-            available: false,
-          },
-          {
-            id: "earth2_precipitation",
-            name: "Precipitation",
-            type: "forecast",
-            variable: "tp",
-            colormap: "precipitation",
-            available: false,
-          },
-          {
-            id: "earth2_radar",
-            name: "Radar Reflectivity",
-            type: "nowcast",
-            variable: "radar_reflectivity",
-            colormap: "radar",
-            available: false,
-          },
-          {
-            id: "earth2_spore",
-            name: "Spore Concentration",
-            type: "spore_dispersal",
-            colormap: "spore",
-            available: false,
-          },
-        ],
-        source: "default",
-      });
-    }
+    if (!response.ok) throw new Error(`MAS layers ${response.status}`);
 
     const data = await response.json();
+    const cacheKey = `earth2:layers:${layerId ?? "all"}:${layerType ?? "all"}`;
+    setCachedReal(cacheKey, data, { ttlMs: 5 * 60 * 1000 });
     
     // Filter by type if specified
     if (layerType) {
@@ -81,14 +38,25 @@ export async function GET(request: NextRequest) {
       data.layers = data.layers.filter((l: any) => l.id === layerId);
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json({ ...data, source: "mas", cached: false });
   } catch (error) {
     console.error("Earth-2 Layers GET error:", error);
+    const { searchParams } = new URL(request.url);
+    const cacheKey = `earth2:layers:${searchParams.get("layer_id") ?? "all"}:${searchParams.get("type") ?? "all"}`;
+    const cached = getCachedReal(cacheKey);
+    if (cached) {
+      return NextResponse.json(
+        { ...(cached.body as Record<string, unknown>), source: "cached_real", cached: true },
+        { status: cached.status },
+      );
+    }
     return NextResponse.json(
       { 
         layers: [],
-        error: "Failed to fetch Earth-2 layers",
-        source: "error"
+        error: `Failed to fetch Earth-2 layers: ${normalizeError(error)}`,
+        source: "none",
+        available: false,
+        cached: false
       },
       { status: 503 }
     );
