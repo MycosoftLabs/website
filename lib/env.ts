@@ -10,8 +10,12 @@ export const env = {
   natureosApiUrl: process.env.NEXT_PUBLIC_API_URL || "https://api.mycosoft.org/v1",
 
   // MINDEX API Configuration (canonical data layer)
-  mindexApiBaseUrl: process.env.MINDEX_API_BASE_URL || "http://192.168.0.187:8000",
+  // Use MINDEX_API_URL from .env.local, fallback to MINDEX_API_BASE_URL or VM default
+  mindexApiBaseUrl: process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || process.env.NEXT_PUBLIC_MINDEX_URL || "http://192.168.0.188:8001/mindex",
   mindexApiKey: process.env.MINDEX_API_KEY || "local-dev-key", // Server-only
+
+  // MyceliumSeg validation API (segmentation metrics for Petri Dish / scientific validation)
+  myceliumsegApiUrl: process.env.NEXT_PUBLIC_MYCELIUMSEG_API_URL || process.env.MYCELIUMSEG_API_URL || "http://localhost:8010/mindex/myceliumseg",
 
   // MYCA MAS API Configuration (multi-agent orchestration)
   mycaMasApiBaseUrl: process.env.MYCA_MAS_API_BASE_URL || "https://myca.mycosoft.org/api/v1",

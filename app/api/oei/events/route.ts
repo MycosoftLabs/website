@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getEventBus } from "@/lib/oei"
 import type { Event, EventQuery } from "@/types/oei"
+import { ingestEvents } from "@/lib/oei/mindex-ingest"
 
 export const dynamic = "force-dynamic"
 
@@ -101,6 +102,19 @@ export async function POST(request: NextRequest) {
     
     const eventBus = getEventBus()
     const messageId = await eventBus.publishEvent(event)
+    
+    // Ingest to MINDEX for persistent storage (non-blocking)
+    ingestEvents("oei-events", [{
+      id: event.id,
+      type: event.type,
+      title: event.title,
+      severity: event.severity,
+      latitude: event.location?.latitude,
+      longitude: event.location?.longitude,
+      timestamp: event.occurredAt,
+      description: event.description,
+      status: event.status,
+    }])
     
     return NextResponse.json({
       success: true,

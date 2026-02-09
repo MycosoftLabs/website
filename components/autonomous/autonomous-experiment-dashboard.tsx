@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,84 +11,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   Play, Pause, Square, RotateCcw, Plus, Zap, Brain, FlaskConical,
-  CheckCircle, XCircle, Clock, AlertTriangle, Lightbulb
+  CheckCircle, XCircle, Clock, AlertTriangle, Lightbulb, RefreshCw, Loader2
 } from 'lucide-react'
-
-interface AutoExperiment {
-  id: string
-  name: string
-  hypothesis: string
-  status: 'planning' | 'running' | 'paused' | 'completed' | 'failed'
-  currentStep: number
-  totalSteps: number
-  progress: number
-  startedAt?: string
-  adaptations: number
-}
-
-interface ExperimentStep {
-  id: string
-  name: string
-  type: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  duration?: number
-}
+import { toast } from 'sonner'
+import { useAutonomousExperiments } from '@/hooks/scientific'
 
 export function AutonomousExperimentDashboard() {
-  const [experiments, setExperiments] = useState<AutoExperiment[]>([])
+  const { experiments, steps, isLoading, isLive, createExperiment, controlExperiment, refresh } = useAutonomousExperiments()
   const [selectedExperiment, setSelectedExperiment] = useState<string | null>(null)
   const [newHypothesis, setNewHypothesis] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [steps, setSteps] = useState<ExperimentStep[]>([])
-
-  // Simulate experiments
-  useEffect(() => {
-    setExperiments([
-      {
-        id: 'auto-001',
-        name: 'Growth Rate Optimization',
-        hypothesis: 'Electrical stimulation at 0.5Hz increases P. ostreatus growth rate by 15-20%',
-        status: 'running',
-        currentStep: 4,
-        totalSteps: 8,
-        progress: 50,
-        startedAt: '2026-02-03T08:00:00Z',
-        adaptations: 2,
-      },
-      {
-        id: 'auto-002',
-        name: 'Bioelectric Pattern Analysis',
-        hypothesis: 'Mycelium networks exhibit distinct electrical signatures for different substrate types',
-        status: 'planning',
-        currentStep: 0,
-        totalSteps: 6,
-        progress: 0,
-        adaptations: 0,
-      },
-      {
-        id: 'auto-003',
-        name: 'Enzyme Production Study',
-        hypothesis: 'Temperature cycling enhances laccase production in G. lucidum',
-        status: 'completed',
-        currentStep: 5,
-        totalSteps: 5,
-        progress: 100,
-        startedAt: '2026-02-02T10:00:00Z',
-        adaptations: 1,
-      },
-    ])
-
-    setSteps([
-      { id: 's1', name: 'Initialize Environment', type: 'setup', status: 'completed', duration: 120 },
-      { id: 's2', name: 'Calibrate Instruments', type: 'setup', status: 'completed', duration: 180 },
-      { id: 's3', name: 'Prepare Samples', type: 'setup', status: 'completed', duration: 300 },
-      { id: 's4', name: 'Apply Treatment', type: 'execute', status: 'running', duration: 0 },
-      { id: 's5', name: 'Measure Growth', type: 'measure', status: 'pending' },
-      { id: 's6', name: 'Analyze Data', type: 'analyze', status: 'pending' },
-      { id: 's7', name: 'Validate Hypothesis', type: 'decide', status: 'pending' },
-      { id: 's8', name: 'Generate Report', type: 'decide', status: 'pending' },
-    ])
-  }, [])
+  const [isCreating, setIsCreating] = useState(false)
+  const [controllingId, setControllingId] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const statusColors = {
     planning: 'bg-gray-500',
@@ -106,21 +41,50 @@ export function AutonomousExperimentDashboard() {
     decide: <Lightbulb className="h-4 w-4" />,
   }
 
-  const handleCreateExperiment = () => {
-    if (!newHypothesis) return
-    const newExp: AutoExperiment = {
-      id: `auto-${Date.now()}`,
-      name: 'New Autonomous Experiment',
-      hypothesis: newHypothesis,
-      status: 'planning',
-      currentStep: 0,
-      totalSteps: 6,
-      progress: 0,
-      adaptations: 0,
+  const handleCreateExperiment = async () => {
+    if (!newHypothesis) {
+      toast.error('Please enter a hypothesis')
+      return
     }
-    setExperiments([...experiments, newExp])
-    setNewHypothesis('')
-    setIsDialogOpen(false)
+    setIsCreating(true)
+    const toastId = toast.loading('Creating autonomous experiment...')
+    try {
+      await createExperiment(newHypothesis)
+      toast.success('Autonomous experiment created', { id: toastId })
+      setNewHypothesis('')
+      setIsDialogOpen(false)
+    } catch (error) {
+      toast.error('Failed to create experiment', { id: toastId })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleControl = async (id: string, action: 'start' | 'pause' | 'stop' | 'reset') => {
+    setControllingId(id)
+    const actionLabels = { start: 'Starting', pause: 'Pausing', stop: 'Stopping', reset: 'Resetting' }
+    const toastId = toast.loading(`${actionLabels[action]} experiment...`)
+    try {
+      await controlExperiment(id, action)
+      toast.success(`Experiment ${action === 'start' ? 'started' : action + 'ed'} successfully`, { id: toastId })
+    } catch (error) {
+      toast.error(`Failed to ${action} experiment`, { id: toastId })
+    } finally {
+      setControllingId(null)
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    const toastId = toast.loading('Refreshing experiments...')
+    try {
+      await refresh()
+      toast.success('Experiments refreshed', { id: toastId })
+    } catch (error) {
+      toast.error('Failed to refresh', { id: toastId })
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   const runningCount = experiments.filter(e => e.status === 'running').length
@@ -163,8 +127,19 @@ export function AutonomousExperimentDashboard() {
         {/* Experiment List */}
         <Card className="col-span-1">
           <CardHeader className="flex flex-row items-center justify-between py-3">
-            <CardTitle className="text-base">Autonomous Experiments</CardTitle>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Autonomous Experiments</CardTitle>
+              {!isLive && (
+                <Badge variant="outline" className="text-yellow-500 border-yellow-500">
+                  <AlertTriangle className="h-3 w-3 mr-1" /> Cached
+                </Badge>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="h-4 w-4 mr-1" /> New</Button>
               </DialogTrigger>
@@ -185,12 +160,14 @@ export function AutonomousExperimentDashboard() {
                   <p className="text-sm text-muted-foreground">
                     AI will automatically generate an experiment protocol and execute it with minimal human intervention.
                   </p>
-                  <Button onClick={handleCreateExperiment} className="w-full">
-                    <Brain className="h-4 w-4 mr-2" /> Generate & Start
+                  <Button onClick={handleCreateExperiment} className="w-full" disabled={isCreating}>
+                    {isCreating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Brain className="h-4 w-4 mr-2" />}
+                    Generate & Start
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-96">

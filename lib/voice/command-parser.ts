@@ -31,13 +31,20 @@ const COMMAND_PATTERNS = {
     { pattern: /show (.+) layer/i, action: "showLayer", param: "layer" },
     { pattern: /hide (.+) layer/i, action: "hideLayer", param: "layer" },
     { pattern: /toggle (.+) layer/i, action: "toggleLayer", param: "layer" },
-    { pattern: /show (satellites?|aircraft|vessels?|devices?|fungal)/i, action: "showLayer", param: "layer" },
-    { pattern: /hide (satellites?|aircraft|vessels?|devices?|fungal)/i, action: "hideLayer", param: "layer" },
-    { pattern: /toggle (satellites?|aircraft|vessels?|devices?|fungal)/i, action: "toggleLayer", param: "layer" },
+    { pattern: /show (satellites?|aircraft|vessels?|devices?|fungal|fires?|lightning|smoke|storms?|clouds?|rain|snow|wind|spores?|earthquakes?|events?)/i, action: "showLayer", param: "layer" },
+    { pattern: /hide (satellites?|aircraft|vessels?|devices?|fungal|fires?|lightning|smoke|storms?|clouds?|rain|snow|wind|spores?|earthquakes?|events?)/i, action: "hideLayer", param: "layer" },
+    { pattern: /toggle (satellites?|aircraft|vessels?|devices?|fungal|fires?|lightning|smoke|storms?|clouds?|rain|snow|wind|spores?|earthquakes?|events?)/i, action: "toggleLayer", param: "layer" },
     { pattern: /show all layers/i, action: "showAllLayers", param: null },
     { pattern: /hide all layers/i, action: "hideAllLayers", param: null },
     { pattern: /show weather/i, action: "showLayer", param: "weather" },
     { pattern: /hide weather/i, action: "hideLayer", param: "weather" },
+    // Earth 2 specific commands
+    { pattern: /show earth ?2/i, action: "showLayer", param: "earth2" },
+    { pattern: /hide earth ?2/i, action: "hideLayer", param: "earth2" },
+    { pattern: /enable (forecast|weather forecast)/i, action: "showLayer", param: "forecast" },
+    { pattern: /disable (forecast|weather forecast)/i, action: "hideLayer", param: "forecast" },
+    { pattern: /show (precipitation|precip)/i, action: "showLayer", param: "precipitation" },
+    { pattern: /hide (precipitation|precip)/i, action: "hideLayer", param: "precipitation" },
   ],
   filter: [
     { pattern: /filter by (.+)/i, action: "setFilter", param: "filter" },
@@ -64,6 +71,17 @@ const COMMAND_PATTERNS = {
     { pattern: /what agents are (.+)/i, action: "queryAgents", param: "status" },
     { pattern: /system status/i, action: "systemStatus", param: null },
     { pattern: /network status/i, action: "networkStatus", param: null },
+    // Weather queries
+    { pattern: /what('s| is) the weather (in|at|near) (.+)/i, action: "queryWeather", param: "location" },
+    { pattern: /is it raining (in|at|near) (.+)/i, action: "queryPrecip", param: "location" },
+    { pattern: /how many (planes|aircraft|flights) (over|near|in) (.+)/i, action: "countAircraft", param: "location" },
+    { pattern: /how many (ships|vessels|boats) (near|in) (.+)/i, action: "countVessels", param: "location" },
+    { pattern: /how many fires (near|in) (.+)/i, action: "countFires", param: "location" },
+    { pattern: /any lightning (near|in) (.+)/i, action: "queryLightning", param: "location" },
+    // MYCA specific queries
+    { pattern: /ask myca (.+)/i, action: "askMyca", param: "question" },
+    { pattern: /myca (.+)/i, action: "askMyca", param: "question" },
+    { pattern: /what does (.+) think/i, action: "askAgent", param: "agent" },
   ],
   action: [
     { pattern: /spawn agent (.+)/i, action: "spawnAgent", param: "type" },
@@ -98,6 +116,7 @@ const LOCATION_ALIASES: Record<string, [number, number]> = {
 
 // Layer name normalization
 const LAYER_ALIASES: Record<string, string> = {
+  // Entity layers
   "satellites": "satellites",
   "satellite": "satellites",
   "sats": "satellites",
@@ -111,9 +130,38 @@ const LAYER_ALIASES: Record<string, string> = {
   "mycobrain": "devices",
   "fungal": "fungal",
   "mushrooms": "fungal",
+  "spores": "spores",
+  "spore": "spores",
+  // Earth 2 weather layers
   "weather": "weather",
+  "forecast": "forecast",
+  "clouds": "clouds",
+  "cloud": "clouds",
+  "rain": "precipitation",
+  "precipitation": "precipitation",
+  "precip": "precipitation",
+  "snow": "precipitation",
+  "wind": "wind",
+  "storms": "storms",
+  "storm": "storms",
+  // Hazard layers
+  "fire": "fires",
+  "fires": "fires",
+  "wildfire": "fires",
+  "wildfires": "fires",
+  "smoke": "smoke",
+  "lightning": "lightning",
+  "earthquakes": "earthquakes",
+  "earthquake": "earthquakes",
+  "quakes": "earthquakes",
+  // Events
+  "events": "events",
+  "event": "events",
+  // Map layers
   "terrain": "terrain",
   "labels": "labels",
+  "earth2": "earth2",
+  "earth-2": "earth2",
 }
 
 export function parseCommand(text: string): ParsedCommand {
@@ -209,9 +257,12 @@ export function formatCommandHelp(): string {
 Voice Commands:
 - Navigation: "Go to Tokyo", "Zoom in", "Center on device"
 - Layers: "Show satellites", "Hide aircraft", "Toggle weather"
+- Weather: "Show clouds", "Show rain", "Hide wind", "Show fires", "Show lightning", "Show smoke"
+- Earth 2: "Show earth2", "Show forecast", "Hide storms", "Toggle precipitation"
 - Filters: "Filter by altitude above 10000", "Clear filters"
 - Devices: "Where is Mushroom1?", "Find all devices"
-- Queries: "System status", "List all agents"
+- Queries: "System status", "How many planes over Europe?", "Any lightning near Tokyo?"
+- MYCA: "Ask MYCA what's the weather?", "MYCA status"
 - Actions: "Spawn agent", "Start workflow", "Refresh data"
   `.trim()
 }

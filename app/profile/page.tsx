@@ -659,7 +659,7 @@ export default function ProfilePage() {
                       { name: "Website", status: "online", url: "localhost:3000" },
                       { name: "MAS API", status: "online", url: "localhost:8000" },
                       { name: "N8N Workflows", status: "online", url: "localhost:5678" },
-                      { name: "MycoBrain Service", status: "online", url: "localhost:8003" },
+                      { name: "MycoBrain Service", status: "online", url: "localhost:8765" },
                       { name: "MINDEX Database", status: "online", url: "localhost:5432" },
                     ].map(service => (
                       <div key={service.name} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">

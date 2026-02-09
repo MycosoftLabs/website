@@ -56,8 +56,9 @@ interface UseUnifiedSearchResult {
   
   // Metadata
   timing: UnifiedSearchResponse["timing"]
-  source: "live" | "cache"
-  
+  source: "live" | "cache" | "fallback"
+  message?: string
+
   // Actions
   refresh: () => Promise<void>
   prefetch: (query: string) => void
@@ -134,6 +135,7 @@ export function useUnifiedSearch(
   const aiAnswer = data?.aiAnswer
   const timing = data?.timing || { total: 0, mindex: 0 }
   const source = data?.source || "cache"
+  const message = data?.message
 
   // Actions
   const refresh = useCallback(async () => {
@@ -157,6 +159,7 @@ export function useUnifiedSearch(
     error: error?.message || data?.error || null,
     timing,
     source,
+    message,
     refresh,
     prefetch,
   }

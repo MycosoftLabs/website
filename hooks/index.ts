@@ -40,3 +40,25 @@ export type {
 
 // Unified Search Hook
 export { useUnifiedSearch } from "./use-unified-search"
+
+// Local GPU Services Hooks - February 5, 2026
+export {
+  useLocalGPU,
+  useEarth2,
+  useVoiceBridge,
+  useGPUServices,
+} from "./use-local-gpu"
+
+// Voice-Map-Earth2 Bridge Hook - February 5, 2026
+export {
+  useVoiceMapBridge,
+  useVoiceCommands,
+} from "./use-voice-map-bridge"
+export type {
+  MapState,
+  Earth2State,
+  VoiceCommand,
+  FrontendCommand,
+  VoiceBridgeCallbacks,
+  VoiceMapBridgeState,
+} from "./use-voice-map-bridge"

@@ -238,6 +238,58 @@ Lion's Mane has been used in traditional Chinese medicine for centuries and is n
       "digestive health",
     ],
   },
+
+  // Amanita muscaria (Fly Agaric)
+  "amanita-muscaria": {
+    iNaturalistId: "48435",
+    commonNames: ["Fly Agaric", "Fly Amanita", "Amanita"],
+    scientificName: "Amanita muscaria",
+    description: `Amanita muscaria, commonly known as the fly agaric or fly amanita, is a basidiomycete mushroom native to temperate and boreal regions. It is recognized by its striking red cap with white warts. The species forms mycorrhizal associations with various trees including birch, pine, and spruce. It contains the psychoactive compounds muscimol and ibotenic acid.`,
+    characteristics: {
+      habitat: ["Coniferous and deciduous forests", "Under birch", "Under pine", "Mycorrhizal"],
+      season: ["Late summer", "Fall"],
+      edibility: "Toxic when raw; contains ibotenic acid and muscimol",
+      ecology: "Mycorrhizal with conifers and hardwoods",
+    },
+    taxonomy: {
+      kingdom: "Fungi",
+      phylum: "Basidiomycota",
+      class: "Agaricomycetes",
+      order: "Agaricales",
+      family: "Amanitaceae",
+      genus: "Amanita",
+      species: "A. muscaria",
+    },
+    searchTerms: [
+      "amanita",
+      "muscaria",
+      "fly agaric",
+      "fly amanita",
+      "red cap",
+      "muscimol",
+      "ibotenic acid",
+    ],
+    compounds: [
+      { id: "CS789013", name: "Muscimol", concentration: "Primary psychoactive compound" },
+      { id: "CS789014", name: "Ibotenic acid", concentration: "Decarboxylates to muscimol" },
+    ],
+    relatedResearch: [
+      "GABA receptor",
+      "psychoactive",
+      "mycorrhizal",
+      "toxicity",
+    ],
+    defaultImages: [
+      {
+        url: "https://static.inaturalist.org/photos/48435/large.jpg",
+        medium_url: "https://static.inaturalist.org/photos/48435/medium.jpg",
+        large_url: "https://static.inaturalist.org/photos/48435/large.jpg",
+        attribution: "© iNaturalist",
+        license_code: "CC-BY-NC",
+        type: "primary",
+      },
+    ],
+  },
 }
 
 export type SpeciesKey = keyof typeof SPECIES_MAPPING

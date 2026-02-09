@@ -1,6 +1,6 @@
 /**
  * Complete MAS Agent Registry
- * Based on AGENT_REGISTRY.md v2.1.0 - 223+ Agents
+ * Based on AGENT_REGISTRY.md v2.1.0 - All Agents Active 24/7
  * 
  * This file defines all known agents in the Mycosoft Multi-Agent System
  * for use in the topology visualization.
@@ -173,10 +173,10 @@ const FINANCIAL_AGENTS: AgentDefinition[] = [
   { id: "invoice", name: "Invoice Agent", shortName: "Invoice", type: "agent", category: "financial", description: "Automated invoice generation", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "budget", name: "Budget Agent", shortName: "Budget", type: "agent", category: "financial", description: "Budget tracking and forecasting", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "payroll", name: "Payroll Agent", shortName: "Payroll", type: "agent", category: "financial", description: "Payroll automation", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "tax", name: "Tax Agent", shortName: "Tax", type: "agent", category: "financial", description: "Tax calculation and filing", defaultStatus: "offline", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "tax", name: "Tax Agent", shortName: "Tax", type: "agent", category: "financial", description: "Tax calculation and filing", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "expense", name: "Expense Agent", shortName: "Expense", type: "agent", category: "financial", description: "Expense tracking", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "treasury", name: "Treasury Agent", shortName: "Treasury", type: "agent", category: "financial", description: "Cash flow management", defaultStatus: "active", priority: 8, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "investment", name: "Investment Agent", shortName: "Invest", type: "agent", category: "financial", description: "Investment tracking", defaultStatus: "offline", priority: 4, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "investment", name: "Investment Agent", shortName: "Invest", type: "agent", category: "financial", description: "Investment tracking", defaultStatus: "active", priority: 4, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "audit-financial", name: "Financial Audit Agent", shortName: "Audit-Fin", type: "agent", category: "financial", description: "Financial audit trails", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
 ]
 
@@ -397,9 +397,9 @@ const INTEGRATION_AGENTS: AgentDefinition[] = [
   { id: "mapbox", name: "Mapbox Agent", shortName: "Mapbox", type: "integration", category: "integration", description: "Mapping services", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "weather-api", name: "Weather API Agent", shortName: "Weather", type: "integration", category: "integration", description: "Weather data", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "unifi", name: "UniFi Agent", shortName: "UniFi", type: "integration", category: "integration", description: "UniFi integration", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "palantir", name: "Palantir Agent", shortName: "Palantir", type: "integration", category: "integration", description: "Palantir Foundry", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "snowflake", name: "Snowflake Agent", shortName: "Snowflake", type: "integration", category: "integration", description: "Snowflake data", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "databricks", name: "Databricks Agent", shortName: "DBricks", type: "integration", category: "integration", description: "Databricks ML", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "palantir", name: "Palantir Agent", shortName: "Palantir", type: "integration", category: "integration", description: "Palantir Foundry", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "snowflake", name: "Snowflake Agent", shortName: "Snowflake", type: "integration", category: "integration", description: "Snowflake data", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "databricks", name: "Databricks Agent", shortName: "DBricks", type: "integration", category: "integration", description: "Databricks ML", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "supabase", name: "Supabase Agent", shortName: "Supabase", type: "integration", category: "integration", description: "Supabase services", defaultStatus: "active", priority: 8, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "webhook-handler", name: "Webhook Handler", shortName: "Webhook", type: "integration", category: "integration", description: "Generic webhooks", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
 ]
@@ -422,10 +422,10 @@ const DEVICE_AGENTS: AgentDefinition[] = [
   { id: "wifi-sense", name: "WiFi Sense Agent", shortName: "WiFiSense", type: "device", category: "device", description: "WiFi CSI sensing", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "optical-modem", name: "Optical Modem Agent", shortName: "Optical", type: "device", category: "device", description: "Optical communication", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "acoustic-modem", name: "Acoustic Modem Agent", shortName: "Acoustic", type: "device", category: "device", description: "Acoustic communication", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "myco-drone", name: "MycoDRONE Agent", shortName: "Drone", type: "device", category: "device", description: "MycoDRONE control", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "myco-drone", name: "MycoDRONE Agent", shortName: "Drone", type: "device", category: "device", description: "MycoDRONE control", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "camera", name: "Camera Agent", shortName: "Camera", type: "device", category: "device", description: "Camera integration", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "spectrometer", name: "Spectrometer Agent", shortName: "Spectro", type: "device", category: "device", description: "Spectrometer control", defaultStatus: "offline", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "microscope", name: "Microscope Agent", shortName: "Micro", type: "device", category: "device", description: "Microscope automation", defaultStatus: "offline", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "spectrometer", name: "Spectrometer Agent", shortName: "Spectro", type: "device", category: "device", description: "Spectrometer control", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "microscope", name: "Microscope Agent", shortName: "Micro", type: "device", category: "device", description: "Microscope automation", defaultStatus: "active", priority: 5, canStart: true, canStop: true, canRestart: true, canConfigure: true },
 ]
 
 // ============================================
@@ -436,8 +436,8 @@ const CHEMISTRY_AGENTS: AgentDefinition[] = [
   { id: "compound-enricher", name: "Compound Enricher", shortName: "CompEnr", type: "agent", category: "chemistry", description: "Enriches compounds with external data sources", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "compound-analyzer-chem", name: "Compound Analyzer (Chem)", shortName: "CompAn", type: "agent", category: "chemistry", description: "Analyzes compound properties and activities", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "sar-analyzer", name: "SAR Analyzer", shortName: "SAR", type: "agent", category: "chemistry", description: "Structure-Activity Relationship analysis", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "protein-folder", name: "Protein Folder", shortName: "ProFold", type: "agent", category: "chemistry", description: "Protein folding predictions (AlphaFold)", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
-  { id: "peptide-analyzer", name: "Peptide Analyzer", shortName: "Peptide", type: "agent", category: "chemistry", description: "Peptide sequence analysis", defaultStatus: "offline", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "protein-folder", name: "Protein Folder", shortName: "ProFold", type: "agent", category: "chemistry", description: "Protein folding predictions (AlphaFold)", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
+  { id: "peptide-analyzer", name: "Peptide Analyzer", shortName: "Peptide", type: "agent", category: "chemistry", description: "Peptide sequence analysis", defaultStatus: "active", priority: 6, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "chemical-sim", name: "Chemical Simulator", shortName: "ChemSim", type: "agent", category: "chemistry", description: "Chemical simulation engine", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
   { id: "bioactivity-predictor", name: "Bioactivity Predictor", shortName: "BioAct", type: "agent", category: "chemistry", description: "Predicts biological activity from structure", defaultStatus: "active", priority: 7, canStart: true, canStop: true, canRestart: true, canConfigure: true },
 ]

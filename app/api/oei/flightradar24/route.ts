@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server"
 import { getFlightRadar24Client } from "@/lib/oei/connectors"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
+import { ingestAircraft } from "@/lib/oei/mindex-ingest"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -48,6 +49,9 @@ export async function GET(request: Request) {
     
     // Log to MINDEX
     logDataCollection("flightradar24", "flightradar24.com", aircraft.length, latency, false)
+    
+    // Ingest aircraft data to MINDEX for persistent storage (non-blocking)
+    ingestAircraft("flightradar24", aircraft)
 
     return NextResponse.json({
       source: "flightradar24",

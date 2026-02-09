@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server"
 import { getSatelliteTrackingClient, type SatelliteCategory } from "@/lib/oei/connectors"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
+import { ingestSatellites } from "@/lib/oei/mindex-ingest"
 
 const validCategories: SatelliteCategory[] = [
   "stations",
@@ -65,6 +66,9 @@ export async function GET(request: Request) {
     
     // Log to MINDEX
     logDataCollection("satellites", "celestrak.org", satellites.length, latency, false)
+    
+    // Ingest satellite data to MINDEX for persistent storage (non-blocking)
+    ingestSatellites("celestrak", satellites)
 
     return NextResponse.json({
       source: "celestrak",

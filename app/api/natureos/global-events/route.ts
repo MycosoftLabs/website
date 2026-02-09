@@ -12,6 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { ingestEvents, ingestLightning, ingestFires } from "@/lib/oei/mindex-ingest";
 
 export interface GlobalEvent {
   id: string;
@@ -564,6 +565,40 @@ export async function GET() {
   // Update cache
   cachedEvents = allEvents;
   lastFetchTime = now;
+  
+  // Ingest events to MINDEX for persistent storage (non-blocking)
+  // Only ingest real events (not simulated) to avoid duplicate storage
+  const realEvents = [...earthquakes, ...spaceWeather, ...eonetEvents].map(e => ({
+    ...e,
+    latitude: e.location?.latitude,
+    longitude: e.location?.longitude,
+  }));
+  if (realEvents.length > 0) {
+    ingestEvents("global-events", realEvents);
+  }
+  
+  // Also ingest simulated events by category for specific ingestion functions
+  const lightningEvents = simulatedEvents.filter(e => e.type === "lightning");
+  if (lightningEvents.length > 0) {
+    ingestLightning("blitzortung-simulated", lightningEvents.map(e => ({
+      id: e.id,
+      lat: e.location.latitude,
+      lon: e.location.longitude,
+      time: new Date(e.timestamp).getTime() * 1000000, // Convert to nanoseconds
+      intensity: e.magnitude,
+    })));
+  }
+  
+  const fireEvents = simulatedEvents.filter(e => e.type === "wildfire");
+  if (fireEvents.length > 0) {
+    ingestFires("nasa-firms-simulated", fireEvents.map(e => ({
+      id: e.id,
+      lat: e.location.latitude,
+      lon: e.location.longitude,
+      acresBurning: e.magnitude,
+      name: e.location.name,
+    })));
+  }
   
   return NextResponse.json({
     events: allEvents.slice(0, 500), // Uncapped - return up to 500 events

@@ -1,6 +1,11 @@
-"use client"
+﻿"use client"
 
-import { useCallback, useEffect, useRef } from "react"
+/**
+ * useMapVoiceControl - Voice command processing for CREP map
+ * Updated: February 6, 2026 - Added MAS backend support
+ */
+
+import { useCallback, useRef } from "react"
 import { parseCommand, ParsedCommand } from "@/lib/voice/command-parser"
 
 export interface MapVoiceControlOptions {
@@ -30,6 +35,10 @@ export interface MapVoiceControlOptions {
   // Generic callbacks
   onCommand?: (command: ParsedCommand) => void
   onUnknownCommand?: (text: string) => void
+  onSpeak?: (text: string) => void
+  
+  // MAS Backend options (new in Feb 6 update)
+  useMASBackend?: boolean
   
   // Geocoding
   geocodeLocation?: (query: string) => Promise<{ lng: number; lat: number } | null>
@@ -38,6 +47,31 @@ export interface MapVoiceControlOptions {
 export interface UseMapVoiceControlReturn {
   processVoiceCommand: (text: string) => Promise<void>
   isProcessing: boolean
+}
+
+async function callMASVoiceCommand(text: string): Promise<{
+  success: boolean
+  domain: string
+  action?: string
+  speak?: string
+  frontend_command?: Record<string, unknown>
+  needs_llm_response?: boolean
+} | null> {
+  try {
+    const response = await fetch("/api/voice/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+    
+    if (response.ok) {
+      return await response.json()
+    }
+    return null
+  } catch (error) {
+    console.error("[MapVoiceControl] MAS backend error:", error)
+    return null
+  }
 }
 
 export function useMapVoiceControl(options: MapVoiceControlOptions = {}): UseMapVoiceControlReturn {
@@ -59,6 +93,8 @@ export function useMapVoiceControl(options: MapVoiceControlOptions = {}): UseMap
     onSearchDevices,
     onCommand,
     onUnknownCommand,
+    onSpeak,
+    useMASBackend = false,
     geocodeLocation,
   } = options
   
@@ -69,9 +105,81 @@ export function useMapVoiceControl(options: MapVoiceControlOptions = {}): UseMap
     isProcessingRef.current = true
     
     try {
+      // Try MAS backend first if enabled
+      if (useMASBackend) {
+        const masResult = await callMASVoiceCommand(text)
+        
+        if (masResult?.success && masResult.frontend_command) {
+          // Handle MAS response
+          if (masResult.speak) {
+            onSpeak?.(masResult.speak)
+          }
+          
+          const cmd = masResult.frontend_command
+          
+          // Execute frontend command
+          switch (cmd.type) {
+            case "flyTo":
+              if (cmd.center && Array.isArray(cmd.center)) {
+                onFlyTo?.(cmd.center[0] as number, cmd.center[1] as number, cmd.zoom as number)
+              }
+              break
+            case "geocodeAndFlyTo":
+              if (cmd.query && geocodeLocation) {
+                const coords = await geocodeLocation(cmd.query as string)
+                if (coords) onFlyTo?.(coords.lng, coords.lat, cmd.zoom as number)
+              }
+              break
+            case "zoomBy":
+              onZoom?.(cmd.delta && (cmd.delta as number) > 0 ? "in" : "out")
+              break
+            case "setZoom":
+              onSetZoom?.(cmd.zoom as number)
+              break
+            case "panBy":
+              // Map offset to direction
+              if (cmd.offset && Array.isArray(cmd.offset)) {
+                const [x, y] = cmd.offset as number[]
+                if (x < 0) onPan?.("left")
+                else if (x > 0) onPan?.("right")
+                else if (y < 0) onPan?.("up")
+                else if (y > 0) onPan?.("down")
+              }
+              break
+            case "showLayer":
+              onShowLayer?.(cmd.layer as string)
+              break
+            case "hideLayer":
+              onHideLayer?.(cmd.layer as string)
+              break
+            case "toggleLayer":
+              onToggleLayer?.(cmd.layer as string)
+              break
+            case "clearFilters":
+              onClearFilters?.()
+              break
+            case "applyFilter":
+              onSetFilter?.(cmd.filterType as string, cmd.filterValue as string)
+              break
+            default:
+              // Check for reset view pattern
+              if (cmd.type === "flyTo" && cmd.center?.[0] === 0 && cmd.center?.[1] === 20) {
+                onResetView?.()
+              }
+          }
+          
+          return
+        }
+        
+        // If MAS didn't handle it, fall through to local parsing
+        if (masResult?.needs_llm_response) {
+          console.log("[MapVoiceControl] Command needs LLM response:", text)
+        }
+      }
+      
+      // Fall back to local command parsing
       const command = parseCommand(text)
       
-      // Notify about the parsed command
       onCommand?.(command)
       
       switch (command.type) {
@@ -93,7 +201,11 @@ export function useMapVoiceControl(options: MapVoiceControlOptions = {}): UseMap
     } finally {
       isProcessingRef.current = false
     }
-  }, [onCommand, onUnknownCommand])
+  }, [
+    useMASBackend, onCommand, onUnknownCommand, onSpeak, onFlyTo, onZoom, onSetZoom, 
+    onPan, onShowLayer, onHideLayer, onToggleLayer, onClearFilters, onSetFilter,
+    onResetView, geocodeLocation
+  ])
   
   const handleNavigationCommand = async (command: ParsedCommand) => {
     const { action, params } = command

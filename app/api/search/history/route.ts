@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const MAS_API_URL = process.env.MAS_API_URL || 'http://192.168.0.187:8000';
+const MAS_API_URL = process.env.MAS_API_URL || 'http://192.168.0.188:8001';
 
 /**
  * GET /api/search/history

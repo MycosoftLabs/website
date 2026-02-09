@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * CREP - Common Relevant Environmental Picture
@@ -179,6 +179,9 @@ import {
   type Earth2Filter,
 } from "@/components/crep/earth2";
 
+// Voice Map Controls (Feb 6, 2026)
+import { VoiceMapControls } from "@/components/crep/voice-map-controls";
+
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, NOAAScales } from "@/components/crep/map-controls";
@@ -206,7 +209,7 @@ interface GlobalEvent {
     depth?: number; // For earthquakes (km)
     windSpeed?: number; // For storms (mph)
     containment?: number; // For wildfires (%)
-    affectedArea?: number; // km² affected
+    affectedArea?: number; // kmÂ² affected
     affectedPopulation?: number; // People affected
 }
 
@@ -311,7 +314,7 @@ const severityColors: Record<string, string> = {
 // Layer categories with icons - ORDERED: Fungal/Devices FIRST, Transport/Military LAST
 const layerCategories = {
   // PRIMARY - Fungal data and devices (shown first)
-  environment: { label: "🍄 Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  environment: { label: "ðŸ„ Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   // CONTEXT - Natural events for correlation
   events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
@@ -528,7 +531,7 @@ function EventMarker({ event, isSelected, onClick, onClose, onFlyTo }: {
               <div className="text-left">
                 <div className="text-[9px] text-gray-500 uppercase">Coordinates</div>
                 <div className="text-[11px] text-cyan-400 font-mono">
-                  {(event.lat ?? 0).toFixed(5)}°, {(event.lng ?? 0).toFixed(5)}°
+                  {(event.lat ?? 0).toFixed(5)}Â°, {(event.lng ?? 0).toFixed(5)}Â°
                 </div>
               </div>
             </div>
@@ -623,15 +626,20 @@ function DeviceMarker({ device, isSelected, onClick }: {
   const [controlLoading, setControlLoading] = useState<string | null>(null);
   
   // Control functions for MycoBrain device
-  const sendControl = async (action: string, params?: Record<string, any>) => {
+  const sendControl = async (peripheral: string, params?: Record<string, any>) => {
     if (!device.port) return;
-    setControlLoading(action);
+    setControlLoading(peripheral);
     try {
-      await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/control`, {
+      const response = await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...params }),
+        body: JSON.stringify({ peripheral, ...params }),
       });
+      const result = await response.json();
+      console.log(`[MycoBrain] ${peripheral} command result:`, result);
+      if (!result.success) {
+        console.error(`[MycoBrain] ${peripheral} command failed:`, result.error || result.message);
+      }
     } catch (e) {
       console.error("Control error:", e);
     } finally {
@@ -673,7 +681,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
             )}
             style={{ boxShadow: isOnline ? "0 0 10px #22c55e" : "0 0 10px #ef4444" }}
           >
-            🍄
+            ðŸ„
           </div>
         </div>
       </MarkerContent>
@@ -690,7 +698,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
               "w-8 h-8 rounded flex items-center justify-center text-lg",
               isOnline ? "bg-green-500/20" : "bg-red-500/20"
             )}>
-              🍄
+              ðŸ„
             </div>
             <div className="flex-1">
               <div className="text-sm font-semibold text-white">{device.name}</div>
@@ -699,7 +707,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
                   "text-[10px] uppercase font-mono",
                   isOnline ? "text-green-400" : "text-red-400"
                 )}>
-                  ● {device.status}
+                  â— {device.status}
                 </span>
                 {device.port && (
                   <span className="text-[9px] text-cyan-400 font-mono">{device.port}</span>
@@ -729,7 +737,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
                       <span className="text-[8px] text-gray-500">TEMP</span>
                     </div>
                     <div className="text-sm font-bold text-orange-400">
-                      {device.sensorData.temperature.toFixed(1)}°C
+                      {device.sensorData.temperature.toFixed(1)}Â°C
                     </div>
                   </div>
                 )}
@@ -763,7 +771,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
                   <div className="bg-slate-900/50 rounded p-1.5">
                     <div className="flex items-center gap-1">
                       <Cloud className="w-3 h-3 text-blue-400" />
-                      <span className="text-[8px] text-gray-500">eCO₂</span>
+                      <span className="text-[8px] text-gray-500">eCOâ‚‚</span>
                     </div>
                     <div className="text-sm font-bold text-blue-400">
                       {device.sensorData.co2Equivalent} <span className="text-[8px] font-normal">ppm</span>
@@ -829,7 +837,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
                     sendControl("neopixel", { effect: "rainbow" });
                   }}
                 >
-                  {controlLoading === "neopixel" ? "..." : "🌈 Rainbow"}
+                  {controlLoading === "neopixel" ? "..." : "ðŸŒˆ Rainbow"}
                 </Button>
                 <Button 
                   size="sm" 
@@ -841,7 +849,7 @@ function DeviceMarker({ device, isSelected, onClick }: {
                     sendControl("buzzer", { action: "beep", frequency: 1000, duration: 100 });
                   }}
                 >
-                  {controlLoading === "buzzer" ? "..." : "🔔 Beep"}
+                  {controlLoading === "buzzer" ? "..." : "ðŸ”” Beep"}
                 </Button>
                 <Button 
                   size="sm" 
@@ -864,11 +872,11 @@ function DeviceMarker({ device, isSelected, onClick }: {
             <div className="flex items-center justify-between text-[8px]">
               <span className="text-gray-500">Location</span>
               <span className="text-gray-400 font-mono">
-                {typeof device.lat === 'number' ? device.lat.toFixed(4) : '—'}°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : '—'}°
+                {typeof device.lat === 'number' ? device.lat.toFixed(4) : 'â€”'}Â°, {typeof device.lng === 'number' ? device.lng.toFixed(4) : 'â€”'}Â°
               </span>
             </div>
             <div className="text-[7px] text-gray-600 font-mono truncate">{device.id}</div>
-            <div className="text-[7px] text-emerald-500/60">📍 Chula Vista, San Diego CA 91910</div>
+            <div className="text-[7px] text-emerald-500/60">ðŸ“ Chula Vista, San Diego CA 91910</div>
           </div>
         </div>
       </MarkerPopup>
@@ -1123,11 +1131,11 @@ function HumanMachinesPanel() {
         <div className="grid grid-cols-3 gap-1">
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-red-400">{formatNum(HUMAN_MACHINE_DATA.totalCO2PerDay)}</div>
-            <div className="text-[7px] text-gray-500">t CO₂</div>
+            <div className="text-[7px] text-gray-500">t COâ‚‚</div>
           </div>
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-amber-400">{formatNum(HUMAN_MACHINE_DATA.totalMethanePerDay)}</div>
-            <div className="text-[7px] text-gray-500">t CH₄</div>
+            <div className="text-[7px] text-gray-500">t CHâ‚„</div>
           </div>
           <div className="text-center p-1.5 rounded bg-black/30">
             <div className="text-[10px] font-bold text-orange-400">{formatNum(HUMAN_MACHINE_DATA.fuelPerDay)}</div>
@@ -1390,10 +1398,10 @@ export default function CREPDashboardPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasAutoZoomed, setHasAutoZoomed] = useState(false);
   
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
   // Shows more markers when zoomed in, fewer when zoomed out for performance
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const [mapZoom, setMapZoom] = useState(2);
   const [mapBounds, setMapBounds] = useState<{
     north: number;
@@ -1435,6 +1443,21 @@ export default function CREPDashboardPage() {
   
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
+  
+  // Client-side clock to prevent hydration mismatch
+  const [clientTime, setClientTime] = useState<string>("");
+  const [clientDate, setClientDate] = useState<string>("");
+  
+  // Update clock only on client side
+  useEffect(() => {
+    const updateClock = () => {
+      setClientTime(new Date().toLocaleTimeString());
+      setClientDate(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }));
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
   
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>({
@@ -1517,25 +1540,25 @@ export default function CREPDashboardPage() {
   // Primary layers: Fungal observations and MycoBrain devices
   // Secondary layers: Transport, military - toggleable demos for correlation analysis
   const [layers, setLayers] = useState<LayerConfig[]>([
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Fungal Observations - THE PRIMARY DATA SOURCE
-    { id: "fungi", name: "🍄 Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
+    { id: "fungi", name: "ðŸ„ Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
     // MycoBrain Devices - Real-time sensor network
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
     // Elephant Conservation Demo (Feb 05, 2026)
-    { id: "elephants", name: "🐘 Elephant Trackers", category: "devices", icon: <PawPrint className="w-3 h-3" />, enabled: true, opacity: 1, color: "#8b5cf6", description: "GPS collars with biosignal monitoring - Ghana/Africa" },
+    { id: "elephants", name: "ðŸ˜ Elephant Trackers", category: "devices", icon: <PawPrint className="w-3 h-3" />, enabled: true, opacity: 1, color: "#8b5cf6", description: "GPS collars with biosignal monitoring - Ghana/Africa" },
     { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
     // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "earthquakes", name: "Seismic Activity", category: "events", icon: <Activity className="w-3 h-3" />, enabled: true, opacity: 1, color: "#b45309", description: "Real-time USGS earthquake data" },
     { id: "volcanoes", name: "Volcanic Activity", category: "events", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Active volcanoes and eruption alerts" },
     { id: "wildfires", name: "Active Wildfires", category: "events", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#dc2626", description: "NASA FIRMS fire detection data" },
@@ -1543,10 +1566,10 @@ export default function CREPDashboardPage() {
     { id: "solar", name: "Space Weather", category: "events", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Solar flares, CME, geomagnetic storms" },
     { id: "lightning", name: "Lightning Activity", category: "events", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#facc15", description: "Real-time lightning strikes globally" },
     { id: "tornadoes", name: "Tornado Tracking", category: "events", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Active tornado cells and warnings" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // SECONDARY LAYERS - TRANSPORT (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // Click to enable for correlation analysis with fungal data
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "aviation", name: "Air Traffic (Live)", category: "infrastructure", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#0ea5e9", description: "FlightRadar24 live aircraft positions" },
     { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
@@ -1560,34 +1583,34 @@ export default function CREPDashboardPage() {
     { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
     { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
     { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "militaryAir", name: "[DEMO] Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
     { id: "militaryNavy", name: "[DEMO] Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
     { id: "militaryBases", name: "[DEMO] Military Bases", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ca8a04", description: "Known military installations" },
     { id: "tanks", name: "[DEMO] Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
     { id: "militaryDrones", name: "[DEMO] Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
-    { id: "co2Sources", name: "CO₂ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major CO₂ emitters and hotspots" },
+    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
     { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
     { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
     { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#fbbf24", description: "Thermal, nuclear, renewable plants" },
     { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
     { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
-    // ═══════════════════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
-    // ═══════════════════════════════════════════════════════════════════════════
-    { id: "earth2Forecast", name: "⚡ Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
-    { id: "earth2Nowcast", name: "⚡ Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
-    { id: "earth2Spore", name: "⚡ Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
-    { id: "earth2Wind", name: "⚡ Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
-    { id: "earth2Temp", name: "⚡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
-    { id: "earth2Precip", name: "⚡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    { id: "earth2Forecast", name: "âš¡ Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
+    { id: "earth2Nowcast", name: "âš¡ Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
+    { id: "earth2Spore", name: "âš¡ Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
+    { id: "earth2Wind", name: "âš¡ Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
+    { id: "earth2Temp", name: "âš¡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
+    { id: "earth2Precip", name: "âš¡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
   ]);
   
   // Filter states
@@ -1625,9 +1648,9 @@ export default function CREPDashboardPage() {
   const [earth2ForecastHours, setEarth2ForecastHours] = useState(0);
   const [earth2Available, setEarth2Available] = useState(false);
   
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EARTH-2 STATUS CHECK - Fetch status on mount
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const checkEarth2Status = async () => {
       try {
@@ -1651,11 +1674,11 @@ export default function CREPDashboardPage() {
     }
   }, [mounted]);
   
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // AUTO-ZOOM TO USER LOCATION ON PAGE LOAD
   // Uses browser Geolocation API to get user's position, then zooms to their
   // continent/region to immediately show relevant fungal data
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     if (hasAutoZoomed || !mounted) return;
     
@@ -1664,7 +1687,7 @@ export default function CREPDashboardPage() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          console.log(`[CREP] User location detected: ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`);
+          console.log(`[CREP] User location detected: ${latitude.toFixed(4)}Â°, ${longitude.toFixed(4)}Â°`);
           setUserLocation({ lat: latitude, lng: longitude });
           
           // Determine appropriate zoom level based on continent
@@ -1809,7 +1832,7 @@ export default function CREPDashboardPage() {
               setElephants(data.elephants || []);
               // Set fence segments
               setFenceSegments(data.fenceSegments || []);
-              // Convert environment monitors to presence readings
+              // Convert environment monitors to presence readings (deduplicated)
               const readings: PresenceReading[] = (data.environmentMonitors || []).map((m: any) => ({
                 monitorId: m.id,
                 monitorName: m.name,
@@ -1821,8 +1844,15 @@ export default function CREPDashboardPage() {
                 motionIntensity: m.readings?.presenceDetected ? 75 : 0,
                 smellDetected: m.readings?.smellDetected,
               }));
-              setPresenceReadings(readings);
-              // Add demo devices to devices list
+              // Deduplicate by monitorId
+              const seenMonitors = new Set<string>();
+              const uniqueReadings = readings.filter(r => {
+                if (seenMonitors.has(r.monitorId)) return false;
+                seenMonitors.add(r.monitorId);
+                return true;
+              });
+              setPresenceReadings(uniqueReadings);
+              // Add demo devices to devices list (deduplicated to prevent React key errors)
               const demoDevices: Device[] = (data.devices || []).map((d: any) => ({
                 id: d.id,
                 name: d.name,
@@ -1834,7 +1864,12 @@ export default function CREPDashboardPage() {
                 firmware: d.firmware,
                 protocol: d.protocol,
               }));
-              setDevices(prev => [...prev, ...demoDevices]);
+              setDevices(prev => {
+                // Filter out any existing demo devices to prevent duplicates
+                const existingIds = new Set(prev.map(d => d.id));
+                const newDevices = demoDevices.filter(d => !existingIds.has(d.id));
+                return [...prev, ...newDevices];
+              });
               console.log(`[CREP] Loaded ${data.elephants?.length || 0} elephants, ${data.fenceSegments?.length || 0} fence segments (Demo)`);
             }
           }
@@ -1932,11 +1967,11 @@ export default function CREPDashboardPage() {
           console.error("Failed to fetch space weather data:", e);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // FETCH FUNGAL OBSERVATIONS - PRIMARY DATA SOURCE (MINDEX - NO LIMIT)
         // MINDEX contains THOUSANDS of pre-imported iNaturalist/GBIF observations
         // with photos, coordinates, names, timestamps, and source links
-        // ═══════════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         try {
           // Fetch ALL fungal data from MINDEX - no artificial limit!
           // MINDEX is the primary source with pre-imported iNaturalist/GBIF data
@@ -1978,7 +2013,7 @@ export default function CREPDashboardPage() {
               
               const sourceInfo = fungalData.meta?.sources || {};
               const dataSource = fungalData.meta?.dataSource || "unknown";
-              console.log(`[CREP] 🍄 Loaded ${formattedObs.length} fungal observations (${dataSource})`);
+              console.log(`[CREP] ðŸ„ Loaded ${formattedObs.length} fungal observations (${dataSource})`);
               console.log(`[CREP] Sources breakdown: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
               
               setFungalObservations(formattedObs);
@@ -2033,10 +2068,10 @@ export default function CREPDashboardPage() {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CLICK-AWAY HANDLER: Dismiss popups when clicking outside
   // Uses click event in BUBBLING phase so that marker stopPropagation() works
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   useEffect(() => {
     const handleClickAway = (e: MouseEvent) => {
       const target = e.target;
@@ -2054,7 +2089,7 @@ export default function CREPDashboardPage() {
       
       // Check if click is inside a marker button (multiple selectors for robustness)
       const isInsideMarker = target.closest('[data-marker]') !== null || 
-                             target.closest('button[title*="🍄"]') !== null ||
+                             target.closest('button[title*="ðŸ„"]') !== null ||
                              target.closest('.maplibregl-marker') !== null;
 
       // Check if click is inside side panels (Intel Feed / right panel)
@@ -2090,7 +2125,7 @@ export default function CREPDashboardPage() {
     ));
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
   // 
   // DESIGN PRINCIPLE: When zoomed in, show MORE markers, not fewer!
@@ -2100,14 +2135,14 @@ export default function CREPDashboardPage() {
   // This is critical for user trust and accurate data representation.
   //
   // Zoom Level Strategy (GENEROUS at higher zoom):
-  //   0-2  (world view)       → 50 markers   (global sampling)
-  //   2-3  (multi-continent)  → 200 markers  
-  //   3-4  (continent view)   → 500 markers
-  //   4-5  (large country)    → 1500 markers
-  //   5-6  (country/region)   → 3000 markers
-  //   6-7  (state/province)   → 6000 markers
-  //   7+   (local view)       → ALL in viewport (up to 15000 cap)
-  // ═══════════════════════════════════════════════════════════════════════════
+  //   0-2  (world view)       â†’ 50 markers   (global sampling)
+  //   2-3  (multi-continent)  â†’ 200 markers  
+  //   3-4  (continent view)   â†’ 500 markers
+  //   4-5  (large country)    â†’ 1500 markers
+  //   5-6  (country/region)   â†’ 3000 markers
+  //   6-7  (state/province)   â†’ 6000 markers
+  //   7+   (local view)       â†’ ALL in viewport (up to 15000 cap)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const visibleFungalObservations = useMemo(() => {
     // Early return with minimal markers if no bounds yet
     if (!mapBounds || fungalObservations.length === 0) {
@@ -2160,7 +2195,7 @@ export default function CREPDashboardPage() {
     if (inViewport.length <= maxMarkers) {
       // Log occasionally for debugging
       if (Math.random() < 0.05) {
-        console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) → ALL ${inViewport.length} in viewport`);
+        console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) â†’ ALL ${inViewport.length} in viewport`);
       }
       return inViewport;
     }
@@ -2194,18 +2229,18 @@ export default function CREPDashboardPage() {
     
     // Log sampling info
     if (Math.random() < 0.05) {
-      console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) → Sampled ${sampled.length}/${inViewport.length} in viewport`);
+      console.log(`[CREP/LOD] Zoom ${mapZoom.toFixed(1)} (${lodLevel}) â†’ Sampled ${sampled.length}/${inViewport.length} in viewport`);
     }
     
     return sampled;
   }, [fungalObservations, mapZoom, mapBounds]);
   
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
   // When a user clicks a fungal marker, the popup is attached directly to the marker.
   // This handler ensures the map pans to keep the popup visible and not behind panels.
   // Panel widths: Left = 288px (w-72), Right = 320px (w-80) + 12px margins each
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSelectFungal = useCallback((obs: FungalObservation | null) => {
     // Clear event selection when selecting fungal
     setSelectedEvent(null);
@@ -2284,11 +2319,11 @@ export default function CREPDashboardPage() {
     }
   }, [mapRef, leftPanelOpen, rightPanelOpen, selectedFungal]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SMART MAP AUTO-PAN: Event Marker Selection Handler
   // When a user clicks an event marker or event in the list, the popup shows attached.
   // This handler ensures the map pans to keep the popup visible and not behind panels.
-  // ═══════════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSelectEvent = useCallback((event: GlobalEvent | null, shouldFlyTo = false) => {
     // Clear fungal selection when selecting an event
     setSelectedFungal(null);
@@ -2760,7 +2795,7 @@ export default function CREPDashboardPage() {
                       : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
                   )}
                 >
-                  <span className="text-sm">🍄</span>
+                  <span className="text-sm">ðŸ„</span>
                   FUNGAL DATA
                 </button>
                 <button
@@ -2820,12 +2855,12 @@ export default function CREPDashboardPage() {
                   <div className="p-2 space-y-1">
                     {fungalLoading ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <span className="text-3xl mb-2 block animate-pulse">🍄</span>
+                        <span className="text-3xl mb-2 block animate-pulse">ðŸ„</span>
                         <span className="animate-pulse">Loading from MINDEX...</span>
                       </div>
                     ) : visibleFungalObservations.length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <span className="text-3xl mb-2 block">🍄</span>
+                        <span className="text-3xl mb-2 block">ðŸ„</span>
                         Zoom in to see observations
                       </div>
                     ) : (
@@ -2850,7 +2885,7 @@ export default function CREPDashboardPage() {
                                 "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
                                 isResearchGrade ? "bg-green-500/30" : "bg-green-400/20"
                               )}>
-                                <span className="text-xs">🍄</span>
+                                <span className="text-xs">ðŸ„</span>
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-[10px] text-white font-medium truncate">
@@ -2858,7 +2893,7 @@ export default function CREPDashboardPage() {
                                 </div>
                                 <div className="flex items-center justify-between mt-0.5">
                                   <span className="text-[8px] text-gray-500 truncate max-w-[100px]">
-                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : '—'}°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : '—'}°`}
+                                    {obs.location || `${typeof obs.latitude === 'number' ? obs.latitude.toFixed(2) : 'â€”'}Â°, ${typeof obs.longitude === 'number' ? obs.longitude.toFixed(2) : 'â€”'}Â°`}
                                   </span>
                                   <Badge 
                                     variant="outline" 
@@ -2869,7 +2904,7 @@ export default function CREPDashboardPage() {
                                         : "border-yellow-500/50 text-yellow-400"
                                     )}
                                   >
-                                    {isResearchGrade ? "✓ verified" : "needs ID"}
+                                    {isResearchGrade ? "âœ“ verified" : "needs ID"}
                                   </Badge>
                                 </div>
                                 {obs.observed_on && (
@@ -2885,7 +2920,7 @@ export default function CREPDashboardPage() {
                     )}
                     {visibleFungalObservations.length > 50 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 50 of {visibleFungalObservations.length} visible • Zoom in for more
+                        Showing 50 of {visibleFungalObservations.length} visible â€¢ Zoom in for more
                       </div>
                     )}
                   </div>
@@ -2970,7 +3005,7 @@ export default function CREPDashboardPage() {
                                 >
                                   <MapPin className="w-2.5 h-2.5" />
                                   <span className="truncate max-w-[80px]">
-                                    {(event.lat ?? 0).toFixed(2)}°, {(event.lng ?? 0).toFixed(2)}°
+                                    {(event.lat ?? 0).toFixed(2)}Â°, {(event.lng ?? 0).toFixed(2)}Â°
                             </span>
                                 </button>
                       <Badge 
@@ -2994,7 +3029,7 @@ export default function CREPDashboardPage() {
                 })}
                     {filteredEvents.length > 50 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 50 of {filteredEvents.length} visible • Zoom in for more
+                        Showing 50 of {filteredEvents.length} visible â€¢ Zoom in for more
                       </div>
                     )}
               </div>
@@ -3006,7 +3041,7 @@ export default function CREPDashboardPage() {
             <div className="px-3 py-2 border-t border-cyan-500/20 bg-black/30">
               <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
                 <span>{leftPanelTab === "fungal" ? "MINDEX SYNC" : "LAST UPDATE"}</span>
-                <span className="text-cyan-400">{new Date().toLocaleTimeString()}</span>
+                <span className="text-cyan-400">{clientTime || "--:--:--"}</span>
               </div>
             </div>
           </div>
@@ -3083,7 +3118,7 @@ export default function CREPDashboardPage() {
                     // This is more reliable than elementFromPoint for overlay markers
                     const target = e.originalEvent?.target as HTMLElement | null;
                     const isOnMarker = target?.closest('[data-marker]') !== null ||
-                                       target?.closest('button[title*="🍄"]') !== null ||
+                                       target?.closest('button[title*="ðŸ„"]') !== null ||
                                        target?.closest('.maplibregl-marker') !== null;
                     const isOnPopup = target?.closest('.maplibregl-popup') !== null;
                     
@@ -3129,15 +3164,15 @@ export default function CREPDashboardPage() {
               showSelected={selectedSatellite?.id}
             />
 
-            {/* ═══════════════════════════════════════════════════════════════════════════
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 NVIDIA EARTH-2 AI WEATHER LAYERS
                 Integrated directly into the MapComponent for real-time visualization
-                ═══════════════════════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             
-            {/* ═══════════════════════════════════════════════════════════════════════════
+            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 NVIDIA Earth-2 AI Weather Layers
                 Rendered with mapRef when Earth-2 layers are enabled
-                ═══════════════════════════════════════════════════════════════════════════ */}
+                â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             
             {/* Earth-2 Temperature/Precipitation Heatmap */}
             {mapRef && (earth2Filter.showTemperature || earth2Filter.showPrecipitation || earth2Filter.showForecast) && (
@@ -3274,15 +3309,22 @@ export default function CREPDashboardPage() {
               );
             })}
 
-            {/* Device Markers */}
-            {layers.find(l => l.id === "mycobrain")?.enabled && devices.map(device => (
-              <DeviceMarker
-                key={device.id}
-                device={device}
-                isSelected={selectedDevice?.id === device.id}
-                onClick={() => setSelectedDevice(selectedDevice?.id === device.id ? null : device)}
-              />
-            ))}
+            {/* Device Markers - deduplicated to prevent React key errors */}
+            {layers.find(l => l.id === "mycobrain")?.enabled && (() => {
+              const seen = new Set<string>();
+              return devices.filter(device => {
+                if (seen.has(device.id)) return false;
+                seen.add(device.id);
+                return true;
+              }).map(device => (
+                <DeviceMarker
+                  key={device.id}
+                  device={device}
+                  isSelected={selectedDevice?.id === device.id}
+                  onClick={() => setSelectedDevice(selectedDevice?.id === device.id ? null : device)}
+                />
+              ));
+            })()}
 
             {/* Elephant Markers (Conservation Demo - Feb 05, 2026) */}
             {layers.find(l => l.id === "elephants")?.enabled && elephants.map(elephant => (
@@ -3358,7 +3400,7 @@ export default function CREPDashboardPage() {
             {/* FUNGAL DATA FIRST - PRIMARY */}
             {fungalObservations.length > 0 && (
               <div className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30" title={`${fungalObservations.length} fungal observations - PRIMARY DATA`}>
-                <span className="mr-1">🍄</span>
+                <span className="mr-1">ðŸ„</span>
                 {fungalObservations.length} FUNGI
               </div>
             )}
@@ -3725,7 +3767,7 @@ export default function CREPDashboardPage() {
       {/* Bottom Status Bar */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-1 bg-black/80 border-t border-cyan-500/20 z-50">
         <div className="flex items-center gap-4 text-[8px] font-mono">
-          <span className="text-green-400">● SYSTEM OPERATIONAL</span>
+          <span className="text-green-400">â— SYSTEM OPERATIONAL</span>
           <span className="text-gray-600">|</span>
           <span className="text-cyan-400">UPTIME: 99.9%</span>
           <span className="text-gray-600">|</span>
@@ -3736,7 +3778,7 @@ export default function CREPDashboardPage() {
           <span className="text-purple-400">MYCA: ACTIVE</span>
         </div>
         <div className="flex items-center gap-3 text-[8px] font-mono text-gray-500">
-          <span>{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</span>
+          <span>{clientDate || "Loading..."}</span>
           <span className="text-cyan-400 tabular-nums">{new Date().toLocaleTimeString()}</span>
         </div>
       </div>
