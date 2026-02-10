@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * MYCA Terminal Widget v2.0
+ * MYCA Terminal Widget v3.0 - Consciousness Integration
  * 
  * A terminal-style display showing system-wide events from MYCA (Mycosoft Autonomous Cognitive Agent).
  * Displays real-time events in a scrolling terminal format with color-coded severity.
- * Now with NLQ input capability for natural language queries.
+ * Now with Consciousness API integration for true AI conversation.
  * 
- * Updated: Jan 26, 2026
+ * Updated: Feb 10, 2026
  */
 
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -85,7 +85,7 @@ export function MYCATerminal({
   const [showNlqInput, setShowNlqInput] = useState(false);
   const nlqInputRef = useRef<HTMLInputElement>(null);
   
-  // Handle NLQ query submission
+  // Handle query submission - tries consciousness API first, then NLQ
   const handleNlqSubmit = useCallback(async () => {
     if (!nlqQuery.trim() || nlqLoading) return;
     
@@ -101,12 +101,58 @@ export function MYCATerminal({
     };
     setEvents(prev => [userEvent, ...prev].slice(0, maxEvents));
     
+    const queryText = nlqQuery;
+    setNlqQuery("");
+    
     try {
+      // Try consciousness API first for conversational queries
+      const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: queryText,
+          session_id: `terminal-${Date.now()}`,
+        }),
+      });
+      
+      if (consciousnessResponse.ok) {
+        const consciousnessData = await consciousnessResponse.json();
+        if (consciousnessData.reply) {
+          const responseEvent: MYCAEvent = {
+            id: `consciousness-response-${Date.now()}`,
+            timestamp: new Date(),
+            level: "success",
+            source: "MYCA",
+            message: consciousnessData.reply,
+            agent: "consciousness",
+          };
+          setEvents(prev => [responseEvent, ...prev].slice(0, maxEvents));
+          
+          // Show emotional state if available
+          if (consciousnessData.emotional_state) {
+            const emotionEvent: MYCAEvent = {
+              id: `emotion-${Date.now()}`,
+              timestamp: new Date(),
+              level: "debug",
+              source: "SOUL",
+              message: `  → Emotions: ${Object.entries(consciousnessData.emotional_state)
+                .map(([k, v]) => `${k}: ${Math.round((v as number) * 100)}%`)
+                .join(", ")}`,
+            };
+            setEvents(prev => [emotionEvent, ...prev].slice(0, maxEvents));
+          }
+          
+          setNlqLoading(false);
+          return;
+        }
+      }
+      
+      // Fall back to NLQ for data queries
       const response = await fetch("/api/myca/nlq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: nlqQuery,
+          text: queryText,
           context: { currentPage: "terminal" },
           options: { maxResults: 5 },
         }),
@@ -155,12 +201,11 @@ export function MYCATerminal({
         timestamp: new Date(),
         level: "error",
         source: "SYSTEM",
-        message: `NLQ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
       };
       setEvents(prev => [errorEvent, ...prev].slice(0, maxEvents));
     } finally {
       setNlqLoading(false);
-      setNlqQuery("");
     }
   }, [nlqQuery, nlqLoading, maxEvents]);
 

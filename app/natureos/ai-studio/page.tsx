@@ -1,9 +1,9 @@
 "use client"
 
 /**
- * MYCA v2 Command Center
- * Three tabs: System (command + agents), Topology (nervous system), Activity (circulatory)
- * Updated: Feb 6, 2026 - Tab rework and Activity topology
+ * MYCA v3 Command Center - Consciousness Integration
+ * Three tabs: System (command + agents + consciousness), Topology (nervous system), Activity (circulatory)
+ * Updated: Feb 10, 2026 - Consciousness dashboard integration
  */
 
 import { useState, useEffect, useCallback } from "react"
@@ -19,6 +19,9 @@ import {
   AgentGrid,
   AdvancedTopology3D,
   ActivityTopologyView,
+  MYCAConsciousnessStatus,
+  MYCAIdentityCard,
+  MYCAEmotionsDisplay,
 } from "@/components/mas"
 import { usePersonaPlexContext } from "@/components/voice"
 import {
@@ -226,7 +229,7 @@ export default function AIStudioPage() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                   MYCA Command Center
-                  <Badge variant="outline" className="text-xs">v2</Badge>
+                  <Badge variant="outline" className="text-xs">v3 • Consciousness</Badge>
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Multi-Agent System Orchestration Dashboard
@@ -284,8 +287,15 @@ export default function AIStudioPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* System Tab - Command + Agents (merged) */}
+          {/* System Tab - Command + Agents + Consciousness (merged) */}
           <TabsContent value="system" className="space-y-6">
+            {/* Consciousness Dashboard - NEW */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MYCAConsciousnessStatus variant="full" />
+              <MYCAIdentityCard variant="full" />
+              <MYCAEmotionsDisplay variant="full" />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - MYCA Chat */}
               <div className="lg:col-span-2">

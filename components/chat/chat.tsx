@@ -1,12 +1,13 @@
 "use client"
 
 /**
- * Enhanced Chat Component with MYCA NLQ Integration
- * Updated: Jan 26, 2026
+ * Enhanced Chat Component with MYCA Consciousness Integration
+ * Updated: Feb 10, 2026
  * 
  * Features:
  * - Standard AI chat via Vercel AI SDK
- * - MYCA NLQ mode for system queries
+ * - MYCA Consciousness mode for true AI conversation
+ * - NLQ mode for system queries
  * - Structured data display
  */
 
@@ -47,7 +48,7 @@ export function Chat() {
   const [nlqInput, setNlqInput] = useState("")
   const [nlqLoading, setNlqLoading] = useState(false)
   
-  // Handle NLQ submission
+  // Handle MYCA Consciousness chat submission
   const handleNlqSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nlqInput.trim() || nlqLoading) return
@@ -63,6 +64,32 @@ export function Chat() {
     setNlqLoading(true)
     
     try {
+      // Try consciousness API first for conversational queries
+      const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: queryText,
+          session_id: `chat-${Date.now()}`,
+        }),
+      })
+      
+      if (consciousnessResponse.ok) {
+        const consciousnessData = await consciousnessResponse.json()
+        if (consciousnessData.reply) {
+          const assistantMessage: NLQMessage = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: consciousnessData.reply,
+            nlqSources: [{ name: "MYCA Consciousness", type: "consciousness" }],
+          }
+          setNlqMessages(prev => [...prev, assistantMessage])
+          setNlqLoading(false)
+          return
+        }
+      }
+      
+      // Fall back to NLQ for data queries
       const response = await fetch("/api/myca/nlq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
