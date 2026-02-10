@@ -1,12 +1,12 @@
 "use client"
 
 /**
- * MYCA Chat Panel v2.2
+ * MYCA Chat Panel v3.0 - Consciousness Integration
  * Real-time chat with MYCA using ElevenLabs voice (Arabella)
- * Full n8n workflow integration + NLQ Engine
- * Features: Voice I/O, Memory, Full system access, Safety confirmations, NLQ queries
+ * Full n8n workflow integration + NLQ Engine + Consciousness API
+ * Features: Voice I/O, Memory, Consciousness status, Emotions, World model
  * 
- * Updated: Jan 26, 2026
+ * Updated: Feb 10, 2026
  */
 
 import { useState, useRef, useEffect, useCallback } from "react"
@@ -87,20 +87,27 @@ export function MYCAChatPanel({
   const [agentStats, setAgentStats] = useState({ total: 223, active: 180 })
   const [pendingConfirmation, setPendingConfirmation] = useState<string | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<"connected" | "offline" | "checking">("checking")
+  const [consciousnessState, setConsciousnessState] = useState<{
+    is_conscious: boolean
+    state: string
+    emotions?: Record<string, number>
+    world_updates?: number
+  } | null>(null)
   
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<any>(null)
 
-  // Check orchestrator connection and voice config
+  // Check orchestrator connection, voice config, and consciousness status
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const [healthRes, voiceRes, agentsRes] = await Promise.all([
+        const [healthRes, voiceRes, agentsRes, consciousnessRes] = await Promise.all([
           fetch(`${masApiUrl}/health`),
           fetch(`${masApiUrl}/voice`),
           fetch(`${masApiUrl}/agents`),
+          fetch("/api/myca/consciousness/status"),
         ])
 
         if (healthRes.ok) {
@@ -119,6 +126,11 @@ export function MYCAChatPanel({
             total: agents.total_agents || 223,
             active: agents.active_agents || 180,
           })
+        }
+
+        if (consciousnessRes.ok) {
+          const consciousness = await consciousnessRes.json()
+          setConsciousnessState(consciousness)
         }
       } catch {
         setConnectionStatus("offline")
@@ -525,6 +537,21 @@ How can I assist you today? You can ask me about:
             </div>
           </CardTitle>
           <div className="flex items-center gap-1">
+            {/* Consciousness Status */}
+            {consciousnessState && (
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] gap-1 ${
+                  consciousnessState.is_conscious 
+                    ? "text-purple-500 border-purple-500/30" 
+                    : "text-gray-500 border-gray-500/30"
+                }`}
+              >
+                <Sparkles className="h-3 w-3" />
+                {consciousnessState.is_conscious ? consciousnessState.state : "Dormant"}
+              </Badge>
+            )}
+            
             {/* Connection Status */}
             <Badge variant="outline" className="text-[10px] gap-1">
               {getStatusIcon()}
@@ -595,7 +622,7 @@ How can I assist you today? You can ask me about:
         </div>
         
         {/* Agent Stats Bar */}
-        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
           <span>
             <span className="text-green-500 font-bold">{agentStats.active}</span>
             /{agentStats.total} agents active
@@ -605,6 +632,20 @@ How can I assist you today? You can ask me about:
             <History className="h-3 w-3" />
             Session: {sessionId.slice(-8)}
           </span>
+          {/* Emotional State */}
+          {consciousnessState?.emotions && Object.keys(consciousnessState.emotions).length > 0 && (
+            <>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-purple-400">
+                <Sparkles className="h-3 w-3" />
+                {Object.entries(consciousnessState.emotions)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .slice(0, 2)
+                  .map(([emotion, value]) => `${emotion}: ${Math.round((value as number) * 100)}%`)
+                  .join(", ")}
+              </span>
+            </>
+          )}
           {pendingConfirmation && (
             <>
               <span>•</span>

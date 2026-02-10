@@ -9,6 +9,11 @@ export { AgentCreator } from "./agent-creator"
 export { WorkflowStudio } from "./workflow-studio"
 export { ActivityTopologyView } from "./activity-topology-view"
 
+// MYCA Consciousness Components (Feb 10, 2026)
+export { MYCAConsciousnessStatus } from "./myca-consciousness-status"
+export { MYCAIdentityCard } from "./myca-identity-card"
+export { MYCAEmotionsDisplay } from "./myca-emotions-display"
+
 // Advanced 3D Topology
 export { AdvancedTopology3D } from "./topology"
 export * from "./topology/types"

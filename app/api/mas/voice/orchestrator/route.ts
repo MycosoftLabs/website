@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 
 /**
- * MYCA Voice Orchestrator API v4.0 - REAL LLM Integration
+ * MYCA Voice Orchestrator API v5.0 - Consciousness-First Architecture
  * 
- * This orchestrator connects to REAL AI models:
- * - Anthropic Claude (primary)
- * - OpenAI GPT-4 (secondary)
- * - Google Gemini (tertiary)
- * - xAI Grok (quaternary)
+ * This orchestrator now routes through MYCA's Consciousness API first:
+ * - MAS Consciousness API (primary - full MYCA consciousness with emotions, memory, world model)
+ * - Anthropic Claude (fallback)
+ * - OpenAI GPT-4 (fallback)
  * - Groq (fast fallback)
+ * - Google Gemini (fallback)
+ * - xAI Grok (fallback)
  * 
  * ARCHITECTURE PRINCIPLE: This is the ONLY component that makes decisions.
  * All business logic is centralized here:
@@ -21,13 +22,13 @@ import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
  * The hook (usePersonaPlex) sends transcripts HERE and receives structured responses.
  * This ensures consistent behavior across voice, chat, API, and future interfaces.
  * 
- * Updated: February 3, 2026
+ * Updated: February 10, 2026
  * 
- * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → Response
+ * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → MAS Consciousness → Response
  */
 
-// MAS Orchestrator
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+// MAS Orchestrator (port 8000 with --network host)
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8000"
 
 // n8n Webhooks
 const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
@@ -609,15 +610,66 @@ async function callN8nSpeech(message: string, sessionId: string): Promise<string
 }
 
 /**
- * MYCA's Intelligence - LLMs FIRST (with MYCA persona), n8n for workflow-specific tasks
- * 
- * Claude/GPT have the full MYCA identity and personality.
- * n8n is used for specific workflow routing when needed.
+ * Call MYCA Consciousness API (MAS backend)
+ * This is the NEW primary route - uses MYCA's full consciousness system
  */
-async function getMycaResponse(message: string, sessionId: string = ""): Promise<{ response: string; provider: string }> {
+async function callMycaConsciousness(message: string, sessionId: string): Promise<{ response: string; emotions?: Record<string, number>; thoughts?: string[] } | null> {
+  try {
+    console.log("[MYCA] Calling Consciousness API...")
+    const response = await fetch(`${MAS_API_URL}/api/myca/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        session_id: sessionId,
+        source: "voice-orchestrator"
+      }),
+      signal: AbortSignal.timeout(30000) // 30 second timeout for consciousness processing
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      console.log("[MYCA] Consciousness API responded:", data.reply?.substring(0, 60))
+      return {
+        response: data.reply || data.response || null,
+        emotions: data.emotional_state,
+        thoughts: data.thoughts
+      }
+    }
+    console.log("[MYCA] Consciousness API error:", response.status)
+  } catch (e) {
+    console.log("[MYCA] Consciousness API failed:", e)
+  }
+  return null
+}
+
+/**
+ * MYCA's Intelligence - Consciousness API FIRST, then LLM fallbacks
+ * 
+ * Priority order:
+ * 1. MAS Consciousness API (full MYCA consciousness with emotions, memory, world model)
+ * 2. Claude (has MYCA persona - best quality fallback)
+ * 3. OpenAI GPT-4 (has MYCA persona)
+ * 4. Groq (fastest)
+ * 5. Gemini
+ * 6. Grok
+ * 7. n8n workflows
+ */
+async function getMycaResponse(message: string, sessionId: string = ""): Promise<{ response: string; provider: string; emotions?: Record<string, number> }> {
   console.log(`[MYCA] Processing: "${message.substring(0, 80)}..."`)
   
-  // PRIORITY 1: Claude (has full MYCA persona - best quality)
+  // PRIORITY 0: MYCA Consciousness API (full consciousness system)
+  const consciousnessResult = await callMycaConsciousness(message, sessionId)
+  if (consciousnessResult?.response) {
+    console.log(`[MYCA] Consciousness responded: "${consciousnessResult.response.substring(0, 60)}..."`)
+    return { 
+      response: consciousnessResult.response, 
+      provider: "consciousness",
+      emotions: consciousnessResult.emotions
+    }
+  }
+  
+  // PRIORITY 1: Claude (has full MYCA persona - best quality fallback)
   let response = await callClaude(message)
   if (response) {
     console.log(`[MYCA] Claude responded: "${response.substring(0, 60)}..."`)
