@@ -295,22 +295,34 @@ export function FluidSearchCanvas({
   }, [ctx, localQuery])
 
   // Drag start -- include searchQuery for notepad restore
-  const handleWidgetDragStart = useCallback((e: React.DragEvent, config: WidgetConfig) => {
-    const labels: Record<WidgetType, string> = {
+  // Note: Framer Motion's onDragStart doesn't provide dataTransfer, only native HTML5 drag does
+  // So we check if dataTransfer exists before using it
+  const handleWidgetDragStart = useCallback((e: any, config: WidgetConfig) => {
+    // Framer Motion drag events don't have dataTransfer - only native HTML5 drag does
+    if (!e?.dataTransfer) return
+    
+    const labels: Record<string, string> = {
       species: species[0]?.commonName || species[0]?.scientificName || "Species",
       chemistry: compounds[0]?.name || "Compounds",
       genetics: "Genetics Data",
       research: research[0]?.title || "Research",
       ai: "MYCA AI Answer",
+      media: "Media",
+      location: "Location",
+      news: "News",
     }
-    e.dataTransfer.setData("application/search-widget", JSON.stringify({
-      type: config.type === "chemistry" ? "compound" : config.type,
-      title: labels[config.type],
-      content: `${config.label} results from search "${localQuery}"`,
-      source: "Search",
-      searchQuery: localQuery,
-    }))
-    e.dataTransfer.effectAllowed = "copy"
+    try {
+      e.dataTransfer.setData("application/search-widget", JSON.stringify({
+        type: config.type === "chemistry" ? "compound" : config.type,
+        title: labels[config.type] || config.label,
+        content: `${config.label} results from search "${localQuery}"`,
+        source: "Search",
+        searchQuery: localQuery,
+      }))
+      e.dataTransfer.effectAllowed = "copy"
+    } catch {
+      // Ignore errors if dataTransfer methods fail
+    }
   }, [species, compounds, research, localQuery])
 
   const focusedConfig = focusedType ? activeWidgets.find((w) => w.type === focusedType) : null
