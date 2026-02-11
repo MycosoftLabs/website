@@ -112,49 +112,64 @@ export function SpeciesWidget({
     <div className={cn("flex flex-col gap-2", className)} draggable onDragStart={handleDragStart}>
       {/* Species strip -- horizontal scrollable tabs */}
       {items.length > 1 && (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={selectedIndex === 0}
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-5 sm:w-5 shrink-0" disabled={selectedIndex === 0}
             onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))}>
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           </Button>
-          <div className="flex gap-1 overflow-x-auto flex-1">
-            {items.slice(0, 8).map((sp, i) => (
+          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto flex-1 scrollbar-hide">
+            {items.slice(0, 6).map((sp, i) => (
               <button key={sp.id || i} onClick={() => setSelectedIndex(i)}
                 className={cn(
-                  "flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] shrink-0 transition-all border",
+                  "flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-1.5 py-1 sm:py-0.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] shrink-0 transition-all border",
                   i === selectedIndex
                     ? "bg-primary/15 border-primary/30 text-primary font-medium"
-                    : "bg-card/40 border-transparent hover:bg-card/60"
+                    : "bg-card/40 border-transparent hover:bg-card/60 active:bg-card/80"
                 )}>
                 {sp.photos?.[0] && (
-                  <div className="relative w-4 h-4 rounded-sm overflow-hidden shrink-0">
+                  <div className="relative w-4 h-4 sm:w-4 sm:h-4 rounded-sm overflow-hidden shrink-0">
                     <Image src={sp.photos[0].medium_url || sp.photos[0].url} alt="" fill className="object-cover" sizes="16px" />
                   </div>
                 )}
-                <span className="truncate max-w-[60px]">{sp.commonName || sp.scientificName}</span>
+                <span className="truncate max-w-[50px] sm:max-w-[60px]">{sp.commonName || sp.scientificName}</span>
               </button>
             ))}
           </div>
-          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" disabled={selectedIndex >= items.length - 1}
+          <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-5 sm:w-5 shrink-0" disabled={selectedIndex >= items.length - 1}
             onClick={() => setSelectedIndex((i) => Math.min(items.length - 1, i + 1))}>
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           </Button>
-          <span className="text-[9px] text-muted-foreground shrink-0">{selectedIndex + 1}/{items.length}</span>
+          <span className="text-[8px] sm:text-[9px] text-muted-foreground shrink-0">{selectedIndex + 1}/{items.length}</span>
         </div>
       )}
 
-      {/* Main content -- horizontal: photo | info | taxonomy */}
-      <div className="flex gap-3 items-start">
+      {/* Main content -- responsive: stack on mobile, horizontal on desktop */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-start">
         {/* Photo column */}
-        <div className="shrink-0 flex flex-col gap-1">
+        <div className="shrink-0 flex flex-row sm:flex-col gap-2 sm:gap-1 w-full sm:w-auto">
           {mainPhoto && (
-            <motion.div className="relative w-28 h-28 rounded-xl overflow-hidden bg-muted shadow-inner" layout>
-              <Image src={mainPhoto.medium_url || mainPhoto.url} alt={selected.commonName} fill className="object-cover" sizes="112px" />
+            <motion.div className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-lg sm:rounded-xl overflow-hidden bg-muted shadow-inner shrink-0" layout>
+              <Image src={mainPhoto.medium_url || mainPhoto.url} alt={selected.commonName} fill className="object-cover" sizes="(max-width: 640px) 80px, 112px" />
             </motion.div>
           )}
-          {/* Mini gallery */}
+          {/* Mobile: name next to photo, Mini gallery hidden */}
+          <div className="flex-1 min-w-0 sm:hidden">
+            <h3 className="font-semibold text-sm leading-tight truncate">{selected.commonName}</h3>
+            <p className="text-[10px] text-muted-foreground italic leading-tight truncate">{selected.scientificName}</p>
+            {/* Stats row mobile */}
+            <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground mt-1">
+              {selected.observationCount > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Eye className="h-2 w-2" />
+                  {selected.observationCount.toLocaleString()}
+                </span>
+              )}
+              {selected.rank && <Badge variant="outline" className="text-[8px] h-3.5 px-1">{selected.rank}</Badge>}
+            </div>
+          </div>
+          {/* Mini gallery - desktop only */}
           {selected.photos && selected.photos.length > 1 && (
-            <div className="flex gap-0.5">
+            <div className="hidden sm:flex gap-0.5">
               {selected.photos.slice(1, 5).map((photo, i) => (
                 <div key={photo.id || i} className="relative w-[26px] h-[26px] rounded overflow-hidden bg-muted">
                   <Image src={photo.medium_url || photo.url} alt="" fill className="object-cover" sizes="26px" />
@@ -169,13 +184,13 @@ export function SpeciesWidget({
           )}
         </div>
 
-        {/* Info column */}
+        {/* Info column - desktop */}
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <h3 className="font-semibold text-base leading-tight truncate">{selected.commonName}</h3>
-          <p className="text-xs text-muted-foreground italic leading-tight">{selected.scientificName}</p>
+          <h3 className="hidden sm:block font-semibold text-base leading-tight truncate">{selected.commonName}</h3>
+          <p className="hidden sm:block text-xs text-muted-foreground italic leading-tight">{selected.scientificName}</p>
 
-          {/* Stats row */}
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          {/* Stats row - desktop */}
+          <div className="hidden sm:flex items-center gap-2 text-[10px] text-muted-foreground">
             {selected.observationCount > 0 && (
               <span className="flex items-center gap-0.5">
                 <Eye className="h-2.5 w-2.5" />
@@ -191,32 +206,32 @@ export function SpeciesWidget({
             )}
           </div>
 
-          {/* Description -- 3 lines max */}
+          {/* Description -- 2 lines on mobile, 3 on desktop */}
           {selected.description && (
-            <p className="text-[11px] leading-snug text-foreground/80 line-clamp-3">{selected.description}</p>
+            <p className="text-[10px] sm:text-[11px] leading-snug text-foreground/80 line-clamp-2 sm:line-clamp-3">{selected.description}</p>
           )}
 
-          {/* Action buttons -- compact row */}
+          {/* Action buttons -- compact, wrap on mobile */}
           <div className="flex flex-wrap items-center gap-1 pt-1">
-            <Button asChild size="sm" className="h-6 px-2 text-[10px] rounded-lg">
+            <Button asChild size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg">
               <a href={`/ancestry/explorer?search=${encodeURIComponent(selected.scientificName)}`}>
                 Full Page <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
               </a>
             </Button>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+            <Button variant="outline" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
               onClick={() => onFocusWidget?.({ type: "chemistry", id: selected.scientificName })}>
-              <Leaf className="h-2.5 w-2.5 mr-0.5" /> Compounds
+              <Leaf className="h-2.5 w-2.5 mr-0.5" /> <span className="hidden xs:inline">Compounds</span><span className="xs:hidden">Chem</span>
             </Button>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+            <Button variant="outline" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
               onClick={() => onFocusWidget?.({ type: "genetics", id: selected.scientificName })}>
-              <Dna className="h-2.5 w-2.5 mr-0.5" /> Genetics
+              <Dna className="h-2.5 w-2.5 mr-0.5" /> <span className="hidden xs:inline">Genetics</span><span className="xs:hidden">DNA</span>
             </Button>
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+            <Button variant="outline" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
               onClick={() => onFocusWidget?.({ type: "ai" })}>
-              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> MYCA
+              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> AI
             </Button>
             {onAddToNotepad && (
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+              <Button variant="ghost" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
                 onClick={() => onAddToNotepad({
                   type: "species",
                   title: selected.commonName || selected.scientificName,
@@ -229,9 +244,9 @@ export function SpeciesWidget({
           </div>
         </div>
 
-        {/* Taxonomy column -- vertical breadcrumb */}
+        {/* Taxonomy column -- vertical breadcrumb, hidden on mobile */}
         {taxonomyLevels.length > 0 && (
-          <div className="shrink-0 w-[130px] hidden md:flex flex-col gap-0.5">
+          <div className="shrink-0 w-[130px] hidden lg:flex flex-col gap-0.5">
             <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Taxonomy</p>
             {taxonomyLevels.map((level, index) => (
               <button key={level.label}
