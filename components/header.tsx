@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, Bot, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+// Dialog removed - MYCA bot icon removed from header
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,11 +22,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState, useRef, useCallback, memo } from "react"
 import { cn } from "@/lib/utils"
 
-// Lazy load Chat component - it's heavy and only used when dialog opens
-const Chat = dynamic(() => import("@/components/chat/chat").then(mod => mod.Chat), {
-  ssr: false,
-  loading: () => <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
-})
+// Chat component removed - MYCA bot icon removed from header
 
 // Import motion only what we need (tree-shaken by bundler)
 import { motion, AnimatePresence } from "framer-motion"
@@ -476,20 +472,6 @@ export function Header() {
 
         {/* Right side controls - visible on all screen sizes */}
         <div className="flex items-center gap-2">
-          <div className="hidden md:block">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-white/5 transition-all duration-300 hover:scale-105">
-                  <Bot className="h-5 w-5" />
-                  <span className="sr-only">Myca AI Assistant</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl h-[80vh]">
-                <Chat />
-              </DialogContent>
-            </Dialog>
-          </div>
-
           <ModeToggle />
 
           {isLoading ? (
