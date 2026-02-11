@@ -16,8 +16,8 @@ const geistSans = Geist({
 })
 
 export const metadata = {
-  title: "Mycosoft - The Fungal Intelligence Platform",
-  description: "Search engine and tools for mycology research and fungal intelligence",
+  title: "Mycosoft - Building The Earth Intelligence",
+  description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
   generator: 'v0.app'
 }
 

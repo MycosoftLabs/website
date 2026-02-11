@@ -199,7 +199,7 @@ export function SpeciesWidget({
           {/* Action buttons -- compact row */}
           <div className="flex flex-wrap items-center gap-1 pt-1">
             <Button asChild size="sm" className="h-6 px-2 text-[10px] rounded-lg">
-              <a href={`/ancestry/database?species=${encodeURIComponent(selected.scientificName)}`}>
+              <a href={`/ancestry/explorer?search=${encodeURIComponent(selected.scientificName)}`}>
                 Full Page <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
               </a>
             </Button>

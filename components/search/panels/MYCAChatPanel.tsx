@@ -65,46 +65,35 @@ function useMYCAConsciousness() {
   return status
 }
 
-/** Build a useful response from current search context when AI API fails */
-function buildContextResponse(
-  query: string,
-  species: any[],
-  compounds: any[],
-  research: any[]
-): string {
-  const parts: string[] = []
-
-  if (species.length > 0) {
-    const sp = species[0]
-    const name = sp.commonName || sp.scientificName || "Unknown"
-    const sci = sp.scientificName || ""
-    parts.push(`Based on the search for "${query}", the top result is **${name}**${sci ? ` (${sci})` : ""}.`)
-    if (sp.taxonomy?.family) parts.push(`It belongs to the family ${sp.taxonomy.family}.`)
-    if (sp.description) parts.push(sp.description.slice(0, 250) + (sp.description.length > 250 ? "..." : ""))
-    if (sp.observationCount > 0) parts.push(`There are ${sp.observationCount.toLocaleString()} observations recorded.`)
+/** Get conversation history from session storage */
+function getConversationHistory(): Array<{ role: string; content: string }> {
+  try {
+    const stored = sessionStorage.getItem("myca_chat_history")
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
   }
+}
 
-  if (compounds.length > 0) {
-    const names = compounds.slice(0, 3).map((c: any) => c.name).join(", ")
-    parts.push(`Related compounds include: ${names}.`)
+/** Save conversation turn to session storage */
+function saveConversationTurn(role: string, content: string) {
+  try {
+    const history = getConversationHistory()
+    history.push({ role, content })
+    // Keep last 20 turns for context
+    const trimmed = history.slice(-20)
+    sessionStorage.setItem("myca_chat_history", JSON.stringify(trimmed))
+  } catch {
+    // Silent fail
   }
-
-  if (research.length > 0) {
-    parts.push(`Found ${research.length} related research paper${research.length > 1 ? "s" : ""}.`)
-  }
-
-  if (parts.length === 0) {
-    return `I found results for "${query}" but need more data to give a detailed answer. Try clicking on a species or compound widget for specifics.`
-  }
-
-  return parts.join(" ")
 }
 
 export function MYCAChatPanel() {
   const ctx = useSearchContext()
-  const { chatMessages, addChatMessage, clearChat, setQuery, species, compounds, research } = ctx
+  const { chatMessages, addChatMessage, clearChat, setQuery } = ctx
   const [input, setInput] = useState("")
   const [isAsking, setIsAsking] = useState(false)
+  const [streamingText, setStreamingText] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const consciousness = useMYCAConsciousness()
 
@@ -137,40 +126,46 @@ export function MYCAChatPanel() {
     if (!q) return
     setInput("")
     addChatMessage("user", q)
+    saveConversationTurn("user", q)
     setIsAsking(true)
+    setStreamingText("")
 
     try {
-      // Step 1: Try MYCA consciousness chat first
+      // Step 1: Try MYCA consciousness chat first (with streaming if available)
       const mycaResponse = await askMYCA(q)
       if (mycaResponse) {
         addChatMessage("assistant", mycaResponse)
+        saveConversationTurn("assistant", mycaResponse)
         return
       }
 
-      // Step 2: Fall back to search AI for search-related queries
-      const res = await fetch(`/api/search/ai?q=${encodeURIComponent(q)}`, {
-        signal: AbortSignal.timeout(15000),
+      // Step 2: Fall back to search AI-v2 (guaranteed to return an answer)
+      const res = await fetch(`/api/search/ai-v2?q=${encodeURIComponent(q)}`, {
+        signal: AbortSignal.timeout(30000),
       })
+      
       if (res.ok) {
         const data = await res.json()
-        const answer = data.result?.answer || ""
-        // Check if it's a real answer or a fallback
-        if (answer && !answer.includes("No AI results") && data.result?.source !== "fallback") {
+        const answer = data.result?.answer || data.answer || ""
+        if (answer) {
           addChatMessage("assistant", answer)
+          saveConversationTurn("assistant", answer)
         } else {
-          // Build contextual response from search results
-          const contextResponse = buildContextResponse(q, species, compounds, research)
-          addChatMessage("assistant", contextResponse)
+          const errorMsg = "I couldn't generate an answer right now. Please try again."
+          addChatMessage("assistant", errorMsg)
         }
       } else {
-        const contextResponse = buildContextResponse(q, species, compounds, research)
-        addChatMessage("assistant", contextResponse)
+        const errorMsg = "Failed to connect to MYCA. Please check that the backend is running."
+        addChatMessage("assistant", errorMsg)
       }
-    } catch {
-      const contextResponse = buildContextResponse(q, species, compounds, research)
-      addChatMessage("assistant", contextResponse || "Request timed out. Please try again.")
+    } catch (err) {
+      const errorMsg = err instanceof Error && err.name === "AbortError"
+        ? "Request timed out. Please try again with a simpler question."
+        : "An error occurred. Please try again."
+      addChatMessage("assistant", errorMsg)
     } finally {
       setIsAsking(false)
+      setStreamingText("")
     }
   }
 

@@ -54,6 +54,13 @@ interface UseUnifiedSearchResult {
   isValidating: boolean
   error: string | null
   
+  // Empty state indicators
+  isEmpty: boolean
+  isSpeciesEmpty: boolean
+  isCompoundsEmpty: boolean
+  isGeneticsEmpty: boolean
+  isResearchEmpty: boolean
+  
   // Metadata
   timing: UnifiedSearchResponse["timing"]
   source: "live" | "cache" | "fallback"
@@ -146,6 +153,13 @@ export function useUnifiedSearch(
     unifiedSearch.prefetch(prefetchQuery, { types, limit, includeAI })
   }, [types, limit, includeAI])
 
+  // Calculate empty state indicators
+  const isSpeciesEmpty = species.length === 0
+  const isCompoundsEmpty = compounds.length === 0
+  const isGeneticsEmpty = genetics.length === 0
+  const isResearchEmpty = research.length === 0
+  const isEmpty = isSpeciesEmpty && isCompoundsEmpty && isGeneticsEmpty && isResearchEmpty
+
   return {
     results,
     species,
@@ -157,6 +171,12 @@ export function useUnifiedSearch(
     isLoading: isLoading && !data,
     isValidating,
     error: error?.message || data?.error || null,
+    // Empty states
+    isEmpty,
+    isSpeciesEmpty,
+    isCompoundsEmpty,
+    isGeneticsEmpty,
+    isResearchEmpty,
     timing,
     source,
     message,

@@ -27,8 +27,8 @@ import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
  * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → MAS Consciousness → Response
  */
 
-// MAS Orchestrator (port 8000 with --network host)
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8000"
+// MAS Orchestrator (port 8001)
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 // n8n Webhooks
 const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"

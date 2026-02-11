@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useSearch } from "@/components/search/use-search"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
+import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import {
   Search,
   Mic,
@@ -61,6 +62,11 @@ export function HeroSearch() {
   const isListening = personaplex?.isListening ?? false
   const lastTranscript = personaplex?.lastTranscript ?? ""
   const connectionState = personaplex?.connectionState ?? "disconnected"
+  
+  // Animated typing placeholder
+  const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
+    enabled: !query && !isFocused, // Only animate when input is empty and not focused
+  })
   
   // Mouse position for gradient effect
   const mouseX = useMotionValue(0)
@@ -200,7 +206,7 @@ export function HeroSearch() {
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <Brain className="h-5 w-5 text-primary" />
-                The Fungal Intelligence Platform
+                Building The Earth Intelligence
               </motion.p>
             </div>
 
@@ -236,8 +242,12 @@ export function HeroSearch() {
                   onFocus={() => {
                     setIsFocused(true)
                     setShowSuggestions(true)
+                    pause()
                   }}
-                  placeholder="Search fungi, compounds, genetics, research..."
+                  onBlur={() => {
+                    if (!query) resume()
+                  }}
+                  placeholder={animatedPlaceholder || "Search fungi, compounds, genetics, research..."}
                   className={cn(
                     "flex-1 bg-transparent text-lg md:text-xl",
                     "text-white placeholder:text-gray-400",
