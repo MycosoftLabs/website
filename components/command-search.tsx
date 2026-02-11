@@ -109,7 +109,7 @@ export function CommandSearch({ ...props }: DialogProps) {
     command()
   }, [])
 
-  // Execute MYCA NLQ query
+  // Execute MYCA query - consciousness first, then NLQ
   const executeAiQuery = React.useCallback(async () => {
     if (!aiQuery.trim()) return
     
@@ -117,6 +117,28 @@ export function CommandSearch({ ...props }: DialogProps) {
     setAiResponse(null)
     
     try {
+      // Step 1: Try MYCA consciousness chat for conversational queries
+      const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: aiQuery }),
+        signal: AbortSignal.timeout(35000),
+      }).catch(() => null)
+      
+      if (consciousnessResponse?.ok) {
+        const data = await consciousnessResponse.json()
+        if (data.message) {
+          setAiResponse({
+            type: "answer",
+            text: data.message,
+            source: "myca_consciousness",
+            emotionalState: data.emotional_state,
+          } as NLQResponse)
+          return
+        }
+      }
+      
+      // Step 2: Fall back to NLQ for structured queries
       const response = await fetch("/api/myca/nlq", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

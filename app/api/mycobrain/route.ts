@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// MycoBrain service URL - can be local Python service or Docker container
-// Port 8003 = MAS dual service (preferred), Port 8765 = legacy website service
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+// MycoBrain service URL - runs on port 8003
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 
 export const dynamic = "force-dynamic"
 

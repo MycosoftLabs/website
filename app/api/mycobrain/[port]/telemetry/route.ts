@@ -1,9 +1,40 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createHash, randomUUID } from "crypto"
 
 export const dynamic = "force-dynamic"
 
-const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
+
+function buildEnvelopeFromTelemetry(deviceId: string, entries: TelemetryEntry[]) {
+  const pack: Array<{ id: string; v: number | string; u: string }> = []
+  for (const entry of entries) {
+    for (const [k, v] of Object.entries(entry.data || {})) {
+      if (typeof v === "number") pack.push({ id: `${entry.sensor}.${k}`, v, u: "n" })
+      else if (typeof v === "string") pack.push({ id: `${entry.sensor}.${k}`, v, u: "s" })
+    }
+  }
+
+  const unsigned = {
+    hdr: { deviceId, proto: "website-proxy", msgId: randomUUID() },
+    ts: { utc: new Date().toISOString(), mono_ms: Date.now() },
+    seq: Date.now(),
+    pack,
+    meta: { schema: "mycosoft.v1", units: "si" },
+  }
+
+  const unsignedBytes = Buffer.from(JSON.stringify(unsigned), "utf-8")
+  const hashHex = createHash("sha256").update(unsignedBytes).digest("hex")
+  const sigB64 = createHash("sha256").update(Buffer.from(hashHex, "utf-8")).digest("base64")
+
+  return {
+    ...unsigned,
+    hash: `sha256:${hashHex}`,
+    sig: `ed25519:${sigB64}`,
+    verification: { hashValid: false, signatureValid: false, source: "website-proxy" },
+  }
+}
 
 // In-memory telemetry cache
 type TelemetryEntry = {
@@ -167,21 +198,15 @@ export async function GET(
       
       // Auto-ingest to MINDEX (best effort, non-blocking)
       if (currentData.length > 0) {
-        fetch(`${MINDEX_API_URL}/api/mindex/telemetry`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source: "mycobrain",
-            device_id: deviceId,
-            timestamp: new Date().toISOString(),
-            data: {
-              telemetry: currentData,
-              sensor_count: currentData.length,
-              port,
-            },
-          }),
-          signal: AbortSignal.timeout(2000),
-        }).catch(() => { /* best effort */ })
+        if (MINDEX_API_KEY) {
+          const envelope = buildEnvelopeFromTelemetry(deviceId, currentData)
+          fetch(`${MINDEX_API_URL}/api/telemetry/envelope`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-API-Key": MINDEX_API_KEY },
+            body: JSON.stringify({ envelope, verified_by: "website" }),
+            signal: AbortSignal.timeout(4000),
+          }).catch(() => { /* best effort */ })
+        }
       }
     }
     
@@ -259,22 +284,21 @@ export async function POST(
     // Optionally log to MINDEX
     if (body.persist_to_mindex) {
       try {
-        await fetch(`${MINDEX_API_URL}/api/mindex/telemetry`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source: "mycobrain",
-            device_id: deviceId,
-            timestamp: new Date().toISOString(),
-            data: {
-              action,
-              streaming: action === "start",
-              port,
-              device_id: deviceId,
+        if (MINDEX_API_KEY) {
+          const envelope = buildEnvelopeFromTelemetry(deviceId, [
+            {
+              timestamp: new Date().toISOString(),
+              sensor: "control",
+              data: { action, streaming: action === "start", port, device_id: deviceId },
             },
-          }),
-          signal: AbortSignal.timeout(3000),
-        })
+          ])
+          await fetch(`${MINDEX_API_URL}/api/telemetry/envelope`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-API-Key": MINDEX_API_KEY },
+            body: JSON.stringify({ envelope, verified_by: "website" }),
+            signal: AbortSignal.timeout(4000),
+          })
+        }
       } catch { /* best effort */ }
     }
     

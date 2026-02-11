@@ -21,6 +21,9 @@ export { CellularWidget } from "./cellular-widget"
 export { IMUWidget } from "./imu-widget"
 export { SpectrometerWidget } from "./spectrometer-widget"
 
+// FCI (Fungal Computer Interface)
+export { FCIPeripheralWidget } from "./fci-peripheral-widget"
+
 
 
 

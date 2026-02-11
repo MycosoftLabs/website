@@ -114,7 +114,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const lastSensorCountRef = useRef<string | null>(null)
 
   const device = devices.find((d) => d.port === selectedPort) || devices[0]
-  
+  // Use selectedPort for controls so we target the user's chosen port (e.g. COM7)
+  // even when device list hasn't refreshed yet. Prevents sending to wrong device.
+  const portForControl = selectedPort ?? device?.port ?? ""
+
   // Calculate and cache sensor count - never go back to "None" once we've detected sensors
   const sensorCount = (() => {
     let count: string | null = null
@@ -159,9 +162,9 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     if (!device?.port || !device?.connected) return
     
     // Fetch sensors immediately and then every 15 seconds (offset from peripheral scan)
-    const initialDelay = setTimeout(() => fetchSensors(device.port), 500)
+    const initialDelay = setTimeout(() => fetchSensors(portForControl), 500)
     const interval = setInterval(() => {
-      fetchSensors(device.port)
+      fetchSensors(portForControl)
     }, 15000)
     
     return () => {
@@ -202,6 +205,59 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [serialMonitoring, setSerialMonitoring] = useState(false)
   const [diagnostics, setDiagnostics] = useState<any>(null)
   const [machineModeActive, setMachineModeActive] = useState(false)
+  
+  // Network devices state
+  const [networkDevices, setNetworkDevices] = useState<any[]>([])
+  const [networkLoading, setNetworkLoading] = useState(false)
+  const [networkError, setNetworkError] = useState<string | null>(null)
+
+  // Fetch network devices from MAS Device Registry
+  const fetchNetworkDevices = useCallback(async () => {
+    setNetworkLoading(true)
+    setNetworkError(null)
+    try {
+      const res = await fetch("/api/devices/network?include_offline=true", {
+        signal: AbortSignal.timeout(10000),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setNetworkDevices(data.devices || [])
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        setNetworkError(errData.error || `Error ${res.status}`)
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error"
+      setNetworkError(`Failed to fetch network devices: ${msg}`)
+    } finally {
+      setNetworkLoading(false)
+    }
+  }, [])
+
+  // Send command to network device
+  const sendNetworkDeviceCommand = async (deviceId: string, command: string) => {
+    logToConsole(`> Sending '${command}' to network device ${deviceId}...`)
+    try {
+      const res = await fetch(`/api/devices/network/${encodeURIComponent(deviceId)}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+        signal: AbortSignal.timeout(10000),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        logToConsole(`✓ Command response: ${JSON.stringify(data.response || data).slice(0, 100)}`)
+        return data
+      } else {
+        logToConsole(`✗ Command failed: ${data.error || "Unknown error"}`)
+        throw new Error(data.error || "Command failed")
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error"
+      logToConsole(`✗ Error: ${msg}`)
+      throw error
+    }
+  }
   const machineModePendingRef = useRef(false)
   const lastServiceErrorRef = useRef<string | null>(null)
   const serviceErrorCountRef = useRef(0)
@@ -220,7 +276,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     const initMachineMode = async () => {
       try {
         logToConsole("> Auto-initializing machine mode...")
-        const res = await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/machine-mode`, {
+        const res = await fetch(`/api/mycobrain/${encodeURIComponent(portForControl)}/machine-mode`, {
           method: "POST",
           signal: AbortSignal.timeout(10000),
         })
@@ -479,7 +535,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     
     const fetchSerialData = async () => {
       try {
-        const res = await fetch(`/api/mycobrain/${device.port}/serial`, {
+        const res = await fetch(`/api/mycobrain/${portForControl}/serial`, {
           signal: AbortSignal.timeout(5000),
         })
         if (res.ok) {
@@ -540,17 +596,18 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       
       logToConsole(`> Found ${ports.length} serial port(s)`)
       
-      // Prioritize COM5, then COM4, then any MycoBrain-like ports
-      const com5Port = ports.find((p: any) => p.port === "COM5")
-      const com4Port = ports.find((p: any) => p.port === "COM4")
-      const mycobrainPorts = ports.filter((p: any) => 
-        p.is_mycobrain || 
-        (p.port?.startsWith("COM") && p.port !== "COM4" && p.port !== "COM5") ||
-        p.port?.startsWith("/dev/tty")
-      )
+      // Prioritize COM7 (common MycoBrain port), then COM5, COM4, then other COM ports
+      const com7Port = ports.find((p: any) => (p.port || p.device) === "COM7")
+      const com5Port = ports.find((p: any) => (p.port || p.device) === "COM5")
+      const com4Port = ports.find((p: any) => (p.port || p.device) === "COM4")
+      const mycobrainPorts = ports.filter((p: any) => {
+        const portName = p.port || p.device
+        return p.is_mycobrain ||
+          (portName?.startsWith("COM") && !["COM4", "COM5", "COM7"].includes(portName)) ||
+          portName?.startsWith("/dev/tty")
+      })
       
-      const targetPorts = com5Port ? [com5Port, com4Port, ...mycobrainPorts].filter(Boolean) : 
-                          com4Port ? [com4Port, ...mycobrainPorts] : mycobrainPorts
+      const targetPorts = [com7Port, com5Port, com4Port, ...mycobrainPorts].filter(Boolean)
       
       if (targetPorts.length === 0) {
         setScanResult("No MycoBrain devices found. Make sure device is connected via USB.")
@@ -1122,7 +1179,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
       {/* Main Tabs */}
       <Tabs defaultValue="sensors" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="sensors" className="gap-2">
             <Thermometer className="h-4 w-4" />
             <span className="hidden sm:inline">Sensors</span>
@@ -1134,6 +1191,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           <TabsTrigger value="communication" className="gap-2">
             <Radio className="h-4 w-4" />
             <span className="hidden sm:inline">Comms</span>
+          </TabsTrigger>
+          <TabsTrigger value="network" className="gap-2">
+            <Network className="h-4 w-4" />
+            <span className="hidden sm:inline">Network</span>
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -1169,7 +1230,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               </CardHeader>
               <CardContent>
                 <PeripheralGrid 
-                  deviceId={device.port}
+                  deviceId={portForControl}
                   sensorData={device.sensor_data}
                 />
               </CardContent>
@@ -1205,7 +1266,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                     onClick={async () => {
                       logToConsole("> Initializing machine mode...")
                       try {
-                        const res = await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/machine-mode`, {
+                        const res = await fetch(`/api/mycobrain/${encodeURIComponent(portForControl)}/machine-mode`, {
                           method: "POST",
                           signal: AbortSignal.timeout(10000),
                         })
@@ -1214,7 +1275,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                           setMachineModeActive(true)
                           logToConsole("✓ Machine mode initialized")
                           // Trigger peripheral scan
-                          await fetch(`/api/mycobrain/${encodeURIComponent(device.port)}/peripherals`, {
+                          await fetch(`/api/mycobrain/${encodeURIComponent(portForControl)}/peripherals`, {
                             method: "POST",
                           })
                           logToConsole("✓ Peripheral scan triggered")
@@ -1240,11 +1301,11 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           {device && machineModeActive && (
             <div className="grid gap-6 lg:grid-cols-2">
               <LedControlWidget 
-                deviceId={device.port}
+                deviceId={portForControl}
                 onCommand={logToConsole}
               />
               <BuzzerControlWidget 
-                deviceId={device.port}
+                deviceId={portForControl}
                 onCommand={logToConsole}
               />
             </div>
@@ -1282,7 +1343,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     className="flex-1"
                     onClick={() => handleCommand("neopixel-color", () => 
-                      setNeoPixel(device.port, neopixelColor.r, neopixelColor.g, neopixelColor.b, neopixelBrightness)
+                      setNeoPixel(portForControl, neopixelColor.r, neopixelColor.g, neopixelColor.b, neopixelBrightness)
                     )}
                     disabled={commandLoading === "neopixel-color"}
                   >
@@ -1292,7 +1353,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("neopixel-rainbow", () => neoPixelRainbow(device.port))}
+                    onClick={() => handleCommand("neopixel-rainbow", () => neoPixelRainbow(portForControl))}
                     disabled={commandLoading === "neopixel-rainbow"}
                   >
                     <Palette className="h-4 w-4 mr-2" />
@@ -1300,7 +1361,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("neopixel-off", () => neoPixelOff(device.port))}
+                    onClick={() => handleCommand("neopixel-off", () => neoPixelOff(portForControl))}
                     disabled={commandLoading === "neopixel-off"}
                   >
                     <LightbulbOff className="h-4 w-4" />
@@ -1344,7 +1405,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                       onValueCommit={([v]) => {
                         // Send brightness command when slider is released
                         const brightnessPercent = Math.round((v / 255) * 100)
-                        sendControl(device.port, "command", "brightness", { cmd: `led brightness ${brightnessPercent}` })
+                        sendControl(portForControl, "command", "brightness", { cmd: `led brightness ${brightnessPercent}` })
                           .catch(() => {}) // Silently ignore errors
                       }}
                       max={255}
@@ -1406,7 +1467,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     className="flex-1"
                     onClick={() => handleCommand("buzzer-beep", () => 
-                      buzzerBeep(device.port, buzzerFrequency, 200)
+                      buzzerBeep(portForControl, buzzerFrequency, 200)
                     )}
                     disabled={commandLoading === "buzzer-beep"}
                   >
@@ -1416,7 +1477,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => handleCommand("buzzer-melody", () => buzzerMelody(device.port))}
+                    onClick={() => handleCommand("buzzer-melody", () => buzzerMelody(portForControl))}
                     disabled={commandLoading === "buzzer-melody"}
                   >
                     <Activity className="h-4 w-4 mr-2" />
@@ -1424,7 +1485,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleCommand("buzzer-off", () => buzzerOff(device.port))}
+                    onClick={() => handleCommand("buzzer-off", () => buzzerOff(portForControl))}
                     disabled={commandLoading === "buzzer-off"}
                   >
                     <VolumeX className="h-4 w-4" />
@@ -1469,7 +1530,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                         size="sm"
                         onClick={() => {
                           setBuzzerFrequency(tone.freq)
-                          handleCommand(`tone-${tone.name}`, () => buzzerBeep(device.port, tone.freq, 100))
+                          handleCommand(`tone-${tone.name}`, () => buzzerBeep(portForControl, tone.freq, 100))
                         }}
                       >
                         {tone.name}
@@ -1494,28 +1555,28 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("ping", () => sendControl(device.port, "command", "ping", { cmd: "ping" }))}
+                  onClick={() => handleCommand("ping", () => sendControl(portForControl, "command", "ping", { cmd: "ping" }))}
                   disabled={commandLoading === "ping"}
                 >
                   {commandLoading === "ping" ? "..." : "Ping"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("sensors", () => sendControl(device.port, "command", "sensors", { cmd: "sensors" }))}
+                  onClick={() => handleCommand("sensors", () => sendControl(portForControl, "command", "sensors", { cmd: "sensors" }))}
                   disabled={commandLoading === "sensors"}
                 >
                   {commandLoading === "sensors" ? "..." : "Get Sensors"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("status", () => sendControl(device.port, "command", "status", { cmd: "status" }))}
+                  onClick={() => handleCommand("status", () => sendControl(portForControl, "command", "status", { cmd: "status" }))}
                   disabled={commandLoading === "status"}
                 >
                   {commandLoading === "status" ? "..." : "Status"}
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => handleCommand("scan", () => sendControl(device.port, "command", "scan", { cmd: "scan" }))}
+                  onClick={() => handleCommand("scan", () => sendControl(portForControl, "command", "scan", { cmd: "scan" }))}
                   disabled={commandLoading === "scan"}
                 >
                   {commandLoading === "scan" ? "..." : "I2C Scan"}
@@ -1533,7 +1594,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           {/* New NDJSON Protocol Communication Panel */}
           {device && (
             <CommunicationPanel 
-              deviceId={device.port} 
+              deviceId={portForControl} 
               onCommand={logToConsole}
             />
           )}
@@ -1583,7 +1644,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                       variant="outline"
                       size="sm"
                       onClick={() => handleCommand("lora-ping", () => 
-                        sendControl(device.port, "command", "lora_ping", { cmd: "lora ping" })
+                        sendControl(portForControl, "command", "lora_ping", { cmd: "lora ping" })
                       )}
                       disabled={commandLoading === "lora-ping"}
                     >
@@ -1594,7 +1655,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                       variant="outline"
                       size="sm"
                       onClick={() => handleCommand("lora-status", () => 
-                        sendControl(device.port, "command", "lora_status", { cmd: "lora status" })
+                        sendControl(portForControl, "command", "lora_status", { cmd: "lora status" })
                       )}
                       disabled={commandLoading === "lora-status"}
                     >
@@ -1604,7 +1665,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                       variant="outline"
                       size="sm"
                       onClick={() => handleCommand("lora-send", () => 
-                        sendControl(device.port, "command", "lora_send", { cmd: "lora send hello" })
+                        sendControl(portForControl, "command", "lora_send", { cmd: "lora send hello" })
                       )}
                       disabled={commandLoading === "lora-send"}
                     >
@@ -1775,12 +1836,208 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           </Card>
         </TabsContent>
 
+        {/* Network Devices Tab */}
+        <TabsContent value="network" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Network className="h-5 w-5" />
+                    Network-Registered Devices
+                  </CardTitle>
+                  <CardDescription>
+                    MycoBrain devices registered via Tailscale or Cloudflare Tunnel
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchNetworkDevices}
+                  disabled={networkLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${networkLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {networkError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm">
+                  <AlertCircle className="h-4 w-4 inline mr-2" />
+                  {networkError}
+                </div>
+              )}
+              
+              {networkLoading && networkDevices.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : networkDevices.length === 0 ? (
+                <div className="text-center py-12">
+                  <Network className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-2">No network devices registered</p>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Remote MycoBrain devices can register via heartbeat when running the MycoBrain service 
+                    with heartbeat enabled. See the Tailscale setup guide for instructions.
+                  </p>
+                  <Button className="mt-4" onClick={fetchNetworkDevices}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Check for Devices
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {networkDevices.map((netDevice) => (
+                    <Card key={netDevice.device_id} className={`border ${
+                      netDevice.status === "online" 
+                        ? "border-green-500/50" 
+                        : netDevice.status === "stale"
+                        ? "border-yellow-500/50"
+                        : "border-red-500/50"
+                    }`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${
+                              netDevice.status === "online" 
+                                ? "bg-green-500/20" 
+                                : netDevice.status === "stale"
+                                ? "bg-yellow-500/20"
+                                : "bg-red-500/20"
+                            }`}>
+                              <Cpu className={`h-5 w-5 ${
+                                netDevice.status === "online" 
+                                  ? "text-green-500" 
+                                  : netDevice.status === "stale"
+                                  ? "text-yellow-500"
+                                  : "text-red-500"
+                              }`} />
+                            </div>
+                            <div>
+                              <CardTitle className="text-base">{netDevice.device_name || netDevice.name}</CardTitle>
+                              <CardDescription className="font-mono text-xs">
+                                {netDevice.host}:{netDevice.port}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={
+                              netDevice.connection_type === "tailscale" ? "default" :
+                              netDevice.connection_type === "cloudflare" ? "secondary" : "outline"
+                            }>
+                              {netDevice.connection_type}
+                            </Badge>
+                            <Badge className={
+                              netDevice.status === "online" 
+                                ? "bg-green-500" 
+                                : netDevice.status === "stale"
+                                ? "bg-yellow-500"
+                                : "bg-red-500"
+                            }>
+                              {netDevice.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <p className="text-muted-foreground">Location</p>
+                            <p className="font-medium">{netDevice.location || "Unknown"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Board</p>
+                            <p className="font-medium">{netDevice.board_type || "Unknown"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Firmware</p>
+                            <p className="font-mono text-xs">{netDevice.firmware_version || "Unknown"}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Last Seen</p>
+                            <p className="text-xs">{netDevice.last_seen ? new Date(netDevice.last_seen).toLocaleString() : "Never"}</p>
+                          </div>
+                        </div>
+                        
+                        {netDevice.sensors && netDevice.sensors.length > 0 && (
+                          <div className="mt-3 flex gap-2 flex-wrap">
+                            {netDevice.sensors.map((sensor: string) => (
+                              <Badge key={sensor} variant="outline" className="text-xs">
+                                {sensor}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {netDevice.status === "online" && (
+                          <div className="mt-4 flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => sendNetworkDeviceCommand(netDevice.device_id, "status")}
+                            >
+                              <Activity className="h-4 w-4 mr-1" />
+                              Status
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => sendNetworkDeviceCommand(netDevice.device_id, "led rgb 0 255 0")}
+                            >
+                              <Lightbulb className="h-4 w-4 mr-1" />
+                              LED Test
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => sendNetworkDeviceCommand(netDevice.device_id, "coin")}
+                            >
+                              <Volume2 className="h-4 w-4 mr-1" />
+                              Beep
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Network Setup Instructions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Remote Device Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-3">
+              <p>To register remote MycoBrain devices:</p>
+              <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                <li>Install Tailscale on the remote machine and join the Mycosoft Tailnet</li>
+                <li>Set environment variables:
+                  <code className="block mt-1 p-2 rounded bg-muted font-mono text-xs">
+                    MYCOBRAIN_HEARTBEAT_ENABLED=true<br/>
+                    MYCOBRAIN_DEVICE_NAME="Beto&apos;s Lab"<br/>
+                    MAS_REGISTRY_URL=http://192.168.0.188:8001
+                  </code>
+                </li>
+                <li>Start the MycoBrain service: <code className="bg-muted px-1 rounded">python mycobrain_service_standalone.py</code></li>
+                <li>Device will appear here within 30 seconds</li>
+              </ol>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
           {/* MINDEX Integration */}
           {device && (
             <MINDEXIntegrationWidget 
-              deviceId={device.port}
+              deviceId={portForControl}
             />
           )}
           
@@ -1788,7 +2045,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           {device && (
             <div className="grid gap-6 lg:grid-cols-2">
               <TelemetryChartWidget 
-                deviceId={device.port}
+                deviceId={portForControl}
                 pollInterval={10000}
                 maxPoints={50}
               />

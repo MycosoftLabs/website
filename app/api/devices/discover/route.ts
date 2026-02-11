@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  * This is the core device discovery endpoint for NatureOS.
  */
 export async function GET() {
-  const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8765"
+  const mycoBrainUrl = process.env.MYCOBRAIN_SERVICE_URL || process.env.MYCOBRAIN_API_URL || "http://localhost:8003"
   const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
   const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
   

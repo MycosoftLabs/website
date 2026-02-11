@@ -10,6 +10,7 @@ Deploys the new HeroSearch component with:
 
 import paramiko
 import time
+from _cloudflare_cache import purge_everything
 
 HOST = "192.168.0.187"
 USER = "mycosoft"
@@ -135,10 +136,11 @@ def main():
     print("\n" + "=" * 60)
     if all_ok:
         print("✅ Deployment successful!")
+        purge_everything()
     else:
         print("⚠️  Deployment complete but some pages may not be ready yet")
     print("   URL: https://sandbox.mycosoft.com")
-    print("   Remember to clear Cloudflare cache: PURGE EVERYTHING")
+    print("   Note: Cloudflare purge runs automatically when configured.")
     print("=" * 60)
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 import paramiko
 import sys
 import time
+from _cloudflare_cache import purge_everything
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -69,5 +70,6 @@ ssh.close()
 
 if http_code == "200":
     print("\n✅ Site is up at sandbox.mycosoft.com")
+    purge_everything()
 else:
     print(f"\n⚠️  Site returned {http_code}")

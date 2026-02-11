@@ -21,9 +21,12 @@ import {
   Loader2,
   Wind,
   FlaskConical,
+  Brain,
+  Waves,
 } from "lucide-react"
 import { SmellDetectionWidget } from "./smell-detection-widget"
 import { AQIComparisonWidget } from "./aqi-comparison-widget"
+import { FCIPeripheralWidget } from "./fci-peripheral-widget"
 
 interface PeripheralWidgetProps {
   deviceId: string
@@ -53,6 +56,9 @@ const ICONS: Record<string, React.ReactNode> = {
   vibrate: <Vibrate className="h-5 w-5" />,
   lightbulb: <Activity className="h-5 w-5" />,
   "help-circle": <HelpCircle className="h-5 w-5" />,
+  brain: <Brain className="h-5 w-5" />,
+  waves: <Waves className="h-5 w-5" />,
+  fci: <Brain className="h-5 w-5" />,
 }
 
 // Environmental sensor widget (BME688) - with matching UI/UX colors
@@ -303,6 +309,10 @@ export function PeripheralWidget({ deviceId, peripheral, sensorData }: Periphera
         return <LidarWidget sensorData={sensorData} />
       case "display":
         return <DisplayWidget deviceId={deviceId} />
+      case "fci":
+      case "fungal_computer_interface":
+      case "bioelectric_sensor":
+        return <FCIPeripheralWidget deviceId={deviceId} peripheral={peripheral} sensorData={sensorData} />
       default:
         return <GenericWidget peripheral={peripheral} />
     }

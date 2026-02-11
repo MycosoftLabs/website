@@ -1,8 +1,9 @@
 /**
- * MYCAChatPanel - Feb 2026
+ * MYCAChatPanel - Feb 2026 (Consciousness-First)
  *
  * Left panel: Continuous MYCA chat with search context.
- * Builds contextual responses from search results when AI API fails.
+ * Uses MYCA consciousness API first, falls back to search AI.
+ * Builds contextual responses from search results when APIs fail.
  * Recent searches as compact icons.
  */
 
@@ -23,9 +24,46 @@ import {
   Loader2,
   Trash2,
   Leaf,
+  Brain,
+  Heart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSearchContext, type ChatMessage } from "../SearchContextProvider"
+
+/** MYCA Consciousness Status */
+interface ConsciousnessStatus {
+  state: "conscious" | "dormant" | "dreaming"
+  is_conscious: boolean
+  emotional_state?: {
+    dominant_emotion: string
+    emotions: Record<string, number>
+  }
+}
+
+/** Hook to track MYCA consciousness */
+function useMYCAConsciousness() {
+  const [status, setStatus] = useState<ConsciousnessStatus | null>(null)
+  
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch("/api/myca/consciousness/status", { 
+          signal: AbortSignal.timeout(5000) 
+        })
+        if (res.ok) {
+          setStatus(await res.json())
+        }
+      } catch {
+        // Silent fail - MYCA may not be available
+      }
+    }
+    fetchStatus()
+    const interval = setInterval(fetchStatus, 30000) // Refresh every 30s
+    return () => clearInterval(interval)
+  }, [])
+  
+  return status
+}
 
 /** Build a useful response from current search context when AI API fails */
 function buildContextResponse(
@@ -68,11 +106,31 @@ export function MYCAChatPanel() {
   const [input, setInput] = useState("")
   const [isAsking, setIsAsking] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const consciousness = useMYCAConsciousness()
 
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [chatMessages])
+
+  /** Try MYCA consciousness chat first, then fall back to search AI */
+  const askMYCA = async (message: string): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/myca/consciousness/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+        signal: AbortSignal.timeout(35000), // 35s timeout (server has 30s)
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return data.message || data.response || null
+      }
+    } catch {
+      // Silent fail, will try search API
+    }
+    return null
+  }
 
   const handleSend = async () => {
     const q = input.trim()
@@ -82,6 +140,14 @@ export function MYCAChatPanel() {
     setIsAsking(true)
 
     try {
+      // Step 1: Try MYCA consciousness chat first
+      const mycaResponse = await askMYCA(q)
+      if (mycaResponse) {
+        addChatMessage("assistant", mycaResponse)
+        return
+      }
+
+      // Step 2: Fall back to search AI for search-related queries
       const res = await fetch(`/api/search/ai?q=${encodeURIComponent(q)}`, {
         signal: AbortSignal.timeout(15000),
       })
@@ -127,11 +193,27 @@ export function MYCAChatPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header with consciousness status */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-500" />
+          <div className="relative">
+            <Brain className="h-4 w-4 text-violet-500" />
+            {consciousness?.is_conscious && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+            )}
+          </div>
           <span className="text-sm font-medium">MYCA</span>
+          {consciousness?.is_conscious && (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-green-500/10 text-green-500 border-green-500/20">
+              conscious
+            </Badge>
+          )}
+          {consciousness?.emotional_state?.dominant_emotion && (
+            <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+              <Heart className="h-2.5 w-2.5" />
+              {consciousness.emotional_state.dominant_emotion}
+            </span>
+          )}
         </div>
         {chatMessages.length > 0 && (
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearChat} title="Clear">

@@ -5,6 +5,7 @@ Feb 5, 2026
 
 import paramiko
 import time
+from _cloudflare_cache import purge_everything
 
 HOST = "192.168.0.187"
 USER = "mycosoft"
@@ -78,7 +79,8 @@ def main():
         print(f"  {status}: {page} -> HTTP {out}")
     
     ssh.close()
-    print("\nDone! Clear Cloudflare cache.")
+    print("\nDone!")
+    purge_everything()
 
 if __name__ == "__main__":
     main()
