@@ -139,6 +139,9 @@ const NOTEPAD_STORAGE_KEY = "search-notepad"
 const CHAT_STORAGE_KEY = "search-chat-history"
 
 export function SearchContextProvider({ children }: { children: ReactNode }) {
+  // Track if we're mounted (client-side)
+  const [mounted, setMounted] = useState(false)
+  
   // Query
   const [query, setQuery] = useState("")
 
@@ -161,16 +164,19 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setWidgetFocusTarget(null), 500)
   }, [])
 
-  // MYCA Chat
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
-    if (typeof window === "undefined") return []
+  // MYCA Chat - start empty, hydrate from storage after mount
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+
+  // Hydrate chat from sessionStorage after mount
+  useEffect(() => {
+    setMounted(true)
     try {
       const saved = sessionStorage.getItem(CHAT_STORAGE_KEY)
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+      if (saved) {
+        setChatMessages(JSON.parse(saved))
+      }
+    } catch {}
+  }, [])
 
   const addChatMessage = useCallback(
     (role: ChatMessage["role"], content: string, context?: string) => {
@@ -199,16 +205,18 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
-  // Notepad
-  const [notepadItems, setNotepadItems] = useState<NotepadItem[]>(() => {
-    if (typeof window === "undefined") return []
+  // Notepad - start empty, hydrate from storage after mount
+  const [notepadItems, setNotepadItems] = useState<NotepadItem[]>([])
+
+  // Hydrate notepad from localStorage after mount
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(NOTEPAD_STORAGE_KEY)
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
+      if (saved) {
+        setNotepadItems(JSON.parse(saved))
+      }
+    } catch {}
+  }, [])
 
   const addNotepadItem = useCallback(
     (item: Omit<NotepadItem, "id" | "timestamp">) => {
@@ -252,9 +260,18 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     lng: number
   } | null>(null)
 
-  // Panel visibility
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true)
-  const [rightPanelOpen, setRightPanelOpen] = useState(true)
+  // Panel visibility - start closed on mobile, open on desktop (defer to client)
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false)
+  const [rightPanelOpen, setRightPanelOpen] = useState(false)
+  
+  // Set panel defaults based on screen size after mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isDesktop = window.innerWidth >= 1024
+      setLeftPanelOpen(isDesktop)
+      setRightPanelOpen(isDesktop)
+    }
+  }, [])
 
   // Event bus
   const listenersRef = useRef<Map<string, Set<EventHandler>>>(new Map())
