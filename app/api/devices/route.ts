@@ -1,22 +1,31 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// Check for real MycoBrain devices
+// Check for real MycoBrain devices from local service or MAS
 async function fetchMycoBrainDevices() {
+  // Try local MycoBrain service first (for local dev), then MAS VM
   const urls = [
-    process.env.MYCOBRAIN_API_URL || "http://host.docker.internal:8001/api/mycobrain",
-    "http://host.docker.internal:8001/api/devices",
-  ]
+    process.env.MYCOBRAIN_API_URL, // http://localhost:8003 for local dev
+    process.env.MAS_API_URL ? `${process.env.MAS_API_URL}/api/mycobrain` : null,
+    "http://192.168.0.188:8001/api/mycobrain",
+  ].filter(Boolean) as string[]
 
-  for (const url of urls) {
+  for (const baseUrl of urls) {
     try {
-      const response = await fetch(`${url}/devices`, {
+      // MycoBrain service uses /devices endpoint directly
+      const response = await fetch(`${baseUrl}/devices`, {
         signal: AbortSignal.timeout(3000),
+        cache: "no-store",
       })
       if (response.ok) {
         const data = await response.json()
-        return data.devices || []
+        const devices = data.devices || []
+        if (devices.length > 0) {
+          console.log(`[Devices API] Found ${devices.length} devices from ${baseUrl}`)
+          return devices
+        }
       }
-    } catch {
+    } catch (error) {
+      console.log(`[Devices API] Failed to fetch from ${baseUrl}:`, (error as Error).message)
       continue
     }
   }
@@ -58,32 +67,17 @@ async function fetchUniFiDevices() {
   }
 }
 
-// Local device registry from environment sensors
-const LOCAL_DEVICES = [
-  {
-    id: "mycobrain-001",
-    name: "MycoBrain Node 1",
-    type: "sensor",
-    status: "online",
-    description: "Primary MycoBrain environmental sensor with 2x BME688",
-    location: "Lab",
-    sensors: ["temperature", "humidity", "pressure", "gas", "voc"],
-    lastSeen: new Date().toISOString(),
-    source: "MycoBrain",
-  },
-]
-
 export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type")
 
-  // Fetch from multiple sources in parallel
+  // Fetch from real sources only - NO mock data
   const [mycoBrainDevices, unifiDevices] = await Promise.all([
     fetchMycoBrainDevices(),
     fetchUniFiDevices(),
   ])
 
-  // Combine all devices
-  let allDevices = [...LOCAL_DEVICES, ...mycoBrainDevices, ...unifiDevices]
+  // Combine devices from real sources only
+  let allDevices = [...mycoBrainDevices, ...unifiDevices]
 
   // Filter by type if specified
   if (type) {
@@ -98,6 +92,7 @@ export async function GET(request: NextRequest) {
     total: allDevices.length,
     sources: ["MycoBrain", "UniFi"],
     realData: hasRealData,
+    mycobrain_url: process.env.MYCOBRAIN_API_URL || "not set",
     timestamp: new Date().toISOString(),
   })
 }

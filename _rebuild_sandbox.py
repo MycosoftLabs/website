@@ -4,6 +4,7 @@
 import paramiko
 import sys
 import time
+from _cloudflare_cache import purge_everything
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -72,10 +73,11 @@ def main():
     
     if http_code == "200":
         print("\n✅ Deployment successful! Site is live at sandbox.mycosoft.com")
+        purge_everything()
     else:
         print(f"\n⚠️  Site returned {http_code} - may need attention")
     
-    print("\n⚡ Remember to PURGE EVERYTHING in Cloudflare cache!")
+    print("\nNote: Cloudflare purge runs automatically when configured.")
 
 if __name__ == "__main__":
     main()

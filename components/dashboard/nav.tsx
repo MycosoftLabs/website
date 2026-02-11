@@ -32,6 +32,7 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
+  Brain,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -59,6 +60,7 @@ const navSections: NavSection[] = [
     defaultOpen: true,
     items: [
       { title: "Overview", href: "/natureos", icon: Home },
+      { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Brain },
       { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
       { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: PipetteIcon },
       { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope },

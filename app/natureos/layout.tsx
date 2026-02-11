@@ -27,8 +27,8 @@ export default function NatureOSLayout({
               </div>
             </SidebarContent>
           </Sidebar>
-          <div className="flex-1 overflow-auto transition-all duration-300">
-            <main className="w-full">{children}</main>
+          <div className="flex-1 overflow-hidden transition-all duration-300">
+            <main className="w-full h-full">{children}</main>
           </div>
         </div>
       </SidebarProvider>

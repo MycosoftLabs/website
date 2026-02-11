@@ -4,11 +4,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Database, Layers, Network } from "lucide-react"
+import { BookOpen, Brain, Database, Layers, Network } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "MycoBrain Integration Guide - Mycosoft",
-  description: "Integrate MycoBrain V1 with MINDEX, NatureOS, MAS, and the Mycorrhizae Protocol",
+  description: "Integrate MycoBrain V1 with MINDEX, NatureOS, MAS, FCI, and the Mycorrhizae Protocol",
 }
 
 export default function MycoBrainIntegrationPage() {
@@ -30,6 +30,7 @@ export default function MycoBrainIntegrationPage() {
         <Badge variant="outline">MINDEX</Badge>
         <Badge variant="outline">NatureOS</Badge>
         <Badge variant="outline">MAS</Badge>
+        <Badge variant="outline" className="border-purple-500 text-purple-400">FCI</Badge>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-8">
@@ -69,6 +70,12 @@ export default function MycoBrainIntegrationPage() {
                   <Link href="/devices/mycobrain/integration/mas">
                     <Network className="mr-2 h-4 w-4" />
                     MAS Guide
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild className="border-purple-600 text-purple-400 hover:bg-purple-950">
+                  <Link href="/devices/mycobrain/integration/fci">
+                    <Brain className="mr-2 h-4 w-4" />
+                    FCI Guide
                   </Link>
                 </Button>
                 <Button variant="ghost" asChild>

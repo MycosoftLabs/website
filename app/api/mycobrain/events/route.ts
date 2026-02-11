@@ -19,7 +19,7 @@ export async function GET() {
 
   try {
     // Try to fetch from local MycoBrain service
-    const mycobrainUrl = process.env.MYCOBRAIN_API_URL || "http://localhost:8765";
+    const mycobrainUrl = process.env.MYCOBRAIN_SERVICE_URL || process.env.MYCOBRAIN_API_URL || "http://localhost:8003";
     
     const devicesRes = await fetch(`${mycobrainUrl}/devices`, {
       signal: AbortSignal.timeout(5000),

@@ -249,9 +249,30 @@ export function UnifiedVoiceProvider({
     }
   }, [mode, masApiUrl, onResponse])
   
-  // Send command to MYCA
+  // Send command to MYCA - consciousness first, then voice orchestrator
   const sendCommand = useCallback(async (command: string): Promise<string> => {
     try {
+      // Step 1: Try MYCA consciousness chat first
+      try {
+        const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: command }),
+          signal: AbortSignal.timeout(35000),
+        })
+        
+        if (consciousnessResponse.ok) {
+          const data = await consciousnessResponse.json()
+          if (data.message) {
+            onResponse?.(data.message)
+            return data.message
+          }
+        }
+      } catch {
+        // Consciousness API not available, fall back to voice orchestrator
+      }
+      
+      // Step 2: Fall back to voice orchestrator
       const response = await fetch(`${masApiUrl}/voice/orchestrator`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

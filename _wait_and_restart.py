@@ -4,6 +4,7 @@
 import paramiko
 import sys
 import time
+from _cloudflare_cache import purge_everything
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -64,4 +65,5 @@ for page in pages:
     print(f"   {status} {page}: HTTP {code}")
 
 ssh.close()
-print("\n✅ Deployment complete! Clear Cloudflare cache to see changes.")
+print("\n✅ Deployment complete!")
+purge_everything()

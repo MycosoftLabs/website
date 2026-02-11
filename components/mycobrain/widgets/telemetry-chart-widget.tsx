@@ -21,6 +21,9 @@ interface TelemetryEntry {
   timestamp: string
   sensor: string
   data: Record<string, number | string>
+  verified?: boolean
+  envelope_seq?: number
+  envelope_msg_id?: string
 }
 
 interface TelemetryChartWidgetProps {
@@ -98,13 +101,21 @@ export function TelemetryChartWidget({
   const fetchTelemetry = useCallback(async () => {
     try {
       const res = await fetch(
-        `/api/mycobrain/${encodeURIComponent(deviceId)}/telemetry?count=${maxPoints}`,
+        `/api/mindex/telemetry/samples?device_slug=${encodeURIComponent(deviceId)}&limit=${maxPoints}`,
         { signal: AbortSignal.timeout(5000) }
       )
       if (res.ok) {
         const data = await res.json()
-        if (data.history) {
-          setHistory(data.history)
+        if (Array.isArray(data)) {
+          const nextHistory: TelemetryEntry[] = data.map((row: any) => ({
+            timestamp: row.recorded_at || new Date().toISOString(),
+            sensor: row.stream_key || "unknown",
+            data: typeof row.value_numeric === "number" ? { value: row.value_numeric } : (row.value_json || {}),
+            verified: Boolean(row.verified),
+            envelope_seq: typeof row.envelope_seq === "number" ? row.envelope_seq : undefined,
+            envelope_msg_id: typeof row.envelope_msg_id === "string" ? row.envelope_msg_id : undefined,
+          }))
+          setHistory(nextHistory.reverse())
           setLastUpdate(new Date().toLocaleTimeString())
         }
       }
@@ -127,18 +138,31 @@ export function TelemetryChartWidget({
   }, [streaming, fetchTelemetry, pollInterval])
   
   // Extract time series for each field
-  const getFieldHistory = (field: string): number[] => {
-    return history
-      .filter(e => selectedSensor === "all" || e.sensor === selectedSensor)
+  const getStreamHistory = (streamMatcher: (streamKey: string) => boolean): number[] =>
+    history
+      .filter(e => (selectedSensor === "all" || e.sensor === selectedSensor) && streamMatcher(e.sensor))
       .map(e => {
-        const v = e.data[field]
-        return typeof v === "number" ? v : 0
+        const v = e.data.value
+        return typeof v === "number" ? v : NaN
       })
+      .filter(v => Number.isFinite(v))
       .slice(-maxPoints)
-  }
   
   const sensors = [...new Set(history.map(e => e.sensor))]
-  const latestData = history[history.length - 1]?.data || {}
+  const latestFor = (streamMatcher: (streamKey: string) => boolean): number | null => {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const e = history[i]
+      if (!streamMatcher(e.sensor)) continue
+      const v = e.data.value
+      if (typeof v === "number") return v
+    }
+    return null
+  }
+  const latestTemp = latestFor(k => k.endsWith(".temperature") || k === "temperature")
+  const latestHumidity = latestFor(k => k.endsWith(".humidity") || k === "humidity")
+  const latestPressure = latestFor(k => k.endsWith(".pressure") || k === "pressure")
+  const latestIaq = latestFor(k => k.endsWith(".iaq") || k.endsWith(".iaq_index") || k === "iaq")
+  const latestVerified = Boolean(history[history.length - 1]?.verified)
   
   const exportData = () => {
     const blob = new Blob([JSON.stringify(history, null, 2)], { type: "application/json" })
@@ -158,6 +182,9 @@ export function TelemetryChartWidget({
           Telemetry Charts
           <Badge variant={streaming ? "default" : "secondary"} className="ml-auto">
             {streaming ? "Live" : "Paused"}
+          </Badge>
+          <Badge variant={latestVerified ? "default" : "outline"} className="ml-2">
+            {latestVerified ? "Verified" : "Unverified"}
           </Badge>
         </CardTitle>
         <div className="flex items-center gap-2 mt-2">
@@ -212,13 +239,11 @@ export function TelemetryChartWidget({
               <Thermometer className="h-4 w-4 text-red-500" />
               <span className="text-sm font-medium">Temperature</span>
               <span className="ml-auto text-lg font-bold">
-                {typeof latestData.temperature === "number" 
-                  ? `${(latestData.temperature as number).toFixed(1)}°C` 
-                  : "--"}
+                {typeof latestTemp === "number" ? `${latestTemp.toFixed(1)}°C` : "--"}
               </span>
             </div>
             <MiniChart 
-              data={getFieldHistory("temperature")} 
+              data={getStreamHistory(k => k.endsWith(".temperature") || k === "temperature")} 
               color="#ef4444"
             />
           </div>
@@ -229,13 +254,11 @@ export function TelemetryChartWidget({
               <Droplets className="h-4 w-4 text-blue-500" />
               <span className="text-sm font-medium">Humidity</span>
               <span className="ml-auto text-lg font-bold">
-                {typeof latestData.humidity === "number" 
-                  ? `${(latestData.humidity as number).toFixed(1)}%` 
-                  : "--"}
+                {typeof latestHumidity === "number" ? `${latestHumidity.toFixed(1)}%` : "--"}
               </span>
             </div>
             <MiniChart 
-              data={getFieldHistory("humidity")} 
+              data={getStreamHistory(k => k.endsWith(".humidity") || k === "humidity")} 
               color="#3b82f6"
             />
           </div>
@@ -246,13 +269,11 @@ export function TelemetryChartWidget({
               <Gauge className="h-4 w-4 text-purple-500" />
               <span className="text-sm font-medium">Pressure</span>
               <span className="ml-auto text-lg font-bold">
-                {typeof latestData.pressure === "number" 
-                  ? `${(latestData.pressure as number).toFixed(0)} hPa` 
-                  : "--"}
+                {typeof latestPressure === "number" ? `${latestPressure.toFixed(0)} hPa` : "--"}
               </span>
             </div>
             <MiniChart 
-              data={getFieldHistory("pressure")} 
+              data={getStreamHistory(k => k.endsWith(".pressure") || k === "pressure")} 
               color="#a855f7"
             />
           </div>
@@ -263,13 +284,11 @@ export function TelemetryChartWidget({
               <Activity className="h-4 w-4 text-green-500" />
               <span className="text-sm font-medium">Air Quality (IAQ)</span>
               <span className="ml-auto text-lg font-bold">
-                {typeof latestData.iaq === "number" 
-                  ? (latestData.iaq as number).toFixed(0)
-                  : "--"}
+                {typeof latestIaq === "number" ? latestIaq.toFixed(0) : "--"}
               </span>
             </div>
             <MiniChart 
-              data={getFieldHistory("iaq")} 
+              data={getStreamHistory(k => k.endsWith(".iaq") || k.endsWith(".iaq_index") || k === "iaq")} 
               color="#22c55e"
             />
           </div>

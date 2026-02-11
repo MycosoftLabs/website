@@ -28,11 +28,44 @@ interface DeviceInfo {
   lastSeen?: string
   description?: string
   hwid?: string
+  // Device identity fields
+  device_name?: string
+  device_role?: string  // mushroom1, sporebase, hyphae1, alarm, gateway, mycodrone, standalone
+  device_display_name?: string | null
+  display_name?: string  // Pre-computed display name with fallbacks
   device_info?: {
     side?: string
     mdp_version?: number
     bme688_count?: number
   }
+}
+
+/**
+ * Get the best display name for a device with fallback chain
+ */
+function getDeviceDisplayName(device: DeviceInfo): string {
+  return device.display_name 
+    || device.device_display_name 
+    || device.device_name 
+    || formatDeviceRole(device.device_role)
+    || device.deviceId
+}
+
+/**
+ * Format device role for display
+ */
+function formatDeviceRole(role?: string): string {
+  if (!role) return "MycoBrain"
+  const roleMap: Record<string, string> = {
+    mushroom1: "Mushroom 1",
+    sporebase: "SporeBase",
+    hyphae1: "Hyphae 1",
+    alarm: "Mycosoft Alarm",
+    gateway: "Gateway",
+    mycodrone: "MycoDrone",
+    standalone: "MycoBrain",
+  }
+  return roleMap[role.toLowerCase()] || role
 }
 
 export default function DeviceNetworkPage() {
@@ -47,16 +80,81 @@ export default function DeviceNetworkPage() {
 
   const fetchDevices = async () => {
     try {
-      const res = await fetch("/api/devices/discover", {
-        signal: AbortSignal.timeout(5000),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setDevices(data.devices || [])
+      // Fetch from both local discover and MAS network registry in parallel
+      const [discoverRes, networkRes] = await Promise.allSettled([
+        fetch("/api/devices/discover", { signal: AbortSignal.timeout(5000) }),
+        fetch("/api/devices/network", { signal: AbortSignal.timeout(10000) }),
+      ])
+
+      const allDevices: DeviceInfo[] = []
+      const seenDeviceIds = new Set<string>()
+
+      // Process local discover results
+      if (discoverRes.status === "fulfilled" && discoverRes.value.ok) {
+        const discoverData = await discoverRes.value.json()
+        for (const device of discoverData.devices || []) {
+          if (!seenDeviceIds.has(device.deviceId)) {
+            seenDeviceIds.add(device.deviceId)
+            allDevices.push({
+              ...device,
+              source: device.source || "local",
+            })
+          }
+        }
       } else {
-        console.error("Failed to fetch devices:", res.status, res.statusText)
-        setDevices([])
+        console.error("Discover fetch failed:", discoverRes)
       }
+
+      // Process MAS network registry results (these take priority for matching IDs)
+      if (networkRes.status === "fulfilled" && networkRes.value.ok) {
+        const networkData = await networkRes.value.json()
+        for (const device of networkData.devices || []) {
+          const deviceId = device.device_id || device.id
+          if (seenDeviceIds.has(deviceId)) {
+            // Update existing device with network data
+            const idx = allDevices.findIndex(d => d.deviceId === deviceId)
+            if (idx >= 0) {
+              allDevices[idx] = {
+                ...allDevices[idx],
+                ...device,
+                deviceId: deviceId,
+                status: device.status || allDevices[idx].status,
+                source: "MAS-Registry",
+                registered: true,
+              }
+            }
+          } else {
+            // Add new network device
+            seenDeviceIds.add(deviceId)
+            allDevices.push({
+              deviceId: deviceId,
+              deviceType: device.board_type || "mycobrain",
+              port: device.extra?.port_name,
+              status: device.status === "online" ? "online" : "offline",
+              connected: device.status === "online",
+              discovered: true,
+              registered: true,
+              is_mycobrain: true,
+              source: "MAS-Registry",
+              connectionType: device.connection_type === "lan" ? "wifi" : device.connection_type || "unknown",
+              lastSeen: device.last_seen,
+              device_name: device.device_name || device.name,
+              device_role: device.device_role,
+              device_display_name: device.device_display_name,
+              display_name: device.display_name,
+              hwid: device.host ? `${device.host}:${device.port}` : undefined,
+              device_info: {
+                side: device.extra?.side,
+                mdp_version: device.extra?.mdp_version,
+              },
+            })
+          }
+        }
+      } else {
+        console.error("Network fetch failed:", networkRes)
+      }
+
+      setDevices(allDevices)
     } catch (error) {
       console.error("Failed to fetch devices:", error)
       setDevices([])
@@ -345,7 +443,7 @@ export default function DeviceNetworkPage() {
                   </div>
                   <div className="mt-2 text-center">
                     <div className="font-semibold">
-                      {gatewayDevice ? gatewayDevice.deviceId : "Gateway"}
+                      {gatewayDevice ? getDeviceDisplayName(gatewayDevice) : "Gateway"}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {gatewayDevice ? (
@@ -386,10 +484,10 @@ export default function DeviceNetworkPage() {
                           }`}>
                             <div className="flex items-center justify-center gap-2 mb-1">
                               <Cpu className={`h-4 w-4 ${device.status === "online" ? "text-green-500" : "text-muted-foreground"}`} />
-                              <span className="text-sm font-medium">{device.port}</span>
+                              <span className="text-sm font-medium">{getDeviceDisplayName(device)}</span>
                             </div>
                             <div className="text-xs text-muted-foreground">
-                              {device.device_info?.side ? `Side ${device.device_info.side}` : "MycoBrain"}
+                              {device.port} {device.device_info?.side ? `• Side ${device.device_info.side}` : ""}
                             </div>
                             {device.status === "online" && (
                               <div className="w-2 h-2 rounded-full bg-green-500 mx-auto mt-1 animate-pulse" />
@@ -422,10 +520,10 @@ export default function DeviceNetworkPage() {
                         >
                           <div className="flex items-center justify-center gap-2 mb-1">
                             <Satellite className={`h-4 w-4 ${device.status === "online" ? "text-amber-500" : "text-muted-foreground"}`} />
-                            <span className="text-sm font-medium">{device.deviceId}</span>
+                            <span className="text-sm font-medium">{getDeviceDisplayName(device)}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            LoRa Node
+                            {formatDeviceRole(device.device_role)} • LoRa
                           </div>
                         </div>
                       ))}
@@ -456,10 +554,10 @@ export default function DeviceNetworkPage() {
                         >
                           <div className="flex items-center justify-center gap-2 mb-1">
                             <Wifi className={`h-4 w-4 ${device.status === "online" ? "text-purple-500" : "text-muted-foreground"}`} />
-                            <span className="text-sm font-medium">{device.deviceId}</span>
+                            <span className="text-sm font-medium">{getDeviceDisplayName(device)}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            WiFi/BLE Node
+                            {formatDeviceRole(device.device_role)} • WiFi/BLE
                           </div>
                         </div>
                       ))}
@@ -537,10 +635,13 @@ export default function DeviceNetworkPage() {
                         )}
                       </div>
                       <div>
-                        <CardTitle className="text-base">{device.deviceId}</CardTitle>
+                        <CardTitle className="text-base">{getDeviceDisplayName(device)}</CardTitle>
                         <CardDescription>
+                          {device.device_role && device.device_role !== "standalone" && (
+                            <span className="text-xs text-primary mr-2">{formatDeviceRole(device.device_role)}</span>
+                          )}
                           {device.port && (
-                            <span className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 mt-0.5">
                               <Usb className="h-3 w-3" />
                               {device.port}
                             </span>
@@ -612,12 +713,14 @@ export default function DeviceNetworkPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Cpu className={`h-5 w-5 ${selectedDevice?.status === "online" ? "text-green-500" : "text-muted-foreground"}`} />
-              {selectedDevice?.port || "Device"}
+              {selectedDevice ? getDeviceDisplayName(selectedDevice) : "Device"}
             </DialogTitle>
             <DialogDescription>
-              {selectedDevice?.device_info?.side 
-                ? `MycoBrain Side ${selectedDevice.device_info.side}` 
-                : "MycoBrain Device"}
+              {selectedDevice?.device_role && selectedDevice.device_role !== "standalone" 
+                ? formatDeviceRole(selectedDevice.device_role)
+                : selectedDevice?.device_info?.side 
+                  ? `MycoBrain Side ${selectedDevice.device_info.side}` 
+                  : "MycoBrain Device"}
               {selectedDevice?.device_info?.bme688_count && selectedDevice.device_info.bme688_count > 0 && (
                 <span className="ml-2 text-xs">
                   • {selectedDevice.device_info.bme688_count}x BME688 sensor{selectedDevice.device_info.bme688_count > 1 ? "s" : ""}

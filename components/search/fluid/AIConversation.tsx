@@ -158,31 +158,64 @@ export function AIConversation({
       // Get conversation history from session for better context
       const sessionHistory = getConversationContext()
       
-      // Call MYCA Brain API
-      const response = await fetch("/api/mas/brain/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: content,
-          context: fullContext,
-          history: sessionHistory.length > 0 
-            ? sessionHistory 
-            : messages.slice(-10).map((m) => ({
-                role: m.role,
-                content: m.content,
-              })),
-          mode: "conversational",
-          stream: false, // TODO: Implement streaming
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Brain API error: ${response.status}`)
+      let responseContent = ""
+      let responseData: any = {}
+      
+      // Step 1: Try MYCA consciousness chat first (primary)
+      try {
+        const consciousnessResponse = await fetch("/api/myca/consciousness/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            message: content,
+            context: { search: fullContext },
+          }),
+          signal: AbortSignal.timeout(35000),
+        })
+        
+        if (consciousnessResponse.ok) {
+          const data = await consciousnessResponse.json()
+          if (data.message) {
+            responseContent = data.message
+            responseData = {
+              sources: [],
+              confidence: 0.85,
+              model: "MYCA Consciousness",
+              emotional_state: data.emotional_state,
+            }
+          }
+        }
+      } catch {
+        // Consciousness API not available, fall back to brain API
       }
+      
+      // Step 2: Fall back to MYCA Brain API if consciousness didn't respond
+      if (!responseContent) {
+        const response = await fetch("/api/mas/brain/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: content,
+            context: fullContext,
+            history: sessionHistory.length > 0 
+              ? sessionHistory 
+              : messages.slice(-10).map((m) => ({
+                  role: m.role,
+                  content: m.content,
+                })),
+            mode: "conversational",
+            stream: false,
+          }),
+        })
 
-      const data = await response.json()
+        if (!response.ok) {
+          throw new Error(`Brain API error: ${response.status}`)
+        }
 
-      const responseContent = data.response || data.answer || "I couldn't generate a response."
+        const data = await response.json()
+        responseContent = data.response || data.answer || "I couldn't generate a response."
+        responseData = data
+      }
 
       // Save assistant message to session memory
       addAssistantMessage(responseContent, fullContext)
@@ -194,9 +227,9 @@ export function AIConversation({
             ? {
                 ...m,
                 content: responseContent,
-                sources: data.sources || [],
-                confidence: data.confidence || 0.7,
-                model: data.model || "MYCA",
+                sources: responseData.sources || [],
+                confidence: responseData.confidence || 0.7,
+                model: responseData.model || "MYCA",
                 isStreaming: false,
               }
             : m
