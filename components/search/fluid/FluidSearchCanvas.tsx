@@ -1,19 +1,20 @@
 /**
  * FluidSearchCanvas - Feb 2026
  *
- * Flex-column layout (NO absolute overlap):
- * - Compact search bar (top)
- * - Focused widget (center, constrained height)
- * - Context widget pills row (always visible below)
- * - Minimized icon bar (bottom)
- * - Draggable, animated, glassmorphism
+ * Enhanced with physics-based animations:
+ * - Floating/drifting effect for widgets
+ * - Magnetic attraction to cursor
+ * - Parallax depth layers
+ * - Mycelium particle connections
+ * - Draggable, saveable layouts
+ * - Glassmorphism design
  * - Passes focusedId to widgets for correct item selection
  */
 
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useCallback, useRef, useEffect, useMemo } from "react"
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { useUnifiedSearch } from "@/hooks/use-unified-search"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
@@ -27,6 +28,9 @@ import {
   History,
   Minimize2,
   X,
+  MapPin,
+  Film,
+  Newspaper,
 } from "lucide-react"
 import {
   SpeciesWidget,
@@ -35,15 +39,92 @@ import {
   ResearchWidget,
   AIWidget,
 } from "./widgets"
+import {
+  getWidgetFloatVariants,
+  getParallaxDepth,
+  PHYSICS_CONFIG,
+  widgetEnterAnimation,
+  glowPulseAnimation,
+  initializeParticles,
+  updateParticles,
+  findParticleConnections,
+  type Particle,
+} from "@/lib/search/widget-physics"
 
-export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai"
+export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
 
 interface WidgetConfig {
   type: WidgetType
   label: string
-  icon: string
+  icon: React.ReactNode
   gradient: string
   hasData: boolean
+  depth: number
+}
+
+// Mycelium particle background component
+function MyceliumBackground({ width, height }: { width: number; height: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const particlesRef = useRef<Particle[]>([])
+  const animationRef = useRef<number>()
+
+  useEffect(() => {
+    if (!width || !height) return
+    particlesRef.current = initializeParticles(width, height)
+  }, [width, height])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !width || !height) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    const animate = () => {
+      ctx.clearRect(0, 0, width, height)
+      
+      // Update particles
+      particlesRef.current = updateParticles(particlesRef.current, width, height)
+      
+      // Draw connections
+      const connections = findParticleConnections(particlesRef.current)
+      ctx.strokeStyle = "rgba(34, 197, 94, 0.15)"
+      ctx.lineWidth = 1
+      
+      for (const [i, j, opacity] of connections) {
+        ctx.globalAlpha = opacity * 0.3
+        ctx.beginPath()
+        ctx.moveTo(particlesRef.current[i].x, particlesRef.current[i].y)
+        ctx.lineTo(particlesRef.current[j].x, particlesRef.current[j].y)
+        ctx.stroke()
+      }
+      
+      // Draw particles
+      ctx.fillStyle = "rgba(34, 197, 94, 0.4)"
+      for (const p of particlesRef.current) {
+        ctx.globalAlpha = 0.6
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      
+      animationRef.current = requestAnimationFrame(animate)
+    }
+    
+    animate()
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [width, height])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      className="absolute inset-0 pointer-events-none opacity-40"
+    />
+  )
 }
 
 interface FluidSearchCanvasProps {
@@ -134,14 +215,46 @@ export function FluidSearchCanvas({
     }
   }, [focusedItemId])
 
-  // Widget configs
-  const widgetConfigs: WidgetConfig[] = [
-    { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0 },
-    { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: compounds.length > 0 },
-    { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: genetics.length > 0 },
-    { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: research.length > 0 },
-    { type: "ai", label: "AI", icon: "✨", gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: !!aiAnswer },
-  ]
+  // Track cursor for magnetic effect
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+
+  // Update canvas size
+  useEffect(() => {
+    const updateSize = () => {
+      if (canvasRef.current) {
+        setCanvasSize({
+          width: canvasRef.current.offsetWidth,
+          height: canvasRef.current.offsetHeight,
+        })
+      }
+    }
+    updateSize()
+    window.addEventListener("resize", updateSize)
+    return () => window.removeEventListener("resize", updateSize)
+  }, [])
+
+  // Track mouse for magnetic effect
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!canvasRef.current) return
+    const rect = canvasRef.current.getBoundingClientRect()
+    mouseX.set(e.clientX - rect.left)
+    mouseY.set(e.clientY - rect.top)
+  }, [mouseX, mouseY])
+
+  // Widget configs with depth layers
+  const widgetConfigs: WidgetConfig[] = useMemo(() => [
+    { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0, depth: getParallaxDepth("species") },
+    { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: compounds.length > 0, depth: getParallaxDepth("chemistry") },
+    { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: genetics.length > 0, depth: getParallaxDepth("genetics") },
+    { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: research.length > 0, depth: getParallaxDepth("research") },
+    { type: "ai", label: "AI", icon: <Sparkles className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: !!aiAnswer, depth: getParallaxDepth("ai") },
+    // Future widget types
+    { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: false, depth: getParallaxDepth("media") },
+    { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: false, depth: getParallaxDepth("location") },
+    { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("news") },
+  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer])
 
   const activeWidgets = widgetConfigs.filter((w) => w.hasData)
   const contextWidgets = activeWidgets.filter((w) => w.type !== focusedType && !minimizedTypes.has(w.type))
@@ -199,8 +312,11 @@ export function FluidSearchCanvas({
   return (
     <div
       ref={canvasRef}
-      className={cn("h-full overflow-hidden flex flex-col", className)}
+      onMouseMove={handleMouseMove}
+      className={cn("h-full overflow-hidden flex flex-col relative", className)}
     >
+      {/* Mycelium particle background */}
+      <MyceliumBackground width={canvasSize.width} height={canvasSize.height} />
       {/* Compact Search Bar */}
       <div className="relative z-20 px-4 py-2 flex items-center gap-3 shrink-0">
         <form onSubmit={(e) => e.preventDefault()} className="flex-1 relative max-w-xl">
@@ -245,24 +361,42 @@ export function FluidSearchCanvas({
       {/* === FLEX COLUMN LAYOUT: focused -> context pills -> minimized bar === */}
       <div className="flex-1 flex flex-col overflow-hidden px-4 pb-2 gap-3">
 
-        {/* Focused widget -- normal flow, NOT absolute */}
+        {/* Focused widget with enhanced physics animations */}
         <AnimatePresence mode="popLayout">
           {focusedConfig && (
             <motion.div
               key={`focused-${focusedConfig.type}`}
               layout
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={widgetEnterAnimation.initial}
+              animate={{
+                ...widgetEnterAnimation.animate,
+                ...getWidgetFloatVariants(focusedConfig.type),
+              }}
+              exit={widgetEnterAnimation.exit}
+              whileHover={{ 
+                scale: PHYSICS_CONFIG.focus.scaleHovered,
+                boxShadow: "0 20px 50px rgba(34, 197, 94, 0.2)",
+              }}
               transition={{ type: "spring", damping: 28, stiffness: 350, mass: 0.8 }}
-              className="w-full shrink-0"
-              draggable
-              onDragStart={(e) => handleWidgetDragStart(e, focusedConfig)}
+              className="w-full shrink-0 z-20"
+              drag
+              dragConstraints={canvasRef}
+              dragElastic={0.1}
+              dragMomentum={true}
+              whileDrag={{ 
+                scale: 1.02, 
+                boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
+                zIndex: 100,
+              }}
+              onDragStart={(e: any) => handleWidgetDragStart(e, focusedConfig)}
             >
-              <div className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-2xl overflow-hidden shadow-xl ring-1 ring-primary/20">
+              <motion.div 
+                className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-2xl overflow-hidden shadow-xl"
+                animate={glowPulseAnimation.animate}
+              >
                 <div className={cn("flex items-center justify-between px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${focusedConfig.gradient}`)}>
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{focusedConfig.icon}</span>
+                    <span className="text-base">{typeof focusedConfig.icon === 'string' ? focusedConfig.icon : focusedConfig.icon}</span>
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{focusedConfig.label}</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -285,43 +419,54 @@ export function FluidSearchCanvas({
                     onAddToNotepad={handleAddToNotepad}
                   />
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Context widget pills -- always visible row below focused */}
+        {/* Context widget pills with floating animations */}
         {contextWidgets.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 shrink-0">
-            {contextWidgets.map((config, i) => (
-              <motion.button
-                key={config.type}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{
-                  opacity: 1,
-                  scale: 1,
-                  y: [0, -3, 0],
-                  transition: {
-                    opacity: { duration: 0.2, delay: i * 0.05 },
-                    scale: { duration: 0.2, delay: i * 0.05 },
-                    y: { duration: 3 + i * 0.4, repeat: Infinity, ease: "easeInOut" },
-                  },
-                }}
-                whileHover={{ scale: 1.08, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleFocusWidget({ type: config.type })}
-                draggable
-                onDragStart={(e: any) => handleWidgetDragStart(e, config)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-2xl cursor-pointer",
-                  "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
-                  "shadow-md hover:shadow-lg transition-shadow"
-                )}
-              >
-                <span className="text-base">{config.icon}</span>
-                <span className="text-xs font-medium text-muted-foreground">{config.label}</span>
-              </motion.button>
-            ))}
+          <div className="flex flex-wrap justify-center gap-3 shrink-0 py-2">
+            {contextWidgets.map((config, i) => {
+              const floatVariants = getWidgetFloatVariants(config.type)
+              return (
+                <motion.button
+                  key={config.type}
+                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                  animate={{
+                    opacity: 1,
+                    scale: 1,
+                    ...floatVariants,
+                  }}
+                  whileHover={{ 
+                    scale: 1.12, 
+                    y: -5,
+                    boxShadow: "0 15px 35px rgba(34, 197, 94, 0.25)",
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleFocusWidget({ type: config.type })}
+                  drag
+                  dragConstraints={canvasRef}
+                  dragElastic={0.2}
+                  whileDrag={{ 
+                    scale: 1.1, 
+                    zIndex: 50,
+                    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                  }}
+                  onDragStart={(e: any) => handleWidgetDragStart(e, config)}
+                  style={{ zIndex: 10 - i }}
+                  className={cn(
+                    "flex items-center gap-2 px-5 py-2.5 rounded-2xl cursor-pointer",
+                    "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
+                    "shadow-lg hover:shadow-xl transition-all duration-300",
+                    `bg-gradient-to-br ${config.gradient}`
+                  )}
+                >
+                  <span className="text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
+                  <span className="text-xs font-medium text-foreground/80">{config.label}</span>
+                </motion.button>
+              )
+            })}
           </div>
         )}
 
