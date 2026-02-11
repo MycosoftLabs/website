@@ -6,9 +6,16 @@
  * - Conversational context
  * - Related entity tracking
  * - Session continuity
+ * - Cross-session user interests (localStorage)
+ * - AI context building
  */
 
-// Types
+import type { SearchIntent } from "./intent-parser"
+
+// =============================================================================
+// TYPES
+// =============================================================================
+
 export interface SearchEntry {
   id: string
   query: string
@@ -407,10 +414,243 @@ class SearchSessionMemory {
   }
 }
 
-// Singleton instance
+// =============================================================================
+// PERSISTENT USER INTERESTS (cross-session via localStorage)
+// =============================================================================
+
+const INTERESTS_KEY = "mycosoft_user_interests"
+const MAX_INTERESTS = 50
+
+export interface UserInterest {
+  topic: string
+  category: "species" | "compound" | "research" | "location" | "general"
+  score: number // 0-1, increases with interactions
+  firstSeen: string
+  lastSeen: string
+  interactions: number
+}
+
+export interface PersistentUserContext {
+  interests: UserInterest[]
+  topTopics: string[]
+  preferredResultTypes: string[]
+  exploredAreas: string[]
+  searchPatterns: {
+    avgQueriesPerSession: number
+    prefersToxicityInfo: boolean
+    prefersLocationInfo: boolean
+    prefersPsychedelicContent: boolean
+  }
+}
+
+class UserInterestsManager {
+  private interests: UserInterest[] = []
+
+  constructor() {
+    this.loadInterests()
+  }
+
+  private loadInterests(): void {
+    if (typeof window === "undefined") return
+    try {
+      const stored = localStorage.getItem(INTERESTS_KEY)
+      if (stored) {
+        this.interests = JSON.parse(stored)
+      }
+    } catch {
+      this.interests = []
+    }
+  }
+
+  private saveInterests(): void {
+    if (typeof window === "undefined") return
+    try {
+      localStorage.setItem(INTERESTS_KEY, JSON.stringify(this.interests))
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  /**
+   * Record user interest from a search
+   */
+  recordInterest(
+    topic: string,
+    category: UserInterest["category"],
+    weight: number = 1
+  ): void {
+    const now = new Date().toISOString()
+    const existing = this.interests.find(
+      (i) => i.topic.toLowerCase() === topic.toLowerCase()
+    )
+
+    if (existing) {
+      existing.interactions++
+      existing.lastSeen = now
+      // Decay-adjusted score increase
+      existing.score = Math.min(1, existing.score + 0.1 * weight)
+    } else {
+      this.interests.push({
+        topic,
+        category,
+        score: 0.3 * weight,
+        firstSeen: now,
+        lastSeen: now,
+        interactions: 1,
+      })
+    }
+
+    // Trim and sort by score
+    this.interests.sort((a, b) => b.score - a.score)
+    this.interests = this.interests.slice(0, MAX_INTERESTS)
+
+    // Decay old interests
+    this.decayInterests()
+    this.saveInterests()
+  }
+
+  /**
+   * Apply time-based decay to interest scores
+   */
+  private decayInterests(): void {
+    const now = Date.now()
+    this.interests = this.interests.map((interest) => {
+      const lastSeen = new Date(interest.lastSeen).getTime()
+      const daysSinceLastSeen = (now - lastSeen) / (1000 * 60 * 60 * 24)
+      // Decay 5% per day of inactivity
+      const decay = Math.pow(0.95, daysSinceLastSeen)
+      return {
+        ...interest,
+        score: interest.score * decay,
+      }
+    }).filter((i) => i.score > 0.01) // Remove very low scores
+  }
+
+  /**
+   * Get top interests
+   */
+  getTopInterests(limit: number = 10): UserInterest[] {
+    return this.interests.slice(0, limit)
+  }
+
+  /**
+   * Get interests by category
+   */
+  getInterestsByCategory(category: UserInterest["category"]): UserInterest[] {
+    return this.interests.filter((i) => i.category === category)
+  }
+
+  /**
+   * Build AI context from user interests
+   */
+  buildInterestContext(): string {
+    const parts: string[] = []
+    
+    const topInterests = this.getTopInterests(5)
+    if (topInterests.length > 0) {
+      parts.push(`User interests: ${topInterests.map((i) => i.topic).join(", ")}`)
+    }
+
+    const speciesInterests = this.getInterestsByCategory("species").slice(0, 3)
+    if (speciesInterests.length > 0) {
+      parts.push(`Favorite species: ${speciesInterests.map((i) => i.topic).join(", ")}`)
+    }
+
+    return parts.join(". ")
+  }
+
+  /**
+   * Record interests from parsed search intent
+   */
+  recordFromIntent(intent: SearchIntent): void {
+    // Record entities as interests
+    for (const entity of intent.entities) {
+      this.recordInterest(
+        entity,
+        intent.type === "compound" ? "compound" : "species",
+        0.8
+      )
+    }
+
+    // Record keywords
+    for (const keyword of intent.keywords.slice(0, 3)) {
+      this.recordInterest(keyword, "general", 0.5)
+    }
+
+    // Record location interest if present
+    if (intent.filters.location) {
+      const locName = intent.filters.location.city || 
+                      intent.filters.location.region || 
+                      intent.filters.location.state ||
+                      "location-based search"
+      this.recordInterest(locName, "location", 0.3)
+    }
+  }
+
+  /**
+   * Get user context for personalization
+   */
+  getUserContext(): PersistentUserContext {
+    return {
+      interests: this.interests,
+      topTopics: this.interests.slice(0, 10).map((i) => i.topic),
+      preferredResultTypes: this.inferPreferredResultTypes(),
+      exploredAreas: this.getInterestsByCategory("location").map((i) => i.topic),
+      searchPatterns: this.inferSearchPatterns(),
+    }
+  }
+
+  private inferPreferredResultTypes(): string[] {
+    const typeCounts: Record<string, number> = {}
+    for (const interest of this.interests) {
+      typeCounts[interest.category] = (typeCounts[interest.category] || 0) + interest.score
+    }
+    return Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type]) => type)
+  }
+
+  private inferSearchPatterns() {
+    const topics = this.interests.map((i) => i.topic.toLowerCase()).join(" ")
+    return {
+      avgQueriesPerSession: this.interests.reduce((sum, i) => sum + i.interactions, 0) / Math.max(1, this.interests.length),
+      prefersToxicityInfo: topics.includes("poison") || topics.includes("toxic") || topics.includes("deadly"),
+      prefersLocationInfo: this.getInterestsByCategory("location").length > 2,
+      prefersPsychedelicContent: topics.includes("psilocybin") || topics.includes("psychedelic") || topics.includes("magic"),
+    }
+  }
+
+  /**
+   * Clear all interests
+   */
+  clearInterests(): void {
+    this.interests = []
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(INTERESTS_KEY)
+    }
+  }
+}
+
+// Singleton instances
 export const searchSessionMemory = new SearchSessionMemory()
+export const userInterestsManager = new UserInterestsManager()
 
 // React hook for session memory
 export function useSearchSession() {
   return searchSessionMemory
+}
+
+// React hook for user interests
+export function useUserInterests() {
+  return userInterestsManager
+}
+
+/**
+ * Build complete AI context from session + interests
+ */
+export function buildCompleteSearchContext(): string {
+  const sessionContext = searchSessionMemory.buildContextSummary()
+  const interestContext = userInterestsManager.buildInterestContext()
+  
+  return [sessionContext, interestContext].filter(Boolean).join("\n\n")
 }
