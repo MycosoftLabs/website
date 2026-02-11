@@ -1,10 +1,15 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+/**
+ * Scientific Lab Instruments API
+ * 
+ * NO MOCK DATA - returns real instruments or empty array if unavailable
+ */
+import { NextRequest, NextResponse } from 'next/server'
 
 const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
 
 export async function GET() {
   try {
-    const response = await fetch(`${MAS_URL}/scientific/lab/instruments`, {
+    const response = await fetch(`${MAS_URL}/api/scientific/lab/instruments`, {
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     })
@@ -12,29 +17,25 @@ export async function GET() {
     if (response.ok) {
       const data = await response.json()
       return NextResponse.json({ 
-        instruments: data.instruments || data, 
+        instruments: data.instruments || data || [], 
         source: 'live' 
       })
     }
     
-    // Fallback to mock data if backend unavailable
+    // Return empty array when backend unavailable - NO MOCK DATA
     return NextResponse.json({
-      instruments: [
-        { id: 'inc-01', name: 'Incubator-01', type: 'incubator', status: 'online', temperature: 25.5, humidity: 85 },
-        { id: 'pip-01', name: 'Pipettor-A', type: 'pipettor', status: 'busy', currentTask: 'Sample transfer' },
-        { id: 'bio-01', name: 'Bioreactor-1', type: 'bioreactor', status: 'online' },
-        { id: 'mic-01', name: 'Microscope-HD', type: 'microscope', status: 'maintenance' },
-      ],
-      source: 'fallback',
+      instruments: [],
+      source: 'unavailable',
+      message: 'Lab instruments data temporarily unavailable. Connect MAS backend to see real instrument data.',
     })
   } catch (error) {
     console.error('Lab API Error:', error)
+    // Return empty array on error - NO MOCK DATA
     return NextResponse.json({
-      instruments: [
-        { id: 'inc-01', name: 'Incubator-01', type: 'incubator', status: 'online' },
-      ],
-      source: 'fallback',
+      instruments: [],
+      source: 'error',
       error: 'Backend unavailable',
+      message: 'Unable to fetch lab instruments. Please check MAS connection.',
     })
   }
 }

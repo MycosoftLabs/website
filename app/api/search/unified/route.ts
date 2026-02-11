@@ -22,56 +22,132 @@ const MINDEX_API_URL = process.env.MINDEX_DIRECT_URL || "http://192.168.0.189:80
 
 async function searchMindexSpecies(query: string, limit: number) {
   try {
+    // Correct MINDEX API endpoint: /api/mindex/taxa
     const res = await fetch(
-      `${MINDEX_API_URL}/mindex/species/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${MINDEX_API_URL}/api/mindex/taxa?q=${encodeURIComponent(query)}&limit=${limit}`,
       { signal: AbortSignal.timeout(6000) }
     )
     if (!res.ok) return []
     const data = await res.json()
-    return data.results || []
-  } catch {
+    // Transform MINDEX taxa response to unified format
+    const taxa = data.data || data.results || data || []
+    return Array.isArray(taxa) ? taxa.map((t: any) => ({
+      id: `mindex-${t.id}`,
+      scientificName: t.scientific_name || t.name || "",
+      commonName: t.common_name || t.preferred_common_name || "",
+      taxonomy: {
+        kingdom: t.kingdom || "Fungi",
+        phylum: t.phylum || "",
+        class: t.class || "",
+        order: t.order || "",
+        family: t.family || "",
+        genus: t.genus || "",
+      },
+      description: t.description || `Species: ${t.scientific_name || t.name}`,
+      photos: t.image_url ? [{
+        id: String(t.id),
+        url: t.image_url,
+        medium_url: t.image_url,
+        large_url: t.image_url,
+        attribution: "MINDEX",
+      }] : [],
+      observationCount: t.observation_count || 0,
+      rank: t.rank || "species",
+      _source: "MINDEX",
+    })) : []
+  } catch (error) {
+    console.error("MINDEX species search error:", error)
     return []
   }
 }
 
 async function searchMindexCompounds(query: string, limit: number) {
   try {
+    // Correct MINDEX API endpoint: /api/mindex/compounds
     const res = await fetch(
-      `${MINDEX_API_URL}/mindex/compounds/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${MINDEX_API_URL}/api/mindex/compounds?search=${encodeURIComponent(query)}&limit=${limit}`,
       { signal: AbortSignal.timeout(5000) }
     )
     if (!res.ok) return []
     const data = await res.json()
-    return data.results || []
-  } catch {
+    // Transform MINDEX compounds response to unified format
+    const compounds = data.data || data.results || data || []
+    return Array.isArray(compounds) ? compounds.map((c: any) => ({
+      id: `mindex-cmp-${c.id}`,
+      name: c.name || c.compound_name || "",
+      formula: c.molecular_formula || c.formula || "",
+      molecularWeight: c.molecular_weight || 0,
+      smiles: c.smiles || "",
+      inchi: c.inchi || "",
+      cas: c.cas_number || "",
+      description: c.description || "",
+      bioactivity: c.bioactivity || [],
+      sources: c.sources || [],
+      _source: "MINDEX",
+    })) : []
+  } catch (error) {
+    console.error("MINDEX compounds search error:", error)
     return []
   }
 }
 
 async function searchMindexSequences(query: string, limit: number) {
   try {
+    // TODO: Create /api/mindex/genetics/search endpoint in MINDEX API
+    // For now, return empty until the genetics endpoint is created
     const res = await fetch(
-      `${MINDEX_API_URL}/mindex/sequences/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${MINDEX_API_URL}/api/mindex/genetics?search=${encodeURIComponent(query)}&limit=${limit}`,
       { signal: AbortSignal.timeout(5000) }
     )
-    if (!res.ok) return []
+    if (!res.ok) {
+      // Endpoint may not exist yet - this is expected
+      return []
+    }
     const data = await res.json()
-    return data.results || []
-  } catch {
+    const sequences = data.data || data.results || data || []
+    return Array.isArray(sequences) ? sequences.map((s: any) => ({
+      id: `mindex-seq-${s.id}`,
+      accession: s.accession || s.genbank_id || "",
+      speciesName: s.species_name || s.taxon_name || "",
+      gene: s.gene || s.region || "",
+      sequence: s.sequence || "",
+      length: s.sequence_length || (s.sequence?.length || 0),
+      source: s.source || "GenBank",
+      _source: "MINDEX",
+    })) : []
+  } catch (error) {
+    // Don't log error for 404 - endpoint may not exist yet
     return []
   }
 }
 
 async function searchMindexResearch(query: string, limit: number) {
   try {
+    // TODO: Create /api/mindex/research/search endpoint in MINDEX API
+    // For now, return empty until the research endpoint is created
     const res = await fetch(
-      `${MINDEX_API_URL}/mindex/research/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${MINDEX_API_URL}/api/mindex/research?search=${encodeURIComponent(query)}&limit=${limit}`,
       { signal: AbortSignal.timeout(5000) }
     )
-    if (!res.ok) return []
+    if (!res.ok) {
+      // Endpoint may not exist yet - this is expected
+      return []
+    }
     const data = await res.json()
-    return data.results || []
-  } catch {
+    const research = data.data || data.results || data || []
+    return Array.isArray(research) ? research.map((r: any) => ({
+      id: `mindex-res-${r.id}`,
+      title: r.title || "",
+      authors: r.authors || [],
+      journal: r.journal || r.source || "",
+      year: r.year || r.publication_year || 0,
+      doi: r.doi || "",
+      abstract: r.abstract || "",
+      relatedSpecies: r.related_species || [],
+      _source: "MINDEX",
+    })) : []
+  } catch (error) {
+    // Don't log error for 404 - endpoint may not exist yet
     return []
   }
 }

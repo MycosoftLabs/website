@@ -65,7 +65,8 @@ export class FCIWebSocketClient {
 
     this.setStatus("connecting")
     
-    const wsUrl = `${this.config.url}/ws/fci/${this.config.deviceId}`
+    // Correct endpoint: /api/fci/ws/stream/{device_id}
+    const wsUrl = `${this.config.url}/api/fci/ws/stream/${this.config.deviceId}`
     
     try {
       this.ws = new WebSocket(wsUrl)
@@ -89,12 +90,11 @@ export class FCIWebSocketClient {
 
   sendSDRConfig(config: SDRConfig): void {
     this.sdrConfig = config
+    // Server expects: {"type": "sdr_config", "config": {...}}
     this.send({
-      type: "config_update",
-      deviceId: this.config.deviceId,
-      timestamp: new Date().toISOString(),
-      payload: { sdrConfig: config },
-    })
+      type: "sdr_config",
+      config: config,
+    } as any)
   }
 
   sendStimulationCommand(command: {
@@ -104,12 +104,20 @@ export class FCIWebSocketClient {
     duration: number
     channel: number
   }): void {
+    // Server expects: {"type": "stimulate", "command": {...}}
     this.send({
-      type: "config_update",
-      deviceId: this.config.deviceId,
-      timestamp: new Date().toISOString(),
-      payload: { stimulation: command },
-    })
+      type: "stimulate",
+      command: command,
+    } as any)
+  }
+
+  setPattern(pattern: string): void {
+    // Dev mode: set simulated pattern
+    // Server expects: {"type": "set_pattern", "pattern": "..."}
+    this.send({
+      type: "set_pattern",
+      pattern: pattern,
+    } as any)
   }
 
   private setupEventHandlers(): void {
@@ -154,24 +162,45 @@ export class FCIWebSocketClient {
   }
 
   private handleMessage(message: WSMessage): void {
-    switch (message.type as WSMessageType) {
+    // Server may send data in 'payload' or directly in message body
+    // Handle both formats for compatibility
+    switch (message.type as WSMessageType | string) {
       case "sample":
-        this.config.onSample?.(message.payload as WSSamplePayload)
+        // Server sends: {"type": "sample", "timestamp": ..., "channels": [...]}
+        this.config.onSample?.(message.payload || message as unknown as WSSamplePayload)
         break
       case "spectrum":
-        this.config.onSpectrum?.(message.payload as WSSpectrumPayload)
+        this.config.onSpectrum?.(message.payload || message as unknown as WSSpectrumPayload)
         break
       case "pattern":
-        this.config.onPattern?.(message.payload as WSPatternPayload)
+        this.config.onPattern?.(message.payload || message as unknown as WSPatternPayload)
         break
       case "event":
-        this.config.onEvent?.(message.payload as WSEventPayload)
+        this.config.onEvent?.(message.payload || message as unknown as WSEventPayload)
+        break
+      case "device_connected":
+      case "device_disconnected":
+        // Hot-plug events - broadcast to listeners
+        this.config.onEvent?.({
+          type: message.type,
+          timestamp: new Date().toISOString(),
+          data: message,
+        } as unknown as WSEventPayload)
         break
       case "status":
         // Handle status updates
         break
+      case "config_ack":
+      case "stimulate_ack":
+      case "pattern_set":
+        // Acknowledgement messages - log for debugging
+        console.log(`[FCIWebSocket] ${message.type}:`, message)
+        break
+      case "pong":
+        // Keep-alive response - no action needed
+        break
       case "error":
-        this.handleError(new Error(String(message.payload)))
+        this.handleError(new Error(String(message.payload || (message as any).message)))
         break
     }
   }

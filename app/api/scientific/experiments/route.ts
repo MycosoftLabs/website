@@ -1,10 +1,15 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+/**
+ * Scientific Experiments API
+ * 
+ * NO MOCK DATA - returns real experiments or empty array if unavailable
+ */
+import { NextRequest, NextResponse } from 'next/server'
 
 const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
 
 export async function GET() {
   try {
-    const response = await fetch(`${MAS_URL}/scientific/experiments`, {
+    const response = await fetch(`${MAS_URL}/api/scientific/experiments`, {
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     })
@@ -12,28 +17,28 @@ export async function GET() {
     if (response.ok) {
       const data = await response.json()
       return NextResponse.json({ 
-        experiments: data.experiments || data, 
-        stats: data.stats || {},
+        experiments: data.experiments || data || [], 
+        stats: data.stats || { running: 0, pending: 0, completed: 0, failed: 0 },
         source: 'live' 
       })
     }
     
+    // Return empty data when backend unavailable - NO MOCK DATA
     return NextResponse.json({
-      experiments: [
-        { id: 'E-042', name: 'Bioelectric Mapping - P. ostreatus', status: 'running', currentStep: 3, totalSteps: 7, startedAt: '2026-02-03T08:00:00Z' },
-        { id: 'E-041', name: 'Growth Rate Optimization', status: 'completed', currentStep: 5, totalSteps: 5 },
-        { id: 'E-043', name: 'Spore Germination Analysis', status: 'pending', currentStep: 0, totalSteps: 4 },
-      ],
-      stats: { running: 1, pending: 1, completed: 1, failed: 0 },
-      source: 'fallback',
+      experiments: [],
+      stats: { running: 0, pending: 0, completed: 0, failed: 0 },
+      source: 'unavailable',
+      message: 'Experiments data temporarily unavailable. Connect MAS backend to see experiment data.',
     })
   } catch (error) {
     console.error('Experiments API Error:', error)
+    // Return empty data on error - NO MOCK DATA
     return NextResponse.json({
       experiments: [],
-      stats: {},
-      source: 'fallback',
+      stats: { running: 0, pending: 0, completed: 0, failed: 0 },
+      source: 'error',
       error: 'Backend unavailable',
+      message: 'Unable to fetch experiments. Please check MAS connection.',
     })
   }
 }

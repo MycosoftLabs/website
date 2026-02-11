@@ -3,7 +3,10 @@
  * Connects to the local PersonaPlex/Moshi server on RTX 5090
  * 
  * Created: February 3, 2026
+ * Updated: February 11, 2026 - Added Opus codec support
  */
+
+import { OpusEncoder, OpusDecoder, isOpusSupported } from './opus-codec'
 
 export interface PersonaPlexConfig {
   serverUrl: string
@@ -40,7 +43,9 @@ export class PersonaPlexClient {
   private audioContext: AudioContext | null = null
   private workletNode: AudioWorkletNode | null = null
   private mediaStream: MediaStream | null = null
-  private opusEncoder: any = null
+  private opusEncoder: OpusEncoder | null = null
+  private opusDecoder: OpusDecoder | null = null
+  private useOpus: boolean = false
   private status: ConnectionStatus = "disconnected"
   
   // Audio stats tracking
@@ -103,6 +108,28 @@ export class PersonaPlexClient {
     this.setStatus("connecting")
     
     try {
+      // Check for Opus support and initialize codec
+      this.useOpus = await isOpusSupported()
+      this.log("info", `Opus codec support: ${this.useOpus}`)
+      
+      if (this.useOpus) {
+        // Initialize Opus encoder
+        this.opusEncoder = new OpusEncoder({ sampleRate: 24000, channels: 1 })
+        await this.opusEncoder.initialize()
+        this.opusEncoder.onEncoded((data) => {
+          this.sendEncodedAudio(data)
+        })
+        
+        // Initialize Opus decoder
+        this.opusDecoder = new OpusDecoder({ sampleRate: 24000, channels: 1 })
+        await this.opusDecoder.initialize()
+        this.opusDecoder.onDecoded((pcmData) => {
+          this.playDecodedAudio(pcmData)
+        })
+        
+        this.log("info", "Opus encoder/decoder initialized")
+      }
+      
       // Initialize audio context
       this.audioContext = new AudioContext({ sampleRate: 24000 })
       this.log("debug", `AudioContext created: sampleRate=${this.audioContext.sampleRate}`)
@@ -233,10 +260,15 @@ export class PersonaPlexClient {
       processor.onaudioprocess = (event) => {
         if (this.ws?.readyState === WebSocket.OPEN) {
           const inputData = event.inputBuffer.getChannelData(0)
-          // Convert to bytes and send
-          // In production, encode to Opus first
-          const bytes = new Float32Array(inputData)
-          this.sendAudio(bytes.buffer)
+          
+          if (this.useOpus && this.opusEncoder) {
+            // Encode to Opus (async - callback will send)
+            this.opusEncoder.encode(new Float32Array(inputData))
+          } else {
+            // Fallback: send raw Float32
+            const bytes = new Float32Array(inputData)
+            this.sendAudio(bytes.buffer)
+          }
         }
       }
       
@@ -261,6 +293,37 @@ export class PersonaPlexClient {
     }
   }
   
+  private sendEncodedAudio(data: Uint8Array) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      // Prefix with kind=2 for Opus-encoded audio
+      const prefixed = new Uint8Array(data.byteLength + 1)
+      prefixed[0] = 2 // Opus audio marker
+      prefixed.set(data, 1)
+      this.ws.send(prefixed)
+      this.stats.packetsSent++
+    }
+  }
+  
+  private playDecodedAudio(pcmData: Float32Array) {
+    if (!this.audioContext) return
+    
+    // Create audio buffer and play
+    const buffer = this.audioContext.createBuffer(1, pcmData.length, this.audioContext.sampleRate)
+    buffer.getChannelData(0).set(pcmData)
+    
+    const source = this.audioContext.createBufferSource()
+    source.buffer = buffer
+    source.connect(this.audioContext.destination)
+    source.start()
+    
+    this.stats.playedAudioDuration += pcmData.length / this.audioContext.sampleRate
+    // Float32Array.buffer is typed as ArrayBufferLike (can be SharedArrayBuffer).
+    // Ensure we only pass an ArrayBuffer to consumers.
+    const arrayBuffer =
+      pcmData.buffer instanceof ArrayBuffer ? pcmData.buffer : new Float32Array(pcmData).buffer
+    this.config.onAudioReceived?.(arrayBuffer)
+  }
+  
   disconnect() {
     this.log("info", "Disconnecting...")
     this.cleanup()
@@ -279,6 +342,14 @@ export class PersonaPlexClient {
     if (this.audioContext) {
       this.audioContext.close()
       this.audioContext = null
+    }
+    if (this.opusEncoder) {
+      this.opusEncoder.close()
+      this.opusEncoder = null
+    }
+    if (this.opusDecoder) {
+      this.opusDecoder.close()
+      this.opusDecoder = null
     }
   }
   

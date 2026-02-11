@@ -18,8 +18,8 @@
  * </LazyLoader>
  * 
  * // Optimized navigation
- * <PrefetchLink href="/dashboard" prefetchOnView>
- *   Dashboard
+ * <PrefetchLink href="/natureos" prefetchOnView>
+ *   NatureOS
  * </PrefetchLink>
  * ```
  */

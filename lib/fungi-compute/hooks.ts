@@ -77,7 +77,7 @@ export function useFCIDevices() {
       fetchDevices().finally(() => setLoading(false))
     }
     // Don't poll - it causes re-renders
-  }, [])
+  }, [fetchDevices])
 
   return { devices, loading, error, refresh: fetchDevices }
 }
@@ -101,16 +101,22 @@ interface UseSignalStreamOptions {
   deviceId: string | null
   enabled?: boolean
   bufferSize?: number
+  demoMode?: boolean  // Explicit demo mode control - if true, use simulated data; if false, use real WebSocket
   onPattern?: (pattern: DetectedPattern) => void
   onEvent?: (event: FCIEvent) => void
+  onDeviceConnected?: (deviceId: string) => void  // Hot-plug callback
+  onDeviceDisconnected?: (deviceId: string) => void  // Hot-plug callback
 }
 
 export function useSignalStream({
   deviceId,
   enabled = true,
   bufferSize = 1024,
+  demoMode,  // If undefined, auto-detect from deviceId prefix "demo-"
   onPattern,
   onEvent,
+  onDeviceConnected,
+  onDeviceDisconnected,
 }: UseSignalStreamOptions) {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected")
   const [signalBuffer, setSignalBuffer] = useState<SignalBuffer[]>([])
@@ -121,6 +127,11 @@ export function useSignalStream({
   const clientRef = useRef<FCIWebSocketClient | null>(null)
   const bufferRef = useRef<Map<number, number[]>>(new Map())
   const demoIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Determine if we should use demo mode:
+  // - If demoMode is explicitly set, use that value
+  // - If demoMode is undefined, auto-detect from deviceId prefix "demo-"
+  const shouldUseDemoMode = demoMode ?? (deviceId?.startsWith("demo-") ?? false)
 
   // Demo mode simulation
   useEffect(() => {
@@ -137,7 +148,7 @@ export function useSignalStream({
 
     // Demo mode - visualization components handle their own animations
     // This hook only provides connection status and occasional events
-    if (deviceId.startsWith("demo-")) {
+    if (shouldUseDemoMode) {
       setStatus("connected")
       
       // Very slow interval just for patterns/events - components handle visuals
@@ -150,16 +161,20 @@ export function useSignalStream({
         if (Math.random() > 0.7) {
           const pattern: DetectedPattern = {
             id: Math.random().toString(36),
-            type: currentPatternType,
-            category: "metabolic",
-            timestamp: new Date().toISOString(),
+            deviceId: deviceId!,
+            channelId: 0,
+            pattern: currentPatternType as any,  // PatternType
+            category: "metabolic" as any,  // PatternCategory
             confidence: 0.6 + Math.random() * 0.3,
-            deviceId,
-            features: {
+            timestamp: new Date().toISOString(),
+            duration: 1 + Math.random() * 5,
+            semanticMeaning: `Demo ${currentPatternType} signal detected`,
+            implications: ["Demo mode - simulated data"],
+            recommendedActions: ["Connect real FCI device for live data"],
+            metadata: {
               avgAmplitude: 1 + Math.random() * 2,
               peakFrequency: 0.5 + Math.random() * 10,
               bandwidth: 2 + Math.random() * 5,
-              duration: 1 + Math.random() * 5,
             },
           }
           setPatterns(prev => [pattern, ...prev].slice(0, 20))
@@ -175,13 +190,7 @@ export function useSignalStream({
     }
 
     // Real WebSocket connection for non-demo devices
-    if (!deviceId || !enabled) {
-      clientRef.current?.disconnect()
-      clientRef.current = null
-      setStatus("disconnected")
-      return
-    }
-
+    // This happens when demoMode is explicitly false or device doesn't start with "demo-"
     const client = createFCIClient({
       deviceId,
       onStatusChange: setStatus,
@@ -214,8 +223,18 @@ export function useSignalStream({
         onPattern?.(payload.pattern)
       },
       onEvent: (payload: WSEventPayload) => {
-        setEvents(prev => [payload.event, ...prev].slice(0, 100))
-        onEvent?.(payload.event)
+        // Handle hot-plug events
+        const eventType = (payload as any).type || payload.event?.type
+        if (eventType === "device_connected") {
+          onDeviceConnected?.(deviceId!)
+        } else if (eventType === "device_disconnected") {
+          onDeviceDisconnected?.(deviceId!)
+        }
+        
+        // Add to events list
+        const event = payload.event || { type: eventType, timestamp: new Date().toISOString(), data: payload }
+        setEvents(prev => [event, ...prev].slice(0, 100))
+        onEvent?.(event)
       },
       onError: (error) => {
         console.error("[useSignalStream] Error:", error)
@@ -228,7 +247,7 @@ export function useSignalStream({
     return () => {
       client.disconnect()
     }
-  }, [deviceId, enabled, bufferSize, onPattern, onEvent])
+  }, [deviceId, enabled, bufferSize, shouldUseDemoMode, onPattern, onEvent, onDeviceConnected, onDeviceDisconnected])
 
   // Configure SDR filters
   const setSDRConfig = useCallback((config: SDRConfig) => {
@@ -255,9 +274,15 @@ export function useSignalStream({
     clientRef.current?.sendStimulationCommand(command)
   }, [])
 
+  // Set simulated pattern (dev mode)
+  const setPattern = useCallback((pattern: string) => {
+    clientRef.current?.setPattern(pattern)
+  }, [])
+
   return {
     status,
     isConnected: status === "connected",
+    isDemoMode: shouldUseDemoMode,
     signalBuffer,
     spectrum,
     patterns,
@@ -265,6 +290,7 @@ export function useSignalStream({
     setSDRConfig,
     applyPreset,
     sendStimulation,
+    setPattern,  // For testing: set simulated pattern on server
   }
 }
 
@@ -301,7 +327,7 @@ export function usePatternHistory(deviceId: string | null, hours: number = 24) {
       fetchPatterns()
     }
     // Don't poll - prevents re-renders
-  }, [deviceId, hours])
+  }, [deviceId, hours, fetchPatterns])
 
   // Compute pattern statistics
   const stats = useMemo(() => {
@@ -375,7 +401,7 @@ export function useSignalFingerprint(deviceId: string | null) {
     
     try {
       setLoading(true)
-      const res = await fetch(`/api/fungi-compute/fingerprint?device_id=${deviceId}`)
+      const res = await fetch(`/api/fci/fingerprint/${deviceId}`)
       if (!res.ok) throw new Error("Failed to fetch fingerprint")
       const data = await res.json()
       setFingerprint(data.fingerprint || null)
@@ -393,7 +419,7 @@ export function useSignalFingerprint(deviceId: string | null) {
       fetchFingerprint()
     }
     // Don't poll - components handle their own animation
-  }, [deviceId])
+  }, [deviceId, fetchFingerprint])
 
   return { fingerprint, loading, error, refresh: fetchFingerprint }
 }
@@ -413,7 +439,7 @@ export function useNLMAnalysis(deviceId: string | null) {
     
     try {
       setLoading(true)
-      const res = await fetch(`/api/fungi-compute/nlm?device_id=${deviceId}`)
+      const res = await fetch(`/api/fci/nlm/${deviceId}`)
       if (!res.ok) throw new Error("Failed to fetch NLM analysis")
       const data = await res.json()
       setAnalysis(data.analysis || null)
@@ -431,7 +457,7 @@ export function useNLMAnalysis(deviceId: string | null) {
       fetchAnalysis()
     }
     // Don't poll - prevents re-renders
-  }, [deviceId])
+  }, [deviceId, fetchAnalysis])
 
   return { analysis, loading, error, refresh: fetchAnalysis }
 }
@@ -451,7 +477,7 @@ export function useEventCorrelations(deviceId: string | null) {
     
     try {
       setLoading(true)
-      const res = await fetch(`/api/fungi-compute/correlations?device_id=${deviceId}`)
+      const res = await fetch(`/api/fci/correlations/${deviceId}`)
       if (!res.ok) throw new Error("Failed to fetch correlations")
       const data = await res.json()
       setCorrelations(data.correlations || [])
@@ -469,7 +495,7 @@ export function useEventCorrelations(deviceId: string | null) {
       fetchCorrelations()
     }
     // Don't poll - prevents re-renders
-  }, [deviceId])
+  }, [deviceId, fetchCorrelations])
 
   return { correlations, loading, error, refresh: fetchCorrelations }
 }

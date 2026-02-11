@@ -8,7 +8,8 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { Brain, Maximize2, Minimize2, Activity, Waves, Grid3X3, Zap, Radio } from "lucide-react"
+import { Brain, Maximize2, Minimize2, Activity, Waves, Grid3X3, Zap, Radio, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -141,6 +142,13 @@ export function FungiComputeDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/natureos">
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                NatureOS
+              </Button>
+            </Link>
+            
             <ConnectionStatus status={connectionStatus} />
             
             {selectedDevice && (

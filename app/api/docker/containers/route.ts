@@ -238,10 +238,22 @@ export async function POST(request: NextRequest) {
       case "clone":
         // Clone involves creating a new container from the same image
         // This would require getting container config and creating new
-        return NextResponse.json({ error: "Not implemented", code: "NOT_IMPLEMENTED" }, { status: 501 })
+        return NextResponse.json({ 
+          status: "coming_soon",
+          message: "Container cloning is under development. This feature will create a copy of the container with a new name.",
+          code: "FEATURE_COMING_SOON",
+          containerId,
+          expectedRelease: "Q2 2026",
+        }, { status: 503 })
       case "backup":
         // Backup would export container to tar and save to NAS
-        return NextResponse.json({ error: "Not implemented", code: "NOT_IMPLEMENTED" }, { status: 501 })
+        return NextResponse.json({ 
+          status: "coming_soon",
+          message: "Container backup is under development. This feature will export the container to NAS storage.",
+          code: "FEATURE_COMING_SOON",
+          containerId,
+          expectedRelease: "Q2 2026",
+        }, { status: 503 })
       case "export-proxmox":
         // Export to Proxmox would convert container to VM
         return NextResponse.json({

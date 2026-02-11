@@ -107,10 +107,13 @@ export async function GET(
     const tokens = await tokenResponse.json()
 
     // Store tokens securely (in production, use encrypted storage)
-    // For now, we'll store in a secure cookie or database
-    
-    // TODO: Store tokens in database linked to user
-    // await storeIntegrationTokens(userId, provider, tokens)
+    // NOTE: Pending implementation - Secure token storage requires:
+    // 1. Get authenticated user session via getServerSession(authOptions)
+    // 2. Encrypt tokens using lib/security/encryption.ts before storage
+    // 3. Store in Supabase integration_tokens table with user_id FK
+    // 4. Set token expiry and implement refresh flow
+    // SECURITY: Do not store tokens in cookies - use server-side DB only
+    // await storeIntegrationTokens(userId, provider, encryptedTokens)
 
     // Redirect to integrations page with success message
     const successUrl = new URL("/natureos/integrations", request.nextUrl.origin)

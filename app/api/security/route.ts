@@ -1279,7 +1279,11 @@ async function blockIP(ip: string, reason: string) {
     metadata: { reason, blocked_by: 'api' }
   });
 
-  // TODO: Integrate with UniFi to actually block the IP
+  // NOTE: Pending implementation - UniFi integration requires:
+  // 1. UniFi Controller API client at lib/unifi/client.ts
+  // 2. Call POST /api/s/{site}/cmd/stamgr with cmd: 'block-sta'
+  // 3. Requires UNIFI_CONTROLLER_URL and UNIFI_API_TOKEN env vars
+  // Currently logging only - blocks are recorded but not enforced at network level
   console.log(`IP blocked: ${ip} - Reason: ${reason}`);
 
   return NextResponse.json({
@@ -1309,7 +1313,11 @@ async function unblockIP(ip: string) {
 }
 
 async function updateAuthorizedUser(data: Partial<AuthorizedUser>) {
-  // TODO: Implement user update with proper file writing
+  // NOTE: Pending implementation - User updates require:
+  // 1. Secure file write to authorized_users.json with atomic operations
+  // 2. Input validation for all user fields
+  // 3. Audit logging for compliance
+  // Currently returns guidance message - manual update required for security
   console.log(`Updating authorized user: ${data.id}`);
   
   return NextResponse.json({
@@ -1539,11 +1547,11 @@ async function quarantineDevice(mac: string, reason: string) {
       metadata: { mac, reason, quarantined_by: 'api' },
     });
 
-    // TODO: Call UniFi API to move device to VLAN 99
-    // This requires:
-    // 1. Find the device by MAC
-    // 2. Update its network assignment to VLAN 99
-    // 3. Optionally block internet access
+    // NOTE: Pending implementation - VLAN quarantine requires:
+    // 1. UniFi Controller client: POST /api/s/{site}/rest/user/{user_id}
+    // 2. Set usergroup_id to VLAN 99 group ID
+    // 3. Requires UNIFI_QUARANTINE_VLAN_GROUP_ID env var
+    // Currently logging only - quarantine is recorded but not enforced
     
     console.log(`[Security] Device quarantined: ${mac} - Reason: ${reason}`);
 
@@ -1574,8 +1582,11 @@ async function unquarantineDevice(mac: string) {
       metadata: { mac, unquarantined_by: 'api' },
     });
 
-    // TODO: Call UniFi API to restore device to original VLAN
-    
+    // NOTE: Pending implementation - Restore VLAN requires:
+    // 1. Look up device's original VLAN from quarantine record
+    // 2. UniFi Controller: POST /api/s/{site}/rest/user/{user_id}
+    // 3. Set usergroup_id back to original group
+    // Currently logging only - unquarantine is recorded but VLAN not restored
     console.log(`[Security] Device unquarantined: ${mac}`);
 
     return NextResponse.json({

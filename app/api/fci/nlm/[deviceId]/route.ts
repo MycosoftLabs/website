@@ -2,6 +2,8 @@
  * FCI NLM Analysis API Route
  * 
  * GET /api/fci/nlm/[deviceId] - Get NLM analysis for a device
+ * 
+ * NO MOCK DATA - returns real NLM analysis or error if unavailable
  */
 
 import { NextRequest, NextResponse } from "next/server"
@@ -27,9 +29,17 @@ export async function GET(
     )
     
     if (!response.ok) {
-      // Return simulated analysis if endpoint doesn't exist
+      // Return proper error for 404 - NO MOCK DATA
       if (response.status === 404) {
-        return NextResponse.json(generateSimulatedAnalysis(deviceId))
+        return NextResponse.json({
+          error: "NLM analysis not available for this device",
+          device_id: deviceId,
+          message: "No NLM analysis data found. Ensure the device is connected and has sufficient signal data for analysis.",
+          growth_phase: null,
+          bioactivity_predictions: [],
+          environmental_correlations: [],
+          recommendations: [],
+        }, { status: 404 })
       }
       
       const error = await response.text()
@@ -44,41 +54,16 @@ export async function GET(
   } catch (error) {
     console.error("FCI NLM analysis error:", error)
     const { deviceId } = await params
-    return NextResponse.json(generateSimulatedAnalysis(deviceId))
-  }
-}
-
-function generateSimulatedAnalysis(deviceId: string) {
-  const phases = ["lag", "exponential", "stationary", "colonization", "fruiting"]
-  const compounds = [
-    { compound: "Psilocybin", action: "Tryptamine biosynthesis pathway active" },
-    { compound: "Ergosterol", action: "Membrane synthesis indicator" },
-    { compound: "Chitin", action: "Cell wall formation in progress" },
-    { compound: "Trehalose", action: "Stress protection compound accumulating" },
-  ]
-  const factors = [
-    { factor: "Temperature", suggestion: "Optimal range detected" },
-    { factor: "Humidity", suggestion: "Consider increasing moisture" },
-    { factor: "CO2 Level", suggestion: "Ventilation appears adequate" },
-    { factor: "Light Cycle", suggestion: "Circadian rhythm normal" },
-  ]
-  
-  return {
-    device_id: deviceId,
-    growth_phase: phases[Math.floor(Math.random() * phases.length)],
-    bioactivity_predictions: compounds.slice(0, 2 + Math.floor(Math.random() * 2)).map(c => ({
-      ...c,
-      confidence: 0.5 + Math.random() * 0.45,
-    })),
-    environmental_correlations: factors.slice(0, 2 + Math.floor(Math.random() * 2)).map(f => ({
-      ...f,
-      correlation: (Math.random() - 0.5) * 1.6,
-    })),
-    recommendations: [
-      "Signal patterns indicate healthy mycelium activity",
-      "Monitor for any sudden amplitude changes",
-      "Consider correlating with environmental sensors",
-    ].slice(0, 1 + Math.floor(Math.random() * 2)),
-    timestamp: new Date().toISOString(),
+    
+    // Return error response - NO MOCK DATA
+    return NextResponse.json({
+      error: "Unable to fetch NLM analysis",
+      device_id: deviceId,
+      message: "Backend unavailable. Please check MAS connection.",
+      growth_phase: null,
+      bioactivity_predictions: [],
+      environmental_correlations: [],
+      recommendations: [],
+    }, { status: 503 })
   }
 }
