@@ -132,24 +132,24 @@ export function AIWidget({
         : "text-red-500"
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-3 sm:space-y-4", className)}>
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 rounded-lg shrink-0">
-          <Sparkles className="h-5 w-5 text-violet-500" />
+      <div className="flex items-start gap-2 sm:gap-3">
+        <div className="p-1.5 sm:p-2 bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 rounded-md sm:rounded-lg shrink-0">
+          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-violet-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold">MYCA AI</h3>
-            <Badge variant="outline" className={cn("text-xs", confidenceColor)}>
-              {Math.round(answer.confidence * 100)}% confident
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <h3 className="font-semibold text-sm sm:text-base">MYCA AI</h3>
+            <Badge variant="outline" className={cn("text-[10px] sm:text-xs", confidenceColor)}>
+              {Math.round(answer.confidence * 100)}%
             </Badge>
           </div>
         </div>
       </div>
 
       {/* Main answer */}
-      <div className="text-sm leading-relaxed">{answer.text}</div>
+      <div className="text-xs sm:text-sm leading-relaxed">{answer.text}</div>
 
       {/* Follow-up conversation */}
       <AnimatePresence>
@@ -178,18 +178,18 @@ export function AIWidget({
 
       {/* Follow-up input -- ALWAYS visible */}
       <div className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <Input
             value={followUpQuestion}
             onChange={(e) => setFollowUpQuestion(e.target.value)}
-            placeholder="Ask a follow-up question..."
-            className="text-sm h-9"
+            placeholder="Ask a follow-up..."
+            className="text-sm h-10 sm:h-9"
             onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
             disabled={isAsking}
           />
           <Button
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
             onClick={() => handleFollowUp()}
             disabled={!followUpQuestion.trim() || isAsking}
           >
@@ -203,64 +203,64 @@ export function AIWidget({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="space-y-3"
+          className="space-y-2 sm:space-y-3"
         >
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-3 text-xs"
+              className="h-8 sm:h-7 px-2.5 sm:px-3 text-[10px] sm:text-xs"
               onClick={() => handleFollowUp("Tell me more about the chemical compounds")}
               disabled={isAsking}
             >
-              More about compounds
+              Compounds
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-3 text-xs"
+              className="h-8 sm:h-7 px-2.5 sm:px-3 text-[10px] sm:text-xs"
               onClick={() => handleFollowUp("What are the medicinal properties?")}
               disabled={isAsking}
             >
-              Medicinal properties
+              Medicinal
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-3 text-xs"
+              className="h-8 sm:h-7 px-2.5 sm:px-3 text-[10px] sm:text-xs"
               onClick={() => handleFollowUp("How is this species cultivated?")}
               disabled={isAsking}
             >
-              Cultivation info
+              Cultivation
             </Button>
           </div>
 
           {/* Feedback */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Was this helpful?</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="text-[10px] sm:text-xs text-muted-foreground">Helpful?</span>
             <Button
               variant={feedbackGiven === true ? "default" : "outline"}
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 sm:h-7 sm:w-7"
               onClick={() => handleFeedback(true)}
               disabled={feedbackGiven !== null}
             >
-              <ThumbsUp className="h-3 w-3" />
+              <ThumbsUp className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </Button>
             <Button
               variant={feedbackGiven === false ? "destructive" : "outline"}
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 sm:h-7 sm:w-7"
               onClick={() => handleFeedback(false)}
               disabled={feedbackGiven !== null}
             >
-              <ThumbsDown className="h-3 w-3" />
+              <ThumbsDown className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
             </Button>
             {onAddToNotepad && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-auto h-7"
+                className="ml-auto h-8 sm:h-7 px-2"
                 onClick={() =>
                   onAddToNotepad({
                     type: "ai",
@@ -270,8 +270,8 @@ export function AIWidget({
                   })
                 }
               >
-                <GripVertical className="h-3 w-3 mr-1" />
-                Save
+                <GripVertical className="h-3 w-3 mr-0.5" />
+                <span className="text-[10px] sm:text-xs">Save</span>
               </Button>
             )}
           </div>

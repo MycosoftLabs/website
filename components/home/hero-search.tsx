@@ -140,7 +140,7 @@ export function HeroSearch() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <section className="pt-8 pb-16 md:pb-24 flex flex-col items-center gap-8">
+    <section className="pt-6 pb-12 md:pt-8 md:pb-24 px-4 sm:px-6 flex flex-col items-center gap-6 md:gap-8">
       <div 
         ref={containerRef}
         className="w-full max-w-3xl relative"
@@ -176,16 +176,16 @@ export function HeroSearch() {
           </div>
 
           {/* Content */}
-          <div className="relative z-10 px-6 py-12 md:px-12 md:py-16">
+          <div className="relative z-10 px-4 py-8 sm:px-6 sm:py-10 md:px-12 md:py-16">
             {/* Logo & Title */}
-            <div className="flex flex-col items-center gap-4 mb-8">
+            <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
               <motion.div 
-                className="flex items-center gap-3"
+                className="flex items-center gap-2 sm:gap-3"
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
-                <div className="w-14 h-14 md:w-20 md:h-20 relative">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 relative shrink-0">
                   <Image
                     src={logoSrc}
                     alt="Mycosoft Logo"
@@ -194,19 +194,19 @@ export function HeroSearch() {
                     priority
                   />
                 </div>
-                <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
                   Mycosoft
                 </h1>
               </motion.div>
               
               <motion.p 
-                className="text-lg md:text-xl text-gray-300 text-center flex items-center gap-2"
+                className="text-base sm:text-lg md:text-xl text-gray-300 text-center flex items-center gap-2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <Brain className="h-5 w-5 text-primary" />
-                Building The Earth Intelligence
+                <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                <span>Building The Earth Intelligence</span>
               </motion.p>
             </div>
 
@@ -220,7 +220,7 @@ export function HeroSearch() {
             >
               <div 
                 className={cn(
-                  "relative flex items-center gap-3 px-5 py-4 md:py-5 rounded-2xl",
+                  "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
                   "bg-white/10 backdrop-blur-md border border-white/20",
                   "shadow-2xl shadow-black/20",
                   "transition-all duration-300",
@@ -228,7 +228,7 @@ export function HeroSearch() {
                 )}
               >
                 {/* Search Icon */}
-                <Search className="h-5 w-5 md:h-6 md:w-6 text-gray-400 shrink-0" />
+                <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-gray-400 shrink-0" />
                 
                 {/* Input */}
                 <input
@@ -247,10 +247,10 @@ export function HeroSearch() {
                   onBlur={() => {
                     if (!query) resume()
                   }}
-                  placeholder={animatedPlaceholder || "Search fungi, compounds, genetics, research..."}
+                  placeholder={animatedPlaceholder || "Search fungi, compounds..."}
                   className={cn(
-                    "flex-1 bg-transparent text-lg md:text-xl",
-                    "text-white placeholder:text-gray-400",
+                    "flex-1 bg-transparent text-base sm:text-lg md:text-xl",
+                    "text-white placeholder:text-gray-400 placeholder:text-sm sm:placeholder:text-base",
                     "focus:outline-none",
                     "min-w-0"
                   )}
@@ -281,7 +281,7 @@ export function HeroSearch() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "relative p-3 rounded-xl transition-all duration-300",
+                    "relative p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
                     isListening 
                       ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50" 
                       : isConnected 
@@ -301,12 +301,12 @@ export function HeroSearch() {
                 >
                   {isListening ? (
                     <>
-                      <MicOff className="h-5 w-5" />
+                      <MicOff className="h-4 w-4 sm:h-5 sm:w-5" />
                       {/* Pulse animation */}
-                      <span className="absolute inset-0 rounded-xl bg-red-500/30 animate-ping" />
+                      <span className="absolute inset-0 rounded-lg sm:rounded-xl bg-red-500/30 animate-ping" />
                     </>
                   ) : (
-                    <Mic className="h-5 w-5" />
+                    <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
                 </motion.button>
                 
@@ -317,16 +317,16 @@ export function HeroSearch() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
-                    "p-3 rounded-xl transition-all duration-300",
+                    "p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
                     query.trim()
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                       : "bg-white/10 text-gray-500"
                   )}
                 >
                   {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                   ) : (
-                    <ArrowRight className="h-5 w-5" />
+                    <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
                 </motion.button>
               </div>
@@ -354,10 +354,10 @@ export function HeroSearch() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex flex-wrap items-center justify-center gap-3 mt-8"
+              className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8"
             >
-              <span className="text-xs text-gray-500 hidden md:inline">Try:</span>
-              {["Amanita muscaria", "Psilocybin research", "Mycelium networks"].map((term) => (
+              <span className="text-xs text-gray-500 hidden sm:inline">Try:</span>
+              {["Amanita", "Psilocybin", "Mycelium"].map((term) => (
                 <button
                   key={term}
                   onClick={() => {
@@ -366,7 +366,7 @@ export function HeroSearch() {
                     inputRef.current?.focus()
                   }}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-sm",
+                    "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm",
                     "bg-white/10 hover:bg-white/20 text-gray-300",
                     "border border-white/10 hover:border-white/20",
                     "transition-all duration-200"
@@ -392,19 +392,20 @@ export function HeroSearch() {
               exit={{ opacity: 0, y: -10, scale: 0.98 }}
               transition={{ duration: 0.2 }}
               className={cn(
-                "absolute left-0 right-0 mt-3 z-50",
-                "rounded-2xl overflow-hidden",
+                "absolute left-0 right-0 mt-2 sm:mt-3 z-50",
+                "rounded-xl sm:rounded-2xl overflow-hidden",
                 "bg-card/95 backdrop-blur-xl border border-border",
-                "shadow-2xl shadow-black/20"
+                "shadow-2xl shadow-black/20",
+                "mx-1 sm:mx-0"
               )}
             >
               {/* AI Feature Banner */}
-              <div className="px-4 py-2 bg-gradient-to-r from-primary/10 to-purple-500/10 border-b border-border flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground">AI-powered search with MYCA Brain</span>
+              <div className="px-3 sm:px-4 py-2 bg-gradient-to-r from-primary/10 to-purple-500/10 border-b border-border flex items-center gap-2">
+                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-primary shrink-0" />
+                <span className="text-[10px] sm:text-xs text-muted-foreground truncate">AI-powered search with MYCA Brain</span>
               </div>
               
-              <div className="max-h-[400px] overflow-auto p-2">
+              <div className="max-h-[300px] sm:max-h-[400px] overflow-auto p-1.5 sm:p-2">
                 {error ? (
                   <div className="p-6 text-center">
                     <p className="text-sm text-destructive">{error}</p>
@@ -421,7 +422,7 @@ export function HeroSearch() {
                     <span className="text-sm text-muted-foreground">Searching...</span>
                   </div>
                 ) : suggestions.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5 sm:space-y-1">
                     {suggestions.map((suggestion, index) => (
                       <motion.div
                         key={suggestion.id}
@@ -433,33 +434,33 @@ export function HeroSearch() {
                           href={suggestion.url}
                           onClick={() => setShowSuggestions(false)}
                           className={cn(
-                            "flex items-center gap-4 p-3 rounded-xl",
-                            "hover:bg-muted/80 transition-colors",
+                            "flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg sm:rounded-xl",
+                            "hover:bg-muted/80 active:bg-muted transition-colors",
                             "group"
                           )}
                         >
                           <div className={cn(
-                            "shrink-0 p-2 rounded-lg",
+                            "shrink-0 p-1.5 sm:p-2 rounded-md sm:rounded-lg",
                             suggestion.type === "fungi" && "bg-green-500/10 text-green-500",
                             suggestion.type === "article" && "bg-blue-500/10 text-blue-500",
                             suggestion.type === "compound" && "bg-purple-500/10 text-purple-500",
                             suggestion.type === "research" && "bg-orange-500/10 text-orange-500"
                           )}>
-                            {suggestion.type === "fungi" && <Mushroom className="h-5 w-5" />}
-                            {suggestion.type === "article" && <FileText className="h-5 w-5" />}
-                            {suggestion.type === "compound" && <Flask className="h-5 w-5" />}
-                            {suggestion.type === "research" && <Microscope className="h-5 w-5" />}
+                            {suggestion.type === "fungi" && <Mushroom className="h-4 w-4 sm:h-5 sm:w-5" />}
+                            {suggestion.type === "article" && <FileText className="h-4 w-4 sm:h-5 sm:w-5" />}
+                            {suggestion.type === "compound" && <Flask className="h-4 w-4 sm:h-5 sm:w-5" />}
+                            {suggestion.type === "research" && <Microscope className="h-4 w-4 sm:h-5 sm:w-5" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate group-hover:text-primary transition-colors">
+                            <p className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
                               {suggestion.title}
                             </p>
                             {suggestion.scientificName && (
-                              <p className="text-sm text-muted-foreground italic truncate">
+                              <p className="text-xs sm:text-sm text-muted-foreground italic truncate">
                                 {suggestion.scientificName}
                               </p>
                             )}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                               <span className="capitalize">{suggestion.type}</span>
                               {suggestion.date && (
                                 <>
@@ -469,7 +470,7 @@ export function HeroSearch() {
                               )}
                             </div>
                           </div>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                         </Link>
                       </motion.div>
                     ))}
@@ -483,10 +484,10 @@ export function HeroSearch() {
                 ) : null}
               </div>
               
-              {/* Footer */}
-              <div className="px-4 py-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              {/* Footer - hidden on small mobile */}
+              <div className="hidden sm:flex px-3 sm:px-4 py-1.5 sm:py-2 border-t border-border items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <Command className="h-3 w-3" />K for commands
+                  <Command className="h-2.5 w-2.5 sm:h-3 sm:w-3" />K for commands
                 </span>
                 <span>ESC to close</span>
               </div>

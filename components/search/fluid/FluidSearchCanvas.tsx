@@ -324,27 +324,27 @@ export function FluidSearchCanvas({
       {/* Mycelium particle background */}
       <MyceliumBackground width={canvasSize.width} height={canvasSize.height} />
       {/* Compact Search Bar */}
-      <div className="relative z-20 px-4 py-2 flex items-center gap-3 shrink-0">
-        <form onSubmit={(e) => e.preventDefault()} className="flex-1 relative max-w-xl">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="relative z-20 px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3 shrink-0">
+        <form onSubmit={(e) => e.preventDefault()} className="flex-1 relative">
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           <Input
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             onFocus={() => { setIsInputFocused(true); pause() }}
             onBlur={() => { setIsInputFocused(false); if (!localQuery) resume() }}
-            placeholder={animatedPlaceholder || "Search fungi, compounds, genetics..."}
-            className="pl-9 pr-20 h-9 text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
+            placeholder={animatedPlaceholder || "Search fungi, compounds..."}
+            className="pl-8 sm:pl-9 pr-16 sm:pr-20 h-10 sm:h-9 text-base sm:text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
           />
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setShowHistory(!showHistory)}>
-              <History className="h-3.5 w-3.5" />
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:gap-1">
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 sm:h-7 sm:w-7 rounded-full" onClick={() => setShowHistory(!showHistory)}>
+              <History className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-40">
-              <Mic className="h-3.5 w-3.5" />
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 sm:h-7 sm:w-7 rounded-full opacity-40">
+              <Mic className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>
           </div>
         </form>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground shrink-0">
           {(isLoading || isValidating) && <Loader2 className="h-3 w-3 animate-spin" />}
           {!isLoading && totalCount > 0 && <span>{totalCount} results</span>}
           {!!aiAnswer && <Sparkles className="h-3 w-3 text-violet-500" />}
@@ -355,11 +355,11 @@ export function FluidSearchCanvas({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="absolute top-full left-4 mt-1 max-w-xl w-full bg-card/95 backdrop-blur-md border rounded-xl shadow-2xl z-50 p-2"
+              className="absolute top-full left-2 right-2 sm:left-4 sm:right-auto sm:max-w-xl sm:w-full mt-1 bg-card/95 backdrop-blur-md border rounded-xl shadow-2xl z-50 p-1.5 sm:p-2"
             >
               {recentSearches.map((q, i) => (
                 <button key={i} onClick={() => { setLocalQuery(q); setShowHistory(false) }}
-                  className="w-full text-left px-3 py-1.5 text-xs rounded-lg hover:bg-muted transition-colors">{q}</button>
+                  className="w-full text-left px-2.5 sm:px-3 py-2 sm:py-1.5 text-sm sm:text-xs rounded-lg hover:bg-muted active:bg-muted/80 transition-colors">{q}</button>
               ))}
             </motion.div>
           )}
@@ -367,7 +367,7 @@ export function FluidSearchCanvas({
       </div>
 
       {/* === FLEX COLUMN LAYOUT: focused -> context pills -> minimized bar === */}
-      <div className="flex-1 flex flex-col overflow-hidden px-4 pb-2 gap-3">
+      <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
         {/* Focused widget with enhanced physics animations */}
         <AnimatePresence mode="popLayout">
@@ -398,24 +398,24 @@ export function FluidSearchCanvas({
               onDragStart={(e: any) => handleWidgetDragStart(e, focusedConfig)}
             >
               <motion.div 
-                className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-2xl overflow-hidden shadow-xl"
+                className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl"
                 animate={glowPulseAnimation.animate}
               >
-                <div className={cn("flex items-center justify-between px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${focusedConfig.gradient}`)}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{typeof focusedConfig.icon === 'string' ? focusedConfig.icon : focusedConfig.icon}</span>
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{focusedConfig.label}</span>
+                <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${focusedConfig.gradient}`)}>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-sm sm:text-base">{typeof focusedConfig.icon === 'string' ? focusedConfig.icon : focusedConfig.icon}</span>
+                    <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">{focusedConfig.label}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Minimize">
-                      <Minimize2 className="h-3 w-3" />
+                  <div className="flex items-center gap-0.5 sm:gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Minimize">
+                      <Minimize2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Close">
-                      <X className="h-3 w-3" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Close">
+                      <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                     </Button>
                   </div>
                 </div>
-                <div className="p-3">
+                <div className="p-2 sm:p-3">
                   <WidgetContent
                     type={focusedConfig.type}
                     species={species} compounds={compounds} genetics={genetics}
@@ -433,7 +433,7 @@ export function FluidSearchCanvas({
 
         {/* Context widget pills with floating animations */}
         {contextWidgets.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-3 shrink-0 py-2">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 shrink-0 py-1.5 sm:py-2">
             {contextWidgets.map((config, i) => {
               const floatVariants = getWidgetFloatVariants(config.type)
               return (
@@ -461,14 +461,14 @@ export function FluidSearchCanvas({
                   onDragStart={(e: any) => handleWidgetDragStart(e, config)}
                   style={{ zIndex: 10 - i }}
                   className={cn(
-                    "flex items-center gap-2 px-5 py-2.5 rounded-2xl cursor-pointer",
+                    "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl cursor-pointer",
                     "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
-                    "shadow-lg hover:shadow-xl transition-all duration-300",
+                    "shadow-lg hover:shadow-xl active:shadow-md transition-all duration-300",
                     `bg-gradient-to-br ${config.gradient}`
                   )}
                 >
-                  <span className="text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
-                  <span className="text-xs font-medium text-foreground/80">{config.label}</span>
+                  <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-foreground/80">{config.label}</span>
                 </motion.button>
               )
             })}
@@ -480,23 +480,23 @@ export function FluidSearchCanvas({
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 py-1 shrink-0"
+            className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 shrink-0"
           >
-            <span className="text-[10px] text-muted-foreground">Minimized:</span>
+            <span className="text-[9px] sm:text-[10px] text-muted-foreground hidden sm:inline">Minimized:</span>
             {minimizedWidgets.map((w) => (
               <motion.button
                 key={w.type}
                 whileHover={{ boxShadow: "0 8px 20px rgba(34, 197, 94, 0.3)" }}
-                whileTap={{ opacity: 0.9 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handleFocusWidget({ type: w.type })}
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center",
-                  "bg-gradient-to-br shadow-md hover:shadow-lg transition-shadow border border-white/10",
+                  "w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center",
+                  "bg-gradient-to-br shadow-md hover:shadow-lg active:shadow-sm transition-shadow border border-white/10",
                   w.gradient
                 )}
                 title={`Restore ${w.label}`}
               >
-                <span className="text-sm">{w.icon}</span>
+                <span className="text-base sm:text-sm">{w.icon}</span>
               </motion.button>
             ))}
           </motion.div>
@@ -504,7 +504,7 @@ export function FluidSearchCanvas({
 
         {/* Empty state */}
         {activeWidgets.length === 0 && !isLoading && localQuery.length >= 2 && (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-xs sm:text-sm px-4 text-center">
             {message || error || "No results found."}
           </div>
         )}
