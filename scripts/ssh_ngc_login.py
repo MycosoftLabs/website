@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 Login to NVIDIA NGC on Sandbox VM and deploy Omniverse services
+Requires: VM_PASSWORD and NGC_API_KEY environment variables
 """
+import os
 import paramiko
 import sys
 
@@ -9,11 +11,20 @@ if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-VM_HOST = "192.168.0.187"
-VM_USER = "mycosoft"
-VM_PASS = "REDACTED_VM_SSH_PASSWORD"
-NGC_API_KEY = "REDACTED_NGC_API_KEY"
+# Load credentials from environment - NEVER hardcode passwords or API keys
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("VM_USER", "mycosoft")
+VM_PASS = os.environ.get("VM_PASSWORD")
+NGC_API_KEY = os.environ.get("NGC_API_KEY")
 WEBSITE_DIR = "/home/mycosoft/mycosoft/website"
+
+if not VM_PASS:
+    print("ERROR: Set VM_PASSWORD environment variable. Never hardcode passwords!")
+    sys.exit(1)
+
+if not NGC_API_KEY:
+    print("ERROR: Set NGC_API_KEY environment variable. Never hardcode API keys!")
+    sys.exit(1)
 
 def run_cmd(client, cmd, desc="", timeout=180):
     if desc:

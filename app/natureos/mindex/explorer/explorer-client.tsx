@@ -50,14 +50,32 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
 
   if (species.length === 0) {
     return (
-      <Card>
+      <Card className="border-orange-500/30 bg-orange-500/5">
         <CardContent className="py-12 text-center">
-          <List className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            No species data available — MINDEX API may be unreachable
+          <List className="h-10 w-10 mx-auto mb-3 text-orange-400" />
+          <p className="text-lg font-semibold text-orange-400 mb-2">
+            MINDEX Database Connection Error
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Expected at {process.env.NEXT_PUBLIC_MINDEX_API_URL ?? "MINDEX_API_URL"}
+          <p className="text-muted-foreground mb-4">
+            The MINDEX API is running but the PostgreSQL database is not connected.
+          </p>
+          <div className="inline-block text-left bg-background/50 rounded-lg p-4 border border-orange-500/30 max-w-lg">
+            <p className="text-xs font-mono text-orange-300 mb-2">🔍 Diagnostic:</p>
+            <ul className="text-xs space-y-1 text-muted-foreground">
+              <li>✅ API Reachable: <span className="text-green-400">http://192.168.0.189:8000</span></li>
+              <li>❌ Database: <span className="text-red-400">PostgreSQL connection failed</span></li>
+              <li>📋 Fix: <span className="text-cyan-400">SSH to VM 189 and restart postgres container</span></li>
+            </ul>
+            <div className="mt-3 p-2 bg-black/40 rounded border border-orange-500/20">
+              <code className="text-[10px] text-cyan-300">
+                ssh mycosoft@192.168.0.189<br/>
+                cd /home/mycosoft/mindex<br/>
+                docker-compose restart
+              </code>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Contact platform admin or check <span className="text-cyan-400 font-mono">docs/FIX_MINDEX_DB_CONNECTION_FEB11_2026.md</span>
           </p>
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 "use client"
 
 import { FC, ReactNode, createContext, useContext, useCallback, useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
@@ -9,12 +10,12 @@ import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
  * PersonaPlex Provider - Site-wide voice control
  * Created: February 3, 2026
  * Updated: February 5, 2026 - Added voice listening state for search integration
- * Updated: February 11, 2026 - Added Web Speech API fallback when PersonaPlex unavailable
+ * Updated: February 11, 2026 - Added Web Speech API fallback + enhanced search integration
  * 
  * Provides MYCA voice assistant across all pages with:
  * - Floating widget that persists during navigation
  * - Voice commands for site control
- * - Voice search integration with listening state
+ * - Intelligent voice search with intent detection
  * - MAS orchestrator integration
  * - Memory persistence
  * - n8n workflow execution
@@ -190,17 +191,58 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   children,
   enabled = true,
 }) => {
+  const router = useRouter()
   const [lastCommand, setLastCommand] = useState("")
   const [lastResult, setLastResult] = useState<any>(null)
   const [isListening, setIsListening] = useState(false)
   const [lastTranscript, setLastTranscript] = useState("")
   const [usingFallback, setUsingFallback] = useState(false)
   
+  /**
+   * Enhanced search intent detection
+   */
+  const detectSearchIntent = useCallback((text: string): string | null => {
+    const lower = text.toLowerCase().trim()
+    
+    // Explicit search patterns
+    const searchPatterns = [
+      /search\s+(?:for\s+)?(.+)/i,
+      /find\s+(?:me\s+)?(.+)/i,
+      /show\s+(?:me\s+)?(.+)/i,
+      /look\s+up\s+(.+)/i,
+      /what\s+(?:is|are)\s+(.+)/i,
+      /tell\s+me\s+about\s+(.+)/i,
+    ]
+    
+    for (const pattern of searchPatterns) {
+      const match = lower.match(pattern)
+      if (match && match[1]) {
+        return match[1].trim()
+      }
+    }
+    
+    // Direct search heuristic: short phrase without conversation keywords
+    const conversationKeywords = /\b(hello|hi|hey|thanks|please|can you|could you|would you|tell me|explain|help|stop|start)\b/i
+    if (!conversationKeywords.test(lower) && lower.length >= 2 && lower.length < 50) {
+      return lower
+    }
+    
+    return null
+  }, [])
+  
   // Process voice command (defined early for use in callbacks)
   const processVoiceCommand = useCallback((text: string) => {
     const lower = text.toLowerCase()
     
-    // Navigation commands
+    // PRIORITY 1: Check for search intent first
+    const searchQuery = detectSearchIntent(text)
+    if (searchQuery) {
+      console.log("[Voice] Search intent detected:", searchQuery)
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
+      return
+    }
+    
+    // PRIORITY 2: Navigation commands
     if (lower.includes("go to") || lower.includes("navigate to") || lower.includes("open")) {
       const routes: Record<string, string> = {
         "home": "/",
@@ -230,7 +272,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       }
     }
     
-    // Theme commands
+    // PRIORITY 3: Theme commands
     if (lower.includes("dark mode") || lower.includes("dark theme")) {
       document.documentElement.classList.add("dark")
       return
@@ -240,16 +282,10 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       return
     }
     
-    // Search command
-    if (lower.includes("search for") || lower.includes("find")) {
-      const searchMatch = lower.match(/(?:search for|find)\s+(.+)/i)
-      if (searchMatch) {
-        const query = searchMatch[1]
-        window.location.href = `/search?q=${encodeURIComponent(query)}`
-        return
-      }
-    }
-  }, [])
+    // If no command matched, this might be a conversation with MYCA
+    // Let it pass through to PersonaPlex/MAS
+    console.log("[Voice] No specific command detected, treating as MYCA conversation")
+  }, [router, detectSearchIntent])
   
   // Web Speech API fallback for when PersonaPlex is unavailable
   const webSpeech = useWebSpeechFallback(
@@ -266,7 +302,8 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const personaplex = usePersonaPlex({
     // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
     // Bridge provides MAS Event Engine integration with tool calls, agents, memory
-    serverUrl: "ws://localhost:8999/api/chat",
+    // Use env var for flexible deployment (localhost, VM, or cloud GPU)
+    serverUrl: process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat",
     voicePrompt: "NATURAL_F2.pt",
     textPrompt: MYCA_PERSONAPLEX_PROMPT,
     
@@ -401,7 +438,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       <PersonaPlexWidget
         position="bottom-right"
         showMonitor={true}
-        serverUrl="ws://localhost:8999/api/chat"
+        serverUrl={process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat"}
         voicePrompt="NATURAL_F2.pt"
         textPrompt={MYCA_PERSONAPLEX_PROMPT}
         onTranscript={(text) => {

@@ -1,10 +1,15 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+/**
+ * Scientific Simulation API
+ * 
+ * NO MOCK DATA - returns real simulations or empty array if unavailable
+ */
+import { NextRequest, NextResponse } from 'next/server'
 
 const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
 
 export async function GET() {
   try {
-    const response = await fetch(`${MAS_URL}/scientific/simulation/jobs`, {
+    const response = await fetch(`${MAS_URL}/api/scientific/simulation/jobs`, {
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
     })
@@ -12,31 +17,31 @@ export async function GET() {
     if (response.ok) {
       const data = await response.json()
       return NextResponse.json({ 
-        simulations: data.simulations || data, 
-        gpuUtilization: data.gpuUtilization || 0,
-        queueLength: data.queueLength || 0,
+        simulations: data.simulations || data || [], 
+        gpuUtilization: data.gpuUtilization ?? null,
+        queueLength: data.queueLength ?? 0,
         source: 'live' 
       })
     }
     
+    // Return empty data when backend unavailable - NO MOCK DATA
     return NextResponse.json({
-      simulations: [
-        { id: 'sim-001', name: 'Psilocybin Synthase Structure', type: 'alphafold', status: 'running', progress: 67, eta: '23 min', gpu: 'RTX 5090' },
-        { id: 'sim-002', name: 'Mycelium Network Growth', type: 'mycelium', status: 'running', progress: 34, eta: '1h 12m' },
-        { id: 'sim-003', name: 'Metabolic Pathway - Shiitake', type: 'cobrapy', status: 'queued', progress: 0 },
-      ],
-      gpuUtilization: 78,
-      queueLength: 3,
-      source: 'fallback',
+      simulations: [],
+      gpuUtilization: null,
+      queueLength: 0,
+      source: 'unavailable',
+      message: 'Simulation data temporarily unavailable. Connect MAS backend to see simulation jobs.',
     })
   } catch (error) {
     console.error('Simulation API Error:', error)
+    // Return empty data on error - NO MOCK DATA
     return NextResponse.json({
       simulations: [],
-      gpuUtilization: 0,
+      gpuUtilization: null,
       queueLength: 0,
-      source: 'fallback',
+      source: 'error',
       error: 'Backend unavailable',
+      message: 'Unable to fetch simulations. Please check MAS connection.',
     })
   }
 }

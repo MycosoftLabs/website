@@ -11,7 +11,8 @@ export const env = {
 
   // MINDEX API Configuration (canonical data layer)
   // Use MINDEX_API_URL from .env.local, fallback to MINDEX_API_BASE_URL or VM default
-  mindexApiBaseUrl: process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || process.env.NEXT_PUBLIC_MINDEX_URL || "http://192.168.0.188:8001/mindex",
+  // MINDEX runs on 192.168.0.189:8000 (dedicated database VM)
+  mindexApiBaseUrl: process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || process.env.NEXT_PUBLIC_MINDEX_URL || "http://192.168.0.189:8000",
   mindexApiKey: process.env.MINDEX_API_KEY || "local-dev-key", // Server-only
 
   // MyceliumSeg validation API (segmentation metrics for Petri Dish / scientific validation)

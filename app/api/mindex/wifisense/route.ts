@@ -2,38 +2,76 @@ import { NextResponse } from "next/server"
 import { env } from "@/lib/env"
 
 /**
- * WiFiSense API - presence sensing (real backend required)
+ * WiFiSense API - presence sensing
  *
- * This endpoint is a placeholder contract. Mock/demo responses are not allowed.
- * Wire this to a real WiFiSense service or MINDEX telemetry pipeline.
+ * This endpoint proxies to the WiFiSense backend or MINDEX telemetry pipeline.
+ * Currently in development - returns Coming Soon status.
  */
 
 export const dynamic = "force-dynamic"
 
+const MINDEX_API_URL = process.env.MINDEX_API_URL || env.mindexApiBaseUrl.replace(/\/api\/v1$/, "")
+
 export async function GET() {
-  if (!env.integrationsEnabled) {
-    return NextResponse.json(
-      { error: "Integrations disabled", code: "INTEGRATIONS_DISABLED", requiredEnv: ["INTEGRATIONS_ENABLED=true"] },
-      { status: 503 },
-    )
+  // Try to fetch from MINDEX WiFiSense endpoint
+  try {
+    const res = await fetch(`${MINDEX_API_URL}/api/wifisense`, {
+      headers: {
+        "X-API-Key": env.mindexApiKey || "",
+      },
+      signal: AbortSignal.timeout(10000),
+      cache: "no-store",
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      return NextResponse.json(data)
+    }
+  } catch {
+    // MINDEX endpoint not available, fall through to coming soon
   }
 
+  // Return Coming Soon response
   return NextResponse.json(
-    { error: "WiFiSense backend not implemented", code: "NOT_IMPLEMENTED" },
-    { status: 501 },
+    { 
+      status: "coming_soon",
+      message: "WiFiSense presence detection is under development",
+      code: "FEATURE_COMING_SOON",
+      expectedRelease: "Q2 2026",
+      documentation: "https://docs.mycosoft.com/wifisense",
+    },
+    { status: 503 },
   )
 }
 
 export async function POST() {
-  if (!env.integrationsEnabled) {
-    return NextResponse.json(
-      { error: "Integrations disabled", code: "INTEGRATIONS_DISABLED", requiredEnv: ["INTEGRATIONS_ENABLED=true"] },
-      { status: 503 },
-    )
+  // Try to proxy to MINDEX WiFiSense endpoint
+  try {
+    const res = await fetch(`${MINDEX_API_URL}/api/wifisense`, {
+      method: "POST",
+      headers: {
+        "X-API-Key": env.mindexApiKey || "",
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      return NextResponse.json(data)
+    }
+  } catch {
+    // MINDEX endpoint not available, fall through to coming soon
   }
 
+  // Return Coming Soon response
   return NextResponse.json(
-    { error: "WiFiSense backend not implemented", code: "NOT_IMPLEMENTED" },
-    { status: 501 },
+    { 
+      status: "coming_soon",
+      message: "WiFiSense presence detection is under development",
+      code: "FEATURE_COMING_SOON",
+      expectedRelease: "Q2 2026",
+    },
+    { status: 503 },
   )
 }

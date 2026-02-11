@@ -3,13 +3,21 @@ Wait for build and restart container
 Feb 5, 2026
 """
 
+import os
 import paramiko
+import sys
 import time
 from _cloudflare_cache import purge_everything
 
-HOST = "192.168.0.187"
-USER = "mycosoft"
-PASS = "REDACTED_VM_SSH_PASSWORD"
+# Load credentials from environment variables
+HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
+PASS = os.environ.get("VM_PASSWORD")
+
+if not PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
 
 def run_cmd(ssh, cmd):
     """Simple command runner"""

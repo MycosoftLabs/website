@@ -296,6 +296,73 @@ services:
     networks:
       - mycosoft-network
 
+  # ==========================================================================
+  # PERSONAPLEX VOICE SYSTEM (Requires GPU)
+  # ==========================================================================
+  # IMPORTANT: These services require NVIDIA GPU with CUDA support
+  # Will only work on VMs with GPU available (not Sandbox VM)
+  # ==========================================================================
+
+  moshi-server:
+    build:
+      context: ../MAS/mycosoft-mas/services/personaplex-local
+      dockerfile: Dockerfile.personaplex
+    container_name: mycosoft-moshi
+    ports:
+      - "8998:8998"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_HOME=/root/.cache/torch
+      - MOSHI_HOST=0.0.0.0
+      - MOSHI_PORT=8998
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8998/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=moshi-voice"
+      - "com.mycosoft.requires=gpu"
+
+  personaplex-bridge:
+    build:
+      context: ../MAS/mycosoft-mas/services/personaplex-local
+      dockerfile: Dockerfile.personaplex
+    container_name: mycosoft-personaplex-bridge
+    ports:
+      - "8999:8999"
+    environment:
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_PORT=8999
+      - MOSHI_HOST=moshi-server
+      - MOSHI_PORT=8998
+      - MAS_ORCHESTRATOR_URL=${MAS_ORCHESTRATOR_URL:-http://192.168.0.188:8001}
+    depends_on:
+      - moshi-server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=personaplex-bridge"
+      - "com.mycosoft.requires=moshi"
+
 networks:
   mycosoft-network:
     driver: bridge
@@ -327,4 +394,8 @@ volumes:
   grafana_data:
     driver: local
   n8n_data:
+    driver: local
+  moshi_cache:
+    driver: local
+  personaplex_data:
     driver: local

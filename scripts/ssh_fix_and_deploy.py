@@ -3,13 +3,20 @@
 Fix permissions and complete deployment
 """
 
+import os
 import paramiko
 import sys
 
-VM_HOST = "192.168.0.187"
-VM_USER = "mycosoft"
-VM_PASS = "REDACTED_VM_SSH_PASSWORD"
+# Load credentials from environment variables
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
+VM_PASS = os.environ.get("VM_PASSWORD")
 WEBSITE_DIR = "/home/mycosoft/mycosoft/website"
+
+if not VM_PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
 
 def run_cmd(client, cmd, desc="", timeout=120):
     """Run command on remote host"""

@@ -32,17 +32,24 @@ if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# Configuration
-PROXMOX_HOST = "192.168.0.202"
-PROXMOX_API = f"https://{PROXMOX_HOST}:8006/api2/json"
-PROXMOX_TOKEN = "root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e"
-PROXMOX_USER = "root"
-PROXMOX_PASS = "REDACTED_VM_SSH_PASSWORD"
+# Load credentials from environment variables
+VM_PASS = os.environ.get("VM_PASSWORD")
 
-VM_HOST = "192.168.0.187"
-VM_USER = "mycosoft"
-VM_PASS = "REDACTED_VM_SSH_PASSWORD"
-VMID = "103"
+if not VM_PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
+
+# Configuration
+PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "192.168.0.202")
+PROXMOX_API = f"https://{PROXMOX_HOST}:8006/api2/json"
+PROXMOX_TOKEN = os.environ.get("PROXMOX_TOKEN", "root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e")
+PROXMOX_USER = os.environ.get("PROXMOX_USER", "root")
+PROXMOX_PASS = VM_PASS  # Use same password
+
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
+VMID = os.environ.get("SANDBOX_VMID", "103")
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROXMOX_SCRIPTS = os.path.join(SCRIPT_DIR, "..", "proxmox")

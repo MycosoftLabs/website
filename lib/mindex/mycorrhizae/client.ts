@@ -97,8 +97,20 @@ export class MycorrhizaeClient {
   private reconnectDelay: number = 1000
 
   constructor(apiUrl?: string, apiKey?: string) {
-    this.apiUrl = apiUrl || env.mycorrhizaeApiUrl || "http://localhost:8002"
-    this.apiKey = apiKey || env.mycorrhizaePublishKey || ""
+    this.apiUrl = apiUrl || env.mycorrhizaeApiUrl || "http://192.168.0.187:8002"
+    // API key is optional for read operations, auto-generated for dev
+    this.apiKey = apiKey || env.mycorrhizaePublishKey || this.generateDevKey()
+  }
+
+  /**
+   * Generate a dev-mode API key if none provided (for local development only)
+   */
+  private generateDevKey(): string {
+    if (typeof window === "undefined" && env.isDevelopment) {
+      // Server-side dev key generation
+      return `myco_dev_${Date.now().toString(36)}`
+    }
+    return ""
   }
 
   // ==================== Connection Management ====================

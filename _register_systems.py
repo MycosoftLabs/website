@@ -1,12 +1,19 @@
-﻿import paramiko
+import os
+import paramiko
 import time
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-mindex_host = "192.168.0.189"
-user = "mycosoft"
-passwd = "REDACTED_VM_SSH_PASSWORD"
+# Load credentials from environment variables
+mindex_host = os.environ.get("MINDEX_VM_HOST", "192.168.0.189")
+user = os.environ.get("MINDEX_VM_USER", "mycosoft")
+passwd = os.environ.get("VM_PASSWORD")
+
+if not passwd:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
 
 print("Registering missing systems in MINDEX database...")
 ssh = paramiko.SSHClient()

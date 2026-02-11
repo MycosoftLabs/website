@@ -35,8 +35,13 @@ export async function GET(
 
       if (!tableCheckResult[0].exists) {
         return NextResponse.json(
-          { error: "Table phylogeny_trees does not exist", code: "NOT_CONFIGURED" },
-          { status: 501 },
+          { 
+            error: "Table phylogeny_trees does not exist", 
+            code: "DATABASE_NOT_CONFIGURED",
+            info: "Run database migrations to create the phylogeny_trees table, or configure the ancestry feature.",
+            status: "coming_soon",
+          },
+          { status: 503 },
         )
       }
 

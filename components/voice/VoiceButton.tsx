@@ -88,10 +88,19 @@ export function VoiceButton({
       case "floating":
         return cn(
           base,
-          "fixed bottom-6 right-6 z-50 shadow-lg",
+          "fixed z-50 shadow-2xl",
+          // Responsive positioning - avoid mobile bottom nav
+          "bottom-6 right-6 md:bottom-6 md:right-6",
+          "sm:bottom-20 sm:right-4",
+          // Touch-friendly size on mobile
+          "h-14 w-14 md:h-16 md:w-16",
+          // Smooth transitions
+          "transition-all duration-300 ease-out",
+          // Hover effects
+          "hover:scale-110 active:scale-95",
           voice.isListening
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/50"
+            : "bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/30"
         )
       case "minimal":
         return cn(
@@ -172,7 +181,15 @@ export function VoiceButton({
 
 // Floating voice button for global use
 export function FloatingVoiceButton(props: Omit<VoiceButtonProps, "variant">) {
-  return <VoiceButton {...props} variant="floating" size="lg" />
+  return (
+    <VoiceButton 
+      {...props} 
+      variant="floating" 
+      size="lg"
+      showStatus={true}
+      aria-label="MYCA Voice Assistant"
+    />
+  )
 }
 
 // Minimal voice button for inline use

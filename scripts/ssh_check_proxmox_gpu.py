@@ -2,6 +2,7 @@
 """
 Check Proxmox GPU status and configure passthrough
 """
+import os
 import paramiko
 import sys
 
@@ -9,15 +10,22 @@ if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
+# Load credentials from environment variables
+VM_PASS = os.environ.get("VM_PASSWORD")
+
+if not VM_PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
+
 # Proxmox host credentials
-PROXMOX_HOST = "192.168.0.100"  # Adjust if different
-PROXMOX_USER = "root"
-PROXMOX_PASS = "REDACTED_VM_SSH_PASSWORD"  # Same password assumption
+PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "192.168.0.100")  # Adjust if different
+PROXMOX_USER = os.environ.get("PROXMOX_USER", "root")
+PROXMOX_PASS = VM_PASS  # Same password assumption
 
 # Alternative: Try the VM's sudo to see if it's actually Proxmox
-VM_HOST = "192.168.0.187"
-VM_USER = "mycosoft"
-VM_PASS = "REDACTED_VM_SSH_PASSWORD"
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
 
 def run_cmd(client, cmd, desc=""):
     if desc:

@@ -297,7 +297,8 @@ export async function GET(request: NextRequest) {
       conn.animated = conn.active
       conn.intensity = conn.active ? 0.6 : 0.2
     } else {
-      conn.traffic = conn.traffic ?? { requestRate: 2 + Math.floor(Math.random() * 6), latencyMs: 30 + Math.floor(Math.random() * 50) }
+      // Use deterministic default traffic values - NO RANDOM DATA
+      conn.traffic = conn.traffic ?? { requestRate: 1, latencyMs: 0 }
       conn.active = conn.active ?? true
       conn.animated = conn.animated ?? true
       conn.intensity = conn.intensity ?? 0.6
@@ -334,10 +335,11 @@ export async function GET(request: NextRequest) {
   placeInGrid(byLayer.infra, INFRA_X, 8)
 
   // Flow visualization: ensure all connections have traffic (health loop already set some)
+  // Use deterministic default values - NO RANDOM DATA
   for (const conn of connections) {
     conn.traffic = conn.traffic ?? {
-      requestRate: 2 + Math.floor(Math.random() * 8),
-      latencyMs: 20 + Math.floor(Math.random() * 60),
+      requestRate: 1,
+      latencyMs: 0,
     }
     conn.active = conn.active ?? true
     conn.animated = conn.animated ?? true

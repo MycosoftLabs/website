@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Wait for build and restart container - Feb 5, 2026"""
 
+import os
 import paramiko
 import sys
 import time
@@ -8,9 +9,19 @@ from _cloudflare_cache import purge_everything
 
 sys.stdout.reconfigure(encoding='utf-8')
 
+# Load credentials from environment variables
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
+VM_PASS = os.environ.get("VM_PASSWORD")
+
+if not VM_PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('192.168.0.187', username='mycosoft', password='REDACTED_VM_SSH_PASSWORD', timeout=30)
+ssh.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=30)
 
 # Wait for build to complete
 print("1. Waiting for Docker build to complete...")

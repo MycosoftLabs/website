@@ -101,7 +101,6 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
 export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/profile', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'User profile' },
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
-  { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
   { path: '/apps', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Apps hub' },
   { path: '/natureos', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'NatureOS home' },
   { path: '/natureos/devices', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Devices' },
@@ -110,26 +109,6 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
 
 // Premium routes - require subscription
 export const PREMIUM_ROUTES: RouteAccess[] = [
-  { 
-    path: '/dashboard/crep', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'CREP Dashboard' 
-  },
-  { 
-    path: '/dashboard/soc', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.ENTERPRISE
-    }, 
-    description: 'SOC Dashboard' 
-  },
   { 
     path: '/myca-ai', 
     gate: AccessGate.PREMIUM, 

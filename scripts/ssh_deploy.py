@@ -4,15 +4,21 @@ SSH Deployment Script for Earth-2 RTX
 Connects to Sandbox VM and deploys all services
 """
 
+import os
 import paramiko
 import sys
 import time
 
-# Configuration
-VM_HOST = "192.168.0.187"
-VM_USER = "mycosoft"
-VM_PASS = "REDACTED_VM_SSH_PASSWORD"
+# Load credentials from environment variables
+VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
+VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
+VM_PASS = os.environ.get("VM_PASSWORD")
 WEBSITE_DIR = "/home/mycosoft/website"
+
+if not VM_PASS:
+    print("ERROR: VM_PASSWORD environment variable is not set.")
+    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    sys.exit(1)
 
 def create_ssh_client():
     """Create and return SSH client connected to VM"""

@@ -103,9 +103,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       {
         error: "Failed to generate Merkle proof",
         details: error instanceof Error ? error.message : String(error),
-        code: "MERKLE_PROOF_FAILED",
+        code: "UPSTREAM_ERROR",
+        info: "Ensure MINDEX API is accessible at the configured URL and provides integrity endpoints.",
       },
-      { status: 501 },
+      { status: 503 },
     )
   }
 }

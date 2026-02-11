@@ -28,6 +28,44 @@ interface EmailResult {
   error?: string;
 }
 
+export interface VerifyEmailConfigResult {
+  valid: boolean
+  error?: string
+}
+
+export interface WelcomeEmailData {
+  userName: string
+  loginUrl: string
+}
+
+export interface PasswordResetData {
+  userName: string
+  resetUrl: string
+  expiresIn: string
+}
+
+export interface SecurityAlertData {
+  userName: string
+  alertType: string
+  description: string
+  timestamp: string
+}
+
+export interface ReportDeliveryData {
+  userName: string
+  reportName: string
+  reportDate: string
+  downloadUrl: string
+}
+
+export interface DeviceNotificationData {
+  deviceName: string
+  deviceId: string
+  eventType: string
+  message: string
+  timestamp: string
+}
+
 // NOTE: nodemailer must be installed: npm install nodemailer @types/nodemailer
 // Configuration comes from environment variables, never hardcoded
 
@@ -40,6 +78,20 @@ const defaultConfig: EmailConfig = {
     pass: process.env.SMTP_PASS || '',
   },
 };
+
+export async function verifyEmailConfig(): Promise<VerifyEmailConfigResult> {
+  const host = process.env.SMTP_HOST || defaultConfig.host
+  const port = process.env.SMTP_PORT || String(defaultConfig.port)
+  const user = process.env.SMTP_USER || ""
+  const pass = process.env.SMTP_PASS || ""
+
+  if (!host) return { valid: false, error: "SMTP_HOST is not set" }
+  if (!port || Number.isNaN(Number(port))) return { valid: false, error: "SMTP_PORT is invalid" }
+  if (!user) return { valid: false, error: "SMTP_USER is not set" }
+  if (!pass) return { valid: false, error: "SMTP_PASS is not set" }
+
+  return { valid: true }
+}
 
 export async function sendEmail(message: EmailMessage, config?: Partial<EmailConfig>): Promise<EmailResult> {
   try {
@@ -64,6 +116,51 @@ export async function sendEmail(message: EmailMessage, config?: Partial<EmailCon
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown email error' };
   }
+}
+
+export async function sendWelcomeEmail(to: string, data: WelcomeEmailData): Promise<EmailResult> {
+  return sendEmail({
+    to,
+    subject: "Welcome to Mycosoft",
+    text: `Hi ${data.userName}, welcome to Mycosoft. Login: ${data.loginUrl}`,
+    html: `<p>Hi ${data.userName},</p><p>Welcome to Mycosoft.</p><p><a href="${data.loginUrl}">Login</a></p>`,
+  })
+}
+
+export async function sendPasswordResetEmail(to: string, data: PasswordResetData): Promise<EmailResult> {
+  return sendEmail({
+    to,
+    subject: "Mycosoft password reset",
+    text: `Hi ${data.userName}, reset your password here: ${data.resetUrl} (expires in ${data.expiresIn})`,
+    html: `<p>Hi ${data.userName},</p><p><a href="${data.resetUrl}">Reset your password</a></p><p>Expires in ${data.expiresIn}.</p>`,
+  })
+}
+
+export async function sendSecurityAlertEmail(to: string, data: SecurityAlertData): Promise<EmailResult> {
+  return sendEmail({
+    to,
+    subject: `Mycosoft security alert: ${data.alertType}`,
+    text: `User: ${data.userName}\nType: ${data.alertType}\nTime: ${data.timestamp}\n\n${data.description}`,
+    html: `<h2>Security alert: ${data.alertType}</h2><p><strong>User:</strong> ${data.userName}</p><p><strong>Time:</strong> ${data.timestamp}</p><pre>${data.description}</pre>`,
+  })
+}
+
+export async function sendReportEmail(to: string, data: ReportDeliveryData): Promise<EmailResult> {
+  return sendEmail({
+    to,
+    subject: `Mycosoft report: ${data.reportName} (${data.reportDate})`,
+    text: `Hi ${data.userName}, your report is ready: ${data.downloadUrl}`,
+    html: `<p>Hi ${data.userName},</p><p>Your report <strong>${data.reportName}</strong> (${data.reportDate}) is ready.</p><p><a href="${data.downloadUrl}">Download</a></p>`,
+  })
+}
+
+export async function sendDeviceNotificationEmail(to: string, data: DeviceNotificationData): Promise<EmailResult> {
+  return sendEmail({
+    to,
+    subject: `Device notification: ${data.deviceName} (${data.eventType})`,
+    text: `Device: ${data.deviceName} (${data.deviceId})\nEvent: ${data.eventType}\nTime: ${data.timestamp}\n\n${data.message}`,
+    html: `<h2>Device notification</h2><p><strong>Device:</strong> ${data.deviceName} (${data.deviceId})</p><p><strong>Event:</strong> ${data.eventType}</p><p><strong>Time:</strong> ${data.timestamp}</p><pre>${data.message}</pre>`,
+  })
 }
 
 export async function sendDeploymentNotification(service: string, status: 'success' | 'failure', details: string): Promise<EmailResult> {

@@ -68,8 +68,7 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
   // Note: /devices is PUBLIC (home page devices section)
   // Protected routes require authentication
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-                          request.nextUrl.pathname.startsWith('/account') ||
+  const isProtectedRoute = request.nextUrl.pathname.startsWith('/account') ||
                           request.nextUrl.pathname.startsWith('/security') ||
                           request.nextUrl.pathname.startsWith('/admin') ||
                           request.nextUrl.pathname.startsWith('/natureos')
@@ -93,7 +92,7 @@ export async function updateSession(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (user && isAuthRoute && !request.nextUrl.pathname.includes('/callback')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/natureos'
     return NextResponse.redirect(url)
   }
 

@@ -37,7 +37,12 @@ import {
   Key,
   Hash,
   Binary,
-  TreeDeciduous
+  TreeDeciduous,
+  BookOpen,
+  Wallet,
+  Dna,
+  Waves,
+  Container
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -352,6 +357,12 @@ export function MINDEXPortal() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
+            <Button size="lg" variant="outline" className="text-lg px-8 border-cyan-500/30 hover:bg-cyan-500/10" asChild>
+              <Link href="/natureos/mindex/explorer">
+                Species Explorer
+                <Globe className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
             <Button size="lg" variant="outline" className="text-lg px-8 border-purple-500/30 hover:bg-purple-500/10" asChild>
               <Link href="#documentation">
                 View Documentation
@@ -588,6 +599,124 @@ export function MINDEXPortal() {
                 </div>
               </motion.div>
             </AnimatePresence>
+          </div>
+        </div>
+      </section>
+
+      {/* MINDEX Capabilities Section */}
+      <section className="py-24">
+        <div className="container max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-green-500/10 text-green-400 border-green-500/30">Capabilities</Badge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Comprehensive Data Intelligence
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              MINDEX provides 12 major sections of functionality, from species encyclopedia to genomics visualization.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { 
+                title: "Species Encyclopedia", 
+                href: "/natureos/mindex", 
+                icon: BookOpen, 
+                description: "Search 5,500+ fungal taxa with real-time data from GBIF, iNaturalist, and MushroomObserver" 
+              },
+              { 
+                title: "Data Pipeline", 
+                href: "/natureos/mindex", 
+                icon: Activity, 
+                description: "ETL sync from 3 major sources with automated quality metrics" 
+              },
+              { 
+                title: "Integrity Verification", 
+                href: "/natureos/mindex", 
+                icon: Shield, 
+                description: "Cryptographic hash chains, timestamps, and tamper-evident records" 
+              },
+              { 
+                title: "Cryptography", 
+                href: "/natureos/mindex", 
+                icon: Lock, 
+                description: "SHA-256 hashing, Merkle trees, and digital signatures" 
+              },
+              { 
+                title: "Ledger Anchoring", 
+                href: "/natureos/mindex", 
+                icon: Wallet, 
+                description: "Bitcoin Ordinals, Solana, and Constellation Hypergraph" 
+              },
+              { 
+                title: "Mycorrhizal Network", 
+                href: "/natureos/mindex", 
+                icon: Network, 
+                description: "Protocol-based device mesh communication" 
+              },
+              { 
+                title: "Phylogenetic Trees", 
+                href: "/natureos/mindex", 
+                icon: GitBranch, 
+                description: "Evolutionary relationships and ancestry visualization" 
+              },
+              { 
+                title: "Genomics Browser", 
+                href: "/natureos/mindex", 
+                icon: Dna, 
+                description: "JBrowse, Gosling, and Circos genome visualization" 
+              },
+              { 
+                title: "FCI Devices", 
+                href: "/natureos/mindex", 
+                icon: Cpu, 
+                description: "Real-time MycoBrain device monitoring and telemetry" 
+              },
+              { 
+                title: "M-Wave Analysis", 
+                href: "/natureos/mindex", 
+                icon: Waves, 
+                description: "Seismic data correlation with fungal networks" 
+              },
+              { 
+                title: "Docker Containers", 
+                href: "/natureos/mindex", 
+                icon: Container, 
+                description: "Infrastructure monitoring on VM 192.168.0.189" 
+              },
+              { 
+                title: "Species Explorer", 
+                href: "/natureos/mindex/explorer", 
+                icon: Globe, 
+                description: "Interactive map of 2,400+ geolocated observations" 
+              }
+            ].map((capability, index) => (
+              <motion.div
+                key={capability.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                viewport={{ once: true }}
+              >
+                <Card className="h-full border-purple-500/20 hover:border-purple-500/40 transition-all">
+                  <CardHeader>
+                    <Link href={capability.href} className="group">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
+                          <capability.icon className="h-6 w-6 text-purple-400" />
+                        </div>
+                        <CardTitle className="text-base group-hover:text-purple-400 transition-colors">
+                          {capability.title}
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="text-sm">
+                        {capability.description}
+                      </CardDescription>
+                    </Link>
+                  </CardHeader>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -875,8 +1004,14 @@ Signer: mycobrain_0042`}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
+              <Button size="lg" variant="outline" className="text-lg px-8 border-cyan-500/30 hover:bg-cyan-500/20" asChild>
+                <Link href="/natureos/mindex/explorer">
+                  Species Explorer
+                  <Globe className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
               <Button size="lg" variant="outline" className="text-lg px-8 border-purple-500/30" asChild>
-                <Link href="/docs">
+                <Link href="#documentation">
                   API Documentation
                   <Code className="ml-2 h-5 w-5" />
                 </Link>

@@ -151,7 +151,13 @@ function useRealDevices() {
           const deviceIds = new Set<string>() // Track to avoid duplicates
           
           for (const device of telemetryDevices) {
-            const deviceId = device.deviceId || `device-${device.port || Math.random()}`
+            // Never generate random IDs; if upstream didn't provide an ID, derive a stable one.
+            const deviceId =
+              device.deviceId ||
+              (device.port ? `port-${device.port}` : "")
+
+            // If we still can't identify the device, skip it (no mock/fake identifiers).
+            if (!deviceId) continue
             
             // Skip duplicates
             if (deviceIds.has(deviceId)) continue

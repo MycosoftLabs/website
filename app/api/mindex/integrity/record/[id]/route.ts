@@ -45,9 +45,10 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
       {
         error: "Failed to fetch integrity record",
         details: error instanceof Error ? error.message : String(error),
-        code: "INTEGRITY_RECORD_FETCH_FAILED",
+        code: "UPSTREAM_ERROR",
+        info: "Ensure MINDEX API is accessible at the configured URL and provides integrity record endpoints.",
       },
-      { status: 501 },
+      { status: 503 },
     )
   }
 }
