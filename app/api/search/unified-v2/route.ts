@@ -24,6 +24,7 @@ export const maxDuration = 30
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 const INATURALIST_API = "https://api.inaturalist.org/v1"
+const EXA_API_KEY = process.env.EXA_API_KEY
 
 // =============================================================================
 // TYPES
@@ -95,6 +96,15 @@ interface AIAnswer {
   sources?: string[]
 }
 
+interface ExaResult {
+  id: string
+  url: string
+  title: string
+  score: number
+  text?: string
+  published_date?: string
+}
+
 interface UnifiedSearchResponse {
   query: string
   intent: SearchIntent
@@ -106,6 +116,7 @@ interface UnifiedSearchResponse {
   }
   live_results: {
     observations: LiveObservation[]
+    exa_results?: ExaResult[]
     media?: unknown[]
     news?: unknown[]
   }
@@ -550,6 +561,52 @@ function getKnowledgeBaseAnswer(query: string, intent: SearchIntent): AIAnswer {
 }
 
 // =============================================================================
+// EXA SEMANTIC SEARCH
+// =============================================================================
+
+async function searchExa(query: string, limit: number = 5): Promise<ExaResult[]> {
+  if (!EXA_API_KEY) {
+    console.log("[Exa] API key not configured, skipping")
+    return []
+  }
+  
+  try {
+    const res = await fetch("https://api.exa.ai/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": EXA_API_KEY,
+      },
+      body: JSON.stringify({
+        query: `mycology fungi mushrooms ${query}`,
+        numResults: limit,
+        useAutoprompt: true,
+        type: "neural",
+        contents: {
+          text: { maxCharacters: 500 },
+        },
+      }),
+      signal: AbortSignal.timeout(8000),
+    })
+    
+    if (!res.ok) return []
+    
+    const data = await res.json()
+    return (data.results || []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      url: r.url as string,
+      title: r.title as string,
+      score: r.score as number || 0,
+      text: r.text as string,
+      published_date: r.publishedDate as string,
+    }))
+  } catch (err) {
+    console.error("[Exa] Search failed:", err)
+    return []
+  }
+}
+
+// =============================================================================
 // DATA GRAFTING
 // =============================================================================
 
@@ -612,7 +669,7 @@ export async function GET(request: NextRequest) {
   const providersUsed: string[] = []
 
   // Run parallel searches
-  const [taxaResults, compoundResults, researchResults, liveObservations, aiAnswer] = await Promise.all([
+  const [taxaResults, compoundResults, researchResults, liveObservations, exaResults, aiAnswer] = await Promise.all([
     searchMindexTaxa(query, intent.filters),
     intent.type === "compound" || intent.keywords.some(k => /chem|compound|molecule/.test(k))
       ? searchMindexCompounds(query)
@@ -621,6 +678,7 @@ export async function GET(request: NextRequest) {
       ? searchMindexResearch(query)
       : Promise.resolve([]),
     includeLive ? fetchLiveObservations(query, intent) : Promise.resolve([]),
+    includeLive && EXA_API_KEY ? searchExa(query) : Promise.resolve([]),
     includeAI ? getAIAnswer(query, intent, context) : Promise.resolve({
       answer: "",
       provider: "none",
@@ -632,6 +690,7 @@ export async function GET(request: NextRequest) {
   if (compoundResults.length > 0) providersUsed.push("MINDEX/compounds")
   if (researchResults.length > 0) providersUsed.push("MINDEX/research")
   if (liveObservations.length > 0) providersUsed.push("iNaturalist")
+  if (exaResults.length > 0) providersUsed.push("Exa")
   if (aiAnswer.provider !== "none") providersUsed.push(aiAnswer.provider)
 
   // Queue data for grafting (non-blocking)
@@ -649,6 +708,7 @@ export async function GET(request: NextRequest) {
     },
     live_results: {
       observations: liveObservations,
+      exa_results: exaResults.length > 0 ? exaResults : undefined,
       media: intent.type === "media" ? [] : undefined,
       news: intent.queryType === "news" ? [] : undefined,
     },
@@ -701,11 +761,12 @@ export async function POST(request: NextRequest) {
   const providersUsed: string[] = []
 
   // Run parallel searches
-  const [taxaResults, compoundResults, researchResults, liveObservations, aiAnswer] = await Promise.all([
+  const [taxaResults, compoundResults, researchResults, liveObservations, exaResults, aiAnswer] = await Promise.all([
     searchMindexTaxa(query, intent.filters),
     searchMindexCompounds(query),
     searchMindexResearch(query),
     fetchLiveObservations(query, intent),
+    EXA_API_KEY ? searchExa(query) : Promise.resolve([]),
     getAIAnswer(query, intent, fullContext),
   ])
 
@@ -713,6 +774,7 @@ export async function POST(request: NextRequest) {
   if (compoundResults.length > 0) providersUsed.push("MINDEX/compounds")
   if (researchResults.length > 0) providersUsed.push("MINDEX/research")
   if (liveObservations.length > 0) providersUsed.push("iNaturalist")
+  if (exaResults.length > 0) providersUsed.push("Exa")
   if (aiAnswer.provider !== "none") providersUsed.push(aiAnswer.provider)
 
   // Queue data for grafting
@@ -729,6 +791,7 @@ export async function POST(request: NextRequest) {
     },
     live_results: {
       observations: liveObservations,
+      exa_results: exaResults.length > 0 ? exaResults : undefined,
       media: intent.type === "media" ? [] : undefined,
       news: intent.queryType === "news" ? [] : undefined,
     },

@@ -1,6 +1,6 @@
 "use client"
 
-import { FC, ReactNode, createContext, useContext, useCallback, useState, useEffect } from "react"
+import { FC, ReactNode, createContext, useContext, useCallback, useState, useEffect, useRef } from "react"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
@@ -9,6 +9,7 @@ import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
  * PersonaPlex Provider - Site-wide voice control
  * Created: February 3, 2026
  * Updated: February 5, 2026 - Added voice listening state for search integration
+ * Updated: February 11, 2026 - Added Web Speech API fallback when PersonaPlex unavailable
  * 
  * Provides MYCA voice assistant across all pages with:
  * - Floating widget that persists during navigation
@@ -17,7 +18,116 @@ import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
  * - MAS orchestrator integration
  * - Memory persistence
  * - n8n workflow execution
+ * - Web Speech API fallback for STT when PersonaPlex unavailable
  */
+
+// =============================================================================
+// WEB SPEECH API FALLBACK
+// =============================================================================
+
+interface WebSpeechFallback {
+  isSupported: boolean
+  isListening: boolean
+  start: () => void
+  stop: () => void
+  speak: (text: string) => void
+}
+
+function useWebSpeechFallback(
+  onTranscript: (text: string) => void,
+  onError: (error: string) => void
+): WebSpeechFallback {
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  
+  const isSupported = typeof window !== "undefined" && 
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+  
+  useEffect(() => {
+    if (!isSupported) return
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SpeechRecognition()
+    
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+    
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join("")
+      
+      // Only process final results
+      if (event.results[event.results.length - 1].isFinal) {
+        onTranscript(transcript)
+      }
+    }
+    
+    recognition.onerror = (event) => {
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        onError(`Speech recognition error: ${event.error}`)
+      }
+      setIsListening(false)
+    }
+    
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+    
+    recognitionRef.current = recognition
+    
+    return () => {
+      recognition.abort()
+    }
+  }, [isSupported, onTranscript, onError])
+  
+  const start = useCallback(() => {
+    if (recognitionRef.current && !isListening) {
+      try {
+        recognitionRef.current.start()
+        setIsListening(true)
+      } catch (e) {
+        console.error("[WebSpeech] Start error:", e)
+      }
+    }
+  }, [isListening])
+  
+  const stop = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    }
+  }, [isListening])
+  
+  const speak = useCallback((text: string) => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel()
+      
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = "en-US"
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      
+      // Try to use a female voice for MYCA
+      const voices = window.speechSynthesis.getVoices()
+      const femaleVoice = voices.find((v) => 
+        v.name.includes("Female") || 
+        v.name.includes("Samantha") || 
+        v.name.includes("Victoria") ||
+        v.name.includes("Karen")
+      )
+      if (femaleVoice) {
+        utterance.voice = femaleVoice
+      }
+      
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [])
+  
+  return { isSupported, isListening, start, stop, speak }
+}
 
 interface PersonaPlexContextValue {
   // Connection
@@ -84,61 +194,15 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const [lastResult, setLastResult] = useState<any>(null)
   const [isListening, setIsListening] = useState(false)
   const [lastTranscript, setLastTranscript] = useState("")
+  const [usingFallback, setUsingFallback] = useState(false)
   
-  const personaplex = usePersonaPlex({
-    // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
-    // Bridge provides MAS Event Engine integration with tool calls, agents, memory
-    serverUrl: "ws://localhost:8999/api/chat",
-    voicePrompt: "NATURAL_F2.pt",
-    textPrompt: MYCA_PERSONAPLEX_PROMPT,
-    
-    onTranscript: (text) => {
-      console.log("[PersonaPlex] Transcript:", text)
-      setLastTranscript(text)
-      processVoiceCommand(text)
-    },
-    
-    onResponse: (response) => {
-      console.log("[PersonaPlex] Response:", response)
-    },
-    
-    onError: (error) => {
-      // Only log a warning for connection errors (expected when PersonaPlex isn't running)
-      if (error.includes("WebSocket") || error.includes("connection")) {
-        console.warn("[PersonaPlex] Voice server not available (run PersonaPlex to enable voice)")
-      } else {
-        console.error("[PersonaPlex] Error:", error)
-      }
-    },
-  })
-  
-  // Voice listening controls
-  const startListening = useCallback(async () => {
-    if (!personaplex.isConnected) {
-      try {
-        await personaplex.connect()
-      } catch (error) {
-        console.error("[PersonaPlex] Failed to connect:", error)
-        return
-      }
-    }
-    setIsListening(true)
-    console.log("[PersonaPlex] Started listening")
-  }, [personaplex])
-  
-  const stopListening = useCallback(() => {
-    setIsListening(false)
-    console.log("[PersonaPlex] Stopped listening")
-  }, [])
-  
-  // Process voice commands for site control
+  // Process voice command (defined early for use in callbacks)
   const processVoiceCommand = useCallback((text: string) => {
     const lower = text.toLowerCase()
     
     // Navigation commands
     if (lower.includes("go to") || lower.includes("navigate to") || lower.includes("open")) {
       const routes: Record<string, string> = {
-        "dashboard": "/dashboard",
         "home": "/",
         "ai studio": "/ai-studio",
         "earth simulator": "/earth-simulator",
@@ -158,7 +222,9 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       
       for (const [key, path] of Object.entries(routes)) {
         if (lower.includes(key)) {
-          navigateTo(path)
+          if (typeof window !== "undefined") {
+            window.location.href = path
+          }
           return
         }
       }
@@ -183,29 +249,86 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
         return
       }
     }
+  }, [])
+  
+  // Web Speech API fallback for when PersonaPlex is unavailable
+  const webSpeech = useWebSpeechFallback(
+    (text) => {
+      console.log("[WebSpeech Fallback] Transcript:", text)
+      setLastTranscript(text)
+      processVoiceCommand(text)
+    },
+    (error) => {
+      console.warn("[WebSpeech Fallback] Error:", error)
+    }
+  )
+  
+  const personaplex = usePersonaPlex({
+    // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
+    // Bridge provides MAS Event Engine integration with tool calls, agents, memory
+    serverUrl: "ws://localhost:8999/api/chat",
+    voicePrompt: "NATURAL_F2.pt",
+    textPrompt: MYCA_PERSONAPLEX_PROMPT,
     
-    // Workflow commands
-    if (lower.includes("run workflow") || lower.includes("execute workflow")) {
-      const workflowMatch = lower.match(/(?:run|execute)\s+workflow\s+(.+)/i)
-      if (workflowMatch) {
-        const workflowName = workflowMatch[1].replace(/\s+/g, "_")
-        runWorkflow(workflowName)
+    onTranscript: (text) => {
+      console.log("[PersonaPlex] Transcript:", text)
+      setLastTranscript(text)
+      processVoiceCommand(text)
+    },
+    
+    onResponse: (response) => {
+      console.log("[PersonaPlex] Response:", response)
+    },
+    
+    onError: (error) => {
+      // Only log a warning for connection errors (expected when PersonaPlex isn't running)
+      if (error.includes("WebSocket") || error.includes("connection")) {
+        console.warn("[PersonaPlex] Voice server not available - falling back to Web Speech API")
+        setUsingFallback(true)
+      } else {
+        console.error("[PersonaPlex] Error:", error)
+      }
+    },
+  })
+  
+  // Voice listening controls with automatic fallback
+  const startListening = useCallback(async () => {
+    // Try PersonaPlex first
+    if (!usingFallback && !personaplex.isConnected) {
+      try {
+        await personaplex.connect()
+        setIsListening(true)
+        console.log("[PersonaPlex] Started listening")
         return
+      } catch (error) {
+        console.warn("[PersonaPlex] Connection failed, trying Web Speech fallback")
+        setUsingFallback(true)
       }
     }
     
-    // Agent commands
-    if (lower.includes("list agents") || lower.includes("show agents")) {
-      navigateTo("/agents")
+    if (personaplex.isConnected) {
+      setIsListening(true)
+      console.log("[PersonaPlex] Started listening")
       return
     }
     
-    // Status commands
-    if (lower.includes("system status") || lower.includes("health check")) {
-      runWorkflow("system_status")
-      return
+    // Fallback to Web Speech API
+    if (webSpeech.isSupported) {
+      webSpeech.start()
+      setIsListening(true)
+      console.log("[WebSpeech Fallback] Started listening")
+    } else {
+      console.error("[Voice] No voice input available - PersonaPlex offline and Web Speech not supported")
     }
-  }, [])
+  }, [personaplex, webSpeech, usingFallback])
+  
+  const stopListening = useCallback(() => {
+    if (usingFallback && webSpeech.isSupported) {
+      webSpeech.stop()
+    }
+    setIsListening(false)
+    console.log("[Voice] Stopped listening")
+  }, [webSpeech, usingFallback])
   
   const navigateTo = useCallback((path: string) => {
     if (typeof window !== "undefined") {

@@ -266,13 +266,15 @@ export async function getLiveResultsByIntent(
     }
   }
 
-  // For media queries - return placeholder (would integrate with TMDB/IMDB)
+  // For media queries - NOTE: TMDB/IMDB integration not yet implemented
+  // Returns empty results with proper source attribution (no mock data)
   if (intent.type === "media") {
-    // In a real implementation, this would call TMDB or similar API
+    // TODO: Integrate with TMDB API for real media results
+    // For now, return empty to comply with no-mock-data policy
     return {
       type: "media",
-      media: getPlaceholderMediaResults(intent.entities),
-      source: "TMDB",
+      media: [], // No mock data - awaiting TMDB integration
+      source: "pending_tmdb_integration",
       refreshedAt: now,
     }
   }
@@ -301,65 +303,37 @@ export async function getLiveResultsByIntent(
 }
 
 // =============================================================================
-// PLACEHOLDER DATA (to be replaced with real API calls)
+// REAL API INTEGRATIONS (no mock data)
 // =============================================================================
 
-function getPlaceholderMediaResults(entities: string[]): LiveMedia[] {
-  // This would be replaced with real TMDB/IMDB API calls
-  const fungiMedia: LiveMedia[] = [
-    {
-      id: "1",
-      title: "Fantastic Fungi",
-      type: "documentary",
-      year: 2019,
-      rating: 8.1,
-      overview: "Time-lapse photography reveals the magical, mysterious world of fungi.",
-      posterUrl: undefined,
-      fungiRelevance: "Full documentary about fungi and mycelium",
-    },
-    {
-      id: "2",
-      title: "Know Your Mushrooms",
-      type: "documentary",
-      year: 2008,
-      rating: 7.2,
-      overview: "Documentary about mushroom hunters and their passion for fungi.",
-      posterUrl: undefined,
-      fungiRelevance: "Follows mushroom hunting community",
-    },
-    {
-      id: "3",
-      title: "The Last of Us",
-      type: "tv",
-      year: 2023,
-      rating: 8.8,
-      overview: "Post-apocalyptic series featuring a fungal pandemic.",
-      posterUrl: undefined,
-      fungiRelevance: "Cordyceps-inspired zombie fungus central to plot",
-    },
-  ]
+/**
+ * Fetch media results from TMDB API
+ * TODO: Implement when TMDB API key is available
+ * For now returns empty array to comply with no-mock-data policy
+ */
+export async function fetchMediaResults(query: string): Promise<LiveMedia[]> {
+  // TMDB API integration pending - API key required
+  // When implemented:
+  // const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+  // const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${query}`)
+  // return parseMediaResults(res)
   
-  return fungiMedia
+  console.log(`[LiveResults] Media search for "${query}" - TMDB integration pending`)
+  return [] // No mock data
 }
 
 /**
- * Get news placeholder - would integrate with real news API
+ * Fetch news results from news API
+ * TODO: Implement when news API key is available (NewsAPI, GNews, etc.)
+ * For now returns empty array to comply with no-mock-data policy
  */
-export function getPlaceholderNewsResults(): LiveNews[] {
-  return [
-    {
-      id: "1",
-      title: "New Psilocybin Research Shows Promise for Depression Treatment",
-      source: "Nature",
-      publishedAt: new Date().toISOString(),
-      summary: "Latest clinical trials demonstrate significant improvements in treatment-resistant depression.",
-    },
-    {
-      id: "2",
-      title: "Mycelium-Based Materials Could Replace Plastic Packaging",
-      source: "Science Daily",
-      publishedAt: new Date(Date.now() - 86400000).toISOString(),
-      summary: "Researchers develop sustainable packaging from fungal mycelium.",
-    },
-  ]
+export async function fetchNewsResults(query: string): Promise<LiveNews[]> {
+  // News API integration pending - API key required
+  // When implemented:
+  // const NEWS_API_KEY = process.env.NEXT_PUBLIC_NEWS_API_KEY
+  // const res = await fetch(`https://newsapi.org/v2/everything?q=${query}&apiKey=${NEWS_API_KEY}`)
+  // return parseNewsResults(res)
+  
+  console.log(`[LiveResults] News search for "${query}" - News API integration pending`)
+  return [] // No mock data
 }

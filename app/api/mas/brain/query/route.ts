@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // MYCA Brain backend URL
-    const brainUrl = process.env.MYCA_BRAIN_URL || "http://192.168.0.188:8000"
+    // MYCA Brain backend URL (MAS VM port 8001)
+    const brainUrl = process.env.MYCA_BRAIN_URL || "http://192.168.0.188:8001"
     
     // Build the prompt based on mode
     const systemPrompt = buildSystemPrompt(mode)

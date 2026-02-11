@@ -60,7 +60,23 @@ export function ChemistryWidget({
   }, [focusedId]) // eslint-disable-line
 
   const selected = items[selectedIndex] || items[0]
-  if (!selected) return null
+  
+  // Empty state - no compounds found
+  if (!selected || items.length === 0) {
+    return (
+      <div className={cn("space-y-3 text-center py-6", className)}>
+        <div className="p-3 bg-purple-500/10 rounded-lg w-fit mx-auto">
+          <FlaskConical className="h-6 w-6 text-purple-500/50" />
+        </div>
+        <div>
+          <h3 className="font-medium text-muted-foreground">No Compounds Found</h3>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Try a different search term or check MINDEX for available compound data.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const sources = items.map((c: any) => c._source || "Unknown").filter(Boolean)
   const uniqueSources = [...new Set(sources)]

@@ -27,6 +27,23 @@ export function GeneticsWidget({
   onExplore,
   className,
 }: GeneticsWidgetProps) {
+  // Empty state
+  if (!data || !data.id) {
+    return (
+      <div className={cn("space-y-3 text-center py-6", className)}>
+        <div className="p-3 bg-green-500/10 rounded-lg w-fit mx-auto">
+          <Dna className="h-6 w-6 text-green-500/50" />
+        </div>
+        <div>
+          <h3 className="font-medium text-muted-foreground">No Genetic Data</h3>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            No sequences found. Try searching for a specific species or accession number.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}

@@ -42,7 +42,6 @@ import {
 import {
   getWidgetFloatVariants,
   getParallaxDepth,
-  PHYSICS_CONFIG,
   widgetEnterAnimation,
   glowPulseAnimation,
   initializeParticles,
@@ -50,6 +49,7 @@ import {
   findParticleConnections,
   type Particle,
 } from "@/lib/search/widget-physics"
+import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
 
@@ -147,6 +147,12 @@ export function FluidSearchCanvas({
   const [minimizedTypes, setMinimizedTypes] = useState<Set<WidgetType>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  
+  // Animated typing placeholder
+  const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
+    enabled: !localQuery && !isInputFocused,
+  })
 
   // Sync initialQuery
   useEffect(() => {
@@ -324,7 +330,9 @@ export function FluidSearchCanvas({
           <Input
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
-            placeholder="Search fungi, compounds, genetics..."
+            onFocus={() => { setIsInputFocused(true); pause() }}
+            onBlur={() => { setIsInputFocused(false); if (!localQuery) resume() }}
+            placeholder={animatedPlaceholder || "Search fungi, compounds, genetics..."}
             className="pl-9 pr-20 h-9 text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
           />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -374,8 +382,7 @@ export function FluidSearchCanvas({
               }}
               exit={widgetEnterAnimation.exit}
               whileHover={{ 
-                scale: PHYSICS_CONFIG.focus.scaleHovered,
-                boxShadow: "0 20px 50px rgba(34, 197, 94, 0.2)",
+                boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
               }}
               transition={{ type: "spring", damping: 28, stiffness: 350, mass: 0.8 }}
               className="w-full shrink-0 z-20"
@@ -439,9 +446,7 @@ export function FluidSearchCanvas({
                     ...floatVariants,
                   }}
                   whileHover={{ 
-                    scale: 1.12, 
-                    y: -5,
-                    boxShadow: "0 15px 35px rgba(34, 197, 94, 0.25)",
+                    boxShadow: "0 15px 35px rgba(34, 197, 94, 0.35)",
                   }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleFocusWidget({ type: config.type })}
@@ -481,8 +486,8 @@ export function FluidSearchCanvas({
             {minimizedWidgets.map((w) => (
               <motion.button
                 key={w.type}
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ boxShadow: "0 8px 20px rgba(34, 197, 94, 0.3)" }}
+                whileTap={{ opacity: 0.9 }}
                 onClick={() => handleFocusWidget({ type: w.type })}
                 className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center",
