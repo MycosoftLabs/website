@@ -227,7 +227,7 @@ async function searchMindexTaxa(query: string, filters: SearchIntent["filters"],
     const params = new URLSearchParams({ q: query, limit: String(limit) })
     if (filters.toxicity) params.set("toxicity", filters.toxicity)
 
-    const res = await fetch(`${MINDEX_API_URL}/api/search?${params}`, {
+    const res = await fetch(`${MINDEX_API_URL}/api/mindex/unified-search?${params}`, {
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
@@ -250,7 +250,7 @@ async function searchMindexTaxa(query: string, filters: SearchIntent["filters"],
 
 async function searchMindexCompounds(query: string, limit: number = 10): Promise<CompoundResult[]> {
   try {
-    const res = await fetch(`${MINDEX_API_URL}/api/compounds?search=${encodeURIComponent(query)}&limit=${limit}`, {
+    const res = await fetch(`${MINDEX_API_URL}/api/mindex/compounds?search=${encodeURIComponent(query)}&limit=${limit}`, {
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
@@ -270,7 +270,7 @@ async function searchMindexCompounds(query: string, limit: number = 10): Promise
 
 async function searchMindexResearch(query: string, limit: number = 10): Promise<ResearchResult[]> {
   try {
-    const res = await fetch(`${MINDEX_API_URL}/api/knowledge/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
+    const res = await fetch(`${MINDEX_API_URL}/api/mindex/knowledge/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
       signal: AbortSignal.timeout(5000),
     })
     if (!res.ok) return []
