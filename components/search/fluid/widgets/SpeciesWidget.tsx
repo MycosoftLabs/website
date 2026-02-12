@@ -9,7 +9,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
@@ -47,10 +47,12 @@ export function SpeciesWidget({
   onAddToNotepad,
   className,
 }: SpeciesWidgetProps) {
-  const items = Array.isArray(data) ? data : [data]
+  const items = useMemo(() => Array.isArray(data) ? data : [data], [data])
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
+    // Only respond to focusedId if this widget is actually being focused for a species item
+    // Check that focusedId matches one of our species IDs to avoid cross-widget interference
     if (focusedId && items.length > 0) {
       const idx = items.findIndex(
         (s) =>
@@ -58,9 +60,12 @@ export function SpeciesWidget({
           s.commonName?.toLowerCase() === focusedId.toLowerCase() ||
           s.scientificName?.toLowerCase() === focusedId.toLowerCase()
       )
-      if (idx >= 0) setSelectedIndex(idx)
+      // Only update index if we actually found a matching species
+      if (idx >= 0) {
+        setSelectedIndex(idx)
+      }
     }
-  }, [focusedId]) // eslint-disable-line
+  }, [focusedId, items])
 
   const selected = items[selectedIndex] || items[0]
   if (!selected) return null

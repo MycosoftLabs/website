@@ -2,15 +2,16 @@
  * LiveResultsWidget - Feb 2026
  *
  * Top-right panel: Shows live, rotating data based on current search focus.
- * - iNaturalist observations near user
- * - Auto-cycles between data types
- * - Uses browser geolocation
+ * - Uses liveObservations from context (populated by FluidSearchCanvas)
+ * - Auto-cycles between observations
+ * - Uses browser geolocation for location services
  */
 
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,35 +20,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Locate,
-  Loader2,
   Globe,
   Leaf,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { useSearchContext } from "../SearchContextProvider"
-
-interface Observation {
-  id: string
-  species: string
-  location: string
-  date: string
-  photoUrl?: string
-  quality: string
-}
 
 const CYCLE_INTERVAL = 10000 // 10 seconds
 
 export function LiveResultsWidget() {
-  const { species, focusedSpeciesId, userLocation, setUserLocation } = useSearchContext()
-  const [observations, setObservations] = useState<Observation[]>([])
+  const { liveObservations, query, userLocation, setUserLocation } = useSearchContext()
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
 
-  // Get the focused species or first species
-  const focusedSpecies = focusedSpeciesId
-    ? species.find((s) => s.id === focusedSpeciesId)
-    : species[0]
+  const observations = liveObservations || []
 
   // Request geolocation
   const requestLocation = useCallback(() => {
@@ -74,58 +59,10 @@ export function LiveResultsWidget() {
     }
   }, [userLocation, requestLocation])
 
-  // Fetch observations when species or location changes
+  // Reset index when observations change
   useEffect(() => {
-    if (!focusedSpecies) {
-      setObservations([])
-      return
-    }
-
-    const fetchObservations = async () => {
-      setIsLoading(true)
-      try {
-        const params = new URLSearchParams({
-          taxon_name: focusedSpecies.scientificName || focusedSpecies.commonName,
-          per_page: "10",
-          order: "desc",
-          order_by: "observed_on",
-          quality_grade: "research,needs_id",
-          photos: "true",
-        })
-        if (userLocation) {
-          params.set("lat", String(userLocation.lat))
-          params.set("lng", String(userLocation.lng))
-          params.set("radius", "200") // 200km radius
-        }
-
-        const res = await fetch(
-          `https://api.inaturalist.org/v1/observations?${params}`,
-          { signal: AbortSignal.timeout(8000) }
-        )
-        if (res.ok) {
-          const data = await res.json()
-          setObservations(
-            (data.results || []).map((obs: any) => ({
-              id: String(obs.id),
-              species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
-              location: obs.place_guess || "Unknown location",
-              date: obs.observed_on || obs.created_at?.split("T")[0] || "",
-              photoUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
-              quality: obs.quality_grade || "needs_id",
-            }))
-          )
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchObservations()
-    const interval = setInterval(fetchObservations, 60000) // Refresh every 60s
-    return () => clearInterval(interval)
-  }, [focusedSpecies?.id, userLocation?.lat, userLocation?.lng])
+    setCurrentIndex(0)
+  }, [observations.length])
 
   // Auto-cycle
   useEffect(() => {
@@ -137,6 +74,7 @@ export function LiveResultsWidget() {
   }, [observations.length])
 
   const current = observations[currentIndex]
+  const hasSearched = query && query.length > 0
 
   return (
     <div className="flex flex-col h-full max-h-[250px]">
@@ -155,22 +93,17 @@ export function LiveResultsWidget() {
 
       {/* Content */}
       <div className="flex-1 px-3 py-2 overflow-hidden">
-        {!focusedSpecies && !isLoading && (
+        {!hasSearched && observations.length === 0 && (
           <div className="text-center py-4 text-muted-foreground">
             <Leaf className="h-6 w-6 mx-auto mb-2 opacity-30" />
             <p className="text-[10px]">Search for a species to see live observations</p>
           </div>
         )}
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!isLoading && focusedSpecies && observations.length === 0 && (
+        {hasSearched && observations.length === 0 && (
           <div className="text-center py-4 text-muted-foreground text-xs">
             <p>No recent observations found</p>
+            {locationError && <p className="mt-1 text-[10px] text-amber-500">{locationError}</p>}
             {!userLocation && (
               <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs" onClick={requestLocation}>
                 <Locate className="h-3 w-3 mr-1" />
@@ -191,10 +124,12 @@ export function LiveResultsWidget() {
             >
               {current.photoUrl && (
                 <div className="relative w-full h-24 rounded-lg overflow-hidden bg-muted">
-                  <img
+                  <Image
                     src={current.photoUrl}
                     alt={current.species}
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 360px"
+                    className="object-cover"
                   />
                 </div>
               )}

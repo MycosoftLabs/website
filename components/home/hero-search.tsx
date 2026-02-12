@@ -17,26 +17,17 @@ import { useRouter } from "next/navigation"
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion"
 import { useTheme } from "next-themes"
 import Image from "next/image"
-import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { useDebounce } from "@/hooks/use-debounce"
-import { useSearch } from "@/components/search/use-search"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import {
   Search,
   Mic,
   MicOff,
-  Sparkles,
   ArrowRight,
   Loader2,
   X,
   Command,
-  MouseIcon as Mushroom,
-  FileText,
-  FlaskRoundIcon as Flask,
-  Microscope,
-  Wand2,
   Brain,
 } from "lucide-react"
 
@@ -45,16 +36,10 @@ export function HeroSearch() {
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [query, setQuery] = useState("")
-  const [showSuggestions, setShowSuggestions] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  
-  const debouncedQuery = useDebounce(query || "", 300)
-  const safeQuery = (debouncedQuery || "").trim()
-  
-  // Search hook
-  const { suggestions, isLoading, error, fetchSuggestions } = useSearch()
   
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
@@ -90,27 +75,17 @@ export function HeroSearch() {
     mouseY.set(y)
   }, [mouseX, mouseY])
 
-  // Handle voice transcript
+  // Handle voice transcript - auto-fill search when voice input received
   useEffect(() => {
     if (lastTranscript && isListening) {
       setQuery(lastTranscript)
-      setShowSuggestions(true)
     }
   }, [lastTranscript, isListening])
 
-  // Fetch suggestions on query change
-  useEffect(() => {
-    if (!safeQuery) return
-    const controller = new AbortController()
-    fetchSuggestions(safeQuery, controller)
-    return () => controller.abort()
-  }, [safeQuery, fetchSuggestions])
-
-  // Click outside handler
+  // Click outside handler - just unfocus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
         setIsFocused(false)
       }
     }
@@ -121,7 +96,7 @@ export function HeroSearch() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
-      setShowSuggestions(false)
+      setIsSearching(true)
       router.push(`/search?q=${encodeURIComponent(query.trim())}`)
     }
   }
@@ -235,13 +210,9 @@ export function HeroSearch() {
                   ref={inputRef}
                   type="text"
                   value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value)
-                    setShowSuggestions(true)
-                  }}
+                  onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => {
                     setIsFocused(true)
-                    setShowSuggestions(true)
                     pause()
                   }}
                   onBlur={() => {
@@ -313,7 +284,7 @@ export function HeroSearch() {
                 {/* Submit Button */}
                 <motion.button
                   type="submit"
-                  disabled={!query.trim()}
+                  disabled={!query.trim() || isSearching}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
@@ -323,7 +294,7 @@ export function HeroSearch() {
                       : "bg-white/10 text-gray-500"
                   )}
                 >
-                  {isLoading ? (
+                  {isSearching ? (
                     <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                   ) : (
                     <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -349,7 +320,7 @@ export function HeroSearch() {
               </AnimatePresence>
             </motion.form>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - clicking these goes directly to search */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -361,9 +332,8 @@ export function HeroSearch() {
                 <button
                   key={term}
                   onClick={() => {
-                    setQuery(term)
-                    setShowSuggestions(true)
-                    inputRef.current?.focus()
+                    setIsSearching(true)
+                    router.push(`/search?q=${encodeURIComponent(term)}`)
                   }}
                   className={cn(
                     "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm",
@@ -383,117 +353,7 @@ export function HeroSearch() {
           </div>
         </motion.div>
 
-        {/* Suggestions Dropdown */}
-        <AnimatePresence>
-          {showSuggestions && (safeQuery || suggestions.length > 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className={cn(
-                "absolute left-0 right-0 mt-2 sm:mt-3 z-50",
-                "rounded-xl sm:rounded-2xl overflow-hidden",
-                "bg-card/95 backdrop-blur-xl border border-border",
-                "shadow-2xl shadow-black/20",
-                "mx-1 sm:mx-0"
-              )}
-            >
-              {/* AI Feature Banner */}
-              <div className="px-3 sm:px-4 py-2 bg-gradient-to-r from-primary/10 to-purple-500/10 border-b border-border flex items-center gap-2">
-                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-primary shrink-0" />
-                <span className="text-[10px] sm:text-xs text-muted-foreground truncate">AI-powered search with MYCA Brain</span>
-              </div>
-              
-              <div className="max-h-[300px] sm:max-h-[400px] overflow-auto p-1.5 sm:p-2">
-                {error ? (
-                  <div className="p-6 text-center">
-                    <p className="text-sm text-destructive">{error}</p>
-                    <button 
-                      onClick={() => fetchSuggestions(safeQuery)}
-                      className="mt-2 text-xs text-primary hover:underline"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                ) : isLoading ? (
-                  <div className="p-6 flex items-center justify-center gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <span className="text-sm text-muted-foreground">Searching...</span>
-                  </div>
-                ) : suggestions.length > 0 ? (
-                  <div className="space-y-0.5 sm:space-y-1">
-                    {suggestions.map((suggestion, index) => (
-                      <motion.div
-                        key={suggestion.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <Link
-                          href={suggestion.url}
-                          onClick={() => setShowSuggestions(false)}
-                          className={cn(
-                            "flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg sm:rounded-xl",
-                            "hover:bg-muted/80 active:bg-muted transition-colors",
-                            "group"
-                          )}
-                        >
-                          <div className={cn(
-                            "shrink-0 p-1.5 sm:p-2 rounded-md sm:rounded-lg",
-                            suggestion.type === "fungi" && "bg-green-500/10 text-green-500",
-                            suggestion.type === "article" && "bg-blue-500/10 text-blue-500",
-                            suggestion.type === "compound" && "bg-purple-500/10 text-purple-500",
-                            suggestion.type === "research" && "bg-orange-500/10 text-orange-500"
-                          )}>
-                            {suggestion.type === "fungi" && <Mushroom className="h-4 w-4 sm:h-5 sm:w-5" />}
-                            {suggestion.type === "article" && <FileText className="h-4 w-4 sm:h-5 sm:w-5" />}
-                            {suggestion.type === "compound" && <Flask className="h-4 w-4 sm:h-5 sm:w-5" />}
-                            {suggestion.type === "research" && <Microscope className="h-4 w-4 sm:h-5 sm:w-5" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm sm:text-base font-medium truncate group-hover:text-primary transition-colors">
-                              {suggestion.title}
-                            </p>
-                            {suggestion.scientificName && (
-                              <p className="text-xs sm:text-sm text-muted-foreground italic truncate">
-                                {suggestion.scientificName}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-                              <span className="capitalize">{suggestion.type}</span>
-                              {suggestion.date && (
-                                <>
-                                  <span>•</span>
-                                  <span>{suggestion.date}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </Link>
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : safeQuery ? (
-                  <div className="p-6 text-center">
-                    <Wand2 className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No results for "{safeQuery}"</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1">Try a different search term</p>
-                  </div>
-                ) : null}
-              </div>
-              
-              {/* Footer - hidden on small mobile */}
-              <div className="hidden sm:flex px-3 sm:px-4 py-1.5 sm:py-2 border-t border-border items-center justify-between text-[10px] sm:text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Command className="h-2.5 w-2.5 sm:h-3 sm:w-3" />K for commands
-                </span>
-                <span>ESC to close</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Old suggestions dropdown removed - search results now shown on /search page with fluid widgets */}
       </div>
     </section>
   )

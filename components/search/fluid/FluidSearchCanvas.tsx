@@ -15,9 +15,11 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
+import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { useUnifiedSearch } from "@/hooks/use-unified-search"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
+import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,6 +40,9 @@ import {
   GeneticsWidget,
   ResearchWidget,
   AIWidget,
+  MediaWidget,
+  LocationWidget,
+  NewsWidget,
 } from "./widgets"
 import {
   getWidgetFloatVariants,
@@ -50,6 +55,7 @@ import {
   type Particle,
 } from "@/lib/search/widget-physics"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
+import { useVoiceSearch } from "@/hooks/use-voice-search"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
 
@@ -137,12 +143,14 @@ interface FluidSearchCanvasProps {
 export function FluidSearchCanvas({
   initialQuery = "",
   onNavigate,
+  voiceEnabled = true,
   className,
 }: FluidSearchCanvasProps) {
   const ctx = useSearchContext()
   const canvasRef = useRef<HTMLDivElement>(null)
   const [localQuery, setLocalQuery] = useState(initialQuery || "")
-  const [focusedType, setFocusedType] = useState<WidgetType | null>(null)
+  // Multi-widget grid: track multiple expanded widgets instead of single focused
+  const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(new Set(["species"]))
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
   const [minimizedTypes, setMinimizedTypes] = useState<Set<WidgetType>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
@@ -152,6 +160,25 @@ export function FluidSearchCanvas({
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
     enabled: !localQuery && !isInputFocused,
+  })
+
+  // Voice search integration
+  const voiceSearch = useVoiceSearch({
+    onSearch: (query) => {
+      setLocalQuery(query)
+      ctx.setQuery(query)
+    },
+    onFocusWidget: (widgetId) => {
+      const widgetType = widgetId as WidgetType
+      setExpandedWidgets((prev) => new Set(prev).add(widgetType))
+      setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(widgetType); return n })
+    },
+    onAIQuestion: (question) => {
+      // Focus AI widget and send question
+      setExpandedWidgets((prev) => new Set(prev).add("ai"))
+      ctx.addChatMessage("user", question)
+    },
+    enabled: voiceEnabled,
   })
 
   // Sync initialQuery
@@ -166,15 +193,45 @@ export function FluidSearchCanvas({
     ctx.setQuery(localQuery)
   }, [localQuery]) // eslint-disable-line
 
-  // Search hook
+  // Search hook - fetch ALL data types
   const {
     species, compounds, genetics, research, aiAnswer,
+    liveResults,
     isLoading, isValidating, totalCount, error, message,
   } = useUnifiedSearch(localQuery, {
     types: ["species", "compounds", "genetics", "research"],
     includeAI: true,
     limit: 20,
   })
+  
+  // Debounced query for additional endpoints
+  const debouncedQuery = useDebounce(localQuery, 300)
+  
+  // Media widget data fetcher
+  const { data: mediaData } = useSWR(
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/media?q=${encodeURIComponent(debouncedQuery)}&limit=10` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
+  
+  // Location widget data fetcher
+  const { data: locationData } = useSWR(
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/location?q=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
+  
+  // News widget data fetcher
+  const { data: newsData } = useSWR(
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/news?q=${encodeURIComponent(debouncedQuery)}&limit=10` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
+  
+  // Extract results from new endpoints
+  const mediaResults = mediaData?.results || []
+  const locationResults = locationData?.results || []
+  const newsResults = newsData?.results || []
 
   // Push results to context
   useEffect(() => {
@@ -190,6 +247,36 @@ export function FluidSearchCanvas({
     }
   }, [species, compounds, genetics, research, aiAnswer, isLoading]) // eslint-disable-line
 
+  // Push live observations to context for LiveResultsWidget
+  useEffect(() => {
+    if (liveResults.length > 0) {
+      ctx.setLiveObservations(liveResults.map((obs: any) => ({
+        id: obs.id,
+        species: obs.species,
+        location: obs.location || "Unknown location",
+        date: obs.date || "",
+        photoUrl: obs.imageUrl,
+        lat: obs.lat,
+        lng: obs.lng,
+      })))
+      return
+    }
+    // Keep compatibility fallback while live_results propagates through all environments
+    if (locationResults.length > 0) {
+      ctx.setLiveObservations(locationResults.map((obs: any) => ({
+        id: obs.id,
+        species: obs.commonName || obs.speciesName,
+        location: obs.placeName || "Unknown location",
+        date: obs.observedAt?.split("T")[0] || "",
+        photoUrl: obs.imageUrl,
+        lat: obs.lat,
+        lng: obs.lng,
+      })))
+      return
+    }
+    ctx.setLiveObservations([])
+  }, [liveResults, locationResults]) // eslint-disable-line
+  
   // Track history
   useEffect(() => {
     if (localQuery && totalCount > 0 && !isLoading) {
@@ -204,7 +291,8 @@ export function FluidSearchCanvas({
   useEffect(() => {
     if (ctx.widgetFocusTarget) {
       const t = ctx.widgetFocusTarget.type as WidgetType
-      setFocusedType(t)
+      // Add widget to expanded set instead of replacing
+      setExpandedWidgets((prev) => new Set(prev).add(t))
       setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(t); return n })
       // If a specific item ID was passed, set it so the widget pre-selects it
       if ("id" in ctx.widgetFocusTarget && ctx.widgetFocusTarget.id) {
@@ -249,45 +337,54 @@ export function FluidSearchCanvas({
     mouseY.set(e.clientY - rect.top)
   }, [mouseX, mouseY])
 
-  // Widget configs with depth layers
+  // Widget configs with depth layers - ALL widget types enabled
   const widgetConfigs: WidgetConfig[] = useMemo(() => [
     { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: compounds.length > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: genetics.length > 0, depth: getParallaxDepth("genetics") },
     { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: research.length > 0, depth: getParallaxDepth("research") },
     { type: "ai", label: "AI", icon: <Sparkles className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: !!aiAnswer, depth: getParallaxDepth("ai") },
-    // Future widget types
-    { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: false, depth: getParallaxDepth("media") },
-    { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: false, depth: getParallaxDepth("location") },
-    { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: false, depth: getParallaxDepth("news") },
-  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer])
+    { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: mediaResults.length > 0, depth: getParallaxDepth("media") },
+    { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: locationResults.length > 0, depth: getParallaxDepth("location") },
+    { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: newsResults.length > 0, depth: getParallaxDepth("news") },
+  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer, mediaResults.length, locationResults.length, newsResults.length])
 
-  const activeWidgets = widgetConfigs.filter((w) => w.hasData)
-  const contextWidgets = activeWidgets.filter((w) => w.type !== focusedType && !minimizedTypes.has(w.type))
-  const minimizedWidgets = activeWidgets.filter((w) => minimizedTypes.has(w.type) && w.type !== focusedType)
+  // Show ALL widgets regardless of whether they have data - users should see the full widget grid
+  // Widgets without data will show an appropriate empty/loading state
+  const activeWidgets = widgetConfigs  // No filter - show all widgets
+  // Expanded widgets shown in the grid
+  const gridWidgets = activeWidgets.filter((w) => expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
+  // Context widgets shown as clickable pills (not expanded and not minimized)
+  const contextWidgets = activeWidgets.filter((w) => !expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
+  // Minimized widgets shown as icon buttons
+  const minimizedWidgetConfigs = activeWidgets.filter((w) => minimizedTypes.has(w.type))
 
-  // Auto-focus first
+  // Auto-expand Species on first load if nothing expanded
   useEffect(() => {
-    if (!focusedType && activeWidgets.length > 0) {
-      setFocusedType(activeWidgets[0].type)
+    if (expandedWidgets.size === 0 && activeWidgets.length > 0) {
+      setExpandedWidgets(new Set(["species"]))
     }
   }, [activeWidgets.length]) // eslint-disable-line
 
   const handleFocusWidget = useCallback((target: { type: string; id?: string }) => {
     const t = target.type as WidgetType
-    setFocusedType(t)
+    // ADD widget to expanded set (multi-widget grid), not replace
+    setExpandedWidgets((prev) => new Set(prev).add(t))
     setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(t); return n })
     if (target.id) setFocusedItemId(target.id)
     ctx.focusWidget(target as any)
   }, [ctx])
 
   const handleMinimize = useCallback((type: WidgetType) => {
+    // Remove from expanded and add to minimized
+    setExpandedWidgets((prev) => { const n = new Set(prev); n.delete(type); return n })
     setMinimizedTypes((prev) => new Set(prev).add(type))
-    if (focusedType === type) {
-      const next = activeWidgets.find((w) => w.type !== type && !minimizedTypes.has(w.type))
-      setFocusedType(next?.type || null)
-    }
-  }, [focusedType, activeWidgets, minimizedTypes])
+  }, [])
+  
+  const handleCollapseWidget = useCallback((type: WidgetType) => {
+    // Remove from expanded but don't minimize (goes back to context pills)
+    setExpandedWidgets((prev) => { const n = new Set(prev); n.delete(type); return n })
+  }, [])
 
   const handleAddToNotepad = useCallback((item: any) => {
     // Include the current search query so notepad restore can re-search
@@ -325,8 +422,6 @@ export function FluidSearchCanvas({
     }
   }, [species, compounds, research, localQuery])
 
-  const focusedConfig = focusedType ? activeWidgets.find((w) => w.type === focusedType) : null
-
   return (
     <div
       ref={canvasRef}
@@ -351,8 +446,18 @@ export function FluidSearchCanvas({
             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 sm:h-7 sm:w-7 rounded-full" onClick={() => setShowHistory(!showHistory)}>
               <History className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 sm:h-7 sm:w-7 rounded-full opacity-40">
-              <Mic className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            <Button
+              type="button"
+              variant={voiceSearch.isListening ? "default" : "ghost"}
+              size="icon"
+              className={cn(
+                "h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-colors",
+                voiceSearch.isListening && "bg-green-600 text-white hover:bg-green-500"
+              )}
+              onClick={() => voiceSearch.isListening ? voiceSearch.stopListening() : voiceSearch.startListening()}
+              title={voiceSearch.isListening ? "Stop listening" : "Start voice search"}
+            >
+              <Mic className={cn("h-4 w-4 sm:h-3.5 sm:w-3.5", voiceSearch.isListening && "animate-pulse")} />
             </Button>
           </div>
         </form>
@@ -377,71 +482,92 @@ export function FluidSearchCanvas({
           )}
         </AnimatePresence>
       </div>
+      {voiceEnabled && (
+        <Button
+          type="button"
+          size="icon"
+          className={cn(
+            "absolute bottom-4 right-4 z-30 h-12 w-12 rounded-full shadow-xl",
+            voiceSearch.isListening
+              ? "bg-green-600 text-white hover:bg-green-500"
+              : "bg-violet-600 text-white hover:bg-violet-500"
+          )}
+          onClick={() => voiceSearch.isListening ? voiceSearch.stopListening() : voiceSearch.startListening()}
+          title={voiceSearch.isListening ? "Stop listening" : "Start voice search"}
+        >
+          <Mic className={cn("h-5 w-5", voiceSearch.isListening && "animate-pulse")} />
+        </Button>
+      )}
 
-      {/* === FLEX COLUMN LAYOUT: focused -> context pills -> minimized bar === */}
+      {/* === MULTI-WIDGET GRID LAYOUT: grid -> context pills -> minimized bar === */}
       <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
-        {/* Focused widget with enhanced physics animations */}
-        <AnimatePresence mode="popLayout">
-          {focusedConfig && (
-            <motion.div
-              key={`focused-${focusedConfig.type}`}
-              layout
-              initial={widgetEnterAnimation.initial}
-              animate={{
-                ...widgetEnterAnimation.animate,
-                ...getWidgetFloatVariants(focusedConfig.type),
-              }}
-              exit={widgetEnterAnimation.exit}
-              whileHover={{ 
-                boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
-              }}
-              transition={{ type: "spring", damping: 28, stiffness: 350, mass: 0.8 }}
-              className="w-full shrink-0 z-20"
-              drag
-              dragConstraints={canvasRef}
-              dragElastic={0.1}
-              dragMomentum={true}
-              whileDrag={{ 
-                scale: 1.02, 
-                boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
-                zIndex: 100,
-              }}
-              onDragStart={(e: any) => handleWidgetDragStart(e, focusedConfig)}
-            >
-              <motion.div 
-                className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl"
-                animate={glowPulseAnimation.animate}
-              >
-                <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${focusedConfig.gradient}`)}>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <span className="text-sm sm:text-base">{typeof focusedConfig.icon === 'string' ? focusedConfig.icon : focusedConfig.icon}</span>
-                    <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">{focusedConfig.label}</span>
-                  </div>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Minimize">
-                      <Minimize2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(focusedConfig.type)} title="Close">
-                      <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="p-2 sm:p-3">
-                  <WidgetContent
-                    type={focusedConfig.type}
-                    species={species} compounds={compounds} genetics={genetics}
-                    research={research} aiAnswer={aiAnswer}
-                    isFocused
-                    focusedItemId={focusedItemId}
-                    onFocusWidget={handleFocusWidget}
-                    onAddToNotepad={handleAddToNotepad}
-                  />
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Multi-widget grid with enhanced physics animations */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <AnimatePresence mode="popLayout">
+              {gridWidgets.map((config) => (
+                <motion.div
+                  key={`expanded-${config.type}`}
+                  layout
+                  initial={widgetEnterAnimation.initial}
+                  animate={{
+                    ...widgetEnterAnimation.animate,
+                    ...getWidgetFloatVariants(config.type),
+                  }}
+                  exit={widgetEnterAnimation.exit}
+                  whileHover={{ 
+                    boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
+                  }}
+                  transition={{ type: "spring", damping: 28, stiffness: 350, mass: 0.8 }}
+                  className="w-full z-20"
+                  drag
+                  dragConstraints={canvasRef}
+                  dragElastic={0.1}
+                  dragMomentum={true}
+                  whileDrag={{ 
+                    scale: 1.02, 
+                    boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
+                    zIndex: 100,
+                  }}
+                  onDragStart={(e: any) => handleWidgetDragStart(e, config)}
+                >
+                  <motion.div 
+                    className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full"
+                    animate={glowPulseAnimation.animate}
+                  >
+                    <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${config.gradient}`)}>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
+                        <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">{config.label}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5 sm:gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Collapse">
+                          <Minimize2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleMinimize(config.type)} title="Minimize">
+                          <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-2 sm:p-3">
+                      <WidgetContent
+                        type={config.type}
+                        species={species} compounds={compounds} genetics={genetics}
+                        research={research} aiAnswer={aiAnswer}
+                        media={mediaResults} location={locationResults} news={newsResults}
+                        isFocused={gridWidgets.length === 1}
+                        focusedItemId={focusedItemId}
+                        onFocusWidget={handleFocusWidget}
+                        onAddToNotepad={handleAddToNotepad}
+                      />
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
 
         {/* Context widget pills with floating animations */}
         {contextWidgets.length > 0 && (
@@ -488,14 +614,14 @@ export function FluidSearchCanvas({
         )}
 
         {/* Minimized widget icon bar */}
-        {minimizedWidgets.length > 0 && (
+        {minimizedWidgetConfigs.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 shrink-0"
           >
             <span className="text-[9px] sm:text-[10px] text-muted-foreground hidden sm:inline">Minimized:</span>
-            {minimizedWidgets.map((w) => (
+            {minimizedWidgetConfigs.map((w) => (
               <motion.button
                 key={w.type}
                 whileHover={{ boxShadow: "0 8px 20px rgba(34, 197, 94, 0.3)" }}
@@ -508,7 +634,7 @@ export function FluidSearchCanvas({
                 )}
                 title={`Restore ${w.label}`}
               >
-                <span className="text-base sm:text-sm">{w.icon}</span>
+                <span className="text-base sm:text-sm">{typeof w.icon === 'string' ? w.icon : w.icon}</span>
               </motion.button>
             ))}
           </motion.div>
@@ -525,13 +651,30 @@ export function FluidSearchCanvas({
   )
 }
 
-// Widget content renderer -- now accepts focusedItemId
+// Empty state component for widgets without data
+function EmptyWidgetState({ type, label }: { type: string; label: string }) {
+  const icons: Record<string, string> = {
+    species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
+    ai: "✨", media: "🎬", location: "📍", news: "📰",
+  }
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">
+      <span className="text-3xl mb-2">{icons[type] || "📦"}</span>
+      <p className="text-sm font-medium">{label}</p>
+      <p className="text-xs opacity-70">No data available yet</p>
+    </div>
+  )
+}
+
+// Widget content renderer -- now accepts focusedItemId and all data types
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
+  media, location, news,
   isFocused, focusedItemId, onFocusWidget, onAddToNotepad,
 }: {
   type: WidgetType
   species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
+  media: any[]; location: any[]; news: any[]
   isFocused: boolean
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
@@ -539,17 +682,31 @@ function WidgetContent({
 }) {
   switch (type) {
     case "species":
+      if (species.length === 0) return <EmptyWidgetState type="species" label="Species" />
       return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "chemistry":
+      if (compounds.length === 0) return <EmptyWidgetState type="chemistry" label="Compounds" />
       return <ChemistryWidget data={compounds} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "genetics":
+      if (genetics.length === 0) return <EmptyWidgetState type="genetics" label="Genetics" />
       return <GeneticsWidget data={genetics[0] || { id: "", accession: "", speciesName: "", geneRegion: "", sequenceLength: 0, source: "" }} isFocused={isFocused} />
     case "research":
+      if (research.length === 0) return <EmptyWidgetState type="research" label="Research Papers" />
       return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "ai":
-      return aiAnswer ? <AIWidget answer={aiAnswer} isFocused={isFocused} onAddToNotepad={onAddToNotepad} /> : null
+      if (!aiAnswer) return <EmptyWidgetState type="ai" label="AI Insights" />
+      return <AIWidget answer={aiAnswer} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+    case "media":
+      if (media.length === 0) return <EmptyWidgetState type="media" label="Media" />
+      return <MediaWidget data={media} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+    case "location":
+      if (location.length === 0) return <EmptyWidgetState type="location" label="Location" />
+      return <LocationWidget data={location} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+    case "news":
+      if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
+      return <NewsWidget data={news} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     default:
-      return null
+      return <EmptyWidgetState type={type} label={type} />
   }
 }
 
