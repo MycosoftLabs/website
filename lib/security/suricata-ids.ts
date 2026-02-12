@@ -261,51 +261,21 @@ function mapCategoryToEventType(category: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MOCK EVENT GENERATOR (for testing)
+// SURICATA EVENT SOURCES (Production Integration)
 // ═══════════════════════════════════════════════════════════════
-
-const MOCK_SIGNATURES = [
-  { signature: 'ET SCAN Potential SSH Scan', category: 'Detection of a Network Scan', severity: 3 },
-  { signature: 'ET POLICY Executable Downloaded From Web', category: 'Executable code was detected', severity: 2 },
-  { signature: 'ET WEB_SERVER SQL Injection Attempt', category: 'Web Application Attack', severity: 1 },
-  { signature: 'ET MALWARE Generic - POST To gate.php', category: 'A suspicious filename was detected', severity: 1 },
-  { signature: 'ET POLICY curl User-Agent Outbound', category: 'Potentially Bad Traffic', severity: 4 },
-  { signature: 'ET SCAN Suspicious inbound to port 445', category: 'Detection of a Network Scan', severity: 3 },
-  { signature: 'ET POLICY DNS Query for TOR Node', category: 'Potential Corporate Privacy Violation', severity: 2 },
-  { signature: 'ET TROJAN CnC Beacon', category: 'A suspicious filename was detected', severity: 1 },
-];
-
-const MOCK_IPS = [
-  '185.220.101.1', '45.142.120.45', '77.88.8.8', '223.5.5.5',
-  '192.168.0.105', '192.168.0.172', '192.168.0.187',
-];
-
-function generateMockEvent(): SuricataEvent {
-  const sig = MOCK_SIGNATURES[Math.floor(Math.random() * MOCK_SIGNATURES.length)];
-  const srcIp = MOCK_IPS[Math.floor(Math.random() * MOCK_IPS.length)];
-  const destIp = MOCK_IPS[Math.floor(Math.random() * MOCK_IPS.length)];
-  
-  return {
-    timestamp: new Date().toISOString(),
-    flow_id: Math.floor(Math.random() * 1000000000),
-    event_type: 'alert',
-    src_ip: srcIp,
-    src_port: Math.floor(Math.random() * 65535),
-    dest_ip: destIp,
-    dest_port: [22, 80, 443, 445, 3389, 8080][Math.floor(Math.random() * 6)],
-    proto: 'TCP',
-    alert: {
-      action: 'allowed',
-      gid: 1,
-      signature_id: Math.floor(Math.random() * 3000000),
-      rev: 1,
-      signature: sig.signature,
-      category: sig.category,
-      severity: sig.severity,
-    },
-    app_proto: 'http',
-  };
-}
+// UPDATED: Feb 12, 2026 - Removed mock event generator
+// This module now only processes real Suricata events from:
+// 1. Eve.json file watcher (production: /var/log/suricata/eve.json)
+// 2. Redis pubsub subscription (for distributed deployment)
+//
+// To configure Suricata for Redis output, add to suricata.yaml:
+//   outputs:
+//     - redis:
+//         enabled: yes
+//         server: 192.168.0.189
+//         port: 6379
+//         key: suricata
+//         filetype: redis
 
 // ═══════════════════════════════════════════════════════════════
 // FILE WATCHER (for production Suricata integration)
@@ -317,6 +287,9 @@ let lastFilePosition = 0;
 /**
  * Start watching Suricata eve.json file
  * Note: This requires Node.js fs module, only works server-side
+ * 
+ * UPDATED: Feb 12, 2026 - No mock data. This must connect to real Suricata.
+ * If no eve.json file exists, the state will show 'not connected'.
  */
 export async function startFileWatcher(evePath: string): Promise<void> {
   if (fileWatchInterval) {
@@ -325,17 +298,26 @@ export async function startFileWatcher(evePath: string): Promise<void> {
   }
   
   console.log(`[SuricataIDS] Starting file watcher on ${evePath}`);
-  idsState.connected = true;
   
-  // In production, this would use fs.watch or tail -f equivalent
-  // For now, we'll simulate with mock events
-  fileWatchInterval = setInterval(async () => {
-    // Generate mock events periodically for testing
-    if (Math.random() < 0.1) { // 10% chance each interval
-      const mockEvent = generateMockEvent();
-      await processSuricataEvent(mockEvent);
-    }
-  }, 5000);
+  // Production implementation using Node.js fs/tail
+  // TODO: Implement actual file watching with:
+  // - fs.watchFile() for changes
+  // - Read new lines from last position
+  // - Parse JSON events and call processSuricataEvent()
+  //
+  // Example with tail:
+  // const Tail = require('tail').Tail;
+  // const tail = new Tail(evePath, { useWatchFile: true });
+  // tail.on('line', async (line) => {
+  //   try {
+  //     const event = JSON.parse(line);
+  //     await processSuricataEvent(event);
+  //   } catch (e) { /* ignore parse errors */ }
+  // });
+  
+  // For now, mark as disconnected until production integration
+  idsState.connected = false;
+  console.warn(`[SuricataIDS] File watcher not implemented - no Suricata connection at ${evePath}`);
 }
 
 /**
@@ -358,25 +340,31 @@ let redisSubscription: { unsubscribe: () => void } | null = null;
 
 /**
  * Subscribe to Suricata events via Redis
+ * 
+ * UPDATED: Feb 12, 2026 - No mock data. Must connect to real Redis.
+ * Redis should be configured with Suricata output at 192.168.0.189:6379
  */
 export async function subscribeToRedis(redisUrl: string): Promise<void> {
   console.log(`[SuricataIDS] Connecting to Redis: ${redisUrl}`);
   
-  // Placeholder for Redis subscription
-  // In production, use ioredis or redis package
-  idsState.connected = true;
+  // Production implementation using ioredis
+  // TODO: Implement actual Redis subscription with:
+  // import Redis from 'ioredis';
+  // const redis = new Redis(redisUrl);
+  // await redis.subscribe('suricata');
+  // redis.on('message', async (channel, message) => {
+  //   try {
+  //     const event = JSON.parse(message);
+  //     await processSuricataEvent(event);
+  //   } catch (e) { /* ignore parse errors */ }
+  // });
   
-  // Simulate subscription with mock events
-  const interval = setInterval(async () => {
-    if (Math.random() < 0.05) { // 5% chance
-      const mockEvent = generateMockEvent();
-      await processSuricataEvent(mockEvent);
-    }
-  }, 10000);
+  // For now, mark as disconnected until Redis integration
+  idsState.connected = false;
+  console.warn(`[SuricataIDS] Redis subscription not implemented - no Suricata connection at ${redisUrl}`);
   
   redisSubscription = {
     unsubscribe: () => {
-      clearInterval(interval);
       idsState.connected = false;
     },
   };
@@ -469,21 +457,23 @@ export async function processEventBatch(events: SuricataEvent[]): Promise<number
 
 /**
  * Initialize IDS monitoring
+ * UPDATED: Feb 12, 2026 - Removed enableMockEvents, no mock data in production
  */
 export async function initializeIDS(options?: {
   evePath?: string;
   redisUrl?: string;
-  enableMockEvents?: boolean;
+  enableMockEvents?: boolean; // Deprecated - ignored, kept for API compatibility
 }): Promise<void> {
   console.log('[SuricataIDS] Initializing IDS monitoring...');
+  
+  if (options?.enableMockEvents) {
+    console.warn('[SuricataIDS] enableMockEvents is deprecated - no mock data in production');
+  }
   
   if (options?.evePath) {
     await startFileWatcher(options.evePath);
   } else if (options?.redisUrl) {
     await subscribeToRedis(options.redisUrl);
-  } else if (options?.enableMockEvents) {
-    // Start mock event generator for development
-    await startFileWatcher('/mock');
   }
   
   console.log('[SuricataIDS] IDS monitoring initialized');
@@ -499,11 +489,35 @@ export function shutdownIDS(): void {
 }
 
 /**
- * Test IDS with a mock event
+ * Test IDS pipeline with a synthetic event (Admin function only)
+ * This creates a real test event in the system for verification purposes.
+ * UPDATED: Feb 12, 2026 - Creates a clearly-labeled test event, not mock data
  */
 export async function testWithMockEvent(): Promise<SecurityEvent | null> {
-  const mockEvent = generateMockEvent();
-  return processSuricataEvent(mockEvent);
+  // Create a test event that's clearly labeled as a test
+  const testEvent: SuricataEvent = {
+    timestamp: new Date().toISOString(),
+    flow_id: Date.now(),
+    event_type: 'alert',
+    src_ip: '127.0.0.1',
+    src_port: 0,
+    dest_ip: '127.0.0.1',
+    dest_port: 0,
+    proto: 'TCP',
+    alert: {
+      action: 'allowed',
+      gid: 1,
+      signature_id: 0,
+      rev: 1,
+      signature: '[TEST] IDS Pipeline Verification Event',
+      category: 'Not Suspicious Traffic',
+      severity: 4, // Lowest severity
+    },
+    app_proto: 'test',
+  };
+  
+  console.log('[SuricataIDS] Processing admin test event...');
+  return processSuricataEvent(testEvent);
 }
 
 /**

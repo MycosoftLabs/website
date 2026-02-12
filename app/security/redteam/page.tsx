@@ -420,6 +420,18 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
   );
 }
 
+// Attack simulation types
+interface SimulationResult {
+  simulation_id: string;
+  simulation_type: string;
+  status: string;
+  findings?: any[];
+  metrics?: any;
+  recommendations?: string[];
+  started_at?: string;
+  completed_at?: string;
+}
+
 export default function RedTeamDashboard() {
   const [activeTab, setActiveTab] = useState<'topology' | 'vulnerabilities' | 'scans' | 'schedule'>('topology');
   const [hosts, setHosts] = useState<Host[]>([]);
@@ -436,6 +448,13 @@ export default function RedTeamDashboard() {
   const [topology, setTopology] = useState<any>(null);
   const [selectedTarget, setSelectedTarget] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'attack' | 'defense'>('attack');
+  
+  // Attack simulation state
+  const [authCode, setAuthCode] = useState<string | null>(null);
+  const [simulationRunning, setSimulationRunning] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [simError, setSimError] = useState<string | null>(null);
+  const [showSimModal, setShowSimModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -503,6 +522,114 @@ export default function RedTeamDashboard() {
       console.error('Scan failed:', error);
     }
     setIsScanning(false);
+  }
+
+  // Attack Simulation Functions
+  async function requestAuthorization() {
+    setSimError(null);
+    try {
+      const res = await fetch('/api/security/redteam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'authorize', description: 'Red team simulation from dashboard' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAuthCode(data.authorization_code);
+        return data.authorization_code;
+      } else {
+        setSimError('Failed to get authorization');
+        return null;
+      }
+    } catch (error) {
+      setSimError('Network error requesting authorization');
+      return null;
+    }
+  }
+
+  async function runSimulation(simType: 'credential-test' | 'phishing-sim' | 'pivot-test' | 'exfil-test') {
+    setSimError(null);
+    setSimulationResult(null);
+    setShowSimModal(true);
+    
+    // Get or use existing auth code
+    let code = authCode;
+    if (!code) {
+      code = await requestAuthorization();
+      if (!code) return;
+    }
+    
+    setSimulationRunning(simType);
+    
+    try {
+      const res = await fetch('/api/security/redteam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: simType,
+          authorization_code: code,
+          // Default parameters based on simulation type
+          ...(simType === 'credential-test' && { target_system: 'web', test_type: 'policy', max_attempts: 10 }),
+          ...(simType === 'phishing-sim' && { target_group: 'all_employees', template: 'generic' }),
+          ...(simType === 'pivot-test' && { source_network: '192.168.0.0/24', target_network: '10.0.0.0/24' }),
+          ...(simType === 'exfil-test' && { data_type: 'synthetic', exfil_method: 'http', data_size_kb: 100 }),
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // Poll for results if simulation is running
+        if (data.simulation_id) {
+          pollSimulationStatus(data.simulation_id);
+        } else {
+          setSimulationResult(data);
+          setSimulationRunning(null);
+        }
+      } else {
+        const errorData = await res.json();
+        setSimError(errorData.error || 'Simulation failed');
+        setSimulationRunning(null);
+        // Clear auth code if it expired
+        if (res.status === 403) {
+          setAuthCode(null);
+        }
+      }
+    } catch (error) {
+      setSimError('Network error during simulation');
+      setSimulationRunning(null);
+    }
+  }
+
+  async function pollSimulationStatus(simId: string) {
+    const maxAttempts = 30;
+    let attempts = 0;
+    
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/security/redteam?action=simulation&id=${simId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+            setSimulationResult(data);
+            setSimulationRunning(null);
+            return;
+          }
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 2000);
+        } else {
+          setSimError('Simulation timed out');
+          setSimulationRunning(null);
+        }
+      } catch {
+        setSimError('Failed to get simulation status');
+        setSimulationRunning(null);
+      }
+    };
+    
+    poll();
   }
 
   const severityColors = {
@@ -1133,36 +1260,239 @@ export default function RedTeamDashboard() {
         </div>
 
         {/* Attack Simulation Panel */}
-        <div className="mt-8 bg-slate-800/50 rounded-xl border border-red-900/50 p-6">
+        <div className="mt-8 bg-slate-800/50 rounded-xl border border-red-900/50 p-6" data-tour="attack-simulation">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xl">⚠️</span>
             <h2 className="text-lg font-bold text-red-400">Attack Simulation</h2>
+            {authCode && (
+              <span className="px-2 py-1 bg-emerald-900/50 text-emerald-300 text-xs rounded flex items-center gap-1">
+                <Unlock size={12} /> AUTHORIZED
+              </span>
+            )}
             <span className="ml-auto px-2 py-1 bg-red-900/50 text-red-300 text-xs rounded">
-              REQUIRES AUTHORIZATION
+              ALL ACTIVITIES LOGGED
             </span>
           </div>
           <p className="text-slate-400 text-sm mb-4">
-            Run controlled attack simulations to test security controls. All activities are logged and require explicit authorization.
+            Run controlled attack simulations to test security controls. All activities are logged and audited via MAS SOC.
           </p>
           <div className="grid grid-cols-4 gap-4">
-            <button className="p-4 bg-slate-700/50 border border-slate-600 rounded-lg hover:border-red-500/50 transition text-left">
+            <button 
+              onClick={() => runSimulation('credential-test')}
+              disabled={!!simulationRunning}
+              className={`p-4 border rounded-lg transition text-left ${
+                simulationRunning === 'credential-test' 
+                  ? 'bg-red-900/30 border-red-500 animate-pulse' 
+                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
+              } ${simulationRunning && simulationRunning !== 'credential-test' ? 'opacity-50' : ''}`}
+            >
+              <Lock size={18} className="text-red-400 mb-2" />
               <div className="text-red-400 font-medium mb-1">Credential Testing</div>
               <div className="text-xs text-slate-400">Test password policies</div>
+              {simulationRunning === 'credential-test' && (
+                <div className="mt-2 text-xs text-red-300 flex items-center gap-1">
+                  <RefreshCw size={12} className="animate-spin" /> Running...
+                </div>
+              )}
             </button>
-            <button className="p-4 bg-slate-700/50 border border-slate-600 rounded-lg hover:border-red-500/50 transition text-left">
+            <button 
+              onClick={() => runSimulation('phishing-sim')}
+              disabled={!!simulationRunning}
+              className={`p-4 border rounded-lg transition text-left ${
+                simulationRunning === 'phishing-sim' 
+                  ? 'bg-amber-900/30 border-amber-500 animate-pulse' 
+                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
+              } ${simulationRunning && simulationRunning !== 'phishing-sim' ? 'opacity-50' : ''}`}
+            >
+              <Eye size={18} className="text-amber-400 mb-2" />
               <div className="text-red-400 font-medium mb-1">Phishing Simulation</div>
               <div className="text-xs text-slate-400">Test user awareness</div>
+              {simulationRunning === 'phishing-sim' && (
+                <div className="mt-2 text-xs text-amber-300 flex items-center gap-1">
+                  <RefreshCw size={12} className="animate-spin" /> Running...
+                </div>
+              )}
             </button>
-            <button className="p-4 bg-slate-700/50 border border-slate-600 rounded-lg hover:border-red-500/50 transition text-left">
+            <button 
+              onClick={() => runSimulation('pivot-test')}
+              disabled={!!simulationRunning}
+              className={`p-4 border rounded-lg transition text-left ${
+                simulationRunning === 'pivot-test' 
+                  ? 'bg-purple-900/30 border-purple-500 animate-pulse' 
+                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
+              } ${simulationRunning && simulationRunning !== 'pivot-test' ? 'opacity-50' : ''}`}
+            >
+              <Router size={18} className="text-purple-400 mb-2" />
               <div className="text-red-400 font-medium mb-1">Network Pivot Test</div>
               <div className="text-xs text-slate-400">Test segmentation</div>
+              {simulationRunning === 'pivot-test' && (
+                <div className="mt-2 text-xs text-purple-300 flex items-center gap-1">
+                  <RefreshCw size={12} className="animate-spin" /> Running...
+                </div>
+              )}
             </button>
-            <button className="p-4 bg-slate-700/50 border border-slate-600 rounded-lg hover:border-red-500/50 transition text-left">
+            <button 
+              onClick={() => runSimulation('exfil-test')}
+              disabled={!!simulationRunning}
+              className={`p-4 border rounded-lg transition text-left ${
+                simulationRunning === 'exfil-test' 
+                  ? 'bg-blue-900/30 border-blue-500 animate-pulse' 
+                  : 'bg-slate-700/50 border-slate-600 hover:border-red-500/50'
+              } ${simulationRunning && simulationRunning !== 'exfil-test' ? 'opacity-50' : ''}`}
+            >
+              <Database size={18} className="text-blue-400 mb-2" />
               <div className="text-red-400 font-medium mb-1">Exfil Detection</div>
               <div className="text-xs text-slate-400">Test DLP controls</div>
+              {simulationRunning === 'exfil-test' && (
+                <div className="mt-2 text-xs text-blue-300 flex items-center gap-1">
+                  <RefreshCw size={12} className="animate-spin" /> Running...
+                </div>
+              )}
             </button>
           </div>
         </div>
+
+        {/* Simulation Results Modal */}
+        {showSimModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-red-900/50 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="sticky top-0 bg-slate-900 border-b border-slate-700 p-4 flex items-center justify-between">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <AlertTriangle className="text-red-400" size={18} />
+                  Attack Simulation Results
+                </h3>
+                <button 
+                  onClick={() => { setShowSimModal(false); setSimulationResult(null); setSimError(null); }} 
+                  className="p-1 hover:bg-slate-800 rounded"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="p-6">
+                {simulationRunning && (
+                  <div className="text-center py-8">
+                    <RefreshCw size={48} className="mx-auto mb-4 text-red-400 animate-spin" />
+                    <div className="text-lg font-medium text-white mb-2">Simulation Running</div>
+                    <div className="text-slate-400 text-sm">
+                      {simulationRunning.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())} in progress...
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">
+                      All activities are being logged and monitored
+                    </div>
+                  </div>
+                )}
+
+                {simError && (
+                  <div className="p-4 bg-red-900/30 border border-red-600 rounded-lg">
+                    <div className="text-red-400 font-medium flex items-center gap-2">
+                      <AlertTriangle size={16} /> Error
+                    </div>
+                    <div className="text-sm text-red-300 mt-1">{simError}</div>
+                  </div>
+                )}
+
+                {simulationResult && !simulationRunning && (
+                  <div className="space-y-6">
+                    {/* Status Banner */}
+                    <div className={`p-4 rounded-lg ${
+                      simulationResult.status === 'completed' ? 'bg-emerald-900/30 border border-emerald-600' :
+                      simulationResult.status === 'failed' ? 'bg-red-900/30 border border-red-600' :
+                      'bg-amber-900/30 border border-amber-600'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-white">
+                            {simulationResult.simulation_type?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            ID: {simulationResult.simulation_id}
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          simulationResult.status === 'completed' ? 'bg-emerald-600 text-white' :
+                          simulationResult.status === 'failed' ? 'bg-red-600 text-white' :
+                          'bg-amber-600 text-white'
+                        }`}>
+                          {simulationResult.status?.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Metrics */}
+                    {simulationResult.metrics && (
+                      <div className="bg-slate-800/50 rounded-lg p-4">
+                        <div className="text-sm uppercase text-slate-400 mb-3">Metrics</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {Object.entries(simulationResult.metrics).map(([key, value]) => (
+                            <div key={key} className="flex justify-between text-sm">
+                              <span className="text-slate-400">{key.replace(/_/g, ' ')}:</span>
+                              <span className="text-white font-mono">
+                                {typeof value === 'number' ? value.toLocaleString() : String(value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Findings */}
+                    {simulationResult.findings && simulationResult.findings.length > 0 && (
+                      <div className="bg-slate-800/50 rounded-lg p-4">
+                        <div className="text-sm uppercase text-red-400 mb-3 flex items-center gap-2">
+                          <AlertTriangle size={14} /> Findings ({simulationResult.findings.length})
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {simulationResult.findings.map((finding, idx) => (
+                            <div key={idx} className={`p-3 rounded border ${
+                              finding.severity === 'critical' ? 'bg-red-900/30 border-red-700' :
+                              finding.severity === 'high' ? 'bg-orange-900/30 border-orange-700' :
+                              finding.severity === 'medium' ? 'bg-amber-900/30 border-amber-700' :
+                              'bg-slate-700/50 border-slate-600'
+                            }`}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-medium text-white text-sm">{finding.title || finding.type || 'Finding'}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  finding.severity === 'critical' ? 'bg-red-600 text-white' :
+                                  finding.severity === 'high' ? 'bg-orange-600 text-white' :
+                                  finding.severity === 'medium' ? 'bg-amber-600 text-white' :
+                                  'bg-slate-600 text-slate-200'
+                                }`}>
+                                  {finding.severity || 'info'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-300">{finding.description || finding.details || JSON.stringify(finding)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
+                    {simulationResult.recommendations && simulationResult.recommendations.length > 0 && (
+                      <div className="bg-slate-800/50 rounded-lg p-4">
+                        <div className="text-sm uppercase text-emerald-400 mb-3">Recommendations</div>
+                        <ul className="space-y-2">
+                          {simulationResult.recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
+                              <ChevronRight size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Timestamps */}
+                    <div className="flex justify-between text-xs text-slate-500 border-t border-slate-700 pt-4">
+                      <span>Started: {simulationResult.started_at ? new Date(simulationResult.started_at).toLocaleString() : 'N/A'}</span>
+                      <span>Completed: {simulationResult.completed_at ? new Date(simulationResult.completed_at).toLocaleString() : 'N/A'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

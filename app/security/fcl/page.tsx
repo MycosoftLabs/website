@@ -94,121 +94,21 @@ interface TrainingRecord {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MOCK DATA
+// DATA FETCHED FROM API - No hardcoded mock data
 // ═══════════════════════════════════════════════════════════════
+// UPDATED: Feb 12, 2026 - Removed all mock data. Data now comes from
+// /api/security/fcl endpoint which reads from Supabase.
+// If no data exists, empty states are shown with instructions.
 
-const FCL_APPLICATIONS: FCLApplication[] = [
-  {
-    id: 'FCL-001',
-    type: 'facility',
-    level: 'Secret',
-    status: 'in_progress',
-    applicant: 'Mycosoft Corporation',
-    submittedDate: '2025-11-15',
-    sponsoringAgency: 'Defense Counterintelligence and Security Agency (DCSA)',
-    investigationType: 'Facility Clearance',
-    notes: 'Initial FCL application for DoD contract work',
-  },
-  {
-    id: 'PCL-001',
-    type: 'personnel',
-    level: 'Secret',
-    status: 'under_review',
-    applicant: 'John Smith (FSO)',
-    submittedDate: '2025-10-01',
-    reviewDate: '2025-12-15',
-    sponsoringAgency: 'DCSA',
-    investigationType: 'Tier 3 (T3)',
-  },
-  {
-    id: 'PCL-002',
-    type: 'personnel',
-    level: 'Top Secret',
-    status: 'submitted',
-    applicant: 'Jane Doe (ISSM)',
-    submittedDate: '2025-11-20',
-    sponsoringAgency: 'DCSA',
-    investigationType: 'Tier 5 (T5)',
-  },
-];
+// Placeholder removed: FCL_APPLICATIONS, KEY_PERSONNEL, REQUIRED_TRAINING
+// were previously hardcoded here. Now fetched via useEffect.
 
-const KEY_PERSONNEL: KeyPersonnel[] = [
-  {
-    id: 'KP-001',
-    name: 'Michael Chen',
-    title: 'Chief Executive Officer',
-    role: 'KMP',
-    clearanceLevel: 'Pending',
-    clearanceStatus: 'pending',
-    email: 'michael.chen@mycosoft.com',
-    phone: '(555) 123-4567',
-  },
-  {
-    id: 'KP-002',
-    name: 'Sarah Johnson',
-    title: 'Facility Security Officer',
-    role: 'FSO',
-    clearanceLevel: 'Secret',
-    clearanceStatus: 'pending',
-    email: 'sarah.johnson@mycosoft.com',
-    phone: '(555) 234-5678',
-  },
-  {
-    id: 'KP-003',
-    name: 'Robert Williams',
-    title: 'Information System Security Manager',
-    role: 'ISSM',
-    clearanceLevel: 'Top Secret',
-    clearanceStatus: 'pending',
-    email: 'robert.williams@mycosoft.com',
-    phone: '(555) 345-6789',
-  },
-  {
-    id: 'KP-004',
-    name: 'Emily Davis',
-    title: 'Assistant Facility Security Officer',
-    role: 'AFSO',
-    clearanceLevel: 'Secret',
-    clearanceStatus: 'pending',
-    email: 'emily.davis@mycosoft.com',
-    phone: '(555) 456-7890',
-  },
-];
-
-const REQUIRED_TRAINING: TrainingRecord[] = [
-  {
-    id: 'TR-001',
-    courseName: 'Facility Security Officer (FSO) Program Management for Possessing Facilities',
-    provider: 'CDSE',
-    completedDate: '2026-01-10',
-    expirationDate: '2027-01-10',
-    personnel: 'Sarah Johnson',
-  },
-  {
-    id: 'TR-002',
-    courseName: 'Insider Threat Awareness',
-    provider: 'CDSE',
-    completedDate: '2026-01-05',
-    expirationDate: '2027-01-05',
-    personnel: 'All Personnel',
-  },
-  {
-    id: 'TR-003',
-    courseName: 'Counterintelligence Awareness',
-    provider: 'CDSE',
-    completedDate: '2026-01-08',
-    expirationDate: '2027-01-08',
-    personnel: 'All Personnel',
-  },
-  {
-    id: 'TR-004',
-    courseName: 'Derivative Classification Training',
-    provider: 'CDSE',
-    completedDate: '2026-01-12',
-    expirationDate: '2028-01-12',
-    personnel: 'Cleared Personnel',
-  },
-];
+// Legacy comment for training requirements reference:
+// Required Training for FCL includes:
+// - FSO Program Management for Possessing Facilities (CDSE)
+// - Insider Threat Awareness (CDSE, Annual)
+// - Counterintelligence Awareness (CDSE)
+// - Derivative Classification Training (CDSE)
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
@@ -219,11 +119,14 @@ export default function FCLTrackingPage() {
   const { user, loading } = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'personnel' | 'training' | 'forms'>('overview');
   
-  // Real data state
+  // Real data state - fetched from /api/security/fcl
+  const [applications, setApplications] = useState<FCLApplication[]>([]);
   const [personnel, setPersonnel] = useState<KeyPersonnel[]>([]);
   const [training, setTraining] = useState<TrainingRecord[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [personnelLoading, setPersonnelLoading] = useState(true);
   const [trainingLoading, setTrainingLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   
   // Add Personnel Dialog state
   const [addPersonnelOpen, setAddPersonnelOpen] = useState(false);
@@ -238,32 +141,40 @@ export default function FCLTrackingPage() {
     phone: '',
   });
   
-  // Fetch real data
+  // Fetch real data from /api/security/fcl
+  // UPDATED: Feb 12, 2026 - Uses new FCL API endpoint
   useEffect(() => {
     if (!user) return;
     
     const fetchData = async () => {
       try {
+        setApplicationsLoading(true);
         setPersonnelLoading(true);
         setTrainingLoading(true);
+        setDataError(null);
         
-        const [personnelRes, trainingRes] = await Promise.all([
-          fetch('/api/security?action=fcl-personnel'),
-          fetch('/api/security?action=fcl-training'),
-        ]);
+        // Fetch all FCL data in one request
+        const response = await fetch('/api/security/fcl?action=all');
         
-        if (personnelRes.ok) {
-          const data = await personnelRes.json();
-          setPersonnel(data.personnel || []);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch FCL data: ${response.status}`);
         }
         
-        if (trainingRes.ok) {
-          const data = await trainingRes.json();
-          setTraining(data.training || []);
+        const data = await response.json();
+        
+        setApplications(data.applications || []);
+        setPersonnel(data.personnel || []);
+        setTraining(data.training || []);
+        
+        if (data.error) {
+          setDataError(data.message || data.error);
         }
       } catch (error) {
         console.error('Failed to fetch FCL data:', error);
+        setDataError(error instanceof Error ? error.message : 'Failed to load FCL data');
       } finally {
+        setApplicationsLoading(false);
         setPersonnelLoading(false);
         setTrainingLoading(false);
       }
@@ -582,7 +493,27 @@ export default function FCLTrackingPage() {
               </button>
             </div>
             
-            {FCL_APPLICATIONS.map(app => (
+            {/* Loading state */}
+            {applicationsLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                <span className="ml-3 text-slate-400">Loading applications...</span>
+              </div>
+            )}
+            
+            {/* Empty state */}
+            {!applicationsLoading && applications.length === 0 && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
+                <FileText className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">No Applications Found</h3>
+                <p className="text-slate-400 mb-4">
+                  {dataError || 'No FCL applications have been submitted yet. Click "+ New Application" to begin.'}
+                </p>
+              </div>
+            )}
+            
+            {/* Applications list */}
+            {!applicationsLoading && applications.map(app => (
               <div
                 key={app.id}
                 className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-slate-600 transition-colors"
