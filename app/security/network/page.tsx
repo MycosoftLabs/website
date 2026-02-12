@@ -1098,9 +1098,6 @@ function ClientsView({ clients, formatBytes }: { clients: DashboardData['clients
                         </div>
                       ))}
                     </div>
-                    {clientHistory.mock_data && (
-                      <p className="text-xs text-slate-500 mt-2">* Simulated data (mock mode)</p>
-                    )}
                   </>
                 )}
               </div>

@@ -2,10 +2,13 @@
  * Incident Stream SSE Endpoint
  * 
  * Provides real-time incident updates and agent activity via Server-Sent Events.
- * Supports filtering by severity, status, agent, and event type.
  * 
- * @version 1.0.0
- * @date January 24, 2026
+ * UPDATED: February 12, 2026
+ * - Converted from polling-based to push-based delivery
+ * - Uses IncidentManager singleton for broadcast pattern
+ * - Integrates with MAS WebSocket for cross-system events
+ * 
+ * @version 2.0.0
  */
 
 import { NextRequest } from 'next/server';
@@ -14,34 +17,183 @@ import { getIncidents, getIncidentLogChain, getAgentActivity } from '@/lib/secur
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Track connected clients for broadcasting
-const clients = new Set<ReadableStreamDefaultController>();
+// ═══════════════════════════════════════════════════════════════
+// INCIDENT MANAGER (Push-based singleton)
+// ═══════════════════════════════════════════════════════════════
 
-// Track the last known state for polling
-let lastIncidentTimestamp = new Date().toISOString();
-let lastChainSequence = 0;
-let lastActivityTimestamp = new Date().toISOString();
+interface IncidentEvent {
+  type: 'incident' | 'chain' | 'activity' | 'stats' | 'heartbeat';
+  timestamp: string;
+  data: unknown;
+}
+
+interface IncidentSubscriber {
+  id: string;
+  controller: ReadableStreamDefaultController;
+  filters: {
+    severities?: string[];
+    statuses?: string[];
+    agents?: string[];
+    includeChain: boolean;
+    includeActivity: boolean;
+  };
+}
+
+class IncidentManager {
+  private static instance: IncidentManager;
+  private subscribers: Map<string, IncidentSubscriber> = new Map();
+  private eventQueue: IncidentEvent[] = [];
+  private readonly MAX_QUEUE_SIZE = 100;
+  
+  private constructor() {}
+  
+  static getInstance(): IncidentManager {
+    if (!IncidentManager.instance) {
+      IncidentManager.instance = new IncidentManager();
+    }
+    return IncidentManager.instance;
+  }
+  
+  subscribe(subscriber: IncidentSubscriber): () => void {
+    this.subscribers.set(subscriber.id, subscriber);
+    console.log(`[IncidentManager] Subscriber added: ${subscriber.id} (total: ${this.subscribers.size})`);
+    
+    return () => {
+      this.subscribers.delete(subscriber.id);
+      console.log(`[IncidentManager] Subscriber removed: ${subscriber.id} (total: ${this.subscribers.size})`);
+    };
+  }
+  
+  private shouldSendToSubscriber(subscriber: IncidentSubscriber, event: IncidentEvent): boolean {
+    const { filters } = subscriber;
+    
+    // Filter chain events
+    if (event.type === 'chain' && !filters.includeChain) {
+      return false;
+    }
+    
+    // Filter activity events
+    if (event.type === 'activity' && !filters.includeActivity) {
+      return false;
+    }
+    
+    // Filter incidents by severity/status
+    if (event.type === 'incident' && event.data) {
+      const incData = event.data as { severity?: string; status?: string };
+      if (filters.severities && incData.severity && !filters.severities.includes(incData.severity)) {
+        return false;
+      }
+      if (filters.statuses && incData.status && !filters.statuses.includes(incData.status)) {
+        return false;
+      }
+    }
+    
+    // Filter agent activity by agent ID
+    if (event.type === 'activity' && filters.agents && event.data) {
+      const actData = event.data as { agent_id?: string };
+      if (actData.agent_id && !filters.agents.includes(actData.agent_id)) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  broadcast(event: IncidentEvent): void {
+    // Add to queue
+    this.eventQueue.push(event);
+    if (this.eventQueue.length > this.MAX_QUEUE_SIZE) {
+      this.eventQueue.shift();
+    }
+    
+    const encoder = new TextEncoder();
+    const message = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
+    const encoded = encoder.encode(message);
+    
+    this.subscribers.forEach((subscriber) => {
+      if (!this.shouldSendToSubscriber(subscriber, event)) {
+        return;
+      }
+      
+      try {
+        subscriber.controller.enqueue(encoded);
+      } catch {
+        // Client disconnected, will be cleaned up
+        this.subscribers.delete(subscriber.id);
+      }
+    });
+  }
+  
+  getRecentEvents(limit = 20): IncidentEvent[] {
+    return this.eventQueue.slice(-limit).reverse();
+  }
+  
+  getSubscriberCount(): number {
+    return this.subscribers.size;
+  }
+}
+
+export const incidentManager = IncidentManager.getInstance();
+
+// ═══════════════════════════════════════════════════════════════
+// BROADCAST FUNCTIONS (for external use)
+// ═══════════════════════════════════════════════════════════════
 
 /**
- * Broadcast an event to all connected clients
+ * Broadcast an incident event to all connected clients
  */
 export function broadcastIncidentEvent(event: {
   type: 'incident' | 'chain' | 'activity' | 'stats';
   data: unknown;
 }): void {
-  const message = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
-  const encoder = new TextEncoder();
-  const encoded = encoder.encode(message);
-  
-  clients.forEach(controller => {
-    try {
-      controller.enqueue(encoded);
-    } catch {
-      // Client disconnected
-      clients.delete(controller);
-    }
+  incidentManager.broadcast({
+    type: event.type,
+    timestamp: new Date().toISOString(),
+    data: event.data,
   });
 }
+
+/**
+ * Broadcast a new/updated incident
+ */
+export function broadcastIncident(incident: {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+  action: 'created' | 'updated' | 'escalated' | 'resolved';
+}): void {
+  broadcastIncidentEvent({
+    type: 'incident',
+    data: {
+      ...incident,
+      action: incident.action,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+ * Broadcast agent activity
+ */
+export function broadcastAgentActivity(activity: {
+  agent_id: string;
+  agent_name: string;
+  action: string;
+  details?: string;
+}): void {
+  broadcastIncidentEvent({
+    type: 'activity',
+    data: {
+      ...activity,
+      created_at: new Date().toISOString(),
+    },
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SSE ENDPOINT
+// ═══════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -53,24 +205,35 @@ export async function GET(request: NextRequest) {
   const includeChain = searchParams.get('chain') !== 'false';
   const includeActivity = searchParams.get('activity') !== 'false';
   
-  // Polling interval in ms
-  const pollInterval = parseInt(searchParams.get('interval') || '2000', 10);
+  const subscriberId = `sse-inc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   // Create the SSE stream
   const stream = new ReadableStream({
     async start(controller) {
-      clients.add(controller);
-      
       const encoder = new TextEncoder();
+      
+      // Subscribe to incident events
+      const unsubscribe = incidentManager.subscribe({
+        id: subscriberId,
+        controller,
+        filters: {
+          severities,
+          statuses,
+          agents,
+          includeChain,
+          includeActivity,
+        },
+      });
       
       // Send initial connection event
       const connectMessage = `event: connected\ndata: ${JSON.stringify({
         timestamp: new Date().toISOString(),
+        subscriberId,
         filters: { severities, statuses, agents, includeChain, includeActivity },
       })}\n\n`;
       controller.enqueue(encoder.encode(connectMessage));
       
-      // Send initial state
+      // Send initial state from database
       try {
         // Get current incidents
         const incidents = await getIncidents({ limit: 50 });
@@ -90,9 +253,6 @@ export async function GET(request: NextRequest) {
           controller.enqueue(encoder.encode(
             `event: initial_chain\ndata: ${JSON.stringify(chainEntries)}\n\n`
           ));
-          if (chainEntries.length > 0) {
-            lastChainSequence = chainEntries[0].sequence_number;
-          }
         }
         
         // Get agent activity if requested
@@ -104,111 +264,29 @@ export async function GET(request: NextRequest) {
           controller.enqueue(encoder.encode(
             `event: initial_activity\ndata: ${JSON.stringify(filteredActivity)}\n\n`
           ));
-          if (filteredActivity.length > 0) {
-            lastActivityTimestamp = filteredActivity[0].created_at;
-          }
         }
       } catch (error) {
         console.error('[IncidentStream] Error sending initial state:', error);
       }
       
-      // Track if connection is still active
-      let isActive = true;
-      
-      // Helper to safely enqueue data
-      const safeEnqueue = (data: Uint8Array): boolean => {
-        if (!isActive) return false;
+      // Heartbeat to keep connection alive (every 30 seconds)
+      const heartbeatInterval = setInterval(() => {
         try {
-          controller.enqueue(data);
-          return true;
+          const heartbeat = `event: heartbeat\ndata: ${JSON.stringify({ 
+            timestamp: new Date().toISOString(),
+            subscribers: incidentManager.getSubscriberCount(),
+          })}\n\n`;
+          controller.enqueue(encoder.encode(heartbeat));
         } catch {
-          isActive = false;
-          return false;
+          clearInterval(heartbeatInterval);
+          unsubscribe();
         }
-      };
+      }, 30000);
       
-      // Polling loop for updates
-      const pollForUpdates = async () => {
-        if (!isActive) return;
-        
-        try {
-          // Check for new incidents
-          const incidents = await getIncidents({ limit: 10 });
-          const newIncidents = incidents.filter(inc => {
-            if (inc.updated_at <= lastIncidentTimestamp) return false;
-            if (severities && !severities.includes(inc.severity)) return false;
-            if (statuses && !statuses.includes(inc.status)) return false;
-            return true;
-          });
-          
-          if (newIncidents.length > 0 && isActive) {
-            lastIncidentTimestamp = newIncidents[0].updated_at;
-            for (const inc of newIncidents) {
-              if (!safeEnqueue(encoder.encode(
-                `event: incident\ndata: ${JSON.stringify(inc)}\n\n`
-              ))) break;
-            }
-          }
-          
-          // Check for new chain entries
-          if (includeChain && isActive) {
-            const chainEntries = await getIncidentLogChain({ limit: 10 });
-            const newChainEntries = chainEntries.filter(
-              entry => entry.sequence_number > lastChainSequence
-            );
-            
-            if (newChainEntries.length > 0) {
-              lastChainSequence = newChainEntries[0].sequence_number;
-              for (const entry of newChainEntries) {
-                if (!safeEnqueue(encoder.encode(
-                  `event: chain\ndata: ${JSON.stringify(entry)}\n\n`
-                ))) break;
-              }
-            }
-          }
-          
-          // Check for new agent activity
-          if (includeActivity && isActive) {
-            const agentActivityData = await getAgentActivity({ limit: 10 });
-            const newActivity = agentActivityData.filter(a => {
-              if (a.created_at <= lastActivityTimestamp) return false;
-              if (agents && !agents.includes(a.agent_id)) return false;
-              return true;
-            });
-            
-            if (newActivity.length > 0) {
-              lastActivityTimestamp = newActivity[0].created_at;
-              for (const activity of newActivity) {
-                if (!safeEnqueue(encoder.encode(
-                  `event: activity\ndata: ${JSON.stringify(activity)}\n\n`
-                ))) break;
-              }
-            }
-          }
-          
-          // Send heartbeat
-          if (isActive) {
-            safeEnqueue(encoder.encode(
-              `event: heartbeat\ndata: ${JSON.stringify({ timestamp: new Date().toISOString() })}\n\n`
-            ));
-          }
-          
-        } catch (error) {
-          // Only log if connection is still active (not a disconnect error)
-          if (isActive) {
-            console.error('[IncidentStream] Polling error:', error);
-          }
-        }
-      };
-      
-      // Start polling
-      const intervalId = setInterval(pollForUpdates, pollInterval);
-      
-      // Cleanup on close
+      // Cleanup on abort
       request.signal.addEventListener('abort', () => {
-        isActive = false;
-        clearInterval(intervalId);
-        clients.delete(controller);
+        clearInterval(heartbeatInterval);
+        unsubscribe();
         try {
           controller.close();
         } catch {

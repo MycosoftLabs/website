@@ -1374,44 +1374,39 @@ async function getRiskAssessment(ip: string) {
 }
 
 /**
- * Get IDS/IPS events from Suricata (via Redis or mock)
+ * Get IDS/IPS events from Suricata (via real event store)
+ * UPDATED: Feb 12, 2026 - Removed mock data, uses real getRecentIDSAlerts
  */
 async function getIDSEvents(limit: number) {
-  // In production, this would query Redis for Suricata events
-  // For now, return mock/sample data
-  const mockEvents = [
-    {
-      id: 'ids-001',
-      timestamp: new Date(Date.now() - 300000).toISOString(),
-      signature: 'ET SCAN Potential SSH Scan',
-      signature_id: 2001219,
-      severity: 2,
-      src_ip: '203.0.113.42',
-      src_port: 45678,
-      dest_ip: '192.168.0.1',
-      dest_port: 22,
-      proto: 'TCP',
-      category: 'Attempted Information Leak',
-    },
-    {
-      id: 'ids-002',
-      timestamp: new Date(Date.now() - 600000).toISOString(),
-      signature: 'ET POLICY Outbound DNS Query for Suspicious TLD',
-      signature_id: 2024897,
-      severity: 3,
-      src_ip: '192.168.0.105',
-      src_port: 53421,
-      dest_ip: '8.8.8.8',
-      dest_port: 53,
-      proto: 'UDP',
-      category: 'Potentially Bad Traffic',
-    },
-  ];
-
+  // Get real IDS alerts from Suricata event processor
+  const recentAlerts = getRecentIDSAlerts(limit);
+  const stats = getIDSStats();
+  
+  // Transform Suricata events to API format
+  const events = recentAlerts.map((alert, index) => ({
+    id: `ids-${alert.flow_id || index}`,
+    timestamp: alert.timestamp,
+    signature: alert.alert?.signature || 'Unknown',
+    signature_id: alert.alert?.signature_id || 0,
+    severity: alert.alert?.severity || 4,
+    src_ip: alert.src_ip,
+    src_port: alert.src_port,
+    dest_ip: alert.dest_ip,
+    dest_port: alert.dest_port,
+    proto: alert.proto,
+    category: alert.alert?.category || 'Unknown',
+  }));
+  
   return NextResponse.json({
-    events: mockEvents.slice(0, limit),
-    total: mockEvents.length,
+    events,
+    total: events.length,
     source: 'suricata',
+    connected: stats.connected,
+    last_event_time: stats.last_event_time,
+    // If no events and not connected, indicate data source is unavailable
+    message: events.length === 0 && !stats.connected
+      ? 'IDS not connected - no real-time data available'
+      : undefined,
   });
 }
 

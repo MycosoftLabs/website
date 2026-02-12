@@ -17,6 +17,10 @@ import { generatePredictionsForIncident, savePredictions, logAgentRun } from '@/
 
 export const dynamic = 'force-dynamic';
 
+// MAS API URL for fetching real agent data
+const MAS_API_URL = process.env.MAS_API_URL || 'http://192.168.0.188:8001';
+const MAS_API_KEY = process.env.MAS_API_KEY || '';
+
 // ═══════════════════════════════════════════════════════════════
 // SUPABASE CLIENT
 // ═══════════════════════════════════════════════════════════════
@@ -48,8 +52,73 @@ export async function GET(request: NextRequest) {
     }
     
     switch (action) {
+      case 'mas_agents': {
+        // Fetch real security agents from MAS API
+        try {
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (MAS_API_KEY) {
+            headers['X-API-Key'] = MAS_API_KEY;
+          }
+          
+          // Fetch agents from MAS registry - filter for security type
+          const masResponse = await fetch(`${MAS_API_URL}/api/registry/agents?type=security`, {
+            headers,
+            cache: 'no-store',
+          });
+          
+          if (!masResponse.ok) {
+            console.warn('[Agents API] MAS API returned non-OK status:', masResponse.status);
+            // Return empty but successful response so frontend can show "no agents registered"
+            return NextResponse.json({ 
+              agents: [],
+              count: 0,
+              source: 'mas',
+              error: `MAS API returned ${masResponse.status}`,
+            });
+          }
+          
+          const masData = await masResponse.json();
+          
+          // Transform MAS agent data to frontend format
+          const agents = (masData.agents || []).map((agent: {
+            name: string;
+            type?: string;
+            description?: string;
+            status?: string;
+            capabilities?: string[];
+            version?: string;
+            last_heartbeat?: string;
+          }) => ({
+            id: agent.name.toLowerCase().replace(/\s+/g, '-'),
+            name: agent.name,
+            type: agent.type || 'security',
+            description: agent.description || '',
+            status: agent.status || 'active',
+            capabilities: agent.capabilities || [],
+            version: agent.version || '1.0.0',
+            lastHeartbeat: agent.last_heartbeat,
+          }));
+          
+          return NextResponse.json({
+            agents,
+            count: agents.length,
+            source: 'mas',
+          });
+        } catch (masError) {
+          console.error('[Agents API] Error fetching from MAS:', masError);
+          return NextResponse.json({
+            agents: [],
+            count: 0,
+            source: 'mas',
+            error: masError instanceof Error ? masError.message : 'Failed to connect to MAS',
+          });
+        }
+      }
+      
       case 'status': {
-        // Get agent run statistics
+        // Get agent run statistics from Supabase
         const { data: runs } = await supabase
           .from('agent_run_log')
           .select('*')
@@ -68,6 +137,77 @@ export async function GET(request: NextRequest) {
           .eq('status', 'active')
           .limit(100);
         
+        // Also fetch live agents from MAS
+        let masAgents: Array<{
+          id: string;
+          name: string;
+          status: string;
+          description?: string;
+        }> = [];
+        try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (MAS_API_KEY) headers['X-API-Key'] = MAS_API_KEY;
+          
+          const masResponse = await fetch(`${MAS_API_URL}/api/registry/agents?type=security`, {
+            headers,
+            cache: 'no-store',
+          });
+          
+          if (masResponse.ok) {
+            const masData = await masResponse.json();
+            masAgents = (masData.agents || []).map((agent: { name: string; type?: string; description?: string; status?: string }) => ({
+              id: agent.name.toLowerCase().replace(/\s+/g, '-'),
+              name: agent.name,
+              status: agent.status || 'active',
+              description: agent.description || '',
+            }));
+          }
+        } catch (e) {
+          console.warn('[Agents API] Could not fetch MAS agents for status:', e);
+        }
+        
+        // Combine MAS agents with Supabase run data
+        const combinedAgents = masAgents.length > 0 ? masAgents.map(agent => ({
+          ...agent,
+          lastRun: runs?.find(r => r.agent_id === agent.id)?.started_at,
+          runsToday: runs?.filter(r => 
+            r.agent_id === agent.id && 
+            new Date(r.started_at).toDateString() === new Date().toDateString()
+          ).length || 0,
+        })) : [
+          // Fallback to known agents if MAS is unavailable
+          {
+            id: 'cascade-prediction-agent',
+            name: 'CascadePredictionAgent',
+            status: 'active',
+            lastRun: runs?.find(r => r.agent_id === 'cascade-prediction-agent')?.started_at,
+            runsToday: runs?.filter(r => 
+              r.agent_id === 'cascade-prediction-agent' && 
+              new Date(r.started_at).toDateString() === new Date().toDateString()
+            ).length || 0,
+          },
+          {
+            id: 'resolution-agent',
+            name: 'IncidentResolutionAgent',
+            status: 'active',
+            lastRun: runs?.find(r => r.agent_id === 'resolution-agent')?.started_at,
+            runsToday: runs?.filter(r => 
+              r.agent_id === 'resolution-agent' && 
+              new Date(r.started_at).toDateString() === new Date().toDateString()
+            ).length || 0,
+          },
+          {
+            id: 'watchdog-agent',
+            name: 'WatchdogAgent',
+            status: 'active',
+            lastRun: runs?.find(r => r.agent_id === 'watchdog-agent')?.started_at,
+            runsToday: runs?.filter(r => 
+              r.agent_id === 'watchdog-agent' && 
+              new Date(r.started_at).toDateString() === new Date().toDateString()
+            ).length || 0,
+          },
+        ];
+        
         const stats = {
           totalRuns: runs?.length || 0,
           successfulRuns: runs?.filter(r => r.status === 'completed').length || 0,
@@ -75,38 +215,8 @@ export async function GET(request: NextRequest) {
           incidentsResolved: resolutions?.length || 0,
           activePredictions: predictions?.length || 0,
           cascadesPrevented: runs?.reduce((sum, r) => sum + (r.cascades_prevented || 0), 0) || 0,
-          agents: [
-            {
-              id: 'cascade-prediction-agent',
-              name: 'CascadePredictionAgent',
-              status: 'active',
-              lastRun: runs?.find(r => r.agent_id === 'cascade-prediction-agent')?.started_at,
-              runsToday: runs?.filter(r => 
-                r.agent_id === 'cascade-prediction-agent' && 
-                new Date(r.started_at).toDateString() === new Date().toDateString()
-              ).length || 0,
-            },
-            {
-              id: 'resolution-agent',
-              name: 'IncidentResolutionAgent',
-              status: 'active',
-              lastRun: runs?.find(r => r.agent_id === 'resolution-agent')?.started_at,
-              runsToday: runs?.filter(r => 
-                r.agent_id === 'resolution-agent' && 
-                new Date(r.started_at).toDateString() === new Date().toDateString()
-              ).length || 0,
-            },
-            {
-              id: 'watchdog-agent',
-              name: 'WatchdogAgent',
-              status: 'active',
-              lastRun: runs?.find(r => r.agent_id === 'watchdog-agent')?.started_at,
-              runsToday: runs?.filter(r => 
-                r.agent_id === 'watchdog-agent' && 
-                new Date(r.started_at).toDateString() === new Date().toDateString()
-              ).length || 0,
-            },
-          ],
+          agents: combinedAgents,
+          masConnected: masAgents.length > 0,
         };
         
         return NextResponse.json(stats);

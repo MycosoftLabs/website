@@ -63,10 +63,22 @@ interface SecurityEvent {
   };
 }
 
+interface SecurityAgent {
+  id: string;
+  name: string;
+  status: string;
+  description?: string;
+  type?: string;
+  capabilities?: string[];
+  lastHeartbeat?: string;
+}
+
 export default function SecurityPage() {
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [users, setUsers] = useState<AuthorizedUser[]>([]);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [securityAgents, setSecurityAgents] = useState<SecurityAgent[]>([]);
+  const [masConnected, setMasConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ipLookup, setIpLookup] = useState("");
@@ -75,10 +87,11 @@ export default function SecurityPage() {
 
   const fetchData = async () => {
     try {
-      const [statusRes, usersRes, eventsRes] = await Promise.all([
+      const [statusRes, usersRes, eventsRes, agentsRes] = await Promise.all([
         fetch("/api/security?action=status"),
         fetch("/api/security?action=users"),
         fetch("/api/security?action=events"),
+        fetch("/api/security/agents?action=mas_agents"),
       ]);
 
       if (!statusRes.ok || !usersRes.ok || !eventsRes.ok) {
@@ -88,10 +101,13 @@ export default function SecurityPage() {
       const statusData = await statusRes.json();
       const usersData = await usersRes.json();
       const eventsData = await eventsRes.json();
+      const agentsData = agentsRes.ok ? await agentsRes.json() : { agents: [], count: 0 };
 
       setStatus(statusData);
       setUsers(usersData.users || []);
       setEvents(eventsData.events || []);
+      setSecurityAgents(agentsData.agents || []);
+      setMasConnected(!agentsData.error && agentsData.agents?.length > 0);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -389,29 +405,35 @@ export default function SecurityPage() {
 
       {/* Security Agents & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Security Agents */}
+        {/* Security Agents - Real data from MAS */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-bold text-white font-mono mb-4 flex items-center gap-2">
             <Server className="text-purple-400" size={20} />
             Security Agents
+            {masConnected && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded-full">MAS Connected</span>
+            )}
+            {!masConnected && securityAgents.length === 0 && (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded-full">MAS Offline</span>
+            )}
           </h2>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { id: 'watchdog', name: 'Watchdog', status: 'active', desc: 'Continuous monitoring' },
-              { id: 'hunter', name: 'Hunter', status: 'active', desc: 'Threat hunting' },
-              { id: 'guardian', name: 'Guardian', status: 'active', desc: 'System protection' },
-              { id: 'incident-response', name: 'Incident Response', status: 'active', desc: 'Auto remediation' },
-              { id: 'suricata', name: 'Suricata IDS', status: 'active', desc: 'Network IDS/IPS' },
-              { id: 'threat-intel', name: 'Threat Intel', status: 'active', desc: 'Intelligence feeds' },
-            ].map((agent) => (
-              <div key={agent.id} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-between">
-                <div>
-                  <div className="font-mono text-sm text-white">{agent.name}</div>
-                  <div className="text-xs text-slate-500">{agent.desc}</div>
+            {securityAgents.length > 0 ? (
+              securityAgents.map((agent) => (
+                <div key={agent.id} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700 flex items-center justify-between">
+                  <div>
+                    <div className="font-mono text-sm text-white">{agent.name}</div>
+                    <div className="text-xs text-slate-500">{agent.description || agent.type || 'Security agent'}</div>
+                  </div>
+                  <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500' : agent.status === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`} />
                 </div>
-                <div className={`w-2 h-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              ))
+            ) : (
+              <div className="col-span-2 p-4 text-center text-slate-400">
+                <div className="text-sm">No security agents registered in MAS</div>
+                <div className="text-xs mt-1 text-slate-500">Register agents at MAS /api/registry/agents</div>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
