@@ -71,7 +71,9 @@ export async function GET() {
           deviceMap.set(deviceId, {
             ...existing,
             deviceId,
+            deviceType: "mycobrain",  // ← CRITICAL: Ensure deviceType is always set
             connected: device.connected || false,
+            discovered: true,  // ← Mark as discovered
             lastMessage: device.last_message_time,
             sensorData: device.sensor_data,
             deviceInfo: device.device_info,
@@ -100,13 +102,14 @@ export async function GET() {
           deviceMap.set(deviceId, {
             ...existing,
             deviceId,
-            deviceType: device.device_type || "mycobrain",
+            deviceType: device.device_type || existing.deviceType || "mycobrain",  // ← Preserve existing or default to mycobrain
             serialNumber: device.serial_number,
             firmwareVersion: device.firmware_version,
             status: device.status,
             location: device.location,
             metadata: device.metadata,
             registered: true,
+            discovered: true,  // ← Mark as discovered
             source: existing.source ? `${existing.source},mindex` : "mindex",
           })
         }
