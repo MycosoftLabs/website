@@ -55,20 +55,32 @@ def main():
     out = stdout.read().decode().strip()
     print(f"   Removed: {out}")
     
-    # Rebuild image
-    print("\n3. Rebuilding Docker image (this may take a few minutes)...")
-    print("   Running: docker build -t mycosoft-always-on-mycosoft-website:latest .")
+    # Pull latest code so build uses current main
+    print("\n2b. Syncing repo to origin/main...")
     stdin, stdout, stderr = ssh.exec_command(
-        f"cd {WEBSITE_DIR} && docker build -t mycosoft-always-on-mycosoft-website:latest . 2>&1 | tail -20",
-        timeout=600  # 10 minutes
+        f"cd {WEBSITE_DIR} && git fetch origin && git reset --hard origin/main",
+        timeout=60,
+    )
+    stdout.channel.recv_exit_status()
+    out = stdout.read().decode().strip()
+    if out:
+        print(f"   {out.split(chr(10))[-1]}")
+    
+    # Rebuild image (no cache so route/API changes are included)
+    print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
+    print("   Running: docker build --no-cache -t mycosoft-always-on-mycosoft-website:latest .")
+    stdin, stdout, stderr = ssh.exec_command(
+        f"cd {WEBSITE_DIR} && docker build --no-cache -t mycosoft-always-on-mycosoft-website:latest . 2>&1 | tail -25",
+        timeout=600,  # 10 minutes
     )
     out = stdout.read().decode()
     print(f"   Last 20 lines of build:\n{out}")
     
-    # Start new container with NAS mount (as per user rules)
+    # Start new container with NAS mount and MAS URL for device registry
     print("\n4. Starting new container with NAS mount...")
     start_cmd = """docker run -d --name mycosoft-website -p 3000:3000 \
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+        -e MAS_API_URL=http://192.168.0.188:8001 \
         --restart unless-stopped mycosoft-always-on-mycosoft-website:latest"""
     stdin, stdout, stderr = ssh.exec_command(start_cmd, timeout=60)
     out = stdout.read().decode().strip()
