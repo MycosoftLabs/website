@@ -6,50 +6,67 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
+// Helpers: MAS may return sensors/capabilities as string ("a b c") or array
+function parseList(v: any): string[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === "string") return v.trim() ? v.split(/\s+/) : []
+  return []
+}
+function hasCapability(caps: any, name: string): boolean {
+  const list = parseList(caps)
+  return list.some((c) => c.toLowerCase().includes(name.toLowerCase()))
+}
+
 // Fetch devices from MAS network registry (for when no local service)
 async function fetchNetworkDevices(): Promise<any[]> {
   try {
-    const response = await fetch(`${MAS_API_URL}/api/devices`, {
-      signal: AbortSignal.timeout(5000),
-      headers: { "Accept": "application/json" },
+    const url = `${MAS_API_URL}/api/devices`
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { Accept: "application/json" },
+      cache: "no-store",
     })
     if (!response.ok) return []
     const data = await response.json()
-    
-    // Transform MAS registry format to local device format
-    return (data.devices || []).map((d: any) => ({
-      port: d.extra?.port_name || d.device_id,
-      device_id: d.device_id,
-      connected: d.status === "online",
-      status: d.status,
-      is_mycobrain: true,
-      verified: true,
-      source: "network",
-      network_host: d.host,
-      network_port: d.port,
-      device_info: {
-        side: d.extra?.side,
-        firmware_version: d.firmware_version,
-        board_type: d.board_type,
-        bme688_count: d.sensors?.length || 2,
+    const devices = data.devices || []
+    if (!devices.length) return []
+
+    return devices.map((d: any) => {
+      const sensors = parseList(d.sensors)
+      const bmeCount = sensors.length || 2
+      return {
+        port: (d.extra && (d.extra.port_name ?? d.extra.port)) || d.device_id,
+        device_id: d.device_id,
+        connected: d.status === "online",
         status: d.status,
-      },
-      sensor_data: {},
-      capabilities: {
-        bme688_count: d.sensors?.length || 2,
-        has_lora: d.capabilities?.includes("lora") || false,
-        has_neopixel: d.capabilities?.includes("led") || true,
-        has_buzzer: d.capabilities?.includes("buzzer") || true,
-        i2c_bus: d.capabilities?.includes("i2c") || true,
-        analog_inputs: 4,
-        digital_io: 3,
-      },
-      // Identity fields
-      device_name: d.device_name,
-      device_role: d.device_role,
-      device_display_name: d.device_display_name,
-      display_name: d.device_display_name || d.device_name || d.device_id,
-    }))
+        is_mycobrain: true,
+        verified: true,
+        source: "network",
+        network_host: d.host,
+        network_port: d.port,
+        device_info: {
+          side: d.extra?.side,
+          firmware_version: d.firmware_version,
+          board_type: d.board_type,
+          bme688_count: bmeCount,
+          status: d.status,
+        },
+        sensor_data: {},
+        capabilities: {
+          bme688_count: bmeCount,
+          has_lora: hasCapability(d.capabilities, "lora"),
+          has_neopixel: hasCapability(d.capabilities, "led"),
+          has_buzzer: hasCapability(d.capabilities, "buzzer"),
+          i2c_bus: hasCapability(d.capabilities, "i2c"),
+          analog_inputs: 4,
+          digital_io: 3,
+        },
+        device_name: d.device_name,
+        device_role: d.device_role,
+        device_display_name: d.device_display_name,
+        display_name: d.device_display_name || d.device_name || d.device_id,
+      }
+    })
   } catch (error) {
     console.error("Failed to fetch network devices:", error)
     return []
