@@ -41,39 +41,38 @@ export async function GET() {
     message: "API endpoints operational",
   })
 
-  // Check database connectivity (optional - if NEON_DATABASE_URL is set)
-  if (process.env.NEON_DATABASE_URL) {
+  // Check Supabase connectivity (optional)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (supabaseUrl) {
     try {
       const dbStart = Date.now()
-      // Just verify the URL is valid, don't actually connect
-      const url = new URL(process.env.NEON_DATABASE_URL)
+      const url = new URL(supabaseUrl)
       health.services.push({
-        name: "database",
+        name: "supabase",
         status: "up",
         responseTime: Date.now() - dbStart,
-        message: `Connected to ${url.host}`,
+        message: `Configured: ${url.host}`,
       })
     } catch {
       health.services.push({
-        name: "database",
-        status: "down",
-        message: "Invalid database URL",
+        name: "supabase",
+        status: "degraded",
+        message: "Invalid Supabase URL",
       })
-      health.status = "degraded"
     }
   } else {
+    // Supabase is optional - website can work via MAS API
     health.services.push({
-      name: "database",
-      status: "down",
-      message: "NEON_DATABASE_URL not configured",
+      name: "supabase",
+      status: "degraded",
+      message: "NEXT_PUBLIC_SUPABASE_URL not configured (optional)",
     })
-    health.status = "degraded"
   }
 
   // Check MAS API connectivity
   try {
     const masStart = Date.now()
-    const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
+    const masUrl = process.env.MAS_API_URL || "http://192.168.0.188:8001"
     const masResponse = await fetch(`${masUrl}/health`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)
@@ -97,6 +96,36 @@ export async function GET() {
       name: "mas-api",
       status: "down",
       message: "MAS API connection failed",
+    })
+  }
+
+  // Check MINDEX API connectivity
+  try {
+    const mindexStart = Date.now()
+    const mindexUrl = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+    const mindexResponse = await fetch(`${mindexUrl}/api/v1/taxon/stats`, { 
+      signal: AbortSignal.timeout(3000) 
+    }).catch(() => null)
+    
+    if (mindexResponse?.ok) {
+      health.services.push({
+        name: "mindex-api",
+        status: "up",
+        responseTime: Date.now() - mindexStart,
+        message: "MINDEX database connected",
+      })
+    } else {
+      health.services.push({
+        name: "mindex-api",
+        status: "degraded",
+        message: "MINDEX API not reachable (non-critical)",
+      })
+    }
+  } catch {
+    health.services.push({
+      name: "mindex-api",
+      status: "degraded",
+      message: "MINDEX API connection failed (non-critical)",
     })
   }
 
