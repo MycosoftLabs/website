@@ -91,7 +91,7 @@ export function Footer() {
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-t pt-8">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Mycosoft – The Fungal Intelligence Platform. All rights reserved.
+            © {new Date().getFullYear()} Mycosoft – Building The Earth Intelligence. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground">Made with 🍄 by the fungal intelligence community</p>
         </div>

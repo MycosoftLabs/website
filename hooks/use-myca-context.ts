@@ -27,7 +27,12 @@ type EventType = "search" | "click" | "focus" | "note" | "voice" | "navigate" | 
 interface IntentionEvent {
   event_type: EventType
   data: Record<string, unknown>
-  context?: Record<string, unknown>
+  context?: {
+    current_query?: string
+    focused_widget?: string
+    recent_interactions?: string[]
+    [key: string]: unknown
+  }
 }
 
 interface IntentionResponse {
@@ -39,13 +44,19 @@ interface IntentionResponse {
   insights: Record<string, unknown>
 }
 
+interface SearchContext {
+  current_query?: string
+  focused_widget?: string
+  recent_interactions?: string[]
+}
+
 interface UseMYCAContextReturn {
   /** Track a user interaction */
   track: (event: IntentionEvent) => Promise<void>
   /** Track a search event */
-  trackSearch: (query: string, resultCount?: number) => Promise<void>
+  trackSearch: (query: string, resultCount?: number, searchContext?: SearchContext) => Promise<void>
   /** Track a widget click/focus */
-  trackWidgetFocus: (widgetType: string, itemId?: string) => Promise<void>
+  trackWidgetFocus: (widgetType: string, itemId?: string, searchContext?: SearchContext) => Promise<void>
   /** Track a notepad addition */
   trackNotepadAdd: (itemType: string, title: string) => Promise<void>
   /** Track a voice command */
@@ -91,7 +102,7 @@ export function useMYCAContext(options?: {
     try {
       // Send each event (could be batched in future)
       for (const event of events) {
-        const response = await fetch("/api/myca/consciousness/intention", {
+        const response = await fetch("/api/myca/intention", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -140,21 +151,27 @@ export function useMYCAContext(options?: {
   }, [])
   
   // Convenience methods
-  const trackSearch = useCallback(async (query: string, resultCount?: number) => {
-    await track({
-      event_type: "search",
-      data: { query, result_count: resultCount },
-      context: { source: "search_input" },
-    })
-  }, [track])
-  
-  const trackWidgetFocus = useCallback(async (widgetType: string, itemId?: string) => {
-    await track({
-      event_type: "focus",
-      data: { widget_type: widgetType, item_id: itemId },
-      context: { source: "widget_interaction" },
-    })
-  }, [track])
+  const trackSearch = useCallback(
+    async (query: string, resultCount?: number, searchContext?: SearchContext) => {
+      await track({
+        event_type: "search",
+        data: { query, result_count: resultCount },
+        context: { source: "search_input", ...searchContext },
+      })
+    },
+    [track]
+  )
+
+  const trackWidgetFocus = useCallback(
+    async (widgetType: string, itemId?: string, searchContext?: SearchContext) => {
+      await track({
+        event_type: "focus",
+        data: { widget_type: widgetType, item_id: itemId },
+        context: { source: "widget_interaction", focused_widget: widgetType, ...searchContext },
+      })
+    },
+    [track]
+  )
   
   const trackNotepadAdd = useCallback(async (itemType: string, title: string) => {
     await track({

@@ -11,7 +11,7 @@
 
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useRouter } from "next/navigation"
 
@@ -51,8 +51,10 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
   const router = useRouter()
   const personaplex = usePersonaPlexContext()
   const lastProcessedRef = useRef<string>("")
+  const lastTranscriptRef = useRef<string>("")
   const [lastTranscript, setLastTranscript] = useState("")
-
+  
+  // Destructure personaplex first so we can use stopListening in refs
   const {
     isListening = false,
     lastTranscript: plexTranscript = "",
@@ -61,14 +63,26 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     isConnected = false,
   } = personaplex || {}
 
-  // Define voice commands
-  const commands: VoiceCommand[] = [
+  // Store callbacks in refs to avoid re-creating commands array
+  const onSearchRef = useRef(onSearch)
+  const onFocusWidgetRef = useRef(onFocusWidget)
+  const onAIQuestionRef = useRef(onAIQuestion)
+  const stopListeningRef = useRef(stopListening)
+  
+  // Update refs when callbacks change
+  useEffect(() => { onSearchRef.current = onSearch }, [onSearch])
+  useEffect(() => { onFocusWidgetRef.current = onFocusWidget }, [onFocusWidget])
+  useEffect(() => { onAIQuestionRef.current = onAIQuestion }, [onAIQuestion])
+  useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
+
+  // Define voice commands using refs to avoid re-creating on every render
+  const commands = useMemo<VoiceCommand[]>(() => [
     // Search commands
     {
       pattern: /^(?:search|find|look for|show me)\s+(.+)$/i,
       action: (match) => {
         const query = match[1].trim()
-        onSearch?.(query)
+        onSearchRef.current?.(query)
       },
       description: "Search for [query]",
     },
@@ -76,7 +90,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
       pattern: /^(?:search for|find me)\s+(.+?)(?:\s+mushrooms?|\s+fungi)?$/i,
       action: (match) => {
         const query = match[1].trim()
-        onSearch?.(query)
+        onSearchRef.current?.(query)
       },
       description: "Find mushrooms/fungi by name",
     },
@@ -85,49 +99,49 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?species(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("species")
+        onFocusWidgetRef.current?.("species")
       },
       description: "Show species widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:chemistry|compounds?)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("chemistry")
+        onFocusWidgetRef.current?.("chemistry")
       },
       description: "Show chemistry/compounds widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:genetics|dna|genome)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("genetics")
+        onFocusWidgetRef.current?.("genetics")
       },
       description: "Show genetics widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:research|papers?)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("research")
+        onFocusWidgetRef.current?.("research")
       },
       description: "Show research widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:taxonomy|classification)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("taxonomy")
+        onFocusWidgetRef.current?.("taxonomy")
       },
       description: "Show taxonomy widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:gallery|photos?|images?)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("gallery")
+        onFocusWidgetRef.current?.("gallery")
       },
       description: "Show gallery widget",
     },
     {
       pattern: /^(?:show|focus|open)\s+(?:the\s+)?(?:ai|assistant|myca)(?:\s+widget)?$/i,
       action: () => {
-        onFocusWidget?.("ai")
+        onFocusWidgetRef.current?.("ai")
       },
       description: "Show AI assistant widget",
     },
@@ -137,7 +151,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
       pattern: /^(?:ask|tell me|what|how|why|when|where|who)\s+(.+)$/i,
       action: (match) => {
         const question = match[0].trim()
-        onAIQuestion?.(question)
+        onAIQuestionRef.current?.(question)
       },
       description: "Ask AI a question",
     },
@@ -145,7 +159,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
       pattern: /^(?:explain|describe)\s+(.+)$/i,
       action: (match) => {
         const topic = match[1].trim()
-        onAIQuestion?.(`Explain ${topic}`)
+        onAIQuestionRef.current?.(`Explain ${topic}`)
       },
       description: "Explain [topic]",
     },
@@ -154,7 +168,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     {
       pattern: /^(?:go to|navigate to|open)\s+(?:the\s+)?species\s+page$/i,
       action: () => {
-        const query = lastTranscript.match(/species:\s*(\S+)/)?.[1]
+        const query = lastTranscriptRef.current.match(/species:\s*(\S+)/)?.[1]
         if (query) {
           router.push(`/species/${query}`)
         }
@@ -187,18 +201,18 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     {
       pattern: /^(?:clear|reset)\s+(?:the\s+)?search$/i,
       action: () => {
-        onSearch?.("")
+        onSearchRef.current?.("")
       },
       description: "Clear search",
     },
     {
       pattern: /^(?:stop|cancel)(?:\s+listening)?$/i,
       action: () => {
-        stopListening()
+        stopListeningRef.current()
       },
       description: "Stop listening",
     },
-  ]
+  ], [router])
 
   // Process voice command
   const processCommand = useCallback((transcript: string): boolean => {
@@ -207,6 +221,7 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     }
 
     const normalizedTranscript = transcript.trim().toLowerCase()
+    lastTranscriptRef.current = transcript
     setLastTranscript(transcript)
 
     for (const command of commands) {
@@ -220,15 +235,15 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
     }
 
     // If no command matched but we have handlers, try as search
-    if (onSearch && normalizedTranscript.length > 2) {
+    if (onSearchRef.current && normalizedTranscript.length > 2) {
       console.log("Voice command fallback to search:", normalizedTranscript)
       lastProcessedRef.current = transcript
-      onSearch(normalizedTranscript)
+      onSearchRef.current(normalizedTranscript)
       return true
     }
 
     return false
-  }, [commands, onSearch])
+  }, [commands])
 
   // Process PersonaPlex transcripts
   useEffect(() => {

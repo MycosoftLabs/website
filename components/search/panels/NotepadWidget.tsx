@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSearchContext, type NotepadItem } from "../SearchContextProvider"
+import { useMYCAContext } from "@/hooks/use-myca-context"
 
 const typeIcons: Record<string, React.ReactNode> = {
   species: <Leaf className="h-3 w-3 text-green-500" />,
@@ -51,26 +52,31 @@ export function NotepadWidget() {
     notepadItems, addNotepadItem, removeNotepadItem, clearNotepad,
     focusWidget, setQuery,
   } = useSearchContext()
+  const { trackNotepadAdd } = useMYCAContext({ enabled: true })
   const [isDragOver, setIsDragOver] = useState(false)
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    const raw = e.dataTransfer.getData("application/search-widget")
-    if (raw) {
-      try {
-        const data = JSON.parse(raw)
-        addNotepadItem({
-          type: data.type || "note",
-          title: data.title || "Untitled",
-          content: data.content || "",
-          source: data.source,
-          searchQuery: data.searchQuery,
-          focusedItemId: data.title,
-        })
-      } catch {}
-    }
-  }, [addNotepadItem])
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
+      const raw = e.dataTransfer.getData("application/search-widget")
+      if (raw) {
+        try {
+          const data = JSON.parse(raw)
+          addNotepadItem({
+            type: data.type || "note",
+            title: data.title || "Untitled",
+            content: data.content || "",
+            source: data.source,
+            searchQuery: data.searchQuery,
+            focusedItemId: data.title,
+          })
+          trackNotepadAdd(data.type || "note", data.title || "Untitled")
+        } catch {}
+      }
+    },
+    [addNotepadItem, trackNotepadAdd]
+  )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()

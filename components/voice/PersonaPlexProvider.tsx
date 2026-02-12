@@ -197,6 +197,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const [isListening, setIsListening] = useState(false)
   const [lastTranscript, setLastTranscript] = useState("")
   const [usingFallback, setUsingFallback] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   
   /**
    * Enhanced search intent detection
@@ -298,6 +299,27 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       console.warn("[WebSpeech Fallback] Error:", error)
     }
   )
+
+  const playOrSpeakResponse = useCallback(
+    async (responseText: string, audioBase64?: string, audioMime?: string) => {
+      // Prefer orchestrator-provided audio if available
+      if (audioBase64 && audioMime) {
+        try {
+          if (!audioRef.current) audioRef.current = new Audio()
+          audioRef.current.src = `data:${audioMime};base64,${audioBase64}`
+          await audioRef.current.play()
+          return
+        } catch (e) {
+          console.warn("[Voice] Audio playback failed, falling back to Web Speech:", e)
+        }
+      }
+
+      if (responseText?.trim() && webSpeech.isSupported) {
+        webSpeech.speak(responseText)
+      }
+    },
+    [webSpeech]
+  )
   
   const personaplex = usePersonaPlex({
     // Use PersonaPlex Bridge (8999) instead of direct Moshi (8998)
@@ -315,6 +337,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     
     onResponse: (response) => {
       console.log("[PersonaPlex] Response:", response)
+      playOrSpeakResponse(response.response_text || "", response.audio_base64, response.audio_mime)
     },
     
     onError: (error) => {
@@ -386,7 +409,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const executeCommand = useCallback(async (command: string) => {
     setLastCommand(command)
     try {
-      const result = await personaplex.sendToMAS(command)
+      const result = await personaplex.sendToOrchestrator(command)
       setLastResult(result)
       return result
     } catch (error) {
@@ -397,7 +420,37 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   
   const runWorkflow = useCallback(async (name: string, data?: any) => {
     try {
-      const result = await personaplex.executeN8nWorkflow(name, data)
+      // Resolve by name, then execute via MYCA-supervised n8n route
+      const wfRes = await fetch("/api/myca/workflows", {
+        signal: AbortSignal.timeout(8000),
+      })
+      const wfData = await wfRes.json().catch(() => ({}))
+      const workflows: Array<{ id: string; name: string; source: "local" | "cloud" }> =
+        wfData.workflows || []
+
+      const match = workflows.find(
+        (w) => w.name?.toLowerCase().trim() === name.toLowerCase().trim()
+      )
+
+      if (!match) {
+        const result = { success: false, error: `Workflow not found: ${name}` }
+        setLastResult(result)
+        return result
+      }
+
+      const execRes = await fetch("/api/myca/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "execute",
+          workflowId: match.id,
+          changes: { data: data || {} },
+          source: match.source,
+        }),
+        signal: AbortSignal.timeout(20000),
+      })
+
+      const result = await execRes.json().catch(() => ({}))
       setLastResult(result)
       return result
     } catch (error) {

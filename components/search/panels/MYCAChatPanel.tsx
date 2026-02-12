@@ -65,27 +65,16 @@ function useMYCAConsciousness() {
   return status
 }
 
-/** Get conversation history from session storage */
-function getConversationHistory(): Array<{ role: string; content: string }> {
-  try {
-    const stored = sessionStorage.getItem("myca_chat_history")
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
-
-/** Save conversation turn to session storage */
-function saveConversationTurn(role: string, content: string) {
-  try {
-    const history = getConversationHistory()
-    history.push({ role, content })
-    // Keep last 20 turns for context
-    const trimmed = history.slice(-20)
-    sessionStorage.setItem("myca_chat_history", JSON.stringify(trimmed))
-  } catch {
-    // Silent fail
-  }
+/** Build conversation history for API (excludes the message being sent) */
+function buildHistoryForApi(
+  chatMessages: { role: string; content: string }[],
+  excludeLast = true
+): Array<{ role: string; content: string }> {
+  const filtered = chatMessages.filter(
+    (m) => m.role === "user" || m.role === "assistant"
+  )
+  const slice = excludeLast ? filtered.slice(0, -1) : filtered
+  return slice.slice(-20).map((m) => ({ role: m.role, content: m.content }))
 }
 
 export function MYCAChatPanel() {
@@ -97,28 +86,100 @@ export function MYCAChatPanel() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const consciousness = useMYCAConsciousness()
 
-  // Auto-scroll
+  // Auto-scroll when messages or streaming text change
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-  }, [chatMessages])
+  }, [chatMessages, streamingText])
 
-  /** Try MYCA consciousness chat first, then fall back to search AI */
-  const askMYCA = async (message: string): Promise<string | null> => {
-    try {
-      const res = await fetch("/api/myca/consciousness/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-        signal: AbortSignal.timeout(35000), // 35s timeout (server has 30s)
-      })
-      if (res.ok) {
-        const data = await res.json()
-        return data.message || data.response || null
-      }
-    } catch {
-      // Silent fail, will try search API
+  /** Try MAS Brain stream first, then fall back to ai-v2 */
+  const tryBrainStream = async (message: string): Promise<string | null> => {
+    const history = buildHistoryForApi(chatMessages)
+    const contextParts: string[] = []
+    if (ctx.query) contextParts.push(`current search: ${ctx.query}`)
+    if (ctx.species.length) {
+      contextParts.push(
+        `species in view: ${ctx.species.slice(0, 3).map((s) => s.scientificName).join(", ")}`
+      )
     }
-    return null
+    if (ctx.compounds.length) {
+      contextParts.push(
+        `compounds in view: ${ctx.compounds.slice(0, 3).map((c) => c.name).join(", ")}`
+      )
+    }
+    const contextBlock =
+      contextParts.length > 0
+        ? `[Search context: ${contextParts.join("; ")}]\n\n`
+        : ""
+
+    const res = await fetch("/api/myca/brain/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: contextBlock + message,
+        user_id: "search_user",
+        session_id: typeof crypto !== "undefined" ? crypto.randomUUID() : undefined,
+        history: history.length ? history : undefined,
+      }),
+      signal: AbortSignal.timeout(55000),
+    })
+
+    if (!res.ok) return null
+    const contentType = res.headers.get("content-type")
+    if (!contentType?.includes("text/event-stream")) {
+      const data = await res.json().catch(() => ({}))
+      return data.response || data.message || null
+    }
+
+    const reader = res.body?.getReader()
+    if (!reader) return null
+    const decoder = new TextDecoder()
+    let full = ""
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split("\n")) {
+          if (line.startsWith("data: ")) {
+            try {
+              const json = JSON.parse(line.slice(6))
+              if (json.error) return null
+              if (json.token) {
+                full += json.token
+                setStreamingText(full)
+              }
+            } catch {
+              // skip malformed lines
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    return full.trim() || null
+  }
+
+  /** Fallback: ai-v2 with context */
+  const tryAiV2 = async (message: string): Promise<string | null> => {
+    const res = await fetch("/api/search/ai-v2", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: message,
+        context: {
+          previousSearches: chatMessages
+            .filter((m) => m.role === "user")
+            .slice(-5)
+            .map((m) => m.content),
+          focusedSpecies: ctx.species.slice(0, 3).map((s) => s.scientificName),
+        },
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.result?.answer || data.answer || null
   }
 
   const handleSend = async () => {
@@ -126,42 +187,25 @@ export function MYCAChatPanel() {
     if (!q) return
     setInput("")
     addChatMessage("user", q)
-    saveConversationTurn("user", q)
     setIsAsking(true)
     setStreamingText("")
 
     try {
-      // Step 1: Try MYCA consciousness chat first (with streaming if available)
-      const mycaResponse = await askMYCA(q)
-      if (mycaResponse) {
-        addChatMessage("assistant", mycaResponse)
-        saveConversationTurn("assistant", mycaResponse)
-        return
-      }
-
-      // Step 2: Fall back to search AI-v2 (guaranteed to return an answer)
-      const res = await fetch(`/api/search/ai-v2?q=${encodeURIComponent(q)}`, {
-        signal: AbortSignal.timeout(30000),
-      })
-      
-      if (res.ok) {
-        const data = await res.json()
-        const answer = data.result?.answer || data.answer || ""
-        if (answer) {
-          addChatMessage("assistant", answer)
-          saveConversationTurn("assistant", answer)
-        } else {
-          const errorMsg = "I couldn't generate an answer right now. Please try again."
-          addChatMessage("assistant", errorMsg)
-        }
+      let answer: string | null = await tryBrainStream(q)
+      if (!answer) answer = await tryAiV2(q)
+      if (answer) {
+        addChatMessage("assistant", answer)
       } else {
-        const errorMsg = "Failed to connect to MYCA. Please check that the backend is running."
-        addChatMessage("assistant", errorMsg)
+        addChatMessage(
+          "assistant",
+          "I couldn't reach MYCA right now. Please check that MAS is running and try again."
+        )
       }
     } catch (err) {
-      const errorMsg = err instanceof Error && err.name === "AbortError"
-        ? "Request timed out. Please try again with a simpler question."
-        : "An error occurred. Please try again."
+      const errorMsg =
+        err instanceof Error && err.name === "AbortError"
+          ? "Request timed out. Please try again with a simpler question."
+          : "An error occurred. Please try again."
       addChatMessage("assistant", errorMsg)
     } finally {
       setIsAsking(false)
@@ -268,9 +312,25 @@ export function MYCAChatPanel() {
             </motion.div>
           ))}
           {isAsking && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
-              <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                "text-xs leading-relaxed rounded-xl p-2",
+                "bg-card/60 backdrop-blur-sm border border-white/5 mr-3"
+              )}
+            >
+              <div className="flex items-center gap-1 mb-1 text-[9px] text-violet-500 font-medium">
+                <Sparkles className="h-2 w-2" /> MYCA
+              </div>
+              {streamingText ? (
+                streamingText
+              ) : (
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
+                </span>
+              )}
+            </motion.div>
           )}
         </div>
       </div>

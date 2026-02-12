@@ -107,6 +107,7 @@ export function getWidgetFloatVariants(widgetType: string) {
     media: 6,
     location: 7,
     news: 8,
+    "myca-suggestions": 9,
   }
   
   const seed = typeSeeds[widgetType] || 0
@@ -228,6 +229,7 @@ export function calculateParallaxOffset(
 export function getParallaxDepth(widgetType: string): number {
   const depths: Record<string, number> = {
     ai: 0.3, // Closest to viewer
+    "myca-suggestions": 0.35,
     species: 0.5,
     chemistry: 0.6,
     genetics: 0.7,

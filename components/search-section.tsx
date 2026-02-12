@@ -117,7 +117,7 @@ export function SearchSection() {
                   <span className="text-3xl md:text-6xl font-bold">Mycosoft</span>
                 </div>
                 <p className="text-base md:text-xl text-muted-foreground text-center">
-                  The Fungal Intelligence Platform
+                  Building The Earth Intelligence
                 </p>
               </div>
 
