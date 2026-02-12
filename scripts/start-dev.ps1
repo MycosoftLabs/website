@@ -1,6 +1,7 @@
 # Start website dev server on port 3010 - Feb 6, 2026
 # Use this when the dev site isn't running or port 3010 is in use.
 # No Docker required; hot reload for Cursor edits.
+# When in Cursor and dev server is down: run .\scripts\ensure-dev-server.ps1 to bring up 3010 (one server only).
 
 param(
     [switch]$NoKill   # Don't kill process on 3010; just start (will fail if port in use)

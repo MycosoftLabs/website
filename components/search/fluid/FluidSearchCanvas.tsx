@@ -33,6 +33,7 @@ import {
   MapPin,
   Film,
   Newspaper,
+  Brain,
 } from "lucide-react"
 import {
   SpeciesWidget,
@@ -40,6 +41,7 @@ import {
   GeneticsWidget,
   ResearchWidget,
   AIWidget,
+  MycaSuggestionsWidget,
   MediaWidget,
   LocationWidget,
   NewsWidget,
@@ -56,8 +58,10 @@ import {
 } from "@/lib/search/widget-physics"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
+import { useMYCAContext } from "@/hooks/use-myca-context"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
+  | "myca-suggestions"
 
 interface WidgetConfig {
   type: WidgetType
@@ -162,11 +166,16 @@ export function FluidSearchCanvas({
     enabled: !localQuery && !isInputFocused,
   })
 
+  // MYCA intention tracking
+  const { trackSearch, trackWidgetFocus, trackNotepadAdd, trackVoice, suggestions } = useMYCAContext({ enabled: true })
+
   // Voice search integration
   const voiceSearch = useVoiceSearch({
     onSearch: (query) => {
       setLocalQuery(query)
       ctx.setQuery(query)
+      trackVoice(query)
+      trackSearch(query, undefined, { current_query: query })
     },
     onFocusWidget: (widgetId) => {
       const widgetType = widgetId as WidgetType
@@ -174,9 +183,9 @@ export function FluidSearchCanvas({
       setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(widgetType); return n })
     },
     onAIQuestion: (question) => {
-      // Focus AI widget and send question
       setExpandedWidgets((prev) => new Set(prev).add("ai"))
       ctx.addChatMessage("user", question)
+      trackVoice(question)
     },
     enabled: voiceEnabled,
   })
@@ -232,6 +241,21 @@ export function FluidSearchCanvas({
   const mediaResults = mediaData?.results || []
   const locationResults = locationData?.results || []
   const newsResults = newsData?.results || []
+
+  // Track search to MYCA intention when results arrive
+  useEffect(() => {
+    if (
+      !isLoading &&
+      localQuery &&
+      (species.length > 0 || compounds.length > 0 || genetics.length > 0 || research.length > 0)
+    ) {
+      trackSearch(localQuery, totalCount, {
+        current_query: localQuery,
+        focused_widget: [...expandedWidgets][0],
+        recent_interactions: recentSearches.slice(0, 5),
+      })
+    }
+  }, [isLoading, localQuery, totalCount, species.length, compounds.length, genetics.length, research.length, expandedWidgets, recentSearches]) // eslint-disable-line
 
   // Push results to context
   useEffect(() => {
@@ -339,6 +363,7 @@ export function FluidSearchCanvas({
 
   // Widget configs with depth layers - ALL widget types enabled
   const widgetConfigs: WidgetConfig[] = useMemo(() => [
+    { type: "myca-suggestions", label: "MYCA", icon: <Brain className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: (suggestions.widgets?.length || 0) > 0 || (suggestions.queries?.length || 0) > 0, depth: getParallaxDepth("myca-suggestions") },
     { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: compounds.length > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: genetics.length > 0, depth: getParallaxDepth("genetics") },
@@ -347,7 +372,7 @@ export function FluidSearchCanvas({
     { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: mediaResults.length > 0, depth: getParallaxDepth("media") },
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: locationResults.length > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: newsResults.length > 0, depth: getParallaxDepth("news") },
-  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer, mediaResults.length, locationResults.length, newsResults.length])
+  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer, mediaResults.length, locationResults.length, newsResults.length, suggestions.widgets, suggestions.queries])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
@@ -366,14 +391,25 @@ export function FluidSearchCanvas({
     }
   }, [activeWidgets.length]) // eslint-disable-line
 
-  const handleFocusWidget = useCallback((target: { type: string; id?: string }) => {
-    const t = target.type as WidgetType
-    // ADD widget to expanded set (multi-widget grid), not replace
-    setExpandedWidgets((prev) => new Set(prev).add(t))
-    setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(t); return n })
-    if (target.id) setFocusedItemId(target.id)
-    ctx.focusWidget(target as any)
-  }, [ctx])
+  const handleFocusWidget = useCallback(
+    (target: { type: string; id?: string }) => {
+      const t = target.type as WidgetType
+      setExpandedWidgets((prev) => new Set(prev).add(t))
+      setMinimizedTypes((prev) => {
+        const n = new Set(prev)
+        n.delete(t)
+        return n
+      })
+      if (target.id) setFocusedItemId(target.id)
+      ctx.focusWidget(target as any)
+      trackWidgetFocus(t, target.id, {
+        current_query: localQuery,
+        focused_widget: t,
+        recent_interactions: recentSearches.slice(0, 5),
+      })
+    },
+    [ctx, localQuery, recentSearches, trackWidgetFocus]
+  )
 
   const handleMinimize = useCallback((type: WidgetType) => {
     // Remove from expanded and add to minimized
@@ -386,10 +422,13 @@ export function FluidSearchCanvas({
     setExpandedWidgets((prev) => { const n = new Set(prev); n.delete(type); return n })
   }, [])
 
-  const handleAddToNotepad = useCallback((item: any) => {
-    // Include the current search query so notepad restore can re-search
-    ctx.addNotepadItem({ ...item, searchQuery: localQuery })
-  }, [ctx, localQuery])
+  const handleAddToNotepad = useCallback(
+    (item: any) => {
+      ctx.addNotepadItem({ ...item, searchQuery: localQuery })
+      trackNotepadAdd(item.type || "note", item.title || item.content?.slice(0, 50) || "Item")
+    },
+    [ctx, localQuery, trackNotepadAdd]
+  )
 
   // Drag start -- include searchQuery for notepad restore
   // Note: Framer Motion's onDragStart doesn't provide dataTransfer, only native HTML5 drag does
@@ -526,7 +565,6 @@ export function FluidSearchCanvas({
                   dragElastic={0.1}
                   dragMomentum={true}
                   whileDrag={{ 
-                    scale: 1.02, 
                     boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
                     zIndex: 100,
                   }}
@@ -556,6 +594,12 @@ export function FluidSearchCanvas({
                         species={species} compounds={compounds} genetics={genetics}
                         research={research} aiAnswer={aiAnswer}
                         media={mediaResults} location={locationResults} news={newsResults}
+                        mycaSuggestions={suggestions}
+                        onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
+                        onSelectSuggestionQuery={(q) => {
+                          setLocalQuery(q)
+                          ctx.setQuery(q)
+                        }}
                         isFocused={gridWidgets.length === 1}
                         focusedItemId={focusedItemId}
                         onFocusWidget={handleFocusWidget}
@@ -586,13 +630,11 @@ export function FluidSearchCanvas({
                   whileHover={{ 
                     boxShadow: "0 15px 35px rgba(34, 197, 94, 0.35)",
                   }}
-                  whileTap={{ scale: 0.95 }}
                   onClick={() => handleFocusWidget({ type: config.type })}
                   drag
                   dragConstraints={canvasRef}
                   dragElastic={0.2}
                   whileDrag={{ 
-                    scale: 1.1, 
                     zIndex: 50,
                     boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
                   }}
@@ -625,7 +667,6 @@ export function FluidSearchCanvas({
               <motion.button
                 key={w.type}
                 whileHover={{ boxShadow: "0 8px 20px rgba(34, 197, 94, 0.3)" }}
-                whileTap={{ scale: 0.95 }}
                 onClick={() => handleFocusWidget({ type: w.type })}
                 className={cn(
                   "w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center",
@@ -656,6 +697,7 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
   const icons: Record<string, string> = {
     species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
     ai: "✨", media: "🎬", location: "📍", news: "📰",
+    "myca-suggestions": "🧠",
   }
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">
@@ -670,17 +712,32 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
   media, location, news,
+  mycaSuggestions,
+  onSelectSuggestionWidget,
+  onSelectSuggestionQuery,
   isFocused, focusedItemId, onFocusWidget, onAddToNotepad,
 }: {
   type: WidgetType
   species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
   media: any[]; location: any[]; news: any[]
+  mycaSuggestions: { widgets: string[]; queries: string[] }
+  onSelectSuggestionWidget: (widgetType: string) => void
+  onSelectSuggestionQuery: (query: string) => void
   isFocused: boolean
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string }) => void
 }) {
   switch (type) {
+    case "myca-suggestions":
+      return (
+        <MycaSuggestionsWidget
+          suggestions={mycaSuggestions}
+          isFocused={isFocused}
+          onSelectWidget={onSelectSuggestionWidget}
+          onSelectQuery={onSelectSuggestionQuery}
+        />
+      )
     case "species":
       if (species.length === 0) return <EmptyWidgetState type="species" label="Species" />
       return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />

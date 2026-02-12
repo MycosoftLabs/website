@@ -240,8 +240,8 @@ export function PipelineTopology3D({
   if (!topologyData) return null
 
   return (
-    <div className={cn("flex flex-col lg:flex-row gap-4", className)}>
-      <Card className="flex-1 min-h-[560px] overflow-hidden p-0">
+    <div className={cn("flex flex-col lg:flex-row gap-4 max-h-[calc(100vh-200px)]", className)}>
+      <Card className="flex-1 min-h-[500px] max-h-[700px] overflow-hidden p-0 flex flex-col">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -278,8 +278,8 @@ export function PipelineTopology3D({
             </span>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="relative rounded-b-lg overflow-hidden bg-[#0f172a]" style={{ minHeight: 520 }}>
+        <CardContent className="p-0 flex-1 overflow-hidden">
+          <div className="relative rounded-b-lg overflow-hidden bg-[#0f172a] h-full" style={{ minHeight: 480, maxHeight: 'calc(100vh - 350px)' }}>
             <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-white/60">Loading 3D…</div>}>
               <Canvas camera={{ position: [80, 20, 80], fov: 50 }} gl={{ antialias: true, alpha: false }}>
                 <PipelineScene
@@ -309,13 +309,13 @@ export function PipelineTopology3D({
         </CardContent>
       </Card>
 
-      <Card className="w-full lg:w-80 shrink-0">
+      <Card className="w-full lg:w-80 shrink-0 max-h-[700px] overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Node details</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-hidden">
           {selectedActivityNode ? (
-            <ScrollArea className="h-[300px]">
+            <ScrollArea className="h-[280px] max-h-[calc(100vh-400px)]">
               <div className="space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{NODE_TYPE_LABELS[selectedActivityNode.type] ?? selectedActivityNode.type}</Badge>
