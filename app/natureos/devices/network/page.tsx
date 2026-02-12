@@ -92,6 +92,7 @@ export default function DeviceNetworkPage() {
       // Process local discover results
       if (discoverRes.status === "fulfilled" && discoverRes.value.ok) {
         const discoverData = await discoverRes.value.json()
+        console.log("[fetchDevices] Discover API returned", discoverData.devices?.length || 0, "devices")
         for (const device of discoverData.devices || []) {
           if (!seenDeviceIds.has(device.deviceId)) {
             seenDeviceIds.add(device.deviceId)
@@ -102,12 +103,14 @@ export default function DeviceNetworkPage() {
           }
         }
       } else {
-        console.error("Discover fetch failed:", discoverRes)
+        const error = discoverRes.status === "rejected" ? discoverRes.reason : discoverRes.value
+        console.error("Discover fetch failed:", error)
       }
 
       // Process MAS network registry results (these take priority for matching IDs)
       if (networkRes.status === "fulfilled" && networkRes.value.ok) {
         const networkData = await networkRes.value.json()
+        console.log("[fetchDevices] Network API returned", networkData.devices?.length || 0, "devices from", networkData.source)
         for (const device of networkData.devices || []) {
           const deviceId = device.device_id || device.id
           if (seenDeviceIds.has(deviceId)) {
@@ -151,9 +154,11 @@ export default function DeviceNetworkPage() {
           }
         }
       } else {
-        console.error("Network fetch failed:", networkRes)
+        const error = networkRes.status === "rejected" ? networkRes.reason : networkRes.value
+        console.error("Network fetch failed:", error)
       }
 
+      console.log("[fetchDevices] Total devices after merge:", allDevices.length)
       setDevices(allDevices)
     } catch (error) {
       console.error("Failed to fetch devices:", error)
