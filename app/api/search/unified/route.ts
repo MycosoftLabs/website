@@ -15,6 +15,7 @@ import { searchFungi } from "@/lib/services/inaturalist"
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = process.env.MINDEX_DIRECT_URL || "http://192.168.0.189:8000"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 // ---------------------------------------------------------------------------
 // MINDEX queries (PRIMARY)
@@ -25,7 +26,7 @@ async function searchMindexSpecies(query: string, limit: number) {
     // Correct MINDEX API endpoint: /api/mindex/taxa
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/taxa?q=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(6000) }
+      { signal: AbortSignal.timeout(3000) }
     )
     if (!res.ok) return []
     const data = await res.json()
@@ -66,7 +67,7 @@ async function searchMindexCompounds(query: string, limit: number) {
     // Correct MINDEX API endpoint: /api/mindex/compounds
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/compounds?search=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(2500) }
     )
     if (!res.ok) return []
     const data = await res.json()
@@ -93,14 +94,17 @@ async function searchMindexCompounds(query: string, limit: number) {
 
 async function searchMindexSequences(query: string, limit: number) {
   try {
-    // TODO: Create /api/mindex/genetics/search endpoint in MINDEX API
-    // For now, return empty until the genetics endpoint is created
+    // MINDEX genetics endpoint requires API key authentication
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/genetics?search=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(5000) }
+      { 
+        headers: { "X-API-Key": MINDEX_API_KEY },
+        signal: AbortSignal.timeout(2500) 
+      }
     )
     if (!res.ok) {
-      // Endpoint may not exist yet - this is expected
+      // Endpoint may not exist yet or auth failed
+      console.error("MINDEX genetics search failed:", res.status, res.statusText)
       return []
     }
     const data = await res.json()
@@ -127,7 +131,7 @@ async function searchMindexResearch(query: string, limit: number) {
     // For now, return empty until the research endpoint is created
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/research?search=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(2500) }
     )
     if (!res.ok) {
       // Endpoint may not exist yet - this is expected
@@ -195,6 +199,36 @@ async function searchINaturalist(query: string, limit: number) {
         rank: r.rank || "species",
         _source: "iNaturalist",
       }))
+  } catch {
+    return []
+  }
+}
+
+async function searchINaturalistLiveObservations(query: string, limit: number) {
+  try {
+    const params = new URLSearchParams({
+      taxon_name: query,
+      "has[]": "geo",
+      per_page: String(limit),
+      order: "desc",
+      order_by: "observed_on",
+      photos: "true",
+      quality_grade: "research,needs_id",
+    })
+    const res = await fetch(`https://api.inaturalist.org/v1/observations?${params.toString()}`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results || []).map((obs: any) => ({
+      id: `inat-obs-${obs.id}`,
+      species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown species",
+      location: obs.place_guess || "Unknown location",
+      date: obs.observed_on || obs.created_at?.split("T")?.[0] || "",
+      imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
+      lat: obs.geojson?.coordinates?.[1],
+      lng: obs.geojson?.coordinates?.[0],
+    }))
   } catch {
     return []
   }
@@ -330,6 +364,7 @@ export async function GET(request: NextRequest) {
       mindexSequences,
       mindexResearch,
       inatSpecies,
+      liveResults,
       openAlexResearch,
       aiAnswer,
     ] = await Promise.all([
@@ -338,6 +373,7 @@ export async function GET(request: NextRequest) {
       types.includes("genetics") ? searchMindexSequences(query, limit) : Promise.resolve([]),
       types.includes("research") ? searchMindexResearch(query, limit) : Promise.resolve([]),
       types.includes("species") ? searchINaturalist(query, Math.min(limit, 10)) : Promise.resolve([]),
+      types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
       types.includes("research") ? searchOpenAlexResearch(query, limit) : Promise.resolve([]),
       includeAI ? getAIAnswer(query, new URL(request.url).origin) : Promise.resolve(undefined),
     ])
@@ -369,6 +405,7 @@ export async function GET(request: NextRequest) {
           mindex: Math.round(mindexTime),
         },
         source: "live",
+        live_results: liveResults,
         ...(aiAnswer ? { aiAnswer } : {}),
       },
       {

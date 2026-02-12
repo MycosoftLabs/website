@@ -21,6 +21,7 @@ import {
   type CompoundResult,
   type GeneticsResult,
   type ResearchResult,
+  type LiveResult,
 } from "@/lib/search/unified-search-sdk"
 
 // Re-export types for convenience
@@ -29,6 +30,7 @@ export type {
   CompoundResult, 
   GeneticsResult, 
   ResearchResult,
+  LiveResult,
   UnifiedSearchResponse,
 }
 
@@ -44,6 +46,7 @@ interface UseUnifiedSearchResult {
   compounds: CompoundResult[]
   genetics: GeneticsResult[]
   research: ResearchResult[]
+  liveResults: LiveResult[]
   totalCount: number
   
   // AI
@@ -139,6 +142,7 @@ export function useUnifiedSearch(
   const genetics = useMemo(() => results.genetics || [], [results.genetics])
   const research = useMemo(() => results.research || [], [results.research])
   const totalCount = data?.totalCount || 0
+  const liveResults = data?.live_results || []
   const aiAnswer = data?.aiAnswer
   const timing = data?.timing || { total: 0, mindex: 0 }
   const source = data?.source || "cache"
@@ -166,6 +170,7 @@ export function useUnifiedSearch(
     compounds,
     genetics,
     research,
+    liveResults,
     totalCount,
     aiAnswer,
     isLoading: isLoading && !data,

@@ -6,6 +6,7 @@ import { AppStateProvider } from "@/contexts/app-state-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
+import { PersonaPlexProvider } from "@/components/voice/PersonaPlexProvider"
 import { FloatingVoiceButton } from "@/components/voice/VoiceButton"
 import { Toaster } from "sonner"
 import "./globals.css"
@@ -34,13 +35,15 @@ export default function RootLayout({
           <AuthProvider>
             <AppStateProvider>
               <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
-                <div className="min-h-screen flex flex-col relative">
-                  <Header />
-                  <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
-                  <Footer />
-                </div>
-                <FloatingVoiceButton />
-                <Toaster richColors position="top-right" />
+                <PersonaPlexProvider>
+                  <div className="min-h-screen flex flex-col relative">
+                    <Header />
+                    <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
+                    <Footer />
+                  </div>
+                  <FloatingVoiceButton />
+                  <Toaster richColors position="top-right" />
+                </PersonaPlexProvider>
               </UnifiedVoiceProvider>
             </AppStateProvider>
           </AuthProvider>

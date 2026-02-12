@@ -66,6 +66,16 @@ export interface ResearchResult {
   relatedSpecies: string[]
 }
 
+export interface LiveResult {
+  id: string
+  species: string
+  location: string
+  date: string
+  imageUrl?: string
+  lat?: number
+  lng?: number
+}
+
 export interface UnifiedSearchResponse {
   query: string
   results: {
@@ -87,6 +97,7 @@ export interface UnifiedSearchResponse {
     confidence: number
     sources: string[]
   }
+  live_results?: LiveResult[]
   error?: string
 }
 

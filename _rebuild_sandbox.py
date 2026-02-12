@@ -1,23 +1,40 @@
 #!/usr/bin/env python3
-"""Rebuild and restart website on sandbox VM - Feb 5, 2026"""
+"""Rebuild and restart website on sandbox VM - Feb 10, 2026"""
 
 import os
 import paramiko
 import sys
 import time
+from pathlib import Path
 from _cloudflare_cache import purge_everything
 
 sys.stdout.reconfigure(encoding='utf-8')
 
+# Load credentials from .credentials.local file (gitignored)
+def load_credentials():
+    """Load credentials from local file - NEVER ASK USER FOR PASSWORD"""
+    creds_file = Path(__file__).parent / ".credentials.local"
+    if creds_file.exists():
+        for line in creds_file.read_text().splitlines():
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ[key.strip()] = value.strip()
+        return True
+    return False
+
+# Try to load from file first
+load_credentials()
+
 # Load credentials from environment variables
 VM_HOST = os.environ.get("SANDBOX_VM_HOST", "192.168.0.187")
-VM_USER = os.environ.get("SANDBOX_VM_USER", "mycosoft")
-VM_PASS = os.environ.get("VM_PASSWORD")
+VM_USER = os.environ.get("SANDBOX_VM_USER", os.environ.get("VM_SSH_USER", "mycosoft"))
+VM_PASS = os.environ.get("VM_PASSWORD") or os.environ.get("VM_SSH_PASSWORD")
 WEBSITE_DIR = "/opt/mycosoft/website"
 
 if not VM_PASS:
-    print("ERROR: VM_PASSWORD environment variable is not set.")
-    print("Please set it with: $env:VM_PASSWORD = 'your-password'")
+    print("ERROR: VM_PASSWORD not found.")
+    print("Create .credentials.local with: VM_SSH_PASSWORD=your-password")
+    print("Or set env var: $env:VM_PASSWORD = 'your-password'")
     sys.exit(1)
 
 def main():
