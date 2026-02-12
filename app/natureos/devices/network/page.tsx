@@ -104,7 +104,9 @@ export default function DeviceNetworkPage() {
         }
       } else {
         const error = discoverRes.status === "rejected" ? discoverRes.reason : discoverRes.value
-        console.error("Discover fetch failed:", error)
+        const errorMsg = error instanceof Error ? error.message : 
+                        error?.statusText || error?.status || "Unknown error"
+        console.error("Discover fetch failed:", errorMsg, error)
       }
 
       // Process MAS network registry results (these take priority for matching IDs)
@@ -155,7 +157,9 @@ export default function DeviceNetworkPage() {
         }
       } else {
         const error = networkRes.status === "rejected" ? networkRes.reason : networkRes.value
-        console.error("Network fetch failed:", error)
+        const errorMsg = error instanceof Error ? error.message : 
+                        error?.statusText || error?.status || "Unknown error"
+        console.error("Network fetch failed:", errorMsg, error)
       }
 
       console.log("[fetchDevices] Total devices after merge:", allDevices.length)
@@ -225,7 +229,7 @@ export default function DeviceNetworkPage() {
 
   useEffect(() => {
     fetchDevices()
-    const interval = setInterval(fetchDevices, 5000)
+    const interval = setInterval(fetchDevices, 15000) // Reduced from 5s to 15s to avoid rate limiting
     return () => clearInterval(interval)
   }, [])
 
