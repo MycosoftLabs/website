@@ -7,8 +7,9 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { useState, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
+import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,10 +22,14 @@ import {
   Database,
   GripVertical,
   FileText,
+  X,
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 import type { CompoundResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
 
 interface ChemistryWidgetProps {
   data: CompoundResult | CompoundResult[]
@@ -84,6 +89,8 @@ export function ChemistryWidget({
   const items = Array.isArray(data) ? data : [data]
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showSources, setShowSources] = useState(false)
+  const [detailCompound, setDetailCompound] = useState<CompoundResult | null>(null)
+  const handleCloseDetail = useCallback(() => setDetailCompound(null), [])
 
   // When focusedId changes, find and select that compound
   useEffect(() => {
@@ -136,6 +143,7 @@ export function ChemistryWidget({
   }
 
   return (
+    <>
     <div className={cn("space-y-3", className)} draggable onDragStart={handleDragStart}>
       {/* Compound tabs */}
       {items.length > 1 && (
@@ -244,6 +252,14 @@ export function ChemistryWidget({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setDetailCompound(selected)}
+            >
+              <FileText className="h-3 w-3 mr-1" />
+              View full details
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onFocusWidget?.({ type: "ai" })}
             >
               Ask MYCA about {selected.name}
@@ -292,7 +308,183 @@ export function ChemistryWidget({
         </motion.div>
       )}
     </div>
+    {/* Compound detail portal modal */}
+    {detailCompound && (
+      <CompoundDetailModal compound={detailCompound} onClose={handleCloseDetail} />
+    )}
+  </>
   )
+}
+
+// ─── Compound detail modal ────────────────────────────────────────────────────
+
+function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [mounted, onClose])
+
+  // Body scroll lock
+  useEffect(() => {
+    if (!mounted) return
+    const orig = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = orig }
+  }, [mounted])
+
+  const url = mounted
+    ? `/api/mindex/compounds/detail?name=${encodeURIComponent(compound.name)}`
+    : null
+
+  // Uses same system-wide hook — auto-retries until full data arrives
+  const { data, loading, retrying, error } = useAutoFetchDetail<any>({
+    url,
+    // "Incomplete" = IUPAC name or formula is missing (PubChem wasn't reached yet)
+    isIncomplete: (d) => !!d && !d.molecular_formula && !d.iupac_name,
+    maxAttempts: 6,
+    baseDelay: 3000,
+    maxDelay: 12000,
+  })
+
+  if (!mounted) return null
+
+  const modal = (
+    <AnimatePresence>
+      <motion.div
+        key="compound-modal-bg"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+        <motion.div
+          key="compound-modal-panel"
+          initial={{ opacity: 0, scale: 0.97, y: 14 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ type: "spring", damping: 30, stiffness: 380 }}
+          className="relative z-10 w-full max-w-xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          style={{ maxHeight: "min(88vh, 640px)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+            <div className="p-2 bg-purple-500/15 rounded-lg shrink-0">
+              <FlaskConical className="h-4 w-4 text-purple-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold text-sm">{data?.name || compound.name}</h2>
+              {data?.molecular_formula && (
+                <p className="text-[11px] font-mono text-muted-foreground mt-0.5">{data.molecular_formula}</p>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-full" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4 min-h-0">
+            {loading && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
+                  Fetching from PubChem…
+                </div>
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <div className="grid grid-cols-2 gap-3">
+                  {[1,2,3,4].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                </div>
+              </div>
+            )}
+            {retrying && data && (
+              <div className="flex items-center gap-2 text-xs text-purple-400">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Fetching full details from PubChem…
+              </div>
+            )}
+            {!loading && error && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+                <p className="text-sm text-destructive">Could not load compound details</p>
+                <p className="text-xs text-muted-foreground mt-1">{error}</p>
+              </div>
+            )}
+            {!loading && data && (
+              <>
+                {data.description && (
+                  <div className="rounded-lg bg-muted/30 border border-white/6 px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Description</p>
+                    <p className="text-xs text-foreground/80 leading-relaxed">{data.description}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  {data.iupac_name && (
+                    <div className="col-span-2 rounded-lg bg-muted/20 border border-white/6 px-3 py-2">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">IUPAC Name</span>
+                      <p className="mt-0.5 font-mono text-[11px] break-all">{data.iupac_name}</p>
+                    </div>
+                  )}
+                  {[
+                    { label: "Formula", value: data.molecular_formula },
+                    { label: "Weight", value: data.molecular_weight ? `${data.molecular_weight} g/mol` : null },
+                    { label: "XLogP", value: data.xlogp },
+                    { label: "H-Bond Donors", value: data.h_bond_donors },
+                    { label: "H-Bond Acceptors", value: data.h_bond_acceptors },
+                    { label: "Rotatable Bonds", value: data.rotatable_bonds },
+                  ].filter(f => f.value != null).map(f => (
+                    <div key={f.label} className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
+                      <p className="mt-0.5 font-semibold">{String(f.value)}</p>
+                    </div>
+                  ))}
+                </div>
+                {data.canonical_smiles && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">SMILES</p>
+                    <pre className="text-[10px] font-mono bg-black/40 border border-white/8 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                      {data.canonical_smiles}
+                    </pre>
+                  </div>
+                )}
+                {data.synonyms?.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Synonyms</p>
+                    <div className="flex flex-wrap gap-1">
+                      {data.synonyms.map((s: string) => (
+                        <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+            {data?.source_url ? (
+              <a href={data.source_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-purple-400 transition-colors">
+                <Database className="h-3.5 w-3.5" />
+                Open in PubChem
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : <div />}
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onClose}>Close</Button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+
+  return createPortal(modal, document.body)
 }
 
 export default ChemistryWidget

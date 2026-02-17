@@ -26,10 +26,12 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from "lucide-react"
 import type { GeneticsResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -177,9 +179,6 @@ function GeneticsDetailModal({
   item: GeneticsResult
   onClose: () => void
 }) {
-  const [detail, setDetail] = useState<GeneticsDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [seqExpanded, setSeqExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [copied, copyToClipboard] = useCopyToClipboard()
@@ -194,30 +193,32 @@ function GeneticsDetailModal({
     return () => window.removeEventListener("keydown", handler)
   }, [onClose])
 
-  // Fetch detail (MINDEX → ingest → NCBI direct with full sequence)
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    setDetail(null)
-    setSeqExpanded(false)
+  // Build the detail URL
+  const acc = item.accession
+  const detailUrl = mounted
+    ? acc
+      ? `/api/mindex/genetics/detail?accession=${encodeURIComponent(acc)}`
+      : `/api/mindex/genetics/detail?id=${encodeURIComponent(String(item.id))}`
+    : null
 
-    const acc = item.accession
-    const params = acc
-      ? `accession=${encodeURIComponent(acc)}`
-      : `id=${encodeURIComponent(String(item.id))}`
-
-    fetch(`/api/mindex/genetics/detail?${params}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 404 ? "Sequence not found" : `Error ${res.status}`)
-        return res.json()
-      })
-      .then((data: GeneticsDetail) => { if (!cancelled) setDetail(data) })
-      .catch((e) => { if (!cancelled) setError(e.message || "Failed to load") })
-      .finally(() => { if (!cancelled) setLoading(false) })
-
-    return () => { cancelled = true }
-  }, [item.id, item.accession])
+  /**
+   * useAutoFetchDetail handles:
+   *  1. Initial fetch of the detail record
+   *  2. Auto-retry with exponential backoff when sequence is missing
+   *  3. Live update of the modal when the sequence finally arrives
+   *     (from NCBI or from MINDEX after background ingest completes)
+   *
+   * This is the system-wide pattern — same hook used for chemistry and taxonomy.
+   */
+  const { data: detail, loading, retrying, attempt, gaveUp, error } =
+    useAutoFetchDetail<GeneticsDetail>({
+      url: detailUrl,
+      // Sequence is "incomplete" when we have length metadata but not the actual bases
+      isIncomplete: (d) => !!d && !d.sequence && (d.sequence_length ?? 0) > 0,
+      maxAttempts: 8,
+      baseDelay: 2500,
+      maxDelay: 12000,
+    })
 
   if (!mounted) return null
 
@@ -332,6 +333,14 @@ function GeneticsDetailModal({
               </div>
             )}
 
+            {/* Retry indicator — subtle banner when the hook is re-fetching in the background */}
+            {retrying && detail && (
+              <div className="flex items-center gap-2 text-xs text-blue-400 px-1">
+                <RefreshCw className="h-3 w-3 animate-spin shrink-0" />
+                Pulling sequence from GenBank…
+              </div>
+            )}
+
             {/* Detail content */}
             {!loading && detail && (
               <>
@@ -391,6 +400,41 @@ function GeneticsDetailModal({
                 )}
 
                 {/* Nucleotide sequence */}
+                {/* Auto-retry notice — shown while sequence is being pulled from NCBI/MINDEX */}
+                {!hasSequence && detail!.sequence_length > 0 && (
+                  <div className={cn(
+                    "rounded-lg border px-3 py-3 space-y-1.5",
+                    gaveUp
+                      ? "bg-muted/20 border-border/30"
+                      : "bg-blue-500/8 border-blue-500/20"
+                  )}>
+                    {!gaveUp ? (
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0" />
+                        <p className="text-xs text-blue-300">
+                          Pulling sequence from GenBank
+                          {attempt > 0 ? ` (attempt ${attempt + 1})` : ""}…
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Sequence temporarily unavailable from GenBank.
+                      </p>
+                    )}
+                    {detail!.source_url && (
+                      <a
+                        href={detail!.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View full record on GenBank
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 {hasSequence ? (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
@@ -440,24 +484,7 @@ function GeneticsDetailModal({
                       </Button>
                     )}
                   </div>
-                ) : (
-                  <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-3">
-                    <p className="text-xs text-amber-400">
-                      Sequence is being fetched from GenBank and will be available on next open.
-                    </p>
-                    {detail.source_url && (
-                      <a
-                        href={detail.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        View full record on GenBank
-                      </a>
-                    )}
-                  </div>
-                )}
+                ) : null /* sequence missing notice is rendered above */}
               </>
             )}
           </div>

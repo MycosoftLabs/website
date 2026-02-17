@@ -9,9 +9,10 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Image from "next/image"
-import { motion } from "framer-motion"
+import { createPortal } from "react-dom"
+import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,10 +25,15 @@ import {
   Sparkles,
   Database,
   BookmarkPlus,
+  FileText,
+  X,
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 import type { SpeciesResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
 
 interface SpeciesWidgetProps {
   data: SpeciesResult | SpeciesResult[]
@@ -81,6 +87,8 @@ export function SpeciesWidget({
 }: SpeciesWidgetProps) {
   const items = useMemo(() => Array.isArray(data) ? data : [data], [data])
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [detailSpecies, setDetailSpecies] = useState<SpeciesResult | null>(null)
+  const handleCloseDetail = useCallback(() => setDetailSpecies(null), [])
 
   useEffect(() => {
     // Only respond to focusedId if this widget is actually being focused for a species item
@@ -132,6 +140,7 @@ export function SpeciesWidget({
   // --- NON-FOCUSED: compact pill ---
   if (!isFocused) {
     return (
+      <>
       <div className={cn("flex items-center gap-2", className)} draggable onDragStart={handleDragStart}>
         {mainPhoto && (
           <div className="relative w-8 h-8 rounded-lg overflow-hidden shrink-0">
@@ -146,11 +155,14 @@ export function SpeciesWidget({
           <Badge variant="outline" className="text-[9px] shrink-0 ml-auto">{items.length}</Badge>
         )}
       </div>
+      {detailSpecies && <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />}
+      </>
     )
   }
 
   // --- FOCUSED: full dashboard layout ---
   return (
+    <>
     <div className={cn("flex flex-col gap-2", className)} draggable onDragStart={handleDragStart}>
       {/* Species strip -- horizontal scrollable tabs */}
       {items.length > 1 && (
@@ -289,6 +301,10 @@ export function SpeciesWidget({
               </a>
             </Button>
             <Button variant="outline" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
+              onClick={() => setDetailSpecies(selected)}>
+              <FileText className="h-2.5 w-2.5 mr-0.5" /> Details
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 sm:h-6 px-2.5 sm:px-2 text-[10px] rounded-lg"
               onClick={() => onFocusWidget?.({ type: "chemistry", id: selected.scientificName })}>
               <Leaf className="h-2.5 w-2.5 mr-0.5" /> <span className="hidden xs:inline">Compounds</span><span className="xs:hidden">Chem</span>
             </Button>
@@ -332,7 +348,177 @@ export function SpeciesWidget({
         )}
       </div>
     </div>
+    {detailSpecies && (
+      <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />
+    )}
+  </>
   )
+}
+
+// ─── Species detail modal ─────────────────────────────────────────────────────
+
+function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [mounted, onClose])
+
+  useEffect(() => {
+    if (!mounted) return
+    const orig = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = orig }
+  }, [mounted])
+
+  const url = mounted
+    ? `/api/mindex/species/detail?name=${encodeURIComponent(species.scientificName)}`
+    : null
+
+  // System-wide hook — auto-retries until full description + photos arrive
+  const { data, loading, retrying, error } = useAutoFetchDetail<any>({
+    url,
+    isIncomplete: (d) => !!d && !d.description && !d.photos?.length,
+    maxAttempts: 6,
+    baseDelay: 3000,
+    maxDelay: 12000,
+  })
+
+  if (!mounted) return null
+
+  const photos: any[] = data?.photos || []
+
+  const modal = (
+    <AnimatePresence>
+      <motion.div
+        key="species-modal-bg"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      >
+        <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+        <motion.div
+          key="species-modal-panel"
+          initial={{ opacity: 0, scale: 0.97, y: 14 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ type: "spring", damping: 30, stiffness: 380 }}
+          className="relative z-10 w-full max-w-xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          style={{ maxHeight: "min(88vh, 660px)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+            <div className="p-2 bg-emerald-500/15 rounded-lg shrink-0">
+              <Leaf className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold text-sm italic">{data?.name || species.scientificName}</h2>
+              {(data?.common_name || species.commonName) && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {data?.common_name || species.commonName}
+                </p>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-full" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4 min-h-0">
+            {loading && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                  Fetching from iNaturalist…
+                </div>
+                <Skeleton className="h-32 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </div>
+            )}
+            {retrying && data && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Loading full species data…
+              </div>
+            )}
+            {!loading && error && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+                <p className="text-sm text-destructive">Could not load species details</p>
+                <p className="text-xs text-muted-foreground mt-1">{error}</p>
+              </div>
+            )}
+            {!loading && data && (
+              <>
+                {/* Photo gallery */}
+                {photos.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {photos.map((p: any, i: number) => p.url && (
+                      <div key={i} className="shrink-0 h-28 w-28 rounded-lg overflow-hidden bg-muted/30">
+                        <Image src={p.url} alt={p.attribution || species.scientificName}
+                          width={112} height={112} className="object-cover w-full h-full"
+                          unoptimized />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Rank</p>
+                    <p className="mt-1 text-sm font-semibold capitalize">{data.rank || "Species"}</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Observations</p>
+                    <p className="mt-1 text-sm font-semibold tabular-nums">
+                      {(data.observation_count || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Status</p>
+                    <p className="mt-1 text-sm font-semibold capitalize">
+                      {data.conservation_status || "Unknown"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {data.description && (
+                  <div className="rounded-lg bg-muted/30 border border-white/6 px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Wikipedia Summary</p>
+                    <p className="text-xs text-foreground/80 leading-relaxed line-clamp-8">{data.description}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+            {data?.source_url ? (
+              <a href={data.source_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-emerald-400 transition-colors">
+                <Database className="h-3.5 w-3.5" />
+                Open in iNaturalist
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : <div />}
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onClose}>Close</Button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+
+  return createPortal(modal, document.body)
 }
 
 export default SpeciesWidget
