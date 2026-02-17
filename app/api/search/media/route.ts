@@ -22,20 +22,34 @@ interface MediaResult {
   source: string
 }
 
-async function searchTMDB(query: string, limit: number): Promise<MediaResult[]> {
-  if (!TMDB_API_KEY) return []
+async function searchTMDB(query: string, limit: number): Promise<{ results: MediaResult[], error?: string }> {
+  if (!TMDB_API_KEY) {
+    return { results: [], error: "TMDB_API_KEY not configured" }
+  }
   
   try {
-    // Search for multi (movies + TV) with fungi/mushroom keywords
-    const searchTerms = `${query} fungi mushroom`
-    const res = await fetch(
-      `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerms)}&include_adult=false`,
-      { signal: AbortSignal.timeout(5000) }
-    )
+    // Use query directly - TMDB works better with simple queries
+    const searchTerms = query
+    const url = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerms)}&include_adult=false`
     
-    if (!res.ok) return []
+    console.log('[Media API] Fetching TMDB:', searchTerms)
+    
+    const res = await fetch(url, { 
+      signal: AbortSignal.timeout(10000),  // Increase timeout to 10s
+      headers: {
+        'Accept': 'application/json',
+      }
+    })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('[Media API] TMDB error:', res.status, errorText)
+      return { results: [], error: `TMDB API error: ${res.status}` }
+    }
     
     const data = await res.json()
+    console.log('[Media API] TMDB raw results:', data.results?.length || 0)
+    
     const results: MediaResult[] = (data.results || [])
       .filter((item: any) => item.media_type === "movie" || item.media_type === "tv")
       .slice(0, limit)
@@ -50,9 +64,10 @@ async function searchTMDB(query: string, limit: number): Promise<MediaResult[]> 
         source: "TMDB",
       }))
     
-    return results
-  } catch {
-    return []
+    return { results }
+  } catch (err: any) {
+    console.error('[Media API] TMDB fetch error:', err.message)
+    return { results: [], error: `Fetch failed: ${err.message}` }
   }
 }
 
@@ -61,14 +76,14 @@ export async function GET(request: NextRequest) {
   const limitParam = request.nextUrl.searchParams.get("limit")
   const limit = Math.min(parseInt(limitParam || "10"), 20)
   
-  const results = await searchTMDB(query, limit)
+  const { results, error } = await searchTMDB(query, limit)
   
   return NextResponse.json({
     query,
     results,
     total: results.length,
     source: "TMDB",
-    message: TMDB_API_KEY ? undefined : "TMDB_API_KEY not configured",
+    error: error,
     timestamp: new Date().toISOString(),
   })
 }

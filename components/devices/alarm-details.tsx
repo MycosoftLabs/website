@@ -191,7 +191,7 @@ export function AlarmDetails() {
   return (
     <div className="relative bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 overflow-hidden">
       {/* Hero Section - Clean Glass Lab Aesthetic */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Clean white/glass background */}
         <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-white" />
         

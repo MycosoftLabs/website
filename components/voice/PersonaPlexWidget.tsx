@@ -81,7 +81,7 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
   // Collapsed view - just a floating button
   if (!isExpanded) {
     return (
-      <div className={cn("fixed z-50", positionClasses[position], className)}>
+      <div className={cn("fixed z-50", positionClasses[position], className)} suppressHydrationWarning>
         <Button
           onClick={() => setIsExpanded(true)}
           className={cn(
@@ -127,7 +127,7 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
       "fixed z-50 w-96 bg-zinc-900 rounded-xl border border-zinc-700 shadow-2xl overflow-hidden",
       positionClasses[position],
       className
-    )}>
+    )} suppressHydrationWarning>
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-zinc-700">
         <div className="flex items-center gap-2">

@@ -228,9 +228,9 @@ export function DevicesPortal() {
   const [selectedDevice, setSelectedDevice] = useState(devices[0])
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Hero Section */}
-      <section className="relative py-24 overflow-hidden">
+      <section className="relative py-16 md:py-24 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
@@ -242,7 +242,7 @@ export function DevicesPortal() {
             className="max-w-4xl mx-auto text-center"
           >
             <Badge className="mb-4">Hardware Platform</Badge>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
                 Environmental
               </span>
@@ -256,14 +256,14 @@ export function DevicesPortal() {
               Defense-grade reliability with research-quality precision.
             </p>
 
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg" asChild>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button size="lg" className="w-full sm:w-auto" asChild>
                 <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
                   <Play className="mr-2 h-5 w-5" />
                   Watch Videos
                 </a>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
                 <Link href="/devices/specifications">
                   View Specifications
                   <ChevronRight className="ml-2 h-5 w-5" />
@@ -397,14 +397,14 @@ export function DevicesPortal() {
               </div>
 
               {/* CTA */}
-              <div className="flex gap-4">
-                <Button size="lg" asChild>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button size="lg" className="w-full sm:w-auto" asChild>
                   <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
                     <Play className="mr-2 h-5 w-5" />
                     Learn More
                   </a>
                 </Button>
-                <Button size="lg" variant="outline" asChild>
+                <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
                   <Link href={`/devices/${selectedDevice.id}`}>
                     Full Details
                   </Link>

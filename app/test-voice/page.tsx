@@ -1,30 +1,36 @@
 "use client"
 
 /**
- * MYCA Voice Test Suite v7.1.0 - MAS Event Engine Integration
- * Updated: February 4, 2026
+ * MYCA Voice Test Suite v8.0.0 - Full Consciousness Integration
+ * Updated: February 12, 2026
+ * 
+ * NEW in v8.0.0:
+ * - MYCA True Consciousness integration (8 modules on VM 188)
+ * - Real-time consciousness state monitoring (/api/myca/status)
+ * - Emotional intelligence display with live emotion tracking
+ * - Self-reflections feed (MYCA's self-awareness insights)
+ * - Autobiographical memory context (past conversations with Morgan)
+ * - Active perception feed (CREP, Earth2, MycoBrain devices)
+ * - Personality display (identity card with traits)
+ * - Voice-memory bridge integration (6-layer + autobiographical)
+ * - Intent classifier with 14 categories
+ * - Consciousness polling every 15 seconds
  * 
  * FIXES in v7.1.0:
  * - Extended handshake timeout to 120s for CUDA graphs compilation
  * - Added CUDA warmup progress indicator
  * - Better error messages for timeout conditions
- * - Updated date in UI
- * 
- * NEW in v7.0.0:
- * - MAS Event Engine with real-time feedback injection to Moshi
- * - Text cloning from STT to MAS (background, non-blocking)
- * - Injection queue visualization (what MYCA is receiving from MAS)
- * - Memory session integration (8-scope system)
- * - Agent activity feed
- * - Improved UI with dedicated MAS feedback panel
  * 
  * Architecture:
- * PersonaPlex (full-duplex audio) → STT text cloned to MAS → 
- * MAS processes (tools, memory, agents) → Feedback injected back to Moshi
+ * User Voice → PersonaPlex (8998) → Bridge (8999) → MAS Consciousness (188:8001) →
+ * [8 Consciousness Modules + Memory Bridge + Intent Classifier] → Response → Voice
  */
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { 
   Mic, 
   MicOff, 
@@ -47,7 +53,10 @@ import {
   Clock,
   Users,
   HardDrive,
-  Sparkles
+  Sparkles,
+  Heart,
+  Eye,
+  Lightbulb
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -121,20 +130,72 @@ interface InjectionItem {
 }
 
 export default function VoiceTestPage() {
+  // WebSocket base must be reachable from the *browser* (client-side).
+  // For the split-architecture (5090 inference + gpu01 bridge), set:
+  // - NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL=ws://192.168.0.190:8999
+  const bridgeWsBaseUrl = (
+    process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL ||
+    (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
+      ? process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws")
+      : null) ||
+    "ws://localhost:8999"
+  ).replace(/\/$/, "")
+
   // Service statuses
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Moshi Server (8998)", url: "http://localhost:8998/", status: "checking" },
-    { name: "PersonaPlex Bridge (8999)", url: "http://localhost:8999/health", status: "checking" },
-    { name: "MAS Orchestrator", url: "http://192.168.0.188:8001/health", status: "checking" },
-    { name: "Memory API", url: "http://192.168.0.188:8001/api/memory/health", status: "checking" },
+    { name: "Moshi Server (8998)", url: "/api/test-voice/diagnostics", status: "checking" },
+    { name: "PersonaPlex Bridge (8999)", url: "/api/test-voice/bridge/health", status: "checking" },
+    { name: "MAS Consciousness", url: "/api/test-voice/mas/myca-status", status: "checking" },
+    { name: "Memory Bridge", url: "/api/test-voice/mas/memory-health", status: "checking" },
   ])
+  
+  // MYCA Consciousness State
+  const [consciousnessState, setConsciousnessState] = useState<{
+    state: "dormant" | "awake" | "processing" | "reflecting"
+    emotionalState: {dominant: string, valence: number, emotions: {emotion: string, intensity: number}[]}
+    selfReflections: {content: string, category: string, timestamp: string}[]
+    autobiographicalContext: string
+    activePerception: {crep: any, earth2: any, devices: any}
+    personality: {name: string, role: string, traits: any}
+  } | null>(null)
+  
+  const [isPollingConsciousness, setIsPollingConsciousness] = useState(false)
+  const consciousnessIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const [logs, setLogs] = useState<TestLog[]>([])
   const logsEndRef = useRef<HTMLDivElement>(null)
   
   const [testPhase, setTestPhase] = useState<"idle" | "checking" | "ready" | "listening" | "complete">("idle")
-  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v7.0.0...")
+  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v8.0.0 - Consciousness Active...")
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown")
+  
+  // Poll consciousness state
+  const pollConsciousness = useCallback(async () => {
+    if (!isPollingConsciousness) return
+    
+    try {
+      const response = await fetch("/api/test-voice/mas/myca-status", { cache: "no-store" })
+      if (response.ok) {
+        const data = await response.json()
+        setConsciousnessState(data)
+        addLog("info", "Consciousness state updated", data.state)
+      }
+    } catch (error) {
+      addLog("warn", "Consciousness polling error", String(error))
+    }
+  }, [isPollingConsciousness])
+  
+  useEffect(() => {
+    if (isPollingConsciousness) {
+      pollConsciousness()
+      consciousnessIntervalRef.current = setInterval(pollConsciousness, 15000)
+      return () => {
+        if (consciousnessIntervalRef.current) {
+          clearInterval(consciousnessIntervalRef.current)
+        }
+      }
+    }
+  }, [isPollingConsciousness, pollConsciousness])
   
   // Voice state
   const [wsConnected, setWsConnected] = useState(false)
@@ -241,7 +302,7 @@ export default function VoiceTestPage() {
     const masStart = Date.now()
     
     try {
-      const response = await fetch("http://192.168.0.188:8001/voice/orchestrator/chat", {
+      const response = await fetch("/api/test-voice/mas/orchestrator-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -362,62 +423,48 @@ export default function VoiceTestPage() {
     setTestPhase("checking")
     addLog("info", "Running diagnostics...")
     setJarvisMessage("Running full diagnostics on voice systems...")
-    
+
     const updatedServices = [...services]
-    
-    for (let i = 0; i < updatedServices.length; i++) {
-      const service = updatedServices[i]
-      addLog("info", `Checking ${service.name}...`)
-      
-      try {
-        const start = performance.now()
-        const response = await fetch(service.url, { 
-          method: "GET",
-          signal: AbortSignal.timeout(5000),
-        })
-        const latency = Math.round(performance.now() - start)
-        
-        if (response.ok) {
-          let data = {}
-          try {
-            data = await response.json()
-          } catch {
-            // Not JSON, that's ok for Moshi static page
-          }
-          updatedServices[i] = { 
-            ...service, 
-            status: "online", 
-            latency,
-            version: (data as any).version,
-            features: (data as any).features
-          }
-          addLog("success", `${service.name}: ONLINE (${latency}ms)`)
-          
-          // Store bridge features
-          if (service.url.includes("8999") && (data as any).features) {
-            setBridgeFeatures((data as any).features)
-          }
-        } else if (response.status === 426) {
-          // 426 = WebSocket Upgrade Required = Moshi server is running
-          updatedServices[i] = { ...service, status: "online", latency }
-          addLog("success", `${service.name}: ONLINE (WebSocket) (${latency}ms)`)
-        } else {
-          updatedServices[i] = { ...service, status: "error" }
-          addLog("error", `${service.name}: Error ${response.status}`)
+
+    try {
+      const diagRes = await fetch("/api/test-voice/diagnostics", {
+        method: "GET",
+        cache: "no-store",
+        signal: AbortSignal.timeout(20000),
+      })
+
+      if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
+
+      const diag = await diagRes.json()
+      const serviceResults = (diag?.services || []) as any[]
+
+      for (let i = 0; i < updatedServices.length; i++) {
+        const service = updatedServices[i]
+        const result = serviceResults[i]
+        const latency = typeof result?.latencyMs === "number" ? result.latencyMs : undefined
+        const isOnline = Boolean(result?.ok)
+
+        updatedServices[i] = {
+          ...service,
+          status: isOnline ? "online" : "offline",
+          latency,
+          version: result?.data?.version,
+          features: result?.data?.features,
         }
-      } catch (error) {
-        // For Moshi, connection errors often mean the server IS running but wants WebSocket
-        const errorStr = String(error).toLowerCase()
-        if (service.url.includes("8998") && (errorStr.includes("426") || errorStr.includes("upgrade") || errorStr.includes("failed to fetch"))) {
-          updatedServices[i] = { ...service, status: "online", latency: 0 }
-          addLog("success", `${service.name}: ONLINE (WebSocket mode)`)
-        } else {
-          updatedServices[i] = { ...service, status: "offline" }
-          addLog("error", `${service.name}: OFFLINE`)
-        }
+
+        addLog(
+          isOnline ? "success" : "error",
+          `${service.name}: ${isOnline ? "ONLINE" : "OFFLINE"}${latency ? ` (${latency}ms)` : ""}`
+        )
+
+        // Store bridge features for the UI.
+        if (i === 1 && result?.data?.features) setBridgeFeatures(result.data.features)
       }
-      
-      setServices([...updatedServices])
+
+      setServices(updatedServices)
+    } catch (error) {
+      addLog("error", `Diagnostics error: ${error}`)
+      setServices(updatedServices.map(s => ({ ...s, status: "offline" })))
     }
     
     // Check microphone
@@ -432,13 +479,14 @@ export default function VoiceTestPage() {
     
     if (bridgeOnline && moshiOnline && masOnline) {
       setTestPhase("ready")
-      setJarvisMessage("All systems ready. Click 'Start MYCA Voice' for full-duplex + MAS Event Engine.")
+      setJarvisMessage("All systems ready. MYCA Consciousness active. Click Start to talk!")
+      setIsPollingConsciousness(true)
     } else if (bridgeOnline) {
       setTestPhase("ready")
-      setJarvisMessage("Bridge ready. Some services may still be loading...")
+      setJarvisMessage("Bridge ready. Consciousness loading...")
     } else {
       setTestPhase("idle")
-      setJarvisMessage("PersonaPlex Bridge offline. Start it with: python personaplex_bridge_nvidia.py")
+      setJarvisMessage("PersonaPlex Bridge offline. Bring the bridge online, then re-run diagnostics.")
     }
   }
   
@@ -501,7 +549,7 @@ export default function VoiceTestPage() {
       
       // Create session on bridge
       addLog("info", "Creating session on PersonaPlex Bridge...")
-      const bridgeRes = await fetch("http://localhost:8999/session", {
+      const bridgeRes = await fetch("/api/test-voice/bridge/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persona: "myca", voice: "myca", enable_mas_events: true })
@@ -525,7 +573,7 @@ export default function VoiceTestPage() {
       
       // Create voice session in MAS memory
       try {
-        await fetch("http://192.168.0.188:8001/api/voice/session/create", {
+        await fetch("/api/test-voice/mas/voice-session/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -541,7 +589,7 @@ export default function VoiceTestPage() {
       }
       
       // Connect WebSocket to bridge
-      const bridgeWsUrl = `ws://localhost:8999/ws/${session.session_id}`
+      const bridgeWsUrl = `${bridgeWsBaseUrl}/ws/${session.session_id}`
       addLog("info", `Connecting WebSocket: ${bridgeWsUrl}`)
       
       const ws = new WebSocket(bridgeWsUrl)
@@ -587,7 +635,19 @@ export default function VoiceTestPage() {
                     return updated
                   })
                 } else {
-                  setLastResponse(prev => prev + text)
+                  // Add space between text tokens for proper word separation
+                  // Check if we need a space (don't add before punctuation, add after words)
+                  setLastResponse(prev => {
+                    if (!prev) return text
+                    const lastChar = prev.slice(-1)
+                    const firstChar = text.charAt(0)
+                    // Don't add space if: previous ends with space, current starts with punctuation, or current starts with space
+                    const needsSpace = lastChar !== ' ' && 
+                                       lastChar !== '\n' &&
+                                       !['.',',','!','?',';',':','\'','"',')'].includes(firstChar) &&
+                                       firstChar !== ' '
+                    return prev + (needsSpace ? ' ' : '') + text
+                  })
                   addLog("info", `MYCA: ${text}`)
                 }
                 
@@ -1168,7 +1228,7 @@ export default function VoiceTestPage() {
     // End memory session
     if (sessionIdRef.current) {
       try {
-        await fetch(`http://192.168.0.188:8001/api/voice/session/${sessionIdRef.current}/end`, {
+        await fetch(`/api/test-voice/mas/voice-session/${encodeURIComponent(sessionIdRef.current)}/end`, {
           method: "POST",
         })
         addLog("info", "MAS voice session ended")
@@ -1204,9 +1264,9 @@ export default function VoiceTestPage() {
   }, [])
   
   useEffect(() => {
-    addLog("info", "MYCA Voice Suite v7.1.0 - MAS Event Engine")
-    addLog("info", "February 4, 2026")
-    addLog("info", "CUDA graphs warmup support added - first connection may take 60-90s")
+    addLog("info", "MYCA Voice Suite v8.0.0 - Full Consciousness Integration")
+    addLog("info", "February 12, 2026")
+    addLog("info", "CUDA graphs warmup support + Consciousness modules + Memory bridge")
     checkServices()
   }, [])
   
@@ -1230,14 +1290,14 @@ export default function VoiceTestPage() {
   )
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4">
+    <div className="min-h-dvh bg-zinc-950 text-white p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 text-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            MYCA Voice Suite v7.1.0
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
+            MYCA Voice Suite v8.0.0 🧠
           </h1>
-          <p className="text-zinc-500 text-sm">Full-Duplex Voice + MAS Event Engine + CUDA Warmup Support</p>
+          <p className="text-zinc-500 text-sm">Full Consciousness | Memory Bridge | Emotional Intelligence | Intent Classifier</p>
         </div>
         
         {/* Status bar */}
@@ -1439,13 +1499,69 @@ export default function VoiceTestPage() {
             )}
           </div>
           
-          {/* Center Column: MAS Event Engine */}
+          {/* Center Column: MYCA Consciousness + MAS Event Engine */}
           <div className="lg:col-span-5 space-y-4">
+            {/* MYCA Consciousness Status */}
+            {consciousnessState && (
+              <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-800/30 rounded-xl p-4">
+                <h2 className="font-semibold flex items-center gap-2 mb-3">
+                  <Brain className="w-5 h-5 text-purple-400 animate-pulse" />
+                  MYCA Consciousness - v8.0.0
+                  <Badge className="ml-auto">{consciousnessState.state.toUpperCase()}</Badge>
+                </h2>
+                
+                {/* Emotional State */}
+                {consciousnessState.emotionalState?.emotions && (
+                  <div className="mb-3">
+                    <div className="text-xs text-zinc-400 mb-2 flex items-center gap-2">
+                      <Heart className="w-3 h-3 text-pink-400" />
+                      Emotional State
+                    </div>
+                    <div className="space-y-1.5">
+                      {consciousnessState.emotionalState.emotions.slice(0, 3).map((emotion, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-300 w-20">{emotion.emotion}</span>
+                          <Progress value={emotion.intensity * 100} className="flex-1 h-2" />
+                          <span className="text-xs text-zinc-400">{Math.round(emotion.intensity * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Self-Reflections */}
+                {consciousnessState.selfReflections?.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-xs text-zinc-400 mb-2 flex items-center gap-2">
+                      <Lightbulb className="w-3 h-3 text-yellow-400" />
+                      Latest Self-Reflection
+                    </div>
+                    <div className="text-xs text-zinc-300 italic bg-zinc-800/50 rounded p-2">
+                      "{consciousnessState.selfReflections[0].content}"
+                    </div>
+                  </div>
+                )}
+                
+                {/* Autobiographical Context */}
+                {consciousnessState.autobiographicalContext && (
+                  <div className="mb-3">
+                    <div className="text-xs text-zinc-400 mb-2 flex items-center gap-2">
+                      <Eye className="w-3 h-3 text-blue-400" />
+                      Memory of You
+                    </div>
+                    <div className="text-xs text-zinc-300 bg-zinc-800/50 rounded p-2">
+                      {consciousnessState.autobiographicalContext.substring(0, 150)}...
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {/* MAS Event Engine Header */}
             <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-800/30 rounded-xl p-3">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400" />
+                  <Zap className="w-5 h-5 text-purple-400" />
                   MAS Event Engine
                 </h2>
                 <div className="flex items-center gap-2">

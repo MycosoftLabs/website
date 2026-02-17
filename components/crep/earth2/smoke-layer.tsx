@@ -299,6 +299,7 @@ function getSmokeSaturation(intensity: number, distanceFactor: number): string {
   return `rgb(${gray}, ${gray}, ${gray})`;
 }
 
+// Fetch smoke sources from API - NO MOCK DATA (per Mycosoft policy)
 async function fetchSmokeSources(bounds: GeoBounds, windData: any[]): Promise<SmokeSource[]> {
   try {
     // Try to fetch from global events API
@@ -323,39 +324,13 @@ async function fetchSmokeSources(bounds: GeoBounds, windData: any[]): Promise<Sm
       });
     }
   } catch (error) {
-    console.warn("[Smoke Layer] Failed to fetch fires, using sample data:", error);
+    console.warn("[Smoke Layer] Failed to fetch fire data:", error);
   }
 
-  // Return sample smoke sources for demo
-  return generateSampleSmokeSources(bounds, windData);
-}
-
-function generateSampleSmokeSources(bounds: GeoBounds, windData: any[]): SmokeSource[] {
-  const sources: SmokeSource[] = [];
-  const centerLat = (bounds.north + bounds.south) / 2;
-  const centerLon = (bounds.east + bounds.west) / 2;
-  
-  // Generate 3-5 sample smoke sources within bounds
-  const numSources = Math.floor(Math.random() * 3) + 3;
-  
-  for (let i = 0; i < numSources; i++) {
-    const lat = centerLat + (Math.random() - 0.5) * (bounds.north - bounds.south) * 0.6;
-    const lon = centerLon + (Math.random() - 0.5) * (bounds.east - bounds.west) * 0.6;
-    
-    const nearestWind = findNearestWind(lat, lon, windData);
-    
-    sources.push({
-      id: `sample-smoke-${i}`,
-      lat,
-      lon,
-      intensity: 0.3 + Math.random() * 0.7,
-      plumeDirection: nearestWind.direction,
-      plumeLength: nearestWind.speed * 5,
-      timestamp: new Date().toISOString(),
-    });
-  }
-  
-  return sources;
+  // Return empty array - NO MOCK DATA per Mycosoft policy
+  // Smoke dispersion requires active fire data from API
+  console.log("[Smoke Layer] No smoke source data available - showing empty state");
+  return [];
 }
 
 function findNearestWind(lat: number, lon: number, windData: any[]): { direction: number; speed: number } {

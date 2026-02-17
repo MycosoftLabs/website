@@ -26,31 +26,64 @@ import {
 } from "lucide-react"
 import type { ResearchResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ResearchWidgetProps {
   data: ResearchResult | ResearchResult[]
   isFocused: boolean
+  isLoading?: boolean
   onExplore?: (type: string, id: string) => void
   onFocusWidget?: (target: { type: string; id?: string }) => void
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
   className?: string
 }
 
+function ResearchLoadingSkeleton() {
+  return (
+    <div className="p-4 space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="border border-border/50 rounded-lg p-3 space-y-2">
+          <Skeleton className="h-5 w-5/6" />
+          <div className="flex gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <Skeleton className="h-12 w-full" />
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-12 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const ITEMS_PER_PAGE = 5
+
 export function ResearchWidget({
   data,
   isFocused,
+  isLoading = false,
   onExplore,
   onFocusWidget,
   onAddToNotepad,
   className,
 }: ResearchWidgetProps) {
   const items = Array.isArray(data) ? data : [data]
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [viewingDocId, setViewingDocId] = useState<string | null>(null)
   const [showSources, setShowSources] = useState(false)
 
+  if (isLoading) {
+    return <ResearchLoadingSkeleton />
+  }
+
   const sources = items.map((r: any) => r._source || "Unknown").filter(Boolean)
   const uniqueSources = [...new Set(sources)]
+  const visibleItems = items.slice(0, visibleCount)
+  const hasMore = items.length > visibleCount
 
   const viewingDoc = viewingDocId ? items.find((r) => r.id === viewingDocId) : null
 
@@ -131,8 +164,8 @@ export function ResearchWidget({
 
       {/* Paper list */}
       {!viewingDoc && (
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
-          {items.map((paper) => {
+        <div className="space-y-2 overflow-hidden flex-1">
+          {visibleItems.map((paper) => {
             const isExpanded = expandedId === paper.id
             return (
               <motion.div
@@ -210,6 +243,19 @@ export function ResearchWidget({
               </motion.div>
             )
           })}
+          
+          {/* Load more button */}
+          {hasMore && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
+            >
+              <ChevronDown className="h-3 w-3 mr-1" />
+              Show {Math.min(ITEMS_PER_PAGE, items.length - visibleCount)} more ({items.length - visibleCount} remaining)
+            </Button>
+          )}
         </div>
       )}
 

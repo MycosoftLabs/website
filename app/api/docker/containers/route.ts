@@ -41,6 +41,11 @@ interface DockerStats {
   }
 }
 
+interface ContainerActionOptions {
+  name?: string
+  path?: string
+}
+
 // Format container data
 function formatContainer(container: DockerContainer, stats?: { cpu: number; memory: number }) {
   const name = container.Names[0]?.replace(/^\//, "") || container.Id.slice(0, 12)
@@ -207,7 +212,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, containerId, options } = body
+    const { action, containerId, options } = body as {
+      action: string
+      containerId: string
+      options?: ContainerActionOptions
+    }
 
     let endpoint = ""
     let method = "POST"
@@ -236,24 +245,145 @@ export async function POST(request: NextRequest) {
         method = "DELETE"
         break
       case "clone":
-        // Clone involves creating a new container from the same image
-        // This would require getting container config and creating new
-        return NextResponse.json({ 
-          status: "coming_soon",
-          message: "Container cloning is under development. This feature will create a copy of the container with a new name.",
-          code: "FEATURE_COMING_SOON",
-          containerId,
-          expectedRelease: "Q2 2026",
-        }, { status: 503 })
+        // Clone: Get container config, create new container with new name
+        try {
+          const newName = options?.name || `${containerId}-clone-${Date.now()}`
+          
+          // Get container inspect data
+          const inspectRes = await fetch(`${DOCKER_API_URL}/containers/${containerId}/json`, {
+            signal: AbortSignal.timeout(5000),
+          })
+          
+          if (!inspectRes.ok) {
+            throw new Error(`Failed to inspect container: ${await inspectRes.text()}`)
+          }
+          
+          const inspectData = await inspectRes.json()
+          
+          // Build create config from inspect data
+          const createConfig = {
+            name: newName,
+            Image: inspectData.Config.Image,
+            Env: inspectData.Config.Env || [],
+            Cmd: inspectData.Config.Cmd || null,
+            ExposedPorts: inspectData.Config.ExposedPorts || {},
+            Labels: inspectData.Config.Labels || {},
+            Volumes: inspectData.Config.Volumes || {},
+            WorkingDir: inspectData.Config.WorkingDir || "",
+            HostConfig: {
+              Binds: inspectData.HostConfig.Binds || [],
+              PortBindings: inspectData.HostConfig.PortBindings || {},
+              RestartPolicy: inspectData.HostConfig.RestartPolicy || { Name: "no" },
+              NetworkMode: inspectData.HostConfig.NetworkMode || "default",
+            },
+          }
+          
+          // Create new container
+          const createRes = await fetch(`${DOCKER_API_URL}/containers/create?name=${newName}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(createConfig),
+            signal: AbortSignal.timeout(30000),
+          })
+          
+          if (!createRes.ok) {
+            throw new Error(`Failed to create container: ${await createRes.text()}`)
+          }
+          
+          const createData = await createRes.json()
+          
+          return NextResponse.json({
+            success: true,
+            message: `Container cloned successfully`,
+            action: "clone",
+            sourceId: containerId,
+            newId: createData.Id.slice(0, 12),
+            newName,
+          })
+        } catch (error) {
+          return NextResponse.json(
+            { 
+              error: `Clone failed: ${error instanceof Error ? error.message : String(error)}`,
+              code: "CLONE_FAILED",
+            },
+            { status: 500 }
+          )
+        }
       case "backup":
-        // Backup would export container to tar and save to NAS
-        return NextResponse.json({ 
-          status: "coming_soon",
-          message: "Container backup is under development. This feature will export the container to NAS storage.",
-          code: "FEATURE_COMING_SOON",
-          containerId,
-          expectedRelease: "Q2 2026",
-        }, { status: 503 })
+        // Backup: Export container to tar, save to NAS
+        try {
+          const backupName = options?.name || `${containerId}-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar`
+          const backupPath = options?.path || "/backups/containers"
+          
+          // Export container to tar
+          const exportRes = await fetch(`${DOCKER_API_URL}/containers/${containerId}/export`, {
+            signal: AbortSignal.timeout(300000), // 5 min timeout for large containers
+          })
+          
+          if (!exportRes.ok) {
+            throw new Error(`Failed to export container: ${await exportRes.text()}`)
+          }
+          
+          // Get the tar stream
+          const tarBlob = await exportRes.blob()
+          const tarSize = tarBlob.size
+          
+          // Production environment check - only persist on VM with NAS mount
+          const isProductionVM = process.env.NODE_ENV === "production" && process.env.HAS_NAS_MOUNT === "true"
+          
+          let persisted = false
+          let persistError: string | null = null
+          
+          // Write to NAS mount if available
+          if (isProductionVM) {
+            try {
+              const { writeFile, mkdir } = await import('fs/promises')
+              const fullBackupPath = `/opt/mycosoft/backups/containers/${backupName}`
+              
+              // Ensure backup directory exists
+              await mkdir('/opt/mycosoft/backups/containers', { recursive: true })
+              
+              // Write tar to NAS
+              const tarBuffer = Buffer.from(await tarBlob.arrayBuffer())
+              await writeFile(fullBackupPath, tarBuffer)
+              
+              persisted = true
+              console.log(`Container backup persisted to NAS: ${fullBackupPath}`)
+            } catch (error) {
+              persistError = error instanceof Error ? error.message : String(error)
+              console.error(`Failed to persist backup to NAS: ${persistError}`)
+            }
+          }
+          
+          return NextResponse.json({
+            success: true,
+            message: persisted 
+              ? `Container backup created and persisted to NAS`
+              : `Container backup exported${isProductionVM ? ' (NAS write failed)' : ' (not persisted - NAS mount not available)'}`,
+            action: "backup",
+            containerId,
+            backupFile: backupName,
+            backupPath: `${backupPath}/${backupName}`,
+            sizeBytes: tarSize,
+            sizeMB: Math.round(tarSize / (1024 * 1024)),
+            timestamp: new Date().toISOString(),
+            persisted,
+            persistError: persistError || undefined,
+            note: persisted
+              ? "Backup stored on NAS at /opt/mycosoft/backups/containers/"
+              : isProductionVM
+                ? `NAS write failed: ${persistError}`
+                : "Deploy to VM 187 with NAS mount for automatic persistence"
+          })
+        } catch (error) {
+          return NextResponse.json(
+            { 
+              error: `Backup failed: ${error instanceof Error ? error.message : String(error)}`,
+              code: "BACKUP_FAILED",
+            },
+            { status: 500 }
+          )
+        }
       case "export-proxmox":
         // Export to Proxmox would convert container to VM
         return NextResponse.json({

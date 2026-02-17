@@ -34,24 +34,26 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="general">
-          <TabsList>
-            <TabsTrigger value="general">
+          <div className="overflow-x-auto">
+          <TabsList className="w-full min-w-max sm:w-auto">
+            <TabsTrigger value="general" className="min-h-[44px]">
               <Laptop className="w-4 h-4 mr-2" />
               General
             </TabsTrigger>
-            <TabsTrigger value="notifications">
+            <TabsTrigger value="notifications" className="min-h-[44px]">
               <Bell className="w-4 h-4 mr-2" />
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="security">
+            <TabsTrigger value="security" className="min-h-[44px]">
               <Shield className="w-4 h-4 mr-2" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="integrations">
+            <TabsTrigger value="integrations" className="min-h-[44px]">
               <Globe className="w-4 h-4 mr-2" />
               Integrations
             </TabsTrigger>
           </TabsList>
+          </div>
 
           <TabsContent value="general" className="space-y-4">
             <Card>
@@ -64,7 +66,7 @@ export default function SettingsPage() {
                   <Label htmlFor="language">Language</Label>
                   <select
                     id="language"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-12 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-base file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="en">English</option>
                     <option value="es">Español</option>
@@ -75,7 +77,7 @@ export default function SettingsPage() {
                   <Label htmlFor="timezone">Timezone</Label>
                   <select
                     id="timezone"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-12 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-base file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="utc">UTC</option>
                     <option value="pst">Pacific Time</option>
@@ -128,17 +130,17 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
+                  <Input id="current-password" type="password" className="text-base h-12" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
+                  <Input id="new-password" type="password" className="text-base h-12" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
+                  <Input id="confirm-password" type="password" className="text-base h-12" />
                 </div>
-                <Button>Update Password</Button>
+                <Button className="h-12">Update Password</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -165,7 +167,7 @@ export default function SettingsPage() {
         </Tabs>
 
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving} className="h-12 px-8">
             {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>

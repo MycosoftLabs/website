@@ -129,7 +129,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-green-900 to-teal-900"
+        className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-emerald-900 via-green-900 to-teal-900"
       >
         <div className="text-center space-y-6 p-8">
           <motion.div
@@ -175,7 +175,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const IconComponent = slide.icon
   
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-dvh relative overflow-hidden">
       {/* Animated gradient background */}
       <motion.div
         key={slide.id}
@@ -193,7 +193,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <ParticleBackground />
       
       {/* Main content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="relative z-10 min-h-dvh flex flex-col">
         {/* Header with logo */}
         <header className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">

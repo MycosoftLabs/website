@@ -223,7 +223,7 @@ export function Hyphae1Details() {
   return (
     <div className="relative bg-gradient-to-b from-slate-200 via-white to-slate-100 text-slate-900 overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:40px_40px]" />
         

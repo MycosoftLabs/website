@@ -184,22 +184,22 @@ export function FungiComputeDashboard() {
           {/* Left Column: Oscilloscope + STFT Spectrogram */}
           <div className="col-span-5 flex flex-col gap-2 min-h-0 overflow-hidden">
             <GlassPanel title="Oscilloscope (µV Scale)" icon={Activity} className="flex-[2] min-h-0">
-              <Oscilloscope />
+              <Oscilloscope signalBuffer={signalBuffer} />
             </GlassPanel>
             
             <GlassPanel title="STFT Spectrogram (Buffi 2025)" icon={Grid3X3} className="flex-[2] min-h-0">
-              <STFTSpectrogram />
+              <STFTSpectrogram signalBuffer={signalBuffer} />
             </GlassPanel>
           </div>
 
           {/* Middle Column: Spectrum + Spike Train + Causality */}
           <div className="col-span-4 flex flex-col gap-2 min-h-0 overflow-hidden">
             <GlassPanel title="Spectrum Analyzer" icon={Grid3X3} className="flex-1 min-h-0">
-              <SpectrumAnalyzer />
+              <SpectrumAnalyzer signalBuffer={signalBuffer} />
             </GlassPanel>
             
             <GlassPanel title="Spike Train (Adamatzky 2022)" icon={Activity} className="flex-1 min-h-0">
-              <SpikeTrainAnalyzer />
+              <SpikeTrainAnalyzer signalBuffer={signalBuffer} patterns={livePatterns} />
             </GlassPanel>
             
             <GlassPanel title="Causality (Fukasawa 2024)" icon={Radio} className="flex-1 min-h-0">

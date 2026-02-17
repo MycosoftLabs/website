@@ -41,7 +41,7 @@ export default function PreviewPage() {
   const [query, setQuery] = useState("")
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <SearchSection />
       <div className="container mx-auto px-4 py-8">{query && <SearchResults query={query} />}</div>
     </div>

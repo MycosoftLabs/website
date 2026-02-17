@@ -372,7 +372,7 @@ export function Header() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50">
+    <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50" suppressHydrationWarning>
       <div className="container max-w-7xl mx-auto flex h-14 items-center justify-between">
         <div className="flex items-center gap-2 font-semibold">
           <Link href="/" className="flex items-center gap-2 font-semibold group">

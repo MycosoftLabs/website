@@ -1,4 +1,5 @@
 import type React from "react"
+import type { Viewport } from "next"
 import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
@@ -14,13 +15,25 @@ import "./globals.css"
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
-  display: "swap", // Prevent font blocking
+  display: "swap",
 })
 
 export const metadata = {
   title: "Mycosoft - Building The Earth Intelligence",
   description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
   generator: 'v0.app'
+}
+
+// viewport export (Next.js App Router) — viewport-fit=cover enables iOS safe-area-inset support
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+  ],
 }
 
 export default function RootLayout({
@@ -36,7 +49,8 @@ export default function RootLayout({
             <AppStateProvider>
               <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
                 <PersonaPlexProvider>
-                  <div className="min-h-screen flex flex-col relative">
+                  {/* suppressHydrationWarning: Cursor IDE browser may inject data-cursor-ref into DOM, causing hydration mismatch only in that environment */}
+                  <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
                     <Header />
                     <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
                     <Footer />

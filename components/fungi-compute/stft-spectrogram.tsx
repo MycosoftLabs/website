@@ -14,6 +14,7 @@ import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { SignalBuffer } from "@/lib/fungi-compute"
 import { 
   Play, Pause, RotateCcw, ZoomIn, ZoomOut, 
   ChevronUp, ChevronDown, Download, Eye,
@@ -22,6 +23,7 @@ import {
 
 interface STFTSpectrogramProps {
   className?: string
+  signalBuffer?: SignalBuffer[]
 }
 
 const COLORMAPS = {
@@ -68,7 +70,7 @@ const FREQ_RANGES = [
   { label: "1-10 Hz", min: 1, max: 10 },
 ]
 
-export function STFTSpectrogram({ className }: STFTSpectrogramProps) {
+export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogramProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number>()
@@ -119,51 +121,40 @@ export function STFTSpectrogram({ className }: STFTSpectrogramProps) {
     }
   }, [])
   
-  // Generate simulated STFT data (pure function, no setState)
-  const generateSTFTColumn = (t: number): number[] => {
+  const computeSTFTColumn = (samples: number[], sampleRate: number): number[] => {
+    const windowSamples = samples.slice(-128)
+    const n = windowSamples.length
     const numBins = 64
+    if (n < 16) return new Array(numBins).fill(0)
+
     const column: number[] = []
-    
-    const colonizationThreshold = timeScale.value * 0.4
-    const isColonized = t > colonizationThreshold
-    
     for (let i = 0; i < numBins; i++) {
-      const freq = (i / numBins) * freqRange.max + freqRange.min
-      let power = 0
-      
-      if (freq < 1) {
-        power = 0.3 + Math.random() * 0.2 + 0.1 * Math.sin(t * 0.001)
+      const targetFreq = (i / numBins) * (sampleRate / 2)
+      if (targetFreq < freqRange.min || targetFreq > freqRange.max) {
+        column.push(0)
+        continue
       }
-      
-      if (isColonized && freq >= 1.5 && freq <= 8) {
-        const colonizationProgress = Math.min(1, (t - colonizationThreshold) / (timeScale.value * 0.1))
-        power = colonizationProgress * (0.5 + 0.3 * Math.sin(t * 0.005))
-        
-        if (freq >= 2 && freq <= 3) {
-          power *= 1.5
-        }
-        
-        power += 0.2 * Math.sin(t * 0.01 + freq * 0.5) * colonizationProgress
-        
-        if (!colonizationDetected && colonizationProgress > 0.5) {
-          setColonizationDetected(true)
-          colonizationTimeRef.current = t
-        }
+      const k = Math.round((targetFreq * n) / sampleRate)
+      let real = 0
+      let imag = 0
+      for (let j = 0; j < n; j++) {
+        const angle = (2 * Math.PI * k * j) / n
+        real += windowSamples[j] * Math.cos(angle)
+        imag -= windowSamples[j] * Math.sin(angle)
       }
-      
-      power += Math.random() * 0.05
-      power = Math.max(0, Math.min(1, power))
-      
-      column.push(power)
+      const magnitude = Math.sqrt(real * real + imag * imag) / n
+      column.push(Math.min(1, magnitude / 50))
     }
-    
-    // Update power stats ref
-    const lowPower = column.slice(0, Math.floor(numBins * 0.1)).reduce((a, b) => a + b, 0) / (numBins * 0.1)
-    const bioPower = column.slice(Math.floor(numBins * 0.15), Math.floor(numBins * 0.5)).reduce((a, b) => a + b, 0) / (numBins * 0.35)
-    const highPower = column.slice(Math.floor(numBins * 0.5)).reduce((a, b) => a + b, 0) / (numBins * 0.5)
-    
+
+    const lowSlice = Math.max(1, Math.floor(numBins * 0.1))
+    const bioStart = Math.floor(numBins * 0.15)
+    const bioEnd = Math.max(bioStart + 1, Math.floor(numBins * 0.5))
+    const highStart = Math.floor(numBins * 0.5)
+    const lowPower = column.slice(0, lowSlice).reduce((a, b) => a + b, 0) / lowSlice
+    const bioPower = column.slice(bioStart, bioEnd).reduce((a, b) => a + b, 0) / Math.max(1, bioEnd - bioStart)
+    const highPower = column.slice(highStart).reduce((a, b) => a + b, 0) / Math.max(1, numBins - highStart)
     powerStatsRef.current = { lowBand: lowPower, bioBand: bioPower, highBand: highPower }
-    
+
     return column
   }
   
@@ -187,19 +178,27 @@ export function STFTSpectrogram({ className }: STFTSpectrogramProps) {
       const w = canvas.width
       const h = canvas.height
       
-      if (!isPaused) {
-        timeRef.current += dt * 10
-      }
+      if (!isPaused) timeRef.current += dt
       
       const t = timeRef.current
       
-      // Add new column
+      const primaryBuffer = signalBuffer[0]
+      const sampleRate = primaryBuffer?.sampleRate || 100
+      const samples = primaryBuffer?.samples || []
+
+      // Add new column from real signal stream
       if (!isPaused) {
-        const column = generateSTFTColumn(t)
-        spectrogramDataRef.current.push(column)
-        
-        if (spectrogramDataRef.current.length > w) {
-          spectrogramDataRef.current = spectrogramDataRef.current.slice(-w)
+        const column = computeSTFTColumn(samples, sampleRate)
+        if (column.some((value) => value > 0)) {
+          spectrogramDataRef.current.push(column)
+          if (spectrogramDataRef.current.length > w) {
+            spectrogramDataRef.current = spectrogramDataRef.current.slice(-w)
+          }
+
+          if (!colonizationDetected && powerStatsRef.current.bioBand > 0.2) {
+            setColonizationDetected(true)
+            colonizationTimeRef.current = t
+          }
         }
       }
       
@@ -298,7 +297,7 @@ export function STFTSpectrogram({ className }: STFTSpectrogramProps) {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, timeScale, freqRange, colormap, showBioMarker, showColonization, colonizationDetected])
+  }, [dimensions, isPaused, timeScale, freqRange, colormap, showBioMarker, showColonization, colonizationDetected, signalBuffer])
   
   const handleReset = () => {
     setIsPaused(false)

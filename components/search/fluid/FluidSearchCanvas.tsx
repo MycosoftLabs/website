@@ -18,6 +18,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { useUnifiedSearch } from "@/hooks/use-unified-search"
+import { usePackery } from "@/hooks/use-packery"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Input } from "@/components/ui/input"
@@ -34,6 +35,7 @@ import {
   Film,
   Newspaper,
   Brain,
+  GripVertical,
 } from "lucide-react"
 import {
   SpeciesWidget,
@@ -45,6 +47,9 @@ import {
   MediaWidget,
   LocationWidget,
   NewsWidget,
+  MapWidget,
+  CrepWidget,
+  Earth2Widget,
 } from "./widgets"
 import {
   getWidgetFloatVariants,
@@ -59,9 +64,10 @@ import {
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
+import { useSearchMemory } from "@/hooks/use-search-memory"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
-  | "myca-suggestions"
+  | "myca-suggestions" | "crep" | "earth2" | "map"
 
 interface WidgetConfig {
   type: WidgetType
@@ -144,6 +150,22 @@ interface FluidSearchCanvasProps {
   className?: string
 }
 
+// Default widget sizes - Species is double-width by default
+const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }> = {
+  species: { width: 2, height: 2 },  // Species is main/double-sized
+  chemistry: { width: 1, height: 1 },
+  genetics: { width: 1, height: 1 },
+  research: { width: 1, height: 2 },
+  ai: { width: 1, height: 2 },
+  media: { width: 1, height: 1 },
+  location: { width: 1, height: 1 },
+  news: { width: 1, height: 1 },
+  "myca-suggestions": { width: 1, height: 1 },
+  crep: { width: 1, height: 1 },
+  earth2: { width: 1, height: 1 },
+  map: { width: 2, height: 2 },
+}
+
 export function FluidSearchCanvas({
   initialQuery = "",
   onNavigate,
@@ -152,6 +174,11 @@ export function FluidSearchCanvas({
 }: FluidSearchCanvasProps) {
   const ctx = useSearchContext()
   const canvasRef = useRef<HTMLDivElement>(null)
+  const prevLiveCountRef = useRef(0)
+  // Stable ref for setLiveObservations to avoid infinite re-renders
+  const setLiveObservationsRef = useRef(ctx.setLiveObservations)
+  // Track previous results key to prevent infinite update loops
+  const prevResultsKeyRef = useRef("")
   const [localQuery, setLocalQuery] = useState(initialQuery || "")
   // Multi-widget grid: track multiple expanded widgets instead of single focused
   const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(new Set(["species"]))
@@ -160,6 +187,77 @@ export function FluidSearchCanvas({
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [isInputFocused, setIsInputFocused] = useState(false)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  
+  // MYCA Memory integration - track searches and record to memory system
+  const searchMemory = useSearchMemory({ 
+    userId: "anonymous", // TODO: Replace with actual user ID when auth is available
+    autoStart: true,
+  })
+  
+  // Widget sizes state - user can resize widgets
+  const [widgetSizes, setWidgetSizes] = useState<Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }>>({ ...DEFAULT_WIDGET_SIZES })
+  
+  // Packery for dynamic widget packing/sizing with drag support
+  const { 
+    containerRef: packeryContainerRef, 
+    layout: packeryLayout, 
+    reloadItems, 
+    isReady: packeryReady,
+    updateWidgetSize,
+  } = usePackery({
+    columnWidth: ".grid-sizer", // Use a sizer element for responsive column width
+    gutter: 12,
+    itemSelector: ".packery-widget",
+    horizontalOrder: true,
+    transitionDuration: "0.5s", // Slower transition for smoother animations
+    draggable: true,
+    dragHandle: ".widget-drag-handle",
+    percentPosition: true,
+    onLayoutComplete: (items) => {
+      // Persist widget order to sessionStorage
+      try {
+        const order = items.map((el) => el.dataset.widgetId || "").filter(Boolean)
+        if (order.length > 0) {
+          sessionStorage.setItem("search-widget-order", JSON.stringify(order))
+        }
+      } catch {
+        // Ignore storage errors (e.g., private browsing)
+      }
+    },
+  })
+  
+  // Cycle widget size: 1x1 -> 1x2 -> 2x1 -> 2x2 -> 1x1
+  const cycleWidgetSize = useCallback((type: WidgetType) => {
+    setWidgetSizes(prev => {
+      const current = prev[type] || { width: 1, height: 1 }
+      let next: { width: 1 | 2; height: 1 | 2 | 3 }
+      
+      // Cycle through size combinations
+      if (current.width === 1 && current.height === 1) {
+        next = { width: 1, height: 2 }
+      } else if (current.width === 1 && current.height === 2) {
+        next = { width: 2, height: 1 }
+      } else if (current.width === 2 && current.height === 1) {
+        next = { width: 2, height: 2 }
+      } else {
+        next = { width: 1, height: 1 }
+      }
+      
+      return { ...prev, [type]: next }
+    })
+    // Trigger Packery relayout after size change
+    setTimeout(() => {
+      reloadItems()
+      packeryLayout()
+    }, 50)
+  }, [reloadItems, packeryLayout])
+  
+  // Get CSS classes for widget size
+  const getWidgetSizeClasses = useCallback((type: WidgetType) => {
+    const size = widgetSizes[type] || DEFAULT_WIDGET_SIZES[type] || { width: 1, height: 1 }
+    return `widget-w-${size.width} widget-h-${size.height}`
+  }, [widgetSizes])
   
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
@@ -202,6 +300,24 @@ export function FluidSearchCanvas({
     ctx.setQuery(localQuery)
   }, [localQuery]) // eslint-disable-line
 
+  // Request user location for Earth2 and location-based features
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        })
+      },
+      () => {
+        // Fall back to default if geolocation denied
+        // Don't set anything - let the Earth2 fetcher use default coords
+      },
+      { timeout: 5000, maximumAge: 300000 } // 5s timeout, cache for 5 min
+    )
+  }, [])
+
   // Search hook - fetch ALL data types
   const {
     species, compounds, genetics, research, aiAnswer,
@@ -237,10 +353,61 @@ export function FluidSearchCanvas({
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   )
   
+  // CREP fungal observations data fetcher
+  const { data: crepData } = useSWR(
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/crep/fungal?species=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 15000 }
+  )
+  
+  // Earth2 weather/spore data fetcher - use user location or default to San Francisco
+  const earth2Coords = userLocation || { lat: 37.7749, lng: -122.4194 }
+  const { data: earth2RawData } = useSWR(
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/earth2/forecast?lat=${earth2Coords.lat}&lon=${earth2Coords.lng}` : null,
+    async (url) => { const res = await fetch(url); return res.json() },
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
+  )
+  
   // Extract results from new endpoints
   const mediaResults = mediaData?.results || []
+  const mediaError = mediaData?.error
   const locationResults = locationData?.results || []
   const newsResults = newsData?.results || []
+  const newsError = newsData?.error
+  const crepResults = crepData?.observations || []
+  const earth2Data = earth2RawData?.available ? earth2RawData : null
+  
+  // Map observations from location and CREP data
+  const mapObservations = useMemo(() => {
+    const locations = locationResults.map((loc: any) => ({
+      id: loc.id || `loc-${loc.lat}-${loc.lng}`,
+      lat: loc.lat,
+      lng: loc.lng,
+      species: loc.species || loc.commonName || "Unknown",
+      scientificName: loc.scientificName || "",
+      timestamp: loc.observedOn || loc.timestamp || new Date().toISOString(),
+      source: loc.source || "iNaturalist",
+      thumbnailUrl: loc.imageUrl,
+    }))
+    const creps = crepResults.map((obs: any) => ({
+      id: obs.id || `crep-${obs.latitude}-${obs.longitude}`,
+      lat: obs.latitude,
+      lng: obs.longitude,
+      species: obs.commonName || obs.species,
+      scientificName: obs.scientificName || "",
+      timestamp: obs.timestamp || new Date().toISOString(),
+      source: obs.source || "CREP",
+      thumbnailUrl: obs.thumbnailUrl || obs.imageUrl,
+    }))
+    return [...locations, ...creps]
+  }, [locationResults, crepResults])
+  
+  // Handler to view an observation on the map
+  const handleViewOnMap = useCallback((observation: any) => {
+    // Expand the map widget and set focus
+    setExpandedWidgets((prev) => new Set(prev).add("map"))
+    setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("map"); return n })
+  }, [])
 
   // Track search to MYCA intention when results arrive
   useEffect(() => {
@@ -257,9 +424,32 @@ export function FluidSearchCanvas({
     }
   }, [isLoading, localQuery, totalCount, species.length, compounds.length, genetics.length, research.length, expandedWidgets, recentSearches]) // eslint-disable-line
 
-  // Push results to context
+  // Record search query to MYCA memory system for long-term storage and personalization
+  useEffect(() => {
+    if (
+      !isLoading &&
+      localQuery &&
+      localQuery.length >= 2 &&
+      (species.length > 0 || compounds.length > 0 || genetics.length > 0 || research.length > 0)
+    ) {
+      // Record the query with result counts by type
+      searchMemory.recordQuery(localQuery, totalCount, {
+        species: species.length,
+        compounds: compounds.length,
+        genetics: genetics.length,
+        research: research.length,
+      }, "text")
+    }
+  }, [isLoading, localQuery, totalCount, species.length, compounds.length, genetics.length, research.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push results to context - use a key to prevent infinite updates
   useEffect(() => {
     if (!isLoading && (species.length > 0 || compounds.length > 0 || research.length > 0)) {
+      // Create a stable key from result counts and query to prevent re-triggering
+      const resultsKey = `${localQuery}-${species.length}-${compounds.length}-${genetics.length}-${research.length}-${aiAnswer ? "ai" : ""}`
+      if (resultsKey === prevResultsKeyRef.current) return
+      prevResultsKeyRef.current = resultsKey
+      
       ctx.setResults({
         query: localQuery,
         results: { species, compounds, genetics, research },
@@ -269,12 +459,20 @@ export function FluidSearchCanvas({
         aiAnswer,
       })
     }
-  }, [species, compounds, genetics, research, aiAnswer, isLoading]) // eslint-disable-line
+  }, [species.length, compounds.length, genetics.length, research.length, aiAnswer, isLoading, localQuery]) // eslint-disable-line
+
+  // Keep setLiveObservations ref updated
+  useEffect(() => {
+    setLiveObservationsRef.current = ctx.setLiveObservations
+  }, [ctx.setLiveObservations])
 
   // Push live observations to context for LiveResultsWidget
+  // NOTE: ctx removed from deps to prevent infinite re-renders - using ref instead
   useEffect(() => {
-    if (liveResults.length > 0) {
-      ctx.setLiveObservations(liveResults.map((obs: any) => ({
+    const currentCount = liveResults.length || locationResults.length
+    if (liveResults.length > 0 && prevLiveCountRef.current !== liveResults.length) {
+      prevLiveCountRef.current = liveResults.length
+      setLiveObservationsRef.current(liveResults.map((obs: any) => ({
         id: obs.id,
         species: obs.species,
         location: obs.location || "Unknown location",
@@ -286,8 +484,9 @@ export function FluidSearchCanvas({
       return
     }
     // Keep compatibility fallback while live_results propagates through all environments
-    if (locationResults.length > 0) {
-      ctx.setLiveObservations(locationResults.map((obs: any) => ({
+    if (locationResults.length > 0 && prevLiveCountRef.current !== locationResults.length) {
+      prevLiveCountRef.current = locationResults.length
+      setLiveObservationsRef.current(locationResults.map((obs: any) => ({
         id: obs.id,
         species: obs.commonName || obs.speciesName,
         location: obs.placeName || "Unknown location",
@@ -298,8 +497,11 @@ export function FluidSearchCanvas({
       })))
       return
     }
-    ctx.setLiveObservations([])
-  }, [liveResults, locationResults]) // eslint-disable-line
+    if (currentCount === 0 && prevLiveCountRef.current !== 0) {
+      prevLiveCountRef.current = 0
+      setLiveObservationsRef.current([])
+    }
+  }, [liveResults, locationResults])
   
   // Track history
   useEffect(() => {
@@ -377,12 +579,49 @@ export function FluidSearchCanvas({
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
   const activeWidgets = widgetConfigs  // No filter - show all widgets
-  // Expanded widgets shown in the grid
-  const gridWidgets = activeWidgets.filter((w) => expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
+  
+  // Get saved widget order from sessionStorage
+  const savedWidgetOrder = useMemo(() => {
+    if (typeof window === "undefined") return []
+    try {
+      const saved = sessionStorage.getItem("search-widget-order")
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  }, [])
+  
+  // Expanded widgets shown in the grid, sorted by saved order
+  const gridWidgets = useMemo(() => {
+    const filtered = activeWidgets.filter((w) => expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
+    if (savedWidgetOrder.length === 0) return filtered
+    
+    // Sort by saved order, putting unsaved widgets at the end
+    return [...filtered].sort((a, b) => {
+      const aIndex = savedWidgetOrder.indexOf(a.type)
+      const bIndex = savedWidgetOrder.indexOf(b.type)
+      if (aIndex === -1 && bIndex === -1) return 0
+      if (aIndex === -1) return 1
+      if (bIndex === -1) return -1
+      return aIndex - bIndex
+    })
+  }, [activeWidgets, expandedWidgets, minimizedTypes, savedWidgetOrder])
   // Context widgets shown as clickable pills (not expanded and not minimized)
   const contextWidgets = activeWidgets.filter((w) => !expandedWidgets.has(w.type) && !minimizedTypes.has(w.type))
   // Minimized widgets shown as icon buttons
   const minimizedWidgetConfigs = activeWidgets.filter((w) => minimizedTypes.has(w.type))
+
+  // Trigger Packery relayout when widgets change
+  useEffect(() => {
+    if (packeryReady) {
+      // Small delay to allow DOM to update
+      const timeoutId = setTimeout(() => {
+        reloadItems()
+        packeryLayout()
+      }, 50)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [gridWidgets.length, expandedWidgets.size, packeryReady, reloadItems, packeryLayout])
 
   // Auto-expand Species on first load if nothing expanded
   useEffect(() => {
@@ -401,6 +640,7 @@ export function FluidSearchCanvas({
         return n
       })
       if (target.id) setFocusedItemId(target.id)
+      else setFocusedItemId(null)
       ctx.focusWidget(target as any)
       trackWidgetFocus(t, target.id, {
         current_query: localQuery,
@@ -541,45 +781,106 @@ export function FluidSearchCanvas({
       {/* === MULTI-WIDGET GRID LAYOUT: grid -> context pills -> minimized bar === */}
       <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
-        {/* Multi-widget grid with enhanced physics animations */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <AnimatePresence mode="popLayout">
-              {gridWidgets.map((config) => (
-                <motion.div
+        {/* Grid scrolls inside viewport so widgets never sit below the fold */}
+        <div className="flex-1 min-h-0 overflow-auto">
+          <div 
+            ref={packeryContainerRef}
+            className="packery-container relative w-full"
+            style={{ minHeight: 200 }}
+          >
+            {/* Grid sizer element for responsive column width */}
+            <div className="grid-sizer" style={{ width: "calc(50% - 6px)" }} />
+            
+            <AnimatePresence mode="popLayout" onExitComplete={() => packeryLayout()}>
+              {gridWidgets.map((config) => {
+                const sizeClasses = getWidgetSizeClasses(config.type)
+                const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type]
+                
+                return (
+                <div
                   key={`expanded-${config.type}`}
-                  layout
-                  initial={widgetEnterAnimation.initial}
-                  animate={{
-                    ...widgetEnterAnimation.animate,
-                    ...getWidgetFloatVariants(config.type),
+                  data-widget-id={config.type}
+                  className={cn(
+                    "packery-widget z-20 mb-3",
+                    sizeClasses,
+                    // Width classes
+                    currentSize.width === 2 ? "w-full" : "w-full md:w-[calc(50%-6px)]",
+                  )}
+                  draggable
+                  onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                    const labels: Record<string, string> = {
+                      species: species[0]?.commonName || species[0]?.scientificName || "Species",
+                      chemistry: compounds[0]?.name || "Compounds",
+                      genetics: "Genetics Data",
+                      research: research[0]?.title || "Research",
+                      ai: "MYCA AI Answer",
+                      media: "Media",
+                      location: "Location",
+                      news: "News",
+                      crep: "CREP Observations",
+                      earth2: "Earth2 Weather",
+                      map: "Map",
+                    }
+                    e.dataTransfer.setData("application/search-widget", JSON.stringify({
+                      type: config.type === "chemistry" ? "compound" : config.type,
+                      title: labels[config.type] || config.label,
+                      content: `${config.label} results from search "${localQuery}"`,
+                      source: "Search",
+                      searchQuery: localQuery,
+                    }))
+                    e.dataTransfer.effectAllowed = "copy"
+                    // Visual feedback
+                    if (e.currentTarget instanceof HTMLElement) {
+                      e.currentTarget.style.opacity = "0.5"
+                    }
                   }}
-                  exit={widgetEnterAnimation.exit}
-                  whileHover={{ 
-                    boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
+                  onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
+                    if (e.currentTarget instanceof HTMLElement) {
+                      e.currentTarget.style.opacity = "1"
+                    }
                   }}
-                  transition={{ type: "spring", damping: 28, stiffness: 350, mass: 0.8 }}
-                  className="w-full z-20"
-                  drag
-                  dragConstraints={canvasRef}
-                  dragElastic={0.1}
-                  dragMomentum={true}
-                  whileDrag={{ 
-                    boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
-                    zIndex: 100,
-                  }}
-                  onDragStart={(e: any) => handleWidgetDragStart(e, config)}
                 >
-                  <motion.div 
-                    className="bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full"
-                    animate={glowPulseAnimation.animate}
+                  <motion.div
+                    /* layout prop removed - Packery manages positioning */
+                    initial={widgetEnterAnimation.initial}
+                    animate={widgetEnterAnimation.animate}
+                    exit={widgetEnterAnimation.exit}
+                    whileHover={{ 
+                      boxShadow: "0 20px 50px rgba(34, 197, 94, 0.3)",
+                    }}
+                    transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.9 }}
+                    className={cn(
+                      "bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full flex flex-col",
+                      // Height classes based on widget size
+                      currentSize.height === 1 && "min-h-[200px]",
+                      currentSize.height === 2 && "min-h-[350px]",
+                      currentSize.height === 3 && "min-h-[500px]",
+                    )}
                   >
-                    <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10", `bg-gradient-to-r ${config.gradient}`)}>
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10 shrink-0", `bg-gradient-to-r ${config.gradient}`)}>
+                      {/* Drag handle - users can drag by this */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 widget-drag-handle cursor-grab active:cursor-grabbing">
+                        <GripVertical className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-muted-foreground" />
                         <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
                         <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider text-muted-foreground">{config.label}</span>
+                        {/* Size indicator */}
+                        <span className="text-[9px] text-muted-foreground/60 hidden sm:inline">
+                          {currentSize.width}x{currentSize.height}
+                        </span>
                       </div>
                       <div className="flex items-center gap-0.5 sm:gap-1">
+                        {/* Resize button - cycles through sizes */}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" 
+                          onClick={() => cycleWidgetSize(config.type)} 
+                          title={`Resize (current: ${currentSize.width}x${currentSize.height})`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 sm:h-3 sm:w-3">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                          </svg>
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-6 sm:w-6 rounded-full" onClick={() => handleCollapseWidget(config.type)} title="Collapse">
                           <Minimize2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                         </Button>
@@ -588,27 +889,31 @@ export function FluidSearchCanvas({
                         </Button>
                       </div>
                     </div>
-                    <div className="p-2 sm:p-3">
+                    <div className="p-2 sm:p-3 overflow-auto flex-1 flex flex-col min-h-0">
                       <WidgetContent
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
                         research={research} aiAnswer={aiAnswer}
-                        media={mediaResults} location={locationResults} news={newsResults}
+                        media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError}
+                        crep={crepResults} earth2={earth2Data} mapObservations={mapObservations}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {
                           setLocalQuery(q)
                           ctx.setQuery(q)
                         }}
-                        isFocused={gridWidgets.length === 1}
+                        isLoading={isLoading}
+                        isFocused={true}
                         focusedItemId={focusedItemId}
                         onFocusWidget={handleFocusWidget}
                         onAddToNotepad={handleAddToNotepad}
+                        onViewOnMap={handleViewOnMap}
+                        onExplore={(widgetType, itemId) => handleFocusWidget({ type: widgetType, id: itemId })}
                       />
                     </div>
                   </motion.div>
-                </motion.div>
-              ))}
+                </div>
+              )})}
             </AnimatePresence>
           </div>
         </div>
@@ -619,37 +924,65 @@ export function FluidSearchCanvas({
             {contextWidgets.map((config, i) => {
               const floatVariants = getWidgetFloatVariants(config.type)
               return (
-                <motion.button
+                <div
                   key={config.type}
-                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                    ...floatVariants,
+                  draggable
+                  onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                    const labels: Record<string, string> = {
+                      species: species[0]?.commonName || species[0]?.scientificName || "Species",
+                      chemistry: compounds[0]?.name || "Compounds",
+                      genetics: "Genetics Data",
+                      research: research[0]?.title || "Research",
+                      ai: "MYCA AI Answer",
+                      media: "Media",
+                      location: "Location",
+                      news: "News",
+                      crep: "CREP Observations",
+                      earth2: "Earth2 Weather",
+                      map: "Map",
+                    }
+                    e.dataTransfer.setData("application/search-widget", JSON.stringify({
+                      type: config.type === "chemistry" ? "compound" : config.type,
+                      title: labels[config.type] || config.label,
+                      content: `${config.label} results from search "${localQuery}"`,
+                      source: "Search",
+                      searchQuery: localQuery,
+                    }))
+                    e.dataTransfer.effectAllowed = "copy"
+                    if (e.currentTarget instanceof HTMLElement) {
+                      e.currentTarget.style.opacity = "0.5"
+                    }
                   }}
-                  whileHover={{ 
-                    boxShadow: "0 15px 35px rgba(34, 197, 94, 0.35)",
+                  onDragEnd={(e: React.DragEvent<HTMLDivElement>) => {
+                    if (e.currentTarget instanceof HTMLElement) {
+                      e.currentTarget.style.opacity = "1"
+                    }
                   }}
-                  onClick={() => handleFocusWidget({ type: config.type })}
-                  drag
-                  dragConstraints={canvasRef}
-                  dragElastic={0.2}
-                  whileDrag={{ 
-                    zIndex: 50,
-                    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-                  }}
-                  onDragStart={(e: any) => handleWidgetDragStart(e, config)}
                   style={{ zIndex: 10 - i }}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl cursor-pointer",
-                    "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
-                    "shadow-lg hover:shadow-xl active:shadow-md transition-all duration-300",
-                    `bg-gradient-to-br ${config.gradient}`
-                  )}
+                  className="cursor-grab active:cursor-grabbing"
                 >
-                  <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
-                  <span className="text-[10px] sm:text-xs font-medium text-foreground/80">{config.label}</span>
-                </motion.button>
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                      ...floatVariants,
+                    }}
+                    whileHover={{ 
+                      boxShadow: "0 15px 35px rgba(34, 197, 94, 0.35)",
+                    }}
+                    onClick={() => handleFocusWidget({ type: config.type })}
+                    className={cn(
+                      "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl cursor-pointer",
+                      "bg-card/80 backdrop-blur-md border border-white/10 dark:border-white/5",
+                      "shadow-lg hover:shadow-xl active:shadow-md transition-all duration-300",
+                      `bg-gradient-to-br ${config.gradient}`
+                    )}
+                  >
+                    <span className="text-sm sm:text-base">{typeof config.icon === 'string' ? config.icon : config.icon}</span>
+                    <span className="text-[10px] sm:text-xs font-medium text-foreground/80">{config.label}</span>
+                  </motion.button>
+                </div>
               )
             })}
           </div>
@@ -711,22 +1044,27 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
 // Widget content renderer -- now accepts focusedItemId and all data types
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
-  media, location, news,
+  media, mediaError, location, news, newsError,
+  crep, earth2, mapObservations,
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
-  isFocused, focusedItemId, onFocusWidget, onAddToNotepad,
+  isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore,
 }: {
   type: WidgetType
   species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
-  media: any[]; location: any[]; news: any[]
+  media: any[]; mediaError?: string; location: any[]; news: any[]; newsError?: string
+  crep: any[]; earth2: any; mapObservations: any[]
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
   onSelectSuggestionQuery: (query: string) => void
+  isLoading?: boolean
   isFocused: boolean
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string }) => void
+  onViewOnMap?: (observation: any) => void
+  onExplore?: (type: string, id: string) => void
 }) {
   switch (type) {
     case "myca-suggestions":
@@ -739,29 +1077,48 @@ function WidgetContent({
         />
       )
     case "species":
+      if (isLoading && species.length === 0) return <SpeciesWidget data={[]} isLoading isFocused={isFocused} />
       if (species.length === 0) return <EmptyWidgetState type="species" label="Species" />
       return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "chemistry":
+      if (isLoading && compounds.length === 0) return <ChemistryWidget data={[]} isLoading isFocused={isFocused} />
       if (compounds.length === 0) return <EmptyWidgetState type="chemistry" label="Compounds" />
       return <ChemistryWidget data={compounds} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "genetics":
+      if (isLoading && genetics.length === 0) return <GeneticsWidget data={[]} isLoading isFocused={isFocused} />
       if (genetics.length === 0) return <EmptyWidgetState type="genetics" label="Genetics" />
-      return <GeneticsWidget data={genetics[0] || { id: "", accession: "", speciesName: "", geneRegion: "", sequenceLength: 0, source: "" }} isFocused={isFocused} />
+      return <GeneticsWidget data={genetics} isFocused={isFocused} focusedId={focusedItemId ?? undefined} onExplore={onExplore} />
     case "research":
+      if (isLoading && research.length === 0) return <ResearchWidget data={[]} isLoading isFocused={isFocused} />
       if (research.length === 0) return <EmptyWidgetState type="research" label="Research Papers" />
       return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
     case "ai":
+      if (isLoading && !aiAnswer) return <AIWidget answer={{ text: "", confidence: 0, sources: [] }} isLoading isFocused={isFocused} />
       if (!aiAnswer) return <EmptyWidgetState type="ai" label="AI Insights" />
       return <AIWidget answer={aiAnswer} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "media":
+      if (mediaError) return <MediaWidget data={[]} error={mediaError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      if (isLoading && media.length === 0) return <MediaWidget data={[]} isLoading isFocused={isFocused} />
       if (media.length === 0) return <EmptyWidgetState type="media" label="Media" />
       return <MediaWidget data={media} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "location":
+      if (isLoading && location.length === 0) return <LocationWidget data={[]} isLoading isFocused={isFocused} />
       if (location.length === 0) return <EmptyWidgetState type="location" label="Location" />
       return <LocationWidget data={location} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "news":
+      if (newsError) return <NewsWidget data={[]} error={newsError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      if (isLoading && news.length === 0) return <NewsWidget data={[]} isLoading isFocused={isFocused} />
       if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
       return <NewsWidget data={news} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+    case "crep":
+      if (crep.length === 0) return <EmptyWidgetState type="crep" label="CREP Observations" />
+      return <CrepWidget data={crep} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap} />
+    case "earth2":
+      if (!earth2) return <EmptyWidgetState type="earth2" label="Earth2 Weather" />
+      return <Earth2Widget data={earth2} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+    case "map":
+      if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
+      return <MapWidget observations={mapObservations} isFocused={isFocused} />
     default:
       return <EmptyWidgetState type={type} label={type} />
   }

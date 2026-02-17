@@ -31,6 +31,13 @@ export async function POST(request: Request) {
   }
 
   const result = await anchorRecords(body)
-  return NextResponse.json(result, { status: result.ok ? 200 : 501 })
+  
+  // Return appropriate status code based on result
+  // 503 Service Unavailable - when ledger URL is not configured or ledger is down
+  // 502 Bad Gateway - when ledger request fails
+  // 200 OK - when successful
+  const status = result.ok ? 200 : (result.message?.includes("not configured") ? 503 : 502)
+  
+  return NextResponse.json(result, { status })
 }
 

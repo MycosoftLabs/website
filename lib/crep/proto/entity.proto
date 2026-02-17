@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+message UnifiedEntity {
+  string id = 1;
+  string type = 2;
+  Point geometry = 3;
+  EntityState state = 4;
+  int64 observed_at_ms = 5;
+  int64 valid_from_ms = 6;
+  optional int64 valid_to_ms = 7;
+  float confidence = 8;
+  string source = 9;
+  string s2_cell = 10;
+  bytes properties_json = 11;
+}
+
+message Point {
+  double lng = 1;
+  double lat = 2;
+  optional double alt = 3;
+}
+
+message EntityState {
+  optional float velocity_x = 1;
+  optional float velocity_y = 2;
+  optional float velocity_z = 3;
+  optional float heading = 4;
+  optional float altitude = 5;
+  optional float energy = 6;
+  optional string classification = 7;
+}
+
+message EntityBatch {
+  repeated UnifiedEntity entities = 1;
+  int64 server_time_ms = 2;
+}

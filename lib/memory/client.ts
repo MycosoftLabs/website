@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Memory Client - February 3, 2026
  * TypeScript client for the unified memory system.
  * Used across AI Studio, NatureOS, CREP, Earth Simulator and all dashboards.
@@ -252,6 +252,116 @@ class MemoryClient {
       return queries.reverse();
     } catch {
       return [];
+    }
+  }
+
+  // Full search result storage (Feb 12, 2026 - MYCA Search Revolution)
+  async saveSearchResults(
+    userId: string,
+    query: string,
+    results: {
+      species?: Array<{ id: string; name: string; commonName?: string }>;
+      compounds?: Array<{ id: string; name: string; formula?: string }>;
+      genetics?: Array<{ id: string; accession: string; speciesName?: string }>;
+      research?: Array<{ id: string; title: string; doi?: string }>;
+    },
+    aiAnswer?: string
+  ): Promise<void> {
+    const searchId = 'search_' + Date.now();
+    await this.write({
+      scope: 'user',
+      namespace: 'search-results:' + userId,
+      key: searchId,
+      value: {
+        query,
+        results,
+        aiAnswer,
+        timestamp: new Date().toISOString(),
+        resultCounts: {
+          species: results.species?.length || 0,
+          compounds: results.compounds?.length || 0,
+          genetics: results.genetics?.length || 0,
+          research: results.research?.length || 0,
+        },
+      },
+      ttlSeconds: 86400, // 24 hours
+      metadata: { source: 'search', type: 'full-results' },
+    });
+  }
+
+  async getRecentSearchResults(userId: string, limit: number = 5): Promise<Array<{
+    query: string;
+    results: Record<string, unknown>;
+    aiAnswer?: string;
+    timestamp: string;
+  }>> {
+    try {
+      const keys = await this.listKeys('user', 'search-results:' + userId);
+      const searchResults: Array<{
+        query: string;
+        results: Record<string, unknown>;
+        aiAnswer?: string;
+        timestamp: string;
+      }> = [];
+
+      for (const key of keys.slice(-limit)) {
+        const response = await this.read({
+          scope: 'user',
+          namespace: 'search-results:' + userId,
+          key,
+        });
+        if (response.value) {
+          searchResults.push(response.value as typeof searchResults[0]);
+        }
+      }
+
+      return searchResults.reverse();
+    } catch {
+      return [];
+    }
+  }
+
+  // Share search results across apps (Chemistry, Genetics, AI, etc.)
+  async shareSearchContext(
+    sessionId: string,
+    context: {
+      query: string;
+      intent?: string;
+      entities?: string[];
+      topSpecies?: Array<{ id: string; name: string }>;
+      topCompounds?: Array<{ id: string; name: string }>;
+    }
+  ): Promise<void> {
+    await this.write({
+      scope: 'ephemeral',
+      namespace: 'search-context',
+      key: sessionId,
+      value: {
+        ...context,
+        timestamp: new Date().toISOString(),
+      },
+      ttlSeconds: 3600, // 1 hour
+      metadata: { source: 'search', shared: true },
+    });
+  }
+
+  async getSharedSearchContext(sessionId: string): Promise<{
+    query: string;
+    intent?: string;
+    entities?: string[];
+    topSpecies?: Array<{ id: string; name: string }>;
+    topCompounds?: Array<{ id: string; name: string }>;
+    timestamp: string;
+  } | null> {
+    try {
+      const response = await this.read({
+        scope: 'ephemeral',
+        namespace: 'search-context',
+        key: sessionId,
+      });
+      return response.value as ReturnType<typeof this.getSharedSearchContext> extends Promise<infer T> ? T : never;
+    } catch {
+      return null;
     }
   }
 

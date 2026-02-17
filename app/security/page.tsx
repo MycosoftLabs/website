@@ -164,7 +164,7 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
       {/* Welcome Modal for first-time users */}
       <WelcomeModal />
       
@@ -321,13 +321,13 @@ export default function SecurityPage() {
               value={ipLookup}
               onChange={(e) => setIpLookup(e.target.value)}
               placeholder="Enter IP address..."
-              className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-emerald-500"
+              className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white font-mono text-base min-h-[44px] focus:outline-none focus:border-emerald-500"
               onKeyDown={(e) => e.key === "Enter" && handleIpLookup()}
             />
             <button
               onClick={handleIpLookup}
               disabled={lookupLoading}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono rounded-lg transition-colors disabled:opacity-50 min-h-[44px] min-w-[44px]"
             >
               {lookupLoading ? "..." : "Lookup"}
             </button>

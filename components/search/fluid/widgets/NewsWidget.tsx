@@ -10,10 +10,14 @@
 
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { Newspaper, ExternalLink, Clock, TrendingUp, Bookmark } from "lucide-react"
+import { Newspaper, ExternalLink, Clock, TrendingUp, Bookmark, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+
+const ITEMS_PER_PAGE = 5
 
 export interface NewsResult {
   id: string
@@ -30,10 +34,45 @@ export interface NewsResult {
 interface NewsWidgetProps {
   data: NewsResult[]
   isFocused?: boolean
+  isLoading?: boolean
+  error?: string
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
 }
 
-export function NewsWidget({ data, isFocused = false, onAddToNotepad }: NewsWidgetProps) {
+function NewsLoadingSkeleton() {
+  return (
+    <div className="space-y-3 p-2">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex gap-3 p-2">
+          <Skeleton className="h-14 w-14 rounded-md flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function NewsWidget({ data, isFocused = false, isLoading = false, error, onAddToNotepad }: NewsWidgetProps) {
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
+
+  if (isLoading) {
+    return <NewsLoadingSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Newspaper className="h-12 w-12 mx-auto mb-3 opacity-40" />
+        <p className="text-sm text-red-400">Unable to fetch news</p>
+        <p className="text-xs mt-1 text-red-300/80">{error.includes("401") ? "NewsAPI key is invalid - needs valid key" : error}</p>
+      </div>
+    )
+  }
+
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -77,12 +116,12 @@ export function NewsWidget({ data, isFocused = false, onAddToNotepad }: NewsWidg
     }
   }
 
+  const visibleItems = data.slice(0, visibleCount)
+  const hasMore = data.length > visibleCount
+
   return (
-    <div className={cn(
-      "space-y-3",
-      isFocused ? "max-h-[400px] overflow-y-auto pr-2" : "max-h-[200px] overflow-hidden"
-    )}>
-      {data.map((article, index) => (
+    <div className="space-y-3 overflow-hidden flex-1">
+      {visibleItems.map((article, index) => (
         <motion.div
           key={article.id}
           initial={{ opacity: 0, y: 10 }}
@@ -180,6 +219,19 @@ export function NewsWidget({ data, isFocused = false, onAddToNotepad }: NewsWidg
           </div>
         </motion.div>
       ))}
+      
+      {/* Load more button */}
+      {hasMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
+        >
+          <ChevronDown className="h-3 w-3 mr-1" />
+          Show {Math.min(ITEMS_PER_PAGE, data.length - visibleCount)} more ({data.length - visibleCount} remaining)
+        </Button>
+      )}
     </div>
   )
 }

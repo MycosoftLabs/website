@@ -24,10 +24,12 @@ import {
 } from "lucide-react"
 import type { CompoundResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ChemistryWidgetProps {
   data: CompoundResult | CompoundResult[]
   isFocused: boolean
+  isLoading?: boolean
   /** Pre-select a specific compound by ID or name (from notepad restore) */
   focusedId?: string
   onExplore?: (type: string, id: string) => void
@@ -36,9 +38,43 @@ interface ChemistryWidgetProps {
   className?: string
 }
 
+function ChemistryLoadingSkeleton() {
+  return (
+    <div className="p-4 space-y-4">
+      {/* Compound tabs skeleton */}
+      <div className="flex gap-2 overflow-hidden">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-8 w-24 rounded-full flex-shrink-0" />
+        ))}
+      </div>
+      {/* Main compound info skeleton */}
+      <div className="space-y-3">
+        <Skeleton className="h-6 w-2/3" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </div>
+        {/* Bioactivity skeleton */}
+        <div className="flex gap-2 flex-wrap mt-3">
+          <Skeleton className="h-6 w-20 rounded-full" />
+          <Skeleton className="h-6 w-24 rounded-full" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChemistryWidget({
   data,
   isFocused,
+  isLoading = false,
   focusedId,
   onExplore,
   onFocusWidget,
@@ -58,6 +94,11 @@ export function ChemistryWidget({
       if (idx >= 0) setSelectedIndex(idx)
     }
   }, [focusedId]) // eslint-disable-line
+
+  // Loading state check AFTER all hooks
+  if (isLoading) {
+    return <ChemistryLoadingSkeleton />
+  }
 
   const selected = items[selectedIndex] || items[0]
   

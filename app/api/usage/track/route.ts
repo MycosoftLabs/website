@@ -76,8 +76,42 @@ export async function POST(request: NextRequest) {
     
     const currentCount = currentUsage?.[0]?.total_count || 0;
     
-    // Check if user has exceeded limits (for free tier)
-    // TODO: Implement limit checks based on tier
+    // Check if user has exceeded limits based on tier
+    const limits: Record<string, Record<string, number>> = {
+      free: {
+        SPECIES_IDENTIFICATION: 100,
+        AI_QUERY: 10,
+        EMBEDDING_GENERATION: 50,
+        TELEMETRY_INGESTION: 1000,
+        ENTITY_SEARCH: 200,
+        MEMORY_OPERATIONS: 500
+      },
+      pro: {
+        SPECIES_IDENTIFICATION: 10000,
+        AI_QUERY: 500,
+        EMBEDDING_GENERATION: 5000,
+        TELEMETRY_INGESTION: 100000,
+        ENTITY_SEARCH: 10000,
+        MEMORY_OPERATIONS: 50000
+      },
+      enterprise: {} // Unlimited
+    };
+    
+    const tierLimits = limits[tier as keyof typeof limits] || {};
+    const limit = tierLimits[usageType as keyof typeof tierLimits];
+    
+    if (limit && currentCount + quantity > limit) {
+      return NextResponse.json(
+        { 
+          error: 'Usage limit exceeded',
+          limit,
+          current: currentCount,
+          requested: quantity,
+          upgrade_url: '/pricing'
+        },
+        { status: 429 }
+      );
+    }
     
     // Record usage
     const { error: insertError } = await supabase

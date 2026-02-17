@@ -1,4 +1,4 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 
 const scientificNav = [
   { href: '/scientific', label: 'Overview' },
@@ -15,7 +15,7 @@ export default function ScientificLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh">
       <aside className="w-64 border-r bg-muted/40 p-4 hidden lg:block">
         <div className="mb-6">
           <h2 className="text-lg font-semibold">Scientific</h2>

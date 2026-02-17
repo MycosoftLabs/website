@@ -3,7 +3,7 @@ import { Twitter, Youtube, Github } from "lucide-react"
 
 export function Footer() {
   return (
-    <footer className="border-t">
+    <footer className="border-t" suppressHydrationWarning>
       <div className="container max-w-7xl mx-auto flex flex-col gap-8 py-8 px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 px-4">
           {/* Company */}
@@ -75,14 +75,26 @@ export function Footer() {
           {/* Connect */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Connect</h3>
-            <div className="flex gap-4">
-              <Link href="https://twitter.com/mycosoftorg" className="text-muted-foreground hover:text-foreground">
+            <div className="flex gap-2">
+              <Link
+                href="https://twitter.com/mycosoftorg"
+                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Twitter"
+              >
                 <Twitter className="h-5 w-5" />
               </Link>
-              <Link href="https://youtube.com/@mycosoftorg" className="text-muted-foreground hover:text-foreground">
+              <Link
+                href="https://youtube.com/@mycosoftorg"
+                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="YouTube"
+              >
                 <Youtube className="h-5 w-5" />
               </Link>
-              <Link href="https://github.com/mycosoftorg" className="text-muted-foreground hover:text-foreground">
+              <Link
+                href="https://github.com/mycosoftorg"
+                className="p-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="GitHub"
+              >
                 <Github className="h-5 w-5" />
               </Link>
             </div>

@@ -2,27 +2,20 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Mail,
   MapPin,
-  Phone,
   Clock,
-  MessageSquare,
   Building2,
   Globe,
   Github,
   Twitter,
   Linkedin,
-  ArrowRight,
-  Send,
   Headphones,
   FileText,
   Users,
 } from "lucide-react"
+import { ContactForm } from "@/components/contact/contact-form"
 
 export const metadata: Metadata = {
   title: "Contact Us | Mycosoft",
@@ -78,7 +71,7 @@ const socialLinks = [
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Hero Section */}
       <section className="relative py-20 md:py-28 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-green-950/30 to-background z-0" />
@@ -137,66 +130,7 @@ export default function ContactPage() {
           <div className="grid lg:grid-cols-5 gap-12">
             {/* Contact Form */}
             <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-2xl">Send us a Message</CardTitle>
-                  <CardDescription>
-                    Fill out the form below and we'll get back to you within 24-48 hours.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-6">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" placeholder="John" required />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" placeholder="Doe" required />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" placeholder="john@example.com" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="company">Company (Optional)</Label>
-                      <Input id="company" placeholder="Your company name" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input id="subject" placeholder="How can we help?" required />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="message">Message</Label>
-                      <Textarea 
-                        id="message" 
-                        placeholder="Tell us more about your inquiry..." 
-                        rows={5}
-                        required 
-                      />
-                    </div>
-                    
-                    <Button type="submit" className="w-full gap-2 bg-green-600 hover:bg-green-700">
-                      <Send className="h-4 w-4" />
-                      Send Message
-                    </Button>
-                    
-                    <p className="text-xs text-muted-foreground text-center">
-                      By submitting this form, you agree to our{" "}
-                      <Link href="/privacy" className="text-green-500 hover:underline">
-                        Privacy Policy
-                      </Link>
-                      .
-                    </p>
-                  </form>
-                </CardContent>
-              </Card>
+              <ContactForm />
             </div>
 
             {/* Sidebar Info */}

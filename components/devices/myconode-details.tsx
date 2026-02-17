@@ -249,7 +249,7 @@ export function MycoNodeDetails() {
   return (
     <div className="relative bg-gradient-to-b from-violet-950 via-purple-950 to-slate-950 text-white overflow-hidden">
       {/* Hero Section - with Video Background */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Video background */}
         <div className="absolute inset-0 z-0">
           <video

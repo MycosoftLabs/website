@@ -27,10 +27,12 @@ import {
 } from "lucide-react"
 import type { SpeciesResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SpeciesWidgetProps {
   data: SpeciesResult | SpeciesResult[]
   isFocused: boolean
+  isLoading?: boolean
   focusedId?: string
   onExplore?: (type: string, id: string) => void
   onFocusWidget?: (target: { type: string; id?: string }) => void
@@ -38,9 +40,39 @@ interface SpeciesWidgetProps {
   className?: string
 }
 
+function SpeciesLoadingSkeleton() {
+  return (
+    <div className="flex gap-4 p-4 h-full">
+      {/* Species strip skeleton */}
+      <div className="flex-shrink-0 w-16">
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-12 w-12 rounded-md" />
+          ))}
+        </div>
+      </div>
+      {/* Main content skeleton */}
+      <div className="flex-1 flex gap-4">
+        <Skeleton className="h-40 w-40 rounded-lg flex-shrink-0" />
+        <div className="flex-1 space-y-3">
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-1/2 italic" />
+          <div className="flex gap-2 flex-wrap mt-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="h-5 w-14 rounded-full" />
+          </div>
+          <Skeleton className="h-16 w-full mt-3" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SpeciesWidget({
   data,
   isFocused,
+  isLoading = false,
   focusedId,
   onExplore,
   onFocusWidget,
@@ -66,6 +98,11 @@ export function SpeciesWidget({
       }
     }
   }, [focusedId, items])
+
+  // Loading state check AFTER all hooks
+  if (isLoading) {
+    return <SpeciesLoadingSkeleton />
+  }
 
   const selected = items[selectedIndex] || items[0]
   if (!selected) return null
@@ -211,9 +248,37 @@ export function SpeciesWidget({
             )}
           </div>
 
-          {/* Description -- 2 lines on mobile, 3 on desktop */}
+          {/* Description -- expanded for main species widget */}
           {selected.description && (
-            <p className="text-[10px] sm:text-[11px] leading-snug text-foreground/80 line-clamp-2 sm:line-clamp-3">{selected.description}</p>
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-xs leading-relaxed text-foreground/80 line-clamp-6 sm:line-clamp-none">
+                {selected.description}
+              </p>
+              {/* Additional habitat/characteristics if available */}
+              {(selected as any).habitat && (
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  <span className="font-medium">Habitat:</span> {(selected as any).habitat}
+                </div>
+              )}
+              {(selected as any).distribution && (
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  <span className="font-medium">Distribution:</span> {(selected as any).distribution}
+                </div>
+              )}
+              {(selected as any).edibility && (
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  <span className="font-medium">Edibility:</span> {(selected as any).edibility}
+                </div>
+              )}
+            </div>
+          )}
+          {/* If no description, show a placeholder */}
+          {!selected.description && (
+            <p className="text-[10px] sm:text-xs leading-relaxed text-muted-foreground italic">
+              Scientific classification: {selected.scientificName}
+              {selected.rank && ` (${selected.rank})`}
+              {selected.taxonomy?.family && ` — Family: ${selected.taxonomy.family}`}
+            </p>
           )}
 
           {/* Action buttons -- compact, wrap on mobile */}

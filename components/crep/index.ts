@@ -19,8 +19,8 @@ export { BiosignalWidget } from "./biosignal-widget"
 export { FCISignalWidget, FCIPatternChart } from "./fci"
 
 // Map Markers
-export { AircraftMarker, VesselMarker, SatelliteMarker, ElephantMarker } from "./markers"
-export type { ElephantData } from "./markers"
+export { AircraftMarker, VesselMarker, SatelliteMarker, ElephantMarker, FungalMarker } from "./markers"
+export type { ElephantData, FungalObservation } from "./markers"
 
 // Map Controls
 export {

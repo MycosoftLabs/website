@@ -389,7 +389,7 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
 
 export function AppsPortal() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Hero Section with Background Video */}
       <section className="relative py-24 overflow-hidden">
         {/* Background Video */}

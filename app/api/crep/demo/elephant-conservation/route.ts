@@ -1,14 +1,19 @@
 /**
- * Elephant Conservation Demo API - Feb 05, 2026
+ * Elephant Conservation API - Feb 12, 2026
  * 
- * Returns demo data for Ghana/Africa elephant conservation demonstration:
- * - Smart fence sensors with MycoBrain devices
- * - Elephant trackers with GPS and biosignals
- * - Environmental monitors with smell detection
- * - Conservation events (crossings, breaches, health alerts)
+ * UPDATED: Now fetches real device data from MAS Device Registry
+ * Falls back to demo mode when real devices unavailable
+ * 
+ * Data sources:
+ * - MycoBrain devices: MAS Device Registry (real)
+ * - Elephant trackers: Future integration with GPS tracking API
+ * - Conservation events: Generated from device sensor readings
  */
 
 import { NextResponse } from "next/server"
+
+// MAS API for real device data
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 // Ghana and Africa conservation park coordinates
 const CONSERVATION_ZONES = {
@@ -433,10 +438,189 @@ function generateDevices() {
   return devices
 }
 
-export async function GET() {
-  const now = new Date().toISOString()
+// Fetch real devices from MAS Device Registry
+async function fetchMASDevices(): Promise<{ devices: any[]; success: boolean }> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    
+    const res = await fetch(`${MAS_API_URL}/api/devices/network`, {
+      signal: controller.signal,
+      headers: { "Accept": "application/json" },
+    })
+    clearTimeout(timeoutId)
+    
+    if (!res.ok) {
+      console.warn(`[ElephantConservation] MAS devices API returned ${res.status}`)
+      return { devices: [], success: false }
+    }
+    
+    const data = await res.json()
+    const devices = data.devices || data.network_devices || []
+    console.log(`[ElephantConservation] Fetched ${devices.length} devices from MAS`)
+    return { devices, success: true }
+  } catch (error) {
+    console.warn("[ElephantConservation] Failed to fetch MAS devices:", error)
+    return { devices: [], success: false }
+  }
+}
+
+// Filter devices relevant to conservation (smart fence, environment monitor, wildlife tracker)
+function filterConservationDevices(devices: any[]) {
+  const conservationRoles = ["smart_fence", "environment_monitor", "wildlife_tracker", "gateway"]
+  return devices.filter(d => {
+    const role = d.role?.toLowerCase() || d.type?.toLowerCase() || ""
+    return conservationRoles.some(r => role.includes(r))
+  })
+}
+
+// Convert MAS devices to fence segment format
+function convertToFenceSegments(devices: any[]) {
+  const fenceDevices = devices.filter(d => 
+    (d.role || d.type || "").toLowerCase().includes("fence")
+  )
   
-  // Simulate slight position changes for elephants
+  if (fenceDevices.length === 0) return []
+  
+  // Group fence sensors into segments
+  const segments: any[] = []
+  fenceDevices.forEach((device, idx) => {
+    segments.push({
+      id: `fence-segment-${device.id || idx}`,
+      name: device.name || `Fence Segment ${idx + 1}`,
+      zone: device.zone || "unknown",
+      startLat: device.lat || device.latitude || 0,
+      startLng: device.lng || device.longitude || 0,
+      endLat: (device.lat || device.latitude || 0) + 0.01,
+      endLng: device.lng || device.longitude || 0,
+      status: device.status === "online" ? "active" : "inactive",
+      lastCheck: device.last_seen || new Date().toISOString(),
+      sensors: [{
+        id: device.id,
+        type: "smart_fence",
+        name: device.name,
+        lat: device.lat || device.latitude,
+        lng: device.lng || device.longitude,
+        status: device.status,
+        firmware: device.firmware || "unknown",
+        readings: device.readings || device.sensors || {},
+      }],
+    })
+  })
+  
+  return segments
+}
+
+// Convert MAS devices to environment monitor format
+function convertToEnvironmentMonitors(devices: any[]) {
+  const monitors = devices.filter(d => 
+    (d.role || d.type || "").toLowerCase().includes("monitor") ||
+    (d.role || d.type || "").toLowerCase().includes("environment")
+  )
+  
+  return monitors.map(device => ({
+    id: device.id,
+    name: device.name || "Environment Monitor",
+    type: "environment_monitor",
+    zone: device.zone || "unknown",
+    lat: device.lat || device.latitude || 0,
+    lng: device.lng || device.longitude || 0,
+    status: device.status || "unknown",
+    firmware: device.firmware || "unknown",
+    sensors: {
+      smell: true,
+      presence: true,
+      biosignal: false,
+      gps: true,
+    },
+    readings: device.readings || device.sensors || {},
+  }))
+}
+
+// Generate conservation events from device readings
+function generateEventsFromDevices(devices: any[], fenceSegments: any[], monitors: any[]) {
+  const events: any[] = []
+  const now = Date.now()
+  
+  // Check fence devices for breach events
+  for (const segment of fenceSegments) {
+    if (segment.status === "breach" || segment.status === "warning") {
+      events.push({
+        id: `event-fence-${segment.id}`,
+        type: "fence_breach",
+        title: `Fence Activity - ${segment.name}`,
+        description: "Sensor triggered on fence perimeter",
+        severity: segment.status === "breach" ? "high" : "medium",
+        lat: segment.startLat,
+        lng: segment.startLng,
+        timestamp: new Date(now - 5 * 60 * 1000).toISOString(),
+        source: "MycoBrain Smart Fence",
+        fenceSegmentId: segment.id,
+      })
+    }
+  }
+  
+  // Check environment monitors for presence alerts
+  for (const monitor of monitors) {
+    if (monitor.readings?.presenceDetected) {
+      events.push({
+        id: `event-presence-${monitor.id}`,
+        type: "presence_alert",
+        title: `Presence Detected - ${monitor.name}`,
+        description: "Motion and environmental sensors triggered",
+        severity: "low",
+        lat: monitor.lat,
+        lng: monitor.lng,
+        timestamp: new Date(now - 10 * 60 * 1000).toISOString(),
+        source: "MycoBrain Environment Monitor",
+        monitorId: monitor.id,
+        smellPattern: monitor.readings?.smellDetected || "unknown",
+      })
+    }
+  }
+  
+  return events
+}
+
+export async function GET(request: Request) {
+  const now = new Date().toISOString()
+  const url = new URL(request.url)
+  const forceDemo = url.searchParams.get("demo") === "true"
+  
+  // Try to fetch real devices from MAS
+  let useDemo = forceDemo
+  let realDevices: any[] = []
+  let fenceSegments: any[] = []
+  let environmentMonitors: any[] = []
+  let events: any[] = []
+  
+  if (!forceDemo) {
+    const { devices, success } = await fetchMASDevices()
+    
+    if (success && devices.length > 0) {
+      // Filter to conservation-relevant devices
+      realDevices = filterConservationDevices(devices)
+      fenceSegments = convertToFenceSegments(realDevices)
+      environmentMonitors = convertToEnvironmentMonitors(realDevices)
+      events = generateEventsFromDevices(realDevices, fenceSegments, environmentMonitors)
+      
+      console.log(`[ElephantConservation] Using ${realDevices.length} real conservation devices`)
+    } else {
+      useDemo = true
+      console.log("[ElephantConservation] Falling back to demo mode - no real devices available")
+    }
+  }
+  
+  // Use demo data if no real devices or forced demo mode
+  if (useDemo) {
+    fenceSegments = DEMO_FENCE_SEGMENTS
+    environmentMonitors = DEMO_ENVIRONMENT_MONITORS
+    events = DEMO_EVENTS
+    realDevices = generateDevices()
+  }
+  
+  // Elephants: Currently using demo data
+  // TODO: Integrate with real GPS tracking API when available
   const elephants = DEMO_ELEPHANTS.map(e => ({
     ...e,
     lat: e.lat + (Math.random() - 0.5) * 0.001,
@@ -446,23 +630,32 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    demo: true,
+    demo: useDemo,
+    dataSource: useDemo ? "demo" : "mas_registry",
     timestamp: now,
     zones: CONSERVATION_ZONES,
-    elephants,
-    fenceSegments: DEMO_FENCE_SEGMENTS,
-    environmentMonitors: DEMO_ENVIRONMENT_MONITORS,
-    devices: generateDevices(),
-    events: DEMO_EVENTS,
+    elephants,  // Currently using demo data - pending GPS tracking integration
+    elephantsDataSource: "demo", // Real GPS tracking API integration pending
+    fenceSegments,
+    environmentMonitors,
+    devices: useDemo ? generateDevices() : realDevices,
+    events,
     stats: {
       totalElephants: elephants.length,
       healthyElephants: elephants.filter(e => e.status === "healthy").length,
       warningElephants: elephants.filter(e => e.status === "warning").length,
       criticalElephants: elephants.filter(e => e.status === "critical").length,
-      activeFences: DEMO_FENCE_SEGMENTS.filter(f => f.status === "active").length,
-      breachedFences: DEMO_FENCE_SEGMENTS.filter(f => f.status === "breach").length,
-      onlineMonitors: DEMO_ENVIRONMENT_MONITORS.filter(m => m.status === "online").length,
-      recentEvents: DEMO_EVENTS.length,
+      activeFences: fenceSegments.filter(f => f.status === "active").length,
+      breachedFences: fenceSegments.filter(f => f.status === "breach").length,
+      onlineMonitors: environmentMonitors.filter(m => m.status === "online").length,
+      recentEvents: events.length,
+      realDevicesCount: useDemo ? 0 : realDevices.length,
+    },
+    notes: {
+      elephantTracking: "Using simulated GPS data. Real tracking collar integration pending.",
+      deviceIntegration: useDemo 
+        ? "Demo mode: Using simulated devices. Connect to MAS (192.168.0.188:8001) for real device data." 
+        : "Using real devices from MAS Device Registry.",
     },
   })
 }

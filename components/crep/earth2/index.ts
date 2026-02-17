@@ -29,7 +29,11 @@ export {
   DEFAULT_EARTH2_FILTER,
   type Earth2Filter,
   type Earth2Model,
+  type GpuMode,
 } from "./earth2-layer-control";
+
+// Weather Fallback Hooks (Feb 12, 2026)
+export { useWeatherFallback, useWindFallback } from "./use-weather-fallback";
 
 // Timeline & Alerts
 export { ForecastTimeline } from "./forecast-timeline";

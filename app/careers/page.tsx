@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,62 +23,73 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react"
+import { createClient } from "@supabase/supabase-js"
 
 export const metadata: Metadata = {
   title: "Careers | Mycosoft",
   description: "Join Mycosoft and help build the future of biological computing. Explore open positions in engineering, research, design, and more.",
 }
 
-const openPositions = [
-  {
-    title: "Senior Backend Engineer",
-    department: "Engineering",
-    location: "San Francisco, CA",
-    type: "Full-time",
-    level: "Senior",
-    posted: "2 days ago",
-  },
-  {
-    title: "ML/AI Research Scientist",
-    department: "Research",
-    location: "Remote",
-    type: "Full-time",
-    level: "Senior",
-    posted: "5 days ago",
-  },
-  {
-    title: "Embedded Systems Engineer",
-    department: "Hardware",
-    location: "San Francisco, CA",
-    type: "Full-time",
-    level: "Mid-level",
-    posted: "1 week ago",
-  },
-  {
-    title: "Product Designer",
-    department: "Design",
-    location: "Remote",
-    type: "Full-time",
-    level: "Mid-level",
-    posted: "1 week ago",
-  },
-  {
-    title: "Mycology Research Fellow",
-    department: "Research",
-    location: "San Francisco, CA",
-    type: "Full-time",
-    level: "Entry-level",
-    posted: "2 weeks ago",
-  },
-  {
-    title: "DevOps Engineer",
-    department: "Infrastructure",
-    location: "Remote",
-    type: "Full-time",
-    level: "Mid-level",
-    posted: "2 weeks ago",
-  },
-]
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+interface Job {
+  id: string
+  title: string
+  department: string
+  location: string
+  type: string
+  level: string
+  description: string
+  requirements?: string[]
+  is_active: boolean
+  created_at: string
+}
+
+async function getJobs(): Promise<Job[]> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("[Careers] Missing Supabase credentials")
+    return []
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+  try {
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("[Careers] Supabase error:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("[Careers] Error fetching jobs:", error)
+    return []
+  }
+}
+
+function getTimeAgo(dateString: string): string {
+  const now = new Date()
+  const posted = new Date(dateString)
+  const diffMs = now.getTime() - posted.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return "Today"
+  if (diffDays === 1) return "1 day ago"
+  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays < 14) return "1 week ago"
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+  if (diffDays < 60) return "1 month ago"
+  return `${Math.floor(diffDays / 30)} months ago`
+}
 
 const benefits = [
   {
@@ -137,17 +147,21 @@ const values = [
   },
 ]
 
-const departments = [
-  { name: "Engineering", count: 2 },
-  { name: "Research", count: 2 },
-  { name: "Design", count: 1 },
-  { name: "Hardware", count: 1 },
-  { name: "Infrastructure", count: 1 },
-]
+export default async function CareersPage() {
+  const openPositions = await getJobs()
 
-export default function CareersPage() {
+  // Calculate department counts
+  const departments = openPositions.reduce((acc: Record<string, number>, job) => {
+    acc[job.department] = (acc[job.department] || 0) + 1
+    return acc
+  }, {})
+
+  const departmentList = Object.entries(departments).map(([name, count]) => ({
+    name,
+    count,
+  }))
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       {/* Hero Section */}
       <section className="relative py-20 md:py-32 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-purple-950/30 to-background z-0" />
@@ -275,31 +289,33 @@ export default function CareersPage() {
               <Badge variant="outline" className="mb-4">Open Positions</Badge>
               <h2 className="text-3xl md:text-4xl font-bold mb-2">Join Our Team</h2>
               <p className="text-muted-foreground">
-                {openPositions.length} open positions across {departments.length} departments
+                {openPositions.length} open positions across {departmentList.length} departments
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {departments.map((dept) => (
-                <Badge 
-                  key={dept.name} 
-                  variant="secondary" 
-                  className="cursor-pointer hover:bg-purple-500/20"
-                >
-                  {dept.name} ({dept.count})
-                </Badge>
-              ))}
-            </div>
+            {departmentList.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {departmentList.map((dept) => (
+                  <Badge 
+                    key={dept.name} 
+                    variant="secondary" 
+                    className="cursor-pointer hover:bg-purple-500/20"
+                  >
+                    {dept.name} ({dept.count})
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           {openPositions.length > 0 ? (
             <div className="space-y-4">
-              {openPositions.map((position, index) => (
+              {openPositions.map((position) => (
                 <Card 
-                  key={index} 
+                  key={position.id} 
                   className="hover:border-purple-500/50 transition-colors cursor-pointer group"
                 >
                   <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-xl font-semibold group-hover:text-purple-500 transition-colors">
@@ -307,6 +323,11 @@ export default function CareersPage() {
                           </h3>
                           <Badge variant="secondary">{position.level}</Badge>
                         </div>
+                        {position.description && (
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                            {position.description}
+                          </p>
+                        )}
                         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Briefcase className="h-4 w-4" />
@@ -321,13 +342,15 @@ export default function CareersPage() {
                             {position.type}
                           </span>
                           <span className="text-muted-foreground/60">
-                            Posted {position.posted}
+                            Posted {getTimeAgo(position.created_at)}
                           </span>
                         </div>
                       </div>
-                      <Button variant="outline" className="gap-2 shrink-0">
-                        Apply Now
-                        <ChevronRight className="h-4 w-4" />
+                      <Button variant="outline" className="gap-2 shrink-0" asChild>
+                        <a href={`mailto:careers@mycosoft.com?subject=Application for ${position.title}`}>
+                          Apply Now
+                          <ChevronRight className="h-4 w-4" />
+                        </a>
                       </Button>
                     </div>
                   </CardContent>

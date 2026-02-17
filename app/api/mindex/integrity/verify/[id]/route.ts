@@ -55,14 +55,36 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
       timestamp: record.timestamp,
     })
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    
+    // Determine appropriate status code based on error type
+    let status = 500 // Default to Internal Server Error
+    let code = "INTEGRITY_VERIFY_FAILED"
+    
+    // If error is about upstream MINDEX not providing the endpoint, return 503
+    if (errorMessage.includes("does not provide")) {
+      status = 503
+      code = "MINDEX_ENDPOINT_UNAVAILABLE"
+    }
+    // If error is about network timeout or connection, return 503
+    else if (errorMessage.includes("timeout") || errorMessage.includes("ECONNREFUSED")) {
+      status = 503
+      code = "MINDEX_UNAVAILABLE"
+    }
+    // If error is about invalid record format, return 422
+    else if (errorMessage.includes("invalid") || errorMessage.includes("malformed")) {
+      status = 422
+      code = "INVALID_RECORD_FORMAT"
+    }
+    
     return NextResponse.json(
       {
         valid: false,
         error: "Failed to verify record integrity",
-        details: error instanceof Error ? error.message : String(error),
-        code: "INTEGRITY_VERIFY_FAILED",
+        details: errorMessage,
+        code,
       },
-      { status: 501 },
+      { status },
     )
   }
 }

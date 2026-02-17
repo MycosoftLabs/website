@@ -276,49 +276,56 @@ export function AlertPanel({
   );
 }
 
-// Hook to fetch alerts from API
+// Hook to fetch alerts from API - NO MOCK DATA (per Mycosoft policy)
 export function useEarth2Alerts(refreshInterval = 60000) {
   const [alerts, setAlerts] = useState<Earth2Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        // In production, fetch from API
-        // const response = await fetch('/api/earth2/alerts');
-        // const data = await response.json();
-        // setAlerts(data.alerts);
-
-        // Simulated alerts for development
-        setAlerts([
-          {
-            id: "alert-1",
-            type: "spore",
-            severity: "high",
-            title: "High Fusarium Spore Count",
-            description:
-              "Elevated spore concentrations detected in the Midwest region. Agricultural areas may be at risk.",
-            location: { lat: 41.5, lon: -93.0, name: "Central Iowa" },
-            timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-            source: "workflow_49",
-            species: "Fusarium graminearum",
-            concentration: 2500,
+        // Fetch from real API endpoint
+        const response = await fetch('/api/earth2/alerts');
+        
+        if (!response.ok) {
+          // API unavailable - return empty array per Mycosoft no-mock-data policy
+          console.log("[Earth2 Alerts] API unavailable, showing empty state");
+          setAlerts([]);
+          setError("Earth-2 alerts unavailable");
+          return;
+        }
+        
+        const data = await response.json();
+        
+        // Validate and transform alerts from API
+        const validAlerts: Earth2Alert[] = (data.alerts || []).map((alert: any) => ({
+          id: alert.id || `alert-${Date.now()}-${Math.random()}`,
+          type: alert.type || "weather",
+          severity: alert.severity || "moderate",
+          title: alert.title || "Weather Alert",
+          description: alert.description || "",
+          location: {
+            lat: alert.location?.lat || alert.lat || 0,
+            lon: alert.location?.lon || alert.lon || 0,
+            name: alert.location?.name || alert.locationName,
           },
-          {
-            id: "alert-2",
-            type: "nowcast",
-            severity: "moderate",
-            title: "Storm Cell Approaching",
-            description:
-              "Severe thunderstorm with potential hail moving northeast at 35 mph.",
-            location: { lat: 40.0, lon: -89.5, name: "Central Illinois" },
-            timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-            source: "workflow_50",
-            windSpeed: 25,
-          },
-        ]);
+          timestamp: alert.timestamp || new Date().toISOString(),
+          expiresAt: alert.expiresAt,
+          source: alert.source || "manual",
+          species: alert.species,
+          concentration: alert.concentration,
+          windSpeed: alert.windSpeed,
+          precipitation: alert.precipitation,
+        }));
+        
+        setAlerts(validAlerts);
+        setError(null);
       } catch (error) {
-        console.error("Failed to fetch alerts:", error);
+        console.error("[Earth2 Alerts] Failed to fetch alerts:", error);
+        // Return empty array - NO MOCK DATA per Mycosoft policy
+        setAlerts([]);
+        setError("Failed to fetch alerts");
       } finally {
         setLoading(false);
       }
@@ -330,7 +337,7 @@ export function useEarth2Alerts(refreshInterval = 60000) {
     return () => clearInterval(interval);
   }, [refreshInterval]);
 
-  return { alerts, loading };
+  return { alerts, loading, error };
 }
 
 export default AlertPanel;

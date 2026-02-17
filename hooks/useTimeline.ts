@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 /**
  * useTimeline - React hook for timeline state management
@@ -17,6 +17,21 @@ import {
 } from "@/lib/timeline/time-loader"
 import { TimelineDataPoint } from "@/lib/timeline/cache-manager"
 import { EntityType } from "@/lib/timeline/indexeddb-cache"
+import type { UnifiedEntityState } from "@/lib/crep/entities/unified-entity-schema"
+import { reconstructEntityStateAtTime } from "@/lib/crep/timeline/delta-reconstruction"
+
+interface TimelineDelta {
+  delta_at: number
+  delta: Partial<UnifiedEntityState>
+}
+
+interface EntityWithDeltas {
+  entityId: string
+  keyframeTime: number
+  keyframeState: UnifiedEntityState
+  basePoint: TimelineDataPoint
+  deltas: TimelineDelta[]
+}
 
 export interface UseTimelineOptions {
   /** Initial timestamp */
@@ -38,6 +53,8 @@ export interface TimelineState {
   loadingState: TimeLoaderState
   data: TimelineDataPoint[]
   cacheSource: string | null
+  entityCache: Map<string, EntityWithDeltas>
+  interpolatedEntities: TimelineDataPoint[]
 }
 
 export interface UseTimelineReturn {
@@ -100,6 +117,7 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineReturn
   })
   const [data, setData] = useState<TimelineDataPoint[]>([])
   const [cacheSource, setCacheSource] = useState<string | null>(null)
+  const [entityCache, setEntityCache] = useState<Map<string, EntityWithDeltas>>(new Map())
   
   // Refs
   const loaderRef = useRef<TimelineDataLoader | null>(null)
@@ -131,6 +149,44 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineReturn
       loaderRef.current.loadAtTime(currentTime)
     }
   }, [currentTime, autoLoad])
+
+  useEffect(() => {
+    if (data.length === 0) {
+      setEntityCache(new Map())
+      return
+    }
+
+    const cache = new Map<string, EntityWithDeltas>()
+
+    for (const point of data) {
+      const existing = cache.get(point.entityId)
+      const metadataState = (point.metadata?.state as UnifiedEntityState | undefined) || {}
+
+      if (!existing) {
+        cache.set(point.entityId, {
+          entityId: point.entityId,
+          keyframeTime: point.timestamp,
+          keyframeState: metadataState,
+          basePoint: point,
+          deltas: [],
+        })
+        continue
+      }
+
+      if (point.timestamp < existing.keyframeTime) {
+        existing.keyframeTime = point.timestamp
+        existing.keyframeState = metadataState
+        existing.basePoint = point
+      } else {
+        existing.deltas.push({
+          delta_at: point.timestamp,
+          delta: metadataState,
+        })
+      }
+    }
+
+    setEntityCache(cache)
+  }, [data])
   
   // Playback loop
   useEffect(() => {
@@ -220,6 +276,47 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineReturn
   }, [data, currentTime])
   
   // Build state object
+  const interpolatedEntities = useMemo(() => {
+    if (entityCache.size === 0) return data
+
+    return [...entityCache.values()].map((cached) => {
+      const reconstructed = reconstructEntityStateAtTime(
+        cached.keyframeState,
+        cached.deltas,
+        currentTime
+      )
+
+      const velocity = reconstructed.velocity
+      if (!velocity || !cached.basePoint.position) {
+        return {
+          ...cached.basePoint,
+          metadata: {
+            ...(cached.basePoint.metadata || {}),
+            reconstructedState: reconstructed,
+          },
+        }
+      }
+
+      const deltaSeconds = Math.max(0, (currentTime - cached.basePoint.timestamp) / 1000)
+      return {
+        ...cached.basePoint,
+        position: {
+          ...cached.basePoint.position,
+          lat: cached.basePoint.position.lat + velocity.y * deltaSeconds * 0.00001,
+          lng: cached.basePoint.position.lng + velocity.x * deltaSeconds * 0.00001,
+          altitude:
+            cached.basePoint.position.altitude ??
+            reconstructed.altitude ??
+            cached.basePoint.position.altitude,
+        },
+        metadata: {
+          ...(cached.basePoint.metadata || {}),
+          reconstructedState: reconstructed,
+        },
+      }
+    })
+  }, [entityCache, data, currentTime])
+
   const state: TimelineState = useMemo(() => ({
     currentTime,
     isPlaying,
@@ -227,7 +324,9 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineReturn
     loadingState,
     data,
     cacheSource,
-  }), [currentTime, isPlaying, playbackSpeed, loadingState, data, cacheSource])
+    entityCache,
+    interpolatedEntities,
+  }), [currentTime, isPlaying, playbackSpeed, loadingState, data, cacheSource, entityCache, interpolatedEntities])
   
   return {
     state,

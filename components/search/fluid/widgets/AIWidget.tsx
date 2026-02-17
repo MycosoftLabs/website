@@ -25,6 +25,7 @@ import {
   GripVertical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface AIAnswer {
   text: string
@@ -41,15 +42,40 @@ interface FollowUpResponse {
 interface AIWidgetProps {
   answer: AIAnswer
   isFocused: boolean
+  isLoading?: boolean
   onFollowUp?: (question: string) => void
   onFeedback?: (positive: boolean) => void
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
   className?: string
 }
 
+function AILoadingSkeleton() {
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-6 w-6 rounded-full" />
+        <Skeleton className="h-5 w-32" />
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+      <div className="flex gap-2 mt-4">
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-24 rounded-full" />
+      </div>
+    </div>
+  )
+}
+
 export function AIWidget({
   answer,
   isFocused,
+  isLoading = false,
   onFollowUp,
   onFeedback,
   onAddToNotepad,
@@ -122,6 +148,11 @@ export function AIWidget({
   const handleFeedback = (positive: boolean) => {
     setFeedbackGiven(positive)
     onFeedback?.(positive)
+  }
+
+  // Loading state check AFTER all hooks
+  if (isLoading) {
+    return <AILoadingSkeleton />
   }
 
   const confidenceColor =

@@ -15,6 +15,7 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { MapPin, Navigation, AlertTriangle, Eye, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export interface LocationResult {
   id: string
@@ -33,17 +34,46 @@ interface LocationWidgetProps {
   data: LocationResult[]
   searchLocation?: { lat: number; lng: number; name?: string }
   isFocused?: boolean
+  isLoading?: boolean
+  error?: string
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
   onRequestLocation?: () => void
+}
+
+function LocationLoadingSkeleton() {
+  return (
+    <div className="p-4 space-y-4">
+      {/* Location header skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-5 rounded-full" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+      {/* Observation cards skeleton */}
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex gap-3 p-2 border border-border/40 rounded-lg">
+          <Skeleton className="h-12 w-12 rounded-md flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function LocationWidget({
   data,
   searchLocation,
   isFocused = false,
+  isLoading = false,
+  error,
   onAddToNotepad,
   onRequestLocation,
 }: LocationWidgetProps) {
+  if (isLoading) {
+    return <LocationLoadingSkeleton />
+  }
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locationLoading, setLocationLoading] = useState(false)
 
@@ -71,6 +101,17 @@ export function LocationWidget({
   }
 
   const displayLocation = searchLocation || userLocation
+
+  // Error state
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <AlertTriangle className="h-12 w-12 mx-auto mb-3 text-red-500 opacity-60" />
+        <p className="text-sm font-medium text-red-400">Location Error</p>
+        <p className="text-xs text-muted-foreground mt-1">{error}</p>
+      </div>
+    )
+  }
 
   // Empty state - request location
   if (!displayLocation && (!data || data.length === 0)) {
@@ -101,10 +142,7 @@ export function LocationWidget({
   const safeSpecies = data.filter((s) => !s.isToxic)
 
   return (
-    <div className={cn(
-      "space-y-4",
-      isFocused ? "max-h-[400px] overflow-y-auto pr-2" : "max-h-[200px] overflow-hidden"
-    )}>
+    <div className="space-y-4 overflow-hidden flex-1">
       {/* Location header */}
       {displayLocation && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20">

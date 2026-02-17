@@ -36,7 +36,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       {/* Hero Section */}
       <section className="container">
         <div className="grid lg:grid-cols-2 lg:gap-12 items-center pt-6">

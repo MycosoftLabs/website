@@ -174,7 +174,7 @@ export default function PricingPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <div className="min-h-dvh bg-gradient-to-b from-background to-muted/30">
       {/* Hero */}
       <section className="pt-20 pb-16 px-6">
         <div className="max-w-4xl mx-auto text-center space-y-6">
@@ -191,7 +191,7 @@ export default function PricingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-5xl md:text-6xl font-bold"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold"
           >
             Simple, transparent pricing
           </motion.h1>
@@ -219,7 +219,7 @@ export default function PricingPage() {
             <button
               onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
               className={cn(
-                "relative w-14 h-7 rounded-full transition-colors",
+                "relative w-14 h-7 rounded-full transition-colors min-h-[44px] flex items-center",
                 billingCycle === 'annual' ? 'bg-emerald-500' : 'bg-muted'
               )}
             >

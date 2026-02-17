@@ -36,6 +36,9 @@ import {
   TrendingUp,
   Flame,
   CloudFog,
+  Mic,
+  Atom,
+  Power,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +70,9 @@ export type Earth2Model =
   | "corrdiff"
   | "healda"
   | "fourcastnet";
+
+// GPU allocation modes - only one GPU-intensive service can run at a time
+export type GpuMode = "earth2" | "voice" | "physics" | "off";
 
 export interface Earth2Filter {
   // Layer visibility
@@ -105,6 +111,10 @@ export interface Earth2Filter {
   // Advanced
   showUncertainty: boolean;
   resolution: "native" | "1km" | "250m";
+  
+  // GPU Resource Management (Feb 12, 2026)
+  gpuMode: GpuMode;
+  cpuFallbackEnabled: boolean;
 }
 
 export const DEFAULT_EARTH2_FILTER: Earth2Filter = {
@@ -135,6 +145,9 @@ export const DEFAULT_EARTH2_FILTER: Earth2Filter = {
   showSporeGradient: true,
   showUncertainty: false,
   resolution: "native",
+  // GPU Resource Management (Feb 12, 2026)
+  gpuMode: "off",
+  cpuFallbackEnabled: true,
 };
 
 interface Earth2LayerControlProps {
@@ -676,8 +689,75 @@ export function Earth2LayerControl({
 
               {/* Settings Tab */}
               <TabsContent value="settings" className="m-0 p-2 space-y-3">
-                {/* Wind Settings */}
+                {/* GPU Mode Selector (Feb 12, 2026) */}
                 <div className="space-y-1.5">
+                  <span className="text-[10px] text-purple-400/70 uppercase flex items-center gap-1">
+                    <Cpu className="w-3 h-3" /> GPU Resource Mode
+                  </span>
+                  <p className="text-[9px] text-gray-500 mb-2">
+                    Only one GPU-intensive service can run at a time due to VRAM constraints.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <GpuModeButton
+                      mode="earth2"
+                      label="Earth-2"
+                      icon={<Cloud className="w-3 h-3" />}
+                      description="Weather AI"
+                      currentMode={filter.gpuMode}
+                      onSelect={(mode) => onFilterChange({ gpuMode: mode })}
+                    />
+                    <GpuModeButton
+                      mode="voice"
+                      label="PersonaPlex"
+                      icon={<Mic className="w-3 h-3" />}
+                      description="Voice AI"
+                      currentMode={filter.gpuMode}
+                      onSelect={(mode) => onFilterChange({ gpuMode: mode })}
+                    />
+                    <GpuModeButton
+                      mode="physics"
+                      label="Physics Sim"
+                      icon={<Atom className="w-3 h-3" />}
+                      description="PhysicsNeMo"
+                      currentMode={filter.gpuMode}
+                      onSelect={(mode) => onFilterChange({ gpuMode: mode })}
+                    />
+                    <GpuModeButton
+                      mode="off"
+                      label="Off"
+                      icon={<Power className="w-3 h-3" />}
+                      description="CPU only"
+                      currentMode={filter.gpuMode}
+                      onSelect={(mode) => onFilterChange({ gpuMode: mode })}
+                    />
+                  </div>
+                  {filter.gpuMode === "off" && (
+                    <div className="flex items-center justify-between mt-2 bg-yellow-500/10 rounded p-2">
+                      <span className="text-[10px] text-yellow-400">CPU Fallback (Open-Meteo)</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "h-6 px-2 text-[10px]",
+                          filter.cpuFallbackEnabled ? "bg-yellow-500/20 text-yellow-400" : "text-gray-500"
+                        )}
+                        onClick={() => onFilterChange({ cpuFallbackEnabled: !filter.cpuFallbackEnabled })}
+                      >
+                        {filter.cpuFallbackEnabled ? "ON" : "OFF"}
+                      </Button>
+                    </div>
+                  )}
+                  {filter.gpuMode !== "earth2" && filter.gpuMode !== "off" && (
+                    <div className="mt-2 bg-orange-500/10 rounded p-2">
+                      <p className="text-[9px] text-orange-400">
+                        Earth-2 layers unavailable. GPU allocated to {filter.gpuMode === "voice" ? "PersonaPlex Voice" : "Physics Simulation"}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Wind Settings */}
+                <div className="space-y-1.5 pt-2 border-t border-emerald-500/20">
                   <span className="text-[10px] text-emerald-400/70 uppercase">Wind Display</span>
                   <Select
                     value={filter.windDensity}
@@ -770,6 +850,45 @@ interface LayerToggleProps {
   onChange: (checked: boolean) => void;
   color: string;
   hint?: string;
+}
+
+// GPU Mode Button Component (Feb 12, 2026)
+interface GpuModeButtonProps {
+  mode: GpuMode;
+  label: string;
+  icon: React.ReactNode;
+  description: string;
+  currentMode: GpuMode;
+  onSelect: (mode: GpuMode) => void;
+}
+
+function GpuModeButton({ mode, label, icon, description, currentMode, onSelect }: GpuModeButtonProps) {
+  const isActive = currentMode === mode;
+  
+  const modeColors: Record<GpuMode, string> = {
+    earth2: "border-emerald-500/50 bg-emerald-500/20 text-emerald-400",
+    voice: "border-purple-500/50 bg-purple-500/20 text-purple-400",
+    physics: "border-blue-500/50 bg-blue-500/20 text-blue-400",
+    off: "border-gray-500/50 bg-gray-500/20 text-gray-400",
+  };
+
+  return (
+    <button
+      onClick={() => onSelect(mode)}
+      className={cn(
+        "flex items-center gap-1.5 rounded border transition-all px-2 py-1.5",
+        isActive
+          ? modeColors[mode]
+          : "border-gray-700 bg-transparent text-gray-500 hover:border-gray-600"
+      )}
+    >
+      <div className="flex items-center justify-center w-4 h-4">{icon}</div>
+      <div className="flex flex-col items-start">
+        <span className="text-[10px] font-medium">{label}</span>
+        <span className="text-[8px] text-gray-500">{description}</span>
+      </div>
+    </button>
+  );
 }
 
 function LayerToggle({ label, icon, checked, onChange, color, hint }: LayerToggleProps) {

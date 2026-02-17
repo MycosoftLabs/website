@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /**
  * CREP - Common Relevant Environmental Picture
@@ -147,7 +147,7 @@ import { PresenceDetectionWidget, type PresenceReading } from "@/components/crep
 import { BiosignalWidget } from "@/components/crep/biosignal-widget";
 
 // Map Markers for OEI Data
-import { AircraftMarker, VesselMarker, SatelliteMarker, FungalMarker, type FungalObservation } from "@/components/crep/markers";
+import { type FungalObservation } from "@/components/crep/markers";
 
 // Elephant Conservation Marker (Feb 05, 2026)
 import { ElephantMarker, type ElephantData } from "@/components/crep/markers/elephant-marker";
@@ -178,6 +178,18 @@ import {
   DEFAULT_EARTH2_FILTER,
   type Earth2Filter,
 } from "@/components/crep/earth2";
+
+// Device Type to Widget Mapper (Feb 12, 2026)
+import { 
+  getDeviceWidgetConfig, 
+  getDeviceEmoji, 
+  getIAQQuality,
+  formatSensorValue,
+  type MycoBrainDeviceRole 
+} from "@/lib/crep/device-widget-mapper";
+import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
+import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
+import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
@@ -314,7 +326,7 @@ const severityColors: Record<string, string> = {
 // Layer categories with icons - ORDERED: Fungal/Devices FIRST, Transport/Military LAST
 const layerCategories = {
   // PRIMARY - Fungal data and devices (shown first)
-  environment: { label: "ðŸ„ Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  environment: { label: "Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   // CONTEXT - Natural events for correlation
   events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
@@ -616,7 +628,7 @@ function EventMarker({ event, isSelected, onClick, onClose, onFlyTo }: {
   );
 }
 
-// Device marker component
+// Device marker component - uses device-widget-mapper for type-specific visuals (Feb 12, 2026)
 function DeviceMarker({ device, isSelected, onClick }: { 
   device: Device; 
   isSelected: boolean;
@@ -624,6 +636,10 @@ function DeviceMarker({ device, isSelected, onClick }: {
 }) {
   const isOnline = device.status === "online";
   const [controlLoading, setControlLoading] = useState<string | null>(null);
+  
+  // Get device-specific widget configuration based on device type (Feb 12, 2026)
+  const widgetConfig = getDeviceWidgetConfig(device.type);
+  const deviceEmoji = getDeviceEmoji(device.type);
   
   // Control functions for MycoBrain device
   const sendControl = async (peripheral: string, params?: Record<string, any>) => {
@@ -647,17 +663,8 @@ function DeviceMarker({ device, isSelected, onClick }: {
     }
   };
   
-  // Get IAQ quality label
-  const getIAQLabel = (iaq?: number) => {
-    if (!iaq) return { label: "N/A", color: "text-gray-400" };
-    if (iaq <= 50) return { label: "Excellent", color: "text-green-400" };
-    if (iaq <= 100) return { label: "Good", color: "text-emerald-400" };
-    if (iaq <= 150) return { label: "Moderate", color: "text-yellow-400" };
-    if (iaq <= 200) return { label: "Poor", color: "text-orange-400" };
-    return { label: "Hazardous", color: "text-red-400" };
-  };
-  
-  const iaqInfo = getIAQLabel(device.sensorData?.iaq);
+  // Use device-widget-mapper for IAQ quality (Feb 12, 2026)
+  const iaqInfo = getIAQQuality(device.sensorData?.iaq);
   
   return (
     <MapMarker 
@@ -671,17 +678,22 @@ function DeviceMarker({ device, isSelected, onClick }: {
           isSelected ? "scale-150" : "scale-100"
         )}>
           {isOnline && (
-            <div className="absolute w-6 h-6 rounded-sm animate-ping bg-green-500/30" />
+            <div className={cn(
+              "absolute w-6 h-6 rounded-sm animate-ping",
+              widgetConfig.bgColor.replace("/20", "/30")
+            )} />
           )}
           <div 
             className={cn(
               "relative w-5 h-5 rounded-sm border-2 flex items-center justify-center text-[10px]",
-              isOnline ? "bg-green-500/80 border-green-400" : "bg-red-500/80 border-red-400",
+              isOnline 
+                ? cn(widgetConfig.bgColor.replace("/20", "/80"), widgetConfig.borderColor)
+                : "bg-red-500/80 border-red-400",
               isSelected && "ring-2 ring-white"
             )}
-            style={{ boxShadow: isOnline ? "0 0 10px #22c55e" : "0 0 10px #ef4444" }}
+            style={{ boxShadow: `0 0 10px ${isOnline ? widgetConfig.glowColor : "#ef4444"}` }}
           >
-            ðŸ„
+            {deviceEmoji}
           </div>
         </div>
       </MarkerContent>
@@ -696,18 +708,19 @@ function DeviceMarker({ device, isSelected, onClick }: {
           <div className="flex items-center gap-2">
             <div className={cn(
               "w-8 h-8 rounded flex items-center justify-center text-lg",
-              isOnline ? "bg-green-500/20" : "bg-red-500/20"
+              isOnline ? widgetConfig.bgColor : "bg-red-500/20"
             )}>
-              ðŸ„
+              {deviceEmoji}
             </div>
             <div className="flex-1">
               <div className="text-sm font-semibold text-white">{device.name}</div>
+              <div className={cn("text-[9px] mb-0.5", widgetConfig.color)}>{widgetConfig.label}</div>
               <div className="flex items-center gap-2">
                 <span className={cn(
                   "text-[10px] uppercase font-mono",
-                  isOnline ? "text-green-400" : "text-red-400"
+                  isOnline ? widgetConfig.color : "text-red-400"
                 )}>
-                  â— {device.status}
+                  ● {device.status}
                 </span>
                 {device.port && (
                   <span className="text-[9px] text-cyan-400 font-mono">{device.port}</span>
@@ -1440,6 +1453,8 @@ export default function CREPDashboardPage() {
   
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(true);
+  const [streamedEntities, setStreamedEntities] = useState<UnifiedEntity[]>([]);
+  const entityStreamClientRef = useRef<EntityStreamClient | null>(null);
   
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -1544,7 +1559,7 @@ export default function CREPDashboardPage() {
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Fungal Observations - THE PRIMARY DATA SOURCE
-    { id: "fungi", name: "ðŸ„ Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
+    { id: "fungi", name: "Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
     // MycoBrain Devices - Real-time sensor network
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
@@ -2013,7 +2028,7 @@ export default function CREPDashboardPage() {
               
               const sourceInfo = fungalData.meta?.sources || {};
               const dataSource = fungalData.meta?.dataSource || "unknown";
-              console.log(`[CREP] ðŸ„ Loaded ${formattedObs.length} fungal observations (${dataSource})`);
+              console.log(`[CREP] Loaded ${formattedObs.length} fungal observations (${dataSource})`);
               console.log(`[CREP] Sources breakdown: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
               
               setFungalObservations(formattedObs);
@@ -2089,7 +2104,6 @@ export default function CREPDashboardPage() {
       
       // Check if click is inside a marker button (multiple selectors for robustness)
       const isInsideMarker = target.closest('[data-marker]') !== null || 
-                             target.closest('button[title*="ðŸ„"]') !== null ||
                              target.closest('.maplibregl-marker') !== null;
 
       // Check if click is inside side panels (Intel Feed / right panel)
@@ -2144,24 +2158,41 @@ export default function CREPDashboardPage() {
   //   7+   (local view)       â†’ ALL in viewport (up to 15000 cap)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const visibleFungalObservations = useMemo(() => {
-    // Early return with minimal markers if no bounds yet
+    // Early return with minimal markers if no bounds yet (Feb 12, 2026 - added debug logging)
     if (!mapBounds || fungalObservations.length === 0) {
+      console.log(`[CREP/LOD] No bounds or no observations - showing first 50`);
       return fungalObservations.slice(0, 50);
     }
     
+    // Validate bounds are reasonable (Feb 12, 2026 - prevent NaN/Infinity issues)
+    const boundsValid = 
+      isFinite(mapBounds.north) && isFinite(mapBounds.south) &&
+      isFinite(mapBounds.east) && isFinite(mapBounds.west) &&
+      mapBounds.north > mapBounds.south;
+    
+    if (!boundsValid) {
+      console.warn(`[CREP/LOD] Invalid bounds detected:`, mapBounds);
+      return fungalObservations.slice(0, 100);
+    }
+    
     // Step 1: Filter to viewport bounds FIRST (fast culling)
+    // Add small padding to prevent markers at exact edges from disappearing (Feb 12, 2026)
+    const padding = 0.001; // ~100m at equator
     const inViewport = fungalObservations.filter(obs => {
       const lat = obs.latitude;
       const lng = obs.longitude;
       
+      // Skip observations with invalid coordinates
+      if (!isFinite(lat) || !isFinite(lng)) return false;
+      
       // Handle international date line crossing
       if (mapBounds.west > mapBounds.east) {
-        return lat >= mapBounds.south && lat <= mapBounds.north &&
-               (lng >= mapBounds.west || lng <= mapBounds.east);
+        return lat >= (mapBounds.south - padding) && lat <= (mapBounds.north + padding) &&
+               (lng >= (mapBounds.west - padding) || lng <= (mapBounds.east + padding));
       }
       
-      return lat >= mapBounds.south && lat <= mapBounds.north &&
-             lng >= mapBounds.west && lng <= mapBounds.east;
+      return lat >= (mapBounds.south - padding) && lat <= (mapBounds.north + padding) &&
+             lng >= (mapBounds.west - padding) && lng <= (mapBounds.east + padding);
     });
     
     // Step 2: Zoom-based limits - MORE generous at higher zoom levels
@@ -2200,22 +2231,31 @@ export default function CREPDashboardPage() {
       return inViewport;
     }
     
-    // Step 4: Spatial grid sampling for even geographic distribution
-    const gridSize = Math.ceil(Math.sqrt(maxMarkers));
-    const latRange = mapBounds.north - mapBounds.south;
-    const lngRange = mapBounds.east > mapBounds.west 
+    // Step 4: Spatial grid sampling for even geographic distribution (Feb 12, 2026 - added safeguards)
+    const gridSize = Math.max(2, Math.ceil(Math.sqrt(maxMarkers)));
+    const latRange = Math.max(0.0001, mapBounds.north - mapBounds.south); // Prevent div-by-zero
+    const lngRange = Math.max(0.0001, mapBounds.east > mapBounds.west 
       ? mapBounds.east - mapBounds.west 
-      : (360 - mapBounds.west + mapBounds.east);
+      : (360 - mapBounds.west + mapBounds.east));
     
     const cellWidth = lngRange / gridSize;
     const cellHeight = latRange / gridSize;
+    
+    // Skip grid sampling if cells would be too small (very high zoom) - just return subset
+    if (cellWidth < 0.00001 || cellHeight < 0.00001) {
+      console.log(`[CREP/LOD] Grid cells too small at zoom ${mapZoom.toFixed(1)}, returning first ${maxMarkers}`);
+      return inViewport.slice(0, maxMarkers);
+    }
     
     // Grid-based sampling: one representative per cell
     const grid = new Map<string, typeof inViewport[0]>();
     
     for (const obs of inViewport) {
-      const cellX = Math.floor((obs.longitude - mapBounds.west + (mapBounds.west > mapBounds.east ? 360 : 0)) / cellWidth);
-      const cellY = Math.floor((obs.latitude - mapBounds.south) / cellHeight);
+      // Clamp cell coordinates to valid range (Feb 12, 2026 - prevent overflow)
+      const rawCellX = (obs.longitude - mapBounds.west + (mapBounds.west > mapBounds.east ? 360 : 0)) / cellWidth;
+      const rawCellY = (obs.latitude - mapBounds.south) / cellHeight;
+      const cellX = Math.max(0, Math.min(gridSize - 1, Math.floor(rawCellX)));
+      const cellY = Math.max(0, Math.min(gridSize - 1, Math.floor(rawCellY)));
       const cellKey = `${cellX},${cellY}`;
       
       // Keep the observation with highest quality (research grade preferred)
@@ -2649,9 +2689,138 @@ export default function CREPDashboardPage() {
     });
   }, [satellites, satelliteFilter]);
 
+  const deckEntities = useMemo<UnifiedEntity[]>(() => {
+    const sourceEntities: UnifiedEntity[] = [
+      ...filteredAircraft.map((aircraftEntity) => ({
+        id: aircraftEntity.id,
+        type: "aircraft" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [aircraftEntity.lng, aircraftEntity.lat] as [number, number],
+        },
+        state: {
+          heading: aircraftEntity.heading,
+          altitude: aircraftEntity.altitude,
+          velocity: aircraftEntity.velocity
+            ? {
+                x: Math.cos(((aircraftEntity.heading ?? 0) * Math.PI) / 180) * aircraftEntity.velocity,
+                y: Math.sin(((aircraftEntity.heading ?? 0) * Math.PI) / 180) * aircraftEntity.velocity,
+              }
+            : undefined,
+        },
+        time: {
+          observed_at: aircraftEntity.lastSeen,
+          valid_from: aircraftEntity.lastSeen,
+        },
+        confidence: 1,
+        source: "opensky",
+        properties: aircraftEntity.properties || {},
+        s2_cell: "",
+      })),
+      ...filteredVessels.map((vesselEntity) => ({
+        id: vesselEntity.id,
+        type: "vessel" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [vesselEntity.lng, vesselEntity.lat] as [number, number],
+        },
+        state: {
+          heading: vesselEntity.cog,
+          velocity:
+            vesselEntity.sog !== undefined
+              ? {
+                  x: Math.cos(((vesselEntity.cog ?? 0) * Math.PI) / 180) * vesselEntity.sog,
+                  y: Math.sin(((vesselEntity.cog ?? 0) * Math.PI) / 180) * vesselEntity.sog,
+                }
+              : undefined,
+        },
+        time: {
+          observed_at: vesselEntity.timestamp,
+          valid_from: vesselEntity.timestamp,
+        },
+        confidence: 1,
+        source: "ais",
+        properties: vesselEntity.properties || {},
+        s2_cell: "",
+      })),
+      ...filteredSatellites.map((satelliteEntity) => ({
+        id: satelliteEntity.id,
+        type: "satellite" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [satelliteEntity.lng, satelliteEntity.lat] as [number, number],
+        },
+        state: {
+          altitude: satelliteEntity.altitude,
+          heading: satelliteEntity.heading,
+        },
+        time: {
+          observed_at: satelliteEntity.lastUpdate,
+          valid_from: satelliteEntity.lastUpdate,
+        },
+        confidence: 1,
+        source: "norad",
+        properties: satelliteEntity.properties || {},
+        s2_cell: "",
+      })),
+      ...visibleFungalObservations.map((observation) => ({
+        id: `fungal-${observation.id}`,
+        type: "fungal" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [observation.longitude, observation.latitude] as [number, number],
+        },
+        state: {},
+        time: {
+          observed_at: observation.timestamp,
+          valid_from: observation.timestamp,
+        },
+        confidence: 0.95,
+        source: "mindex",
+        properties: observation,
+        s2_cell: "",
+      })),
+    ];
+
+    const byId = new Map<string, UnifiedEntity>();
+    for (const entity of sourceEntities) byId.set(entity.id, entity);
+    for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
+    return [...byId.values()];
+  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      entityStreamClientRef.current?.disconnect();
+      entityStreamClientRef.current = null;
+      return;
+    }
+
+    if (!entityStreamClientRef.current) {
+      entityStreamClientRef.current = new EntityStreamClient();
+    }
+
+    entityStreamClientRef.current.connect((incomingEntity) => {
+      setStreamedEntities((previous) => {
+        const next = new Map(previous.map((entity) => [entity.id, entity]));
+        next.set(incomingEntity.id, incomingEntity);
+        return [...next.values()].slice(-50000);
+      });
+    });
+
+    return () => {
+      entityStreamClientRef.current?.disconnect();
+      entityStreamClientRef.current = null;
+    };
+  }, [isStreaming]);
+
+  useEffect(() => {
+    if (!entityStreamClientRef.current || !mapBounds) return;
+    entityStreamClientRef.current.updateViewport(mapBounds, mapZoom);
+  }, [mapBounds, mapZoom]);
+
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
+      <div className="min-h-dvh bg-[#0a1628] flex items-center justify-center">
         <div className="text-cyan-400 text-sm font-mono animate-pulse">
           INITIALIZING CREP SYSTEM...
         </div>
@@ -2660,7 +2829,7 @@ export default function CREPDashboardPage() {
   }
 
   return (
-    <div className="relative w-full h-screen bg-[#0a1628] overflow-hidden flex flex-col">
+    <div className="relative w-full h-dvh bg-[#0a1628] overflow-hidden flex flex-col">
       {/* Top Classification Banner */}
       <div className="flex-shrink-0 flex justify-center py-1 bg-black/80 backdrop-blur-sm border-b border-amber-500/30 z-50">
         <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[9px] tracking-[0.15em] font-mono">
@@ -2795,7 +2964,7 @@ export default function CREPDashboardPage() {
                       : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
                   )}
                 >
-                  <span className="text-sm">ðŸ„</span>
+                  <TreePine className="w-3 h-3" />
                   FUNGAL DATA
                 </button>
                 <button
@@ -2855,12 +3024,12 @@ export default function CREPDashboardPage() {
                   <div className="p-2 space-y-1">
                     {fungalLoading ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <span className="text-3xl mb-2 block animate-pulse">ðŸ„</span>
+                        <TreePine className="w-8 h-8 mx-auto mb-2 animate-pulse text-green-500" />
                         <span className="animate-pulse">Loading from MINDEX...</span>
                       </div>
                     ) : visibleFungalObservations.length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <span className="text-3xl mb-2 block">ðŸ„</span>
+                        <TreePine className="w-8 h-8 mx-auto mb-2 text-green-500/50" />
                         Zoom in to see observations
                       </div>
                     ) : (
@@ -2885,7 +3054,7 @@ export default function CREPDashboardPage() {
                                 "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
                                 isResearchGrade ? "bg-green-500/30" : "bg-green-400/20"
                               )}>
-                                <span className="text-xs">ðŸ„</span>
+                                <TreePine className="w-3 h-3 text-green-400" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-[10px] text-white font-medium truncate">
@@ -3118,7 +3287,6 @@ export default function CREPDashboardPage() {
                     // This is more reliable than elementFromPoint for overlay markers
                     const target = e.originalEvent?.target as HTMLElement | null;
                     const isOnMarker = target?.closest('[data-marker]') !== null ||
-                                       target?.closest('button[title*="ðŸ„"]') !== null ||
                                        target?.closest('.maplibregl-marker') !== null;
                     const isOnPopup = target?.closest('.maplibregl-popup') !== null;
                     
@@ -3147,6 +3315,21 @@ export default function CREPDashboardPage() {
                 // Move controls to the right of left panel when it's open
                 leftPanelOpen ? "ml-[310px]" : "ml-4"
               )}
+            />
+
+            <EntityDeckLayer
+              map={mapRef}
+              entities={deckEntities}
+              visible={isStreaming}
+              onEntityClick={(entity) => {
+                if (entity.type === "aircraft") {
+                  setSelectedAircraft(filteredAircraft.find((aircraftEntity) => aircraftEntity.id === entity.id) ?? null);
+                } else if (entity.type === "vessel") {
+                  setSelectedVessel(filteredVessels.find((vesselEntity) => vesselEntity.id === entity.id) ?? null);
+                } else if (entity.type === "satellite") {
+                  setSelectedSatellite(filteredSatellites.find((satelliteEntity) => satelliteEntity.id === entity.id) ?? null);
+                }
+              }}
             />
 
             {/* Trajectory Lines - Flight Paths and Ship Routes */}
@@ -3336,53 +3519,7 @@ export default function CREPDashboardPage() {
               />
             ))}
 
-            {/* Aircraft Markers (FlightRadar24/OpenSky) - Uses filtered data */}
-            {layers.find(l => l.id === "aviation")?.enabled && filteredAircraft.map(ac => (
-              <AircraftMarker
-                key={ac.id}
-                aircraft={ac}
-                isSelected={selectedAircraft?.id === ac.id}
-                onClick={() => setSelectedAircraft(selectedAircraft?.id === ac.id ? null : ac)}
-                onClose={() => setSelectedAircraft(null)}
-              />
-            ))}
-
-            {/* Vessel Markers (AISstream) - Uses filtered data */}
-            {layers.find(l => l.id === "ships")?.enabled && filteredVessels.map(vessel => (
-              <VesselMarker
-                key={vessel.id}
-                vessel={vessel}
-                isSelected={selectedVessel?.id === vessel.id}
-                onClick={() => setSelectedVessel(selectedVessel?.id === vessel.id ? null : vessel)}
-                onClose={() => setSelectedVessel(null)}
-              />
-            ))}
-
-            {/* Satellite Markers (CelesTrak) - Uses filtered data */}
-            {layers.find(l => l.id === "satellites")?.enabled && filteredSatellites.map(sat => (
-              <SatelliteMarker
-                key={sat.id}
-                satellite={sat}
-                isSelected={selectedSatellite?.id === sat.id}
-                onClick={() => setSelectedSatellite(selectedSatellite?.id === sat.id ? null : sat)}
-                onClose={() => setSelectedSatellite(null)}
-              />
-            ))}
-
-            {/* Fungal Observation Markers - LOD System
-                Uses visibleFungalObservations which filters by:
-                1. Viewport bounds (only render visible markers)
-                2. Zoom-based sampling (fewer markers when zoomed out)
-                This enables rendering 21K+ markers smoothly like Google Earth */}
-            {layers.find(l => l.id === "fungi")?.enabled && visibleFungalObservations.map(obs => (
-              <FungalMarker
-                key={`fungal-${obs.id}`}
-                observation={obs}
-                isSelected={selectedFungal?.id === obs.id}
-                onClick={() => handleSelectFungal(selectedFungal?.id === obs.id ? null : obs)}
-                onClose={() => handleSelectFungal(null)}
-              />
-            ))}
+            {/* Aircraft / Vessel / Satellite / Fungal rendering moved to deck.gl EntityDeckLayer */}
           </MapComponent>
 
           {/* Map Overlay - Corner Decorations */}
@@ -3400,7 +3537,7 @@ export default function CREPDashboardPage() {
             {/* FUNGAL DATA FIRST - PRIMARY */}
             {fungalObservations.length > 0 && (
               <div className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30" title={`${fungalObservations.length} fungal observations - PRIMARY DATA`}>
-                <span className="mr-1">ðŸ„</span>
+                <TreePine className="w-3 h-3 inline-block mr-1" />
                 {fungalObservations.length} FUNGI
               </div>
             )}
@@ -3767,7 +3904,7 @@ export default function CREPDashboardPage() {
       {/* Bottom Status Bar */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-1 bg-black/80 border-t border-cyan-500/20 z-50">
         <div className="flex items-center gap-4 text-[8px] font-mono">
-          <span className="text-green-400">â— SYSTEM OPERATIONAL</span>
+          <span className="text-green-400">● SYSTEM OPERATIONAL</span>
           <span className="text-gray-600">|</span>
           <span className="text-cyan-400">UPTIME: 99.9%</span>
           <span className="text-gray-600">|</span>

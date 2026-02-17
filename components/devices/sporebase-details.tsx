@@ -184,7 +184,7 @@ export function SporeBaseDetails() {
   return (
     <div className="relative bg-gradient-to-b from-orange-950 via-slate-950 to-black text-white overflow-hidden">
       {/* Hero Section */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Background gradient - matching CodePen style */}
         <motion.div 
           style={{ scale: heroScale }}

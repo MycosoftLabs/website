@@ -64,7 +64,7 @@ export function LightningLayer({
   const strikesRef = useRef<LightningStrike[]>([]);
   const flashesRef = useRef<Map<string, number>>(new Map()); // strikeId -> flash start time
   
-  // Fetch lightning data from API or storm cells
+  // Fetch lightning data from API - NO MOCK DATA (per Mycosoft policy)
   const fetchLightningData = useCallback(async (bounds: GeoBounds): Promise<LightningStrike[]> => {
     try {
       // Try to get lightning from global events
@@ -89,14 +89,16 @@ export function LightningLayer({
           }
         });
         
-        if (strikes.length > 0) return strikes;
+        return strikes;
       }
     } catch (error) {
-      console.warn("[Lightning Layer] Failed to fetch lightning data");
+      console.warn("[Lightning Layer] Failed to fetch lightning data:", error);
     }
 
-    // Generate simulated strikes from storm cell areas
-    return generateSimulatedStrikes(bounds);
+    // Return empty array - NO MOCK DATA per Mycosoft policy
+    // Lightning detection requires active Earth-2 connection
+    console.log("[Lightning Layer] No lightning data available - showing empty state");
+    return [];
   }, [maxStrikeAge]);
 
   const updateData = useCallback(async () => {
@@ -370,41 +372,6 @@ export function LightningLayer({
   }, [map]);
 
   return null;
-}
-
-// Generate simulated lightning strikes
-function generateSimulatedStrikes(bounds: GeoBounds): LightningStrike[] {
-  const strikes: LightningStrike[] = [];
-  const numStrikes = Math.floor(Math.random() * 20) + 5;
-  const now = Date.now();
-  
-  // Generate storm centers
-  const numStorms = Math.floor(Math.random() * 3) + 1;
-  const stormCenters: { lat: number; lon: number }[] = [];
-  
-  for (let i = 0; i < numStorms; i++) {
-    stormCenters.push({
-      lat: bounds.south + Math.random() * (bounds.north - bounds.south),
-      lon: bounds.west + Math.random() * (bounds.east - bounds.west),
-    });
-  }
-  
-  // Generate strikes around storm centers
-  for (let i = 0; i < numStrikes; i++) {
-    const storm = stormCenters[Math.floor(Math.random() * stormCenters.length)];
-    const spread = 0.5; // Degrees
-    
-    strikes.push({
-      id: `sim-strike-${now}-${i}`,
-      lat: storm.lat + (Math.random() - 0.5) * spread,
-      lon: storm.lon + (Math.random() - 0.5) * spread,
-      timestamp: now - Math.random() * 60000, // Within last minute
-      intensity: 0.3 + Math.random() * 0.7,
-      type: Math.random() > 0.25 ? "cloud_to_ground" : "cloud_to_cloud",
-    });
-  }
-  
-  return strikes;
 }
 
 function generateStrikeGeoJSON(

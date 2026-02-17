@@ -10,6 +10,7 @@
 import { useRef, useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { SignalBuffer } from "@/lib/fungi-compute"
 import { 
   BarChart3, Waves, Play, Pause, RotateCcw,
   ZoomIn, ZoomOut, Download,
@@ -18,6 +19,7 @@ import {
 
 interface SpectrumAnalyzerProps {
   className?: string
+  signalBuffer?: SignalBuffer[]
 }
 
 const GFST_BANDS = [
@@ -35,7 +37,7 @@ const FREQ_RANGES = [
   { label: "0-50 Hz", max: 50 },
 ]
 
-export function SpectrumAnalyzer({ className }: SpectrumAnalyzerProps) {
+export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnalyzerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number>()
@@ -82,70 +84,52 @@ export function SpectrumAnalyzer({ className }: SpectrumAnalyzerProps) {
     }
   }, [])
 
-  // Generate simulated FFT spectrum (pure function)
-  const generateSpectrum = (t: number) => {
-    const numBins = 128
+  const computeSpectrum = (samples: number[], sampleRate: number) => {
+    const windowSamples = samples.slice(-256)
+    const n = windowSamples.length
+    if (n < 16) return { frequencies: [], magnitudes: [], detectedPeaks: [] as { freq: number; mag: number }[] }
+
     const frequencies: number[] = []
     const magnitudes: number[] = []
-    
-    for (let i = 0; i < numBins; i++) {
-      const freq = (i / numBins) * freqRange.max
+    const half = Math.floor(n / 2)
+
+    for (let k = 0; k < half; k++) {
+      const freq = (k * sampleRate) / n
+      if (freq > freqRange.max) break
+      let real = 0
+      let imag = 0
+      for (let i = 0; i < n; i++) {
+        const angle = (2 * Math.PI * k * i) / n
+        real += windowSamples[i] * Math.cos(angle)
+        imag -= windowSamples[i] * Math.sin(angle)
+      }
       frequencies.push(freq)
-      
-      let mag = 0
-      
-      // Baseline power (1/f noise)
-      mag += 0.8 / (1 + freq)
-      
-      // Biological activity peaks (1-5 Hz range)
-      if (freq >= 1 && freq <= 5) {
-        mag += 0.6 * Math.exp(-Math.pow(freq - 2.5, 2) / 0.5)
-        mag += 0.3 * Math.exp(-Math.pow(freq - 4, 2) / 0.3)
-        mag += 0.2 * Math.sin(t * 0.5 + freq) * Math.exp(-Math.pow(freq - 3, 2) / 1)
-      }
-      
-      // Spike activity (5-10 Hz)
-      if (freq >= 5 && freq <= 10) {
-        mag += 0.15 * Math.sin(t * 0.3 + freq * 2) 
-        mag += 0.1 * Math.exp(-Math.pow(freq - 7, 2) / 2)
-      }
-      
-      // Random noise floor
-      mag += Math.random() * 0.05
-      
-      // 50/60 Hz interference
-      if (Math.abs(freq - 50) < 0.5 || Math.abs(freq - 60) < 0.5) {
-        mag += 0.3
-      }
-      
-      magnitudes.push(Math.max(0, mag))
+      magnitudes.push(Math.sqrt(real * real + imag * imag) / n)
     }
-    
-    // Find peaks
+
     const detectedPeaks: { freq: number; mag: number }[] = []
     for (let i = 2; i < magnitudes.length - 2; i++) {
-      if (magnitudes[i] > magnitudes[i-1] && 
-          magnitudes[i] > magnitudes[i-2] &&
-          magnitudes[i] > magnitudes[i+1] && 
-          magnitudes[i] > magnitudes[i+2] &&
-          magnitudes[i] > 0.2) {
+      if (
+        magnitudes[i] > magnitudes[i - 1] &&
+        magnitudes[i] > magnitudes[i - 2] &&
+        magnitudes[i] > magnitudes[i + 1] &&
+        magnitudes[i] > magnitudes[i + 2]
+      ) {
         detectedPeaks.push({ freq: frequencies[i], mag: magnitudes[i] })
       }
     }
     detectedPeaks.sort((a, b) => b.mag - a.mag)
-    
-    // Calculate stats
-    const totalPower = magnitudes.reduce((a, b) => a + b * b, 0)
-    const maxIdx = magnitudes.indexOf(Math.max(...magnitudes))
-    const noisePower = magnitudes.slice(-Math.floor(numBins * 0.2)).reduce((a, b) => a + b * b, 0)
-    const signalPower = totalPower - noisePower
-    
+
+    const totalPower = magnitudes.reduce((acc, value) => acc + value * value, 0)
+    const maxIdx = magnitudes.length > 0 ? magnitudes.indexOf(Math.max(...magnitudes)) : 0
+    const noisePower = magnitudes.slice(-Math.max(1, Math.floor(magnitudes.length * 0.2))).reduce((acc, value) => acc + value * value, 0)
+    const signalPower = Math.max(totalPower - noisePower, 0)
     statsRef.current = {
-      dominantFreq: frequencies[maxIdx],
+      dominantFreq: frequencies[maxIdx] || 0,
       totalPower,
       snr: noisePower > 0 ? 10 * Math.log10(signalPower / noisePower) : 0,
     }
-    
+
     return { frequencies, magnitudes, detectedPeaks: detectedPeaks.slice(0, 5) }
   }
 
@@ -173,14 +157,14 @@ export function SpectrumAnalyzer({ className }: SpectrumAnalyzerProps) {
         timeRef.current += dt
       }
       
-      const t = timeRef.current
-      
       // Clear
       ctx.fillStyle = "#050810"
       ctx.fillRect(0, 0, w, h)
       
-      // Generate and draw spectrum
-      const { frequencies, magnitudes, detectedPeaks } = generateSpectrum(t)
+      const primaryBuffer = signalBuffer[0]
+      const sampleRate = primaryBuffer?.sampleRate || 100
+      const samples = primaryBuffer?.samples || []
+      const { frequencies, magnitudes, detectedPeaks } = computeSpectrum(samples, sampleRate)
       
       // Update stats and peaks periodically
       if (now - lastStatsUpdate > 300) {
@@ -190,7 +174,7 @@ export function SpectrumAnalyzer({ className }: SpectrumAnalyzerProps) {
       }
       
       // Add to waterfall history
-      if (!isPaused && mode === "waterfall") {
+      if (!isPaused && mode === "waterfall" && magnitudes.length > 0) {
         waterfallRef.current.unshift([...magnitudes])
         if (waterfallRef.current.length > h) {
           waterfallRef.current = waterfallRef.current.slice(0, h)
@@ -219,7 +203,7 @@ export function SpectrumAnalyzer({ className }: SpectrumAnalyzerProps) {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, mode, freqRange, showPeaks, useLogScale])
+  }, [dimensions, isPaused, mode, freqRange, showPeaks, useLogScale, signalBuffer])
 
   // Drawing functions
   const drawBarSpectrum = (ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], w: number, h: number) => {

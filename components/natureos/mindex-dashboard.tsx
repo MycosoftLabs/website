@@ -423,7 +423,7 @@ export function MINDEXDashboard() {
   const healthStatus = getHealthStatus()
 
   return (
-    <div className="relative min-h-screen bg-[#0A0A0F] overflow-hidden">
+    <div className="relative min-h-dvh bg-[#0A0A0F] overflow-hidden">
       {/* Background Circuit Animation - 20% opacity for subtle effect */}
       <TronCircuitAnimation 
         opacity={0.2}

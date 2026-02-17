@@ -30,7 +30,7 @@ export default function SecurityLayout({
 
   return (
     <SecurityTourProvider>
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Security Header */}
       <header className="sticky top-0 z-50 bg-slate-900/95 border-b border-slate-700 backdrop-blur" data-tour="soc-header">
         <div className="container mx-auto px-4">

@@ -17,6 +17,7 @@ import {
   Zap
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SignalBuffer, DetectedPattern as StreamPattern } from "@/lib/fungi-compute"
 
 interface SpikeEvent {
   time: number
@@ -74,7 +75,12 @@ const PATTERN_TYPES = [
   { type: "oscillation", label: "Oscillation", color: "#3b82f6" },
 ]
 
-export function SpikeTrainAnalyzer() {
+interface SpikeTrainAnalyzerProps {
+  signalBuffer?: SignalBuffer[]
+  patterns?: StreamPattern[]
+}
+
+export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTrainAnalyzerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number>()
@@ -127,68 +133,40 @@ export function SpikeTrainAnalyzer() {
     }
   }, [])
 
-  // Generate realistic fungal electrophysiology data (pure function)
-  const generateData = (currentTime: number, currentChannels: typeof CHANNELS) => {
-    const values: number[] = []
-    
-    currentChannels.forEach((ch, idx) => {
-      if (!ch.enabled) {
-        values.push(0)
-        return
-      }
-      
-      let voltage = 0
-      
-      // Baseline drift
-      voltage += 15 * Math.sin(currentTime * 0.05 + idx)
-      voltage += 8 * Math.sin(currentTime * 0.02 + idx * 2)
-      
-      // Spontaneous action potentials
-      const spikePhases = [
-        Math.sin(currentTime * 0.15 + idx * 1.5),
-        Math.sin(currentTime * 0.08 + idx * 0.7),
-        Math.sin(currentTime * 0.22 + idx * 2.3),
-      ]
-      
-      spikePhases.forEach((phase, i) => {
-        if (phase > 0.97) {
-          const width = 0.02 + Math.random() * 0.01
-          const spikePos = (currentTime * (0.15 + i * 0.07)) % 1
-          const spikePeak = Math.exp(-Math.pow(spikePos - 0.5, 2) / (2 * width * width))
-          const amplitude = 30 + Math.random() * 50
-          voltage += spikePeak * amplitude
-          
-          if (spikePeak > 0.8) {
-            spikesRef.current.push({
-              time: currentTime,
-              amplitude: amplitude * spikePeak,
-              channel: idx,
-            })
-            if (spikesRef.current.length > 1000) {
-              spikesRef.current = spikesRef.current.slice(-1000)
-            }
-          }
-        }
+  const ingestSignalBuffer = () => {
+    const primaryBuffer = signalBuffer[0]
+    if (!primaryBuffer || primaryBuffer.samples.length === 0 || primaryBuffer.timestamps.length === 0) return
+
+    const channelMap = new Map(signalBuffer.map((buffer) => [buffer.channel, buffer]))
+    const baseTimestamp = primaryBuffer.timestamps[0]
+    dataBufferRef.current = primaryBuffer.samples.map((_, index) => ({
+      time: (primaryBuffer.timestamps[index] - baseTimestamp) / 1000,
+      values: channels.map((channel) => channelMap.get(channel.id)?.samples[index] ?? 0),
+    }))
+
+    const latestSamples = primaryBuffer.samples.slice(-64)
+    if (latestSamples.length < 8) return
+
+    const mean = latestSamples.reduce((acc, value) => acc + value, 0) / latestSamples.length
+    const variance = latestSamples.reduce((acc, value) => acc + (value - mean) ** 2, 0) / latestSamples.length
+    const stdDev = Math.sqrt(variance)
+    const threshold = mean + stdDev * 2.5
+
+    latestSamples.forEach((value, offset) => {
+      if (value <= threshold) return
+      const sampleIndex = primaryBuffer.samples.length - latestSamples.length + offset
+      const timestamp = primaryBuffer.timestamps[sampleIndex]
+      spikesRef.current.push({
+        time: (timestamp - baseTimestamp) / 1000,
+        amplitude: value,
+        channel: primaryBuffer.channel,
       })
-      
-      // Spike trains / "words"
-      const wordPhase = Math.sin(currentTime * 0.03)
-      if (wordPhase > 0.9) {
-        for (let s = 0; s < 5; s++) {
-          const burstPhase = Math.sin(currentTime * 2 + s * 0.5)
-          if (burstPhase > 0.7) {
-            voltage += (20 + Math.random() * 30) * Math.exp(-Math.pow(burstPhase - 1, 2) * 50)
-          }
-        }
-      }
-      
-      // Biological noise
-      voltage += (Math.random() - 0.5) * 5
-      
-      values.push(voltage)
     })
-    
-    return values
+    spikesRef.current = spikesRef.current.slice(-1000)
+
+    if (dataBufferRef.current.length > 0) {
+      timeRef.current = dataBufferRef.current[dataBufferRef.current.length - 1].time
+    }
   }
 
   // Detect patterns in data (pure function)
@@ -223,7 +201,17 @@ export function SpikeTrainAnalyzer() {
       }
     }
     
-    patternsRef.current = words.slice(-20)
+    const streamPatterns: DetectedPattern[] = patterns.map((pattern) => {
+      const startTime = new Date(pattern.timestamp).getTime() / 1000
+      return {
+        startTime,
+        endTime: startTime + Math.max(1, pattern.duration || 1),
+        type: pattern.pattern,
+        confidence: pattern.confidence,
+        spikes: [],
+      }
+    })
+    patternsRef.current = [...words, ...streamPatterns].slice(-20)
     
     // Update stats
     const recentTime = currentTime - 60
@@ -265,19 +253,10 @@ export function SpikeTrainAnalyzer() {
       
       const t = timeRef.current
       
-      // Generate new data
+      // Ingest live stream data
       if (!isPaused) {
-        const newData = generateData(t, channels)
-        dataBufferRef.current.push({ time: t, values: newData })
-        
-        const maxSamples = Math.floor(600 / (1/60))
-        if (dataBufferRef.current.length > maxSamples) {
-          dataBufferRef.current = dataBufferRef.current.slice(-maxSamples)
-        }
-        
-        if (Math.floor(t * 2) !== Math.floor((t - dt) * 2)) {
-          detectPatterns(t)
-        }
+        ingestSignalBuffer()
+        detectPatterns(t)
       }
       
       // Update stats periodically
@@ -317,7 +296,7 @@ export function SpikeTrainAnalyzer() {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, isLive, showPatterns, showWordOverlay, channels, view])
+  }, [dimensions, isPaused, isLive, showPatterns, showWordOverlay, channels, view, signalBuffer, patterns])
 
   // Drawing functions
   const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number) => {

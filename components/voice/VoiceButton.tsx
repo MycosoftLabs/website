@@ -147,7 +147,7 @@ export function VoiceButton({
   }
   
   return (
-    <div className="relative inline-flex flex-col items-center gap-2">
+    <div className="relative inline-flex flex-col items-center gap-2" suppressHydrationWarning>
       <Button
         onClick={handleClick}
         className={getButtonClasses()}

@@ -10,6 +10,7 @@ import { useRef, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { SignalBuffer } from "@/lib/fungi-compute"
 import { 
   Play, Pause, RotateCcw, ZoomIn, ZoomOut, 
   Download, Crosshair, Layers, Grid3X3,
@@ -27,6 +28,7 @@ interface ChannelConfig {
 
 interface OscilloscopeProps {
   className?: string
+  signalBuffer?: SignalBuffer[]
 }
 
 const TIME_SCALES = [
@@ -59,7 +61,7 @@ const INITIAL_CHANNELS: ChannelConfig[] = [
   { id: 3, name: "FCI-4", color: "#ffa94d", enabled: false, gain: 1, offset: -2 },
 ]
 
-export function Oscilloscope({ className }: OscilloscopeProps) {
+export function Oscilloscope({ className, signalBuffer = [] }: OscilloscopeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number>()
@@ -109,40 +111,31 @@ export function Oscilloscope({ className }: OscilloscopeProps) {
     }
   }, [])
   
-  // Generate signal (pure function)
-  const generateSignal = (t: number, channelIdx: number): number => {
-    let voltage = 0
-    voltage += 20 * Math.sin(t * 0.005 + channelIdx * 1.3)
-    voltage += 10 * Math.sin(t * 0.002 + channelIdx * 0.7)
-    voltage += 15 * Math.sin(t * 0.3 + channelIdx * 2.1)
-    voltage += 8 * Math.sin(t * 0.7 + channelIdx * 0.5)
-    
-    const spikePhases = [
-      { freq: 0.12, threshold: 0.96, amp: 40 },
-      { freq: 0.08, threshold: 0.97, amp: 60 },
-      { freq: 0.18, threshold: 0.98, amp: 35 },
-    ]
-    
-    spikePhases.forEach(({ freq, threshold, amp }) => {
-      const phase = Math.sin(t * freq + channelIdx * 1.1)
-      if (phase > threshold) {
-        const spikeT = (t * freq) % (Math.PI * 2)
-        const spike = Math.exp(-Math.pow(spikeT - Math.PI, 2) * 0.5)
-        voltage += spike * amp * (1 + Math.random() * 0.3)
+  // Build oscilloscope points from the real streaming buffers.
+  useEffect(() => {
+    if (isPaused || signalBuffer.length === 0) return
+    const primary = signalBuffer[0]
+    if (!primary || primary.samples.length === 0 || primary.timestamps.length === 0) return
+
+    const channelMap = new Map(signalBuffer.map((buffer) => [buffer.channel, buffer]))
+    const baseTimestamp = primary.timestamps[0] ?? Date.now()
+    const points = primary.samples.map((_, index) => {
+      const timestamp = primary.timestamps[index] ?? baseTimestamp
+      const values = channels.map((channel) => {
+        const channelData = channelMap.get(channel.id)
+        return channelData?.samples[index] ?? 0
+      })
+      return {
+        time: (timestamp - baseTimestamp) / 1000,
+        values,
       }
     })
-    
-    if (Math.sin(t * 0.02 + channelIdx) > 0.85) {
-      for (let i = 0; i < 4; i++) {
-        if (Math.sin(t * 1.5 + i * 0.3) > 0.6) {
-          voltage += 25 * Math.exp(-Math.pow(Math.sin(t * 1.5 + i * 0.3) - 1, 2) * 5)
-        }
-      }
+
+    dataBufferRef.current = points
+    if (points.length > 0) {
+      timeRef.current = points[points.length - 1].time
     }
-    
-    voltage += (Math.random() - 0.5) * 8
-    return voltage
-  }
+  }, [signalBuffer, channels, isPaused])
   
   // Main animation loop
   useEffect(() => {
@@ -163,21 +156,8 @@ export function Oscilloscope({ className }: OscilloscopeProps) {
       const w = canvas.width
       const h = canvas.height
       
-      if (!isPaused) {
-        timeRef.current += dt
-      }
-      
+      if (!isPaused) timeRef.current += dt
       const t = timeRef.current
-      
-      // Generate new data
-      if (!isPaused) {
-        const newValues = channels.map((ch, idx) => generateSignal(t, idx))
-        dataBufferRef.current.push({ time: t, values: newValues })
-        
-        const windowTime = timeScale.value * DIVISIONS
-        const minTime = t - windowTime * 2
-        dataBufferRef.current = dataBufferRef.current.filter(d => d.time >= minTime)
-      }
       
       // Apply persistence
       if (showPersistence && persistenceRef.current) {

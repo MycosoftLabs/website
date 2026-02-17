@@ -16,32 +16,32 @@ import { MotionValue, useSpring, useTransform } from "framer-motion"
 // =============================================================================
 
 export const PHYSICS_CONFIG = {
-  // Floating animation
+  // Floating animation - minimal, almost imperceptible movement
   float: {
-    amplitude: 8, // pixels
-    period: 4000, // ms for one cycle
-    variance: 0.3, // randomness in timing
+    amplitude: 0.5, // pixels (reduced from 2 - barely perceptible drift)
+    period: 15000, // ms for one cycle (longer = slower, calmer)
+    variance: 0.1, // minimal randomness in timing
   },
   
-  // Magnetic attraction
+  // Magnetic attraction - minimal to reduce visual noise
   magnetic: {
-    strength: 0.08, // how much widgets move toward cursor (0-1)
-    range: 200, // pixels - cursor must be within this range
-    dampening: 0.92, // how quickly attraction fades
+    strength: 0.02, // very subtle cursor attraction
+    range: 100, // smaller range
+    dampening: 0.95, // faster fade
   },
   
-  // Spring physics
+  // Spring physics - softer, slower movement
   spring: {
-    stiffness: 120,
-    damping: 20,
-    mass: 1,
+    stiffness: 80, // lower = slower movement
+    damping: 25, // higher = less bounce
+    mass: 1.2, // heavier = more inertia
   },
   
-  // Focus scale
+  // Focus scale - reduced for subtler interactions
   focus: {
-    scaleFocused: 1.15,
-    scaleHovered: 1.05,
-    scaleMinimized: 0.85,
+    scaleFocused: 1.02, // barely noticeable scale-up
+    scaleHovered: 1.01, // very subtle hover
+    scaleMinimized: 0.95,
     scaleDefault: 1,
   },
   
@@ -395,22 +395,23 @@ export function loadWidgetLayout(layoutId: string): Record<string, WidgetPositio
 // =============================================================================
 
 export const widgetEnterAnimation = {
-  initial: { opacity: 0, scale: 0.8, y: 20 },
+  initial: { opacity: 0, scale: 0.95, y: 10 },
   animate: { 
     opacity: 1, 
     scale: 1, 
     y: 0,
     transition: {
       type: "spring",
-      stiffness: 200,
-      damping: 20,
+      stiffness: 80, // slower entry
+      damping: 25,
+      duration: 0.5,
     }
   },
   exit: { 
     opacity: 0, 
-    scale: 0.9, 
-    y: -10,
-    transition: { duration: 0.2 }
+    scale: 0.98, 
+    y: -5,
+    transition: { duration: 0.3, ease: "easeOut" }
   },
 }
 
@@ -436,12 +437,12 @@ export const widgetHoverAnimation = {
 export const glowPulseAnimation = {
   animate: {
     boxShadow: [
-      "0 0 20px rgba(34, 197, 94, 0.2)",
-      "0 0 40px rgba(34, 197, 94, 0.4)",
-      "0 0 20px rgba(34, 197, 94, 0.2)",
+      "0 0 8px rgba(34, 197, 94, 0.05)",
+      "0 0 12px rgba(34, 197, 94, 0.08)",
+      "0 0 8px rgba(34, 197, 94, 0.05)",
     ],
     transition: {
-      duration: 2,
+      duration: 12, // very slow, subtle breathing effect
       repeat: Infinity,
       ease: "easeInOut",
     },

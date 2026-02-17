@@ -1,6 +1,57 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 
+interface DefenseBriefingRequest {
+  name: string
+  title?: string
+  organization: string
+  email: string
+  phone?: string
+  message: string
+  classificationLevel?: string
+  id?: string
+}
+
+async function sendDefenseBriefingNotification(request: DefenseBriefingRequest): Promise<void> {
+  try {
+    // Send notification via MAS communication service
+    const masUrl = process.env.MAS_API_URL || 'http://192.168.0.188:8001'
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@mycosoft.com'
+    
+    const response = await fetch(`${masUrl}/api/communications/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'defense_briefing_request',
+        priority: 'high',
+        recipient: adminEmail,
+        subject: `New Defense Briefing Request from ${request.organization}`,
+        body: `
+Defense Briefing Request Received
+
+Contact: ${request.name}${request.title ? ` (${request.title})` : ''}
+Organization: ${request.organization}
+Email: ${request.email}
+Phone: ${request.phone || 'N/A'}
+Classification Level: ${request.classificationLevel || 'N/A'}
+
+Message:
+${request.message}
+
+Request ID: ${request.id || 'pending'}
+Submitted: ${new Date().toISOString()}
+        `.trim()
+      })
+    })
+    
+    if (!response.ok) {
+      console.error('Failed to send notification via MAS:', await response.text())
+    }
+  } catch (error) {
+    console.error('Error sending defense briefing notification:', error)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -38,7 +89,8 @@ export async function POST(request: NextRequest) {
       // If table doesn't exist yet, log to console and still return success for demo
       if (error.code === "42P01") {
         console.log("Table does not exist yet. Logging request:", { name, organization, email })
-        // TODO: Send email notification here
+        // Send email notification to admin
+        await sendDefenseBriefingNotification({ name, organization, email, title, message, classificationLevel })
         return NextResponse.json({ 
           success: true, 
           message: "Request logged (table pending creation)",
@@ -51,8 +103,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Send email notification to admin
-    // This would typically use an edge function or email service like Resend
+    // Send email notification to admin
+    await sendDefenseBriefingNotification({
+      name,
+      title: title || undefined,
+      organization,
+      email,
+      phone: phone || undefined,
+      message,
+      classificationLevel: classificationLevel || undefined,
+      id: data?.id
+    })
 
     console.log("New briefing request submitted:", {
       id: data?.id,

@@ -39,7 +39,7 @@ export default function DashboardPage() {
   // Loading state
   if (authLoading || profileLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
       </div>
     )
@@ -56,7 +56,7 @@ export default function DashboardPage() {
   const isSuperAdmin = role === 'super_admin' && user?.email === 'morgan@mycosoft.org'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Navigation Header */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -92,13 +92,13 @@ export default function DashboardPage() {
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">Billing</span>
               </Link>
-              <button className="text-slate-400 hover:text-white transition-colors relative">
+              <button className="text-slate-400 hover:text-white transition-colors relative min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full" />
               </button>
               <button 
                 onClick={handleSignOut}
-                className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition-colors"
+                className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition-colors min-h-[44px] px-2"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Sign Out</span>

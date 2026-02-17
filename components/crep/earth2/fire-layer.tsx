@@ -278,7 +278,7 @@ export function FireLayer({
   return null;
 }
 
-// Fetch fire data from API or generate samples
+// Fetch fire data from API - NO MOCK DATA (per Mycosoft policy)
 async function fetchFireData(bounds: GeoBounds): Promise<FirePoint[]> {
   try {
     const response = await fetch("/api/natureos/global-events");
@@ -290,42 +290,22 @@ async function fetchFireData(bounds: GeoBounds): Promise<FirePoint[]> {
         id: fire.id || `fire-${idx}`,
         lat: fire.lat || fire.location?.latitude || 0,
         lon: fire.lng || fire.location?.longitude || 0,
-        frp: fire.magnitude || Math.random() * 500 + 50,
-        confidence: 85 + Math.random() * 15,
-        acresBurning: fire.magnitude || Math.random() * 50000,
-        containment: Math.random() * 60,
+        frp: fire.magnitude || 100, // Default to moderate intensity if not specified
+        confidence: fire.confidence || 80,
+        acresBurning: fire.magnitude || fire.acresBurning,
+        containment: fire.containment,
         name: fire.title || fire.location?.name,
         timestamp: fire.timestamp || new Date().toISOString(),
       }));
     }
   } catch (error) {
-    console.warn("[Fire Layer] Failed to fetch fires, using sample data");
+    console.warn("[Fire Layer] Failed to fetch fire data:", error);
   }
 
-  // Generate sample fires
-  return generateSampleFires(bounds);
-}
-
-function generateSampleFires(bounds: GeoBounds): FirePoint[] {
-  const fires: FirePoint[] = [];
-  const numFires = Math.floor(Math.random() * 5) + 3;
-  
-  for (let i = 0; i < numFires; i++) {
-    const lat = bounds.south + Math.random() * (bounds.north - bounds.south);
-    const lon = bounds.west + Math.random() * (bounds.east - bounds.west);
-    
-    fires.push({
-      id: `sample-fire-${i}`,
-      lat,
-      lon,
-      frp: 50 + Math.random() * 500,
-      confidence: 70 + Math.random() * 30,
-      acresBurning: 100 + Math.random() * 50000,
-      timestamp: new Date().toISOString(),
-    });
-  }
-  
-  return fires;
+  // Return empty array - NO MOCK DATA per Mycosoft policy
+  // Real-time fire data unavailable - show empty state
+  console.log("[Fire Layer] No fire data available - showing empty state");
+  return [];
 }
 
 function generateFireGeoJSON(fires: FirePoint[], phase: number): GeoJSON.FeatureCollection {

@@ -9,10 +9,14 @@
 
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { Film, Tv, Play, ExternalLink, Star, Calendar } from "lucide-react"
+import { Film, Tv, Play, ExternalLink, Star, Calendar, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+
+const ITEMS_PER_PAGE = 4
 
 export interface MediaResult {
   id: string
@@ -30,10 +34,42 @@ export interface MediaResult {
 interface MediaWidgetProps {
   data: MediaResult[]
   isFocused?: boolean
+  isLoading?: boolean
+  error?: string
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
 }
 
-export function MediaWidget({ data, isFocused = false, onAddToNotepad }: MediaWidgetProps) {
+function MediaLoadingSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 p-2">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-24 w-full rounded-md" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function MediaWidget({ data, isFocused = false, isLoading = false, error, onAddToNotepad }: MediaWidgetProps) {
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE)
+
+  if (isLoading) {
+    return <MediaLoadingSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Film className="h-12 w-12 mx-auto mb-3 opacity-40" />
+        <p className="text-sm text-red-400">Unable to fetch media</p>
+        <p className="text-xs mt-1 text-red-300/80">{error.includes("401") ? "TMDB API key is invalid - needs valid key" : error}</p>
+      </div>
+    )
+  }
+
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -62,12 +98,12 @@ export function MediaWidget({ data, isFocused = false, onAddToNotepad }: MediaWi
     }
   }
 
+  const visibleItems = data.slice(0, visibleCount)
+  const hasMore = data.length > visibleCount
+
   return (
-    <div className={cn(
-      "space-y-3",
-      isFocused ? "max-h-[400px] overflow-y-auto pr-2" : "max-h-[200px] overflow-hidden"
-    )}>
-      {data.map((item, index) => (
+    <div className="space-y-3 overflow-hidden flex-1">
+      {visibleItems.map((item, index) => (
         <motion.div
           key={item.id}
           initial={{ opacity: 0, x: -20 }}
@@ -164,6 +200,19 @@ export function MediaWidget({ data, isFocused = false, onAddToNotepad }: MediaWi
           </div>
         </motion.div>
       ))}
+      
+      {/* Load more button */}
+      {hasMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setVisibleCount((prev) => prev + ITEMS_PER_PAGE)}
+        >
+          <ChevronDown className="h-3 w-3 mr-1" />
+          Show {Math.min(ITEMS_PER_PAGE, data.length - visibleCount)} more ({data.length - visibleCount} remaining)
+        </Button>
+      )}
     </div>
   )
 }

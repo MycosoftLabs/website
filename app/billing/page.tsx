@@ -129,7 +129,7 @@ export default function BillingPage() {
   
   if (userLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     )
@@ -137,7 +137,7 @@ export default function BillingPage() {
   
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Sign In Required</CardTitle>
@@ -186,7 +186,7 @@ export default function BillingPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="container mx-auto py-10 px-4 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

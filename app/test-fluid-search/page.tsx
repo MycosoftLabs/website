@@ -16,7 +16,7 @@ const FluidSearchCanvas = dynamic(
   () => import("@/components/search/fluid/FluidSearchCanvas"),
   {
     loading: () => (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-muted-foreground">Loading search...</p>
@@ -39,7 +39,7 @@ export default function TestFluidSearchPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-dvh bg-background">
       {/* Development banner */}
       <div className="bg-yellow-500/10 border-b border-yellow-500/20 py-2 px-4 text-center">
         <p className="text-sm text-yellow-600 dark:text-yellow-400">
@@ -49,7 +49,7 @@ export default function TestFluidSearchPage() {
 
       <Suspense
         fallback={
-          <div className="min-h-screen flex items-center justify-center">
+          <div className="min-h-dvh flex items-center justify-center">
             <div className="text-center space-y-4">
               <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-muted-foreground">Initializing search engine...</p>

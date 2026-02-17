@@ -22,20 +22,39 @@ interface NewsResult {
   category: "science" | "health" | "environment" | "business" | "general"
 }
 
-async function searchNewsAPI(query: string, limit: number): Promise<NewsResult[]> {
-  if (!NEWS_API_KEY) return []
+async function searchNewsAPI(query: string, limit: number): Promise<{ results: NewsResult[], error?: string }> {
+  if (!NEWS_API_KEY) {
+    return { results: [], error: "NEWS_API_KEY not configured" }
+  }
   
   try {
-    const searchQuery = `${query} fungi OR mushroom OR mycology`
-    const res = await fetch(
-      `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchQuery)}&sortBy=publishedAt&language=en&pageSize=${limit}&apiKey=${NEWS_API_KEY}`,
-      { signal: AbortSignal.timeout(5000) }
-    )
+    // Use the query directly for NewsAPI
+    const searchQuery = query
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchQuery)}&sortBy=publishedAt&language=en&pageSize=${limit}&apiKey=${NEWS_API_KEY}`
     
-    if (!res.ok) return []
+    console.log('[News API] Searching:', searchQuery)
+    
+    const res = await fetch(url, { 
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        'Accept': 'application/json',
+      }
+    })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('[News API] Error:', res.status, errorText)
+      return { results: [], error: `NewsAPI error: ${res.status} - ${errorText.slice(0, 100)}` }
+    }
     
     const data = await res.json()
-    return (data.articles || []).map((article: any, i: number) => ({
+    console.log('[News API] Articles found:', data.articles?.length || 0)
+    
+    if (data.status === 'error') {
+      return { results: [], error: `NewsAPI: ${data.message}` }
+    }
+    
+    const results = (data.articles || []).map((article: any, i: number) => ({
       id: `newsapi-${i}-${Date.now()}`,
       title: article.title || "",
       source: article.source?.name || "Unknown",
@@ -45,8 +64,11 @@ async function searchNewsAPI(query: string, limit: number): Promise<NewsResult[]
       imageUrl: article.urlToImage || null,
       category: categorizeArticle(article.title, article.description),
     }))
-  } catch {
-    return []
+    
+    return { results }
+  } catch (err: any) {
+    console.error('[News API] Fetch error:', err.message)
+    return { results: [], error: `Fetch failed: ${err.message}` }
   }
 }
 
@@ -73,14 +95,14 @@ export async function GET(request: NextRequest) {
   const limitParam = request.nextUrl.searchParams.get("limit")
   const limit = Math.min(parseInt(limitParam || "10"), 20)
   
-  const results = await searchNewsAPI(query, limit)
+  const { results, error } = await searchNewsAPI(query, limit)
   
   return NextResponse.json({
     query,
     results,
     total: results.length,
     source: "NewsAPI",
-    message: NEWS_API_KEY ? undefined : "NEWS_API_KEY not configured",
+    error: error,
     timestamp: new Date().toISOString(),
   })
 }

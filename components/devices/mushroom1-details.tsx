@@ -279,7 +279,7 @@ export function Mushroom1Details() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden">
+    <div className="min-h-dvh bg-black text-white overflow-x-hidden">
       {/* Hero Section - Fullscreen Video */}
       <motion.section 
         ref={heroRef}

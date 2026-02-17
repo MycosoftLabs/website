@@ -120,7 +120,7 @@ export default function ProfilePage() {
   // Loading state
   if (authLoading || profileLoading || (user && settingsLoading)) {
     return (
-      <div className="container py-8 flex items-center justify-center min-h-[60vh]">
+      <div className="container py-8 flex items-center justify-center min-h-[60dvh]">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
@@ -231,7 +231,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               </div>
-              <Button variant="destructive" size="sm" onClick={handleLogout}>
+              <Button variant="destructive" size="sm" onClick={handleLogout} className="min-h-[44px] px-4">
                 <LogOut className="w-4 h-4 mr-2" />
                 Sign Out
               </Button>
@@ -278,17 +278,18 @@ export default function ProfilePage() {
                     id="name" 
                     value={isEditing ? profileForm.displayName || displayUser.name || "" : (displayUser.name || "")}
                     onChange={(e) => setProfileForm(prev => ({ ...prev, displayName: e.target.value }))}
-                    disabled={!isEditing} 
+                    disabled={!isEditing}
+                    className="text-base h-12"
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={displayUser.email || ""} disabled />
+                  <Input id="email" value={displayUser.email || ""} disabled className="text-base h-12" />
                 </div>
                 {displayUser.title && (
                   <div className="grid gap-2">
                     <Label htmlFor="title">Title</Label>
-                    <Input id="title" value={displayUser.title} disabled />
+                    <Input id="title" value={displayUser.title} disabled className="text-base h-12" />
                   </div>
                 )}
                 <div className="grid gap-2">
@@ -437,13 +438,13 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
                   <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
+                  <Input id="current-password" type="password" className="text-base h-12" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
+                  <Input id="new-password" type="password" className="text-base h-12" />
                 </div>
-                <Button>Update Password</Button>
+                <Button className="h-12">Update Password</Button>
               </CardContent>
             </Card>
           </TabsContent>

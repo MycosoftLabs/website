@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --background: hsl(0 0% 100%);
@@ -566,4 +567,117 @@ body.dashboard-fullscreen main {
 .crep-map-container {
   min-width: 0;
   flex: 1 1 0%;
+}
+
+/* ============================================
+   PACKERY WIDGET SIZING - Multi-column Grid
+   Updated: February 12, 2026
+   ============================================ */
+
+/* Packery container */
+.packery-container {
+  position: relative;
+  width: 100%;
+}
+
+/* Grid sizer for responsive column width */
+.packery-container .grid-sizer,
+.packery-container .packery-widget.widget-w-1 {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .packery-container .grid-sizer,
+  .packery-container .packery-widget.widget-w-1 {
+    width: calc(50% - 6px);
+  }
+  
+  .packery-container .packery-widget.widget-w-2 {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .packery-container .grid-sizer,
+  .packery-container .packery-widget.widget-w-1 {
+    width: calc(33.333% - 8px);
+  }
+  
+  .packery-container .packery-widget.widget-w-2 {
+    width: calc(66.666% - 4px);
+  }
+}
+
+@media (min-width: 1280px) {
+  .packery-container .grid-sizer,
+  .packery-container .packery-widget.widget-w-1 {
+    width: calc(25% - 9px);
+  }
+  
+  .packery-container .packery-widget.widget-w-2 {
+    width: calc(50% - 6px);
+  }
+}
+
+/* Widget height classes */
+.packery-widget.widget-h-1 {
+  min-height: 200px;
+}
+
+.packery-widget.widget-h-2 {
+  min-height: 350px;
+}
+
+.packery-widget.widget-h-3 {
+  min-height: 500px;
+}
+
+/* Dragging states */
+.packery-widget.is-dragging {
+  z-index: 100 !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3) !important;
+  transform: scale(1.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Drag handle styling */
+.widget-drag-handle {
+  cursor: grab;
+}
+
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Smooth transitions for packing */
+.packery-widget {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Hide grid sizer from view */
+.grid-sizer {
+  position: absolute;
+  visibility: hidden;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* =====================================================
+   MOBILE UTILITIES — safe area helpers only
+   Do NOT add global element overrides here —
+   use Tailwind classes on individual components instead
+   ===================================================== */
+
+/* iOS safe area insets — opt-in utility classes */
+.safe-top    { padding-top:    env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-left   { padding-left:   env(safe-area-inset-left); }
+.safe-right  { padding-right:  env(safe-area-inset-right); }
+.pb-safe     { padding-bottom: max(env(safe-area-inset-bottom), 16px); }
+
+/* Opt-in scrollable container for wide content on mobile */
+.mobile-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
