@@ -1,5 +1,9 @@
 "use client";
 
+// Force dynamic rendering — this is a live intelligence dashboard
+// that depends on real-time API data and cannot be statically exported
+export const dynamic = "force-dynamic";
+
 /**
  * CREP - Common Relevant Environmental Picture
  * 
