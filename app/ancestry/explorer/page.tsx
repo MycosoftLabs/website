@@ -50,234 +50,6 @@ import {
   X,
 } from "lucide-react"
 
-// Extended species data with more entries
-const FALLBACK_SPECIES = [
-  {
-    id: 1,
-    scientific_name: "Amanita phalloides",
-    common_name: "Death Cap",
-    family: "Amanitaceae",
-    description: "The death cap is a deadly poisonous basidiomycete fungus, one of the most poisonous of all known toadstools. It has been involved in the majority of human deaths from mushroom poisoning.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/9/99/Amanita_phalloides_1.JPG",
-    characteristics: ["Poisonous", "White spores", "Volva present"],
-    habitat: "Deciduous and coniferous forests",
-    edibility: "deadly",
-    season: "Summer-Fall",
-    distribution: "Europe, North America",
-    featured: true,
-  },
-  {
-    id: 2,
-    scientific_name: "Agaricus bisporus",
-    common_name: "Button Mushroom",
-    family: "Agaricaceae",
-    description: "An edible basidiomycete mushroom native to grasslands in Europe and North America. It is the most commonly consumed mushroom in the world.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/d/d9/Champignons_Agaricus.jpg",
-    characteristics: ["Edible", "Brown spores", "Cultivated"],
-    habitat: "Grasslands, cultivated",
-    edibility: "edible",
-    season: "Year-round",
-    distribution: "Worldwide (cultivated)",
-    featured: true,
-  },
-  {
-    id: 3,
-    scientific_name: "Pleurotus ostreatus",
-    common_name: "Oyster Mushroom",
-    family: "Pleurotaceae",
-    description: "A common edible mushroom known for its distinctive oyster-shaped cap. It is prized for its mild flavor and is one of the most widely cultivated mushrooms.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Pleurotus_ostreatus_%28Oyster%29_mushroom.jpg",
-    characteristics: ["Edible", "White spores", "Shelf fungus"],
-    habitat: "Dead hardwood trees",
-    edibility: "edible",
-    season: "Fall-Spring",
-    distribution: "Worldwide",
-    featured: false,
-  },
-  {
-    id: 4,
-    scientific_name: "Cantharellus cibarius",
-    common_name: "Golden Chanterelle",
-    family: "Cantharellaceae",
-    description: "A prized edible mushroom with a distinctive golden color and fruity aroma. It is one of the most popular wild-harvested mushrooms in the world.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Chanterelle_Cantharellus_cibarius.jpg",
-    characteristics: ["Edible", "Yellow", "Mycorrhizal", "Gourmet"],
-    habitat: "Coniferous and deciduous forests",
-    edibility: "choice",
-    season: "Summer-Fall",
-    distribution: "Northern Hemisphere",
-    featured: true,
-  },
-  {
-    id: 5,
-    scientific_name: "Boletus edulis",
-    common_name: "Porcini",
-    family: "Boletaceae",
-    description: "A highly prized edible mushroom known for its rich, nutty flavor. It is widely used in Italian cuisine and is one of the most sought-after wild mushrooms.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/5/5d/Boletus_edulis_EtsyEnza.jpg",
-    characteristics: ["Edible", "Pores", "Mycorrhizal", "Gourmet"],
-    habitat: "Coniferous and deciduous forests",
-    edibility: "choice",
-    season: "Summer-Fall",
-    distribution: "Northern Hemisphere",
-    featured: true,
-  },
-  {
-    id: 6,
-    scientific_name: "Morchella esculenta",
-    common_name: "Yellow Morel",
-    family: "Morchellaceae",
-    description: "A distinctive edible mushroom with a honeycomb-like cap. It is one of the most readily recognized of all edible mushrooms and highly sought after.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/c/c8/Morchella_esculenta_2008_Ukraine.jpg",
-    characteristics: ["Edible", "Ascomycete", "Spring fruiting", "Gourmet"],
-    habitat: "Forests, disturbed areas, burn sites",
-    edibility: "choice",
-    season: "Spring",
-    distribution: "Northern Hemisphere",
-    featured: false,
-  },
-  {
-    id: 7,
-    scientific_name: "Ganoderma lucidum",
-    common_name: "Reishi",
-    family: "Ganodermataceae",
-    description: "A polypore fungus used extensively in traditional Asian medicine. Known as the 'mushroom of immortality', it has been used medicinally for over 2,000 years.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/3/32/Ganoderma_lucidum_01.jpg",
-    characteristics: ["Medicinal", "Bracket fungus", "Woody", "Adaptogenic"],
-    habitat: "Dead or dying trees",
-    edibility: "medicinal",
-    season: "Year-round",
-    distribution: "Worldwide",
-    featured: true,
-  },
-  {
-    id: 8,
-    scientific_name: "Lentinula edodes",
-    common_name: "Shiitake",
-    family: "Omphalotaceae",
-    description: "An edible mushroom native to East Asia, widely cultivated worldwide. It is the second most commonly cultivated edible mushroom and has significant medicinal properties.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/f/f9/Shiitakegrowing.jpg",
-    characteristics: ["Edible", "Cultivated", "Medicinal", "Umami"],
-    habitat: "Dead hardwood trees",
-    edibility: "edible",
-    season: "Year-round",
-    distribution: "East Asia (native), Worldwide (cultivated)",
-    featured: false,
-  },
-  {
-    id: 9,
-    scientific_name: "Psilocybe cubensis",
-    common_name: "Golden Teacher",
-    family: "Hymenogastraceae",
-    description: "A species of psilocybin mushroom whose principal active compounds are psilocybin and psilocin. It is one of the most widely known psilocybin mushrooms.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/e/ea/Psilocybe_cubensis.jpg",
-    characteristics: ["Psychoactive", "Blue bruising", "Subtropical"],
-    habitat: "Cattle pastures, tropical regions",
-    edibility: "psychoactive",
-    season: "Year-round (tropical)",
-    distribution: "Tropical and subtropical regions worldwide",
-    featured: false,
-  },
-  {
-    id: 10,
-    scientific_name: "Cordyceps militaris",
-    common_name: "Caterpillar Fungus",
-    family: "Cordycipitaceae",
-    description: "An entomopathogenic fungus known for its medicinal properties. It has been used in traditional Chinese medicine for centuries and is known for energy-boosting effects.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/3/31/2015-12-10_Cordyceps_militaris_%28L.%29_Fr_576181.jpg",
-    characteristics: ["Medicinal", "Parasitic", "Orange", "Adaptogenic"],
-    habitat: "Parasitizes insect larvae",
-    edibility: "medicinal",
-    season: "Summer-Fall",
-    distribution: "Northern Hemisphere",
-    featured: false,
-  },
-  {
-    id: 11,
-    scientific_name: "Trametes versicolor",
-    common_name: "Turkey Tail",
-    family: "Polyporaceae",
-    description: "A common polypore mushroom known for its colorful concentric rings. It is one of the most well-researched medicinal mushrooms with proven immune-boosting properties.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/f/fb/Trametes_versicolor_G4.jpg",
-    characteristics: ["Medicinal", "Bracket fungus", "Multicolored", "Immune-boosting"],
-    habitat: "Dead hardwood trees",
-    edibility: "medicinal",
-    season: "Year-round",
-    distribution: "Worldwide",
-    featured: true,
-  },
-  {
-    id: 12,
-    scientific_name: "Hericium erinaceus",
-    common_name: "Lion's Mane",
-    family: "Hericiaceae",
-    description: "An edible and medicinal mushroom known for its unique appearance and cognitive benefits. Research suggests it may support nerve growth and brain health.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/0/01/Igelstachelbart_Nov_06.jpg",
-    characteristics: ["Edible", "Medicinal", "Tooth fungus", "Nootropic"],
-    habitat: "Dead or dying hardwood trees",
-    edibility: "choice",
-    season: "Fall",
-    distribution: "Northern Hemisphere",
-    featured: true,
-  },
-  {
-    id: 13,
-    scientific_name: "Amanita muscaria",
-    common_name: "Fly Agaric",
-    family: "Amanitaceae",
-    description: "One of the most recognizable mushrooms in popular culture with its bright red cap and white spots. It is poisonous and has been used for its psychoactive properties.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/3/32/Amanita_muscaria_3_vliegenzwammen_op_rij.jpg",
-    characteristics: ["Poisonous", "Psychoactive", "Iconic", "Red cap"],
-    habitat: "Birch and pine forests",
-    edibility: "poisonous",
-    season: "Summer-Fall",
-    distribution: "Northern Hemisphere",
-    featured: false,
-  },
-  {
-    id: 14,
-    scientific_name: "Tuber melanosporum",
-    common_name: "Black Truffle",
-    family: "Tuberaceae",
-    description: "One of the most expensive and sought-after edible fungi in the world. Known as 'black diamond', it is prized for its intense aroma and flavor in haute cuisine.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Truffe_noire_du_P%C3%A9rigord.jpg",
-    characteristics: ["Edible", "Mycorrhizal", "Underground", "Gourmet", "Rare"],
-    habitat: "Underground near oak and hazelnut trees",
-    edibility: "choice",
-    season: "Winter",
-    distribution: "Mediterranean Europe",
-    featured: true,
-  },
-  {
-    id: 15,
-    scientific_name: "Inonotus obliquus",
-    common_name: "Chaga",
-    family: "Hymenochaetaceae",
-    description: "A parasitic fungus that grows on birch trees. It has been used in folk medicine for centuries and is known for its high antioxidant content.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/8/8b/Inonotus_obliquus.jpg",
-    characteristics: ["Medicinal", "Parasitic", "Black exterior", "Antioxidant"],
-    habitat: "Birch trees in cold climates",
-    edibility: "medicinal",
-    season: "Year-round",
-    distribution: "Northern latitudes",
-    featured: false,
-  },
-  {
-    id: 16,
-    scientific_name: "Laetiporus sulphureus",
-    common_name: "Chicken of the Woods",
-    family: "Fomitopsidaceae",
-    description: "A bright orange bracket fungus that is edible when young. It gets its name from its taste and texture which is said to resemble chicken.",
-    image_url: "https://upload.wikimedia.org/wikipedia/commons/b/b5/Laetiporus_sulphureus_JPG01.jpg",
-    characteristics: ["Edible", "Bracket fungus", "Orange", "Meat substitute"],
-    habitat: "Dead or dying hardwood trees",
-    edibility: "edible",
-    season: "Spring-Fall",
-    distribution: "North America, Europe",
-    featured: false,
-  },
-]
-
 // Categories for quick filtering
 const CATEGORIES = [
   { id: "all", label: "All Species", icon: Globe, count: 0 },
@@ -286,25 +58,6 @@ const CATEGORIES = [
   { id: "poisonous", label: "Poisonous", icon: Skull, count: 0 },
   { id: "psychoactive", label: "Psychoactive", icon: Zap, count: 0 },
   { id: "gourmet", label: "Gourmet", icon: Star, count: 0 },
-]
-
-const ALL_FAMILIES = [
-  "All Families",
-  "Amanitaceae",
-  "Agaricaceae",
-  "Pleurotaceae",
-  "Cantharellaceae",
-  "Boletaceae",
-  "Morchellaceae",
-  "Ganodermataceae",
-  "Omphalotaceae",
-  "Hymenogastraceae",
-  "Cordycipitaceae",
-  "Polyporaceae",
-  "Hericiaceae",
-  "Tuberaceae",
-  "Hymenochaetaceae",
-  "Fomitopsidaceae",
 ]
 
 const SORT_OPTIONS = [
@@ -341,9 +94,9 @@ export default function ExplorerPage() {
   const [searchQuery, setSearchQuery] = useState(urlSearch)
   const [selectedFamily, setSelectedFamily] = useState("All Families")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [dataCompleteness, setDataCompleteness] = useState<"all" | "has_images" | "has_description">("all")
   const [viewMode, setViewMode] = useState<"grid" | "list" | "compact">("grid")
   const [sortBy, setSortBy] = useState("featured")
-  const [usingFallback, setUsingFallback] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [favorites, setFavorites] = useState<number[]>([])
   const [totalInDatabase, setTotalInDatabase] = useState(0)
@@ -368,7 +121,6 @@ export default function ExplorerPage() {
         if (response.ok) {
           const data = await response.json()
           if (data.species && data.species.length > 0) {
-            // Transform to expected format with featured species
             const speciesData = data.species.map((s: any, index: number) => ({
               ...s,
               id: s.id || index + 1,
@@ -379,30 +131,27 @@ export default function ExplorerPage() {
               edibility: s.edibility || null,
               season: s.season || null,
               distribution: s.distribution || null,
-              // Mark high-observation species as featured
               featured: (s.observations_count || 0) > 5000,
             }))
             setSpecies(speciesData)
             setPage(1)
             setTotalInDatabase(data.total || speciesData.length)
             setDataSource(data.source || "mindex")
-            setUsingFallback(data.source !== "mindex")
-            setLoading(false)
-            return
+          } else {
+            setSpecies([])
+            setTotalInDatabase(data.total || 0)
+            setDataSource(data.source || "none")
           }
+        } else {
+          setSpecies([])
+          setTotalInDatabase(0)
+          setDataSource("none")
         }
-        
-        // If no data from API, use fallback
-        setSpecies(FALLBACK_SPECIES)
-        setTotalInDatabase(FALLBACK_SPECIES.length)
-        setDataSource("fallback")
-        setUsingFallback(true)
       } catch (error) {
         console.error("Failed to fetch species:", error)
-        setSpecies(FALLBACK_SPECIES)
-        setTotalInDatabase(FALLBACK_SPECIES.length)
-        setDataSource("fallback")
-        setUsingFallback(true)
+        setSpecies([])
+        setTotalInDatabase(0)
+        setDataSource("none")
       } finally {
         setLoading(false)
       }
@@ -450,6 +199,15 @@ export default function ExplorerPage() {
     if (saved) setFavorites(JSON.parse(saved))
   }, [])
 
+  // Families derived from loaded species
+  const families = useMemo(() => {
+    const fams = new Set<string>()
+    species.forEach((s) => {
+      if (s.family && s.family !== "Unknown") fams.add(s.family)
+    })
+    return ["All Families", ...Array.from(fams).sort()]
+  }, [species])
+
   // Calculate category counts
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { all: species.length }
@@ -480,6 +238,11 @@ export default function ExplorerPage() {
       // Family filter
       const matchesFamily = selectedFamily === "All Families" || s.family === selectedFamily
 
+      // Data completeness filter
+      let matchesCompleteness = true
+      if (dataCompleteness === "has_images") matchesCompleteness = Boolean(s.image_url)
+      else if (dataCompleteness === "has_description") matchesCompleteness = Boolean(s.description?.trim())
+
       // Category filter
       let matchesCategory = selectedCategory === "all"
       if (!matchesCategory) {
@@ -505,7 +268,7 @@ export default function ExplorerPage() {
         }
       }
 
-      return matchesSearch && matchesFamily && matchesCategory
+      return matchesSearch && matchesFamily && matchesCategory && matchesCompleteness
     })
 
     // Sort
@@ -527,7 +290,7 @@ export default function ExplorerPage() {
     })
 
     return result
-  }, [species, searchQuery, selectedFamily, selectedCategory, sortBy])
+  }, [species, searchQuery, selectedFamily, selectedCategory, dataCompleteness, sortBy])
 
   const featuredSpecies = useMemo(() => species.filter((s) => s.featured), [species])
 
@@ -548,6 +311,7 @@ export default function ExplorerPage() {
     setSearchQuery("")
     setSelectedFamily("All Families")
     setSelectedCategory("all")
+    setDataCompleteness("all")
     setSortBy("featured")
   }
 
@@ -635,7 +399,7 @@ export default function ExplorerPage() {
               <div className="text-lg font-bold capitalize">{dataSource}</div>
               <div className="text-sm text-green-200">Data Source</div>
               <div className="text-xs text-green-300 mt-1">
-                {dataSource === "mindex" ? "Local Database" : "Live APIs"}
+                {dataSource === "mindex" ? "MINDEX" : dataSource === "external_api" ? "iNaturalist / GBIF" : "None"}
               </div>
             </div>
           </div>
@@ -643,16 +407,15 @@ export default function ExplorerPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Status Banner */}
-        {usingFallback && (
-          <div className="mb-6 rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
+        {/* Status Banner - No data available */}
+        {!loading && species.length === 0 && dataSource === "none" && (
+          <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
             <div className="flex items-start gap-3">
-              <Globe className="h-5 w-5 text-blue-500 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-blue-600 dark:text-blue-400">Live Data from External APIs</p>
+                <p className="font-medium text-amber-700 dark:text-amber-400">No Species Data Available</p>
                 <p className="text-sm text-muted-foreground">
-                  Fetching real-time data from iNaturalist, GBIF, MycoBank, and GenBank. 
-                  For full 50,000+ species catalog, ensure MINDEX is syncing.
+                  MINDEX service may not be running or synced. Start MINDEX with: docker-compose -f docker-compose.mindex.yml up -d
                 </p>
               </div>
               <Button variant="outline" size="sm" className="shrink-0" asChild>
@@ -794,11 +557,23 @@ export default function ExplorerPage() {
                     <SelectValue placeholder="Family" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_FAMILIES.map((family) => (
+                    {families.map((family) => (
                       <SelectItem key={family} value={family}>
                         {family}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={dataCompleteness} onValueChange={(v) => setDataCompleteness(v as typeof dataCompleteness)}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Data completeness" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All species</SelectItem>
+                    <SelectItem value="has_images">Has images</SelectItem>
+                    <SelectItem value="has_description">Has description</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -858,7 +633,7 @@ export default function ExplorerPage() {
                 {totalInDatabase > species.length ? ` (of ${totalInDatabase} in database)` : ""}
               </span>
               
-              {(searchQuery || selectedFamily !== "All Families" || selectedCategory !== "all") && (
+              {(searchQuery || selectedFamily !== "All Families" || selectedCategory !== "all" || dataCompleteness !== "all") && (
                 <>
                   <Separator orientation="vertical" className="h-4" />
                   {searchQuery && (
@@ -877,6 +652,12 @@ export default function ExplorerPage() {
                     <Badge variant="secondary" className="gap-1">
                       {CATEGORIES.find(c => c.id === selectedCategory)?.label}
                       <X className="h-3 w-3 cursor-pointer" onClick={() => setSelectedCategory("all")} />
+                    </Badge>
+                  )}
+                  {dataCompleteness !== "all" && (
+                    <Badge variant="secondary" className="gap-1">
+                      {dataCompleteness === "has_images" ? "Has images" : "Has description"}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setDataCompleteness("all")} />
                     </Badge>
                   )}
                   <Button variant="link" size="sm" onClick={resetFilters} className="text-muted-foreground h-auto p-0">
@@ -955,13 +736,25 @@ export default function ExplorerPage() {
                     
                     {/* Edibility indicator */}
                     <div className={`absolute top-3 left-3 w-4 h-4 rounded-full ${getEdibilityColor(s)} ring-2 ring-white shadow-lg`} />
-                    
-                    {/* Featured badge */}
-                    {s.featured && (
-                      <Badge className="absolute top-3 right-3 bg-yellow-500 shadow-lg">
-                        <Star className="h-3 w-3" />
-                      </Badge>
-                    )}
+
+                    {/* Data quality indicators */}
+                    <div className="absolute top-3 right-3 flex gap-1">
+                      {s.image_url && (
+                        <span className="rounded bg-black/50 px-1.5 py-0.5" title="Has image">
+                          <Camera className="h-3 w-3 text-white" />
+                        </span>
+                      )}
+                      {s.description && (
+                        <span className="rounded bg-black/50 px-1.5 py-0.5" title="Has description">
+                          <BookOpen className="h-3 w-3 text-white" />
+                        </span>
+                      )}
+                      {s.featured && (
+                        <Badge className="bg-yellow-500 shadow-lg">
+                          <Star className="h-3 w-3" />
+                        </Badge>
+                      )}
+                    </div>
                     
                     {/* Favorite button */}
                     <Button

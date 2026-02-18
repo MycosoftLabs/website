@@ -2,12 +2,11 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ExternalLink, Info, ImageIcon } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ChevronLeft, ChevronRight, ExternalLink, Info, ImageIcon, ZoomIn, ZoomOut, Maximize2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Photo {
@@ -28,6 +27,10 @@ interface PhotoGalleryProps {
 export function PhotoGallery({ photos, speciesName, isLoading = false, initialLimit = 8 }: PhotoGalleryProps) {
   const [displayLimit, setDisplayLimit] = useState(initialLimit)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxScale, setLightboxScale] = useState(1)
+  const [lightboxPan, setLightboxPan] = useState({ x: 0, y: 0 })
+  const lightboxContainerRef = useRef<HTMLDivElement>(null)
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>(
     Object.fromEntries(photos.map((photo) => [photo.url, true])),
   )
@@ -140,11 +143,11 @@ export function PhotoGallery({ photos, speciesName, isLoading = false, initialLi
   const hasMorePhotos = photos.length > displayedPhotos.length
 
   const handlePrevious = () => {
-    setCurrentPhotoIndex((current) => (current === 0 ? photos.length - 1 : current - 1))
+    setCurrentPhotoIndex((current) => (current === 0 ? displayedPhotos.length - 1 : current - 1))
   }
 
   const handleNext = () => {
-    setCurrentPhotoIndex((current) => (current === photos.length - 1 ? 0 : current + 1))
+    setCurrentPhotoIndex((current) => (current === displayedPhotos.length - 1 ? 0 : current + 1))
   }
 
   const handleImageLoad = (url: string) => {
@@ -162,6 +165,23 @@ export function PhotoGallery({ photos, speciesName, isLoading = false, initialLi
     setDisplayLimit((prev) => Math.min(prev + 8, photos.length))
   }
 
+  const openLightbox = (index: number) => {
+    setCurrentPhotoIndex(index)
+    setLightboxScale(1)
+    setLightboxPan({ x: 0, y: 0 })
+    setLightboxOpen(true)
+  }
+
+  const handleLightboxZoom = (delta: number) => {
+    setLightboxScale((s) => Math.max(0.5, Math.min(4, s + delta)))
+  }
+
+  const handleLightboxWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    if (e.deltaY < 0) handleLightboxZoom(0.25)
+    else handleLightboxZoom(-0.25)
+  }
+
   if (!photos.length) {
     return (
       <div className="text-center p-8 border rounded-lg bg-muted/50">
@@ -171,116 +191,147 @@ export function PhotoGallery({ photos, speciesName, isLoading = false, initialLi
     )
   }
 
+  const currentPhoto = displayedPhotos[currentPhotoIndex]
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {displayedPhotos.map((photo, index) => (
-          <Dialog key={photo.url}>
-            <DialogTrigger asChild>
-              <div className="relative aspect-square cursor-pointer group overflow-hidden rounded-lg bg-muted">
-                {loadingStates[photo.url] && !errorStates[photo.url] && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                    <div className="h-8 w-8 animate-pulse rounded-full bg-muted-foreground/20" />
-                  </div>
-                )}
-                {errorStates[photo.url] ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted p-4">
-                    <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                    <span className="text-xs text-muted-foreground text-center">Unable to load image</span>
-                  </div>
-                ) : (
-                  <Image
-                    src={photo.medium_url || photo.url}
-                    alt={`${speciesName} specimen ${index + 1}`}
-                    fill
-                    className={cn(
-                      "object-cover transition-transform group-hover:scale-110",
-                      loadingStates[photo.url] && "opacity-0",
-                    )}
-                    onLoad={() => handleImageLoad(photo.url)}
-                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                      const target = e.target as HTMLImageElement
-                      console.error("Gallery image failed to load:", target.src)
-                      handleImageError(photo.url)
-                      // Try fallback URLs in sequence
-                      if (photo.large_url && target.src !== photo.large_url) {
-                        target.src = photo.large_url
-                      } else if (photo.medium_url && target.src !== photo.medium_url) {
-                        target.src = photo.medium_url
-                      } else if (photo.url && target.src !== photo.url) {
-                        target.src = photo.url
-                      } else {
-                        // Final fallback - use a species-specific placeholder
-                        target.src = `/placeholder.svg?height=800&width=800&text=${encodeURIComponent(speciesName)}`
-                      }
-                    }}
-                    loading={index < 4 ? "eager" : "lazy"}
-                    crossOrigin="anonymous"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
-                  />
-                )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button variant="secondary" size="sm">
-                    View Larger
-                  </Button>
-                </div>
+          <button
+            key={photo.url}
+            type="button"
+            onClick={() => openLightbox(index)}
+            className="relative aspect-square cursor-pointer group overflow-hidden rounded-lg bg-muted block w-full"
+          >
+            {loadingStates[photo.url] && !errorStates[photo.url] && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-muted-foreground/20" />
               </div>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl">
-              <div className="relative aspect-[4/3] w-full">
+            )}
+            {errorStates[photo.url] ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted p-4">
+                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                <span className="text-xs text-muted-foreground text-center">Unable to load image</span>
+              </div>
+            ) : (
+              <Image
+                src={photo.medium_url || photo.url}
+                alt={`${speciesName} specimen ${index + 1}`}
+                fill
+                className={cn(
+                  "object-cover transition-transform group-hover:scale-110",
+                  loadingStates[photo.url] && "opacity-0",
+                )}
+                onLoad={() => handleImageLoad(photo.url)}
+                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                  const target = e.target as HTMLImageElement
+                  handleImageError(photo.url)
+                  if (photo.large_url && target.src !== photo.large_url) {
+                    target.src = photo.large_url
+                  } else if (photo.medium_url && target.src !== photo.medium_url) {
+                    target.src = photo.medium_url
+                  } else if (photo.url && target.src !== photo.url) {
+                    target.src = photo.url
+                  }
+                }}
+                loading={index < 4 ? "eager" : "lazy"}
+                crossOrigin="anonymous"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
+              />
+            )}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Maximize2 className="h-8 w-8 text-white" />
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <DialogContent
+          className="max-w-[95vw] max-h-[95vh] w-[95vw] h-[95vh] p-0 gap-0 border-0 bg-black/95"
+          onWheel={handleLightboxWheel}
+        >
+          {currentPhoto && (
+            <div
+              ref={lightboxContainerRef}
+              className="relative w-full h-full flex items-center justify-center overflow-hidden"
+            >
+              <div
+                className="relative transition-transform duration-200"
+                style={{
+                  transform: `scale(${lightboxScale}) translate(${lightboxPan.x}px, ${lightboxPan.y}px)`,
+                }}
+              >
                 <Image
-                  src={photo.large_url || photo.url}
-                  alt={`${speciesName} specimen ${index + 1}`}
-                  fill
-                  className="object-contain"
+                  src={currentPhoto.large_url || currentPhoto.url}
+                  alt={`${speciesName} specimen ${currentPhotoIndex + 1}`}
+                  width={1920}
+                  height={1080}
+                  className="max-h-[90vh] w-auto object-contain"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
-                    console.error("Large image failed to load:", target.src)
-                    // Use higher resolution for full-size view
-                    target.src = `/placeholder.svg?height=1200&width=1200`
+                    target.src = "/placeholder.svg?height=800&width=1200"
                   }}
-                  priority={index === currentPhotoIndex}
                   crossOrigin="anonymous"
-                  sizes="(max-width: 768px) 100vw, 1200px"
+                  sizes="95vw"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span>{photo.attribution}</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <a href={photo.url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>View original image</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>{currentPhoto.attribution}</span>
+                  <a
+                    href={currentPhoto.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 hover:text-blue-400"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View original
+                  </a>
                 </div>
+              </div>
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex flex-col gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80"
+                  className="h-12 w-12 bg-black/60 hover:bg-black/80 text-white"
                   onClick={handlePrevious}
                 >
                   <ChevronLeft className="h-8 w-8" />
                 </Button>
+              </div>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80"
+                  className="h-12 w-12 bg-black/60 hover:bg-black/80 text-white"
                   onClick={handleNext}
                 >
                   <ChevronRight className="h-8 w-8" />
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
-        ))}
-      </div>
+              <div className="absolute top-2 right-2 flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-black/60 hover:bg-black/80 text-white"
+                  onClick={() => handleLightboxZoom(0.5)}
+                >
+                  <ZoomIn className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-black/60 hover:bg-black/80 text-white"
+                  onClick={() => handleLightboxZoom(-0.5)}
+                >
+                  <ZoomOut className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {hasMorePhotos && (
         <div className="text-center mt-6">

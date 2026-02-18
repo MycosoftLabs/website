@@ -19,6 +19,7 @@ import {
   ArrowLeft, ChevronRight, Loader2, ExternalLink, BookOpen,
   TreeDeciduous, Globe, Eye, FlaskConical, Dna, Search,
 } from "lucide-react"
+import { HierarchicalTaxonomyTree, type TaxonomyNode } from "@/components/ancestry/HierarchicalTaxonomyTree"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -233,8 +234,8 @@ export default function TaxonomyRankPage() {
               </div>
             </div>
 
-            {/* Full taxonomy tree */}
-            {data.ancestors.length > 0 && (
+            {/* Hierarchical taxonomy tree */}
+            {(data.ancestors.length > 0 || data.id) && (
               <section className="space-y-3">
                 <div className="flex items-center gap-2">
                   <TreeDeciduous className="h-4 w-4 text-muted-foreground/60" />
@@ -242,50 +243,22 @@ export default function TaxonomyRankPage() {
                     Taxonomic Classification
                   </h2>
                 </div>
-                <div className="rounded-xl border border-white/8 bg-white/3 px-5 py-4">
-                  <div className="space-y-1.5">
-                    {data.ancestors.map((a, i) => (
-                      <div
-                        key={a.id}
-                        className="flex items-center gap-3 text-sm"
-                        style={{ paddingLeft: `${i * 16}px` }}
-                      >
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
-                        <span className={cn(
-                          "text-[9px] uppercase tracking-wider w-16 shrink-0",
-                          RANK_COLOR[a.rank]?.split(" ")[0] || "text-muted-foreground/60"
-                        )}>
-                          {RANK_LABEL[a.rank] || a.rank}
-                        </span>
-                        <Link
-                          href={a.href}
-                          className="font-medium hover:text-emerald-400 hover:underline underline-offset-2 transition-colors"
-                        >
-                          {a.name}
-                        </Link>
-                        {a.commonName && (
-                          <span className="text-xs text-muted-foreground/60">({a.commonName})</span>
-                        )}
-                      </div>
-                    ))}
-                    {/* Current level highlighted */}
-                    <div
-                      className="flex items-center gap-3 text-sm"
-                      style={{ paddingLeft: `${data.ancestors.length * 16}px` }}
-                    >
-                      <ChevronRight className="h-3.5 w-3.5 text-emerald-400/60 shrink-0" />
-                      <span className={cn(
-                        "text-[9px] uppercase tracking-wider w-16 shrink-0",
-                        rankColor.split(" ")[0]
-                      )}>
-                        {rankLabel}
-                      </span>
-                      <span className="font-bold italic text-emerald-400">{data.name}</span>
-                      {data.commonName && (
-                        <span className="text-xs text-muted-foreground/60">({data.commonName})</span>
-                      )}
-                    </div>
-                  </div>
+                <div className="rounded-xl border border-white/8 bg-white/3 p-4">
+                  <HierarchicalTaxonomyTree
+                    nodes={[
+                      ...data.ancestors.map((a) => ({
+                        id: a.id,
+                        name: a.name,
+                        rank: a.rank,
+                        commonName: a.commonName,
+                      })),
+                      { id: data.id, name: data.name, rank, commonName: data.commonName },
+                    ]}
+                    currentName={data.name}
+                    currentId={data.id}
+                    defaultExpanded
+                    className="[&_a]:text-white [&_a:hover]:text-emerald-400"
+                  />
                 </div>
               </section>
             )}

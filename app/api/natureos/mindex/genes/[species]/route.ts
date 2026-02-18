@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 /**
  * MINDEX Gene Annotations API
- * Provides gene data for genome browser visualization
- * 
- * GET /api/natureos/mindex/genes/[species] - Get genes for species
- * GET /api/natureos/mindex/genes/[species]?chr=chr1&start=0&end=100000 - Filter by region
+ * NO MOCK DATA: Fetches gene/sequence features from MINDEX.
+ * Returns empty genes array when no data available.
  */
 
 interface Gene {
@@ -21,79 +19,8 @@ interface Gene {
   go_terms?: string[]
 }
 
-// Generate demo genes for a species
-function generateDemoGenes(species: string, chromosome?: string, start?: number, end?: number): Gene[] {
-  const geneNamePrefixes: Record<string, string[]> = {
-    "psilocybe_cubensis": ["psiD", "psiK", "psiM", "psiH", "psiR", "cyp450", "abc", "nrps"],
-    "hericium_erinaceus": ["eri", "hce", "ngs", "lfc", "abc", "cyp"],
-    "ganoderma_lucidum": ["gls", "lan", "cyp", "abc", "pks", "nrps"]
-  }
-  
-  const prefixes = geneNamePrefixes[species] || ["gene", "orf", "hyp"]
-  const genes: Gene[] = []
-  
-  const chromosomes = chromosome ? [chromosome] : ["chr1", "chr2", "chr3", "chr4", "chr5"]
-  
-  chromosomes.forEach((chr, chrIdx) => {
-    const chrLength = 5000000 - chrIdx * 500000
-    const geneCount = Math.floor(chrLength / 50000)
-    
-    for (let i = 0; i < geneCount; i++) {
-      const geneStart = 10000 + i * 40000 + Math.floor(Math.random() * 20000)
-      const geneLength = 1500 + Math.floor(Math.random() * 5000)
-      const geneEnd = geneStart + geneLength
-      
-      // Skip if outside requested range
-      if (start !== undefined && end !== undefined) {
-        if (geneEnd < start || geneStart > end) continue
-      }
-      
-      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)]
-      const geneNumber = chrIdx * 1000 + i + 1
-      
-      genes.push({
-        id: `${species}_${chr}_gene_${geneNumber}`,
-        name: `${prefix}${geneNumber}`,
-        chromosome: chr,
-        start: geneStart,
-        end: geneEnd,
-        strand: Math.random() > 0.5 ? "+" : "-",
-        type: Math.random() > 0.7 ? "biosynthesis" : Math.random() > 0.5 ? "transporter" : "housekeeping",
-        product: getRandomProduct(),
-        description: getRandomDescription()
-      })
-    }
-  })
-  
-  return genes
-}
-
-function getRandomProduct(): string {
-  const products = [
-    "tryptophan decarboxylase",
-    "cytochrome P450 monooxygenase",
-    "O-methyltransferase",
-    "ABC transporter",
-    "polyketide synthase",
-    "non-ribosomal peptide synthetase",
-    "hydroxylase",
-    "kinase",
-    "hypothetical protein"
-  ]
-  return products[Math.floor(Math.random() * products.length)]
-}
-
-function getRandomDescription(): string {
-  const descriptions = [
-    "Involved in secondary metabolite biosynthesis",
-    "Membrane-bound enzyme",
-    "Catalyzes oxidation reaction",
-    "Transport of small molecules",
-    "Regulatory function",
-    "Unknown function, conserved domain"
-  ]
-  return descriptions[Math.floor(Math.random() * descriptions.length)]
-}
+const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export async function GET(
   request: NextRequest,
@@ -101,61 +28,73 @@ export async function GET(
 ) {
   const { species } = await params
   const { searchParams } = new URL(request.url)
-  
+
   const chromosome = searchParams.get("chr") || undefined
-  const start = searchParams.get("start") ? parseInt(searchParams.get("start")!) : undefined
-  const end = searchParams.get("end") ? parseInt(searchParams.get("end")!) : undefined
-  const limit = parseInt(searchParams.get("limit") || "500")
-  
+  const start = searchParams.get("start") ? parseInt(searchParams.get("start")!, 10) : undefined
+  const end = searchParams.get("end") ? parseInt(searchParams.get("end")!, 10) : undefined
+  const limit = parseInt(searchParams.get("limit") || "500", 10)
+
   try {
-    // Try to fetch from MINDEX API if available
-    const mindexApiUrl = process.env.MINDEX_API_BASE_URL
-    
-    if (mindexApiUrl) {
+    const genes: Gene[] = []
+
+    // Try MINDEX genetics API (sequence features / genes)
+    if (MINDEX_API_URL) {
       try {
-        let apiUrl = `${mindexApiUrl}/genes/${encodeURIComponent(species)}`
-        const queryParams = new URLSearchParams()
-        if (chromosome) queryParams.set("chr", chromosome)
-        if (start !== undefined) queryParams.set("start", start.toString())
-        if (end !== undefined) queryParams.set("end", end.toString())
-        if (queryParams.toString()) apiUrl += `?${queryParams.toString()}`
-        
-        const response = await fetch(apiUrl, {
+        const speciesParam = encodeURIComponent(species.replace(/_/g, " "))
+        const geneticsUrl = `${MINDEX_API_URL}/api/mindex/genetics?species=${speciesParam}&limit=${limit}`
+        const response = await fetch(geneticsUrl, {
           headers: {
-            "x-api-key": process.env.MINDEX_API_KEY || ""
+            "X-API-Key": MINDEX_API_KEY || "",
+            "Content-Type": "application/json",
           },
-          next: { revalidate: 60 } // Cache for 1 minute
+          next: { revalidate: 60 },
         })
-        
+
         if (response.ok) {
           const data = await response.json()
-          return NextResponse.json({
-            success: true,
-            source: "mindex",
-            species,
-            genes: data.genes || data.data || []
-          })
+          const sequences = data.data || data.sequences || []
+          // Map genetic sequences to Gene-like format if they have features
+          for (let i = 0; i < sequences.length; i++) {
+            const s = sequences[i]
+            const geneName = s.gene || s.region || s.accession || `seq_${i + 1}`
+            const seqLen = s.sequence?.length || s.sequence_length || 0
+            const gene: Gene = {
+              id: s.id || `${species}_${geneName}_${i}`,
+              name: geneName,
+              chromosome: s.chromosome || chromosome || "unknown",
+              start: s.start_pos ?? s.start ?? 0,
+              end: s.end_pos ?? s.end ?? seqLen,
+              strand: (s.strand as "+" | "-") || "+",
+              type: s.feature_type || s.type || "sequence",
+              product: s.product || s.definition,
+              description: s.description,
+            }
+            if (chromosome && gene.chromosome !== chromosome) continue
+            if (start !== undefined && end !== undefined) {
+              if (gene.end < start || gene.start > end) continue
+            }
+            genes.push(gene)
+          }
         }
       } catch (error) {
-        console.error("MINDEX genes API error:", error)
-        // Fall through to demo data
+        console.error("MINDEX genetics API error:", error)
       }
     }
-    
-    // Generate demo genes
-    const speciesKey = species.toLowerCase().replace(/\s+/g, "_")
-    const genes = generateDemoGenes(speciesKey, chromosome, start, end).slice(0, limit)
-    
+
+    // NO DEMO DATA: return empty when MINDEX has no genes
     return NextResponse.json({
       success: true,
-      source: "demo",
-      message: "Using demo gene data. Connect MINDEX API for real data.",
+      source: genes.length > 0 ? "mindex" : "empty",
+      message:
+        genes.length === 0
+          ? "No gene annotations in MINDEX. Run ETL to populate genetics data."
+          : undefined,
       species,
       region: chromosome ? { chromosome, start, end } : null,
-      genes,
-      total: genes.length
+      genes: genes.slice(0, limit),
+      total: genes.length,
+      data_quality: genes.length > 0 ? "has_genes" : "no_genes",
     })
-    
   } catch (error) {
     console.error("Genes API error:", error)
     return NextResponse.json(

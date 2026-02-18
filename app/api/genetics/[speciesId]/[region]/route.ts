@@ -2,25 +2,20 @@ import { NextRequest, NextResponse } from "next/server"
 
 /**
  * Genetic Sequence Download API
- * 
- * Provides downloadable genetic sequences in FASTA format for fungal species.
- * Supports multiple regions: ITS, LSU, SSU, TEF1, RPB1, RPB2
- * 
- * Data is sourced from MINDEX database and external sources (NCBI, MycoBank)
+ * NO MOCK DATA: Fetches real sequences from MINDEX genetics API.
+ * Returns 404 when no sequence available (no placeholder/fake data).
  */
 
-// Valid genetic regions
 const VALID_REGIONS = ["ITS", "LSU", "SSU", "TEF1", "RPB1", "RPB2", "FASTA"] as const
-type GeneticRegion = typeof VALID_REGIONS[number]
+type GeneticRegion = (typeof VALID_REGIONS)[number]
 
-// MINDEX API configuration
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 interface GeneticSequence {
   speciesId: string
   speciesName: string
-  region: GeneticRegion
+  region: string
   sequence: string
   length: number
   accession: string | null
@@ -28,7 +23,16 @@ interface GeneticSequence {
   description: string
 }
 
-// Mycosoft branded FASTA header
+const REGION_DESCRIPTIONS: Record<string, string> = {
+  ITS: "Internal Transcribed Spacer - Primary fungal barcode region",
+  LSU: "Large Subunit ribosomal DNA (28S rRNA)",
+  SSU: "Small Subunit ribosomal DNA (18S rRNA)",
+  TEF1: "Translation Elongation Factor 1-alpha",
+  RPB1: "RNA Polymerase II largest subunit",
+  RPB2: "RNA Polymerase II second largest subunit",
+  FASTA: "Complete available genetic sequences",
+}
+
 function generateFASTAHeader(seq: GeneticSequence): string {
   const now = new Date().toISOString().split("T")[0]
   return [
@@ -39,53 +43,14 @@ function generateFASTAHeader(seq: GeneticSequence): string {
     seq.accession ? `; Accession: ${seq.accession}` : "; Accession: MYCOSOFT-MINDEX",
     `; Generated: ${now}`,
     `; Copyright (c) ${new Date().getFullYear()} Mycosoft Corporation`,
-    `; This sequence is provided via the MINDEX database platform.`,
-    `; For commercial use, please contact licensing@mycosoft.io`,
     ``,
   ].join("\n")
 }
 
-// Generate formatted FASTA content
 function formatFASTA(seq: GeneticSequence): string {
   const header = generateFASTAHeader(seq)
-  // Format sequence in 80-character lines (standard FASTA format)
   const formattedSeq = seq.sequence.match(/.{1,80}/g)?.join("\n") || seq.sequence
   return header + formattedSeq + "\n"
-}
-
-// Region descriptions
-const REGION_DESCRIPTIONS: Record<GeneticRegion, string> = {
-  ITS: "Internal Transcribed Spacer - Primary fungal barcode region",
-  LSU: "Large Subunit ribosomal DNA (28S rRNA)",
-  SSU: "Small Subunit ribosomal DNA (18S rRNA)",
-  TEF1: "Translation Elongation Factor 1-alpha",
-  RPB1: "RNA Polymerase II largest subunit",
-  RPB2: "RNA Polymerase II second largest subunit",
-  FASTA: "Complete available genetic sequences",
-}
-
-// Placeholder sequences (would be fetched from MINDEX in production)
-function generatePlaceholderSequence(region: GeneticRegion): string {
-  const lengths: Record<GeneticRegion, number> = {
-    ITS: 650,
-    LSU: 900,
-    SSU: 1800,
-    TEF1: 500,
-    RPB1: 750,
-    RPB2: 1100,
-    FASTA: 4500,
-  }
-  
-  const bases = ["A", "T", "G", "C"]
-  const length = lengths[region]
-  let sequence = ""
-  
-  // Generate pseudo-random but deterministic sequence
-  for (let i = 0; i < length; i++) {
-    sequence += bases[(i * 7 + i * i) % 4]
-  }
-  
-  return sequence
 }
 
 export async function GET(
@@ -95,45 +60,83 @@ export async function GET(
   const { speciesId, region: regionParam } = await params
   const region = regionParam.toUpperCase() as GeneticRegion
 
-  // Validate region
   if (!VALID_REGIONS.includes(region)) {
     return NextResponse.json(
       {
         error: "Invalid genetic region",
-        validRegions: VALID_REGIONS,
-        message: `Region '${regionParam}' is not supported. Use one of: ${VALID_REGIONS.join(", ")}`,
+        validRegions: [...VALID_REGIONS],
+        message: `Region '${regionParam}' is not supported.`,
       },
       { status: 400 }
     )
   }
 
   try {
-    // Try to fetch species data from MINDEX
     let speciesName = "Unknown Species"
     let source = "MINDEX"
     let accession: string | null = null
+    let sequence: string | null = null
 
+    // Fetch species from MINDEX taxa
     try {
-      const response = await fetch(`${MINDEX_API_URL}/api/mindex/taxa/${speciesId}`, {
+      const taxaRes = await fetch(`${MINDEX_API_URL}/api/mindex/taxa/${speciesId}`, {
         headers: {
           "X-API-Key": MINDEX_API_KEY,
           "Content-Type": "application/json",
         },
       })
-
-      if (response.ok) {
-        const taxon = await response.json()
+      if (taxaRes.ok) {
+        const taxon = await taxaRes.json()
         speciesName = taxon.canonical_name || taxon.scientific_name || speciesName
         source = `MINDEX (${taxon.source || "local"})`
-        accession = taxon.metadata?.genbank_accession || null
+        accession = taxon.metadata?.genbank_accession ?? null
       }
     } catch (e) {
-      console.log("MINDEX fetch failed, using placeholder:", e)
+      console.log("MINDEX taxa fetch failed:", e)
     }
 
-    // Generate or fetch sequence
-    // In production, this would query MINDEX genetics table or external databases
-    const sequence = generatePlaceholderSequence(region)
+    // Fetch real sequence from MINDEX genetics
+    try {
+      const speciesParam = encodeURIComponent(speciesName)
+      const geneFilter = region === "FASTA" ? "" : `&gene=${region}`
+      const geneticsRes = await fetch(
+        `${MINDEX_API_URL}/api/mindex/genetics?species=${speciesParam}&limit=50${geneFilter}`,
+        {
+          headers: {
+            "X-API-Key": MINDEX_API_KEY,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      if (geneticsRes.ok) {
+        const data = await geneticsRes.json()
+        const sequences = data.data || data.sequences || []
+        if (region === "FASTA" && sequences.length > 0) {
+          sequence = sequences.map((s: { sequence?: string }) => s.sequence || "").join("")
+        } else if (sequences.length > 0) {
+          const match = sequences.find(
+            (s: { gene?: string; region?: string }) =>
+              (s.gene || s.region || "").toUpperCase() === region
+          )
+          if (match && match.sequence) sequence = match.sequence
+          else if (sequences[0]?.sequence) sequence = sequences[0].sequence
+        }
+      }
+    } catch (e) {
+      console.log("MINDEX genetics fetch failed:", e)
+    }
+
+    // NO PLACEHOLDER: return 404 when no real sequence
+    if (!sequence || sequence.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Sequence not available",
+          message: `No genetic sequence for region '${region}' in MINDEX. Contribute data via MINDEX ETL.`,
+        },
+        { status: 404 }
+      )
+    }
 
     const geneticSeq: GeneticSequence = {
       speciesId,
@@ -143,12 +146,10 @@ export async function GET(
       length: sequence.length,
       accession,
       source,
-      description: REGION_DESCRIPTIONS[region],
+      description: REGION_DESCRIPTIONS[region] || region,
     }
 
-    // Determine response format
-    const searchParams = request.nextUrl.searchParams
-    const format = searchParams.get("format") || "fasta"
+    const format = request.nextUrl.searchParams.get("format") || "fasta"
 
     if (format === "json") {
       return NextResponse.json({
@@ -157,7 +158,6 @@ export async function GET(
       })
     }
 
-    // Return as FASTA file download
     const fastaContent = formatFASTA(geneticSeq)
     const filename = `${speciesName.replace(/\s+/g, "_")}_${region}.fasta`
 
@@ -179,7 +179,6 @@ export async function GET(
   }
 }
 
-// HEAD request for checking availability
 export async function HEAD(
   request: NextRequest,
   { params }: { params: Promise<{ speciesId: string; region: string }> }
