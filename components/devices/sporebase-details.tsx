@@ -183,7 +183,7 @@ export function SporeBaseDetails() {
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
 
   return (
-    <div className="relative bg-gradient-to-b from-orange-950 via-slate-950 to-black text-white overflow-hidden">
+    <div className="relative bg-white dark:bg-gradient-to-b dark:from-orange-950 dark:via-slate-950 dark:to-black text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Background gradient - matching CodePen style */}
@@ -262,51 +262,51 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-950 to-slate-900">
+      <section className="py-24 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+              <Badge className="mb-4 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30">
                 Our Mission
               </Badge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
                 Why SporeBase Exists
               </h2>
-              <div className="space-y-4 text-lg text-white/70">
+              <div className="space-y-4 text-lg text-slate-600 dark:text-white/70">
                 <p>
                   The air around us carries billions of microscopic particles—spores, pollen, 
                   dust, and other biological material. Understanding what&apos;s in the air we breathe 
                   has never been more important.
                 </p>
                 <p>
-                  SporeBase creates <strong className="text-orange-400">time-indexed physical samples</strong> for 
+                  SporeBase creates <strong className="text-orange-600 dark:text-orange-400">time-indexed physical samples</strong> for 
                   lab analysis while logging environmental context. Unlike snapshot sampling that loses temporal 
                   context, SporeBase advances a sealed adhesive-tape cassette every 15 minutes, creating a 
-                  chronological record spanning <strong className="text-orange-400">30 days (2,880 intervals)</strong>.
+                  chronological record spanning <strong className="text-orange-600 dark:text-orange-400">30 days (2,880 intervals)</strong>.
                 </p>
                 <p>
                   Deploy on buildings, vehicles, or research stations. SporeBase works standalone 
-                  or as part of the Mycosoft Environmental Intelligence network via <strong className="text-white/90">Mycorrhizae 
-                  Protocol + MINDEX</strong>, visualized through <strong className="text-white/90">NatureOS</strong>.
+                  or as part of the Mycosoft Environmental Intelligence network via <strong className="text-slate-800 dark:text-white/90">Mycorrhizae
+                  Protocol + MINDEX</strong>, visualized through <strong className="text-slate-800 dark:text-white/90">NatureOS</strong>.
                 </p>
               </div>
               
               <div className="grid grid-cols-4 gap-4 mt-8">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">2,880</div>
-                  <div className="text-sm text-white/50">Sample Intervals</div>
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">2,880</div>
+                  <div className="text-sm text-slate-500 dark:text-white/50">Sample Intervals</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">30</div>
-                  <div className="text-sm text-white/50">Days Per Cassette</div>
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">30</div>
+                  <div className="text-sm text-slate-500 dark:text-white/50">Days Per Cassette</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">15m</div>
-                  <div className="text-sm text-white/50">Collection Cadence</div>
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">15m</div>
+                  <div className="text-sm text-slate-500 dark:text-white/50">Collection Cadence</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-400">IP65</div>
-                  <div className="text-sm text-white/50">Weather Rated</div>
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">IP65</div>
+                  <div className="text-sm text-slate-500 dark:text-white/50">Weather Rated</div>
                 </div>
               </div>
             </div>
@@ -363,7 +363,7 @@ export function SporeBaseDetails() {
               
               {/* Main image with depth effect - floating above */}
               <motion.div 
-                className="relative aspect-square rounded-3xl overflow-hidden border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-slate-900 shadow-2xl shadow-orange-500/20"
+                className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200 dark:border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-slate-100 dark:to-slate-900 shadow-2xl shadow-orange-500/20"
                 initial={{ y: 0 }}
                 animate={{ y: [-4, 4, -4] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
@@ -379,8 +379,8 @@ export function SporeBaseDetails() {
               </motion.div>
               
               <div className="absolute -bottom-6 -right-6 p-4 bg-orange-500/20 backdrop-blur-xl rounded-2xl border border-orange-500/30 shadow-lg shadow-orange-500/10">
-                <Wind className="h-8 w-8 text-orange-400" />
-                <p className="text-sm font-medium mt-2 text-orange-400">Bioaerosol Capture</p>
+                <Wind className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+                <p className="text-sm font-medium mt-2 text-orange-600 dark:text-orange-400">Bioaerosol Capture</p>
               </div>
             </div>
           </div>
@@ -413,13 +413,13 @@ export function SporeBaseDetails() {
               { icon: Database, title: "Chain of Custody", desc: "MINDEX provides tamper-evident records with Mycorrhizae Protocol data encoding" },
               { icon: FlaskRound, title: "Lab-Ready", desc: "Sealed cassettes ready for microscopy, qPCR, sequencing, or archive storage" },
             ].map((item) => (
-              <Card key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors backdrop-blur-sm">
+              <Card key={item.title} className="bg-white/95 dark:bg-slate-800/50 border-slate-200 dark:border-orange-500/20 hover:border-orange-500/40 dark:hover:border-orange-500/40 transition-colors backdrop-blur-sm shadow-lg dark:shadow-none">
                 <CardContent className="pt-6">
                   <div className="p-3 rounded-xl bg-orange-500/20 w-fit mb-4">
-                    <item.icon className="h-6 w-6 text-orange-400" />
+                    <item.icon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <h3 className="font-bold text-lg mb-2 text-white">{item.title}</h3>
-                  <p className="text-white/60 text-sm">{item.desc}</p>
+                  <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{item.title}</h3>
+                  <p className="text-slate-600 dark:text-white/60 text-sm">{item.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -428,19 +428,19 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Applications Section */}
-      <section className="relative py-24 bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden">
+      <section className="relative py-24 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 overflow-hidden">
         {/* Interactive particle gravity effect - mouse/touch responsive */}
         <SporeGravity className="opacity-70" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <Badge className="mb-4 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30">
               Applications
             </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Who Uses SporeBase?
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-white/60 max-w-2xl mx-auto">
               From research labs to public health agencies, SporeBase provides critical bioaerosol data.
             </p>
           </div>
@@ -456,19 +456,19 @@ export function SporeBaseDetails() {
                 className={`cursor-pointer rounded-2xl border p-6 transition-all ${
                   selectedCase === index
                     ? 'bg-gradient-to-br ' + useCase.color + ' border-transparent text-black'
-                    : 'bg-slate-800/50 border-slate-700 hover:border-orange-500/50'
+                    : 'bg-white dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-orange-500/50 shadow-lg dark:shadow-none'
                 }`}
               >
-                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-black/80' : 'text-orange-400'}`} />
-                <h3 className="font-bold text-lg mb-2">{useCase.title}</h3>
-                <p className={`text-sm ${selectedCase === index ? 'text-black/70' : 'text-white/60'}`}>
+                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-black/80' : 'text-orange-600 dark:text-orange-400'}`} />
+                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-black' : 'text-slate-900 dark:text-white'}`}>{useCase.title}</h3>
+                <p className={`text-sm ${selectedCase === index ? 'text-black/70' : 'text-slate-600 dark:text-white/60'}`}>
                   {useCase.description}
                 </p>
                 <div className="mt-4 space-y-1">
                   {useCase.applications.map((app) => (
                     <div key={app} className="flex items-center gap-2 text-xs">
-                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-black/60' : 'text-orange-400/60'}`} />
-                      <span className={selectedCase === index ? 'text-black/80' : 'text-white/50'}>{app}</span>
+                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-black/60' : 'text-orange-500/60 dark:text-orange-400/60'}`} />
+                      <span className={selectedCase === index ? 'text-black/80' : 'text-slate-500 dark:text-white/50'}>{app}</span>
                     </div>
                   ))}
                 </div>
@@ -479,30 +479,30 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Inside SporeBase - Blueprint Section */}
-      <section className="py-24 bg-black">
+      <section className="py-24 bg-slate-50 dark:bg-black">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <Badge className="mb-4 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30">
               Engineering
             </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Inside SporeBase
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-white/60 max-w-2xl mx-auto">
               Explore the components that make SporeBase the most advanced bioaerosol collector.
             </p>
           </div>
 
           {/* Control Device Layout */}
-          <div className="relative bg-slate-900/50 rounded-3xl border-2 border-orange-500/30 p-6 shadow-2xl shadow-orange-500/5">
+          <div className="relative bg-white dark:bg-slate-900/50 rounded-3xl border-2 border-slate-200 dark:border-orange-500/30 p-6 shadow-2xl shadow-slate-200/50 dark:shadow-orange-500/5">
             <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel */}
-                <div className="bg-slate-950 rounded-2xl border border-orange-500/40 p-4 shadow-inner">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-orange-500/20">
+                <div className="bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-orange-500/40 p-4 shadow-inner">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-orange-500/20">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-orange-400/70 uppercase tracking-wider">Component Selector</span>
+                    <span className="text-xs font-mono text-orange-600/80 dark:text-orange-400/70 uppercase tracking-wider">Component Selector</span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
@@ -521,16 +521,16 @@ export function SporeBaseDetails() {
                               ? 'bg-orange-500/20 border-orange-400 shadow-lg shadow-orange-500/30' 
                               : isHovered
                                 ? 'bg-orange-500/10 border-orange-500/50'
-                                : 'bg-slate-900/50 border-slate-700 hover:border-orange-500/40'
+                                : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 hover:border-orange-500/40'
                           }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-orange-500/30' : 'bg-slate-800'}`}>
-                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-orange-400' : 'text-white/50'}`} />
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-orange-500/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-orange-400' : 'text-slate-500 dark:text-white/50'}`} />
                             </div>
-                            <span className={`text-sm font-medium ${isSelected ? 'text-orange-400' : 'text-white/70'}`}>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-orange-400' : 'text-slate-700 dark:text-white/70'}`}>
                               {component.name}
                             </span>
                           </div>
@@ -541,10 +541,10 @@ export function SporeBaseDetails() {
                 </div>
 
                 {/* Description Widget */}
-                <div className="bg-slate-950 rounded-2xl border border-orange-500/40 p-4 shadow-inner flex-1">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-orange-500/20">
+                <div className="bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-orange-500/40 p-4 shadow-inner flex-1">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 dark:border-orange-500/20">
                     <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                    <span className="text-xs font-mono text-orange-400/70 uppercase tracking-wider">Component Details</span>
+                    <span className="text-xs font-mono text-orange-600/80 dark:text-orange-400/70 uppercase tracking-wider">Component Details</span>
                   </div>
                   
                   <AnimatePresence mode="wait">
@@ -558,14 +558,14 @@ export function SporeBaseDetails() {
                       >
                         <div className="flex items-center gap-3 mb-3">
                           <div className="p-2 rounded-xl bg-orange-500/20 border border-orange-500/30">
-                            <component.icon className="h-6 w-6 text-orange-400" />
+                            <component.icon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-orange-400">{component.name}</h3>
-                            <p className="text-xs text-white/50 font-mono">{component.description}</p>
+                            <h3 className="text-lg font-bold text-orange-600 dark:text-orange-400">{component.name}</h3>
+                            <p className="text-xs text-slate-500 dark:text-white/50 font-mono">{component.description}</p>
                           </div>
                         </div>
-                        <p className="text-sm text-white/80 leading-relaxed">{component.details}</p>
+                        <p className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">{component.details}</p>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -574,7 +574,7 @@ export function SporeBaseDetails() {
 
               {/* RIGHT SIDE: Blueprint */}
               <div className="flex-1 min-w-0 flex flex-col">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-orange-500/40 overflow-hidden shadow-inner">
+                <div className="relative flex-1 min-h-[500px] bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-orange-500/40 overflow-hidden shadow-inner">
                   {/* Grid pattern */}
                   <div className="absolute inset-0 opacity-15" style={{
                     backgroundImage: `
@@ -585,12 +585,12 @@ export function SporeBaseDetails() {
                   }} />
                   
                   {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-100 to-transparent dark:from-slate-900 dark:to-transparent z-10">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-cyan-400/70 uppercase tracking-wider">Interactive Schematic</span>
+                      <span className="text-xs font-mono text-cyan-600/80 dark:text-cyan-400/70 uppercase tracking-wider">Interactive Schematic</span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-white/30">SPOREBASE // REV 1.0</span>
+                      <span className="text-xs font-mono text-slate-400 dark:text-white/30">SPOREBASE // REV 1.0</span>
                     </div>
                   </div>
                   
@@ -607,9 +607,9 @@ export function SporeBaseDetails() {
                   </div>
                   
                   {/* Status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
-                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-orange-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-100 to-transparent dark:from-slate-900 dark:to-transparent">
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-white/30">
+                      <span>COMPONENT: <span className="text-orange-600 dark:text-orange-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         SYSTEM READY
@@ -624,43 +624,43 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Technical Specifications */}
-      <section className="py-24 bg-gradient-to-b from-black to-slate-950">
+      <section className="py-24 bg-gradient-to-b from-slate-50 to-white dark:from-black dark:to-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <Badge className="mb-4 bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30">
               Specifications
             </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Technical Details
             </h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="bg-slate-900/50 rounded-2xl border border-orange-500/20 p-6">
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-orange-500/20 p-6 shadow-lg dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
-                <Wind className="h-5 w-5 text-orange-400" />
-                <span className="font-semibold">Collection System</span>
+                <Wind className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <span className="font-semibold text-slate-900 dark:text-white">Collection System</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(0, 6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-700/50">
-                    <span className="text-white/60">{key}</span>
-                    <span className="font-medium text-orange-400">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-700/50">
+                    <span className="text-slate-600 dark:text-white/60">{key}</span>
+                    <span className="font-medium text-orange-600 dark:text-orange-400">{value}</span>
                   </div>
                 ))}
               </div>
             </div>
             
-            <div className="bg-slate-900/50 rounded-2xl border border-orange-500/20 p-6">
+            <div className="bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-orange-500/20 p-6 shadow-lg dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
-                <Cpu className="h-5 w-5 text-orange-400" />
-                <span className="font-semibold">System Specifications</span>
+                <Cpu className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <span className="font-semibold text-slate-900 dark:text-white">System Specifications</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-700/50">
-                    <span className="text-white/60">{key}</span>
-                    <span className="font-medium text-orange-400">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-700/50">
+                    <span className="text-slate-600 dark:text-white/60">{key}</span>
+                    <span className="font-medium text-orange-600 dark:text-orange-400">{value}</span>
                   </div>
                 ))}
               </div>
@@ -668,11 +668,11 @@ export function SporeBaseDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+            <Button variant="outline" className="border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </Button>
-            <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+            <Button variant="outline" className="border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
             </Button>
