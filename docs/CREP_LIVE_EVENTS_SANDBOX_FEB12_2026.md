@@ -105,6 +105,7 @@ This document describes the **live events** feature on the CREP map, how to test
 
 ## References
 
+- **Deployment handoff (for deployment agent):** `docs/CREP_LIVE_EVENTS_DEPLOYMENT_HANDOFF_FEB11_2026.md`
 - CREP dashboard guide: `docs/CREP_DASHBOARD_GUIDE.md`  
 - CREP dev server (3020): `.cursor/rules/crep-context.mdc`  
 - VM layout and dev: `docs/VM_LAYOUT_AND_DEV_REMOTE_SERVICES_FEB06_2026.md` (in MAS repo if present) or workspace rules `vm-layout-and-dev-remote-services.mdc`  

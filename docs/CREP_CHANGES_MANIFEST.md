@@ -13,7 +13,7 @@
 | `app/dashboard/crep/CREPDashboardClient.tsx` | Periodic refresh of global events (90s), new-event tracking, live-events toast, blinking marker for new events in view. |
 | `docs/CREP_LIVE_EVENTS_SANDBOX_FEB12_2026.md` | Feature description, sandbox testing steps, VM/env, deployment checklist for deployment agent. |
 
-Deployment is performed by another agent; see the doc above for post-deploy testing on sandbox.
+Deployment is performed by another agent. See `docs/CREP_LIVE_EVENTS_DEPLOYMENT_HANDOFF_FEB11_2026.md` for the deployment-agent checklist and `docs/CREP_LIVE_EVENTS_SANDBOX_FEB12_2026.md` for post-deploy testing on sandbox.
 
 ---
 
