@@ -20,6 +20,7 @@ export async function GET() {
   try {
     const discoveredDevices: any[] = []
     const deviceMap = new Map<string, any>()
+    const likelyPorts = new Set<string>()
 
     // 1. Get all ports (including unconnected ones)
     try {
@@ -32,21 +33,28 @@ export async function GET() {
         const ports = portsData.ports || []
         
         for (const portInfo of ports) {
-          if (portInfo.is_mycobrain || portInfo.port?.startsWith("COM") || portInfo.port?.startsWith("/dev/tty")) {
-            const deviceId = `mycobrain-${portInfo.port.replace(/[\/\\]/g, '-')}`
-            
-            if (!deviceMap.has(deviceId)) {
-              deviceMap.set(deviceId, {
-                deviceId,
-                deviceType: "mycobrain",
-                port: portInfo.port,
-                description: portInfo.description,
-                hwid: portInfo.hwid,
-                connected: portInfo.is_connected || false,
-                discovered: true,
-                source: "serial_scan",
-              })
-            }
+          const portName = portInfo.device || portInfo.port
+          if (!portName) continue
+          let likelyMycoBrain = portInfo.likely_mycobrain ?? portInfo.is_mycobrain
+          if (likelyMycoBrain === undefined) {
+            const hwid = String(portInfo.hwid || "").toUpperCase()
+            const hasVid = portInfo.vid != null
+            likelyMycoBrain = hasVid && !hwid.includes("ACPI") && !hwid.includes("PNP0501")
+          }
+          if (!likelyMycoBrain) continue
+          likelyPorts.add(String(portName))
+          const deviceId = `mycobrain-${String(portName).replace(/[\/\\]/g, '-')}`
+          if (!deviceMap.has(deviceId)) {
+            deviceMap.set(deviceId, {
+              deviceId,
+              deviceType: "mycobrain",
+              port: portName,
+              description: portInfo.description,
+              hwid: portInfo.hwid,
+              connected: portInfo.is_connected || false,
+              discovered: true,
+              source: "serial_scan",
+            })
           }
         }
       }
@@ -54,7 +62,7 @@ export async function GET() {
       console.error("Failed to scan ports:", error)
     }
 
-    // 2. Get connected devices from MycoBrain service
+    // 2. Get connected devices from MycoBrain service (only include real ports)
     try {
       const devicesRes = await fetch(`${mycoBrainUrl}/devices`, {
         signal: AbortSignal.timeout(3000),
@@ -65,18 +73,20 @@ export async function GET() {
         const devices = devicesData.devices || []
         
         for (const device of devices) {
-          const deviceId = `mycobrain-${device.port?.replace(/[\/\\]/g, '-') || 'unknown'}`
+          const port = device.port ? String(device.port).replace(/[\/\\]/g, '-') : ''
+          if (!port || !likelyPorts.has(device.port)) continue
+          const deviceId = `mycobrain-${port}`
           
           const existing = deviceMap.get(deviceId) || {}
           deviceMap.set(deviceId, {
             ...existing,
             deviceId,
-            deviceType: "mycobrain",  // ← CRITICAL: Ensure deviceType is always set
-            connected: device.connected || false,
-            discovered: true,  // ← Mark as discovered
+            deviceType: "mycobrain",
+            connected: device.status === "connected" || device.connected || false,
+            discovered: true,
             lastMessage: device.last_message_time,
             sensorData: device.sensor_data,
-            deviceInfo: device.device_info,
+            deviceInfo: device.info || device.device_info,
             source: "mycobrain_service",
           })
         }

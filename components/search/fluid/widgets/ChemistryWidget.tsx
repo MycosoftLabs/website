@@ -179,9 +179,18 @@ export function ChemistryWidget({
         <div>
           <h3 className="font-medium text-muted-foreground">No Compounds Found</h3>
           <p className="text-xs text-muted-foreground/70 mt-1">
-            Try a different search term or check MINDEX for available compound data.
+            Try a different search term or fetch from PubChem/MINDEX.
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10"
+          onClick={() => ctx.emit("refresh-search")}
+        >
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+          Fetch from source
+        </Button>
       </div>
     )
   }

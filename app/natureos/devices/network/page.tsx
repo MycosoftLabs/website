@@ -82,8 +82,8 @@ export default function DeviceNetworkPage() {
     try {
       // Fetch from both local discover and MAS network registry in parallel
       const [discoverRes, networkRes] = await Promise.allSettled([
-        fetch("/api/devices/discover", { signal: AbortSignal.timeout(5000) }),
-        fetch("/api/devices/network", { signal: AbortSignal.timeout(10000) }),
+        fetch("/api/devices/discover", { signal: AbortSignal.timeout(15000) }),
+        fetch("/api/devices/network", { signal: AbortSignal.timeout(20000) }),
       ])
 
       const allDevices: DeviceInfo[] = []
@@ -103,10 +103,9 @@ export default function DeviceNetworkPage() {
           }
         }
       } else {
-        const error = discoverRes.status === "rejected" ? discoverRes.reason : discoverRes.value
-        const errorMsg = error instanceof Error ? error.message : 
-                        error?.statusText || error?.status || "Unknown error"
-        console.error("Discover fetch failed:", errorMsg, error)
+        const err = discoverRes.status === "rejected" ? discoverRes.reason : discoverRes.value
+        const msg = err instanceof Error ? err.message : (err && typeof err === "object" && "statusText" in err) ? (err as Response).statusText : "Discover unavailable"
+        console.warn("[fetchDevices] Discover unavailable:", msg)
       }
 
       // Process MAS network registry results (these take priority for matching IDs)
@@ -156,10 +155,9 @@ export default function DeviceNetworkPage() {
           }
         }
       } else {
-        const error = networkRes.status === "rejected" ? networkRes.reason : networkRes.value
-        const errorMsg = error instanceof Error ? error.message : 
-                        error?.statusText || error?.status || "Unknown error"
-        console.error("Network fetch failed:", errorMsg, error)
+        const err = networkRes.status === "rejected" ? networkRes.reason : networkRes.value
+        const msg = err instanceof Error ? err.message : (err && typeof err === "object" && "statusText" in err) ? (err as Response).statusText : "Network registry unavailable"
+        console.warn("[fetchDevices] Network registry unavailable:", msg)
       }
 
       console.log("[fetchDevices] Total devices after merge:", allDevices.length)
@@ -244,7 +242,10 @@ export default function DeviceNetworkPage() {
   const offlineDevices = verifiedDevices.filter(d => d.status === "offline")
   
   // Categorize by connection type
-  const serialDevices = verifiedDevices.filter(d => d.connectionType === "serial" || d.port?.startsWith("COM") || d.port?.startsWith("/dev"))
+  const serialDevices = verifiedDevices.filter(d => {
+    const port = typeof d.port === "string" ? d.port : String(d.port ?? "")
+    return d.connectionType === "serial" || port.startsWith("COM") || port.startsWith("/dev")
+  })
   const loraDevices = verifiedDevices.filter(d => d.connectionType === "lora")
   const wifiDevices = verifiedDevices.filter(d => d.connectionType === "wifi")
   

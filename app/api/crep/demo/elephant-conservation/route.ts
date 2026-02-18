@@ -1,8 +1,9 @@
 /**
- * Elephant Conservation API - Feb 12, 2026
+ * Elephant Conservation API - Feb 18, 2026
  * 
  * UPDATED: Now fetches real device data from MAS Device Registry
  * Falls back to demo mode when real devices unavailable
+ * Results cached for 10 minutes to prevent overwhelming the dev server
  * 
  * Data sources:
  * - MycoBrain devices: MAS Device Registry (real)
@@ -14,6 +15,16 @@ import { NextResponse } from "next/server"
 
 // MAS API for real device data
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+
+// In-memory cache
+interface CacheEntry {
+  data: unknown
+  timestamp: number
+  expiresAt: number
+}
+
+let elephantCache: CacheEntry | null = null
+const CACHE_TTL_MS = 600_000 // 10 minutes (elephant data doesn't need to be real-time)
 
 // Ghana and Africa conservation park coordinates
 const CONSERVATION_ZONES = {
@@ -584,8 +595,16 @@ function generateEventsFromDevices(devices: any[], fenceSegments: any[], monitor
 
 export async function GET(request: Request) {
   const now = new Date().toISOString()
+  const nowMs = Date.now()
   const url = new URL(request.url)
   const forceDemo = url.searchParams.get("demo") === "true"
+  const forceRefresh = url.searchParams.get("refresh") === "true"
+  
+  // Check cache first
+  if (!forceRefresh && elephantCache && nowMs < elephantCache.expiresAt) {
+    console.log(`[ElephantConservation] Cache HIT (${Math.round((elephantCache.expiresAt - nowMs) / 1000)}s remaining)`)
+    return NextResponse.json(elephantCache.data)
+  }
   
   // Try to fetch real devices from MAS
   let useDemo = forceDemo
@@ -628,18 +647,20 @@ export async function GET(request: Request) {
     lastUpdate: now,
   }))
 
-  return NextResponse.json({
+  const responseData = {
     ok: true,
     demo: useDemo,
     dataSource: useDemo ? "demo" : "mas_registry",
     timestamp: now,
     zones: CONSERVATION_ZONES,
-    elephants,  // Currently using demo data - pending GPS tracking integration
-    elephantsDataSource: "demo", // Real GPS tracking API integration pending
+    elephants,
+    elephantsDataSource: "demo",
     fenceSegments,
     environmentMonitors,
     devices: useDemo ? generateDevices() : realDevices,
     events,
+    available: true,
+    cached: false,
     stats: {
       totalElephants: elephants.length,
       healthyElephants: elephants.filter(e => e.status === "healthy").length,
@@ -657,5 +678,15 @@ export async function GET(request: Request) {
         ? "Demo mode: Using simulated devices. Connect to MAS (192.168.0.188:8001) for real device data." 
         : "Using real devices from MAS Device Registry.",
     },
-  })
+  }
+  
+  // Store in cache
+  elephantCache = {
+    data: { ...responseData, cached: true },
+    timestamp: nowMs,
+    expiresAt: nowMs + CACHE_TTL_MS,
+  }
+  console.log(`[ElephantConservation] Cache SET (TTL: ${CACHE_TTL_MS / 1000}s)`)
+
+  return NextResponse.json(responseData)
 }

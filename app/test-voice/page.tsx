@@ -555,7 +555,14 @@ export default function VoiceTestPage() {
         body: JSON.stringify({ persona: "myca", voice: "myca", enable_mas_events: true })
       })
       
-      if (!bridgeRes.ok) throw new Error(`Bridge session failed: ${bridgeRes.status}`)
+      if (!bridgeRes.ok) {
+        const errText = await bridgeRes.text().catch(() => "")
+        const bridgeHttp = bridgeWsBaseUrl.replace(/^ws/i, "http")
+        throw new Error(
+          `Bridge session failed (${bridgeRes.status}). Ensure PersonaPlex Bridge is running at ${bridgeHttp}. ` +
+          `GPU node: ws://192.168.0.190:8999 | Local: ws://localhost:8999. Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL in .env.local. ${errText ? errText.slice(0, 80) : ""}`
+        )
+      }
       
       const session = await bridgeRes.json()
       sessionIdRef.current = session.session_id
@@ -782,7 +789,7 @@ export default function VoiceTestPage() {
           warmupIntervalRef.current = null
         }
         wsConnectedRef.current = false
-        addLog("error", "WebSocket error - check if Moshi is fully loaded")
+        addLog("error", `WebSocket failed to ${bridgeWsUrl}. Is the bridge running? Set NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL in .env.local (ws://192.168.0.190:8999 or ws://localhost:8999)`)
         setWsConnected(false)
       }
       
@@ -947,8 +954,11 @@ export default function VoiceTestPage() {
                 brainThinkingStartRef.current = Date.now()
                 setBrainResponse("")
                 
-                // Clone text to MAS (non-blocking, background)
-                // Moshi hears the audio directly, this is for MAS processing
+                // Send user transcript to bridge for MAS Brain → Moshi TTS (MYCA voice, not raw Moshi)
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: "user_transcript", text }))
+                }
+                // Clone text to MAS for memory/tools (non-blocking)
                 cloneTextToMAS(text, sessionIdRef.current)
               }
             }, 800)
@@ -1298,6 +1308,9 @@ export default function VoiceTestPage() {
             MYCA Voice Suite v8.0.0 🧠
           </h1>
           <p className="text-zinc-500 text-sm">Full Consciousness | Memory Bridge | Emotional Intelligence | Intent Classifier</p>
+          <p className="text-zinc-600 text-xs mt-1">
+            Dev server: <code className="text-cyan-500">cd website && npm run dev:next-only</code> or <code className="text-cyan-500">.\scripts\start-dev.ps1</code>
+          </p>
         </div>
         
         {/* Status bar */}
@@ -1349,6 +1362,14 @@ export default function VoiceTestPage() {
                     {service.latency && <span className="text-green-400">{service.latency}ms</span>}
                   </div>
                 ))}
+                <p className="text-[10px] text-zinc-500 mt-2 pt-2 border-t border-zinc-800 truncate" title={bridgeWsBaseUrl}>
+                  Bridge WS: {bridgeWsBaseUrl}
+                </p>
+                {services[1]?.status === "offline" && (
+                  <div className="mt-2 p-2 bg-amber-900/30 border border-amber-700/40 rounded text-[10px] text-amber-200">
+                    <strong>Bridge offline.</strong> Start PersonaPlex Bridge: GPU node <code className="text-amber-400">192.168.0.190:8999</code> or locally <code className="text-amber-400">python services/personaplex-local/personaplex_bridge_nvidia.py</code> (MAS repo). Set <code className="text-amber-400">NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL</code> in website .env.local.
+                  </div>
+                )}
               </div>
             </div>
             

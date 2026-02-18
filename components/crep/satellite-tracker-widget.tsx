@@ -127,7 +127,7 @@ function SatelliteListItem({ satellite, onClick }: { satellite: SatelliteData; o
 export function SatelliteTrackerWidget({
   className,
   defaultCategory = "stations",
-  limit = 15,
+  limit = 100,
   compact = false,
   onSatelliteClick,
 }: {
@@ -143,25 +143,52 @@ export function SatelliteTrackerWidget({
   const [category, setCategory] = useState<SatelliteCategory>(defaultCategory)
 
   const fetchData = useCallback(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 25000)
     try {
       setLoading(true)
+      setError(null)
       const url = `/api/oei/satellites?category=${category}&limit=${limit}`
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Failed to fetch")
-      const json = await response.json()
+      const response = await fetch(url, { signal: controller.signal })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const msg = (json as { error?: string; message?: string }).error ?? (json as { message?: string }).message ?? `Server error ${response.status}`
+        const is429 = response.status === 429 || String(msg).includes("429") || String(msg).toLowerCase().includes("rate limit")
+        setError(is429 ? "Rate limit reached. Try again in a minute." : msg)
+        setLoading(false)
+        clearTimeout(timeoutId)
+        return
+      }
       setData(json)
       setError(null)
+      // 200 + rateLimit means we returned stale cache; no error to show
     } catch (err) {
-      setError("Unable to fetch satellite data")
+      const isAbort = err instanceof Error && err.name === "AbortError"
+      if (isAbort) {
+        // Timeout or user navigated away; don't show error or log as error
+        setError("Request took too long. Try again.")
+        return
+      }
+      const message = err instanceof Error ? err.message : "Unable to fetch satellite data"
+      const isNetwork = message === "Failed to fetch"
+      const is429 = message.includes("429") || message.toLowerCase().includes("rate limit")
+      setError(
+        isNetwork
+          ? "Network timeout or unreachable. Check connection and try again."
+          : is429
+            ? "Rate limit reached. Please wait a minute before refreshing."
+            : message
+      )
       console.error("[SatelliteTracker]", err)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }, [category, limit])
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 60000) // Update every minute
+    const interval = setInterval(fetchData, 90_000) // 90s refresh to reduce 429s (was 60s)
     return () => clearInterval(interval)
   }, [fetchData])
 

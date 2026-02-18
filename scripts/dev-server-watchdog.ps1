@@ -1,8 +1,10 @@
 # Dev Server Watchdog - Feb 17, 2026
 # Monitors localhost:3010 every 30s. Restarts dev server if it stops responding.
+# Also ensures MycoBrain service (8003) is always running when dev server is on.
 # Runs as a background process, installed in Windows Startup folder.
 
 $Port        = 3010
+$MASRoot     = "C:\Users\admin2\Desktop\MYCOSOFT\CODE\MAS\mycosoft-mas"
 $CheckEvery  = 30
 $StartDelay  = 5
 $MaxFails    = 3
@@ -28,6 +30,28 @@ function Is-Up {
     } catch {
         return $false
     }
+}
+
+function Is-MycoBrainUp {
+    try {
+        $r = Invoke-WebRequest -Uri "http://localhost:8003/health" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        return ($r.StatusCode -eq 200)
+    } catch {
+        return $false
+    }
+}
+
+function Ensure-MycoBrainRunning {
+    if (Is-MycoBrainUp) { return $true }
+    $script = Join-Path $MASRoot "scripts\mycobrain-service.ps1"
+    if (-not (Test-Path $script)) {
+        Write-Log "MycoBrain service script not found: $script" "WARN"
+        return $false
+    }
+    Write-Log "MycoBrain service down. Starting..."
+    & $script start 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
+    return (Is-MycoBrainUp)
 }
 
 function Kill-Port {
@@ -71,6 +95,13 @@ Write-Log "=== Dev Server Watchdog started. Checking every ${CheckEvery}s ==="
 $fails    = 0
 $restarts = 0
 
+# Ensure MycoBrain runs whenever dev server is on
+if (-not (Ensure-MycoBrainRunning)) {
+    Write-Log "MycoBrain service could not be started (dev server may still work)" "WARN"
+} else {
+    Write-Log "MycoBrain service (8003) is running."
+}
+
 if (-not (Is-Up)) {
     Write-Log "Server not running at startup. Starting now..."
     Kill-Port
@@ -87,6 +118,10 @@ while ($true) {
     if (Is-Up) {
         if ($fails -gt 0) { Write-Log "Server recovered. Resetting counter." }
         $fails = 0
+        # MycoBrain must run whenever dev server is on
+        if (-not (Is-MycoBrainUp)) {
+            Ensure-MycoBrainRunning | Out-Null
+        }
     } else {
         $fails++
         Write-Log "Not responding (fail $fails/$MaxFails)" "WARN"

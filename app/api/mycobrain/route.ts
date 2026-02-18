@@ -22,7 +22,7 @@ async function fetchNetworkDevices(): Promise<any[]> {
   try {
     const url = `${MAS_API_URL}/api/devices`
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
       headers: { Accept: "application/json" },
       cache: "no-store",
     })
@@ -143,10 +143,14 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Fetch all connected devices from the local MycoBrain service
-    const response = await fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, {
-      signal: AbortSignal.timeout(3000),
-    })
+    // Fetch devices, ports, and network registry in parallel to avoid timeouts
+    const [devicesRes, portsRes, networkDevices] = await Promise.all([
+      fetch(`${MYCOBRAIN_SERVICE_URL}/devices`, { signal: AbortSignal.timeout(5000) }),
+      fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, { signal: AbortSignal.timeout(2000) }).catch(() => null),
+      fetchNetworkDevices(),
+    ])
+
+    const response = devicesRes
     
     if (response.ok) {
       const data = await response.json()
@@ -154,15 +158,8 @@ export async function GET(request: NextRequest) {
       // Normalize devices to match frontend expectations
       const normalizedDevices = (data.devices || []).map(normalizeDevice)
       
-      // Also get available ports to show discovery status
-      const portsRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/ports`, {
-        signal: AbortSignal.timeout(1500),
-      }).catch(() => null)
+      const portsData = portsRes && portsRes.ok ? await portsRes.json().catch(() => ({})) : { ports: [], discovery_running: false }
       
-      const portsData = portsRes?.ok ? await portsRes.json() : { ports: [], discovery_running: false }
-      
-      // Also fetch network devices and merge (avoid duplicates)
-      const networkDevices = await fetchNetworkDevices()
       const localDeviceIds = new Set(normalizedDevices.map((d: any) => d.device_id))
       const additionalNetworkDevices = networkDevices.filter(d => !localDeviceIds.has(d.device_id))
       

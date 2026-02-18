@@ -590,6 +590,7 @@ export function SpeciesWidget({
   const [detailSpecies, setDetailSpecies] = useState<SpeciesResult | null>(null)
   const handleCloseDetail = useCallback(() => setDetailSpecies(null), [])
   const [earthOpen, setEarthOpen] = useState(false)
+  const [earthSpeciesName, setEarthSpeciesName] = useState<string | null>(null)
   // Enriched data — fetched automatically when focused so we get real taxonomy + photos
   const [enriched, setEnriched] = useState<SpeciesDetail | null>(null)
   const [enrichLoading, setEnrichLoading] = useState(false)
@@ -699,11 +700,30 @@ export function SpeciesWidget({
             {/* Taxonomy breadcrumb even in compact mode */}
             <TaxonomyTree taxonomy={taxonomy} compact />
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-[9px] text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 shrink-0"
+            onClick={() => {
+              setEarthSpeciesName(selected?.scientificName ?? null)
+              setEarthOpen(true)
+            }}
+            title="View on Earth"
+          >
+            <Globe className="h-3 w-3" />
+          </Button>
           {items.length > 1 && (
             <Badge variant="outline" className="text-[9px] shrink-0 ml-auto">{items.length}</Badge>
           )}
         </div>
         {detailSpecies && <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />}
+        {earthOpen && (earthSpeciesName || selected?.scientificName) && (
+          <SpeciesEarthPortalLoader
+            speciesName={earthSpeciesName || selected!.scientificName}
+            title={selected?.commonName || selected?.scientificName || earthSpeciesName || ""}
+            onClose={() => { setEarthOpen(false); setEarthSpeciesName(null) }}
+          />
+        )}
       </>
     )
   }
@@ -750,27 +770,41 @@ export function SpeciesWidget({
                     <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{pinnedData.description}</p>
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-[10px] shrink-0"
-                  onClick={() => {
-                    // Open full detail modal for this species
-                    const fakeResult: any = {
-                      id: `inat-${pinnedData.inat_id || 0}`,
-                      scientificName: pinnedData.name,
-                      commonName: pinnedData.common_name || pinnedData.name,
-                      taxonomy: pinnedData.taxonomy || {},
-                      description: pinnedData.description || "",
-                      photos: pinnedData.photos || [],
-                      observationCount: pinnedData.observation_count || 0,
-                      rank: pinnedData.rank || "species",
-                    }
-                    setDetailSpecies(fakeResult)
-                  }}
-                >
-                  Details
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] text-teal-400 border-teal-500/30 hover:bg-teal-500/10"
+                    onClick={() => {
+                      if (pinnedData?.name) {
+                        setEarthSpeciesName(pinnedData.name)
+                        setEarthOpen(true)
+                      }
+                    }}
+                  >
+                    <Globe className="h-2.5 w-2.5 mr-0.5" /> On Earth
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px]"
+                    onClick={() => {
+                      const fakeResult: any = {
+                        id: `inat-${pinnedData.inat_id || 0}`,
+                        scientificName: pinnedData.name,
+                        commonName: pinnedData.common_name || pinnedData.name,
+                        taxonomy: pinnedData.taxonomy || {},
+                        description: pinnedData.description || "",
+                        photos: pinnedData.photos || [],
+                        observationCount: pinnedData.observation_count || 0,
+                        rank: pinnedData.rank || "species",
+                      }
+                      setDetailSpecies(fakeResult)
+                    }}
+                  >
+                    Details
+                  </Button>
+                </div>
               </div>
             ) : (
               <p className="text-[10px] text-muted-foreground italic">{pinnedSpeciesName}</p>
@@ -904,7 +938,7 @@ export function SpeciesWidget({
                 </a>
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg text-teal-400 border-teal-500/30 hover:bg-teal-500/10"
-                onClick={() => setEarthOpen(true)}>
+                onClick={() => { setEarthSpeciesName(selected.scientificName); setEarthOpen(true) }}>
                 <Globe className="h-2.5 w-2.5 mr-0.5" /> On Earth
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
@@ -942,11 +976,11 @@ export function SpeciesWidget({
       {detailSpecies && <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />}
 
       {/* Earth observation portal — fetches real iNaturalist sightings for this species */}
-      {earthOpen && (
+      {earthOpen && (earthSpeciesName || selected?.scientificName) && (
         <SpeciesEarthPortalLoader
-          speciesName={selected.scientificName}
-          title={selected.commonName || selected.scientificName}
-          onClose={() => setEarthOpen(false)}
+          speciesName={earthSpeciesName || selected!.scientificName}
+          title={selected?.commonName || selected?.scientificName || earthSpeciesName || ""}
+          onClose={() => { setEarthOpen(false); setEarthSpeciesName(null) }}
         />
       )}
     </>

@@ -1,9 +1,26 @@
+/**
+ * AISStream Vessel API Route - Feb 18, 2026
+ * Real-time AIS vessel tracking via WebSocket
+ * 
+ * Results cached for 30 seconds to prevent overwhelming the dev server
+ */
+
 import { NextRequest, NextResponse } from "next/server"
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import { ingestVessels } from "@/lib/oei/mindex-ingest"
 
 export const dynamic = "force-dynamic"
+
+// Request-level cache to prevent too many API route hits
+interface CacheEntry {
+  data: unknown
+  timestamp: number
+  expiresAt: number
+}
+
+const vesselResponseCache = new Map<string, CacheEntry>()
+const CACHE_TTL_MS = 30_000 // 30 seconds cache
 
 // ── Persistent server-side AIS stream ─────────────────────────────────────────
 // AISstream uses WebSocket. We maintain a module-level singleton connection so
@@ -85,6 +102,19 @@ export async function GET(request: NextRequest) {
   const mmsi = searchParams.get("mmsi")
   const publish = searchParams.get("publish") === "true"
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : undefined
+  const forceRefresh = searchParams.get("refresh") === "true"
+
+  const cacheKey = `vessels_${lamin}_${lamax}_${lomin}_${lomax}_${mmsi}_${limit}_${publish}`
+  const now = Date.now()
+  
+  // Check cache first (unless force refresh or publishing)
+  if (!forceRefresh && !publish) {
+    const cached = vesselResponseCache.get(cacheKey)
+    if (cached && now < cached.expiresAt) {
+      console.log(`[AISStream] Cache HIT (${Math.round((cached.expiresAt - now) / 1000)}s remaining)`)
+      return NextResponse.json(cached.data)
+    }
+  }
 
   try {
     const startTime = Date.now()
@@ -119,36 +149,55 @@ export async function GET(request: NextRequest) {
       const result = await client.publishCachedVessels(query)
       logDataCollection("aisstream", "aisstream.com", result.entities.length, latency, true, "memory")
       ingestVessels("aisstream", result.entities)
-      return NextResponse.json({
+      const responseData = {
         success: true,
         published: result.published,
         total: result.entities.length,
         vessels: result.entities,
         isLive: streamRunning,
+        available: result.entities.length > 0,
         timestamp: new Date().toISOString(),
-      })
+        cached: false,
+      }
+      return NextResponse.json(responseData)
     } else {
       logDataCollection("aisstream", "aisstream.com", vessels.length, latency, true, "memory")
       ingestVessels("aisstream", vessels)
-      return NextResponse.json({
+      const responseData = {
         success: true,
         total: vessels.length,
         vessels,
         isLive: streamRunning,
         source: "aisstream",
+        available: vessels.length > 0,
         timestamp: new Date().toISOString(),
+        cached: false,
+      }
+      
+      // Store in cache
+      vesselResponseCache.set(cacheKey, {
+        data: { ...responseData, cached: true },
+        timestamp: now,
+        expiresAt: now + CACHE_TTL_MS,
       })
+      console.log(`[AISStream] Cache SET (TTL: ${CACHE_TTL_MS / 1000}s)`)
+      
+      return NextResponse.json(responseData)
     }
   } catch (error) {
     console.error("[AISStream] Error:", error)
     logAPIError("aisstream", "aisstream.com", String(error))
-    return NextResponse.json(
-      {
-        error: "Failed to fetch AIS vessel data",
-        details: String(error),
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 }
-    )
+    
+    // Return empty data on error instead of error status (graceful fallback)
+    return NextResponse.json({
+      success: false,
+      total: 0,
+      vessels: [],
+      isLive: false,
+      source: "aisstream",
+      available: false,
+      timestamp: new Date().toISOString(),
+      error: String(error),
+    })
   }
 }

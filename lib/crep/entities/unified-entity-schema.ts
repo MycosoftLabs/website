@@ -25,6 +25,10 @@ export interface UnifiedEntityState {
   altitude?: number;
   energy?: number;
   classification?: string;
+  /** Fixed [lng, lat] for trajectory line; icon moves, line stays put. From last-known API position. */
+  trailAnchor?: [number, number];
+  /** Full-orbit ground track for satellites only: [lng, lat][] wrapping around the planet. */
+  orbitPath?: [number, number][];
 }
 
 export interface UnifiedEntityTime {

@@ -494,6 +494,14 @@ export function MapControls({
                     onChange={(v) => onSatelliteFilterChange({ showDebris: v })}
                     color="red"
                   />
+                  <FilterToggle
+                    label="Active / Other"
+                    icon={<Activity className="w-3 h-3" />}
+                    checked={satelliteFilter.showActive}
+                    onChange={(v) => onSatelliteFilterChange({ showActive: v })}
+                    color="gray"
+                    hint="Earth observation, imaging, uncategorized"
+                  />
                 </div>
 
                 {/* Orbit Types */}

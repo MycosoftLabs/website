@@ -8,16 +8,29 @@
  * - category: stations | starlink | oneweb | weather | gnss | active | debris | planet
  * - norad: Comma-separated NORAD catalog IDs
  * - limit: Maximum results to return
+ * - refresh: Force cache refresh
  * 
  * Notes:
  * - "debris" fetches from iridium-33-debris + cosmos-2251-debris (both real CelesTrak groups)
  * - Timeout is 15 seconds to accommodate large categories like "active" and "starlink"
+ * - Results are cached for 2 minutes to prevent overwhelming the dev server
  */
 
 import { NextResponse } from "next/server"
 import { getSatelliteTrackingClient, type SatelliteCategory } from "@/lib/oei/connectors"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import { ingestSatellites } from "@/lib/oei/mindex-ingest"
+
+// In-memory cache to prevent overwhelming external APIs and dev server
+interface CacheEntry {
+  data: unknown
+  timestamp: number
+  expiresAt: number
+}
+
+const satelliteCache = new Map<string, CacheEntry>()
+const CACHE_TTL_MS = 120_000 // 2 minutes cache
+const CACHE_STALE_MS = 300_000 // 5 minutes before forced refresh
 
 const validCategories: SatelliteCategory[] = [
   "stations",
@@ -49,10 +62,34 @@ export async function GET(request: Request) {
   const category = searchParams.get("category") as SatelliteCategory | null
   const noradParam = searchParams.get("norad")
   const limit = searchParams.get("limit")
+  const forceRefresh = searchParams.get("refresh") === "true"
 
   const validCategory = category && validCategories.includes(category)
     ? category
     : "stations"
+
+  const cacheKey = `satellites_${validCategory}_${noradParam || "all"}_${limit || "unlimited"}`
+  const now = Date.now()
+  
+  // Check cache first (unless force refresh)
+  const cached = satelliteCache.get(cacheKey)
+  if (!forceRefresh && cached) {
+    const isStale = now > cached.expiresAt
+    const isTooOld = now > cached.timestamp + CACHE_STALE_MS
+    
+    // Return fresh cache
+    if (!isStale) {
+      console.log(`[Satellites] Cache HIT for "${validCategory}" (${Math.round((cached.expiresAt - now) / 1000)}s remaining)`)
+      return NextResponse.json(cached.data)
+    }
+    
+    // Return stale cache if not too old (stale-while-revalidate pattern)
+    if (!isTooOld) {
+      console.log(`[Satellites] Cache STALE for "${validCategory}", returning cached data`)
+      // Could trigger background refresh here if needed
+      return NextResponse.json(cached.data)
+    }
+  }
 
   const timeoutMs = CATEGORY_TIMEOUTS[validCategory] ?? CATEGORY_TIMEOUTS.default
 
@@ -89,7 +126,7 @@ export async function GET(request: Request) {
     // Ingest satellite data to MINDEX for persistent storage (non-blocking)
     ingestSatellites("celestrak", satellites)
 
-    return NextResponse.json({
+    const responseData = {
       source: "celestrak",
       timestamp: new Date().toISOString(),
       category: validCategory,
@@ -97,12 +134,38 @@ export async function GET(request: Request) {
       satellites,
       available: satellites.length > 0,
       latencyMs: latency,
+      cached: false,
+    }
+    
+    // Store in cache
+    satelliteCache.set(cacheKey, {
+      data: { ...responseData, cached: true },
+      timestamp: now,
+      expiresAt: now + CACHE_TTL_MS,
     })
+    console.log(`[Satellites] Cache SET for "${validCategory}" (TTL: ${CACHE_TTL_MS / 1000}s)`)
+
+    return NextResponse.json(responseData)
   } catch (error) {
     const errMsg = (error as Error).message
+    const is429 = errMsg.includes("429") || errMsg.includes("rate limit")
     console.error(`[API] Satellite tracking error for category "${validCategory}":`, errMsg)
     logAPIError("satellites", "celestrak.org", errMsg)
-    
+
+    // On 429, return stale cache if available so the widget can keep showing data
+    if (is429 && cached) {
+      console.log(`[Satellites] 429 rate limit - returning stale cache for "${validCategory}"`)
+      return NextResponse.json(
+        { ...(cached.data as object), rateLimit: true, message: "Rate limit reached; showing cached data." },
+        { status: 200 }
+      )
+    }
+
+    const status = is429 ? 429 : 503
+    const message = is429
+      ? "TLE API rate limit (429). Please wait a minute before refreshing."
+      : `CelesTrak API unavailable for category "${validCategory}" - no satellite data`
+
     return NextResponse.json({
       source: "celestrak",
       timestamp: new Date().toISOString(),
@@ -111,7 +174,7 @@ export async function GET(request: Request) {
       satellites: [],
       available: false,
       error: errMsg,
-      message: `CelesTrak API unavailable for category "${validCategory}" - no satellite data`,
-    }, { status: 503 })
+      message,
+    }, { status })
   }
 }

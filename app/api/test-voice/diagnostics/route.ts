@@ -100,16 +100,16 @@ export async function GET() {
     "http://localhost:8999"
 
   const bridgeHealthUrl = `${bridgeBaseUrl.replace(/\/$/, "")}/health`
-  const masMycaStatusUrl = `${masBaseUrl.replace(/\/$/, "")}/api/myca/status`
+  const masMycaPingUrl = `${masBaseUrl.replace(/\/$/, "")}/api/myca/ping`
   const masMemoryHealthUrl = `${masBaseUrl.replace(/\/$/, "")}/api/memory/health`
 
-  // MAS is remote (192.168.0.188) and can be slow; use 18s timeout so it doesn't show "off" when healthy but slow.
-  // Moshi status is derived from bridge health (moshi_available) for GPU node architecture.
-  const MAS_TIMEOUT_MS = 18000
+  // Use lightweight /api/myca/ping for Consciousness (no heavy get_consciousness()). 
+  // Short timeouts (5s) for fast diagnostics; services should respond in <500ms on same LAN.
+  const HEALTH_TIMEOUT_MS = 5000
   const [bridge, myca, memory] = await Promise.all([
-    checkUrl(bridgeHealthUrl, false, 9000),
-    checkUrl(masMycaStatusUrl, false, MAS_TIMEOUT_MS),
-    checkUrl(masMemoryHealthUrl, false, MAS_TIMEOUT_MS),
+    checkUrl(bridgeHealthUrl, false, HEALTH_TIMEOUT_MS),
+    checkUrl(masMycaPingUrl, false, HEALTH_TIMEOUT_MS),
+    checkUrl(masMemoryHealthUrl, false, HEALTH_TIMEOUT_MS),
   ])
 
   const bridgeData = bridge.data as { moshi_available?: boolean } | undefined
@@ -138,7 +138,7 @@ export async function GET() {
         {
           key: "mas_consciousness",
           name: "MAS Consciousness",
-          target: masMycaStatusUrl,
+          target: masMycaPingUrl,
           ok: myca.ok,
           status: myca.status,
           latencyMs: myca.latencyMs,

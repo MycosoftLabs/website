@@ -489,7 +489,9 @@ const COMPOUND_TO_FUNGI: Record<string, string> = {
   virotoxin:     "Amanita",
   // Ganoderma / Reishi
   ganoderic:     "Ganoderma",
+  ganodermic:    "Ganoderma",
   "ganoderic acid":"Ganoderma",
+  "ganodermic acid":"Ganoderma",
   lucidenic:     "Ganoderma",
   lanostan:      "Ganoderma",
   // Cordyceps
@@ -989,10 +991,20 @@ export async function GET(request: NextRequest) {
     const newSpeciesCompounds = speciesCompounds.filter(
       (c: any) => !mindexCompoundNames.has((c.name || "").toLowerCase())
     )
-    const compounds = ensureUniqueIds(
+    let compounds = ensureUniqueIds(
       [...mindexCompounds, ...newSpeciesCompounds],
       "cmp"
     ).slice(0, limit)
+
+    // When this was a compound query (e.g. "Ganodermic acid"), attach compoundFungi as sourceSpecies
+    // so Chemistry widget shows "Found In — Ganoderma lucidum, etc."
+    if (compoundFungi.length > 0 && compounds.length > 0) {
+      const fungiNames = compoundFungi.map((f: any) => f.scientificName).filter(Boolean)
+      compounds = compounds.map((c: any) => ({
+        ...c,
+        sourceSpecies: (c.sourceSpecies?.length ? c.sourceSpecies : fungiNames) as string[],
+      }))
+    }
 
     // Genetics: NCBI results come first (they have geneRegion + sequenceLength populated).
     // MINDEX records with incomplete metadata are appended only if not already represented.

@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
  * Start Dev Server with GPU Services - February 5, 2026
- * 
+ *
+ * OOM WARNING: Do NOT run this inside Cursor's terminal. Run from an external
+ * terminal (Windows Terminal, CMD) to avoid Cursor OOM crashes. See docs/OOM_PREVENTION_FEB18_2026.md (MAS repo).
+ *
  * This script:
  * 1. Starts all local GPU services (PersonaPlex, Earth2Studio, Gateway)
  * 2. Waits for health checks to pass

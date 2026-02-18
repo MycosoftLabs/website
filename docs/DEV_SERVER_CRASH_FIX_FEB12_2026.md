@@ -28,11 +28,25 @@
    - `.\scripts\start-dev.ps1 -Stable`  
      Uses 8GB heap for extra stability (recommended if it keeps crashing).
 
+## CRITICAL: Run dev server from EXTERNAL terminal (prevents Cursor crashes)
+
+**Cursor + Next.js dev server in the same process = high memory and file watchers = Cursor crashes.**
+
+1. Open **Windows Terminal** or **CMD** (outside Cursor).
+2. Run:
+   ```cmd
+   cd C:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website
+   scripts\start-dev.cmd
+   ```
+   Or double-click `scripts\start-dev.cmd` from Explorer.
+3. Dev server runs at http://localhost:3010. Cursor stays stable because it doesn't host the Node process.
+
 ## What to do when the dev server keeps crashing
 
-1. Run with stable heap:  
-   `.\scripts\start-dev.ps1 -Stable`
-2. Exclude the website folder (especially `.next`) from Windows Defender/antivirus real-time scan if possible.
+1. Use **external terminal** (above) first.
+2. Run with stable heap:  
+   `.\scripts\start-dev.ps1 -Stable` (or `scripts\start-dev.cmd`).
+3. Exclude the website folder (especially `.next`) from Windows Defender/antivirus real-time scan if possible.
 3. If you use WSL2, run the dev server inside WSL to avoid NTFS locking issues.
 4. For debugging:  
    `npm run dev:next-only -- --inspect`  
@@ -56,10 +70,9 @@
 
 | Command | Purpose |
 |--------|--------|
-| `npm run dev:next-only` | Normal dev (port 3010, no GPU). |
-| `npm run dev:stable` | Dev with 8GB Node heap (port 3010). |
-| `.\scripts\start-dev.ps1` | Free port 3010, then start dev. |
-| `.\scripts\start-dev.ps1 -Stable` | Stable start (cache cleared automatically). |
+| `scripts\start-dev.cmd` | **Best:** Run from external CMD (prevents Cursor crashes). |
+| `npm run dev:stable` | Dev with 8GB heap (port 3010). |
+| `.\scripts\start-dev.ps1 -Stable` | PowerShell start (cache cleared automatically). |
 | `.\scripts\ensure-dev-server.ps1` | Start dev only if not already responding on 3010. |
 
 ## Related

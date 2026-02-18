@@ -107,8 +107,43 @@ export function useSpeciesObservations(
           if (page < pages) await new Promise(r => setTimeout(r, 350))
         }
 
-        observationCache.set(key, allResults)
-        if (!cancelRef.current) setObservations(allResults)
+        let didSetFromGenus = false
+        // Fallback: if species-level returns 0, try genus (e.g. "Ganoderma lucidum" → "Ganoderma")
+        if (allResults.length === 0 && speciesName.includes(" ")) {
+          const genus = speciesName.split(" ")[0]
+          if (genus.length >= 4) {
+            const gParams = new URLSearchParams({
+              taxon_name: genus,
+              "has[]": "geo",
+              per_page: "50",
+              page: "1",
+              order: "desc",
+              order_by: "observed_on",
+              quality_grade: "research,needs_id,casual",
+              photos: "false",
+            })
+            const gRes = await fetch(`${INAT_BASE}/observations?${gParams}`, { signal: ctrl.signal })
+            if (gRes.ok) {
+              const gData = await gRes.json()
+              const gBatch = (gData.results || [])
+                .map((o: any) => mapObs(o, speciesName))
+                .filter(Boolean) as LocationResult[]
+              if (gBatch.length > 0) {
+                observationCache.set(key, gBatch)
+                if (!cancelRef.current) {
+                  setObservations(gBatch)
+                  didSetFromGenus = true
+                }
+              }
+            }
+          }
+        }
+        if (allResults.length > 0) {
+          observationCache.set(key, allResults)
+          if (!cancelRef.current) setObservations(allResults)
+        } else if (!didSetFromGenus && !cancelRef.current) {
+          setObservations([])
+        }
       } catch (e) {
         if (cancelRef.current || (e as Error).name === "AbortError") return
         setError((e as Error).message || "Failed to fetch observations")

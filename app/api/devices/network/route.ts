@@ -86,7 +86,6 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      // MAS may not have device registry yet (404) - return empty list so UI doesn't break
       if (response.status === 404) {
         return NextResponse.json({
           devices: [],
@@ -97,13 +96,15 @@ export async function GET(request: NextRequest) {
           timestamp: new Date().toISOString(),
         })
       }
-      console.error(`MAS Device Registry error: ${response.status}`)
+      console.warn(`MAS Device Registry returned ${response.status}, returning empty list`)
       return NextResponse.json({
         devices: [],
         count: 0,
-        error: `MAS API returned ${response.status}`,
+        source: "MAS Device Registry",
+        mas_url: MAS_API_URL,
+        note: `MAS returned ${response.status}; only local/serial devices will appear.`,
         timestamp: new Date().toISOString(),
-      }, { status: response.status })
+      })
     }
 
     const data: DeviceRegistryResponse = await response.json()
@@ -151,16 +152,15 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Failed to fetch network devices:", error)
-    
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    
+    console.warn("MAS device registry unreachable, returning empty list:", error instanceof Error ? error.message : error)
     return NextResponse.json({
       devices: [],
       count: 0,
-      error: `Failed to connect to MAS: ${errorMessage}`,
+      source: "MAS Device Registry",
+      mas_url: MAS_API_URL,
+      note: "MAS unreachable; only local/serial devices will appear.",
       timestamp: new Date().toISOString(),
-    }, { status: 503 })
+    })
   }
 }
 

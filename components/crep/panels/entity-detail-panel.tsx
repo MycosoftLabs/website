@@ -372,8 +372,10 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
   const latitude = (aircraft.location as any)?.latitude ?? 
                    aircraft.location?.coordinates?.[1] ?? 
                    (aircraft as any).latitude ?? null;
-  // Handle both velocity (standard) and speed (alternative)
-  const speed = aircraft.velocity ?? (aircraft as any).speed ?? 0;
+  // Handle both velocity (standard) and speed; FR24/OpenSky may use properties
+  const speed = aircraft.velocity ?? (aircraft as any).speed ?? (aircraft as any).properties?.velocity ?? (aircraft as any).properties?.groundSpeed ?? 0;
+  // Heading from top-level or properties
+  const heading = typeof aircraft.heading === "number" ? aircraft.heading : (aircraft as any).properties?.heading ?? 0;
   // Handle aircraft type variations
   const aircraftType = aircraft.aircraftType ?? (aircraft as any).aircraft_type ?? "Unknown Aircraft";
   // Handle on_ground variations
@@ -426,7 +428,7 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
           </div>
           <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
             <div className="text-[9px] text-gray-500 uppercase">Hdg</div>
-            <div className="text-xs font-bold text-yellow-400">{typeof aircraft.heading === 'number' ? aircraft.heading : 0}°</div>
+            <div className="text-xs font-bold text-yellow-400">{typeof heading === 'number' ? heading : 0}°</div>
           </div>
         </div>
 
@@ -456,12 +458,13 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
   const latitude = (vessel.location as any)?.latitude ?? 
                    vessel.location?.coordinates?.[1] ?? 
                    (vessel as any).latitude ?? null;
-  // Handle speed variations (sog = speed over ground, speed = alternative)
-  const speed = vessel.sog ?? (vessel as any).speed ?? 0;
+  // Handle speed variations (sog = speed over ground; AIS often in properties)
+  const speed = vessel.sog ?? (vessel as any).speed ?? (vessel as any).properties?.sog ?? 0;
   // Handle ship_type variations
   const shipType = vessel.shipType ?? (vessel as any).ship_type ?? "Unknown Vessel";
-  // Course over ground
-  const cog = vessel.cog ?? (vessel as any).course ?? 0;
+  // Course over ground (AIS: cog often in properties)
+  const cog = vessel.cog ?? (vessel as any).course ?? (vessel as any).properties?.cog ?? 0;
+  const heading = vessel.heading ?? (vessel as any).properties?.heading ?? cog;
   
   return (
     <div className="bg-[#0a1628] border border-cyan-500/30 rounded-lg overflow-hidden">
@@ -504,7 +507,7 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
           </div>
           <div className="bg-black/40 rounded-lg p-3 border border-gray-700/50">
             <div className="text-xs text-gray-500 mb-1">HEADING</div>
-            <div className="text-lg font-bold text-yellow-400">{typeof vessel.heading === 'number' ? vessel.heading : 0}°</div>
+            <div className="text-lg font-bold text-yellow-400">{typeof heading === 'number' ? heading : 0}°</div>
           </div>
           <div className="bg-black/40 rounded-lg p-3 border border-gray-700/50">
             <div className="text-xs text-gray-500 mb-1">COG</div>
@@ -558,22 +561,27 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
 
 // Satellite Detail Content
 function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; onClose: () => void }) {
+  const sat = satellite as SatelliteEntity & {
+    estimatedPosition?: { latitude?: number; longitude?: number; altitude?: number };
+    orbitalParams?: { apogee?: number; perigee?: number; velocity?: number; period?: number; inclination?: number };
+    properties?: Record<string, unknown>;
+    location?: { latitude?: number; longitude?: number };
+  };
   // Extract data from nested objects - connector uses estimatedPosition and orbitalParams
-  // estimatedPosition.altitude is in meters, orbitalParams.apogee is in km
-  const rawAltitude = satellite.estimatedPosition?.altitude ?? null;
-  const altitude = rawAltitude !== null ? rawAltitude / 1000 : (satellite.orbitalParams?.apogee ?? 0);
-  const velocity = satellite.orbitalParams?.velocity ?? 0;
-  const period = satellite.orbitalParams?.period ?? 0;
-  const latitude = satellite.estimatedPosition?.latitude;
-  const longitude = satellite.estimatedPosition?.longitude;
-  const inclination = satellite.orbitalParams?.inclination;
-  const noradId = satellite.noradId ?? satellite.properties?.noradId;
-  const launchDate = satellite.launchDate ?? satellite.properties?.launchDate;
-  const orbitType = satellite.orbitType ?? satellite.properties?.orbitType;
-  const objectType = satellite.objectType ?? satellite.properties?.objectType;
-  const apogee = satellite.orbitalParams?.apogee ?? satellite.properties?.apogee;
-  const perigee = satellite.orbitalParams?.perigee ?? satellite.properties?.perigee;
-  const intlDesignator = satellite.intlDesignator ?? satellite.properties?.intlDesignator;
+  const rawAltitude = sat.estimatedPosition?.altitude ?? null;
+  const altitude = rawAltitude !== null ? rawAltitude / 1000 : (sat.orbitalParams?.apogee ?? 0);
+  const velocity = sat.orbitalParams?.velocity ?? sat.properties?.velocity ?? 0;
+  const period = sat.orbitalParams?.period ?? sat.properties?.period ?? 0;
+  const latitude = sat.estimatedPosition?.latitude ?? sat.location?.latitude ?? (satellite as { latitude?: number }).latitude;
+  const longitude = sat.estimatedPosition?.longitude ?? sat.location?.longitude ?? (satellite as { longitude?: number }).longitude;
+  const inclination = sat.orbitalParams?.inclination;
+  const noradId = satellite.noradId ?? sat.properties?.noradId;
+  const launchDate = satellite.launchDate ?? sat.properties?.launchDate;
+  const orbitType = (satellite as { orbitType?: string }).orbitType ?? sat.properties?.orbitType;
+  const objectType = (satellite as { objectType?: string }).objectType ?? sat.properties?.objectType;
+  const apogee = sat.orbitalParams?.apogee ?? sat.properties?.apogee;
+  const perigee = sat.orbitalParams?.perigee ?? sat.properties?.perigee;
+  const intlDesignator = (satellite as { intlDesignator?: string }).intlDesignator ?? sat.properties?.intlDesignator;
   
   return (
     <div className="bg-[#0a1628] border border-purple-500/30 rounded-lg overflow-hidden">

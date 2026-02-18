@@ -7,6 +7,7 @@
 
 import { Metadata } from "next"
 import { FungiComputeDashboard } from "@/components/fungi-compute/dashboard"
+import { RequiresTablet } from "@/components/ui/responsive-display"
 
 export const metadata: Metadata = {
   title: "Fungi Compute | NatureOS",
@@ -14,5 +15,12 @@ export const metadata: Metadata = {
 }
 
 export default function FungiComputePage() {
-  return <FungiComputeDashboard />
+  return (
+    <RequiresTablet
+      appName="Fungi Compute"
+      reason="This biological computing visualization platform uses oscilloscopes, spectrum analyzers, and real-time 3D signal processing that require a tablet or desktop."
+    >
+      <FungiComputeDashboard />
+    </RequiresTablet>
+  )
 }

@@ -17,6 +17,7 @@
 import { useEffect, useMemo } from "react";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { IconLayer, PathLayer } from "@deck.gl/layers";
+import { PathStyleExtension } from "@deck.gl/extensions";
 import type maplibregl from "maplibre-gl";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 
@@ -94,6 +95,14 @@ function entityColor(type: string): RGBA {
   return ENTITY_COLORS[type] ?? [220, 220, 220, 200];
 }
 
+/** Normalize aviation heading to 0–360 degrees. Accepts degrees or radians (if value in 0..2π). */
+function normalizeHeadingDeg(heading: number): number {
+  if (!Number.isFinite(heading)) return 0;
+  let deg = heading;
+  if (heading >= 0 && heading <= 2 * Math.PI + 0.01) deg = (heading * 180) / Math.PI;
+  return ((deg % 360) + 360) % 360;
+}
+
 // ── Trail / motion trail helpers ──────────────────────────────────────────────
 
 interface TrailItem {
@@ -101,19 +110,34 @@ interface TrailItem {
   path: [number, number][];
 }
 
+// Half-extent for trajectory (sec). Trail = from (current - vel*h) to (current + vel*h).
+// Aircraft/vessels: velocity in knots → deg/s = 1/216000. 45 sec each side = 90 s total.
+const HALF_TRAIL_SEC_AIRCRAFT = 45 / 216000; // 45 sec in deg per knot
+// Satellites: state.velocity already in deg/s. 45 sec each side.
+const HALF_TRAIL_SEC_SATELLITE = 45;
+
+/**
+ * Build a fixed trajectory segment: [where from, where to] centered on trailAnchor.
+ * The line does not move; the icon (geometry.coordinates) moves along it.
+ * trailAnchor = last-known API position, updated only on fetch; icon = extrapolated position.
+ */
 function toTrailPath(entity: UnifiedEntity): [number, number][] | null {
   if (!entity?.geometry || entity.geometry.type !== "Point") return null;
-  const coords = entity.geometry.coordinates;
+  const coords = entity.geometry.coordinates as [number, number];
   if (!Array.isArray(coords) || coords.length < 2) return null;
   const vel = entity.state?.velocity;
   if (!vel) return null;
-  const [lng, lat] = coords as [number, number];
-  // Trail length factor – shorter trail looks cleaner at global zoom
-  const f = 0.014;
-  return [
-    [lng, lat],
-    [lng - vel.x * f, lat - vel.y * f],
-  ];
+  const anchor = entity.state?.trailAnchor ?? coords;
+  const [lng, lat] = anchor;
+  const half =
+    entity.type === "satellite"
+      ? HALF_TRAIL_SEC_SATELLITE
+      : HALF_TRAIL_SEC_AIRCRAFT;
+  const fromLng = lng - vel.x * half;
+  const fromLat = lat - vel.y * half;
+  const toLng = lng + vel.x * half;
+  const toLat = lat + vel.y * half;
+  return [[fromLng, fromLat], [toLng, toLat]];
 }
 
 // ── Coordinate validation ─────────────────────────────────────────────────────
@@ -186,10 +210,16 @@ export function EntityDeckLayer({
       e => !["aircraft", "vessel", "satellite"].includes(e.type)
     );
 
-    // Build motion trails for entities with velocity state
+    // Build motion trails: satellites only get full-orbit path (no short segment) for consistency
     const trails: TrailItem[] = valid
-      .map(e => ({ entity: e, path: toTrailPath(e) }))
-      .filter((x): x is TrailItem => x.path !== null);
+      .map((e) => {
+        const path =
+          e.type === "satellite"
+            ? (e.state?.orbitPath?.length ? e.state.orbitPath : null)
+            : toTrailPath(e);
+        return { entity: e, path };
+      })
+      .filter((x): x is TrailItem => x.path !== null && x.path.length > 0);
 
     // Shared click handler – fires onEntityClick with the entity object
     const handleClick = ({
@@ -205,16 +235,20 @@ export function EntityDeckLayer({
 
     overlay.setProps({
       layers: [
-        // ── Motion trail lines (behind icons) ─────────────────────────────
+        // ── Trajectory lines: thin, low-opacity dashed path so they don't clog the map ──
+        // Planes, boats, satellites: path = [past, future]; icon at current. Not attached to icon.
         new PathLayer<TrailItem>({
           id: "crep-trails",
           data: trails,
           widthUnits: "pixels",
           getPath: (x) => x.path,
           getColor: (x) => entityColor(x.entity.type),
-          getWidth: 1.5,
-          opacity: 0.5,
+          getWidth: 1,
+          opacity: 0.4,
           pickable: false,
+          getDashArray: () => [4, 3],
+          dashJustified: true,
+          extensions: [new PathStyleExtension({ dash: true })],
         }),
 
         // ── Other entities: fungal, weather, earthquake, elephant, device ──
@@ -264,8 +298,8 @@ export function EntityDeckLayer({
           sizeMinPixels: 10,
           sizeMaxPixels: 36,
           getColor: () => entityColor("vessel"),
-          // deck.gl getAngle is counter-clockwise; heading is clockwise from north
-          getAngle: (e) => -(e.state?.heading ?? 0),
+          // deck.gl getAngle: degrees, positive = CCW. Aviation heading = clockwise from north → angle = -heading
+          getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
           pickable: true,
           onClick: handleClick,
         }),
@@ -283,8 +317,8 @@ export function EntityDeckLayer({
           sizeMinPixels: 10,
           sizeMaxPixels: 40,
           getColor: () => entityColor("aircraft"),
-          // Rotate plane to match its heading (clockwise from north)
-          getAngle: (e) => -(e.state?.heading ?? 0),
+          // Rotate plane to match aviation heading (clockwise from north); getAngle = -heading in degrees
+          getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
           pickable: true,
           onClick: handleClick,
         }),

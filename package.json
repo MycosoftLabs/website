@@ -8,6 +8,7 @@
     "dev:next-only": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
     "dev:no-gpu": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
     "dev:stable": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
+    "dev:crep": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3020",
     "gpu:start": "python ../mycosoft-mas/scripts/local_gpu_services.py",
     "lint": "next lint",
     "test": "jest",

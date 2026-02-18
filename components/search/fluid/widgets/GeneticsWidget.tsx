@@ -573,6 +573,15 @@ export function GeneticsWidget({
         <p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px]">
           Try a specific species name or GenBank accession number.
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 text-green-600 border-green-500/30 hover:bg-green-500/10"
+          onClick={() => ctx.emit("refresh-search")}
+        >
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+          Fetch from NCBI
+        </Button>
       </div>
     )
   }

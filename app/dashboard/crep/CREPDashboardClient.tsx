@@ -160,7 +160,6 @@ import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel"
 import { TrajectoryLines } from "@/components/crep/trajectory-lines";
 
 // Satellite Orbit Lines for ground track visualization
-import { SatelliteOrbitLines } from "@/components/crep/satellite-orbit-lines";
 
 // NVIDIA Earth-2 AI Weather Components
 import { 
@@ -191,6 +190,7 @@ import {
 import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
+import { getOrbitPath } from "@/lib/crep/orbit-path";
 
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
@@ -1461,6 +1461,11 @@ export default function CREPDashboardPage() {
   const [isStreaming, setIsStreaming] = useState(true);
   const [streamedEntities, setStreamedEntities] = useState<UnifiedEntity[]>([]);
   const entityStreamClientRef = useRef<EntityStreamClient | null>(null);
+
+  // Position extrapolation so planes/vessels/satellites move smoothly between API fetches
+  const [extrapolatedCoords, setExtrapolatedCoords] = useState<Record<string, [number, number]>>({});
+  const lastKnownRef = useRef<Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }>>({});
+  const MAX_EXTRAPOLATION_MS = 60000; // cap at 60s so we don't drift forever
   
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -1511,12 +1516,12 @@ export default function CREPDashboardPage() {
   const [satelliteFilter, setSatelliteFilter] = useState<SatelliteFilter>({
     showStations: true,
     showWeather: true,
-    showComms: false,
-    showGPS: false,
-    showStarlink: false,
-    showDebris: false,
-    showActive: true,
-    orbitTypes: ["LEO", "GEO"],
+    showComms: true,
+    showGPS: true,
+    showStarlink: true,
+    showDebris: true,
+    showActive: false, // Off by default so toggling e.g. "only Debris" shows only debris
+    orbitTypes: [],
   });
   
   const [spaceWeatherFilter, setSpaceWeatherFilter] = useState<SpaceWeatherFilter>({
@@ -2066,7 +2071,7 @@ export default function CREPDashboardPage() {
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -2620,11 +2625,10 @@ export default function CREPDashboardPage() {
       return true;
     });
     
-    // Intelligent density reduction: limit to 250 aircraft for readable display
-    // Sample evenly to maintain global coverage
-    const MAX_DISPLAY = 250;
+    // Density reduction: cap at 2000 so more planes visible at all zoom levels
+    // Sample evenly to maintain global coverage (was 250; increased for "see all planes")
+    const MAX_DISPLAY = 2000;
     if (filtered.length > MAX_DISPLAY) {
-      // Sample every Nth aircraft to get even distribution
       const step = Math.ceil(filtered.length / MAX_DISPLAY);
       filtered = filtered.filter((_, idx) => idx % step === 0);
     }
@@ -2664,58 +2668,157 @@ export default function CREPDashboardPage() {
   }, [vessels, vesselFilter]);
 
   // ===========================================================================
-  // FILTER SATELLITES based on satelliteFilter state
+  // FILTER SATELLITES: show only if sat matches at least one enabled category
+  // (Fixes discrepancies when combining Stations / Comms / Starlink toggles)
   // ===========================================================================
   const filteredSatellites = useMemo(() => {
     return satellites.filter(sat => {
       const objectType = (sat.objectType || sat.properties?.objectType || "").toLowerCase();
       const name = (sat.name || "").toLowerCase();
-      
+
       const isStation = objectType.includes("station") || name.includes("iss") || name.includes("tiangong");
       const isWeather = objectType.includes("weather") || name.includes("goes") || name.includes("noaa");
       const isComms = objectType.includes("communication");
       const isGPS = objectType.includes("navigation") || name.includes("gps") || name.includes("glonass") || name.includes("galileo");
       const isStarlink = name.includes("starlink");
       const isDebris = objectType.includes("debris") || name.includes("deb");
-      
-      if (!satelliteFilter.showStations && isStation) return false;
-      if (!satelliteFilter.showWeather && isWeather) return false;
-      if (!satelliteFilter.showComms && isComms) return false;
-      if (!satelliteFilter.showGPS && isGPS) return false;
-      if (!satelliteFilter.showStarlink && isStarlink) return false;
-      if (!satelliteFilter.showDebris && isDebris) return false;
-      
-      // Filter by orbit type
+      const isOther = !isStation && !isWeather && !isComms && !isGPS && !isStarlink && !isDebris;
+
+      const matchesEnabledCategory =
+        (isStation && satelliteFilter.showStations) ||
+        (isWeather && satelliteFilter.showWeather) ||
+        (isComms && satelliteFilter.showComms) ||
+        (isGPS && satelliteFilter.showGPS) ||
+        (isStarlink && satelliteFilter.showStarlink) ||
+        (isDebris && satelliteFilter.showDebris) ||
+        (isOther && satelliteFilter.showActive);
+
+      if (!matchesEnabledCategory) return false;
+
       const orbitType = sat.orbitType || sat.properties?.orbitType || "";
-      const orbitMatch = satelliteFilter.orbitTypes.length === 0 || 
-        satelliteFilter.orbitTypes.some(ot => orbitType.toUpperCase().includes(ot));
+      const orbitMatch =
+        satelliteFilter.orbitTypes.length === 0 ||
+        satelliteFilter.orbitTypes.some((ot) => orbitType.toUpperCase().includes(ot));
       if (!orbitMatch) return false;
-      
+
       return true;
     });
   }, [satellites, satelliteFilter]);
 
+  // Sync last-known position + velocity (deg/s) for extrapolation when API data changes
+  useEffect(() => {
+    const degPerSecPerKnot = 1 / 216000; // 1 knot = 1 nm/hr = 1/60 deg/hr = 1/216000 deg/s
+    const next: Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }> = {};
+    const now = Date.now();
+    for (const a of filteredAircraft) {
+      const lng = a.location?.longitude ?? 0;
+      const lat = a.location?.latitude ?? 0;
+      const headingDeg = typeof a.heading === "number" ? a.heading : (a.properties?.heading ?? 0);
+      const h = (headingDeg * Math.PI) / 180;
+      const knots = typeof a.velocity === "number" ? a.velocity : (a.properties?.velocity ?? a.properties?.groundSpeed ?? 0) ?? 0;
+      if (Number.isFinite(lng) && Number.isFinite(lat) && knots >= 0) {
+        next[a.id] = {
+          lng,
+          lat,
+          velLng: Math.sin(h) * knots * degPerSecPerKnot,
+          velLat: Math.cos(h) * knots * degPerSecPerKnot,
+          ts: now,
+        };
+      }
+    }
+    for (const v of filteredVessels) {
+      const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+      const lng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
+      const lat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
+      const sog = v.sog ?? v.properties?.sog;
+      const cog = v.cog ?? v.properties?.cog ?? 0;
+      if (Number.isFinite(lng) && Number.isFinite(lat) && typeof sog === "number" && sog >= 0) {
+        const h = (cog * Math.PI) / 180;
+        next[v.id] = {
+          lng,
+          lat,
+          velLng: Math.sin(h) * sog * degPerSecPerKnot,
+          velLat: Math.cos(h) * sog * degPerSecPerKnot,
+          ts: now,
+        };
+      }
+    }
+    for (const s of filteredSatellites) {
+      const loc = s.location as { longitude?: number; latitude?: number } | undefined;
+      const est = s.estimatedPosition;
+      const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
+      const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
+      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? s.properties?.velocity ?? 0;
+      const heading = s.heading ?? 90; // 90 = east (prograde) for LEO
+      if (Number.isFinite(apiLng) && Number.isFinite(apiLat) && typeof velKmS === "number" && velKmS > 0) {
+        const h = (heading * Math.PI) / 180;
+        const degPerSec = velKmS / 111; // ~111 km per degree at equator
+        const velLng = Math.sin(h) * degPerSec;
+        const velLat = Math.cos(h) * degPerSec;
+        const prev = lastKnownRef.current[s.id];
+        // Only accept new position if we don't have one yet, or if API position is ahead along velocity (avoids resetting to short segment)
+        let lng = apiLng;
+        let lat = apiLat;
+        if (prev) {
+          const dot = (apiLng - prev.lng) * prev.velLng + (apiLat - prev.lat) * prev.velLat;
+          if (dot < 0) {
+            lng = prev.lng;
+            lat = prev.lat;
+          }
+        }
+        next[s.id] = {
+          lng,
+          lat,
+          velLng,
+          velLat,
+          ts: now,
+        };
+      }
+    }
+    lastKnownRef.current = next;
+  }, [filteredAircraft, filteredVessels, filteredSatellites]);
+
+  // Tick: every 500ms extrapolate positions from last known + velocity so icons move smoothly
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const next: Record<string, [number, number]> = {};
+      for (const [id, last] of Object.entries(lastKnownRef.current)) {
+        const dtSec = (now - last.ts) / 1000;
+        if (dtSec > MAX_EXTRAPOLATION_MS / 1000) continue;
+        const lng = last.lng + last.velLng * dtSec;
+        const lat = Math.max(-90, Math.min(90, last.lat + last.velLat * dtSec));
+        next[id] = [lng, lat];
+      }
+      setExtrapolatedCoords((prev) => (Object.keys(next).length === 0 ? prev : { ...prev, ...next }));
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
+    const lastKnown = lastKnownRef.current;
     const sourceEntities: UnifiedEntity[] = [
-      ...filteredAircraft.map((aircraftEntity) => ({
+      ...filteredAircraft.map((aircraftEntity) => {
+        const apiLng = aircraftEntity.location?.longitude ?? 0;
+        const apiLat = aircraftEntity.location?.latitude ?? 0;
+        const extrap = extrapolatedCoords[aircraftEntity.id];
+        const coords: [number, number] = extrap ?? [apiLng, apiLat];
+        const anchor = lastKnown[aircraftEntity.id];
+        const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
+        const headingDeg = aircraftEntity.heading ?? aircraftEntity.properties?.heading ?? 0;
+        const speedKnots = typeof aircraftEntity.velocity === "number" ? aircraftEntity.velocity : aircraftEntity.properties?.velocity ?? aircraftEntity.properties?.groundSpeed ?? 0;
+        const hRad = (headingDeg * Math.PI) / 180;
+        return {
         id: aircraftEntity.id,
         type: "aircraft" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [
-            aircraftEntity.location?.longitude ?? 0,
-            aircraftEntity.location?.latitude ?? 0
-          ] as [number, number],
-        },
+        geometry: { type: "Point" as const, coordinates: coords },
         state: {
-          heading: aircraftEntity.heading,
+          heading: headingDeg,
           altitude: aircraftEntity.altitude,
-          velocity: aircraftEntity.velocity
-            ? {
-                x: Math.cos(((aircraftEntity.heading ?? 0) * Math.PI) / 180) * aircraftEntity.velocity,
-                y: Math.sin(((aircraftEntity.heading ?? 0) * Math.PI) / 180) * aircraftEntity.velocity,
-              }
+          velocity: typeof speedKnots === "number" && speedKnots > 0
+            ? { x: Math.sin(hRad) * speedKnots, y: Math.cos(hRad) * speedKnots }
             : undefined,
+          trailAnchor,
         },
         time: {
           observed_at: aircraftEntity.lastSeen,
@@ -2725,49 +2828,78 @@ export default function CREPDashboardPage() {
         source: "opensky",
         properties: aircraftEntity.properties || {},
         s2_cell: "",
-      })),
-      ...filteredVessels.map((vesselEntity) => ({
+      };
+      }),
+      ...filteredVessels.map((vesselEntity) => {
+        const loc = vesselEntity.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+        const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
+        const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
+        const extrap = extrapolatedCoords[vesselEntity.id];
+        const coords: [number, number] = extrap ?? [apiLng, apiLat];
+        const anchor = lastKnown[vesselEntity.id];
+        const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
+        return {
         id: vesselEntity.id,
         type: "vessel" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [
-            vesselEntity.location?.longitude ?? 0,
-            vesselEntity.location?.latitude ?? 0
-          ] as [number, number],
-        },
+        geometry: { type: "Point" as const, coordinates: coords },
         state: {
-          heading: vesselEntity.cog,
-          velocity:
-            vesselEntity.sog !== undefined
-              ? {
-                  x: Math.cos(((vesselEntity.cog ?? 0) * Math.PI) / 180) * vesselEntity.sog,
-                  y: Math.sin(((vesselEntity.cog ?? 0) * Math.PI) / 180) * vesselEntity.sog,
-                }
-              : undefined,
+          heading: vesselEntity.cog ?? vesselEntity.properties?.cog,
+          velocity: (() => {
+            const sog = vesselEntity.sog ?? vesselEntity.properties?.sog;
+            const cog = vesselEntity.cog ?? vesselEntity.properties?.cog ?? 0;
+            if (sog === undefined || sog === null) return undefined;
+            const hRad = (cog * Math.PI) / 180;
+            return { x: Math.sin(hRad) * sog, y: Math.cos(hRad) * sog };
+          })(),
+          trailAnchor,
         },
         time: {
-          observed_at: vesselEntity.timestamp,
-          valid_from: vesselEntity.timestamp,
+          observed_at: vesselEntity.timestamp ?? vesselEntity.lastSeenAt ?? vesselEntity.properties?.timestamp,
+          valid_from: vesselEntity.timestamp ?? vesselEntity.lastSeenAt ?? vesselEntity.properties?.timestamp,
         },
         confidence: 1,
         source: "ais",
         properties: vesselEntity.properties || {},
         s2_cell: "",
-      })),
-      ...filteredSatellites.map((satelliteEntity) => ({
+      };
+      }),
+      ...filteredSatellites.map((satelliteEntity) => {
+        const loc = satelliteEntity.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+        const est = satelliteEntity.estimatedPosition;
+        const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
+        const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
+        const extrap = extrapolatedCoords[satelliteEntity.id];
+        const coords: [number, number] = extrap ?? [apiLng, apiLat];
+        const anchor = lastKnown[satelliteEntity.id];
+        const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
+        const orbitalParams = (satelliteEntity as { orbitalParams?: { velocity?: number; period?: number; inclination?: number } }).orbitalParams;
+        const velKmS = orbitalParams?.velocity ?? satelliteEntity.properties?.velocity ?? 0;
+        const periodMin = orbitalParams?.period;
+        const inclinationDeg = orbitalParams?.inclination ?? (satelliteEntity.properties?.inclination as number | undefined);
+        const heading = satelliteEntity.heading ?? 90;
+        const hRad = (heading * Math.PI) / 180;
+        const degPerSec = typeof velKmS === "number" && velKmS > 0 ? velKmS / 111 : 0;
+        const satVelocity = degPerSec > 0
+          ? { x: Math.sin(hRad) * degPerSec, y: Math.cos(hRad) * degPerSec }
+          : undefined;
+        const orbitPath =
+          typeof periodMin === "number" &&
+          periodMin > 0 &&
+          typeof inclinationDeg === "number" &&
+          Number.isFinite(apiLng) &&
+          Number.isFinite(apiLat)
+            ? getOrbitPath(periodMin, inclinationDeg, anchor?.lng ?? apiLng, anchor?.lat ?? apiLat)
+            : undefined;
+        return {
         id: satelliteEntity.id,
         type: "satellite" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [
-            satelliteEntity.location?.longitude ?? satelliteEntity.estimatedPosition?.longitude ?? 0,
-            satelliteEntity.location?.latitude ?? satelliteEntity.estimatedPosition?.latitude ?? 0
-          ] as [number, number],
-        },
+        geometry: { type: "Point" as const, coordinates: coords },
         state: {
           altitude: satelliteEntity.altitude,
           heading: satelliteEntity.heading,
+          velocity: satVelocity,
+          trailAnchor,
+          orbitPath: orbitPath ?? undefined,
         },
         time: {
           observed_at: satelliteEntity.lastUpdate,
@@ -2777,7 +2909,8 @@ export default function CREPDashboardPage() {
         source: "norad",
         properties: satelliteEntity.properties || {},
         s2_cell: "",
-      })),
+      };
+      }),
       ...visibleFungalObservations.map((observation) => ({
         id: `fungal-${observation.id}`,
         type: "fungal" as const,
@@ -2801,7 +2934,7 @@ export default function CREPDashboardPage() {
     for (const entity of sourceEntities) byId.set(entity.id, entity);
     for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
     return [...byId.values()];
-  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities]);
+  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -3395,12 +3528,8 @@ export default function CREPDashboardPage() {
               showShipRoutes={layers.find(l => l.id === "shipRoutes")?.enabled ?? false}
             />
 
-            {/* Satellite Orbit Lines - Ground Track Visualization */}
-            <SatelliteOrbitLines
-              satellites={filteredSatellites}
-              showOrbits={layers.find(l => l.id === "satellites")?.enabled ?? true}
-              showSelected={selectedSatellite?.id}
-            />
+            {/* Satellite orbit lines and icons come only from EntityDeckLayer (deck.gl);
+                SatelliteOrbitLines removed to avoid duplicate/conflicting orbit lines and filter bugs */}
 
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 NVIDIA EARTH-2 AI WEATHER LAYERS
@@ -3547,12 +3676,16 @@ export default function CREPDashboardPage() {
               );
             })}
 
-            {/* Device Markers - deduplicated to prevent React key errors */}
+            {/* Device Markers - deduplicated; hide devices with no valid position (0,0 = ocean) */}
             {layers.find(l => l.id === "mycobrain")?.enabled && (() => {
               const seen = new Set<string>();
               return devices.filter(device => {
                 if (seen.has(device.id)) return false;
                 seen.add(device.id);
+                const lat = device.lat ?? (device as { latitude?: number }).latitude;
+                const lng = device.lng ?? (device as { longitude?: number }).longitude;
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+                if (lat === 0 && lng === 0) return false;
                 return true;
               }).map(device => (
                 <DeviceMarker

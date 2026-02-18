@@ -380,12 +380,18 @@ export function FluidSearchCanvas({
     species, compounds, genetics, research, aiAnswer,
     liveResults,
     isLoading, isValidating, totalCount, error, message,
+    refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
     types: ["species", "compounds", "genetics", "research"],
     includeAI: true,
     limit: 20,
   })
-  
+
+  // Empty-widget policy: when a widget emits "refresh-search", re-fetch (triggers background ingest)
+  useEffect(() => {
+    return ctx.on("refresh-search", () => searchRefresh())
+  }, [ctx, searchRefresh])
+
   // Debounced query for additional endpoints
   const debouncedQuery = useDebounce(localQuery, 300)
 

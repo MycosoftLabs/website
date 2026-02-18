@@ -263,10 +263,11 @@ export function LocationWidget({
         )}
       </div>
 
-      {/* Earth portal — renders at document.body */}
+      {/* Earth portal — pass all observations with clicked one first so map shows all pins, centered on clicked */}
       {earthObs && (
         <ObservationEarthPortal
           observation={earthObs}
+          observations={[earthObs, ...data.filter((d) => d.id !== earthObs.id)]}
           onClose={() => setEarthObs(null)}
         />
       )}

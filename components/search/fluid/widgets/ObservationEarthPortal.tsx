@@ -140,13 +140,14 @@ export function ObservationEarthPortal({
 
         viewerRef.current = viewer
 
-        // Camera: pan on drag, double-click to zoom
+        // Camera: Google Earth-style controls
+        // Left drag = rotate/orbit, Right drag = zoom, Scroll = zoom, Middle = pan
         const ctrl = viewer.scene.screenSpaceCameraController
-        ctrl.enableRotate    = false
-        ctrl.enableTilt      = false
+        ctrl.enableRotate    = true   // Left-click drag to orbit the globe
+        ctrl.enableTilt      = true   // Ctrl + left-drag to tilt
         ctrl.enableLook      = false
-        ctrl.enableTranslate = true
-        ctrl.enableZoom      = true
+        ctrl.enableTranslate = true   // Middle-click drag to pan
+        ctrl.enableZoom      = true   // Right-click drag + scroll to zoom
 
         // Double-click zooms in ×4
         viewer.screenSpaceEventHandler.setInputAction(
@@ -221,16 +222,17 @@ export function ObservationEarthPortal({
           })
         })
 
-        // Fly to first observation
-        await viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, 8000),
-          orientation: {
-            heading: Cesium.Math.toRadians(0),
-            pitch:   Cesium.Math.toRadians(-35),
-            roll:    0,
-          },
+        // Fly to observation — use flyToBoundingSphere to center exactly on the pin (fixes north offset)
+        const center = Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, 0)
+        const sphere = new Cesium.BoundingSphere(center, 100)
+        await viewer.camera.flyToBoundingSphere(sphere, {
           duration: 1.5,
+          offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-35), 1500),
         })
+
+        // Auto-select the first/clicked observation so its picture and details are shown (like icon was tapped)
+        const firstEntity = viewer.entities.getById(`obs-${obs.id}`)
+        if (firstEntity) viewer.selectedEntity = firstEntity
 
         if (destroyed) return
         setCesiumOk(true)
@@ -287,16 +289,19 @@ export function ObservationEarthPortal({
   }, [cesiumOk, obsArray.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Camera controls (kept stable with ref) ────────────────────────────────
-  const flyToSelected = useCallback((altitude = 8000) => {
+  const flyToSelected = useCallback((altitude = 1500) => {
     const viewer = viewerRef.current
     const Cesium = (window as any).Cesium
     if (!viewer || !Cesium || !obs) return
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, altitude),
-      orientation: { heading: Cesium.Math.toRadians(0), pitch: Cesium.Math.toRadians(-35), roll: 0 },
+    const center = Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, 0)
+    const sphere = new Cesium.BoundingSphere(center, 50)
+    viewer.camera.flyToBoundingSphere(sphere, {
       duration: 1,
+      offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-35), altitude),
     })
-  }, [obs?.lat, obs?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
+    const entity = viewer.entities.getById(`obs-${obs.id}`)
+    if (entity) viewer.selectedEntity = entity
+  }, [obs?.id, obs?.lat, obs?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openInEarthSimulator = useCallback(() => {
     if (!obs) return
