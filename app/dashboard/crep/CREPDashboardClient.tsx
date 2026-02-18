@@ -339,9 +339,10 @@ const layerCategories = {
 };
 
 // Event marker component with detailed popup
-function EventMarker({ event, isSelected, onClick, onClose, onFlyTo }: { 
+function EventMarker({ event, isSelected, isNew, onClick, onClose, onFlyTo }: { 
   event: GlobalEvent; 
   isSelected: boolean;
+  isNew?: boolean;
   onClick: () => void;
   onClose: () => void;
   onFlyTo?: (lat: number, lng: number, zoom?: number) => void;
@@ -436,6 +437,13 @@ function EventMarker({ event, isSelected, onClick, onClose, onFlyTo }: {
           "relative flex items-center justify-center transition-transform",
           isSelected ? "scale-150" : "scale-100"
         )}>
+          {/* Blinking "NEW" ring – event just appeared on map (within viewport) */}
+          {isNew && (
+            <div 
+              className="absolute w-7 h-7 rounded-full border-2 border-amber-400/80 pointer-events-none animate-pulse"
+              style={{ animationDuration: "1.2s" }}
+            />
+          )}
           {/* Pulsing ring ONLY for critical events - REDUCED opacity */}
           {isCritical && (
             <div 
@@ -1457,6 +1465,10 @@ export default function CREPDashboardPage() {
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
   const [selectedFungal, setSelectedFungal] = useState<FungalObservation | null>(null);
   
+  // Live events: IDs that appeared after initial load (show blinking indicator; pop-up)
+  const initialEventIdsRef = useRef<Set<string> | null>(null);
+  const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
+
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(true);
   const [streamedEntities, setStreamedEntities] = useState<UnifiedEntity[]>([]);
@@ -1790,6 +1802,10 @@ export default function CREPDashboardPage() {
                 affectedPopulation: e.affected?.population,
               }));
             setGlobalEvents(formattedEvents);
+            // Capture IDs at first load so we can detect "new" events on later refreshes
+            if (initialEventIdsRef.current === null) {
+              initialEventIdsRef.current = new Set(formattedEvents.map((e: GlobalEvent) => e.id));
+            }
           }
         } catch (e) {
           console.warn("[CREP] Failed to fetch global events:", e);
@@ -2073,6 +2089,57 @@ export default function CREPDashboardPage() {
     fetchData();
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Periodic refresh of live events (earthquakes, lightning, fire, etc.) – new events pop up and blink
+  const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
+  useEffect(() => {
+    const refreshLiveEvents = async () => {
+      try {
+        const eventsRes = await fetch("/api/natureos/global-events");
+        if (!eventsRes.ok) return;
+        const data = await eventsRes.json();
+        const formattedEvents: GlobalEvent[] = (data.events || [])
+          .filter((e: any) => e.location?.latitude && e.location?.longitude)
+          .map((e: any) => ({
+            id: e.id,
+            type: e.type,
+            title: e.title,
+            description: e.description,
+            severity: e.severity,
+            lat: e.location.latitude,
+            lng: e.location.longitude,
+            timestamp: e.timestamp,
+            link: e.link,
+            source: e.source,
+            sourceUrl: e.sourceUrl,
+            magnitude: e.magnitude,
+            locationName: e.location?.name,
+            depth: e.location?.depth,
+            windSpeed: e.type === "storm" ? e.magnitude : undefined,
+            containment: e.description?.match(/Containment: (\d+)%/)?.[1] ? parseInt(e.description.match(/Containment: (\d+)%/)[1]) : undefined,
+            affectedArea: e.affected?.area_km2,
+            affectedPopulation: e.affected?.population,
+          }));
+        const knownIds = initialEventIdsRef.current;
+        const newlySeen = knownIds
+          ? formattedEvents.filter((e: GlobalEvent) => !knownIds.has(e.id)).map((e: GlobalEvent) => e.id)
+          : [];
+        if (newlySeen.length > 0) {
+          setNewEventIds((prev) => new Set([...prev, ...newlySeen]));
+          knownIds && newlySeen.forEach((id: string) => knownIds.add(id));
+        }
+        setGlobalEvents(formattedEvents);
+      } catch (e) {
+        console.warn("[CREP] Live events refresh failed:", e);
+      }
+    };
+    const t = setTimeout(refreshLiveEvents, LIVE_EVENTS_REFRESH_MS);
+    const interval = setInterval(refreshLiveEvents, LIVE_EVENTS_REFRESH_MS);
+    return () => {
+      clearTimeout(t);
+      clearInterval(interval);
+    };
   }, []);
 
   // Fullscreen handlers
@@ -2393,7 +2460,9 @@ export default function CREPDashboardPage() {
     
     // Select the new event
     setSelectedEvent(event);
-    
+    // Mark this event as "seen" so blinking stops
+    setNewEventIds((prev) => (prev.has(event.id) ? new Set([...prev].filter((id) => id !== event.id)) : prev));
+
     // If shouldFlyTo, fly to the event location first
     if (shouldFlyTo && mapRef) {
       mapRef.flyTo({
@@ -3492,6 +3561,29 @@ export default function CREPDashboardPage() {
               )}
             />
 
+            {/* Live events toast – new events that appeared since load */}
+            {newEventIds.size > 0 && (
+              <div
+                className={cn(
+                  "absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-950/90 px-3 py-2 text-sm text-amber-100 shadow-lg backdrop-blur-sm",
+                  leftPanelOpen && "left-[326px]"
+                )}
+              >
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+                <span>
+                  {newEventIds.size} new event{newEventIds.size !== 1 ? "s" : ""} on map
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNewEventIds(new Set())}
+                  className="ml-1 rounded p-0.5 text-amber-300 hover:bg-amber-800/50 hover:text-amber-100"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <EntityDeckLayer
               map={mapRef}
               entities={deckEntities}
@@ -3663,6 +3755,7 @@ export default function CREPDashboardPage() {
                   key={event.id}
                   event={event}
                   isSelected={selectedEvent?.id === event.id}
+                  isNew={newEventIds.has(event.id)}
                   onClick={() => handleSelectEvent(selectedEvent?.id === event.id ? null : event)}
                   onClose={() => handleSelectEvent(null)}
                   onFlyTo={(lat, lng, zoom) => {

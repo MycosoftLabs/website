@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-02-12 – Live events on CREP map (sandbox-ready)
+
+| File | Description |
+|------|--------------|
+| `app/dashboard/crep/CREPDashboardClient.tsx` | Periodic refresh of global events (90s), new-event tracking, live-events toast, blinking marker for new events in view. |
+| `docs/CREP_LIVE_EVENTS_SANDBOX_FEB12_2026.md` | Feature description, sandbox testing steps, VM/env, deployment checklist for deployment agent. |
+
+Deployment is performed by another agent; see the doc above for post-deploy testing on sandbox.
+
+---
+
 ## Modified Files
 
 ### App - Dashboard
@@ -13,6 +24,7 @@
 | File Path | Lines Changed | Description |
 |-----------|---------------|-------------|
 | `app/dashboard/crep/page.tsx` | ~30 lines | Enabled aviation, ships, satellites layers by default |
+| `app/dashboard/crep/CREPDashboardClient.tsx` | Feb 2026 | Live events: 90s refresh, new-event toast, blinking markers (see CREP_LIVE_EVENTS_SANDBOX_FEB12_2026.md). |
 
 ### App - API Routes
 
