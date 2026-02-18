@@ -1,13 +1,15 @@
 /**
  * Fungi Compute - Biological Computing Visualization Platform
- * 
- * The flagship NatureOS app for FCI signal visualization, SDR filtering,
- * pattern recognition, and real-time correlation with environmental data.
+ *
+ * Phone    : "Requires tablet/desktop" message — oscilloscopes + WebGL can't
+ *             run usefully on a 375px screen.
+ * Tablet+  : Full FungiComputeDashboard with oscilloscope, spectrum analyzer,
+ *             signal fingerprint, SDR filter, etc.
  */
 
 import { Metadata } from "next"
+import { AppOnly } from "@/components/ui/responsive"
 import { FungiComputeDashboard } from "@/components/fungi-compute/dashboard"
-import { RequiresTablet } from "@/components/ui/responsive-display"
 
 export const metadata: Metadata = {
   title: "Fungi Compute | NatureOS",
@@ -16,11 +18,12 @@ export const metadata: Metadata = {
 
 export default function FungiComputePage() {
   return (
-    <RequiresTablet
-      appName="Fungi Compute"
-      reason="This biological computing visualization platform uses oscilloscopes, spectrum analyzers, and real-time 3D signal processing that require a tablet or desktop."
+    <AppOnly
+      title="Fungi Compute"
+      description="Real-time oscilloscope, spectrum analyzer, and bioelectric signal visualizations require a tablet or desktop screen for accurate data display."
+      href="/natureos"
     >
       <FungiComputeDashboard />
-    </RequiresTablet>
+    </AppOnly>
   )
 }

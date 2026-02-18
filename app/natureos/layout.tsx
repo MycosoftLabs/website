@@ -35,11 +35,11 @@ export default function NatureOSLayout({
             </SidebarContent>
           </Sidebar>
           {/* Main content — full width on mobile when sidebar is closed */}
-          <div className="flex-1 overflow-hidden transition-all duration-300 w-full">
-            {/* SidebarTrigger visible on mobile as a floating toggle */}
-            <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-gray-800 bg-[#0A1929]">
-              <SidebarTrigger className="text-gray-400 hover:text-white" />
-              <span className="text-sm text-gray-400">Menu</span>
+          <div className="flex-1 overflow-hidden transition-all duration-300 w-full min-w-0">
+            {/* Compact sidebar trigger — only on tablet (sm-lg), hidden on phone and desktop */}
+            <div className="hidden sm:flex lg:hidden items-center gap-2 px-3 py-1.5 border-b border-gray-800 bg-[#0A1929]">
+              <SidebarTrigger className="text-gray-400 hover:text-white h-8 w-8" />
+              <span className="text-xs text-gray-500">Toggle Menu</span>
             </div>
             <main className="w-full h-full">{children}</main>
           </div>

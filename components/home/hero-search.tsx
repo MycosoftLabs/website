@@ -115,7 +115,7 @@ export function HeroSearch() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <section className="pt-6 pb-12 md:pt-8 md:pb-24 px-4 sm:px-6 flex flex-col items-center gap-6 md:gap-8">
+    <section className="pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center gap-4 sm:gap-6 md:gap-8">
       <div 
         ref={containerRef}
         className="w-full max-w-3xl relative"
@@ -135,14 +135,14 @@ export function HeroSearch() {
           {/* Animated Gradient Border */}
           <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
           
-          {/* Background Video */}
+          {/* Background Video — hidden on phone to save bandwidth */}
           <div className="absolute inset-[2px] rounded-[22px] overflow-hidden">
             <video
               autoPlay
               muted
               loop
               playsInline
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover hidden sm:block"
               style={{ filter: "brightness(0.4) saturate(1.2)" }}
             >
               <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
@@ -151,7 +151,7 @@ export function HeroSearch() {
           </div>
 
           {/* Content */}
-          <div className="relative z-10 px-4 py-8 sm:px-6 sm:py-10 md:px-12 md:py-16">
+          <div className="relative z-10 px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16">
             {/* Logo & Title */}
             <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
               <motion.div 
@@ -325,20 +325,20 @@ export function HeroSearch() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8"
+              className="flex flex-wrap items-center justify-center gap-2 mt-4 sm:mt-6 sm:gap-3 sm:mt-8"
             >
               <span className="text-xs text-gray-500 hidden sm:inline">Try:</span>
               {[
-                "Amanita",
-                "Psilocybin",
-                "Mycelium",
-                "ITS Sequence",
-                "Reishi",
-                "Muscarine",
-              ].map((term) => (
+                { term: "Amanita", phoneVisible: true },
+                { term: "Psilocybin", phoneVisible: true },
+                { term: "Mycelium", phoneVisible: true },
+                { term: "ITS Sequence", phoneVisible: false },
+                { term: "Reishi", phoneVisible: false },
+                { term: "Muscarine", phoneVisible: false },
+              ].map(({ term, phoneVisible }) => (
                 <button
                   key={term}
-                  type="button"   // ← prevents accidental form submission
+                  type="button"
                   onClick={() => {
                     setQuery(term)
                     router.push(`/search?q=${encodeURIComponent(term)}`)
@@ -347,7 +347,8 @@ export function HeroSearch() {
                     "px-3 py-1.5 rounded-full text-xs sm:text-sm",
                     "bg-white/10 hover:bg-white/20 active:bg-white/30 text-gray-300",
                     "border border-white/10 hover:border-white/25",
-                    "transition-all duration-200 cursor-pointer select-none"
+                    "transition-all duration-200 cursor-pointer select-none",
+                    !phoneVisible && "hidden sm:inline-flex"
                   )}
                 >
                   {term}

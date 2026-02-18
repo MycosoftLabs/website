@@ -3,7 +3,8 @@ import ParallaxSearch from "@/components/home/parallax-search"
 
 export default function HomePage() {
   return (
-    <div className="container max-w-7xl mx-auto px-4 relative min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
+    // min-h-[calc(100dvh-3rem)] on phone (48px header), 3.5rem on desktop (56px header)
+    <div className="container max-w-7xl mx-auto px-3 sm:px-4 relative min-h-[calc(100dvh-3rem)] md:min-h-[calc(100dvh-3.5rem)] flex items-center justify-center py-4 sm:py-8">
       <ParallaxSearch />
     </div>
   )
