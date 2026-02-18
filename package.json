@@ -5,8 +5,9 @@
   "scripts": {
     "build": "next build",
     "dev": "node scripts/start-with-gpu.js",
-    "dev:next-only": "next dev --port 3010",
-    "dev:no-gpu": "next dev --port 3010",
+    "dev:next-only": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
+    "dev:no-gpu": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
+    "dev:stable": "node --max-old-space-size=8192 node_modules/next/dist/bin/next dev --port 3010",
     "gpu:start": "python ../mycosoft-mas/scripts/local_gpu_services.py",
     "lint": "next lint",
     "test": "jest",

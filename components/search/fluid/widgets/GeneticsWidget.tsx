@@ -16,7 +16,7 @@ import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
 import dynamic from "next/dynamic"
 const ObservationEarthPortal = dynamic(
-  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  () => import("./ObservationEarthPortal"),
   { ssr: false }
 )
 import { motion, AnimatePresence } from "framer-motion"

@@ -1,4 +1,4 @@
-﻿/** @type {import('next').NextConfig} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
@@ -22,13 +22,21 @@ const nextConfig = {
     // This will make all pages dynamic by default
   },
   // Configure webpack for Cesium
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
         crypto: false,
+      };
+    }
+    // Reduce EBUSY / file lock crashes and OOM on Windows (Next 15 dev server)
+    if (dev && process.platform === 'win32') {
+      config.watchOptions = {
+        poll: 2000,
+        aggregateTimeout: 300,
+        ignored: ['**/node_modules', '**/.next', '**/.git', '**/.*'],
       };
     }
     return config;

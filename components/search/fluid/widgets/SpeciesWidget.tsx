@@ -33,9 +33,10 @@ import type { SpeciesResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
 import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
+import { useSearchContext } from "@/components/search/SearchContextProvider"
 import dynamic from "next/dynamic"
 const ObservationEarthPortal = dynamic(
-  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  () => import("./ObservationEarthPortal"),
   { ssr: false }
 )
 
@@ -487,7 +488,12 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                     </div>
                     <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
                       <div className="space-y-1">
-                        {taxonomyLevels.map((l, i) => (
+                        {taxonomyLevels.map((l, i) => {
+                          // Build fully internal URL — never links to iNaturalist
+                          const href = l.rank === "species"
+                            ? `/ancestry/species/name/${encodeURIComponent(l.name)}`
+                            : `/ancestry/taxonomy/${l.rank}/${encodeURIComponent(l.name)}`
+                          return (
                           <div
                             key={`${l.rank}-${l.id}`}
                             className="flex items-center gap-2 text-xs"
@@ -501,9 +507,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                               {l.rank === "species" ? "Species" : RANK_LABEL[l.rank] || l.rank}
                             </span>
                             <a
-                              href={l.id ? `https://www.inaturalist.org/taxa/${l.id}` : "#"}
-                              target={l.id ? "_blank" : undefined}
-                              rel="noopener noreferrer"
+                              href={href}
                               className={cn(
                                 "font-medium transition-colors hover:underline underline-offset-2",
                                 l.rank === "species"
@@ -513,9 +517,8 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                             >
                               {l.name}
                             </a>
-                            {l.rank === "species" || l.rank === "genus" ? null : null}
                           </div>
-                        ))}
+                        );})}
                       </div>
                     </div>
                   </div>
@@ -870,7 +873,13 @@ export function SpeciesWidget({
             ) : (
               <TaxonomyTree
                 taxonomy={taxonomy}
-                onLevelClick={(rank, value) => onExplore?.("taxonomy", value)}
+                onLevelClick={(rank, value) => {
+                  // Navigate to internal Mycosoft taxonomy page — never iNaturalist
+                  const href = rank === "species"
+                    ? `/ancestry/species/name/${encodeURIComponent(value)}`
+                    : `/ancestry/taxonomy/${rank}/${encodeURIComponent(value)}`
+                  window.open(href, "_self")
+                }}
               />
             )}
 
@@ -944,7 +953,7 @@ export function SpeciesWidget({
   )
 }
 
-// Separate component so the hook only runs when the portal is open
+// Separate loader — hook only runs when portal is actually open
 function SpeciesEarthPortalLoader({
   speciesName,
   title,
@@ -954,10 +963,13 @@ function SpeciesEarthPortalLoader({
   title: string
   onClose: () => void
 }) {
-  const { observations, loading } = useSpeciesObservations(speciesName, 25)
+  const { observations, loading } = useSpeciesObservations(speciesName, 200)
+  // Always pass observations (even while empty/loading) so the portal renders.
+  // The portal handles the empty/loading case internally with a status message.
   return (
     <ObservationEarthPortal
-      observations={loading ? [] : observations}
+      observations={observations}
+      observationsLoading={loading}
       title={`${title} — Field Observations`}
       onClose={onClose}
     />

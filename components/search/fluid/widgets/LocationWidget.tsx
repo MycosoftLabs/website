@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 
-// Dynamically import the Earth portal (Three.js — client only, large bundle)
+// Dynamically import the Earth portal (Cesium — client only, large bundle). Use default export to avoid ChunkLoadError.
 const ObservationEarthPortal = dynamic(
-  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  () => import("./ObservationEarthPortal"),
   { ssr: false }
 )
 

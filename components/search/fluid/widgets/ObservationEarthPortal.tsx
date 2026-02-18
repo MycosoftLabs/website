@@ -1,18 +1,9 @@
 /**
  * ObservationEarthPortal - Feb 2026
  *
- * A portal modal using the SAME CesiumJS globe as the Earth Simulator app
- * (real satellite imagery, full zoom/tilt like Google Earth).
- *
- * This is NOT a separate globe system — it loads CesiumJS from the same CDN,
- * uses the same imagery providers, and can share state with the Earth Simulator.
- *
- * When opened it:
- *   1. Loads/reuses the CesiumJS library (already cached if Earth Sim was visited)
- *   2. Creates a minimal Cesium Viewer focused on the observation location
- *   3. Flies the camera to lat/lng at a close zoom altitude
- *   4. Places glowing pins for all observation sites
- *   5. Shows a details card overlay with cross-widget links
+ * A portal modal using CesiumJS for real satellite imagery (same as Earth Simulator).
+ * Opens immediately showing a loading state, starts Cesium the moment we have
+ * both the DOM container and the first observation coordinate.
  */
 
 "use client"
@@ -24,18 +15,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   X, MapPin, Globe, Calendar, User, Leaf, Dna, FlaskConical,
-  ChevronRight, ExternalLink, Loader2, ZoomIn, ZoomOut, RotateCcw,
-  Layers, Navigation,
+  ChevronRight, ExternalLink, Loader2, ZoomIn, ZoomOut, RotateCcw, Navigation,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { LocationResult } from "./LocationWidget"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 
-// ─── Cesium loader — reuses the same script the Earth Simulator loads ─────────
+// ─── Cesium loader (cached after first load) ──────────────────────────────────
 async function loadCesiumJS(): Promise<any> {
   if ((window as any).Cesium) return (window as any).Cesium
 
-  // Load CSS
   if (!document.querySelector('link[href*="cesium"]')) {
     const link = document.createElement("link")
     link.rel = "stylesheet"
@@ -43,13 +32,11 @@ async function loadCesiumJS(): Promise<any> {
     document.head.appendChild(link)
   }
 
-  // Load JS (same CDN as Earth Simulator)
   await new Promise<void>((resolve, reject) => {
     const script = document.createElement("script")
     script.src = "https://unpkg.com/cesium@1.115.0/Build/Cesium/Cesium.js"
     script.onload = () => resolve()
     script.onerror = () => {
-      // Fallback CDN
       const s2 = document.createElement("script")
       s2.src = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"
       s2.onload = () => resolve()
@@ -63,113 +50,110 @@ async function loadCesiumJS(): Promise<any> {
   return (window as any).Cesium
 }
 
-// ─── Main portal ──────────────────────────────────────────────────────────────
-
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface ObservationEarthPortalProps {
   observation?: LocationResult
   observations?: LocationResult[]
+  observationsLoading?: boolean
   title?: string
   onClose: () => void
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export function ObservationEarthPortal({
   observation,
   observations: _observations,
+  observationsLoading = false,
   title,
   onClose,
 }: ObservationEarthPortalProps) {
   const obsArray: LocationResult[] = _observations?.length
     ? _observations
-    : observation
-    ? [observation]
-    : []
+    : observation ? [observation] : []
 
-  // ── All hooks unconditionally (Rules of Hooks) ─────────────────────────────
-  const [mounted,  setMounted]  = useState(false)
-  const [selIdx,   setSelIdx]   = useState(0)
-  const [cesiumOk, setCesiumOk] = useState(false)
+  // ── ALL hooks must be called unconditionally (Rules of Hooks) ─────────────
+  const [mounted,     setMounted]     = useState(false)
+  const [selIdx,      setSelIdx]      = useState(0)
+  const [cesiumOk,    setCesiumOk]    = useState(false)
   const [cesiumError, setCesiumError] = useState<string | null>(null)
-  const [loadingMsg, setLoadingMsg] = useState("Loading Earth Simulator…")
-  const cesiumContainerRef = useRef<HTMLDivElement>(null)
-  const viewerRef = useRef<any>(null)
-  const ctx = useSearchContext()
+  const [loadingMsg,  setLoadingMsg]  = useState("Loading Earth Simulator…")
+
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const viewerRef    = useRef<any>(null)
+  const initKey      = useRef(0)   // increment to re-init after obs arrive
+  const ctx          = useSearchContext()
 
   const obs = obsArray[Math.min(selIdx, Math.max(0, obsArray.length - 1))] ?? null
 
-  // ── Mount + scroll lock ───────────────────────────────────────────────────
+  // Mount flag (SSR safe)
   useEffect(() => { setMounted(true) }, [])
 
+  // Scroll lock + Escape key
   useEffect(() => {
     if (!mounted) return
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    window.addEventListener("keydown", handler)
-    const orig = document.body.style.overflow
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
     return () => {
-      window.removeEventListener("keydown", handler)
-      document.body.style.overflow = orig
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = prev
     }
   }, [mounted, onClose])
 
-  // ── Initialize Cesium viewer when container is ready ─────────────────────
+  // ── Main Cesium init — runs when we have container + first observation ─────
   useEffect(() => {
-    if (!mounted || !cesiumContainerRef.current || !obs) return
+    if (!mounted) return
+    if (!containerRef.current) return
+    if (!obs) return   // wait until first observation is available
 
     let destroyed = false
+    setCesiumOk(false)
+    setCesiumError(null)
+    setLoadingMsg("Loading satellite imagery…")
 
     const init = async () => {
       try {
-        setLoadingMsg("Loading satellite imagery…")
         const Cesium = await loadCesiumJS()
         if (destroyed) return
 
-        // Disable Ion token warning
         Cesium.Ion.defaultAccessToken = undefined
-
         setLoadingMsg("Initialising globe…")
 
-        const viewer = new Cesium.Viewer(cesiumContainerRef.current, {
-          baseLayerPicker:        false,
-          imageryProvider:        false,
-          vrButton:               false,
-          geocoder:               false,
-          homeButton:             false,
-          infoBox:                true,
-          sceneModePicker:        false,
-          selectionIndicator:     false,
-          timeline:               false,
-          animation:              false,
-          fullscreenButton:       false,
-          navigationHelpButton:   false,
-          shouldAnimate:          false,
-          requestRenderMode:      true,
-          maximumRenderTimeChange: Infinity,
-          creditContainer: document.createElement("div"), // hide credit banner
+        const viewer = new Cesium.Viewer(containerRef.current!, {
+          baseLayerPicker:         false,
+          imageryProvider:         false,
+          vrButton:                false,
+          geocoder:                false,
+          homeButton:              false,
+          infoBox:                 true,
+          sceneModePicker:         false,
+          selectionIndicator:      false,
+          timeline:                false,
+          animation:               false,
+          fullscreenButton:        false,
+          navigationHelpButton:    false,
+          shouldAnimate:           false,
+          requestRenderMode:       false,   // always render — ensures pins & imagery show
+          creditContainer: document.createElement("div"),
         })
 
         viewerRef.current = viewer
 
-        // ── Camera behaviour: pan on drag, double-click/tap to zoom ──────────
-        // Disable rotation & tilt so dragging moves the geographic position
+        // Camera: pan on drag, double-click to zoom
         const ctrl = viewer.scene.screenSpaceCameraController
-        ctrl.enableRotate    = false  // no spinning the globe
-        ctrl.enableTilt      = false  // no angle changes on drag
-        ctrl.enableLook      = false  // no free-look
-        ctrl.enableTranslate = true   // panning (moving position) stays on
-        ctrl.enableZoom      = true   // scroll-wheel / pinch zoom stays on
+        ctrl.enableRotate    = false
+        ctrl.enableTilt      = false
+        ctrl.enableLook      = false
+        ctrl.enableTranslate = true
+        ctrl.enableZoom      = true
 
-        // Double-click/double-tap zooms in (×4)
+        // Double-click zooms in ×4
         viewer.screenSpaceEventHandler.setInputAction(
           (event: any) => {
-            if (!event.position) return
             const cartesian = viewer.scene.pickPosition(event.position)
-            if (!cartesian) return
             viewer.camera.flyTo({
-              destination: Cesium.Cartesian3.fromDegrees(
-                obs.lng,
-                obs.lat,
-                Math.max(200, viewer.camera.positionCartographic.height / 4)
-              ),
+              destination: cartesian || Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, 2000),
               orientation: { heading: viewer.camera.heading, pitch: viewer.camera.pitch, roll: 0 },
               duration: 0.6,
             })
@@ -177,27 +161,28 @@ export function ObservationEarthPortal({
           Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK
         )
 
-        // ── Add satellite imagery (same chain as Earth Simulator) ──────────
+        // Satellite imagery
         try {
           const esri = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
             "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer"
           )
           viewer.imageryLayers.addImageryProvider(esri)
         } catch {
-          // Fallback to NaturalEarth
-          const ne = await Cesium.TileMapServiceImageryProvider.fromUrl(
-            Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")
-          )
-          viewer.imageryLayers.addImageryProvider(ne)
+          try {
+            const ne = await Cesium.TileMapServiceImageryProvider.fromUrl(
+              Cesium.buildModuleUrl("Assets/Textures/NaturalEarthII")
+            )
+            viewer.imageryLayers.addImageryProvider(ne)
+          } catch { /* no imagery — that's ok */ }
         }
 
         if (destroyed) { viewer.destroy(); return }
 
-        // ── Add observation pins ───────────────────────────────────────────
+        // Add all observation pins
         obsArray.forEach((o, i) => {
           if (!o.lat || !o.lng) return
-          const isSelected = i === selIdx
-          const color = isSelected
+          const isFirst = i === 0
+          const color   = isFirst
             ? Cesium.Color.fromCssColorString("#22c55e")
             : Cesium.Color.fromCssColorString("#0ea5e9")
 
@@ -205,7 +190,7 @@ export function ObservationEarthPortal({
             id: `obs-${o.id}`,
             position: Cesium.Cartesian3.fromDegrees(o.lng, o.lat, 50),
             point: {
-              pixelSize: isSelected ? 14 : 9,
+              pixelSize:   isFirst ? 14 : 9,
               color,
               outlineColor: Cesium.Color.WHITE,
               outlineWidth: 2,
@@ -214,47 +199,37 @@ export function ObservationEarthPortal({
             label: {
               text: o.commonName || o.speciesName,
               font: "bold 12px system-ui",
-              fillColor: Cesium.Color.WHITE,
+              fillColor:   Cesium.Color.WHITE,
               outlineColor: Cesium.Color.BLACK,
               outlineWidth: 2,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              style:         Cesium.LabelStyle.FILL_AND_OUTLINE,
               verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
               pixelOffset: new Cesium.Cartesian2(0, -18),
               distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 200000),
-              show: isSelected,
+              show: isFirst,
             },
             description: `
               <div style="padding:12px;font-family:system-ui;background:#0f1117;color:#fff;border-radius:8px;min-width:200px">
-                <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#22c55e">
-                  ${o.commonName || o.speciesName}
-                </p>
-                <p style="margin:0 0 4px;font-style:italic;color:#9ca3af;font-size:12px">
-                  ${o.speciesName}
-                </p>
-                ${o.observer ? `<p style="margin:4px 0;font-size:12px">👤 ${o.observer}</p>` : ""}
-                ${o.observedAt ? `<p style="margin:4px 0;font-size:12px">📅 ${new Date(o.observedAt).toLocaleDateString()}</p>` : ""}
-                <p style="margin:4px 0;font-size:11px;color:#6b7280">
-                  ${o.lat.toFixed(5)}°, ${o.lng.toFixed(5)}°
-                </p>
-                ${o.imageUrl ? `<img src="${o.imageUrl}" style="width:100%;border-radius:6px;margin-top:8px">` : ""}
+                <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#22c55e">${o.commonName || o.speciesName}</p>
+                <p style="margin:0 0 4px;font-style:italic;color:#9ca3af;font-size:12px">${o.speciesName}</p>
+                ${o.observer    ? `<p style="margin:4px 0;font-size:12px">👤 ${o.observer}</p>` : ""}
+                ${o.observedAt  ? `<p style="margin:4px 0;font-size:12px">📅 ${new Date(o.observedAt).toLocaleDateString()}</p>` : ""}
+                <p style="margin:4px 0;font-size:11px;color:#6b7280">${o.lat.toFixed(5)}°, ${o.lng.toFixed(5)}°</p>
+                ${o.imageUrl    ? `<img src="${o.imageUrl}" style="width:100%;border-radius:6px;margin-top:8px">` : ""}
               </div>
             `,
           })
         })
 
-        // ── Fly camera to the selected observation ─────────────────────────
+        // Fly to first observation
         await viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(
-            obs.lng,
-            obs.lat,
-            8000  // ~8 km altitude — you can see the landscape clearly
-          ),
+          destination: Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, 8000),
           orientation: {
             heading: Cesium.Math.toRadians(0),
-            pitch:   Cesium.Math.toRadians(-35), // slight tilt like Google Earth
+            pitch:   Cesium.Math.toRadians(-35),
             roll:    0,
           },
-          duration: 2,
+          duration: 1.5,
         })
 
         if (destroyed) return
@@ -276,47 +251,73 @@ export function ObservationEarthPortal({
         viewerRef.current.destroy()
         viewerRef.current = null
       }
+      setCesiumOk(false)
     }
-  }, [mounted, obs?.id, obs?.lat, obs?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-run only when the first observation ID changes (obs arrives or changes)
+  }, [mounted, obs?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Cross-widget navigation ───────────────────────────────────────────────
-  const goToSpecies = useCallback(() => {
-    const name = obs?.speciesName
-    if (name) ctx.emit("navigate-to-species", { name })
-  }, [ctx, obs?.speciesName])
+  // ── When more observations stream in, add their pins ─────────────────────
+  useEffect(() => {
+    const viewer = viewerRef.current
+    const Cesium = (window as any).Cesium
+    if (!viewer || !Cesium || !cesiumOk || obsArray.length <= 1) return
 
-  const goToChemistry = useCallback(() => {
-    const name = obs?.speciesName
-    if (name) { ctx.setQuery(name); ctx.emit("navigate-to-species", { name }) }
-  }, [ctx, obs?.speciesName])
+    obsArray.forEach((o, i) => {
+      if (!o.lat || !o.lng) return
+      if (viewer.entities.getById(`obs-${o.id}`)) return  // already added
 
-  const goToGenetics = useCallback(() => {
-    const name = obs?.speciesName
-    if (name) ctx.emit("navigate-to-species", { name })
-  }, [ctx, obs?.speciesName])
+      viewer.entities.add({
+        id: `obs-${o.id}`,
+        position: Cesium.Cartesian3.fromDegrees(o.lng, o.lat, 50),
+        point: {
+          pixelSize: 9,
+          color: Cesium.Color.fromCssColorString("#0ea5e9"),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        },
+        description: `
+          <div style="padding:12px;font-family:system-ui;background:#0f1117;color:#fff;border-radius:8px">
+            <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:#22c55e">${o.commonName || o.speciesName}</p>
+            <p style="margin:4px 0;font-size:11px;color:#6b7280">${o.lat.toFixed(5)}°, ${o.lng.toFixed(5)}°</p>
+          </div>
+        `,
+      })
+    })
+  }, [cesiumOk, obsArray.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Cesium camera controls ─────────────────────────────────────────────────
+  // ── Camera controls (kept stable with ref) ────────────────────────────────
   const flyToSelected = useCallback((altitude = 8000) => {
     const viewer = viewerRef.current
-    if (!viewer || !obs) return
     const Cesium = (window as any).Cesium
-    if (!Cesium) return
+    if (!viewer || !Cesium || !obs) return
     viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(obs.lng, obs.lat, altitude),
       orientation: { heading: Cesium.Math.toRadians(0), pitch: Cesium.Math.toRadians(-35), roll: 0 },
       duration: 1,
     })
-  }, [obs])
+  }, [obs?.lat, obs?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openInEarthSimulator = useCallback(() => {
     if (!obs) return
-    window.open(`/(dashboard)/earth-simulator/earth2-rtx?lat=${obs.lat}&lng=${obs.lng}&species=${encodeURIComponent(obs.speciesName)}`, "_blank")
-  }, [obs])
+    window.open(
+      `/(dashboard)/earth-simulator/earth2-rtx?lat=${obs.lat}&lng=${obs.lng}&species=${encodeURIComponent(obs.speciesName)}`,
+      "_blank"
+    )
+  }, [obs?.lat, obs?.lng, obs?.speciesName]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Guard: all hooks above this line ─────────────────────────────────────
-  if (!mounted || !obs) return null
+  // Cross-widget navigation
+  const goToSpecies   = useCallback(() => { if (obs?.speciesName) ctx.emit("navigate-to-species", { name: obs.speciesName }) }, [ctx, obs?.speciesName])
+  const goToChemistry = useCallback(() => { if (obs?.speciesName) { ctx.setQuery(obs.speciesName); ctx.emit("navigate-to-species", { name: obs.speciesName }) } }, [ctx, obs?.speciesName])
+  const goToGenetics  = useCallback(() => { if (obs?.speciesName) ctx.emit("navigate-to-species", { name: obs.speciesName }) }, [ctx, obs?.speciesName])
 
-  const dateStr = obs.observedAt
+  // ── SSR guard — ONLY early-return, all hooks above ────────────────────────
+  if (!mounted) return null
+
+  const waitingForObs = obsArray.length === 0 && observationsLoading
+  const noObs         = obsArray.length === 0 && !observationsLoading
+
+  const dateStr = obs?.observedAt
     ? new Date(obs.observedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
     : null
 
@@ -348,33 +349,29 @@ export function ObservationEarthPortal({
               </div>
               <div>
                 <h2 className="text-sm font-bold text-white leading-tight">
-                  {title || obs.commonName || obs.speciesName}
+                  {title || obs?.commonName || obs?.speciesName || "Earth Observation"}
                 </h2>
                 <p className="text-[10px] text-teal-300 font-mono">
-                  Earth Simulator · {obs.lat.toFixed(5)}°, {obs.lng.toFixed(5)}°
-                  {obsArray.length > 1 && (
-                    <span className="ml-2 text-teal-400/60">
-                      observation {selIdx + 1}/{obsArray.length}
-                    </span>
-                  )}
+                  {waitingForObs
+                    ? "Searching iNaturalist for field observations…"
+                    : obs
+                      ? `Earth Simulator · ${obs.lat.toFixed(5)}°, ${obs.lng.toFixed(5)}°${obsArray.length > 1 ? ` · sighting ${selIdx + 1}/${obsArray.length}` : ""}`
+                      : "No geotagged observations found"
+                  }
                 </p>
               </div>
-              {obs.isToxic && (
-                <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30">
-                  ⚠️ Toxic
-                </Badge>
+              {obs?.isToxic && (
+                <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30">⚠️ Toxic</Badge>
               )}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
-                variant="ghost"
-                size="sm"
+                variant="ghost" size="sm"
                 className="h-7 text-[10px] text-teal-400 hover:bg-teal-500/10 gap-1"
                 onClick={openInEarthSimulator}
-                title="Open full Earth Simulator"
+                disabled={!obs}
               >
-                <ExternalLink className="h-3 w-3" />
-                Full App
+                <ExternalLink className="h-3 w-3" /> Full App
               </Button>
               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={onClose}>
                 <X className="h-4 w-4" />
@@ -382,46 +379,53 @@ export function ObservationEarthPortal({
             </div>
           </div>
 
-          {/* ── Cesium Globe ─────────────────────────────────────────────── */}
+          {/* ── Globe area ───────────────────────────────────────────────── */}
           <div className="absolute inset-0">
-            {/* Loading / error overlay */}
-            {(loadingMsg || cesiumError) && (
+            {/* Overlay: loading / waiting / no results */}
+            {(loadingMsg || cesiumError || waitingForObs || noObs) && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#060d1a] gap-4">
                 {cesiumError ? (
                   <>
                     <Globe className="h-10 w-10 text-red-400 opacity-60" />
                     <p className="text-sm text-red-400">{cesiumError}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Check network connection — satellite imagery requires internet access
-                    </p>
+                    <p className="text-xs text-muted-foreground">Check network — satellite imagery needs internet</p>
+                  </>
+                ) : noObs ? (
+                  <>
+                    <Globe className="h-10 w-10 text-teal-400/40" />
+                    <p className="text-sm text-teal-300">No geotagged observations found</p>
+                    <p className="text-xs text-muted-foreground">iNaturalist has no field sightings with GPS for this species</p>
                   </>
                 ) : (
                   <>
                     <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
-                    <p className="text-sm text-teal-300">{loadingMsg}</p>
+                    <p className="text-sm text-teal-300">
+                      {waitingForObs ? "Searching iNaturalist for field observations…" : loadingMsg}
+                    </p>
                     <p className="text-[10px] text-muted-foreground">
-                      Using same Earth Simulator satellite imagery
+                      {waitingForObs ? "Globe will appear as soon as sightings are found" : "Satellite imagery from ESRI World Imagery"}
                     </p>
                   </>
                 )}
               </div>
             )}
-            {/* The Cesium canvas — same as Earth Simulator */}
+
+            {/* Cesium canvas — always in DOM so init can attach */}
             <div
-              ref={cesiumContainerRef}
+              ref={containerRef}
               className="w-full h-full"
               style={{ background: "#060d1a" }}
             />
           </div>
 
           {/* ── Camera controls ──────────────────────────────────────────── */}
-          {cesiumOk && (
+          {cesiumOk && obs && (
             <div className="absolute right-4 top-14 z-20 flex flex-col gap-1.5">
               {[
-                { icon: ZoomIn,    label: "Zoom in",    fn: () => flyToSelected(2000) },
-                { icon: ZoomOut,   label: "Zoom out",   fn: () => flyToSelected(25000) },
-                { icon: RotateCcw, label: "Reset view", fn: () => flyToSelected(8000) },
-                { icon: Navigation, label: "Street level", fn: () => flyToSelected(500) },
+                { icon: ZoomIn,    label: "Zoom in",     fn: () => flyToSelected(2000)  },
+                { icon: ZoomOut,   label: "Zoom out",    fn: () => flyToSelected(25000) },
+                { icon: RotateCcw, label: "Reset view",  fn: () => flyToSelected(8000)  },
+                { icon: Navigation,label: "Street level",fn: () => flyToSelected(500)   },
               ].map(({ icon: Icon, label, fn }) => (
                 <button
                   key={label}
@@ -455,10 +459,9 @@ export function ObservationEarthPortal({
           )}
 
           {/* ── Observation details card ──────────────────────────────────── */}
-          {cesiumOk && (
-            <div className="absolute bottom-4 left-4 z-20 w-68">
+          {cesiumOk && obs && (
+            <div className="absolute bottom-4 left-4 z-20">
               <div className="rounded-xl border border-white/10 bg-[#060d1a]/92 backdrop-blur-md p-4 space-y-3 max-w-[270px]">
-                {/* Photo + name */}
                 <div className="flex items-start gap-3">
                   {obs.imageUrl ? (
                     <img
@@ -474,10 +477,12 @@ export function ObservationEarthPortal({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug">{obs.commonName || obs.speciesName}</p>
                     <p className="text-[10px] text-muted-foreground italic leading-tight">{obs.speciesName}</p>
+                    <p className="text-[9px] text-teal-400/70 mt-0.5">
+                      {obsArray.length} sighting{obsArray.length !== 1 ? "s" : ""} on map
+                    </p>
                   </div>
                 </div>
 
-                {/* Meta */}
                 <div className="space-y-1">
                   {obs.observer && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -499,13 +504,12 @@ export function ObservationEarthPortal({
                   </div>
                 </div>
 
-                {/* Cross-widget links */}
                 <div className="pt-1.5 border-t border-white/6 space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Explore in search</p>
                   {[
-                    { icon: Leaf,        label: "Species widget",  color: "text-green-400  hover:bg-green-500/10",  fn: goToSpecies },
+                    { icon: Leaf,         label: "Species widget",  color: "text-green-400  hover:bg-green-500/10",  fn: goToSpecies   },
                     { icon: FlaskConical, label: "View compounds",  color: "text-purple-400 hover:bg-purple-500/10", fn: goToChemistry },
-                    { icon: Dna,         label: "View genetics",   color: "text-blue-400   hover:bg-blue-500/10",   fn: goToGenetics },
+                    { icon: Dna,          label: "View genetics",   color: "text-blue-400   hover:bg-blue-500/10",   fn: goToGenetics  },
                   ].map(({ icon: Icon, label, color, fn }) => (
                     <button
                       key={label}

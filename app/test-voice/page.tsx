@@ -143,7 +143,7 @@ export default function VoiceTestPage() {
 
   // Service statuses
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Moshi Server (8998)", url: "/api/test-voice/diagnostics", status: "checking" },
+    { name: "Moshi (via Bridge)", url: "/api/test-voice/diagnostics", status: "checking" },
     { name: "PersonaPlex Bridge (8999)", url: "/api/test-voice/bridge/health", status: "checking" },
     { name: "MAS Consciousness", url: "/api/test-voice/mas/myca-status", status: "checking" },
     { name: "Memory Bridge", url: "/api/test-voice/mas/memory-health", status: "checking" },

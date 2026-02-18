@@ -248,22 +248,52 @@ export class AISStreamClient {
       ws.send(JSON.stringify(subscribeMessage))
     }
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       try {
-        const message: AISMessage = JSON.parse(event.data)
-        const mmsi = String(message.MetaData.MMSI)
+        // Handle both string and Blob data types
+        // In Node.js WebSocket, data can be a Buffer, Blob, or string
+        let jsonStr: string
+        
+        if (typeof event.data === "string") {
+          jsonStr = event.data
+        } else if (event.data instanceof Blob) {
+          // Convert Blob to text (browser/some Node.js environments)
+          jsonStr = await event.data.text()
+        } else if (Buffer.isBuffer(event.data)) {
+          // Node.js Buffer
+          jsonStr = event.data.toString("utf-8")
+        } else if (event.data instanceof ArrayBuffer) {
+          // ArrayBuffer
+          const decoder = new TextDecoder("utf-8")
+          jsonStr = decoder.decode(event.data)
+        } else {
+          // Fallback - try to convert to string
+          jsonStr = String(event.data)
+        }
+        
+        const message = JSON.parse(jsonStr)
+        
+        // AISStream sends various message types - only process position/static messages
+        // Ignore: connection confirmations, heartbeats, errors, etc.
+        if (!message.MetaData || !message.MetaData.MMSI) {
+          // Not a vessel position message - skip silently
+          return
+        }
+        
+        const aisMessage = message as AISMessage
+        const mmsi = String(aisMessage.MetaData.MMSI)
         
         // Cache static data
-        if (message.Message.ShipStaticData) {
-          this.staticDataCache.set(mmsi, message.Message.ShipStaticData)
+        if (aisMessage.Message?.ShipStaticData) {
+          this.staticDataCache.set(mmsi, aisMessage.Message.ShipStaticData)
         }
         
         // Create vessel entity
         const vessel = aisToVesselEntity(
           mmsi,
-          message.Message.PositionReport || null,
+          aisMessage.Message?.PositionReport || null,
           this.staticDataCache.get(mmsi) || null,
-          message.MetaData
+          aisMessage.MetaData
         )
         
         this.vesselCache.set(mmsi, vessel)

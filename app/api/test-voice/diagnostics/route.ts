@@ -6,8 +6,9 @@
  *
  * NOTE: WebSocket connectivity to the bridge is still client-side (by design).
  *
- * Moshi (moshi.server) is WebSocket-only: it accepts TCP connections but returns
- * an empty HTTP reply. We fall back to a TCP-connect check so it shows as OK.
+ * Moshi status is derived from the PersonaPlex Bridge health response (moshi_available).
+ * When using the GPU node architecture, Moshi runs on the node (e.g. 192.168.0.190:19198
+ * internal); the bridge reports whether it can reach Moshi. No direct localhost:8998 check.
  */
 
 import { NextResponse } from "next/server"
@@ -35,12 +36,16 @@ function tcpPing(host: string, port: number, timeoutMs = 3000): Promise<boolean>
   })
 }
 
-async function checkUrl(url: string, tcpFallback = false): Promise<CheckResult> {
+async function checkUrl(
+  url: string,
+  tcpFallback = false,
+  timeoutMs = 9000
+): Promise<CheckResult> {
   const startedAt = Date.now()
   try {
     const res = await fetch(url, {
       method: "GET",
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: { "Accept": "application/json, text/plain, */*" },
       cache: "no-store",
     })
@@ -94,33 +99,32 @@ export async function GET() {
     process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
     "http://localhost:8999"
 
-  // Moshi is often local on the 5090 host. Keep it configurable.
-  const moshiBaseUrl =
-    process.env.MOSHI_URL ||
-    `http://${process.env.MOSHI_HOST || "localhost"}:${process.env.MOSHI_PORT || "8998"}/`
-
-  const moshiUrl = moshiBaseUrl.endsWith("/") ? moshiBaseUrl : `${moshiBaseUrl}/`
   const bridgeHealthUrl = `${bridgeBaseUrl.replace(/\/$/, "")}/health`
   const masMycaStatusUrl = `${masBaseUrl.replace(/\/$/, "")}/api/myca/status`
   const masMemoryHealthUrl = `${masBaseUrl.replace(/\/$/, "")}/api/memory/health`
 
-  const [moshi, bridge, myca, memory] = await Promise.all([
-    checkUrl(moshiUrl, true),   // Moshi is WebSocket-only; fall back to TCP connect
-    checkUrl(bridgeHealthUrl),
-    checkUrl(masMycaStatusUrl),
-    checkUrl(masMemoryHealthUrl),
+  // MAS is remote (192.168.0.188) and can be slow; use 18s timeout so it doesn't show "off" when healthy but slow.
+  // Moshi status is derived from bridge health (moshi_available) for GPU node architecture.
+  const MAS_TIMEOUT_MS = 18000
+  const [bridge, myca, memory] = await Promise.all([
+    checkUrl(bridgeHealthUrl, false, 9000),
+    checkUrl(masMycaStatusUrl, false, MAS_TIMEOUT_MS),
+    checkUrl(masMemoryHealthUrl, false, MAS_TIMEOUT_MS),
   ])
+
+  const bridgeData = bridge.data as { moshi_available?: boolean } | undefined
+  const moshiOk = bridge.ok && bridgeData?.moshi_available === true
 
   return NextResponse.json(
     {
       services: [
         {
           key: "moshi",
-          name: "Moshi Server (8998)",
-          target: moshiUrl,
-          ok: moshi.ok,
-          status: moshi.status,
-          latencyMs: moshi.latencyMs,
+          name: "Moshi Server (via Bridge)",
+          target: bridgeHealthUrl,
+          ok: moshiOk,
+          status: bridge.status,
+          latencyMs: bridge.latencyMs,
         },
         {
           key: "bridge",
@@ -151,7 +155,6 @@ export async function GET() {
       config: {
         masBaseUrl,
         bridgeBaseUrl,
-        moshiBaseUrl: moshiUrl,
       },
     },
     { headers: { "Cache-Control": "no-store" } }

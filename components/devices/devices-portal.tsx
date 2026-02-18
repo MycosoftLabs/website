@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { 
@@ -226,6 +226,18 @@ const accessories = [
 
 export function DevicesPortal() {
   const [selectedDevice, setSelectedDevice] = useState(devices[0])
+  const detailRef = useRef<HTMLElement>(null)
+
+  const handleSelectDevice = useCallback((device: typeof devices[0]) => {
+    setSelectedDevice(device)
+    // On mobile: scroll to detail section so user sees content immediately
+    // without having to manually scroll down
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setTimeout(() => {
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 50)
+    }
+  }, [])
 
   return (
     <div className="min-h-dvh bg-background">
@@ -274,8 +286,48 @@ export function DevicesPortal() {
         </div>
       </section>
 
-      {/* Device Selection Grid */}
-      <section className="py-16 bg-muted/30">
+      {/* ── MOBILE: Sticky tab strip — stays at top while scrolling details ── */}
+      {/* Sits just below the main header (top-12 = 48px) */}
+      <div className="md:hidden sticky top-12 z-40 bg-background/95 backdrop-blur-md border-b shadow-sm">
+        <div
+          className="flex overflow-x-auto gap-1 px-3 py-2"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {devices.map((device) => {
+            const isSelected = selectedDevice.id === device.id
+            const colorClass =
+              device.color === "emerald-500" ? (isSelected ? "bg-emerald-500 text-white" : "text-emerald-500") :
+              device.color === "orange-500"  ? (isSelected ? "bg-orange-500 text-white"  : "text-orange-500")  :
+              device.color === "purple-500"  ? (isSelected ? "bg-purple-500 text-white"  : "text-purple-500")  :
+              device.color === "red-500"     ? (isSelected ? "bg-red-500 text-white"     : "text-red-500")     :
+              device.color === "slate-500"   ? (isSelected ? "bg-slate-500 text-white"   : "text-slate-500")   :
+                                              (isSelected ? "bg-primary text-primary-foreground" : "text-primary")
+            return (
+              <button
+                key={device.id}
+                onClick={() => handleSelectDevice(device)}
+                className={`flex-none flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[76px] min-h-[60px] transition-all active:scale-95 ${
+                  isSelected
+                    ? `${colorClass} shadow-sm`
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+                aria-pressed={isSelected}
+              >
+                <device.icon className="h-5 w-5" />
+                <span className="text-xs font-medium whitespace-nowrap leading-tight">
+                  {device.name}
+                </span>
+                {isSelected && (
+                  <span className="text-[10px] opacity-80 whitespace-nowrap">{device.status}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── DESKTOP: 5-column card grid ── */}
+      <section className="hidden md:block py-16 bg-muted/30">
         <div className="container px-4 max-w-7xl mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
             {devices.map((device, index) => (
@@ -285,30 +337,30 @@ export function DevicesPortal() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card 
+                <Card
                   className={`cursor-pointer transition-all ${
-                    selectedDevice.id === device.id 
-                      ? 'border-primary ring-2 ring-primary/20' 
-                      : 'hover:border-muted-foreground/50'
+                    selectedDevice.id === device.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "hover:border-muted-foreground/50"
                   }`}
                   onClick={() => setSelectedDevice(device)}
                 >
                   <CardContent className="pt-6">
                     <div className={`inline-flex p-3 rounded-xl mb-4 ${
-                      device.color === 'emerald-500' ? 'bg-emerald-500/10' :
-                      device.color === 'orange-500' ? 'bg-orange-500/10' :
-                      device.color === 'slate-500' ? 'bg-slate-500/10' :
-                      device.color === 'purple-500' ? 'bg-purple-500/10' :
-                      device.color === 'red-500' ? 'bg-red-500/10' :
-                      'bg-primary/10'
+                      device.color === "emerald-500" ? "bg-emerald-500/10" :
+                      device.color === "orange-500"  ? "bg-orange-500/10"  :
+                      device.color === "slate-500"   ? "bg-slate-500/10"   :
+                      device.color === "purple-500"  ? "bg-purple-500/10"  :
+                      device.color === "red-500"     ? "bg-red-500/10"     :
+                      "bg-primary/10"
                     }`}>
                       <device.icon className={`h-6 w-6 ${
-                        device.color === 'emerald-500' ? 'text-emerald-500' :
-                        device.color === 'orange-500' ? 'text-orange-500' :
-                        device.color === 'slate-500' ? 'text-slate-500' :
-                        device.color === 'purple-500' ? 'text-purple-500' :
-                        device.color === 'red-500' ? 'text-red-500' :
-                        'text-primary'
+                        device.color === "emerald-500" ? "text-emerald-500" :
+                        device.color === "orange-500"  ? "text-orange-500"  :
+                        device.color === "slate-500"   ? "text-slate-500"   :
+                        device.color === "purple-500"  ? "text-purple-500"  :
+                        device.color === "red-500"     ? "text-red-500"     :
+                        "text-primary"
                       }`} />
                     </div>
                     <h3 className="font-bold text-lg">{device.name}</h3>
@@ -413,6 +465,94 @@ export function DevicesPortal() {
             </div>
           </motion.div>
         </div>
+      </section>
+
+      {/* ── MOBILE: Device detail — shown below the sticky tab strip ── */}
+      {/* ref={detailRef} so selecting a device auto-scrolls here */}
+      <section ref={detailRef} className="md:hidden bg-muted/30 pb-8">
+        <motion.div
+          key={`mobile-${selectedDevice.id}`}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="px-4 pt-4 space-y-6"
+        >
+          {/* Device image */}
+          <div className="aspect-video rounded-xl border overflow-hidden relative bg-muted">
+            <img
+              src={selectedDevice.image}
+              alt={selectedDevice.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => {
+                const t = e.target as HTMLImageElement
+                t.style.display = "none"
+                t.nextElementSibling?.classList.remove("hidden")
+              }}
+            />
+            <div className={`hidden h-full flex items-center justify-center ${
+              selectedDevice.color === "emerald-500" ? "bg-gradient-to-br from-emerald-500/10 to-muted" :
+              selectedDevice.color === "orange-500"  ? "bg-gradient-to-br from-orange-500/10 to-muted"  :
+              selectedDevice.color === "slate-500"   ? "bg-gradient-to-br from-slate-500/10 to-muted"   :
+              selectedDevice.color === "purple-500"  ? "bg-gradient-to-br from-purple-500/10 to-muted"  :
+              selectedDevice.color === "red-500"     ? "bg-gradient-to-br from-red-500/10 to-muted"     :
+              "bg-gradient-to-br from-primary/10 to-muted"
+            }`}>
+              <selectedDevice.icon className="h-24 w-24 text-muted-foreground/30" />
+            </div>
+          </div>
+
+          {/* Name + status + description */}
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold">{selectedDevice.name}</h2>
+              <Badge>{selectedDevice.status}</Badge>
+            </div>
+            <p className="text-base text-muted-foreground font-medium mb-2">{selectedDevice.tagline}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{selectedDevice.description}</p>
+          </div>
+
+          {/* Specs grid */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">Specifications</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {selectedDevice.specs.map((spec) => (
+                <div key={spec.label} className="bg-background rounded-lg p-3 border">
+                  <div className="text-xs text-muted-foreground mb-0.5">{spec.label}</div>
+                  <div className="font-semibold text-sm">{spec.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Features */}
+          <div>
+            <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide text-muted-foreground">Key Features</h3>
+            <div className="space-y-2">
+              {selectedDevice.features.map((feature, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <span>{feature}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col gap-3 pb-2">
+            <Button size="lg" className="w-full" asChild>
+              <Link href={`/devices/${selectedDevice.id}`}>
+                View Full Details
+                <ChevronRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="w-full" asChild>
+              <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                <Play className="mr-2 h-5 w-5" />
+                Watch Demo
+              </a>
+            </Button>
+          </div>
+        </motion.div>
       </section>
 
       {/* Applications Section */}

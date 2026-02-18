@@ -38,7 +38,7 @@ import { MoleculeViewer } from "@/components/visualizations/MoleculeViewer"
 import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
 import dynamic from "next/dynamic"
 const ObservationEarthPortal = dynamic(
-  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  () => import("./ObservationEarthPortal"),
   { ssr: false }
 )
 
