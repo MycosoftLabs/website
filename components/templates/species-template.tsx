@@ -470,3 +470,4 @@ export function SpeciesTemplate({ species }: SpeciesTemplateProps) {
     </div>
   )
 }
+

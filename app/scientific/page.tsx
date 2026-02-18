@@ -63,9 +63,9 @@ export default function ScientificPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Scientific Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Scientific Dashboard</h1>
           <p className="text-muted-foreground">Autonomous scientific research and experimentation</p>
         </div>
         <div className="flex items-center gap-2">
@@ -78,14 +78,14 @@ export default function ScientificPage() {
               Cached
             </Badge>
           )}
-          <Button size="sm" variant="outline" onClick={fetchStats} disabled={loading}>
+          <Button size="sm" variant="outline" onClick={fetchStats} disabled={loading} className="min-h-[44px]">
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="hover:shadow-md transition-shadow cursor-pointer">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -148,22 +148,24 @@ export default function ScientificPage() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="genomics">
-            <Dna className="h-3.5 w-3.5 mr-1.5" />Genomics
-          </TabsTrigger>
-          <TabsTrigger value="chemistry">
-            <Atom className="h-3.5 w-3.5 mr-1.5" />Chemistry
-          </TabsTrigger>
-          <TabsTrigger value="lab">Lab</TabsTrigger>
-          <TabsTrigger value="simulations">Simulations</TabsTrigger>
-          <TabsTrigger value="experiments">Experiments</TabsTrigger>
-          <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="w-max min-w-full">
+            <TabsTrigger value="overview" className="min-h-[44px] whitespace-nowrap">Overview</TabsTrigger>
+            <TabsTrigger value="genomics" className="min-h-[44px] whitespace-nowrap">
+              <Dna className="h-3.5 w-3.5 mr-1.5" />Genomics
+            </TabsTrigger>
+            <TabsTrigger value="chemistry" className="min-h-[44px] whitespace-nowrap">
+              <Atom className="h-3.5 w-3.5 mr-1.5" />Chemistry
+            </TabsTrigger>
+            <TabsTrigger value="lab" className="min-h-[44px] whitespace-nowrap">Lab</TabsTrigger>
+            <TabsTrigger value="simulations" className="min-h-[44px] whitespace-nowrap">Simulations</TabsTrigger>
+            <TabsTrigger value="experiments" className="min-h-[44px] whitespace-nowrap">Experiments</TabsTrigger>
+            <TabsTrigger value="hypotheses" className="min-h-[44px] whitespace-nowrap">Hypotheses</TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LabMonitor />
             <SimulationPanel />
           </div>
@@ -181,7 +183,7 @@ export default function ScientificPage() {
               <p className="text-sm text-muted-foreground">A=green · T=red · G=blue · C=amber</p>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {DEMO_SEQUENCES.map((s) => (
               <Card key={s.accession} className="border-green-500/20">
                 <CardHeader className="pb-2">
@@ -202,7 +204,7 @@ export default function ScientificPage() {
             <Atom className="h-5 w-5 text-purple-400" />
             Molecular Structure Viewer
           </h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {DEMO_COMPOUNDS.map((c) => (
               <Card key={c.name} className="border-purple-500/20">
                 <CardHeader className="pb-2">

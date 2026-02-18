@@ -36,19 +36,19 @@ export default function SettingsPage() {
         <Tabs defaultValue="general">
           <div className="overflow-x-auto">
           <TabsList className="w-full min-w-max sm:w-auto">
-            <TabsTrigger value="general" className="min-h-[44px]">
+            <TabsTrigger value="general" className="min-h-[44px] whitespace-nowrap">
               <Laptop className="w-4 h-4 mr-2" />
               General
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="min-h-[44px]">
+            <TabsTrigger value="notifications" className="min-h-[44px] whitespace-nowrap">
               <Bell className="w-4 h-4 mr-2" />
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="security" className="min-h-[44px]">
+            <TabsTrigger value="security" className="min-h-[44px] whitespace-nowrap">
               <Shield className="w-4 h-4 mr-2" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="integrations" className="min-h-[44px]">
+            <TabsTrigger value="integrations" className="min-h-[44px] whitespace-nowrap">
               <Globe className="w-4 h-4 mr-2" />
               Integrations
             </TabsTrigger>
@@ -167,7 +167,7 @@ export default function SettingsPage() {
         </Tabs>
 
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={isSaving} className="h-12 px-8">
+          <Button onClick={handleSave} disabled={isSaving} className="h-12 px-8 w-full sm:w-auto">
             {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>

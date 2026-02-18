@@ -523,7 +523,7 @@ export function DefensePortal() {
               
               <div className="p-6 space-y-8">
                 {/* Problem & Scenario */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -559,7 +559,7 @@ export function DefensePortal() {
                     <h3 className="font-semibold text-lg">Mycosoft Solutions</h3>
                   </div>
                   
-                  <div className="grid md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                     {selectedMission.solutions.map((category) => (
                       <div key={category.category} className="space-y-4">
                         <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">
@@ -756,7 +756,7 @@ export function DefensePortal() {
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-16">
             <Badge className="mb-4">The Challenge</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
               Environmental Threats Are Invisible Until They&apos;re Not
             </h2>
             <p className="text-xl text-muted-foreground">
@@ -765,7 +765,7 @@ export function DefensePortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
             {[
               {
                 icon: Factory,
@@ -823,10 +823,10 @@ export function DefensePortal() {
       {/* OEI Solution Section */}
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-primary/10 text-primary">The Solution</Badge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
                 Operational Environmental Intelligence
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
@@ -969,7 +969,7 @@ export function DefensePortal() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Nature Compute System</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
               Defense-Grade Environmental Sensing
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -978,16 +978,18 @@ export function DefensePortal() {
           </div>
 
           <Tabs defaultValue="mushroom1" className="w-full">
-            <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full max-w-4xl mx-auto mb-12">
+            <div className="overflow-x-auto mb-12">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full max-w-4xl mx-auto min-w-max sm:min-w-0">
               <TabsTrigger value="mushroom1">Mushroom1</TabsTrigger>
               <TabsTrigger value="myconode">MycoNode</TabsTrigger>
               <TabsTrigger value="sporebase">SporeBase</TabsTrigger>
               <TabsTrigger value="alarm">ALARM</TabsTrigger>
               <TabsTrigger value="natureos">NatureOS</TabsTrigger>
             </TabsList>
+        </div>
 
             <TabsContent value="mushroom1">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 text-orange-500">
                     <Radar className="h-6 w-6" />
@@ -1029,7 +1031,7 @@ export function DefensePortal() {
             </TabsContent>
 
             <TabsContent value="myconode">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 text-primary">
                     <Microscope className="h-6 w-6" />
@@ -1067,7 +1069,7 @@ export function DefensePortal() {
             </TabsContent>
 
             <TabsContent value="sporebase">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 text-blue-500">
                     <Wind className="h-6 w-6" />
@@ -1105,7 +1107,7 @@ export function DefensePortal() {
             </TabsContent>
 
             <TabsContent value="alarm">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 text-destructive">
                     <AlertTriangle className="h-6 w-6" />
@@ -1143,7 +1145,7 @@ export function DefensePortal() {
             </TabsContent>
 
             <TabsContent value="natureos">
-              <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 text-green-500">
                     <Eye className="h-6 w-6" />
@@ -1188,7 +1190,7 @@ export function DefensePortal() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Operational Vignettes</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
               Mission-Critical Applications
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
@@ -1196,7 +1198,7 @@ export function DefensePortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {missionCriticalData.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -1246,7 +1248,7 @@ export function DefensePortal() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">Intelligence Products</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
               Actionable Environmental Intelligence
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
@@ -1254,7 +1256,7 @@ export function DefensePortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {intelligencePackets.map((product) => (
               <div 
                 key={product.acronym} 
@@ -1339,7 +1341,7 @@ export function DefensePortal() {
           <div className="grid lg:grid-cols-2 gap-16 items-start">
             <div>
               <Badge className="mb-4">Integration</Badge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
                 Seamless DoD Integration
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
@@ -1477,7 +1479,7 @@ export function DefensePortal() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <Badge className="mb-4">Get Started</Badge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
               Ready to Deploy OEI?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
@@ -1529,3 +1531,4 @@ export function DefensePortal() {
     </div>
   )
 }
+

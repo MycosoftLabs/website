@@ -373,7 +373,7 @@ export function MycoNodeDetails() {
       {/* Mission Section */}
       <section className="py-24 bg-gradient-to-b from-slate-950 to-purple-950/50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
                 The Mission
@@ -460,7 +460,7 @@ export function MycoNodeDetails() {
             </p>
           </div>
           
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left: 1-2-3 Instructions */}
             <div className="space-y-8">
               <div className="flex gap-6">
@@ -558,7 +558,7 @@ export function MycoNodeDetails() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { 
                 icon: Zap, 
@@ -692,7 +692,7 @@ export function MycoNodeDetails() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -872,7 +872,7 @@ export function MycoNodeDetails() {
             </p>
           </div>
           
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Color selector on left */}
             <div>
               <div className="grid grid-cols-4 gap-4 mb-8">
@@ -1034,7 +1034,7 @@ export function MycoNodeDetails() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-slate-900/50 rounded-2xl border border-purple-500/20 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Zap className="h-5 w-5 text-purple-400" />
@@ -1117,3 +1117,4 @@ export function MycoNodeDetails() {
     </div>
   )
 }
+

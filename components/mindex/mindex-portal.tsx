@@ -427,7 +427,7 @@ export function MINDEXPortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 icon: Lock,
@@ -494,7 +494,7 @@ export function MINDEXPortal() {
         </div>
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-16 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             {/* Left: Feature Selection */}
             <div>
               <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Technical Architecture</Badge>
@@ -616,7 +616,7 @@ export function MINDEXPortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { 
                 title: "Species Encyclopedia", 
@@ -735,7 +735,7 @@ export function MINDEXPortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             {protocolFeatures.map((protocol, index) => (
               <motion.div
                 key={protocol.title}
@@ -870,7 +870,7 @@ Signer: mycobrain_0042`}
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {useCases.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -1088,3 +1088,4 @@ Signer: mycobrain_0042`}
     </div>
   )
 }
+

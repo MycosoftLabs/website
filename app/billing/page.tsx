@@ -194,12 +194,12 @@ export default function BillingPage() {
           transition={{ duration: 0.5 }}
         >
           {/* Header */}
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-white">Billing & Usage</h1>
               <p className="text-slate-400 mt-1">Manage your subscription and view usage</p>
             </div>
-            <Button onClick={openPortal} disabled={portalLoading || !billing?.subscription}>
+            <Button onClick={openPortal} disabled={portalLoading || !billing?.subscription} className="w-full sm:w-auto">
               <Settings className="mr-2 h-4 w-4" />
               {portalLoading ? 'Opening...' : 'Manage Subscription'}
             </Button>
@@ -247,8 +247,8 @@ export default function BillingPage() {
                 </div>
               )}
               {!billing?.subscription && (
-                <Link href="/pricing">
-                  <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500">
+                <Link href="/pricing" className="w-full sm:w-auto inline-block">
+                  <Button className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500">
                     <Zap className="mr-2 h-4 w-4" />
                     Upgrade to Pro
                   </Button>
@@ -258,24 +258,26 @@ export default function BillingPage() {
           </Card>
           
           <Tabs defaultValue="usage" className="space-y-6">
-            <TabsList className="bg-slate-800/50">
-              <TabsTrigger value="usage">
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Usage
-              </TabsTrigger>
-              <TabsTrigger value="invoices">
-                <Receipt className="mr-2 h-4 w-4" />
-                Invoices
-              </TabsTrigger>
-              <TabsTrigger value="payment">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Payment Method
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto">
+              <TabsList className="bg-slate-800/50">
+                <TabsTrigger value="usage" className="min-h-[44px] whitespace-nowrap">
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  Usage
+                </TabsTrigger>
+                <TabsTrigger value="invoices" className="min-h-[44px] whitespace-nowrap">
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Invoices
+                </TabsTrigger>
+                <TabsTrigger value="payment" className="min-h-[44px] whitespace-nowrap">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Payment Method
+                </TabsTrigger>
+              </TabsList>
+            </div>
             
             {/* Usage Tab */}
             <TabsContent value="usage" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {usage?.usage.map((item) => (
                   <Card key={item.type} className="bg-slate-900/50 border-slate-700/50">
                     <CardHeader className="pb-2">
@@ -323,14 +325,14 @@ export default function BillingPage() {
                 </CardHeader>
                 <CardContent>
                   {billing?.invoices && billing.invoices.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-4 overflow-x-auto">
                       {billing.invoices.map((invoice) => (
                         <div 
                           key={invoice.id}
-                          className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-800/50 rounded-lg"
                         >
                           <div className="flex items-center gap-4">
-                            <Receipt className="h-8 w-8 text-slate-400" />
+                            <Receipt className="h-8 w-8 text-slate-400 shrink-0" />
                             <div>
                               <p className="font-medium text-white">
                                 Invoice #{invoice.number}
@@ -340,8 +342,8 @@ export default function BillingPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
+                          <div className="flex items-center gap-4 sm:gap-4">
+                            <div className="text-left sm:text-right flex-1 sm:flex-none">
                               <p className="font-medium text-white">
                                 {formatCurrency(invoice.amount, invoice.currency)}
                               </p>

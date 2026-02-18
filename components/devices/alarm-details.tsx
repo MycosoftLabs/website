@@ -278,7 +278,7 @@ export function AlarmDetails() {
       {/* Mission Section */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
                 The Vision
@@ -357,7 +357,7 @@ export function AlarmDetails() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {DETECTIONS.map((item, index) => (
               <motion.div
                 key={item.name}
@@ -383,7 +383,7 @@ export function AlarmDetails() {
       {/* AI Section */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
               <div className="aspect-video rounded-2xl bg-gradient-to-br from-slate-100 to-white border border-slate-200 p-8 flex items-center justify-center">
                 <div className="text-center">
@@ -446,7 +446,7 @@ export function AlarmDetails() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -629,7 +629,7 @@ export function AlarmDetails() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -704,3 +704,4 @@ export function AlarmDetails() {
     </div>
   )
 }
+

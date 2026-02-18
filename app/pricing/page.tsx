@@ -239,7 +239,7 @@ export default function PricingPage() {
       
       {/* Plans */}
       <section className="px-6 pb-20">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {PLANS.map((plan, index) => {
             const price = billingCycle === 'annual' ? plan.price.annual : plan.price.monthly
             const IconComponent = plan.icon
@@ -287,7 +287,7 @@ export default function PricingPage() {
                 
                 {/* Price */}
                 <div className="mb-6">
-                  <span className="text-5xl font-bold">${price}</span>
+                  <span className="text-3xl sm:text-5xl font-bold">${price}</span>
                   {price > 0 && <span className="text-muted-foreground">/month</span>}
                   {billingCycle === 'annual' && price > 0 && (
                     <p className="text-sm text-muted-foreground mt-1">
@@ -362,7 +362,7 @@ export default function PricingPage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {CAPABILITIES.map((cap, index) => (
               <motion.div
                 key={cap.title}

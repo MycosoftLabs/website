@@ -197,7 +197,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="flex items-start gap-4 md:gap-8">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-8">
           <Avatar className="w-20 h-20 border-2 border-primary">
             <AvatarImage src={displayUser.image || undefined} alt={displayUser.name || ""} />
             <AvatarFallback className="text-xl bg-primary text-primary-foreground">
@@ -240,25 +240,25 @@ export default function ProfilePage() {
         </div>
 
         <Tabs defaultValue="profile">
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="profile">
+          <TabsList className="flex-wrap h-auto overflow-x-auto">
+            <TabsTrigger value="profile" className="min-h-[44px] whitespace-nowrap">
               <User className="w-4 h-4 mr-2" />
               Profile
             </TabsTrigger>
-            <TabsTrigger value="notifications">
+            <TabsTrigger value="notifications" className="min-h-[44px] whitespace-nowrap">
               <Bell className="w-4 h-4 mr-2" />
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="security">
+            <TabsTrigger value="security" className="min-h-[44px] whitespace-nowrap">
               <Shield className="w-4 h-4 mr-2" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="settings">
+            <TabsTrigger value="settings" className="min-h-[44px] whitespace-nowrap">
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="admin" className="text-yellow-500">
+              <TabsTrigger value="admin" className="min-h-[44px] whitespace-nowrap text-yellow-500">
                 <Crown className="w-4 h-4 mr-2" />
                 Admin
               </TabsTrigger>
@@ -302,19 +302,19 @@ export default function ProfilePage() {
                     disabled={!isEditing} 
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   {isEditing ? (
                     <>
-                      <Button onClick={handleProfileSave} disabled={saving}>
+                      <Button onClick={handleProfileSave} disabled={saving} className="w-full sm:w-auto">
                         {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                         Save Changes
                       </Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)}>
+                      <Button variant="outline" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
                         Cancel
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => setIsEditing(true)}>
+                    <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
                       Edit Profile
                     </Button>
                   )}

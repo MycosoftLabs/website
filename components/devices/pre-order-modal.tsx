@@ -70,7 +70,7 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
                   <Package className="h-6 w-6 text-emerald-400" />
                   What You Get
                 </h3>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Card className="bg-white/5 border-white/10">
                     <CardHeader>
                       <CardTitle className="text-white">Device Package</CardTitle>
@@ -132,7 +132,7 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
               {/* Features & Details */}
               <div>
                 <h3 className="text-2xl font-bold text-white mb-4">Features & Specifications</h3>
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="bg-white/5 border-white/10">
                     <CardHeader>
                       <CardTitle className="text-white flex items-center gap-2 text-lg">
@@ -233,3 +233,4 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
     </AnimatePresence>
   )
 }
+

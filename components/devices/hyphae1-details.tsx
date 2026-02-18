@@ -317,7 +317,7 @@ export function Hyphae1Details() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {HYPHAE_VARIANTS.map((variant, index) => (
               <motion.div
                 key={variant.id}
@@ -365,7 +365,7 @@ export function Hyphae1Details() {
       {/* Mission Section */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
                 Why Hyphae 1
@@ -439,7 +439,7 @@ export function Hyphae1Details() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { icon: Shield, title: "IP66 Rated", desc: "Dust-tight and water-resistant for harsh environments" },
               { icon: Network, title: "Multi-Protocol", desc: "Modbus, MQTT, REST API, and more" },
@@ -479,7 +479,7 @@ export function Hyphae1Details() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -661,7 +661,7 @@ export function Hyphae1Details() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Box className="h-5 w-5 text-slate-600" />
@@ -744,3 +744,4 @@ export function Hyphae1Details() {
     </div>
   )
 }
+

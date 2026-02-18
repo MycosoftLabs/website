@@ -482,7 +482,7 @@ export function AppsPortal() {
                   Scientific applications for mycology research and environmental analysis.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
                 {researchApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -496,7 +496,7 @@ export function AppsPortal() {
                   Cutting-edge NLM-powered simulations for physics, biology, and chemistry computations.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 {innovationApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -510,7 +510,7 @@ export function AppsPortal() {
                   Command and control applications for operational environmental intelligence.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 {defenseApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -524,7 +524,7 @@ export function AppsPortal() {
                   APIs, SDKs, and tools for building on the Nature Compute platform.
                 </p>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
                 {developerApps.map((app, index) => (
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
@@ -537,7 +537,7 @@ export function AppsPortal() {
       {/* Featured Application */}
       <section className="py-24">
         <div className="container px-4 max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-primary/10 text-primary">Featured</Badge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -710,7 +710,7 @@ export function AppsPortal() {
           </div>
 
           {/* Feature Cards */}
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {[
               {
                 icon: Shield,
@@ -744,6 +744,7 @@ export function AppsPortal() {
     </div>
   )
 }
+
 
 
 

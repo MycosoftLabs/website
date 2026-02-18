@@ -39,7 +39,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
     <div className="min-h-dvh">
       {/* Hero Section */}
       <section className="container">
-        <div className="grid lg:grid-cols-2 lg:gap-12 items-center pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-12 items-center pt-6">
           <div className="relative aspect-square">
             <Image
               src={
@@ -183,7 +183,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.2 }}
-                  className="grid md:grid-cols-2 gap-8 items-center"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center"
                 >
                   <div className="space-y-4">
                     <h3 className="text-2xl font-bold">{feature.title}</h3>
@@ -263,3 +263,4 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
     </div>
   )
 }
+

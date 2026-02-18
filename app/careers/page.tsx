@@ -172,7 +172,7 @@ export default async function CareersPage() {
             <Badge className="mb-6 bg-purple-500/20 text-purple-400 border-purple-500/30">
               We're Hiring
             </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight mb-6">
               Build the Future of{" "}
               <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 Biological Computing
@@ -265,7 +265,7 @@ export default async function CareersPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {benefits.map((benefit) => (
               <Card key={benefit.title}>
                 <CardHeader>
@@ -346,7 +346,7 @@ export default async function CareersPage() {
                           </span>
                         </div>
                       </div>
-                      <Button variant="outline" className="gap-2 shrink-0" asChild>
+                      <Button variant="outline" className="gap-2 shrink-0 w-full sm:w-auto" asChild>
                         <a href={`mailto:careers@mycosoft.com?subject=Application for ${position.title}`}>
                           Apply Now
                           <ChevronRight className="h-4 w-4" />

@@ -392,7 +392,7 @@ export function Mushroom1Details() {
             </h2>
           </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -504,7 +504,7 @@ export function Mushroom1Details() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {SENSORS.map((sensor, i) => (
               <motion.div
                 key={sensor.name}
@@ -655,7 +655,7 @@ export function Mushroom1Details() {
             </p>
           </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Use case selector */}
             <div className="space-y-4">
               {USE_CASES.map((useCase, i) => (
@@ -754,7 +754,7 @@ export function Mushroom1Details() {
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {MUSHROOM1_ASSETS.youtubeVideos.map((video, i) => (
               <motion.div
                 key={video.id}
@@ -1043,7 +1043,7 @@ export function Mushroom1Details() {
             
             {/* Overlay content */}
             <div className="absolute bottom-0 left-0 right-0 p-8">
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
                   <Globe className="h-8 w-8 text-purple-400 mb-4" />
                   <h3 className="text-xl font-bold mb-2">Area Coverage</h3>
@@ -1080,7 +1080,7 @@ export function Mushroom1Details() {
             </h2>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card className="bg-white/5 border-white/10">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
@@ -1255,3 +1255,4 @@ export function Mushroom1Details() {
     </div>
   )
 }
+

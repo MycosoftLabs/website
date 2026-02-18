@@ -64,7 +64,7 @@ export function MissionModal({ isOpen, onClose, mission }: MissionModalProps) {
 
             {/* Content */}
             <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <div className="grid md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left: Problem */}
                 <div className="space-y-6">
                   <div>
@@ -184,3 +184,4 @@ export const missionData = {
     tools: ["Mushroom1", "ALARM", "Portable MycoNode", "Tactical ETA"]
   }
 }
+

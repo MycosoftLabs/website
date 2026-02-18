@@ -329,7 +329,7 @@ export function DevicesPortal() {
       {/* ── DESKTOP: 5-column card grid ── */}
       <section className="hidden md:block py-16 bg-muted/30">
         <div className="container px-4 max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
             {devices.map((device, index) => (
               <motion.div
                 key={device.id}
@@ -379,7 +379,7 @@ export function DevicesPortal() {
             key={selectedDevice.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid lg:grid-cols-2 gap-12"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-12"
           >
             {/* Device Image/Visual */}
             <div className="aspect-square rounded-2xl border overflow-hidden relative bg-muted">
@@ -569,7 +569,7 @@ export function DevicesPortal() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {[
               {
                 icon: Microscope,
@@ -616,7 +616,7 @@ export function DevicesPortal() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
             {accessories.map((item) => (
               <Card key={item.name} className="hover:border-primary/50 transition-colors">
                 <CardContent className="pt-6">
@@ -633,7 +633,7 @@ export function DevicesPortal() {
       {/* Support & Services */}
       <section className="py-24">
         <div className="container px-4 max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {[
               {
                 icon: Truck,
@@ -713,6 +713,7 @@ export function DevicesPortal() {
     </div>
   )
 }
+
 
 
 

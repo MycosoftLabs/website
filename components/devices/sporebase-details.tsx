@@ -263,7 +263,7 @@ export function SporeBaseDetails() {
       {/* Mission Section */}
       <section className="py-24 bg-gradient-to-b from-slate-950 to-slate-900">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
               <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
                 Our Mission
@@ -401,7 +401,7 @@ export function SporeBaseDetails() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { icon: Wind, title: "Fan-Driven Sampling", desc: "Controlled fan pulls ambient air across the sampling head where particles deposit onto adhesive tape" },
               { icon: Timer, title: "Time-Indexed", desc: "2,880 intervals per cassette (15-min cadence × 30 days) with precise timestamping" },
@@ -440,7 +440,7 @@ export function SporeBaseDetails() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {USE_CASES.map((useCase, index) => (
               <motion.div
                 key={useCase.title}
@@ -630,7 +630,7 @@ export function SporeBaseDetails() {
             </h2>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-slate-900/50 rounded-2xl border border-orange-500/20 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Wind className="h-5 w-5 text-orange-400" />
@@ -712,3 +712,4 @@ export function SporeBaseDetails() {
     </div>
   )
 }
+

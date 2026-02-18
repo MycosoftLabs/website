@@ -411,7 +411,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
   const IconComponent = slide.icon
   
   return (
-    <div className="grid md:grid-cols-2 gap-12 items-center">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
       {/* Left side - info */}
       <div className="text-left space-y-6 hidden md:block">
         <motion.div
@@ -480,3 +480,4 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
     </div>
   )
 }
+
