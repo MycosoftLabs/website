@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { SporeUniverse } from "@/components/effects/star-universe"
 import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
+import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -387,8 +388,12 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Collection System Section */}
-      <section className="py-24 bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="relative py-24 bg-slate-900 overflow-hidden">
+        {/* Particle canvas background */}
+        <div className="absolute inset-0 z-0">
+          <SporeParticleCanvas />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Technology
@@ -408,7 +413,7 @@ export function SporeBaseDetails() {
               { icon: Database, title: "Chain of Custody", desc: "MINDEX provides tamper-evident records with Mycorrhizae Protocol data encoding" },
               { icon: FlaskRound, title: "Lab-Ready", desc: "Sealed cassettes ready for microscopy, qPCR, sequencing, or archive storage" },
             ].map((item) => (
-              <Card key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors">
+              <Card key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors backdrop-blur-sm">
                 <CardContent className="pt-6">
                   <div className="p-3 rounded-xl bg-orange-500/20 w-fit mb-4">
                     <item.icon className="h-6 w-6 text-orange-400" />
