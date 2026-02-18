@@ -43,13 +43,16 @@ function getEntityRadius(type: UnifiedEntity["type"]): number {
 }
 
 function toTrailPath(entity: UnifiedEntity): [number, number][] | null {
-  if (entity.geometry.type !== "Point") return null;
-  if (!entity.state.velocity) return null;
-  const [lng, lat] = entity.geometry.coordinates;
+  if (!entity?.geometry || entity.geometry.type !== "Point") return null;
+  const coords = entity.geometry.coordinates;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const state = entity.state;
+  if (!state?.velocity) return null;
+  const [lng, lat] = coords;
   const lengthFactor = 0.015;
   return [
     [lng, lat],
-    [lng - entity.state.velocity.x * lengthFactor, lat - entity.state.velocity.y * lengthFactor],
+    [lng - state.velocity.x * lengthFactor, lat - state.velocity.y * lengthFactor],
   ];
 }
 
@@ -76,8 +79,11 @@ export function EntityDeckLayer({
   }, [map, overlay]);
 
   useEffect(() => {
-    const points = entities.filter((entity) => entity.geometry.type === "Point");
-    const trails = entities
+    const validEntities = entities.filter(
+      (e): e is UnifiedEntity => e != null && typeof e === "object" && e.geometry != null && e.type != null
+    );
+    const points = validEntities.filter((entity) => entity.geometry.type === "Point");
+    const trails = validEntities
       .map((entity) => ({ entity, path: toTrailPath(entity) }))
       .filter((item): item is { entity: UnifiedEntity; path: [number, number][] } => item.path !== null);
 

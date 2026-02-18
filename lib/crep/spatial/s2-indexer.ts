@@ -1,4 +1,7 @@
-import { S2CellId, S2LatLng } from "s2-geometry";
+// s2-geometry exports { S2 } with S2.L.LatLng(lat,lng) and S2.S2Cell.FromLatLng(latLng, level)
+import s2Geometry from "s2-geometry";
+
+const S2 = (s2Geometry as { S2?: typeof s2Geometry }).S2 ?? s2Geometry;
 
 export interface MapBounds {
   north: number;
@@ -23,9 +26,9 @@ export function getS2LevelFromZoom(zoom: number): number {
 }
 
 export function getS2CellId(lat: number, lng: number, level = 14): string {
-  const latLng = S2LatLng.fromDegrees(clamp(lat, -90, 90), normalizeLng(lng));
-  const cellId = S2CellId.fromLatLng(latLng).parent(clamp(level, 1, 30));
-  return cellId.toToken();
+  const latLng = S2.L.LatLng(clamp(lat, -90, 90), normalizeLng(lng));
+  const cell = S2.S2Cell.FromLatLng(latLng, clamp(level, 1, 30));
+  return cell.toHilbertQuadkey();
 }
 
 function createLngSteps(west: number, east: number, gridStep: number): number[] {

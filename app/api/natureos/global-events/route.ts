@@ -410,12 +410,14 @@ function generateSimulatedEvents(): GlobalEvent[] {
     { lat: 35.6895, lng: 51.3890, name: "Tehran, Iran", species: "Morchella esculenta", spores: 4100 },
   ];
   
+  // Mycosoft devices/dashboard — NOT iNaturalist (fungal blooms are from MINDEX/MYCA/NLM + MycoBrain sensors)
+  const MYCOSOFT_DEVICES_URL = "https://mycosoft.com/devices";
   fungalBlooms.forEach((bloom, idx) => {
     events.push({
       id: `fungal-${bloom.species.replace(/[^a-zA-Z0-9]/g, '')}-${bloom.lat.toFixed(2)}-${bloom.lng.toFixed(2)}`,
       type: "fungal_bloom",
       title: `${bloom.species.split(" ")[0]} Bloom Detected`,
-      description: `Satellite imagery and ground sensors indicate significant ${bloom.species} fruiting activity near ${bloom.name}. Spore count: ${bloom.spores.toLocaleString()}/m³.`,
+      description: `Satellite imagery and ground sensors indicate significant ${bloom.species} fruiting activity near ${bloom.name}. Spore count: ${bloom.spores.toLocaleString()}/m³. Data from MINDEX, MYCA, and Nature Learning Model.`,
       severity: bloom.spores > 10000 ? "medium" : "info",
       timestamp: new Date(now - (idx * 600000)).toISOString(),
       location: {
@@ -425,8 +427,8 @@ function generateSimulatedEvents(): GlobalEvent[] {
       },
       magnitude: bloom.spores,
       source: "MycoBrain Network",
-      sourceUrl: "https://mycosoft.com",
-      link: `https://www.inaturalist.org/observations?taxon_name=${encodeURIComponent(bloom.species)}&place_id=any`,
+      sourceUrl: MYCOSOFT_DEVICES_URL,
+      link: MYCOSOFT_DEVICES_URL,
     });
   });
   

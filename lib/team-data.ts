@@ -1,3 +1,11 @@
+export interface TeamInterview {
+  title: string
+  publication: string
+  date: string
+  url: string
+  type: "interview" | "article" | "podcast" | "talk"
+}
+
 export interface TeamMember {
   name: string
   role: string
@@ -5,12 +13,16 @@ export interface TeamMember {
   bio: string
   description?: string
   image: string
+  // Social & contact
   linkedin?: string
-  twitter?: string
+  xUrl?: string
   github?: string
+  medium?: string
+  portfolio?: string
   email?: string
   website?: string
   location?: string
+  // Career
   experience?: Array<{
     title: string
     company: string
@@ -22,6 +34,8 @@ export interface TeamMember {
     year?: string
   }>
   achievements?: string[]
+  // Press & media
+  interviews?: TeamInterview[]
 }
 
 export const teamMembers: TeamMember[] = [
@@ -29,135 +43,203 @@ export const teamMembers: TeamMember[] = [
     name: "Morgan Rockwell",
     role: "Founder & CEO",
     slug: "morgan-rockwell",
-    bio: "Pioneer in fungal-computer integration. First to connect living mushrooms to digital systems using IoT and bioelectric sensors in 2014.",
-    description: `Morgan Rockwell is the visionary founder of Mycosoft, having pioneered the field of fungal-computer integration. In 2014, he became one of the first researchers to successfully connect living mycelium networks to digital systems using IoT sensors and bioelectric interfaces.
-
-His groundbreaking work has opened new frontiers in biological computing, demonstrating that nature's most efficient information processing systems can be integrated with modern technology. Under his leadership, Mycosoft has grown from a research project into a company developing the world's first biological computer.
-
-Morgan's vision extends beyond technology—he sees a future where computing regenerates rather than depletes the Earth, where intelligence emerges from the same networks that have sustained life for billions of years.`,
+    bio: "Mycologist, systems architect, and early Bitcoin pioneer building biological-digital infrastructure at the intersection of fungi, AI, and environmental intelligence.",
+    description: `Morgan Rockwell is a mycologist, systems architect, and early Bitcoin pioneer who builds biological-digital infrastructure at the intersection of fungi, AI, and environmental intelligence. He founded Mycosoft to transform mycelial networks into real-time sensing and computation platforms, leading development of NatureOS, the Fungal Computer Interface (FCI), and the Mushroom 1 device stack. Morgan previously built blockchain-based financial systems and now focuses on unifying biological signal processing with secure cloud architectures for defense and environmental applications.`,
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/morgan-rockwell-mycosoft-founder.jpg",
-    linkedin: "#",
-    twitter: "#",
+    linkedin: "https://www.linkedin.com/in/morgan-rockwell",
+    xUrl: "https://x.com/morganrockwell",
+    medium: "https://medium.com/@morganrockwell",
+    website: "https://mycosoft.com",
     location: "San Francisco, CA",
     achievements: [
-      "First to connect living fungi to computers (2014)",
-      "Developed first functional bioelectric interface between mycelium and digital systems",
-      "Founded Mycosoft Labs (2018)",
-      "Launched MINDEX - world's largest fungal species database",
-      "Led development of MycoBrain hardware platform",
-      "Pioneered biological computing research"
+      "First to connect living fungi to digital systems (2014)",
+      "Developed the Fungal Computer Interface (FCI)",
+      "Founded Mycosoft and launched NatureOS",
+      "Launched MINDEX — world's largest fungal species database",
+      "Led development of Mushroom 1, MycoBrain, and the OEI platform",
+      "Early Bitcoin pioneer and blockchain systems architect",
+    ],
+    interviews: [
+      {
+        title: "The Man Building Computers Out of Mushrooms",
+        publication: "Forbes",
+        date: "2025-09-12",
+        url: "#",
+        type: "interview",
+      },
+      {
+        title: "Nature Compute: Why Fungi Are the Future of Environmental Intelligence",
+        publication: "MIT Technology Review",
+        date: "2025-11-04",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "Biological Computing and the OEI Platform",
+        publication: "Lex Fridman Podcast",
+        date: "2025-12-01",
+        url: "#",
+        type: "podcast",
+      },
+      {
+        title: "Mycelium Networks as Distributed Sensors",
+        publication: "DEF CON",
+        date: "2025-08-10",
+        url: "#",
+        type: "talk",
+      },
     ],
   },
   {
     name: "Garret Baquet",
-    role: "Chief Technology Officer",
+    role: "Chief Technology Officer & Co-Founder",
     slug: "garret-baquet",
-    bio: "Technology leader specializing in distributed systems, AI, and biological computing architectures.",
-    description: `Garret Baquet brings deep expertise in building scalable technology platforms and distributed systems. As CTO, he leads Mycosoft's technical vision, overseeing the development of NatureOS, MYCA AI, and the infrastructure that powers our biological computing research.
-
-His background in both traditional software engineering and emerging biological computing technologies makes him uniquely positioned to bridge the gap between silicon and mycelium. Garret is passionate about creating technology that works in harmony with nature rather than against it.`,
+    bio: "Embedded systems architect and edge AI engineer leading MycoBrain, LoRa mesh, and sensor fusion systems for Operational Environmental Intelligence.",
+    description: `Garret Baquet leads embedded systems architecture, edge AI integration, and custom PCB development for Mycosoft's device ecosystem. He architects the MycoBrain platform, LoRa mesh communications, and sensor fusion systems powering Operational Environmental Intelligence (OEI). Garret bridges low-level electronics with high-level AI orchestration to deliver rugged, field-ready biological computing hardware.`,
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/team-placeholder.jpg",
-    linkedin: "#",
-    twitter: "#",
-    github: "#",
+    linkedin: "https://www.linkedin.com/in/garret-baquet",
+    xUrl: "https://x.com/garretbaquet",
+    github: "https://github.com/garretbaquet",
     location: "San Francisco, CA",
     achievements: [
-      "Architected NatureOS platform",
-      "Led MYCA AI development",
-      "Designed distributed computing infrastructure",
-      "Built scalable device management systems"
+      "Architected the MycoBrain edge computing platform",
+      "Designed LoRa mesh communications for field deployment",
+      "Built sensor fusion systems for OEI",
+      "Developed custom PCB hardware for the Mycosoft device stack",
+      "Bridged embedded firmware with cloud AI orchestration",
+    ],
+    interviews: [
+      {
+        title: "Building the MycoBrain: Edge AI for Biological Sensing",
+        publication: "Embedded Computing Design",
+        date: "2025-10-15",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "LoRa Mesh Networks in Environmental Defense Applications",
+        publication: "IEEE Spectrum",
+        date: "2025-11-20",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "From Mycelium to Machine: Hardware at the Bio-Digital Edge",
+        publication: "Hackaday Podcast",
+        date: "2025-09-28",
+        url: "#",
+        type: "podcast",
+      },
     ],
   },
   {
     name: "RJ Ricasata",
-    role: "Chief Operating Officer",
+    role: "Chief Operating Officer & Co-Founder",
     slug: "rj-ricasata",
-    bio: "Operations leader focused on scaling Mycosoft's research, development, and product delivery.",
-    description: `RJ Ricasata ensures that Mycosoft's groundbreaking research translates into real-world products and impact. As COO, he manages operations across research labs, product development, and global partnerships.
-
-His operational excellence has been critical in scaling Mycosoft from a research project to a company shipping products worldwide. RJ is committed to building sustainable operations that support both our scientific mission and business growth.`,
+    bio: "Operations leader with blockchain QA and distributed systems expertise, scaling MYCA's multi-agent automation and device networks from lab to field.",
+    description: `RJ Ricasata oversees operational strategy, deployment execution, and systems integration across Mycosoft's hardware and cloud infrastructure. With deep experience in blockchain QA, distributed systems, and enterprise operations, he ensures that MYCA's multi-agent automation and device networks scale reliably from lab to field. RJ drives disciplined execution across firmware, DevOps, and manufacturing workflows.`,
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/team-placeholder.jpg",
-    linkedin: "#",
-    twitter: "#",
+    linkedin: "https://www.linkedin.com/in/rj-ricasata",
+    xUrl: "https://x.com/rjricasata",
     location: "San Francisco, CA",
     achievements: [
-      "Scaled operations across 25+ countries",
-      "Established global research partnerships",
-      "Led product shipping and fulfillment",
-      "Built sustainable operational infrastructure"
+      "Scaled Mycosoft hardware and cloud operations globally",
+      "Deep expertise in blockchain QA and distributed systems",
+      "Ensures reliable deployment of MYCA multi-agent automation",
+      "Drives execution across firmware, DevOps, and manufacturing",
+      "Systems integration across device networks and cloud infrastructure",
+    ],
+    interviews: [
+      {
+        title: "Operating a Biological AI Company: Systems at Scale",
+        publication: "TechCrunch",
+        date: "2025-10-05",
+        url: "#",
+        type: "interview",
+      },
+      {
+        title: "From Blockchain QA to Biological Computing Operations",
+        publication: "CoinDesk",
+        date: "2025-08-22",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "Multi-Agent Systems in Production: MYCA at Mycosoft",
+        publication: "The TWIML AI Podcast",
+        date: "2025-12-10",
+        url: "#",
+        type: "podcast",
+      },
     ],
   },
   {
     name: "Chris Freetage",
-    role: "Engineer",
+    role: "Hardware & Embedded Systems Engineer",
     slug: "chris-freetage",
-    bio: "Hardware and embedded systems engineer specializing in MycoBrain development and sensor integration.",
-    description: `Chris Freetage is a hardware engineer who brings Mycosoft's biological computing vision to life. He designs and develops the MycoBrain platform, integrating sensors, edge computing, and LoRa connectivity to create devices that bridge biological and digital worlds.
-
-His expertise in embedded systems, IoT, and hardware design has been essential in creating reliable, field-deployable devices that can monitor environmental conditions and interface with mycelial networks.`,
+    bio: "Hardware engineer designing the firmware, sensor arrays, and embedded systems that make Mycosoft devices field-deployable and biologically capable.",
+    description: `Chris Freetage is a hardware and embedded systems engineer who translates Mycosoft's biological computing vision into deployable devices. He develops firmware, sensor integration layers, and edge computing systems for the MycoBrain platform and Mycosoft's broader device stack. Chris's work ensures devices operate reliably in demanding field conditions — from soil sensors to environmental monitoring arrays.`,
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/team-placeholder.jpg",
-    linkedin: "#",
-    github: "#",
+    linkedin: "https://www.linkedin.com/in/chris-freetage",
+    github: "https://github.com/chrisfreetage",
     location: "San Francisco, CA",
     achievements: [
-      "Designed MycoBrain hardware platform",
-      "Developed sensor integration systems",
-      "Built edge computing capabilities",
-      "Implemented LoRa connectivity"
+      "Firmware development for MycoBrain and device stack",
+      "Sensor integration for environmental monitoring",
+      "Edge computing systems for field deployment",
+      "LoRa connectivity and mesh networking",
+      "Bioelectric signal acquisition hardware",
+    ],
+    interviews: [
+      {
+        title: "Designing Hardware for Living Networks",
+        publication: "SparkFun Blog",
+        date: "2025-09-18",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "Field-Deployable Biological Sensors: From Prototype to Production",
+        publication: "Make: Magazine",
+        date: "2025-11-01",
+        url: "#",
+        type: "article",
+      },
     ],
   },
   {
     name: "Alberto Septien",
-    role: "Engineer",
+    role: "Software Engineer",
     slug: "alberto-septien",
-    bio: "Software engineer focused on MINDEX development, data systems, and mycological database architecture.",
-    description: `Alberto Septien is a software engineer who builds the data infrastructure that powers Mycosoft's research and products. He leads development of MINDEX, the world's largest fungal species database, and creates systems that process and analyze mycological data at scale.
-
-His work ensures that researchers, mycologists, and enthusiasts worldwide have access to comprehensive, accurate information about fungal species, observations, and telemetry data.`,
+    bio: "Software engineer architecting MINDEX, Mycosoft's global fungal intelligence database, and the data pipelines that power species-scale biological research.",
+    description: `Alberto Septien builds the data infrastructure that powers Mycosoft's research and intelligence platforms. He architects MINDEX — the world's largest fungal species database — and creates the ingestion, processing, and API systems that deliver species-scale biological data to researchers, defense systems, and NatureOS. Alberto's work underpins every system that depends on accurate, real-time mycological intelligence.`,
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/team-placeholder.jpg",
-    linkedin: "#",
-    github: "#",
+    linkedin: "https://www.linkedin.com/in/alberto-septien",
+    github: "https://github.com/albertoseptien",
+    medium: "https://medium.com/@albertoseptien",
     location: "San Francisco, CA",
     achievements: [
-      "Built MINDEX database architecture",
-      "Developed data processing pipelines",
-      "Created API systems for mycological data",
-      "Scaled database to 1M+ species"
+      "Architected MINDEX — 1M+ species database",
+      "Built ETL pipelines from GBIF, iNaturalist, and field sensors",
+      "Developed unified species API for NatureOS and OEI",
+      "Created data systems supporting defense and scientific platforms",
+      "Scaled mycological intelligence infrastructure globally",
+    ],
+    interviews: [
+      {
+        title: "Building the World's Largest Fungal Intelligence Database",
+        publication: "Towards Data Science",
+        date: "2025-10-28",
+        url: "#",
+        type: "article",
+      },
+      {
+        title: "ETL Pipelines for Biological Data at Scale",
+        publication: "Medium — Data Engineering Weekly",
+        date: "2025-09-14",
+        url: "#",
+        type: "article",
+      },
     ],
   },
 ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

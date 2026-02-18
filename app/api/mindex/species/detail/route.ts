@@ -30,18 +30,67 @@ const mindexHeaders = () => ({
 // iNaturalist helpers
 // ---------------------------------------------------------------------------
 
+/** Parse the full taxonomy tree from iNaturalist ancestor array. */
+function parseTaxonomyFromAncestors(ancestors: any[], taxonName: string) {
+  const taxonomy: Record<string, string | null> = {
+    kingdom: null, subkingdom: null, phylum: null, subphylum: null,
+    class: null, subclass: null, order: null, family: null, genus: null,
+  }
+  const ancestorList: Array<{ id: number; name: string; rank: string; common_name?: string }> = []
+
+  for (const a of ancestors || []) {
+    const rank = (a.rank || "").toLowerCase()
+    if (taxonomy.hasOwnProperty(rank) && a.name && a.name !== "Life") {
+      taxonomy[rank] = a.name
+    }
+    if (rank !== "stateofmatter") {
+      ancestorList.push({
+        id: a.id,
+        name: a.name,
+        rank: a.rank,
+        common_name: a.preferred_common_name || null,
+      })
+    }
+  }
+
+  // If genus is empty, infer from binomial name
+  if (!taxonomy.genus && taxonName?.includes(" ")) {
+    taxonomy.genus = taxonName.split(" ")[0]
+  }
+
+  return { taxonomy, ancestorList }
+}
+
+/** Try Wikipedia image API as fallback when iNaturalist has no photo. */
+async function fetchWikipediaImage(name: string): Promise<string | null> {
+  try {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(name)}&prop=pageimages&format=json&pithumbsize=400&origin=*`
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (!res.ok) return null
+    const d = await res.json()
+    const pages = d?.query?.pages || {}
+    const page = Object.values(pages)[0] as any
+    return page?.thumbnail?.source || null
+  } catch {
+    return null
+  }
+}
+
 async function fetchFromINaturalist(nameOrId: string) {
   const isId = /^\d+$/.test(nameOrId)
   let taxon: any = null
 
   if (isId) {
-    const res = await fetch(`${INAT_BASE}/taxa/${nameOrId}`, {
-      signal: AbortSignal.timeout(10000), headers: INAT_HEADERS
-    })
+    // Direct taxon fetch by ID — always returns ancestors + photos
+    const res = await fetch(
+      `${INAT_BASE}/taxa/${nameOrId}?include=ancestors`,
+      { signal: AbortSignal.timeout(10000), headers: INAT_HEADERS }
+    )
     if (!res.ok) return null
     const d = await res.json()
     taxon = d?.results?.[0] || null
   } else {
+    // Name search
     const res = await fetch(
       `${INAT_BASE}/taxa?q=${encodeURIComponent(nameOrId)}&rank=species,genus,family&per_page=1&is_active=true`,
       { signal: AbortSignal.timeout(10000), headers: INAT_HEADERS }
@@ -49,12 +98,14 @@ async function fetchFromINaturalist(nameOrId: string) {
     if (!res.ok) return null
     const d = await res.json()
     taxon = d?.results?.[0] || null
-    // Fetch full taxon detail by ID to get wikipedia_summary + taxon_photos
-    if (taxon?.id && !taxon.wikipedia_summary) {
+
+    // Always fetch full detail to get wikipedia_summary + ancestors + taxon_photos
+    if (taxon?.id) {
       try {
-        const full = await fetch(`${INAT_BASE}/taxa/${taxon.id}`, {
-          signal: AbortSignal.timeout(8000), headers: INAT_HEADERS
-        })
+        const full = await fetch(
+          `${INAT_BASE}/taxa/${taxon.id}?include=ancestors`,
+          { signal: AbortSignal.timeout(8000), headers: INAT_HEADERS }
+        )
         if (full.ok) {
           const fd = await full.json()
           taxon = fd?.results?.[0] || taxon
@@ -65,17 +116,35 @@ async function fetchFromINaturalist(nameOrId: string) {
 
   if (!taxon) return null
 
-  // iNaturalist includes default_photo in basic responses; taxon_photos is richer but optional
+  // Build photo list — prefer taxon_photos (higher quality), fall back to default_photo
   const rawPhotos = taxon.taxon_photos?.length
     ? taxon.taxon_photos.map((tp: any) => tp.photo).filter(Boolean)
     : taxon.default_photo
       ? [taxon.default_photo]
       : []
-  const photos = rawPhotos.slice(0, 6).map((p: any) => ({
+
+  let photos = rawPhotos.slice(0, 8).map((p: any) => ({
     id: p.id,
-    url: p.medium_url || p.square_url,
-    attribution: p.attribution,
+    url: p.medium_url || p.square_url || "",
+    large_url: p.large_url || p.medium_url || "",
+    attribution: p.attribution || "iNaturalist",
   }))
+
+  // If no photos, try Wikipedia as fallback
+  if (photos.length === 0) {
+    const wikiImg = await fetchWikipediaImage(taxon.name)
+    if (wikiImg) {
+      photos = [{ id: "wiki", url: wikiImg, large_url: wikiImg, attribution: "Wikipedia" }]
+    }
+  }
+
+  // Parse full taxonomy from ancestors
+  const { taxonomy, ancestorList } = parseTaxonomyFromAncestors(taxon.ancestors || [], taxon.name)
+
+  // Clean description
+  const description = taxon.wikipedia_summary
+    ? taxon.wikipedia_summary.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+    : null
 
   return {
     id: taxon.id,
@@ -84,21 +153,15 @@ async function fetchFromINaturalist(nameOrId: string) {
     common_name: taxon.preferred_common_name || taxon.english_common_name || null,
     rank: taxon.rank || "species",
     ancestry: taxon.ancestry || null,
-    description: taxon.wikipedia_summary
-      ? taxon.wikipedia_summary.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-      : null,
+    description,
     wikipedia_url: taxon.wikipedia_url || null,
     observation_count: taxon.observations_count || 0,
     photos,
     conservation_status: taxon.conservation_status?.status_name || null,
-    taxonomy: {
-      kingdom: taxon.ancestor_ids ? "Fungi" : null,
-      phylum: null,
-      class: null,
-      order: null,
-      family: null,
-      genus: taxon.name?.split(" ")?.[0] || null,
-    },
+    // Full parsed taxonomy (not hardcoded!)
+    taxonomy,
+    // Ordered ancestor list for breadcrumb display
+    ancestors: ancestorList,
     source: "iNaturalist",
     source_url: `https://www.inaturalist.org/taxa/${taxon.id}`,
     _source: "inaturalist_direct",
@@ -139,13 +202,11 @@ export async function GET(request: NextRequest) {
   // Strip common prefixes to get the raw id
   const rawId = id?.replace(/^(inat-|mindex-)/, "") || ""
 
-  // ── 1. Try MINDEX taxa ────────────────────────────────────────────────────
-  if (rawId || name) {
+  // ── 1. Try MINDEX taxa — only for numeric ID lookups (name lookups are too
+  //       fuzzy and return wrong records, same as the compounds issue) ─────────
+  if (rawId && /^\d+$/.test(rawId)) {
     try {
-      const param = name
-        ? `search=${encodeURIComponent(name)}&limit=1`
-        : `id=${encodeURIComponent(rawId)}`
-      const res = await fetch(`${MINDEX_TAXA}?${param}`, {
+      const res = await fetch(`${MINDEX_TAXA}?id=${encodeURIComponent(rawId)}&limit=1`, {
         headers: mindexHeaders(),
         signal: AbortSignal.timeout(8000),
         cache: "no-store",
@@ -153,12 +214,13 @@ export async function GET(request: NextRequest) {
       if (res.ok) {
         const d = await res.json()
         const item = d?.data?.[0] || d?.[0] || d
-        if (item?.scientific_name || item?.name) return NextResponse.json(item)
+        // Only use if it has real data (description + taxonomy set)
+        if ((item?.scientific_name || item?.name) && item?.description) return NextResponse.json(item)
       }
     } catch { /* fall through */ }
   }
 
-  // ── 2. iNaturalist direct ─────────────────────────────────────────────────
+  // ── 2. iNaturalist direct — primary source for all species lookups ─────────
   const lookupValue = name || rawId
   try {
     const species = await fetchFromINaturalist(lookupValue)

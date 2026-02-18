@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Info,
 } from "lucide-react"
+import { DNASequenceViewer, DNAHelixBanner } from "@/components/visualizations/DNASequenceViewer"
 
 interface GeneticsSequence {
   id: string
@@ -41,17 +42,10 @@ interface GeneticsResponse {
   info?: string
 }
 
+// Replaced by DNASequenceViewer — kept as alias for legacy callers
 function SequencePreview({ sequence }: { sequence: string }) {
-  const maxLength = 60
-  const preview = sequence.length > maxLength 
-    ? sequence.slice(0, maxLength) + "..." 
-    : sequence
-  
-  return (
-    <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all">
-      {preview}
-    </code>
-  )
+  if (!sequence) return null
+  return <DNASequenceViewer sequence={sequence} compact textPreview={120} maxBarBases={120} />
 }
 
 function SequenceCard({ 
@@ -251,22 +245,25 @@ export default function GeneticsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Dna className="h-8 w-8 text-green-500" />
-            Genetics Database
-          </h1>
-          <p className="text-muted-foreground">
-            DNA sequences and genetic data from MINDEX
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchSequences} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+      {/* Header with DNA helix banner */}
+      <div className="relative rounded-xl overflow-hidden border border-green-500/20 bg-gradient-to-r from-green-950/40 via-black/20 to-blue-950/30 p-6">
+        <DNAHelixBanner className="absolute inset-0 w-full h-full opacity-40" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Dna className="h-8 w-8 text-green-400" />
+              Genetics Database
+            </h1>
+            <p className="text-muted-foreground">
+              DNA sequences and genetic data from MINDEX — color coded by nucleotide (A / T / G / C)
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchSequences} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 

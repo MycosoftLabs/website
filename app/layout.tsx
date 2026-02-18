@@ -8,7 +8,6 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
 import { PersonaPlexProvider } from "@/components/voice/PersonaPlexProvider"
-import { FloatingVoiceButton } from "@/components/voice/VoiceButton"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -55,7 +54,8 @@ export default function RootLayout({
                     <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
                     <Footer />
                   </div>
-                  <FloatingVoiceButton />
+                  {/* PersonaPlexProvider renders the ONE floating mic widget (bottom-right).
+                      It suppresses itself on /search and /test-voice which have their own mic. */}
                   <Toaster richColors position="top-right" />
                 </PersonaPlexProvider>
               </UnifiedVoiceProvider>

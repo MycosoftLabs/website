@@ -1,10 +1,13 @@
 "use client"
 
 import { FC, ReactNode, createContext, useContext, useCallback, useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { PersonaPlexWidget } from "./PersonaPlexWidget"
 import { usePersonaPlex } from "@/hooks/usePersonaPlex"
 import { MYCA_PERSONAPLEX_PROMPT } from "@/lib/voice/personaplex-client"
+
+/** Pages with their own voice UI — PersonaPlexWidget is suppressed on these */
+const PAGES_WITH_OWN_MIC = ["/search", "/test-voice"]
 
 /**
  * PersonaPlex Provider - Site-wide voice control
@@ -192,6 +195,8 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   enabled = true,
 }) => {
   const router = useRouter()
+  const pathname = usePathname()
+  const showWidget = enabled && !PAGES_WITH_OWN_MIC.some((p) => pathname?.startsWith(p))
   const [lastCommand, setLastCommand] = useState("")
   const [lastResult, setLastResult] = useState<any>(null)
   const [isListening, setIsListening] = useState(false)
@@ -479,34 +484,37 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     lastResult,
   }
   
-  if (!enabled) {
-    return <>{children}</>
-  }
-  
   return (
     <PersonaPlexContext.Provider value={contextValue}>
       {children}
-      
-      {/* Floating PersonaPlex Widget - appears on all pages */}
-      <PersonaPlexWidget
-        position="bottom-right"
-        showMonitor={true}
-        serverUrl={process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat"}
-        voicePrompt="NATURAL_F2.pt"
-        textPrompt={MYCA_PERSONAPLEX_PROMPT}
-        onTranscript={(text) => {
-          console.log("[Widget] Transcript:", text)
-          processVoiceCommand(text)
-        }}
-        onResponse={(response) => {
-          console.log("[Widget] Response:", response)
-        }}
-        onCommand={(cmd, result) => {
-          console.log("[Widget] Command executed:", cmd)
-          setLastCommand(cmd)
-          setLastResult(result)
-        }}
-      />
+
+      {/*
+        ONE floating voice widget — bottom-right, all pages except those with
+        their own mic UI (/search, /test-voice).
+        GlobalVoiceButton in layout.tsx is ALSO suppressed on these pages, so
+        there is never more than one mic button visible at a time on any page.
+      */}
+      {showWidget && (
+        <PersonaPlexWidget
+          position="bottom-right"
+          showMonitor={true}
+          serverUrl={process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat"}
+          voicePrompt="NATURAL_F2.pt"
+          textPrompt={MYCA_PERSONAPLEX_PROMPT}
+          onTranscript={(text) => {
+            console.log("[Widget] Transcript:", text)
+            processVoiceCommand(text)
+          }}
+          onResponse={(response) => {
+            console.log("[Widget] Response:", response)
+          }}
+          onCommand={(cmd, result) => {
+            console.log("[Widget] Command executed:", cmd)
+            setLastCommand(cmd)
+            setLastResult(result)
+          }}
+        />
+      )}
     </PersonaPlexContext.Provider>
   )
 }

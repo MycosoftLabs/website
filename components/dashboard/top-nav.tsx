@@ -58,8 +58,8 @@ export function TopNav() {
   const unreadCount = notifications.filter(n => n.unread).length
 
   return (
-    <header className="h-14 border-b border-gray-800 bg-[#0A1929] sticky top-0 z-40">
-      <div className="flex h-full items-center px-4 gap-x-2 md:gap-x-4 container mx-auto">
+    <header className="h-12 md:h-14 border-b border-gray-800 bg-[#0A1929] sticky top-0 z-40">
+      <div className="flex h-full items-center px-3 md:px-4 gap-x-1 md:gap-x-4 container mx-auto">
         {/* Back Button */}
         <Button 
           variant="ghost" 
@@ -132,10 +132,10 @@ export function TopNav() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Help */}
+          {/* Help — hidden on mobile to save space */}
           <Dialog open={showHelp} onOpenChange={setShowHelp}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="hidden sm:flex">
                 <HelpCircle className="h-5 w-5" />
               </Button>
             </DialogTrigger>
@@ -172,8 +172,8 @@ export function TopNav() {
             </DialogContent>
           </Dialog>
 
-          {/* Settings */}
-          <Button variant="ghost" size="icon" asChild>
+          {/* Settings — hidden on mobile to save space */}
+          <Button variant="ghost" size="icon" className="hidden sm:flex" asChild>
             <Link href="/natureos/settings">
               <Settings className="h-5 w-5" />
             </Link>

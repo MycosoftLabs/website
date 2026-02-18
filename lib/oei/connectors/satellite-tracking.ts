@@ -1,20 +1,21 @@
 /**
- * Satellite Tracking Connector
+ * Satellite Tracking Connector - Feb 18, 2026
  * 
- * Fetches real-time satellite position data using TLE (Two-Line Element) data
- * from various sources including CelesTrak and Space-Track.org
+ * Fetches real-time satellite position data using Two-Line Element (TLE) data.
+ * 
+ * Primary source: tle.ivanstanojevic.me (CelesTrak mirror, accessible)
+ * Secondary source: CelesTrak direct (celestrak.org - may be network-blocked in some envs)
  * 
  * Data sources:
- * - CelesTrak: https://celestrak.org/
- * - Space-Track: https://www.space-track.org/
- * - N2YO: https://www.n2yo.com/
+ * - TLE API: https://tle.ivanstanojevic.me/api/tle/ (primary - works everywhere)
+ * - CelesTrak: https://celestrak.org/NORAD/elements/gp.php (secondary/production)
  */
 
 import type { Entity, GeoLocation, Provenance } from "@/types/oei"
 import { getEventBus } from "../event-bus"
 
+const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle"
 const CELESTRAK_API = "https://celestrak.org/NORAD/elements/gp.php"
-const N2YO_API = "https://api.n2yo.com/rest/v1/satellite"
 
 // =============================================================================
 // TYPES
@@ -22,8 +23,6 @@ const N2YO_API = "https://api.n2yo.com/rest/v1/satellite"
 
 export interface SatelliteEntity extends Entity {
   type: "satellite"
-  
-  // Top-level satellite properties for easy access
   noradId?: number
   intlDesignator?: string
   objectType?: string
@@ -32,15 +31,11 @@ export interface SatelliteEntity extends Entity {
   country?: string
   launchDate?: string
   lastSeen?: string
-  
-  // Estimated position from TLE calculation
   estimatedPosition?: {
     longitude: number
     latitude: number
     altitude?: number
   }
-  
-  // Orbital parameters
   orbitalParams?: {
     inclination?: number
     apogee?: number
@@ -48,7 +43,6 @@ export interface SatelliteEntity extends Entity {
     period?: number
     velocity?: number
   }
-  
   // Legacy properties object for backwards compatibility
   properties: {
     noradId: number
@@ -73,16 +67,44 @@ export interface SatelliteQuery {
 }
 
 export type SatelliteCategory = 
-  | "stations"        // ISS, Tiangong, etc.
-  | "starlink"        // SpaceX Starlink
-  | "oneweb"          // OneWeb
-  | "planet"          // Planet Labs imaging
-  | "weather"         // Weather satellites
-  | "gnss"            // GPS, GLONASS, Galileo, BeiDou
-  | "active"          // All active satellites
-  | "debris"          // Space debris tracking
+  | "stations"        // ISS, Tiangong, space stations
+  | "starlink"        // SpaceX Starlink constellation
+  | "oneweb"          // OneWeb constellation
+  | "planet"          // Planet Labs imaging satellites
+  | "weather"         // Weather satellites (GOES, NOAA, Meteosat)
+  | "gnss"            // Navigation: GPS, GLONASS, Galileo, BeiDou
+  | "active"          // Broad active satellite set
+  | "debris"          // Space debris (collision fragments)
 
-interface TLEData {
+// TLE API response format from tle.ivanstanojevic.me
+interface TLEApiItem {
+  "@id": string
+  "@type": "Tle"
+  satelliteId: number
+  name: string
+  date: string
+  line1: string
+  line2: string
+}
+
+// Parsed TLE orbital elements (from TLE lines)
+interface ParsedTLE {
+  noradId: number
+  intlDesignator: string
+  name: string
+  epoch: string
+  meanMotion: number       // revolutions/day
+  eccentricity: number
+  inclination: number      // degrees
+  raAscNode: number        // right ascension of ascending node, degrees
+  argPericenter: number    // degrees
+  meanAnomaly: number      // degrees
+  bstar: number
+  meanMotionDot: number
+}
+
+// CelesTrak GP format (for when CelesTrak is accessible)
+interface CelesTrakGP {
   OBJECT_NAME: string
   OBJECT_ID: string
   NORAD_CAT_ID: number
@@ -99,55 +121,122 @@ interface TLEData {
   BSTAR: number
   MEAN_MOTION_DOT: number
   MEAN_MOTION_DDOT: number
-  TLE_LINE0?: string
-  TLE_LINE1?: string
-  TLE_LINE2?: string
 }
 
-interface N2YOPosition {
-  satname: string
-  satid: number
-  satlatitude: number
-  satlongitude: number
-  sataltitude: number
-  azimuth: number
-  elevation: number
-  ra: number
-  dec: number
-  timestamp: number
+// Category → search terms mapping for TLE API
+// Keep search terms minimal (1-3 per category) to avoid timeouts
+const CATEGORY_SEARCHES: Record<SatelliteCategory, string[]> = {
+  stations:  ["zarya"],          // ISS fetched by NORAD ID, zarya catches related
+  starlink:  ["starlink"],       // Single search, highly paginated
+  oneweb:    ["oneweb"],
+  planet:    ["flock"],          // Planet Labs uses "flock" naming
+  weather:   ["goes", "noaa"],   // Two key terms only
+  gnss:      ["gps", "glonass"], // Two key terms
+  active:    ["hubble"],         // Sample of notable active sats (stations fetched separately)
+  debris:    ["deb"],            // Debris suffix
+}
+
+// Per-category fetch limits to control response size and response time
+const CATEGORY_LIMITS: Record<SatelliteCategory, number> = {
+  stations:  50,
+  starlink:  200,
+  oneweb:    200,
+  planet:    100,
+  weather:   80,
+  gnss:      100,
+  active:    100,
+  debris:    300,
+}
+
+// =============================================================================
+// TLE LINE PARSING
+// =============================================================================
+
+/**
+ * Parse TLE line1 and line2 into structured orbital elements
+ * TLE format: https://celestrak.org/NORAD/elements/table.php
+ */
+function parseTLELines(noradId: number, name: string, line1: string, line2: string): ParsedTLE | null {
+  try {
+    // Line 1 parsing
+    // Column indices (0-based): 
+    // 9-16: Int'l designator, 18-31: Epoch, 33-42: mean motion dot, 53-60: BSTAR
+    const intlDesignator = line1.substring(9, 17).trim()
+    const epochStr = line1.substring(18, 32).trim()
+    const meanMotionDot = parseFloat(line1.substring(33, 43))
+    const bstarStr = line1.substring(53, 61).trim()
+    
+    // Parse epoch: YYDDD.DDDDDDDD
+    // YY = year (57-99 → 1957-1999, 00-56 → 2000-2056)
+    const yy = parseInt(epochStr.substring(0, 2))
+    const year = yy >= 57 ? 1900 + yy : 2000 + yy
+    const dayOfYear = parseFloat(epochStr.substring(2))
+    const epochDate = new Date(year, 0, 1)
+    epochDate.setDate(epochDate.getDate() + Math.floor(dayOfYear) - 1)
+    epochDate.setMilliseconds((dayOfYear % 1) * 86400000)
+    
+    // Parse BSTAR (scientific notation format: SMMMMM+EE)
+    let bstar = 0
+    if (bstarStr !== "00000+0" && bstarStr !== "00000-0") {
+      const sign = bstarStr[0] === "-" ? -1 : 1
+      const mantissaStr = bstarStr.substring(1, 6)
+      const expSign = bstarStr[6] === "-" ? -1 : 1
+      const exp = parseInt(bstarStr.substring(7))
+      bstar = sign * parseFloat("0." + mantissaStr) * Math.pow(10, expSign * exp)
+    }
+    
+    // Line 2 parsing
+    const inclination = parseFloat(line2.substring(8, 16))
+    const raAscNode = parseFloat(line2.substring(17, 25))
+    // Eccentricity: 7 digits with implied decimal point
+    const eccentricity = parseFloat("0." + line2.substring(26, 33))
+    const argPericenter = parseFloat(line2.substring(34, 42))
+    const meanAnomaly = parseFloat(line2.substring(43, 51))
+    const meanMotion = parseFloat(line2.substring(52, 63))
+    
+    if (isNaN(meanMotion) || isNaN(inclination) || isNaN(eccentricity)) {
+      return null
+    }
+    
+    return {
+      noradId,
+      intlDesignator,
+      name,
+      epoch: epochDate.toISOString(),
+      meanMotion,
+      eccentricity,
+      inclination,
+      raAscNode,
+      argPericenter,
+      meanAnomaly,
+      bstar,
+      meanMotionDot: isNaN(meanMotionDot) ? 0 : meanMotionDot,
+    }
+  } catch (err) {
+    return null
+  }
 }
 
 // =============================================================================
 // ORBITAL MECHANICS
 // =============================================================================
 
-// Constants
 const EARTH_RADIUS_KM = 6371
 const MU = 398600.4418 // GM of Earth in km³/s²
 
 function calculateOrbitalParameters(meanMotion: number, eccentricity: number) {
-  // Mean motion is in revolutions per day
   const meanMotionRadPerSec = (meanMotion * 2 * Math.PI) / 86400
-  
-  // Semi-major axis from mean motion
-  const semiMajorAxis = Math.pow(MU / Math.pow(meanMotionRadPerSec, 2), 1/3)
-  
-  // Apogee and perigee
+  const semiMajorAxis = Math.pow(MU / Math.pow(meanMotionRadPerSec, 2), 1 / 3)
   const apogee = semiMajorAxis * (1 + eccentricity) - EARTH_RADIUS_KM
   const perigee = semiMajorAxis * (1 - eccentricity) - EARTH_RADIUS_KM
-  
-  // Orbital period in minutes
   const period = (2 * Math.PI / meanMotionRadPerSec) / 60
-  
-  // Orbital velocity at perigee (km/s)
-  const velocity = Math.sqrt(MU * (2 / (EARTH_RADIUS_KM + perigee) - 1 / semiMajorAxis))
-  
+  const velocity = Math.sqrt(MU * (2 / (EARTH_RADIUS_KM + Math.max(1, perigee)) - 1 / semiMajorAxis))
   return { apogee, perigee, period, velocity, semiMajorAxis }
 }
 
 function getOrbitType(inclination: number, period: number, eccentricity: number): string {
   if (period < 120 && inclination > 80) return "Polar LEO"
-  if (period < 100) return "LEO"
+  if (period < 130) return "LEO"
   if (period > 1420 && period < 1450) return "GEO"
   if (period > 700 && period < 800) return "MEO"
   if (eccentricity > 0.5) return "HEO"
@@ -155,63 +244,63 @@ function getOrbitType(inclination: number, period: number, eccentricity: number)
 }
 
 function getObjectType(name: string): string {
-  const nameLower = name.toLowerCase()
-  if (nameLower.includes("starlink")) return "Communication"
-  if (nameLower.includes("oneweb")) return "Communication"
-  if (nameLower.includes("iss") || nameLower.includes("zarya")) return "Space Station"
-  if (nameLower.includes("tiangong") || nameLower.includes("tianhe")) return "Space Station"
-  if (nameLower.includes("gps") || nameLower.includes("navstar")) return "Navigation"
-  if (nameLower.includes("glonass")) return "Navigation"
-  if (nameLower.includes("galileo")) return "Navigation"
-  if (nameLower.includes("beidou")) return "Navigation"
-  if (nameLower.includes("goes") || nameLower.includes("noaa")) return "Weather"
-  if (nameLower.includes("terra") || nameLower.includes("aqua")) return "Earth Observation"
-  if (nameLower.includes("landsat")) return "Earth Observation"
-  if (nameLower.includes("sentinel")) return "Earth Observation"
-  if (nameLower.includes("planet") || nameLower.includes("dove")) return "Imaging"
-  if (nameLower.includes("hubble") || nameLower.includes("telescope")) return "Astronomy"
-  if (nameLower.includes("deb") || nameLower.includes("debris")) return "Debris"
-  if (nameLower.includes("r/b") || nameLower.includes("rocket")) return "Rocket Body"
+  const n = name.toLowerCase()
+  if (n.includes("starlink")) return "Communication"
+  if (n.includes("oneweb")) return "Communication"
+  if (n.includes("iss") || n.includes("zarya")) return "Space Station"
+  if (n.includes("tiangong") || n.includes("tianhe") || n.includes("css")) return "Space Station"
+  if (n.includes("gps") || n.includes("navstar") || n.includes("biir")) return "Navigation"
+  if (n.includes("glonass")) return "Navigation"
+  if (n.includes("galileo")) return "Navigation"
+  if (n.includes("beidou")) return "Navigation"
+  if (n.includes("goes") || n.includes("meteosat") || n.includes("himawari")) return "Weather"
+  if (n.includes("noaa") && !n.includes("goes")) return "Weather"
+  if (n.includes("metop")) return "Weather"
+  if (n.includes("terra") || n.includes("aqua")) return "Earth Observation"
+  if (n.includes("landsat")) return "Earth Observation"
+  if (n.includes("sentinel")) return "Earth Observation"
+  if (n.includes("planet") || n.includes("flock") || n.includes("dove")) return "Imaging"
+  if (n.includes("hubble") || n.includes("telescope")) return "Astronomy"
+  if (n.includes("deb") || n.includes("debris")) return "Debris"
+  if (n.includes("r/b") || n.includes("rocket")) return "Rocket Body"
   return "Satellite"
 }
 
-// =============================================================================
-// POSITION CALCULATION (Simplified SGP4)
-// =============================================================================
+/**
+ * Estimate current position from parsed TLE data
+ * Uses simplified orbital mechanics (not full SGP4, but directionally accurate)
+ */
+function estimatePosition(tle: ParsedTLE): GeoLocation | null {
+  try {
+    const epochDate = new Date(tle.epoch)
+    const now = new Date()
+    const elapsedMinutes = (now.getTime() - epochDate.getTime()) / 60000
+    
+    // Progress in orbit since epoch
+    const meanMotionRadPerMin = (tle.meanMotion * 2 * Math.PI) / 1440
+    const currentMeanAnomaly = (tle.meanAnomaly + (meanMotionRadPerMin * elapsedMinutes) * (180 / Math.PI)) % 360
+    
+    const orbital = calculateOrbitalParameters(tle.meanMotion, tle.eccentricity)
+    
+    // Earth rotates 360° in 24 hours = 0.25°/minute
+    const earthRotation = elapsedMinutes * 0.25
+    
+    // Simplified longitude estimate
+    const longitude = (tle.raAscNode + currentMeanAnomaly - earthRotation) % 360
+    const adjustedLon = longitude > 180 ? longitude - 360 : longitude < -180 ? longitude + 360 : longitude
+    
+    // Latitude oscillates with inclination
+    const latitude = tle.inclination * Math.sin((currentMeanAnomaly * Math.PI) / 180)
+    const altitude = (orbital.apogee + orbital.perigee) / 2
 
-function estimateCurrentPosition(tle: TLEData): GeoLocation | null {
-  // This is a simplified position estimation
-  // For accurate positions, use a proper SGP4 library
-  
-  const epochDate = new Date(tle.EPOCH)
-  const now = new Date()
-  const elapsedMinutes = (now.getTime() - epochDate.getTime()) / 60000
-  
-  // Calculate current mean anomaly
-  const meanMotionRadPerMin = (tle.MEAN_MOTION * 2 * Math.PI) / 1440
-  const currentMeanAnomaly = (tle.MEAN_ANOMALY + (meanMotionRadPerMin * elapsedMinutes) * (180 / Math.PI)) % 360
-  
-  // Simplified position (longitude estimation)
-  const orbitalParameters = calculateOrbitalParameters(tle.MEAN_MOTION, tle.ECCENTRICITY)
-  
-  // Earth rotates 360° in 24 hours = 0.25°/minute
-  const earthRotation = elapsedMinutes * 0.25
-  
-  // Very rough longitude estimate
-  const longitude = (tle.RA_OF_ASC_NODE + currentMeanAnomaly - earthRotation) % 360
-  const adjustedLon = longitude > 180 ? longitude - 360 : longitude
-  
-  // Latitude oscillates based on inclination and position in orbit
-  const latitude = tle.INCLINATION * Math.sin((currentMeanAnomaly * Math.PI) / 180)
-  
-  // Altitude varies with orbital position
-  const altitude = (orbitalParameters.apogee + orbitalParameters.perigee) / 2
-
-  return {
-    latitude: Math.max(-90, Math.min(90, latitude)),
-    longitude: Math.max(-180, Math.min(180, adjustedLon)),
-    altitude: altitude * 1000, // Convert to meters
-    source: "calculated",
+    return {
+      latitude: Math.max(-90, Math.min(90, latitude)),
+      longitude: Math.max(-180, Math.min(180, adjustedLon)),
+      altitude: altitude * 1000, // Convert km to meters
+      source: "calculated",
+    }
+  } catch {
+    return null
   }
 }
 
@@ -219,32 +308,32 @@ function estimateCurrentPosition(tle: TLEData): GeoLocation | null {
 // CONVERTERS
 // =============================================================================
 
-function tleToEntity(tle: TLEData): SatelliteEntity {
-  const orbital = calculateOrbitalParameters(tle.MEAN_MOTION, tle.ECCENTRICITY)
-  const position = estimateCurrentPosition(tle)
+function parsedTLEToEntity(tle: ParsedTLE): SatelliteEntity {
+  const orbital = calculateOrbitalParameters(tle.meanMotion, tle.eccentricity)
+  const position = estimatePosition(tle)
   
   const provenance: Provenance = {
     source: "celestrak",
-    sourceId: String(tle.NORAD_CAT_ID),
+    sourceId: String(tle.noradId),
     collectedAt: new Date().toISOString(),
-    url: `https://celestrak.org/NORAD/elements/gp.php?CATNR=${tle.NORAD_CAT_ID}&FORMAT=JSON`,
+    url: `https://tle.ivanstanojevic.me/api/tle/${tle.noradId}`,
     reliability: 0.95,
     metadata: {
-      epoch: tle.EPOCH,
-      classification: tle.CLASSIFICATION_TYPE,
+      epoch: tle.epoch,
+      tleSource: "tle.ivanstanojevic.me",
     },
   }
 
-  const orbitType = getOrbitType(tle.INCLINATION, orbital.period, tle.ECCENTRICITY)
-  const objectType = getObjectType(tle.OBJECT_NAME)
+  const orbitType = getOrbitType(tle.inclination, orbital.period, tle.eccentricity)
+  const objectType = getObjectType(tle.name)
+  const isActive = !tle.name.toUpperCase().includes("DEB") && !tle.name.includes("R/B")
 
   return {
-    id: `sat_${tle.NORAD_CAT_ID}`,
+    id: `sat_${tle.noradId}`,
     type: "satellite",
-    name: tle.OBJECT_NAME,
+    name: tle.name,
     description: `${objectType} - ${orbitType} orbit`,
     location: position || undefined,
-    // Alias for satellite marker compatibility
     estimatedPosition: position ? {
       longitude: position.longitude,
       latitude: position.latitude,
@@ -253,37 +342,54 @@ function tleToEntity(tle: TLEData): SatelliteEntity {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lastSeenAt: new Date().toISOString(),
-    lastSeen: new Date().toISOString(), // Alias for marker compatibility
+    lastSeen: new Date().toISOString(),
     status: "active",
     provenance,
     tags: [objectType, orbitType],
-    // Top-level satellite properties for marker rendering
-    noradId: tle.NORAD_CAT_ID,
-    intlDesignator: tle.OBJECT_ID,
+    noradId: tle.noradId,
+    intlDesignator: tle.intlDesignator,
     objectType,
     orbitType,
+    isActive,
     orbitalParams: {
-      inclination: tle.INCLINATION,
+      inclination: Math.round(tle.inclination * 10) / 10,
       apogee: Math.round(orbital.apogee),
       perigee: Math.round(orbital.perigee),
       period: Math.round(orbital.period * 10) / 10,
       velocity: Math.round(orbital.velocity * 100) / 100,
     },
-    isActive: !tle.OBJECT_NAME.includes("DEB") && !tle.OBJECT_NAME.includes("R/B"),
-    // Legacy properties object for backwards compatibility
     properties: {
-      noradId: tle.NORAD_CAT_ID,
-      intlDesignator: tle.OBJECT_ID,
+      noradId: tle.noradId,
+      intlDesignator: tle.intlDesignator,
       objectType,
       orbitType,
-      inclination: tle.INCLINATION,
+      inclination: Math.round(tle.inclination * 10) / 10,
       apogee: Math.round(orbital.apogee),
       perigee: Math.round(orbital.perigee),
       period: Math.round(orbital.period * 10) / 10,
       velocity: Math.round(orbital.velocity * 100) / 100,
-      isActive: !tle.OBJECT_NAME.includes("DEB") && !tle.OBJECT_NAME.includes("R/B"),
+      isActive,
     },
   }
+}
+
+// Convert CelesTrak GP format directly
+function celestrakGPToEntity(gp: CelesTrakGP): SatelliteEntity {
+  const tle: ParsedTLE = {
+    noradId: gp.NORAD_CAT_ID,
+    intlDesignator: gp.OBJECT_ID,
+    name: gp.OBJECT_NAME,
+    epoch: gp.EPOCH,
+    meanMotion: gp.MEAN_MOTION,
+    eccentricity: gp.ECCENTRICITY,
+    inclination: gp.INCLINATION,
+    raAscNode: gp.RA_OF_ASC_NODE,
+    argPericenter: gp.ARG_OF_PERICENTER,
+    meanAnomaly: gp.MEAN_ANOMALY,
+    bstar: gp.BSTAR,
+    meanMotionDot: gp.MEAN_MOTION_DOT,
+  }
+  return parsedTLEToEntity(tle)
 }
 
 // =============================================================================
@@ -293,24 +399,110 @@ function tleToEntity(tle: TLEData): SatelliteEntity {
 export class SatelliteTrackingClient {
   private n2yoApiKey?: string
   private cache: Map<string, { data: SatelliteEntity[]; timestamp: number }> = new Map()
-  private cacheTTL = 300000 // 5 minute cache for TLE data
+  private cacheTTL = 300000 // 5 minute cache
 
   constructor(n2yoApiKey?: string) {
     this.n2yoApiKey = n2yoApiKey
   }
 
   /**
-   * Fetch satellites by category from CelesTrak
+   * Fetch satellites from TLE API by search term with pagination
+   * Returns up to `limit` results across multiple pages if needed
+   */
+  private async fetchFromTLEAPI(searchTerm: string, limit: number): Promise<SatelliteEntity[]> {
+    const pageSize = Math.min(100, limit)
+    const entities: SatelliteEntity[] = []
+    let page = 1
+    let totalFetched = 0
+    
+    try {
+      // Fetch up to limit results, paging as needed
+      while (totalFetched < limit) {
+        const url = searchTerm 
+          ? `${TLE_API_BASE}/?search=${encodeURIComponent(searchTerm)}&page=${page}&page-size=${pageSize}`
+          : `${TLE_API_BASE}/?page=${page}&page-size=${pageSize}`
+          
+        const response = await fetch(url, {
+          headers: { "Accept": "application/json" },
+        })
+        
+        if (!response.ok) {
+          throw new Error(`TLE API error: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        const items: TLEApiItem[] = data.member || []
+        
+        if (items.length === 0) break
+        
+        for (const item of items) {
+          if (item.line1 && item.line2) {
+            const tle = parseTLELines(item.satelliteId, item.name, item.line1, item.line2)
+            if (tle) {
+              entities.push(parsedTLEToEntity(tle))
+              totalFetched++
+              if (totalFetched >= limit) break
+            }
+          }
+        }
+        
+        // If we got fewer than pageSize, we've hit the end
+        if (items.length < pageSize) break
+        page++
+      }
+      
+      return entities
+    } catch (error) {
+      console.error(`[Satellite] TLE API error for search "${searchTerm}":`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Try CelesTrak GP format (secondary source for production envs)
+   */
+  private async fetchFromCelesTrak(group: string, limit?: number): Promise<SatelliteEntity[]> {
+    const url = `${CELESTRAK_API}?GROUP=${group}&FORMAT=JSON`
+    
+    const response = await fetch(url, {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!response.ok) {
+      throw new Error(`CelesTrak error: ${response.status}`)
+    }
+
+    const text = await response.text()
+    if (text.startsWith("<")) {
+      throw new Error(`CelesTrak returned HTML for group "${group}"`)
+    }
+
+    const tleData: CelesTrakGP[] = JSON.parse(text)
+    if (!Array.isArray(tleData)) {
+      throw new Error(`CelesTrak returned non-array for group "${group}"`)
+    }
+
+    const entities = tleData.map(celestrakGPToEntity)
+    return limit ? entities.slice(0, limit) : entities
+  }
+
+  /**
+   * Fetch satellites by category
+   * Tries CelesTrak first, falls back to TLE API mirror
    */
   async fetchByCategory(category: SatelliteCategory, limit?: number): Promise<SatelliteEntity[]> {
     const cacheKey = `cat_${category}`
     const cached = this.cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-      return limit ? cached.data.slice(0, limit) : cached.data
+      const result = cached.data
+      return limit ? result.slice(0, limit) : result
     }
 
-    // Map category to CelesTrak groups
-    const categoryMap: Record<SatelliteCategory, string> = {
+    const fetchLimit = limit ?? CATEGORY_LIMITS[category]
+    
+    // CelesTrak group mapping (for production where CelesTrak is accessible)
+    const celestrakGroupMap: Partial<Record<SatelliteCategory, string>> = {
       stations: "stations",
       starlink: "starlink",
       oneweb: "oneweb",
@@ -318,31 +510,63 @@ export class SatelliteTrackingClient {
       weather: "weather",
       gnss: "gnss",
       active: "active",
-      debris: "debris",
     }
 
-    const group = categoryMap[category]
-    
-    try {
-      const response = await fetch(
-        `${CELESTRAK_API}?GROUP=${group}&FORMAT=JSON`,
-        { next: { revalidate: 300 } }
-      )
-
-      if (!response.ok) {
-        throw new Error(`CelesTrak API error: ${response.status}`)
+    // Try CelesTrak first (fast and comprehensive)
+    const celestrakGroup = celestrakGroupMap[category]
+    if (celestrakGroup) {
+      try {
+        const entities = await this.fetchFromCelesTrak(celestrakGroup, fetchLimit)
+        if (entities.length > 0) {
+          console.log(`[Satellite] CelesTrak ${category}: ${entities.length} satellites`)
+          this.cache.set(cacheKey, { data: entities, timestamp: Date.now() })
+          return entities
+        }
+      } catch (err) {
+        console.warn(`[Satellite] CelesTrak unavailable for ${category}, using TLE API mirror: ${(err as Error).message}`)
       }
-
-      const tleData: TLEData[] = await response.json()
-      const entities = tleData.map(tleToEntity)
-      
-      this.cache.set(cacheKey, { data: entities, timestamp: Date.now() })
-      
-      return limit ? entities.slice(0, limit) : entities
-    } catch (error) {
-      console.error("[Satellite] Failed to fetch from CelesTrak:", error)
-      return this.getSampleSatellites()
     }
+
+    // Fallback: TLE API mirror (tle.ivanstanojevic.me)
+    const searches = CATEGORY_SEARCHES[category]
+    
+    if (category === "debris") {
+      // Debris: search specifically for "deb" suffix
+      const entities = await this.fetchFromTLEAPI("deb", fetchLimit)
+      this.cache.set(cacheKey, { data: entities, timestamp: Date.now() })
+      return entities
+    }
+    
+    if (category === "stations") {
+      // Stations: fetch ISS by NORAD ID directly + search
+      const issEntities = await this.fetchByNoradId([25544, 48274]) // ISS + CSS/Tiangong
+      const searchEntities = await this.fetchFromTLEAPI("zarya", 20)
+      const combined = Array.from(new Map([...issEntities, ...searchEntities].map(e => [e.id, e])).values())
+      this.cache.set(cacheKey, { data: combined, timestamp: Date.now() })
+      return combined
+    }
+    
+    // Multi-term search for weather, gnss, etc.
+    const allEntities: SatelliteEntity[] = []
+    const perSearchLimit = Math.ceil(fetchLimit / searches.length)
+    
+    const results = await Promise.allSettled(
+      searches.map(term => this.fetchFromTLEAPI(term, perSearchLimit))
+    )
+    
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        allEntities.push(...result.value)
+      }
+    }
+    
+    // Deduplicate
+    const unique = Array.from(new Map(allEntities.map(e => [e.id, e])).values())
+    const final = unique.slice(0, fetchLimit)
+    
+    console.log(`[Satellite] TLE API ${category}: ${final.length} satellites`)
+    this.cache.set(cacheKey, { data: final, timestamp: Date.now() })
+    return final
   }
 
   /**
@@ -351,249 +575,34 @@ export class SatelliteTrackingClient {
   async fetchByNoradId(noradIds: number[]): Promise<SatelliteEntity[]> {
     const entities: SatelliteEntity[] = []
     
-    for (const id of noradIds) {
-      try {
-        const response = await fetch(
-          `${CELESTRAK_API}?CATNR=${id}&FORMAT=JSON`,
-          { next: { revalidate: 300 } }
-        )
-
-        if (response.ok) {
-          const tleData: TLEData[] = await response.json()
-          if (tleData.length > 0) {
-            entities.push(tleToEntity(tleData[0]))
+    await Promise.allSettled(
+      noradIds.map(async (id) => {
+        try {
+          const response = await fetch(`${TLE_API_BASE}/${id}`, {
+            headers: { "Accept": "application/json" },
+          })
+          if (!response.ok) return
+          
+          const item: TLEApiItem = await response.json()
+          if (item.line1 && item.line2) {
+            const tle = parseTLELines(item.satelliteId, item.name, item.line1, item.line2)
+            if (tle) entities.push(parsedTLEToEntity(tle))
           }
+        } catch (error) {
+          console.error(`[Satellite] Failed to fetch NORAD ${id}:`, error)
         }
-      } catch (error) {
-        console.error(`[Satellite] Failed to fetch NORAD ${id}:`, error)
-      }
-    }
+      })
+    )
     
     return entities
   }
 
   /**
-   * Fetch ISS position (well-known satellite)
+   * Fetch ISS position
    */
   async fetchISS(): Promise<SatelliteEntity | null> {
     const entities = await this.fetchByNoradId([25544])
     return entities[0] || null
-  }
-
-  /**
-   * Get comprehensive sample satellite data for demo
-   * Includes ISS, Tiangong, Starlink, GPS, weather satellites, and more
-   */
-  private getSampleSatellites(): SatelliteEntity[] {
-    const samples: TLEData[] = [
-      // Space Stations
-      {
-        OBJECT_NAME: "ISS (ZARYA)",
-        OBJECT_ID: "1998-067A",
-        NORAD_CAT_ID: 25544,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 15.5,
-        ECCENTRICITY: 0.0001,
-        INCLINATION: 51.6,
-        RA_OF_ASC_NODE: 200,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 180,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 10000,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      {
-        OBJECT_NAME: "TIANHE (TIANGONG CORE)",
-        OBJECT_ID: "2021-035A",
-        NORAD_CAT_ID: 48274,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 15.55,
-        ECCENTRICITY: 0.0001,
-        INCLINATION: 41.5,
-        RA_OF_ASC_NODE: 310,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 45,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 3000,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      // Starlink Constellation (sample of many)
-      ...Array.from({ length: 50 }, (_, i) => ({
-        OBJECT_NAME: `STARLINK-${1000 + i}`,
-        OBJECT_ID: `2020-0${Math.floor(i/10)}${i%10}A`,
-        NORAD_CAT_ID: 45000 + i,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 15.06,
-        ECCENTRICITY: 0.0001,
-        INCLINATION: 53 + (i % 5) * 0.2,
-        RA_OF_ASC_NODE: (i * 7.2) % 360,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: (i * 13) % 360,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 5000 + i * 10,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      })),
-      // GPS Satellites
-      ...Array.from({ length: 10 }, (_, i) => ({
-        OBJECT_NAME: `GPS BIIR-${i + 1} (PRN ${20 + i})`,
-        OBJECT_ID: `200${i}-00${i}A`,
-        NORAD_CAT_ID: 26000 + i,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 2.0056,
-        ECCENTRICITY: 0.01,
-        INCLINATION: 55 + (i % 3),
-        RA_OF_ASC_NODE: (i * 60) % 360,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: (i * 36) % 360,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 2000 + i * 100,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      })),
-      // Weather Satellites
-      {
-        OBJECT_NAME: "GOES 18",
-        OBJECT_ID: "2022-021A",
-        NORAD_CAT_ID: 51850,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 1.0027,
-        ECCENTRICITY: 0.0001,
-        INCLINATION: 0.05,
-        RA_OF_ASC_NODE: 0,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 227,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 500,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      {
-        OBJECT_NAME: "NOAA 20",
-        OBJECT_ID: "2017-073A",
-        NORAD_CAT_ID: 43013,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 14.19,
-        ECCENTRICITY: 0.001,
-        INCLINATION: 98.7,
-        RA_OF_ASC_NODE: 45,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 120,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 4500,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      // Science Satellites
-      {
-        OBJECT_NAME: "HUBBLE SPACE TELESCOPE",
-        OBJECT_ID: "1990-037B",
-        NORAD_CAT_ID: 20580,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 15.09,
-        ECCENTRICITY: 0.0003,
-        INCLINATION: 28.5,
-        RA_OF_ASC_NODE: 150,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 270,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 18000,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      {
-        OBJECT_NAME: "JAMES WEBB SPACE TELESCOPE",
-        OBJECT_ID: "2021-130A",
-        NORAD_CAT_ID: 50463,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 0.99,
-        ECCENTRICITY: 0.05,
-        INCLINATION: 0.1,
-        RA_OF_ASC_NODE: 0,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 180,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 10,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      // Earth Observation
-      {
-        OBJECT_NAME: "LANDSAT 9",
-        OBJECT_ID: "2021-088A",
-        NORAD_CAT_ID: 49260,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 14.57,
-        ECCENTRICITY: 0.001,
-        INCLINATION: 98.2,
-        RA_OF_ASC_NODE: 30,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 200,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 1200,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      {
-        OBJECT_NAME: "SENTINEL-2A",
-        OBJECT_ID: "2015-028A",
-        NORAD_CAT_ID: 40697,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 14.31,
-        ECCENTRICITY: 0.001,
-        INCLINATION: 98.5,
-        RA_OF_ASC_NODE: 60,
-        ARG_OF_PERICENTER: 0,
-        MEAN_ANOMALY: 90,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 6000,
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      },
-      // Debris samples
-      ...Array.from({ length: 10 }, (_, i) => ({
-        OBJECT_NAME: `COSMOS 2251 DEB (${i + 1})`,
-        OBJECT_ID: `1993-036${String.fromCharCode(65 + i)}`,
-        NORAD_CAT_ID: 34000 + i,
-        EPOCH: new Date().toISOString(),
-        MEAN_MOTION: 14.5 + Math.random() * 0.5,
-        ECCENTRICITY: 0.01 + Math.random() * 0.02,
-        INCLINATION: 74 + Math.random() * 5,
-        RA_OF_ASC_NODE: Math.random() * 360,
-        ARG_OF_PERICENTER: Math.random() * 360,
-        MEAN_ANOMALY: Math.random() * 360,
-        CLASSIFICATION_TYPE: "U",
-        ELEMENT_SET_NO: 999,
-        REV_AT_EPOCH: 10000 + Math.floor(Math.random() * 5000),
-        BSTAR: 0,
-        MEAN_MOTION_DOT: 0,
-        MEAN_MOTION_DDOT: 0,
-      })),
-    ]
-    
-    return samples.map(tleToEntity)
   }
 
   /**
@@ -603,7 +612,6 @@ export class SatelliteTrackingClient {
     if (query?.noradIds && query.noradIds.length > 0) {
       return this.fetchByNoradId(query.noradIds)
     }
-    
     return this.fetchByCategory(query?.category || "stations", query?.limit)
   }
 

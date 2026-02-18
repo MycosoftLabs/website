@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +9,20 @@ import { LabMonitor } from '@/components/scientific/lab-monitor'
 import { SimulationPanel } from '@/components/scientific/simulation-panel'
 import { ExperimentTracker } from '@/components/scientific/experiment-tracker'
 import { HypothesisBoard } from '@/components/scientific/hypothesis-board'
-import { RefreshCw, Activity, FlaskConical, Cpu, Lightbulb } from 'lucide-react'
+import { RefreshCw, Activity, FlaskConical, Cpu, Lightbulb, Dna, Atom } from 'lucide-react'
+import { DNASequenceViewer, DNAHelixBanner } from '@/components/visualizations/DNASequenceViewer'
+import { MoleculeViewer } from '@/components/visualizations/MoleculeViewer'
+
+// Sample reference sequences and molecules for the visualization tab
+const DEMO_SEQUENCES = [
+  { name: "ITS1-5.8S-ITS2 (Amanita muscaria)", accession: "LN877747.1", seq: "GATCATTATTGAAAGAAACCTCAGGCAGGGGGAGATGGTTGTAGCTGGCCTCTAGGGGCATGTGCACACTGTGTCTCTCT" },
+  { name: "18S rRNA (Amanita muscaria)", accession: "AJ549964.1", seq: "AAGGATCATTATTGAAAGAAACCTCAGGCAGGGGGAGATGGTTGTAGCTGGCCTCTAGGGGCATGTGCACACTGTGTCTCTCTCTAGACTAGTATTACGAGCTA" },
+]
+const DEMO_COMPOUNDS = [
+  { name: "Psilocybin", formula: "C12H17N2O4P" },
+  { name: "Muscimol", formula: "C4H6N2O2" },
+  { name: "Amanita Toxin", formula: "C39H54N10O14S" },
+]
 
 interface DashboardStats {
   experiments: { total: number; running: number; pending: number }
@@ -137,6 +150,12 @@ export default function ScientificPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="genomics">
+            <Dna className="h-3.5 w-3.5 mr-1.5" />Genomics
+          </TabsTrigger>
+          <TabsTrigger value="chemistry">
+            <Atom className="h-3.5 w-3.5 mr-1.5" />Chemistry
+          </TabsTrigger>
           <TabsTrigger value="lab">Lab</TabsTrigger>
           <TabsTrigger value="simulations">Simulations</TabsTrigger>
           <TabsTrigger value="experiments">Experiments</TabsTrigger>
@@ -147,6 +166,54 @@ export default function ScientificPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <LabMonitor />
             <SimulationPanel />
+          </div>
+        </TabsContent>
+
+        {/* ── Genomics visualization tab ──────────────────────────── */}
+        <TabsContent value="genomics" className="space-y-4">
+          <div className="relative rounded-xl overflow-hidden border border-green-500/20 bg-gradient-to-r from-green-950/40 via-black/10 to-blue-950/30 p-4 mb-2">
+            <DNAHelixBanner className="absolute inset-0 opacity-30 pointer-events-none" />
+            <div className="relative z-10">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Dna className="h-5 w-5 text-green-400" />
+                Nucleotide Sequence Visualization
+              </h2>
+              <p className="text-sm text-muted-foreground">A=green · T=red · G=blue · C=amber</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {DEMO_SEQUENCES.map((s) => (
+              <Card key={s.accession} className="border-green-500/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium italic">{s.name}</CardTitle>
+                  <p className="text-[10px] font-mono text-muted-foreground">{s.accession}</p>
+                </CardHeader>
+                <CardContent>
+                  <DNASequenceViewer sequence={s.seq} maxBarBases={100} textPreview={100} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* ── Chemistry visualization tab ─────────────────────────── */}
+        <TabsContent value="chemistry" className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Atom className="h-5 w-5 text-purple-400" />
+            Molecular Structure Viewer
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            {DEMO_COMPOUNDS.map((c) => (
+              <Card key={c.name} className="border-purple-500/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">{c.name}</CardTitle>
+                  <p className="text-xs font-mono text-muted-foreground">{c.formula}</p>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <MoleculeViewer name={c.name} size="md" showLink />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </TabsContent>
         

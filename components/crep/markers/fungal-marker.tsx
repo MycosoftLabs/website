@@ -59,13 +59,17 @@ interface FungalMarkerProps {
   onClose?: () => void;
 }
 
-// Get source info for display
+// Get source info for display — MINDEX data is enriched by MYCA and Nature Learning Model
 function getSourceInfo(source?: string) {
   switch (source) {
-    case "MINDEX": return { icon: <Database className="w-3 h-3" />, color: "text-purple-400", label: "MINDEX" };
-    case "iNaturalist": return { icon: <Leaf className="w-3 h-3" />, color: "text-green-400", label: "iNaturalist" };
-    case "GBIF": return { icon: <Globe className="w-3 h-3" />, color: "text-blue-400", label: "GBIF" };
-    default: return { icon: <Database className="w-3 h-3" />, color: "text-gray-400", label: source || "Unknown" };
+    case "MINDEX":
+      return { icon: <Database className="w-3 h-3" />, color: "text-purple-400", label: "MINDEX · MYCA · NLM" };
+    case "iNaturalist":
+      return { icon: <Leaf className="w-3 h-3" />, color: "text-green-400", label: "iNaturalist" };
+    case "GBIF":
+      return { icon: <Globe className="w-3 h-3" />, color: "text-blue-400", label: "GBIF" };
+    default:
+      return { icon: <Database className="w-3 h-3" />, color: "text-gray-400", label: source || "Unknown" };
   }
 }
 
@@ -231,15 +235,21 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
 
         {/* Data Grid */}
         <div className="p-2 space-y-1.5">
-          {/* Source + Coords Row */}
+          {/* Source + Coords Row — Source is clickable and goes to MINDEX/iNaturalist/GBIF */}
           <div className="grid grid-cols-2 gap-1.5">
-            <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+            <a
+              href={getExternalUrl(observation)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50 hover:border-amber-500/50 transition-colors group"
+            >
               <div className="text-[8px] text-gray-500 uppercase mb-0.5">Source</div>
-              <div className={cn("text-[10px] font-semibold flex items-center gap-1", sourceInfo.color)}>
+              <div className={cn("text-[10px] font-semibold flex items-center gap-1", sourceInfo.color, "group-hover:text-amber-400")}>
                 {sourceInfo.icon}
                 {sourceInfo.label}
+                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
               </div>
-            </div>
+            </a>
             <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
               <div className="text-[8px] text-gray-500 uppercase mb-0.5">Coordinates</div>
               <div className="text-[10px] text-cyan-400 font-mono">
@@ -285,7 +295,7 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 w-full py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded text-[11px] font-medium transition-colors border border-amber-500/30"
           >
-            View on {observation.source || "iNaturalist"} 
+            View in {observation.source === "MINDEX" ? "MINDEX" : observation.source || "iNaturalist"}
             <ExternalLink className="w-3 h-3" />
           </Link>
         </div>

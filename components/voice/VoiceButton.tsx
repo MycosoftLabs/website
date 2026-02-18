@@ -89,14 +89,12 @@ export function VoiceButton({
         return cn(
           base,
           "fixed z-50 shadow-2xl",
-          // Responsive positioning - avoid mobile bottom nav
-          "bottom-6 right-6 md:bottom-6 md:right-6",
-          "sm:bottom-20 sm:right-4",
-          // Touch-friendly size on mobile
-          "h-14 w-14 md:h-16 md:w-16",
+          // Always bottom-right, safe distance from edges and footer
+          "bottom-6 right-6",
+          // Touch-friendly on mobile (44px minimum tap target)
+          "h-12 w-12 md:h-14 md:w-14",
           // Smooth transitions
           "transition-all duration-300 ease-out",
-          // Hover effects
           "hover:scale-110 active:scale-95",
           voice.isListening
             ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/50"

@@ -12,6 +12,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
+import { useSearchContext } from "@/components/search/SearchContextProvider"
+import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
+import dynamic from "next/dynamic"
+const ObservationEarthPortal = dynamic(
+  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  { ssr: false }
+)
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,11 +34,13 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Globe,
 } from "lucide-react"
 import type { GeneticsResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
+import { DNAColorBar, DNASequenceViewer } from "@/components/visualizations/DNASequenceViewer"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -112,27 +121,59 @@ function GeneticsLoadingSkeleton() {
 
 // ─── List card ───────────────────────────────────────────────────────────────
 
+// Placeholder color bar when no real sequence is available yet
+// Uses a synthetic sequence derived from the GC content hint or just a demo
+function GCColorBar({ sequenceLength, gcContent }: { sequenceLength: number; gcContent?: number | null }) {
+  // Synthesize a representative bar from GC% (for list preview)
+  const gc = gcContent != null ? gcContent : 0.5
+  const len = Math.min(sequenceLength, 80)
+  const synth = Array.from({ length: len }, (_, i) => {
+    const r = Math.sin(i * 73.137 + gc * 1000) * 0.5 + 0.5 // deterministic pseudo-random
+    if (r < gc * 0.5) return "G"
+    if (r < gc) return "C"
+    if (r < gc + (1 - gc) * 0.5) return "A"
+    return "T"
+  }).join("")
+  return <DNAColorBar sequence={synth} maxBases={80} height={5} />
+}
+
 function GeneticsCard({
   item,
   isExpanded,
   onViewDetails,
+  onViewOnEarth,
 }: {
   item: GeneticsResult
   isExpanded: boolean
   onViewDetails: (item: GeneticsResult) => void
+  onViewOnEarth?: (speciesName: string) => void
 }) {
+  const ctx = useSearchContext()
   return (
     <div className="space-y-2 p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium truncate flex-1 italic" title={item.speciesName}>
+        {/* Species name is clickable — opens species widget with this organism */}
+        <button
+          className="text-sm font-medium truncate flex-1 italic text-left hover:text-green-400 transition-colors cursor-pointer"
+          title={item.speciesName ? `Show ${item.speciesName} in Species widget` : undefined}
+          onClick={() => {
+            if (item.speciesName) {
+              ctx.emit("navigate-to-species", { name: item.speciesName })
+            }
+          }}
+        >
           {item.speciesName || "Unknown species"}
-        </p>
+        </button>
         {item.accession && (
           <Badge variant="outline" className="text-[10px] font-mono shrink-0 tabular-nums">
             {item.accession}
           </Badge>
         )}
       </div>
+      {/* DNA color bar preview for every card */}
+      {item.sequenceLength > 0 && (
+        <GCColorBar sequenceLength={item.sequenceLength} gcContent={item.gcContent} />
+      )}
       <div className="flex flex-wrap gap-1.5">
         {item.geneRegion && (
           <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-400 border-green-500/20">
@@ -152,15 +193,29 @@ function GeneticsCard({
       </div>
       {isExpanded && (
         <div className="flex items-center justify-between pt-2 border-t border-border/40">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10"
-            onClick={() => onViewDetails(item)}
-          >
-            <FileText className="h-3 w-3 mr-1.5" />
-            View details
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-green-400 hover:text-green-300 hover:bg-green-500/10"
+              onClick={() => onViewDetails(item)}
+            >
+              <FileText className="h-3 w-3 mr-1.5" />
+              View details
+            </Button>
+            {item.speciesName && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-teal-400 hover:text-teal-300 hover:bg-teal-500/10"
+                onClick={() => onViewOnEarth?.(item.speciesName)}
+                title={`View ${item.speciesName} observations on Earth`}
+              >
+                <Globe className="h-3 w-3 mr-1" />
+                Earth
+              </Button>
+            )}
+          </div>
           {item.source && (
             <span className="text-[10px] text-muted-foreground">via {item.source}</span>
           )}
@@ -267,11 +322,24 @@ function GeneticsDetailModal({
               <Dna className="h-4 w-4 text-green-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-sm leading-snug italic truncate">
+              {/* Species name in modal header: clicking shows it in Species widget */}
+              <button
+                className="font-semibold text-sm leading-snug italic truncate block text-left hover:text-green-400 transition-colors w-full"
+                title="Click to show in Species widget"
+                onClick={() => {
+                  const sName = detail?.organism || detail?.species_name || item.speciesName
+                  if (sName) {
+                    try {
+                      // Access event bus via a custom window event (safe SSR fallback)
+                      window.dispatchEvent(new CustomEvent("mycosoft:navigate-to-species", { detail: { name: sName } }))
+                    } catch {}
+                  }
+                }}
+              >
                 {detail?.organism || detail?.species_name || item.speciesName || "Genetic Sequence"}
-              </h2>
+              </button>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[11px] text-muted-foreground break-all">
                   {detail?.accession || item.accession}
                 </span>
                 {geneRegion && (
@@ -296,8 +364,8 @@ function GeneticsDetailModal({
             </Button>
           </div>
 
-          {/* ── Scrollable body ───────────────────────────────────────────── */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4 min-h-0">
+          {/* ── Scrollable body — overflow-x-hidden prevents horizontal bleed ─ */}
+          <div data-widget-detail className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-4 space-y-4 min-h-0">
 
             {/* Loading state */}
             {loading && (
@@ -435,55 +503,13 @@ function GeneticsDetailModal({
                   </div>
                 )}
 
+                {/* Full DNA sequence visualization with color map, composition, and colored text */}
                 {hasSequence ? (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Nucleotide sequence
-                        <span className="ml-2 text-green-400 font-semibold">
-                          {detail!.sequence_length.toLocaleString()} bp
-                        </span>
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
-                        onClick={() => copyToClipboard(detail!.sequence)}
-                      >
-                        {copied ? (
-                          <><Check className="h-3 w-3 mr-1 text-green-400" />Copied</>
-                        ) : (
-                          <><Copy className="h-3 w-3 mr-1" />Copy</>
-                        )}
-                      </Button>
-                    </div>
-                    <pre className="text-[11px] font-mono bg-black/40 border border-white/8 rounded-lg p-3 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all leading-relaxed max-h-48 select-all">
-                      {displaySeq}
-                      {isTruncated && <span className="text-muted-foreground">…</span>}
-                    </pre>
-                    {isTruncated && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] w-full"
-                        onClick={() => setSeqExpanded(true)}
-                      >
-                        <ChevronDown className="h-3 w-3 mr-1" />
-                        Show full sequence ({detail!.sequence_length.toLocaleString()} bp)
-                      </Button>
-                    )}
-                    {seqExpanded && detail!.sequence.length > seqPreviewLen && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] w-full"
-                        onClick={() => setSeqExpanded(false)}
-                      >
-                        <ChevronUp className="h-3 w-3 mr-1" />
-                        Collapse sequence
-                      </Button>
-                    )}
-                  </div>
+                  <DNASequenceViewer
+                    sequence={detail!.sequence}
+                    textPreview={480}
+                    maxBarBases={300}
+                  />
                 ) : null /* sequence missing notice is rendered above */}
               </>
             )}
@@ -526,6 +552,7 @@ export function GeneticsWidget({
 }: GeneticsWidgetProps) {
   const items = Array.isArray(data) ? data : (data?.id ? [data] : [])
   const [modalItem, setModalItem] = useState<GeneticsResult | null>(null)
+  const [earthSpecies, setEarthSpecies] = useState<string | null>(null)
 
   const handleViewDetails = useCallback((item: GeneticsResult) => {
     setModalItem(item)
@@ -577,6 +604,7 @@ export function GeneticsWidget({
                 item={item}
                 isExpanded={isFocused}
                 onViewDetails={handleViewDetails}
+                onViewOnEarth={(sp) => setEarthSpecies(sp)}
               />
             </motion.div>
           ))}
@@ -592,7 +620,32 @@ export function GeneticsWidget({
       {modalItem && (
         <GeneticsDetailModal item={modalItem} onClose={handleCloseModal} />
       )}
+
+      {/* Earth observation portal for this organism */}
+      {earthSpecies && (
+        <GeneticsEarthPortalLoader
+          speciesName={earthSpecies}
+          onClose={() => setEarthSpecies(null)}
+        />
+      )}
     </>
+  )
+}
+
+function GeneticsEarthPortalLoader({
+  speciesName,
+  onClose,
+}: {
+  speciesName: string
+  onClose: () => void
+}) {
+  const { observations, loading } = useSpeciesObservations(speciesName, 20)
+  return (
+    <ObservationEarthPortal
+      observations={loading ? [] : observations}
+      title={`${speciesName} — Sequence Collection Sites`}
+      onClose={onClose}
+    />
   )
 }
 

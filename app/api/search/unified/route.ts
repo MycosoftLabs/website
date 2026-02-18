@@ -26,7 +26,7 @@ async function searchMindexUnified(query: string, limit: number) {
     // Use MINDEX unified-search endpoint which searches taxa, compounds, genetics in parallel
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/unified-search?q=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(10000) }
+      { signal: AbortSignal.timeout(6000) }
     )
     if (!res.ok) {
       console.error("MINDEX unified-search failed:", res.status)
@@ -76,7 +76,7 @@ async function transformMindexCompounds(compounds: any[]) {
     id: `mindex-cmp-${c.id}`,
     name: c.name || c.compound_name || "",
     formula: c.formula || c.molecular_formula || "",
-    molecularWeight: c.molecular_weight || 0,
+    molecularWeight: Number(c.molecular_weight || 0),
     smiles: c.smiles || "",
     structure: c.smiles || "",  // Widget expects "structure"
     inchi: c.inchi || "",
@@ -153,34 +153,455 @@ async function searchINaturalist(query: string, limit: number) {
           (r.preferred_common_name || r.name)
       )
       .slice(0, limit)
-      .map((r: any) => ({
-        id: `inat-${r.id}`,
-        scientificName: r.name || "",
-        commonName: r.preferred_common_name || r.name || "",
-        taxonomy: {
-          kingdom: "Fungi",
-          phylum: "",
-          class: "",
-          order: "",
-          family: "",
-          genus: "",
-        },
-        description: r.wikipedia_summary || `A species of fungus (${r.name})`,
-        photos: r.default_photo
-          ? [
-              {
+      .map((r: any) => {
+        // Parse real taxonomy from ancestor array (never hardcode empty strings)
+        const taxonomy: Record<string, string> = {
+          kingdom: "Fungi", phylum: "", class: "", order: "", family: "", genus: "",
+        }
+        for (const a of r.ancestors || []) {
+          const rank = (a.rank || "").toLowerCase()
+          if (rank === "phylum") taxonomy.phylum = a.name
+          else if (rank === "class") taxonomy.class = a.name
+          else if (rank === "order") taxonomy.order = a.name
+          else if (rank === "family") taxonomy.family = a.name
+          else if (rank === "genus") taxonomy.genus = a.name
+        }
+        // Infer genus from binomial name if still empty
+        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0]
+
+        return {
+          id: `inat-${r.id}`,
+          scientificName: r.name || "",
+          commonName: r.preferred_common_name || r.name || "",
+          taxonomy,
+          description: r.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+            || `A species of fungus (${r.name})`,
+          photos: r.default_photo
+            ? [
+                {
+                  id: String(r.default_photo.id || r.id),
+                  url: r.default_photo.square_url || "",
+                  medium_url: r.default_photo.medium_url || r.default_photo.square_url || "",
+                  large_url: r.default_photo.large_url || r.default_photo.medium_url || "",
+                  attribution: r.default_photo.attribution || "iNaturalist",
+                },
+              ]
+            : [],
+          observationCount: r.observations_count || 0,
+          rank: r.rank || "species",
+          _source: "iNaturalist",
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compound → producing-fungi lookup
+// ---------------------------------------------------------------------------
+
+/**
+ * Many fungal compounds don't share their name with any species.
+ * When a query returns 0 species results but has a compound match, we look up
+ * the fungi that PRODUCE that compound and return those as the species results.
+ *
+ * Sources:
+ *   1. Curated map — reliable, covers the most important fungal bioactives
+ *   2. Genus extraction — "psilocybin" → stem "psilocyb" → genus "Psilocybe"
+ */
+
+// ---------------------------------------------------------------------------
+// Species intelligence: common name → scientific name + key bioactives
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps common names / synonyms to scientific names.
+ * Used to translate "Reishi" → "Ganoderma lucidum" for targeted NCBI/PubChem searches.
+ */
+const SPECIES_NAMES: Record<string, string> = {
+  // Medicinal
+  "reishi":             "Ganoderma lucidum",
+  "lingzhi":            "Ganoderma lucidum",
+  "ganoderma":          "Ganoderma lucidum",
+  "lion's mane":        "Hericium erinaceus",
+  "lions mane":         "Hericium erinaceus",
+  "hericium":           "Hericium erinaceus",
+  "turkey tail":        "Trametes versicolor",
+  "trametes":           "Trametes versicolor",
+  "chaga":              "Inonotus obliquus",
+  "inonotus":           "Inonotus obliquus",
+  "maitake":            "Grifola frondosa",
+  "hen of the woods":   "Grifola frondosa",
+  "grifola":            "Grifola frondosa",
+  "cordyceps":          "Cordyceps militaris",
+  "caterpillar fungus": "Cordyceps militaris",
+  "shiitake":           "Lentinula edodes",
+  "lentinula":          "Lentinula edodes",
+  "oyster mushroom":    "Pleurotus ostreatus",
+  "pleurotus":          "Pleurotus ostreatus",
+  "king oyster":        "Pleurotus eryngii",
+  // Culinary
+  "button mushroom":    "Agaricus bisporus",
+  "cremini":            "Agaricus bisporus",
+  "portobello":         "Agaricus bisporus",
+  "agaricus":           "Agaricus bisporus",
+  "chanterelle":        "Cantharellus cibarius",
+  "cantharellus":       "Cantharellus cibarius",
+  "porcini":            "Boletus edulis",
+  "cep":                "Boletus edulis",
+  "boletus":            "Boletus edulis",
+  "morel":              "Morchella esculenta",
+  "morchella":          "Morchella esculenta",
+  "truffle":            "Tuber melanosporum",
+  "black truffle":      "Tuber melanosporum",
+  "tuber":              "Tuber melanosporum",
+  // Psychoactive / toxic
+  "magic mushroom":     "Psilocybe cubensis",
+  "golden teacher":     "Psilocybe cubensis",
+  "psilocybe":          "Psilocybe cubensis",
+  "fly agaric":         "Amanita muscaria",
+  "fly amanita":        "Amanita muscaria",
+  "death cap":          "Amanita phalloides",
+  // Other
+  "enoki":              "Flammulina velutipes",
+  "nameko":             "Pholiota nameko",
+  "black ear":          "Auricularia auricula-judae",
+  "wood ear":           "Auricularia auricula-judae",
+  "snow fungus":        "Tremella fuciformis",
+  "tremella":           "Tremella fuciformis",
+}
+
+/**
+ * Maps species names (common or scientific) to their key bioactive compounds.
+ * These are the most well-characterised compounds for each species.
+ */
+const SPECIES_COMPOUNDS: Record<string, string[]> = {
+  // Reishi / Ganoderma
+  "reishi":                 ["Ganoderic acid A", "Ganoderic acid B", "Lucidenic acid A"],
+  "ganoderma":              ["Ganoderic acid A", "Lucidenic acid A", "Ganoderean"],
+  "ganoderma lucidum":      ["Ganoderic acid A", "Ganoderic acid B", "Lucidenic acid A", "Beta-D-glucan"],
+  "lingzhi":                ["Ganoderic acid A", "Lucidenic acid A"],
+  // Lion's Mane
+  "lion's mane":            ["Hericenone A", "Erinacine A"],
+  "lions mane":             ["Hericenone A", "Erinacine A"],
+  "hericium erinaceus":     ["Hericenone A", "Erinacine A", "Hericenone E"],
+  "hericium":               ["Hericenone A", "Erinacine A"],
+  // Turkey Tail
+  "turkey tail":            ["Polysaccharide K", "Polysaccharide P"],
+  "trametes versicolor":    ["Polysaccharide K", "Polysaccharide P", "Coriolan"],
+  "trametes":               ["Polysaccharide K"],
+  // Chaga
+  "chaga":                  ["Betulinic acid", "Inotodiol", "Ergosterol"],
+  "inonotus obliquus":      ["Betulinic acid", "Inotodiol", "Lanosterol"],
+  "inonotus":               ["Betulinic acid", "Inotodiol"],
+  // Cordyceps
+  "cordyceps":              ["Cordycepin", "Adenosine"],
+  "cordyceps militaris":    ["Cordycepin", "Adenosine", "Cordymin"],
+  // Maitake
+  "maitake":                ["D-Fraction", "Beta-D-glucan"],
+  "grifola frondosa":       ["D-Fraction", "Grifolin", "Beta-D-glucan"],
+  "grifola":                ["Grifolin", "D-Fraction"],
+  // Shiitake
+  "shiitake":               ["Lentinan", "Eritadenine", "Lenthionine"],
+  "lentinula edodes":       ["Lentinan", "Eritadenine", "Lenthionine"],
+  "lentinula":              ["Lentinan", "Eritadenine"],
+  // Oyster
+  "oyster mushroom":        ["Lovastatin", "Pleuran", "Pleurotolysine"],
+  "pleurotus ostreatus":    ["Lovastatin", "Pleuran", "Pleurotolysine"],
+  "pleurotus":              ["Lovastatin", "Pleuran"],
+  // Amanita
+  "amanita muscaria":       ["Muscimol", "Ibotenic acid", "Muscarine"],
+  "fly agaric":             ["Muscimol", "Ibotenic acid"],
+  "amanita phalloides":     ["Alpha-amanitin", "Phalloidin", "Amatoxin"],
+  "death cap":              ["Alpha-amanitin", "Phalloidin"],
+  "amanita":                ["Muscimol", "Muscarine", "Alpha-amanitin"],
+  // Psilocybe
+  "psilocybe cubensis":     ["Psilocybin", "Psilocin", "Baeocystin"],
+  "psilocybe":              ["Psilocybin", "Psilocin", "Baeocystin"],
+  "magic mushroom":         ["Psilocybin", "Psilocin"],
+  // Boletus / Porcini
+  "boletus edulis":         ["Boletic acid", "Variegatic acid", "Ergothioneine"],
+  "porcini":                ["Boletic acid", "Variegatic acid"],
+  "boletus":                ["Boletic acid", "Variegatic acid"],
+  // Chanterelle
+  "cantharellus cibarius":  ["Cantharellol", "Ergothioneine"],
+  "chanterelle":            ["Cantharellol"],
+  // Morel
+  "morchella esculenta":    ["Morchellin", "Morchellamide"],
+  "morel":                  ["Morchellin"],
+  // Truffle
+  "tuber melanosporum":     ["Bis(methylthio)methane", "Androstenol"],
+  "truffle":                ["Bis(methylthio)methane"],
+  // Enoki
+  "flammulina velutipes":   ["Flammutoxin", "Proflamin", "Eritadenine"],
+  "enoki":                  ["Flammutoxin", "Proflamin"],
+  // Snow fungus
+  "tremella fuciformis":    ["Tremella polysaccharide", "Beta-glucuronoxylomannan"],
+  "tremella":               ["Tremella polysaccharide"],
+}
+
+/**
+ * Resolve a query to a scientific name if it matches a known species common name.
+ */
+function resolveScientificName(query: string): string | null {
+  const q = query.toLowerCase().trim()
+  for (const [key, name] of Object.entries(SPECIES_NAMES)) {
+    if (q === key || q.includes(key) || key.includes(q)) return name
+  }
+  return null
+}
+
+/**
+ * Get key bioactive compounds for a species query.
+ * Returns compound names to fetch from PubChem.
+ */
+function getCompoundNamesForSpecies(query: string, scientificName?: string | null): string[] {
+  const q = query.toLowerCase().trim()
+  const sci = (scientificName || "").toLowerCase().trim()
+
+  for (const [key, compounds] of Object.entries(SPECIES_COMPOUNDS)) {
+    if (q === key || q.includes(key) || key.includes(q)) return compounds
+    if (sci && (sci === key || sci.includes(key) || key.includes(sci))) return compounds
+  }
+  return []
+}
+
+/**
+ * Fetch a compound from PubChem and return it in CompoundResult shape.
+ * Lightweight version for the unified search (only fetches essential properties).
+ */
+async function fetchCompoundLite(name: string): Promise<any | null> {
+  try {
+    const encName = encodeURIComponent(name.trim())
+    const propsRes = await fetch(
+      `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encName}/property/IUPACName,MolecularFormula,MolecularWeight,CanonicalSMILES,XLogP,Complexity/JSON`,
+      { signal: AbortSignal.timeout(8000), headers: { "User-Agent": "Mycosoft/1.0 (mycosoft.com; dev@mycosoft.org)" } }
+    )
+    if (!propsRes.ok) return null
+    const propsData = await propsRes.json()
+    const props = propsData?.PropertyTable?.Properties?.[0]
+    if (!props) return null
+
+    return {
+      id: `pubchem-${props.CID}`,
+      name,
+      formula: props.MolecularFormula || "",
+      molecularWeight: Number(props.MolecularWeight || 0),
+      chemicalClass: "",
+      sourceSpecies: [],
+      biologicalActivity: [],
+      structure: props.CanonicalSMILES || "",
+      smiles: props.CanonicalSMILES || "",
+      _source: "PubChem",
+      _cid: props.CID,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetch key bioactive compounds for a species.
+ * Runs fetches in parallel; returns at most 4 results to keep latency low.
+ */
+async function searchCompoundsForSpecies(query: string, scientificName?: string | null): Promise<any[]> {
+  const names = getCompoundNamesForSpecies(query, scientificName)
+  if (!names.length) return []
+
+  // Fetch top 4 in parallel (PubChem can handle this without rate-limit issues)
+  const results = await Promise.all(names.slice(0, 4).map(n => fetchCompoundLite(n)))
+  return results.filter(Boolean)
+}
+
+/**
+ * Run a species-targeted NCBI genetics search using the scientific name.
+ * Far more accurate than searching for a common name like "Reishi".
+ */
+async function searchGeneticsForSpecies(scientificName: string, limit: number): Promise<any[]> {
+  if (!scientificName) return []
+  const HEADERS = { "User-Agent": "Mycosoft/1.0 (mycosoft.com; dev@mycosoft.org)" }
+
+  try {
+    // NCBI does NOT index ITS via [Gene] — search by title keyword.
+    // Two-pass: ITS/ribosomal title search first, general organism search as fallback.
+    const itsQuery  = `${scientificName}[Organism] AND (internal transcribed spacer[Title] OR ITS[Title] OR ribosomal[Title])`
+    const genQuery  = `${scientificName}[Organism]`
+
+    const runSearch = async (q: string) => {
+      const r = await fetch(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nucleotide&term=${encodeURIComponent(q)}&retmax=${limit}&retmode=json`,
+        { signal: AbortSignal.timeout(8000), headers: HEADERS }
+      )
+      if (!r.ok) return []
+      const d = await r.json()
+      return (d.esearchresult?.idlist || []) as string[]
+    }
+
+    let ids = await runSearch(itsQuery)
+    if (!ids.length) ids = await runSearch(genQuery)
+    if (!ids.length) return []
+
+    await new Promise(r => setTimeout(r, 350))
+    const sumRes = await fetch(
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=nucleotide&id=${ids.join(",")}&retmode=json`,
+      { signal: AbortSignal.timeout(8000), headers: HEADERS }
+    )
+    if (!sumRes.ok) return []
+    const sumData = await sumRes.json()
+    const uids: string[] = sumData.result?.uids || []
+
+    return uids.slice(0, limit).map((uid: string) => {
+      const item = sumData.result[uid] || {}
+      const accession: string = item.accessionversion || item.caption || uid
+      const title: string = item.title || ""
+      const geneMatch = title.match(/\b(ITS[12]?|LSU|SSU|18S|28S|5\.8S|RPB[12]|TEF1)\b/i)
+      return {
+        id: `ncbi-${uid}`,
+        accession,
+        speciesName: item.organism || scientificName,
+        geneRegion: geneMatch ? geneMatch[1].toUpperCase() : "",
+        sequenceLength: parseInt(item.slen || "0", 10),
+        source: "GenBank",
+        _source: "NCBI",
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+const COMPOUND_TO_FUNGI: Record<string, string> = {
+  // Psilocybin family
+  psilocybin:    "Psilocybe",
+  psilocin:      "Psilocybe",
+  baeocystin:    "Psilocybe",
+  norbaeocystin: "Psilocybe",
+  aeruginascin:  "Psilocybe",
+  // Amanita toxins & actives
+  muscarine:     "Amanita",
+  muscimol:      "Amanita muscaria",
+  "ibotenic acid":"Amanita muscaria",
+  ibotenic:      "Amanita muscaria",
+  amatoxin:      "Amanita phalloides",
+  "alpha-amanitin":"Amanita phalloides",
+  phalloidin:    "Amanita phalloides",
+  virotoxin:     "Amanita",
+  // Ganoderma / Reishi
+  ganoderic:     "Ganoderma",
+  "ganoderic acid":"Ganoderma",
+  lucidenic:     "Ganoderma",
+  lanostan:      "Ganoderma",
+  // Cordyceps
+  cordycepin:    "Cordyceps",
+  // Hericium (Lion's Mane)
+  hericenone:    "Hericium",
+  erinacine:     "Hericium",
+  // Lentinus / Shiitake
+  lentinan:      "Lentinula edodes",
+  eritadenine:   "Lentinula edodes",
+  // Trametes / Turkey Tail
+  psk:           "Trametes versicolor",
+  krestin:       "Trametes versicolor",
+  // Ergot
+  ergotamine:    "Claviceps",
+  ergot:         "Claviceps",
+  lysergic:      "Claviceps",
+  // Inonotus / Chaga
+  inotodiol:     "Inonotus obliquus",
+  betulinic:     "Inonotus obliquus",
+  // Cantharellus
+  cantharellol:  "Cantharellus",
+  // Tuber / Truffle
+  bis:           "Tuber",
+  // Pleurotus / Oyster
+  pleuran:       "Pleurotus",
+  lovastatin:    "Aspergillus terreus",
+}
+
+/**
+ * Attempt to derive a genus name from a compound name by stripping common
+ * chemical suffixes, then try it as an iNaturalist taxon search.
+ * "psilocybin" → "psilocyb" → closest match is "Psilocybe"
+ */
+function extractGenusFromCompound(name: string): string | null {
+  const n = name.toLowerCase().trim()
+  // Strip common chemical suffixes
+  const stripped = n
+    .replace(/(in|ine|ol|ate|ic|ide|yl|oid|al|ane|ene|one|oate|ate|in|ate|ite|ase|ene)$/, "")
+    .trim()
+  if (stripped.length < 4) return null
+  // Capitalize first letter — may match a genus
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1)
+}
+
+async function searchFungiForCompound(compoundName: string, limit: number): Promise<any[]> {
+  const n = compoundName.toLowerCase().trim()
+
+  // 1. Exact curated match
+  let searchTerm: string | null = null
+  for (const [key, genus] of Object.entries(COMPOUND_TO_FUNGI)) {
+    if (n.includes(key) || key.includes(n)) {
+      searchTerm = genus
+      break
+    }
+  }
+
+  // 2. Genus extraction fallback
+  if (!searchTerm) {
+    searchTerm = extractGenusFromCompound(compoundName)
+    if (!searchTerm) return []
+  }
+
+  // 3. Search iNaturalist for the genus/species
+  try {
+    const res = await fetch(
+      `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(searchTerm)}&rank=species,genus&per_page=${limit}&is_active=true&iconic_taxa=Fungi`,
+      { signal: AbortSignal.timeout(8000) }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    const results = (data.results || [])
+      .filter((r: any) => r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170))
+      .slice(0, limit)
+      .map((r: any) => {
+        const taxonomy: Record<string, string> = {
+          kingdom: "Fungi", phylum: "", class: "", order: "", family: "", genus: "",
+        }
+        for (const a of r.ancestors || []) {
+          const rank = (a.rank || "").toLowerCase()
+          if (rank === "phylum") taxonomy.phylum = a.name
+          else if (rank === "class") taxonomy.class = a.name
+          else if (rank === "order") taxonomy.order = a.name
+          else if (rank === "family") taxonomy.family = a.name
+          else if (rank === "genus") taxonomy.genus = a.name
+        }
+        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0]
+
+        return {
+          id: `inat-${r.id}`,
+          scientificName: r.name || "",
+          commonName: r.preferred_common_name || r.name || "",
+          taxonomy,
+          description: r.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+            || `A species that produces ${compoundName}`,
+          photos: r.default_photo
+            ? [{
                 id: String(r.default_photo.id || r.id),
                 url: r.default_photo.square_url || "",
                 medium_url: r.default_photo.medium_url || r.default_photo.square_url || "",
                 large_url: r.default_photo.large_url || r.default_photo.medium_url || "",
                 attribution: r.default_photo.attribution || "iNaturalist",
-              },
-            ]
-          : [],
-        observationCount: r.observations_count || 0,
-        rank: r.rank || "species",
-        _source: "iNaturalist",
-      }))
+              }]
+            : [],
+          observationCount: r.observations_count || 0,
+          rank: r.rank || "species",
+          // Mark as compound-derived so the widget can add context
+          _source: "iNaturalist",
+          _derivedFromCompound: compoundName,
+        }
+      })
+    return results
   } catch {
     return []
   }
@@ -198,7 +619,7 @@ async function searchINaturalistLiveObservations(query: string, limit: number) {
       quality_grade: "research,needs_id",
     })
     const res = await fetch(`https://api.inaturalist.org/v1/observations?${params.toString()}`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(4000),
     })
     if (!res.ok) return []
     const data = await res.json()
@@ -468,7 +889,12 @@ export async function GET(request: NextRequest) {
   try {
     const mindexStart = performance.now()
 
-    // Run MINDEX unified search + iNaturalist + CrossRef (primary) + OpenAlex (fallback) in parallel
+    // Resolve scientific name + detect compound queries
+    const scientificName = resolveScientificName(query)
+    const queryLower = query.toLowerCase()
+    const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
+
+    // Run ALL searches in parallel — species, compounds, genetics simultaneously
     const [
       mindexResults,
       mindexResearch,
@@ -476,6 +902,10 @@ export async function GET(request: NextRequest) {
       liveResults,
       crossRefResearch,
       openAlexResearch,
+      ncbiSequencesRaw,        // generic NCBI (works for species name queries)
+      speciesGeneticsRaw,      // targeted NCBI by resolved scientific name
+      speciesCompoundsRaw,     // PubChem compounds for this specific species
+      compoundFungiRaw,        // fungi that produce this compound (for compound queries)
       aiAnswer,
     ] = await Promise.all([
       searchMindexUnified(query, limit),
@@ -483,21 +913,35 @@ export async function GET(request: NextRequest) {
       types.includes("species") ? searchINaturalist(query, Math.min(limit, 10)) : Promise.resolve([]),
       types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
       types.includes("research") ? searchCrossRefResearch(query, limit) : Promise.resolve([]),
-      types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5)) : Promise.resolve([]), // OpenAlex as fallback with lower limit
+      types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5)) : Promise.resolve([]),
+      // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
+      types.includes("genetics") ? searchNCBIGenetics(query, Math.min(limit, 8)) : Promise.resolve([]),
+      // Targeted genetics: when "Reishi" → search "Ganoderma lucidum[Organism] AND ITS[Gene]"
+      (types.includes("genetics") && scientificName)
+        ? searchGeneticsForSpecies(scientificName, Math.min(limit, 8))
+        : Promise.resolve([]),
+      // Species-specific compounds: "Reishi" → ganoderic acid, lucidenic acid from PubChem
+      (types.includes("compounds") && (scientificName || getCompoundNamesForSpecies(query).length > 0))
+        ? searchCompoundsForSpecies(query, scientificName)
+        : Promise.resolve([]),
+      // Compound→fungi: for "psilocybin" → Psilocybe species
+      types.includes("species")
+        ? searchFungiForCompound(query, Math.min(limit, 8))
+        : Promise.resolve([]),
       includeAI ? getAIAnswer(query, new URL(request.url).origin) : Promise.resolve(undefined),
     ])
+
+    // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
+    const ncbiSeqMap = new Map<string, any>()
+    for (const s of [...(speciesGeneticsRaw || []), ...(ncbiSequencesRaw || [])]) {
+      if (s.accession && !ncbiSeqMap.has(s.accession)) ncbiSeqMap.set(s.accession, s)
+    }
+    const ncbiSequences: any[] = Array.from(ncbiSeqMap.values())
 
     // Transform MINDEX results to website format
     const mindexSpecies = await transformMindexTaxa(mindexResults.taxa)
     const mindexCompounds = await transformMindexCompounds(mindexResults.compounds)
     const mindexSequences = await transformMindexGenetics(mindexResults.genetics)
-
-    // NCBI genetics: always run so we have geneRegion + sequenceLength.
-    // MINDEX records often have gene=null and sequence_length=0 (DB not fully populated).
-    // NCBI esummary fills those fields reliably from live NCBI data.
-    const ncbiSequences = types.includes("genetics")
-      ? await searchNCBIGenetics(query, Math.min(limit, 10))
-      : []
 
     const mindexTime = performance.now() - mindexStart
 
@@ -527,12 +971,28 @@ export async function GET(request: NextRequest) {
     })
 
     // Merge: MINDEX primary (enriched), iNaturalist secondary
+    // Use pre-fetched compound-fungi results if species is empty (ran in parallel)
+    const compoundFungi: any[] = compoundFungiRaw || []
+    const inatSpeciesAll = inatSpecies.length > 0 || mindexSpecies.length > 0
+      ? inatSpecies
+      : compoundFungi  // Use compound-derived fungi when no direct species match
+
     const species = ensureUniqueIds(
-      deduplicateSpecies(mindexSpecies, inatSpecies),
+      deduplicateSpecies(mindexSpecies, inatSpeciesAll),
       "sp"
     ).slice(0, limit)
 
-    const compounds = ensureUniqueIds(mindexCompounds, "cmp").slice(0, limit)
+    // Merge compounds: MINDEX first, then species-specific from PubChem, then NCBI-derived
+    const speciesCompounds: any[] = speciesCompoundsRaw || []
+    const mindexCompoundNames = new Set(mindexCompounds.map((c: any) => (c.name || "").toLowerCase()))
+    // Only add species compounds not already present from MINDEX
+    const newSpeciesCompounds = speciesCompounds.filter(
+      (c: any) => !mindexCompoundNames.has((c.name || "").toLowerCase())
+    )
+    const compounds = ensureUniqueIds(
+      [...mindexCompounds, ...newSpeciesCompounds],
+      "cmp"
+    ).slice(0, limit)
 
     // Genetics: NCBI results come first (they have geneRegion + sequenceLength populated).
     // MINDEX records with incomplete metadata are appended only if not already represented.
@@ -546,18 +1006,53 @@ export async function GET(request: NextRequest) {
 
     const totalCount = species.length + compounds.length + genetics.length + research.length
 
-    // Background ingest: store all returned genetics accessions in MINDEX so
-    // future detail lookups are instant. Fire-and-forget, never blocks response.
+    // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──
+    // This ensures every search result gets stored in MINDEX so future searches
+    // hit the DB instead of external APIs.
+    const origin = new URL(request.url).origin
+
+    // 1. Species (from iNaturalist and compound-derived fungi)
+    const speciesToIngest = species
+      .filter((s: any) => String(s.id).startsWith("inat-"))
+      .map((s: any) => ({ id: String(s.id), name: s.scientificName }))
+      .slice(0, 15)
+    if (speciesToIngest.length > 0) {
+      void fetch(`${origin}/api/mindex/species/ingest-background`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ species: speciesToIngest }),
+      }).catch(() => {})
+    }
+
+    // 2. Genetics (NCBI accessions)
     const accessionsToPrime = genetics
       .map((g: any) => g.accession)
       .filter((a: string) => !!a)
       .slice(0, 10)
     if (accessionsToPrime.length > 0) {
-      const origin = new URL(request.url).origin
       void fetch(`${origin}/api/mindex/genetics/ingest-background`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accessions: accessionsToPrime }),
+      }).catch(() => {})
+    }
+
+    // 3. Compounds from PubChem — store any external-source compounds in MINDEX
+    //    so next search for "psilocybin" hits DB directly
+    const compoundsToStore = compounds.filter((c: any) => c._source === "MINDEX" ? false : true)
+    for (const c of compoundsToStore.slice(0, 5)) {
+      void fetch(`${origin}/api/mindex/compounds/detail?name=${encodeURIComponent(c.name)}`, {
+        cache: "no-store",
+      }).catch(() => {})  // hitting detail triggers storeCompoundInBackground inside the route
+    }
+
+    // 4. Compound→species relationships: if this was a compound search that
+    //    resolved producing-fungi, store that relationship so MINDEX knows
+    //    "psilocybin → Psilocybe" for future queries.
+    if (compoundFungi.length > 0 && compounds.length > 0) {
+      const compoundName = compounds[0]?.name || query
+      void fetch(`${origin}/api/mindex/compounds/detail?name=${encodeURIComponent(compoundName)}`, {
+        cache: "no-store",
       }).catch(() => {})
     }
 

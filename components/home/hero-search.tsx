@@ -320,7 +320,7 @@ export function HeroSearch() {
               </AnimatePresence>
             </motion.form>
 
-            {/* Quick Actions - clicking these goes directly to search */}
+            {/* Quick Actions — type="button" is REQUIRED so these don't submit the form */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -328,18 +328,26 @@ export function HeroSearch() {
               className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8"
             >
               <span className="text-xs text-gray-500 hidden sm:inline">Try:</span>
-              {["Amanita", "Psilocybin", "Mycelium"].map((term) => (
+              {[
+                "Amanita",
+                "Psilocybin",
+                "Mycelium",
+                "ITS Sequence",
+                "Reishi",
+                "Muscarine",
+              ].map((term) => (
                 <button
                   key={term}
+                  type="button"   // ← prevents accidental form submission
                   onClick={() => {
-                    setIsSearching(true)
+                    setQuery(term)
                     router.push(`/search?q=${encodeURIComponent(term)}`)
                   }}
                   className={cn(
-                    "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm",
-                    "bg-white/10 hover:bg-white/20 text-gray-300",
-                    "border border-white/10 hover:border-white/20",
-                    "transition-all duration-200"
+                    "px-3 py-1.5 rounded-full text-xs sm:text-sm",
+                    "bg-white/10 hover:bg-white/20 active:bg-white/30 text-gray-300",
+                    "border border-white/10 hover:border-white/25",
+                    "transition-all duration-200 cursor-pointer select-none"
                   )}
                 >
                   {term}

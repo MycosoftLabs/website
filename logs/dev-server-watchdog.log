@@ -1,0 +1,56 @@
+[2026-02-17 13:51:35] [INFO] === Dev Server Watchdog started. Checking every 30s ===
+[2026-02-17 13:51:37] [INFO] Dev server already running. Watchdog active.
+[2026-02-17 13:54:10] [WARN] Not responding (fail 1/3)
+[2026-02-17 13:54:40] [INFO] Server recovered. Resetting counter.
+[2026-02-17 14:14:00] [WARN] Not responding (fail 1/3)
+[2026-02-17 14:14:31] [INFO] Server recovered. Resetting counter.
+[2026-02-17 14:15:01] [WARN] Not responding (fail 1/3)
+[2026-02-17 14:15:34] [INFO] Server recovered. Resetting counter.
+[2026-02-17 14:32:25] [WARN] Not responding (fail 1/3)
+[2026-02-17 14:33:00] [WARN] Not responding (fail 2/3)
+[2026-02-17 14:33:36] [INFO] Server recovered. Resetting counter.
+[2026-02-17 14:39:22] [WARN] Not responding (fail 1/3)
+[2026-02-17 14:39:57] [WARN] Not responding (fail 2/3)
+[2026-02-17 14:40:31] [WARN] Not responding (fail 3/3)
+[2026-02-17 14:40:31] [WARN] === RESTART #1 ===
+[2026-02-17 14:40:37] [INFO] Starting: npm run dev:next-only
+[2026-02-17 14:40:37] [INFO] Dev server process launched.
+[2026-02-17 14:40:37] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-17 14:40:49] [INFO] Server is UP at http://localhost:3010
+[2026-02-17 14:40:49] [INFO] Server restarted OK.
+[2026-02-17 14:41:56] [WARN] Not responding (fail 1/3)
+[2026-02-17 14:42:27] [INFO] Server recovered. Resetting counter.
+[2026-02-17 15:49:49] [WARN] Not responding (fail 1/3)
+[2026-02-17 15:50:19] [INFO] Server recovered. Resetting counter.
+[2026-02-17 15:54:59] [WARN] Not responding (fail 1/3)
+[2026-02-17 15:55:30] [INFO] Server recovered. Resetting counter.
+[2026-02-17 16:04:47] [WARN] Not responding (fail 1/3)
+[2026-02-17 16:05:22] [WARN] Not responding (fail 2/3)
+[2026-02-17 16:05:53] [INFO] Server recovered. Resetting counter.
+[2026-02-17 16:07:59] [WARN] Not responding (fail 1/3)
+[2026-02-17 16:08:34] [WARN] Not responding (fail 2/3)
+[2026-02-17 16:09:09] [WARN] Not responding (fail 3/3)
+[2026-02-17 16:09:09] [WARN] === RESTART #2 ===
+[2026-02-17 16:09:15] [INFO] Starting: npm run dev:next-only
+[2026-02-17 16:09:15] [INFO] Dev server process launched.
+[2026-02-17 16:09:15] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-17 16:09:25] [INFO] Server is UP at http://localhost:3010
+[2026-02-17 16:09:25] [INFO] Server restarted OK.
+[2026-02-17 16:59:40] [WARN] Not responding (fail 1/3)
+[2026-02-17 17:00:10] [WARN] Not responding (fail 2/3)
+[2026-02-17 17:00:41] [WARN] Not responding (fail 3/3)
+[2026-02-17 17:00:41] [WARN] === RESTART #3 ===
+[2026-02-17 17:00:46] [INFO] Starting: npm run dev:next-only
+[2026-02-17 17:00:46] [INFO] Dev server process launched.
+[2026-02-17 17:00:46] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-17 17:02:59] [WARN] Server did not come up within 120s.
+[2026-02-17 17:02:59] [ERROR] Server failed to restart.
+[2026-02-17 17:03:29] [WARN] Not responding (fail 1/3)
+[2026-02-17 17:03:59] [WARN] Not responding (fail 2/3)
+[2026-02-17 17:04:34] [WARN] Not responding (fail 3/3)
+[2026-02-17 17:04:34] [WARN] === RESTART #4 ===
+[2026-02-17 17:04:40] [INFO] Starting: npm run dev:next-only
+[2026-02-17 17:04:40] [INFO] Dev server process launched.
+[2026-02-17 17:04:40] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-17 17:05:56] [INFO] Server is UP at http://localhost:3010
+[2026-02-17 17:05:56] [INFO] Server restarted OK.

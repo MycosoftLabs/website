@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
+import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,11 +26,21 @@ import {
   X,
   Loader2,
   RefreshCw,
+  Copy,
+  Check,
+  Globe,
 } from "lucide-react"
 import type { CompoundResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
+import { MoleculeViewer } from "@/components/visualizations/MoleculeViewer"
+import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
+import dynamic from "next/dynamic"
+const ObservationEarthPortal = dynamic(
+  () => import("./ObservationEarthPortal").then(m => m.ObservationEarthPortal),
+  { ssr: false }
+)
 
 interface ChemistryWidgetProps {
   data: CompoundResult | CompoundResult[]
@@ -76,6 +87,54 @@ function ChemistryLoadingSkeleton() {
   )
 }
 
+/**
+ * Clickable list of species that produce a compound.
+ * Clicking a species name emits the "navigate-to-species" event so the Species
+ * widget expands and shows that specific fungus — no page navigation needed.
+ */
+function SourceSpeciesList({
+  species,
+  onFocusWidget,
+  onViewOnEarth,
+}: {
+  species: string[]
+  onFocusWidget?: (target: { type: string; id?: string }) => void
+  onViewOnEarth?: (sp: string) => void
+}) {
+  const ctx = useSearchContext()
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+        <Dna className="h-3 w-3" />
+        Found In — click to explore
+      </h4>
+      <div className="flex flex-wrap gap-1.5">
+        {species.map((sp, i) => (
+          <div key={i} className="flex items-center gap-0.5">
+            <button
+              className="h-6 px-2.5 text-xs italic rounded-full bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors cursor-pointer"
+              onClick={() => {
+                ctx.emit("navigate-to-species", { name: sp })
+                onFocusWidget?.({ type: "species", id: sp })
+              }}
+              title={`Show ${sp} in Species widget`}
+            >
+              {sp}
+            </button>
+            <button
+              className="h-6 w-6 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 transition-colors cursor-pointer flex items-center justify-center"
+              onClick={() => onViewOnEarth?.(sp)}
+              title={`View ${sp} on Earth`}
+            >
+              <Globe className="h-2.5 w-2.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ChemistryWidget({
   data,
   isFocused,
@@ -91,6 +150,7 @@ export function ChemistryWidget({
   const [showSources, setShowSources] = useState(false)
   const [detailCompound, setDetailCompound] = useState<CompoundResult | null>(null)
   const handleCloseDetail = useCallback(() => setDetailCompound(null), [])
+  const [earthSpecies, setEarthSpecies] = useState<string | null>(null)
 
   // When focusedId changes, find and select that compound
   useEffect(() => {
@@ -144,10 +204,10 @@ export function ChemistryWidget({
 
   return (
     <>
-    <div className={cn("space-y-3", className)} draggable onDragStart={handleDragStart}>
+    <div className={cn("space-y-3 overflow-hidden", className)} draggable onDragStart={handleDragStart}>
       {/* Compound tabs */}
       {items.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 min-w-0 max-w-full">
           {items.map((c, i) => (
             <button
               key={c.id || i}
@@ -165,15 +225,19 @@ export function ChemistryWidget({
         </div>
       )}
 
-      {/* Selected compound header */}
+      {/* Selected compound header with molecule structure */}
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-purple-500/10 rounded-lg shrink-0">
-          <FlaskConical className="h-5 w-5 text-purple-500" />
+        {/* 2D molecule structure — fetched from PubChem */}
+        <div className="shrink-0">
+          <MoleculeViewer name={selected.name} size="sm" />
         </div>
-        <div className="min-w-0">
-          <h3 className="font-semibold text-lg truncate">{selected.name}</h3>
+        <div className="min-w-0 overflow-hidden flex-1">
+          <h3 className="font-semibold text-base break-words leading-snug">{selected.name}</h3>
           {selected.formula && (
-            <p className="text-sm font-mono text-muted-foreground">{selected.formula}</p>
+            <p className="text-sm font-mono text-muted-foreground break-all">{selected.formula}</p>
+          )}
+          {selected.molecularWeight > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">{Number(selected.molecularWeight || 0).toFixed(2)} g/mol</p>
           )}
         </div>
       </div>
@@ -189,12 +253,6 @@ export function ChemistryWidget({
           animate={{ opacity: 1, height: "auto" }}
           className="space-y-4"
         >
-          {selected.molecularWeight > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Molecular Weight:</span>
-              <span className="font-mono">{selected.molecularWeight.toFixed(2)} g/mol</span>
-            </div>
-          )}
 
           {selected.biologicalActivity?.length > 0 && (
             <div className="space-y-2">
@@ -211,31 +269,17 @@ export function ChemistryWidget({
           )}
 
           {selected.sourceSpecies?.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Dna className="h-3 w-3" />
-                Found In
-              </h4>
-              <div className="flex flex-wrap gap-1">
-                {selected.sourceSpecies.map((species, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs italic"
-                    onClick={() => onFocusWidget?.({ type: "species", id: species })}
-                  >
-                    {species}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <SourceSpeciesList
+              species={selected.sourceSpecies}
+              onFocusWidget={onFocusWidget}
+              onViewOnEarth={(sp) => setEarthSpecies(sp)}
+            />
           )}
 
           {selected.structure && (
-            <div className="p-3 bg-muted rounded-lg">
+            <div className="p-3 bg-muted rounded-lg overflow-hidden">
               <h4 className="text-xs font-medium mb-2">Structure (SMILES)</h4>
-              <code className="text-xs break-all">{selected.structure}</code>
+              <code className="text-xs break-all w-full block">{selected.structure}</code>
             </div>
           )}
 
@@ -312,14 +356,54 @@ export function ChemistryWidget({
     {detailCompound && (
       <CompoundDetailModal compound={detailCompound} onClose={handleCloseDetail} />
     )}
+
+    {/* Earth observation portal for source species */}
+    {earthSpecies && (
+      <ChemistryEarthPortalLoader
+        speciesName={earthSpecies}
+        compoundName={selected.name}
+        onClose={() => setEarthSpecies(null)}
+      />
+    )}
   </>
   )
 }
 
 // ─── Compound detail modal ────────────────────────────────────────────────────
 
+function PropTile({ label, value, wide }: { label: string; value: string | number | null | undefined; wide?: boolean }) {
+  if (value == null || value === "") return null
+  return (
+    <div className={cn("rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5", wide && "col-span-2")}>
+      <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold break-all leading-tight">{String(value)}</p>
+    </div>
+  )
+}
+
+function LipinskiBadge({ violations }: { violations: number | null | undefined }) {
+  if (violations == null) return null
+  const ok = violations === 0
+  const warn = violations === 1
+  return (
+    <div className={cn(
+      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border",
+      ok   && "bg-green-500/10 text-green-400 border-green-500/25",
+      warn && "bg-amber-500/10 text-amber-400 border-amber-500/25",
+      !ok && !warn && "bg-red-500/10 text-red-400 border-red-500/25",
+    )}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", ok ? "bg-green-400" : warn ? "bg-amber-400" : "bg-red-400")} />
+      {ok ? "Drug-like" : warn ? "1 Lipinski violation" : `${violations} Lipinski violations`}
+    </div>
+  )
+}
+
 function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; onClose: () => void }) {
   const [mounted, setMounted] = useState(false)
+  const [showSMILES, setShowSMILES] = useState(false)
+  const [copiedSmiles, setCopiedSmiles] = useState(false)
+  const [copiedInchi, setCopiedInchi] = useState(false)
+
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
@@ -329,7 +413,6 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
     return () => window.removeEventListener("keydown", handler)
   }, [mounted, onClose])
 
-  // Body scroll lock
   useEffect(() => {
     if (!mounted) return
     const orig = document.body.style.overflow
@@ -337,21 +420,25 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
     return () => { document.body.style.overflow = orig }
   }, [mounted])
 
-  const url = mounted
-    ? `/api/mindex/compounds/detail?name=${encodeURIComponent(compound.name)}`
-    : null
+  const url = mounted ? `/api/mindex/compounds/detail?name=${encodeURIComponent(compound.name)}` : null
 
-  // Uses same system-wide hook — auto-retries until full data arrives
   const { data, loading, retrying, error } = useAutoFetchDetail<any>({
     url,
-    // "Incomplete" = IUPAC name or formula is missing (PubChem wasn't reached yet)
     isIncomplete: (d) => !!d && !d.molecular_formula && !d.iupac_name,
     maxAttempts: 6,
     baseDelay: 3000,
     maxDelay: 12000,
   })
 
+  const copyText = (text: string, setCopied: (v: boolean) => void) => {
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  }
+
   if (!mounted) return null
+
+  // Use common name (from search result) as primary title; IUPAC as technical subtitle
+  const displayName = data?.name || compound.name
+  const formula = data?.molecular_formula || compound.formula
 
   const modal = (
     <AnimatePresence>
@@ -370,110 +457,212 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
-          style={{ maxHeight: "min(88vh, 640px)" }}
+          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          style={{ maxHeight: "min(90vh, 700px)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
+          {/* ── Header ─────────────────────────────────────────────── */}
           <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
-            <div className="p-2 bg-purple-500/15 rounded-lg shrink-0">
-              <FlaskConical className="h-4 w-4 text-purple-400" />
+            <div className="p-2 bg-purple-500/15 rounded-lg shrink-0 mt-0.5">
+              <FlaskConical className="h-5 w-5 text-purple-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-sm">{data?.name || compound.name}</h2>
-              {data?.molecular_formula && (
-                <p className="text-[11px] font-mono text-muted-foreground mt-0.5">{data.molecular_formula}</p>
+              {/* Common name — large and clear */}
+              <h2 className="font-bold text-base leading-tight">{displayName}</h2>
+              {/* Formula as subtitle */}
+              {formula && (
+                <p className="font-mono text-sm text-purple-300 mt-0.5">{formula}</p>
               )}
+              {/* ID badges */}
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {data?.cid && (
+                  <span className="text-[10px] rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 px-2 py-0.5 font-mono">
+                    CID {data.cid}
+                  </span>
+                )}
+                {data?.cas_number && (
+                  <span className="text-[10px] rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 px-2 py-0.5 font-mono">
+                    CAS {data.cas_number}
+                  </span>
+                )}
+                <LipinskiBadge violations={data?.lipinski_violations} />
+              </div>
             </div>
             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 rounded-full" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4 min-h-0">
+          {/* ── Scrollable body ─────────────────────────────────────── */}
+          <div data-widget-detail className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain min-h-0">
+
+            {/* Loading */}
             {loading && (
-              <div className="space-y-3">
+              <div className="px-5 py-6 space-y-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
-                  Fetching from PubChem…
+                  Fetching compound data from PubChem…
                 </div>
-                <Skeleton className="h-16 w-full rounded-lg" />
-                <div className="grid grid-cols-2 gap-3">
-                  {[1,2,3,4].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                <div className="flex gap-4">
+                  <Skeleton className="h-[200px] w-[200px] rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-3">
+                    {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                  </div>
                 </div>
               </div>
             )}
-            {retrying && data && (
-              <div className="flex items-center gap-2 text-xs text-purple-400">
-                <RefreshCw className="h-3 w-3 animate-spin" />
-                Fetching full details from PubChem…
-              </div>
-            )}
+
+            {/* Error */}
             {!loading && error && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
-                <p className="text-sm text-destructive">Could not load compound details</p>
-                <p className="text-xs text-muted-foreground mt-1">{error}</p>
+              <div className="px-5 py-6">
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4">
+                  <p className="text-sm text-destructive font-medium">Could not load compound details</p>
+                  <p className="text-xs text-muted-foreground mt-1">{error}</p>
+                </div>
               </div>
             )}
+
+            {/* Retrying indicator */}
+            {retrying && data && (
+              <div className="px-5 pt-3 flex items-center gap-2 text-xs text-purple-400">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                Loading additional properties…
+              </div>
+            )}
+
+            {/* ── Full data layout ────────────────────────────────── */}
             {!loading && data && (
-              <>
+              <div className="px-5 py-4 space-y-5">
+
+                {/* Structure + core identity — side by side on wider modal */}
+                <div className="flex gap-4 items-start">
+                  {/* Molecule image — clean white card */}
+                  <div className="shrink-0">
+                    <MoleculeViewer
+                      name={displayName}
+                      cid={data.cid}
+                      size="md"
+                    />
+                  </div>
+
+                  {/* Core properties column */}
+                  <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+                    <PropTile label="Mol. Weight" value={data.molecular_weight ? `${Number(data.molecular_weight).toFixed(3)} g/mol` : null} />
+                    <PropTile label="Exact Mass" value={data.exact_mass ? `${Number(data.exact_mass).toFixed(4)}` : null} />
+                    <PropTile label="XLogP (Lipophilicity)" value={data.xlogp ?? null} />
+                    <PropTile label="TPSA" value={data.tpsa ? `${data.tpsa} Å²` : null} />
+                    <PropTile label="H-Bond Donors" value={data.h_bond_donors ?? null} />
+                    <PropTile label="H-Bond Acceptors" value={data.h_bond_acceptors ?? null} />
+                    <PropTile label="Rotatable Bonds" value={data.rotatable_bonds ?? null} />
+                    <PropTile label="Heavy Atoms" value={data.heavy_atom_count ?? null} />
+                  </div>
+                </div>
+
+                {/* Description */}
                 {data.description && (
-                  <div className="rounded-lg bg-muted/30 border border-white/6 px-3 py-2.5">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Description</p>
-                    <p className="text-xs text-foreground/80 leading-relaxed">{data.description}</p>
+                  <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-1.5">About</p>
+                    <p className="text-xs text-foreground/85 leading-relaxed">{data.description}</p>
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  {data.iupac_name && (
-                    <div className="col-span-2 rounded-lg bg-muted/20 border border-white/6 px-3 py-2">
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">IUPAC Name</span>
-                      <p className="mt-0.5 font-mono text-[11px] break-all">{data.iupac_name}</p>
+
+                {/* Stereochemistry + structure */}
+                {(data.atom_stereo_count != null || data.bond_stereo_count != null || data.complexity != null || data.charge != null) && (
+                  <div>
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-2">Structure</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <PropTile label="Stereocenters" value={data.atom_stereo_count ?? null} />
+                      <PropTile label="Stereo Bonds" value={data.bond_stereo_count ?? null} />
+                      <PropTile label="Complexity" value={data.complexity ?? null} />
+                      <PropTile label="Formal Charge" value={data.charge ?? null} />
+                    </div>
+                  </div>
+                )}
+
+                {/* IUPAC name — shown separately, clearly labelled */}
+                {data.iupac_name && (
+                  <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-1">IUPAC Systematic Name</p>
+                    <p className="text-xs font-mono break-words leading-relaxed text-foreground/80">{data.iupac_name}</p>
+                  </div>
+                )}
+
+                {/* Structure identifiers — collapsible */}
+                <div className="rounded-lg border border-white/6 overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/4 transition-colors"
+                    onClick={() => setShowSMILES(v => !v)}
+                  >
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium">Structure Identifiers</p>
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", showSMILES && "rotate-180")} />
+                  </button>
+                  {showSMILES && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-white/6">
+                      {(data.isomeric_smiles || data.canonical_smiles) && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground">SMILES</p>
+                            <button
+                              className="text-[9px] text-muted-foreground hover:text-purple-400 flex items-center gap-1"
+                              onClick={() => copyText(data.isomeric_smiles || data.canonical_smiles, setCopiedSmiles)}
+                            >
+                              {copiedSmiles ? <><Check className="h-2.5 w-2.5 text-green-400" />Copied</> : <><Copy className="h-2.5 w-2.5" />Copy</>}
+                            </button>
+                          </div>
+                          <pre className="text-[10px] font-mono bg-black/40 rounded-lg p-2 whitespace-pre-wrap break-all">
+                            {data.isomeric_smiles || data.canonical_smiles}
+                          </pre>
+                        </div>
+                      )}
+                      {data.inchi_key && (
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">InChIKey</p>
+                          <div className="flex items-center gap-2">
+                            <code className="text-[10px] font-mono bg-black/40 rounded px-2 py-1 flex-1 break-all">{data.inchi_key}</code>
+                            <button onClick={() => copyText(data.inchi_key, setCopiedInchi)} className="text-muted-foreground hover:text-purple-400 shrink-0">
+                              {copiedInchi ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {data.inchi && (
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">InChI</p>
+                          <pre className="text-[10px] font-mono bg-black/40 rounded-lg p-2 whitespace-pre-wrap break-all max-h-24 overflow-y-auto">
+                            {data.inchi}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {[
-                    { label: "Formula", value: data.molecular_formula },
-                    { label: "Weight", value: data.molecular_weight ? `${data.molecular_weight} g/mol` : null },
-                    { label: "XLogP", value: data.xlogp },
-                    { label: "H-Bond Donors", value: data.h_bond_donors },
-                    { label: "H-Bond Acceptors", value: data.h_bond_acceptors },
-                    { label: "Rotatable Bonds", value: data.rotatable_bonds },
-                  ].filter(f => f.value != null).map(f => (
-                    <div key={f.label} className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2">
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{f.label}</span>
-                      <p className="mt-0.5 font-semibold">{String(f.value)}</p>
-                    </div>
-                  ))}
                 </div>
-                {data.canonical_smiles && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">SMILES</p>
-                    <pre className="text-[10px] font-mono bg-black/40 border border-white/8 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                      {data.canonical_smiles}
-                    </pre>
-                  </div>
-                )}
+
+                {/* Synonyms */}
                 {data.synonyms?.length > 0 && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Synonyms</p>
-                    <div className="flex flex-wrap gap-1">
-                      {data.synonyms.map((s: string) => (
-                        <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-2">
+                      Also known as <span className="normal-case font-normal">({data.synonyms.length})</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.synonyms.slice(0, 8).map((s: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-muted/30 border border-white/8 rounded-lg px-2 py-0.5 break-words max-w-full text-muted-foreground">
+                          {s}
+                        </span>
                       ))}
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
 
-          {/* Footer */}
+          {/* ── Footer ─────────────────────────────────────────────── */}
           <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
             {data?.source_url ? (
               <a href={data.source_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-purple-400 transition-colors">
                 <Database className="h-3.5 w-3.5" />
-                Open in PubChem
+                View on PubChem
                 <ExternalLink className="h-3 w-3" />
               </a>
             ) : <div />}
@@ -485,6 +674,25 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
   )
 
   return createPortal(modal, document.body)
+}
+
+function ChemistryEarthPortalLoader({
+  speciesName,
+  compoundName,
+  onClose,
+}: {
+  speciesName: string
+  compoundName: string
+  onClose: () => void
+}) {
+  const { observations, loading } = useSpeciesObservations(speciesName, 20)
+  return (
+    <ObservationEarthPortal
+      observations={loading ? [] : observations}
+      title={`${speciesName} — Source of ${compoundName}`}
+      onClose={onClose}
+    />
+  )
 }
 
 export default ChemistryWidget

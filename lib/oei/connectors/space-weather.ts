@@ -1,11 +1,11 @@
 /**
- * NOAA Space Weather Prediction Center (SWPC) Connector
+ * NOAA Space Weather Prediction Center (SWPC) Connector - Feb 18, 2026
  * 
- * Fetches real-time space weather data including:
- * - Solar wind conditions
- * - Geomagnetic storm alerts
- * - Solar flare activity
- * - Radio blackout conditions
+ * Fixed parsing for all NOAA SWPC API endpoints:
+ * - noaa-scales.json returns an OBJECT (keys: "-1", "0", "1"..."7"), NOT an array
+ * - plasma-7-day.json returns array-of-arrays where row[0] is the HEADER
+ * - mag-7-day.json returns array-of-arrays where row[0] is the HEADER
+ * - noaa-planetary-k-index.json returns array-of-arrays where row[0] is the HEADER
  * 
  * API Docs: https://services.swpc.noaa.gov/
  */
@@ -54,26 +54,16 @@ export interface SolarEvent {
   description: string
 }
 
-interface SWPCScaleData {
-  DateStamp: string
-  TimeStamp: string
-  Scale?: string
-  R?: { Scale: number | null; Text: string | null }
-  S?: { Scale: number | null; Text: string | null }
-  G?: { Scale: number | null; Text: string | null }
-}
-
-interface SWPCPlasmaData {
-  time_tag: string
-  density: number
-  speed: number
-  temperature: number
-}
-
-interface SWPCMagData {
-  time_tag: string
-  bz_gsm: number
-  bt: number
+// NOAA scales API returns an OBJECT with numeric keys (not an array)
+// Key "-1" = current conditions, Keys "1"-"7" = 7-day forecast
+interface SWPCScalesObject {
+  [key: string]: {
+    DateStamp: string
+    TimeStamp: string
+    R?: { Scale: number | null; Text: string | null }
+    S?: { Scale: number | null; Text: string | null }
+    G?: { Scale: number | null; Text: string | null }
+  }
 }
 
 // =============================================================================
@@ -127,7 +117,6 @@ function spaceWeatherToEvent(conditions: SpaceWeatherConditions): Event[] {
     reliability: 1.0,
   }
 
-  // Create event for any elevated conditions
   if (conditions.rScale > 0) {
     events.push({
       id: `swpc_r_${Date.now()}`,
@@ -139,10 +128,7 @@ function spaceWeatherToEvent(conditions: SpaceWeatherConditions): Event[] {
       status: "active",
       startedAt: conditions.timestamp,
       provenance,
-      properties: {
-        scale: conditions.rScale,
-        type: "R",
-      },
+      properties: { scale: conditions.rScale, type: "R" },
     })
   }
 
@@ -157,10 +143,7 @@ function spaceWeatherToEvent(conditions: SpaceWeatherConditions): Event[] {
       status: "active",
       startedAt: conditions.timestamp,
       provenance,
-      properties: {
-        scale: conditions.sScale,
-        type: "S",
-      },
+      properties: { scale: conditions.sScale, type: "S" },
     })
   }
 
@@ -175,11 +158,7 @@ function spaceWeatherToEvent(conditions: SpaceWeatherConditions): Event[] {
       status: "active",
       startedAt: conditions.timestamp,
       provenance,
-      properties: {
-        scale: conditions.gScale,
-        type: "G",
-        kpIndex: conditions.kpIndex,
-      },
+      properties: { scale: conditions.gScale, type: "G", kpIndex: conditions.kpIndex },
     })
   }
 
@@ -208,6 +187,10 @@ export class SpaceWeatherClient {
 
   /**
    * Fetch current NOAA space weather scales
+   * 
+   * IMPORTANT: noaa-scales.json returns an OBJECT, not an array!
+   * Key "-1" = current observed conditions
+   * Keys "1"-"7" = 7-day forecast
    */
   async fetchCurrentScales(): Promise<{ r: number; s: number; g: number }> {
     const cacheKey = "scales"
@@ -217,24 +200,32 @@ export class SpaceWeatherClient {
     try {
       const response = await fetch(
         `${SWPC_API_BASE}/products/noaa-scales.json`,
-        { next: { revalidate: 60 } }
+        { cache: "no-store" }
       )
 
       if (!response.ok) {
-        throw new Error(`SWPC API error: ${response.status}`)
+        throw new Error(`SWPC scales API error: ${response.status}`)
       }
 
-      const data: SWPCScaleData[] = await response.json()
+      // Response is an OBJECT with keys like "-1", "0", "1" ... "7"
+      // Key "-1" = current NOW conditions
+      const data: SWPCScalesObject = await response.json()
       
-      // Get the most recent data (last entry usually)
-      const latest = data[data.length - 1] || data[0]
+      // Use key "-1" for current conditions, fallback to "0"
+      const current = data["-1"] || data["0"] || Object.values(data)[0]
       
+      if (!current) {
+        console.warn("[SWPC] No scale data found in response")
+        return { r: 0, s: 0, g: 0 }
+      }
+
       const result = {
-        r: latest.R?.Scale ?? 0,
-        s: latest.S?.Scale ?? 0,
-        g: latest.G?.Scale ?? 0,
+        r: Number(current.R?.Scale ?? 0),
+        s: Number(current.S?.Scale ?? 0),
+        g: Number(current.G?.Scale ?? 0),
       }
-
+      
+      console.log(`[SWPC] Scales: R${result.r} S${result.s} G${result.g} (date: ${current.DateStamp} ${current.TimeStamp})`)
       this.setCache(cacheKey, result)
       return result
     } catch (error) {
@@ -245,6 +236,9 @@ export class SpaceWeatherClient {
 
   /**
    * Fetch real-time solar wind plasma data
+   * 
+   * IMPORTANT: plasma-7-day.json returns array-of-arrays where row[0] is the HEADER:
+   * [["time_tag", "density", "speed", "temperature"], ["2026-02-18 00:00:00.000", "5.1", "450.0", "78000.0"], ...]
    */
   async fetchSolarWindPlasma(): Promise<{ speed: number; density: number; temperature: number }> {
     const cacheKey = "plasma"
@@ -254,25 +248,48 @@ export class SpaceWeatherClient {
     try {
       const response = await fetch(
         `${SWPC_API_BASE}/products/solar-wind/plasma-7-day.json`,
-        { next: { revalidate: 60 } }
+        { cache: "no-store" }
       )
 
       if (!response.ok) {
-        throw new Error(`SWPC API error: ${response.status}`)
+        throw new Error(`SWPC plasma API error: ${response.status}`)
       }
 
-      const data: SWPCPlasmaData[] = await response.json()
+      // Response is array-of-arrays; row[0] is headers: ["time_tag", "density", "speed", "temperature"]
+      const rows: (string | number)[][] = await response.json()
       
-      // Get most recent valid reading
-      const validData = data.filter(d => d.speed && d.density)
-      const latest = validData[validData.length - 1] || { speed: 0, density: 0, temperature: 0 }
+      if (!Array.isArray(rows) || rows.length < 2) {
+        return { speed: 0, density: 0, temperature: 0 }
+      }
+
+      // Find column indices from header row
+      const header = rows[0] as string[]
+      const timeIdx = header.indexOf("time_tag")
+      const densityIdx = header.indexOf("density")
+      const speedIdx = header.indexOf("speed")
+      const tempIdx = header.indexOf("temperature")
+      
+      // Find last row with valid (non-null) data - skip header row (index 0)
+      let latest: (string | number)[] | null = null
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const row = rows[i]
+        if (row[speedIdx] !== null && row[speedIdx] !== undefined && row[speedIdx] !== "") {
+          latest = row
+          break
+        }
+      }
+
+      if (!latest) {
+        return { speed: 0, density: 0, temperature: 0 }
+      }
       
       const result = {
-        speed: latest.speed,
-        density: latest.density,
-        temperature: latest.temperature,
+        speed: parseFloat(String(latest[speedIdx] ?? 0)) || 0,
+        density: parseFloat(String(latest[densityIdx] ?? 0)) || 0,
+        temperature: parseFloat(String(latest[tempIdx] ?? 0)) || 0,
       }
-
+      
+      console.log(`[SWPC] Solar wind: ${result.speed.toFixed(0)} km/s, density: ${result.density.toFixed(1)} p/cm³`)
       this.setCache(cacheKey, result)
       return result
     } catch (error) {
@@ -283,6 +300,9 @@ export class SpaceWeatherClient {
 
   /**
    * Fetch real-time interplanetary magnetic field data
+   * 
+   * IMPORTANT: mag-7-day.json returns array-of-arrays where row[0] is the HEADER:
+   * [["time_tag", "bx_gsm", "by_gsm", "bz_gsm", "lon_gsm", "lat_gsm", "bt"], ...]
    */
   async fetchMagneticField(): Promise<{ bz: number; bt: number }> {
     const cacheKey = "mag"
@@ -292,24 +312,45 @@ export class SpaceWeatherClient {
     try {
       const response = await fetch(
         `${SWPC_API_BASE}/products/solar-wind/mag-7-day.json`,
-        { next: { revalidate: 60 } }
+        { cache: "no-store" }
       )
 
       if (!response.ok) {
-        throw new Error(`SWPC API error: ${response.status}`)
+        throw new Error(`SWPC mag API error: ${response.status}`)
       }
 
-      const data: SWPCMagData[] = await response.json()
+      // Response is array-of-arrays; row[0] is headers: ["time_tag", "bx_gsm", "by_gsm", "bz_gsm", "lon_gsm", "lat_gsm", "bt"]
+      const rows: (string | number)[][] = await response.json()
       
-      // Get most recent valid reading
-      const validData = data.filter(d => d.bt !== null)
-      const latest = validData[validData.length - 1] || { bz_gsm: 0, bt: 0 }
+      if (!Array.isArray(rows) || rows.length < 2) {
+        return { bz: 0, bt: 0 }
+      }
+
+      // Find column indices from header row
+      const header = rows[0] as string[]
+      const bzIdx = header.indexOf("bz_gsm")
+      const btIdx = header.indexOf("bt")
       
+      // Find last row with valid (non-null) data - skip header row (index 0)
+      let latest: (string | number)[] | null = null
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const row = rows[i]
+        if (row[btIdx] !== null && row[btIdx] !== undefined && row[btIdx] !== "") {
+          latest = row
+          break
+        }
+      }
+
+      if (!latest) {
+        return { bz: 0, bt: 0 }
+      }
+
       const result = {
-        bz: latest.bz_gsm,
-        bt: latest.bt,
+        bz: parseFloat(String(latest[bzIdx] ?? 0)) || 0,
+        bt: parseFloat(String(latest[btIdx] ?? 0)) || 0,
       }
-
+      
+      console.log(`[SWPC] Magnetic field: Bz=${result.bz.toFixed(1)} nT, Bt=${result.bt.toFixed(1)} nT`)
       this.setCache(cacheKey, result)
       return result
     } catch (error) {
@@ -319,13 +360,103 @@ export class SpaceWeatherClient {
   }
 
   /**
-   * Fetch comprehensive space weather conditions
+   * Fetch planetary K-index (0-9 geomagnetic activity index)
+   * 
+   * noaa-planetary-k-index.json returns array-of-arrays where row[0] is header:
+   * [["time_tag", "kp"], ["2026-02-18 00:00:00.000", "1.33"], ...]
+   */
+  async fetchKpIndex(): Promise<number> {
+    const cacheKey = "kp"
+    const cached = this.getCached<number>(cacheKey)
+    if (cached !== null) return cached
+
+    try {
+      const response = await fetch(
+        `${SWPC_API_BASE}/products/noaa-planetary-k-index.json`,
+        { cache: "no-store" }
+      )
+
+      if (!response.ok) {
+        throw new Error(`SWPC KP API error: ${response.status}`)
+      }
+
+      // Returns array-of-arrays; row[0] is headers: ["time_tag", "kp"]
+      const rows: (string | number)[][] = await response.json()
+      
+      if (!Array.isArray(rows) || rows.length < 2) {
+        return 0
+      }
+
+      // Find last row with valid kp value (skip header row index 0)
+      let kp = 0
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const val = parseFloat(String(rows[i][1] ?? ""))
+        if (!isNaN(val)) {
+          kp = Math.round(val * 10) / 10
+          break
+        }
+      }
+      
+      console.log(`[SWPC] KP index: ${kp}`)
+      this.setCache(cacheKey, kp)
+      return kp
+    } catch (error) {
+      console.error("[SWPC] Failed to fetch KP index:", error)
+      return 0
+    }
+  }
+
+  /**
+   * Fetch 10.7cm solar radio flux (F10.7 index)
+   * 
+   * 10cm-flux-30-day.json returns array-of-arrays where row[0] is header:
+   * [["time_tag", "flux", "observed_flux", "absolute_flux"], ...]
+   */
+  async fetchRadioFlux(): Promise<number> {
+    const cacheKey = "flux"
+    const cached = this.getCached<number>(cacheKey)
+    if (cached !== null) return cached
+
+    try {
+      const response = await fetch(
+        `${SWPC_API_BASE}/products/10cm-flux-30-day.json`,
+        { cache: "no-store" }
+      )
+
+      if (!response.ok) {
+        throw new Error(`SWPC flux API error: ${response.status}`)
+      }
+
+      // Returns array-of-arrays; row[0] is headers: ["time_tag", "flux", "observed_flux", "absolute_flux"]
+      const rows: (string | number)[][] = await response.json()
+      
+      if (!Array.isArray(rows) || rows.length < 2) {
+        return 0
+      }
+
+      // Use the most recent row's observed_flux (column 2) - skip header row
+      const latestRow = rows[rows.length - 1]
+      const flux = parseFloat(String(latestRow?.[2] ?? latestRow?.[1] ?? 0)) || 0
+      
+      console.log(`[SWPC] Radio flux (F10.7): ${flux} SFU`)
+      this.setCache(cacheKey, flux)
+      return flux
+    } catch (error) {
+      console.error("[SWPC] Failed to fetch radio flux:", error)
+      return 0
+    }
+  }
+
+  /**
+   * Fetch comprehensive space weather conditions - combines all SWPC data sources
    */
   async fetchConditions(): Promise<SpaceWeatherConditions> {
-    const [scales, plasma, mag] = await Promise.all([
+    const [scales, plasma, mag, kp, flux] = await Promise.all([
       this.fetchCurrentScales(),
       this.fetchSolarWindPlasma(),
       this.fetchMagneticField(),
+      this.fetchKpIndex(),
+      this.fetchRadioFlux(),
     ])
 
     return {
@@ -337,15 +468,15 @@ export class SpaceWeatherClient {
       gScale: scales.g,
       sScale: scales.s,
       rScale: scales.r,
-      radioFlux: 0, // Would need separate API call
-      kpIndex: 0,   // Would need separate API call
-      sunspotNumber: 0, // Would need separate API call
+      radioFlux: flux,
+      kpIndex: kp,
+      sunspotNumber: 0, // Would need solar cycle indices API
       timestamp: new Date().toISOString(),
     }
   }
 
   /**
-   * Get space weather events
+   * Get space weather events based on current conditions
    */
   async fetchEvents(): Promise<Event[]> {
     const conditions = await this.fetchConditions()

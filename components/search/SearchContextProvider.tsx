@@ -50,7 +50,7 @@ export interface ChatMessage {
 
 export interface NotepadItem {
   id: string
-  type: "species" | "compound" | "genetics" | "research" | "ai" | "note"
+  type: "species" | "compound" | "genetics" | "research" | "ai" | "note" | "news"
   title: string
   content: string
   timestamp: number
@@ -59,6 +59,11 @@ export interface NotepadItem {
   searchQuery?: string
   /** The specific item ID to focus when restoring */
   focusedItemId?: string
+  /**
+   * Raw article / paper data for re-opening the in-app reading modal.
+   * For news: NewsResult shape. For research: ResearchResult shape.
+   */
+  meta?: Record<string, unknown>
 }
 
 export interface LiveObservation {

@@ -110,6 +110,26 @@ body {
   font-family: var(--font-sans);
 }
 
+/* ─── Search widget global overflow guard ─────────────────────────────────
+   Prevents any widget card or modal body from ever causing horizontal
+   page scroll. Long chemical names, SMILES strings, accession codes, and
+   synonyms must word-wrap inside their containers, not push them wider.
+   Intentional tab strips / photo galleries scroll only within themselves.
+ ────────────────────────────────────────────────────────────────────────── */
+.packery-widget {
+  overflow: hidden;
+  min-width: 0;
+}
+.packery-widget * {
+  /* Allow break-anywhere for monospace content (sequences, SMILES, accessions) */
+  max-width: 100%;
+}
+/* Long text in any widget detail modal should always wrap */
+[data-widget-detail] {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 /* MapLibre GL custom styles (self-hosted maps) */
 .maplibregl-canvas {
   border-radius: var(--radius-lg);
@@ -619,17 +639,16 @@ body.dashboard-fullscreen main {
   }
 }
 
-/* Widget height classes */
+/* Widget height classes — scale with viewport height via clamp() so widgets
+   are never taller than the available screen but always usable on small devices */
 .packery-widget.widget-h-1 {
-  min-height: 200px;
+  min-height: clamp(180px, 22vh, 280px);
 }
-
 .packery-widget.widget-h-2 {
-  min-height: 350px;
+  min-height: clamp(280px, 36vh, 460px);
 }
-
 .packery-widget.widget-h-3 {
-  min-height: 500px;
+  min-height: clamp(380px, 52vh, 640px);
 }
 
 /* Dragging states */

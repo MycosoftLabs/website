@@ -65,6 +65,7 @@ import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
 import { useSearchMemory } from "@/hooks/use-search-memory"
+import { useVoice } from "@/components/voice/UnifiedVoiceProvider"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
   | "myca-suggestions" | "crep" | "earth2" | "map"
@@ -197,8 +198,13 @@ export function FluidSearchCanvas({
   
   // Widget sizes state - user can resize widgets
   const [widgetSizes, setWidgetSizes] = useState<Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }>>({ ...DEFAULT_WIDGET_SIZES })
-  
-  // Packery for dynamic widget packing/sizing with drag support
+
+  // Responsive column count — tracked via ResizeObserver on the grid container
+  const [containerWidth, setContainerWidth] = useState(800)
+  const containerWidthRef = useRef(800)
+  const GUTTER = 12
+
+  // ── Packery MUST be declared before the effects and callbacks that use it ──
   const { 
     containerRef: packeryContainerRef, 
     layout: packeryLayout, 
@@ -226,31 +232,66 @@ export function FluidSearchCanvas({
       }
     },
   })
-  
-  // Cycle widget size: 1x1 -> 1x2 -> 2x1 -> 2x2 -> 1x1
-  const cycleWidgetSize = useCallback((type: WidgetType) => {
-    setWidgetSizes(prev => {
-      const current = prev[type] || { width: 1, height: 1 }
-      let next: { width: 1 | 2; height: 1 | 2 | 3 }
-      
-      // Cycle through size combinations
-      if (current.width === 1 && current.height === 1) {
-        next = { width: 1, height: 2 }
-      } else if (current.width === 1 && current.height === 2) {
-        next = { width: 2, height: 1 }
-      } else if (current.width === 2 && current.height === 1) {
-        next = { width: 2, height: 2 }
-      } else {
-        next = { width: 1, height: 1 }
+
+  // Breakpoints: how many Packery columns to use at each container width
+  const columns = useMemo(() => {
+    if (containerWidth < 480)  return 1
+    if (containerWidth < 780)  return 2
+    if (containerWidth < 1180) return 3
+    return 4
+  }, [containerWidth])
+
+  // Watch the grid container width with ResizeObserver
+  useEffect(() => {
+    const el = packeryContainerRef.current
+    if (!el) return
+    const obs = new ResizeObserver(([entry]) => {
+      const w = Math.floor(entry.contentRect.width)
+      if (w !== containerWidthRef.current) {
+        containerWidthRef.current = w
+        setContainerWidth(w)
       }
-      
-      return { ...prev, [type]: next }
     })
-    // Trigger Packery relayout after size change
-    setTimeout(() => {
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [packeryContainerRef])
+
+  // Re-layout Packery whenever column count changes
+  useEffect(() => {
+    if (!packeryReady) return
+    requestAnimationFrame(() => {
       reloadItems()
       packeryLayout()
-    }, 50)
+    })
+  }, [columns, packeryReady, reloadItems, packeryLayout])
+
+  // Compute CSS width for a widget given its column span
+  const getWidgetWidth = useCallback((span: number): string => {
+    const s = Math.min(span, columns)
+    if (s >= columns) return "100%"
+    const pct = (100 * s / columns).toFixed(4)
+    const sub = (GUTTER * (1 - s / columns)).toFixed(2)
+    return `calc(${pct}% - ${sub}px)`
+  }, [columns])
+
+  // CSS width for the .grid-sizer element — tells Packery the base column unit
+  const gridSizerWidth = useMemo(() => getWidgetWidth(1), [getWidgetWidth])
+
+  // Cycle widget size: 1x1 → 1x2 → 1x3 → 2x1 → 2x2 → 2x3 → 1x1
+  // Width=1 = 1 column, Width=2 = 2 columns (adapts to whatever column count is active)
+  const cycleWidgetSize = useCallback((type: WidgetType) => {
+    setWidgetSizes(prev => {
+      const cur = prev[type] || { width: 1, height: 1 }
+      let next: { width: 1 | 2; height: 1 | 2 | 3 }
+      if      (cur.width === 1 && cur.height === 1) next = { width: 1, height: 2 }
+      else if (cur.width === 1 && cur.height === 2) next = { width: 1, height: 3 }
+      else if (cur.width === 1 && cur.height === 3) next = { width: 2, height: 1 }
+      else if (cur.width === 2 && cur.height === 1) next = { width: 2, height: 2 }
+      else if (cur.width === 2 && cur.height === 2) next = { width: 2, height: 3 }
+      else                                          next = { width: 1, height: 1 }
+      return { ...prev, [type]: next }
+    })
+    setTimeout(() => { reloadItems(); packeryLayout() }, 50)
   }, [reloadItems, packeryLayout])
   
   // Get CSS classes for widget size
@@ -267,7 +308,10 @@ export function FluidSearchCanvas({
   // MYCA intention tracking
   const { trackSearch, trackWidgetFocus, trackNotepadAdd, trackVoice, suggestions } = useMYCAContext({ enabled: true })
 
-  // Voice search integration
+  // Unified voice context (global, driven by UnifiedVoiceProvider in layout)
+  const unifiedVoice = useVoice()
+
+  // Voice search integration — PersonaPlex speech → search commands
   const voiceSearch = useVoiceSearch({
     onSearch: (query) => {
       setLocalQuery(query)
@@ -287,6 +331,19 @@ export function FluidSearchCanvas({
     },
     enabled: voiceEnabled,
   })
+
+  // The search page mic button drives the UNIFIED voice context so it stays in sync
+  // with everything else (nav bar, MYCA widgets, etc.).
+  const isMicActive = unifiedVoice.isListening || voiceSearch.isListening
+  const handleMicClick = () => {
+    if (isMicActive) {
+      unifiedVoice.stopListening()
+      voiceSearch.stopListening()
+    } else {
+      unifiedVoice.startListening()
+      voiceSearch.startListening()
+    }
+  }
 
   // Sync initialQuery
   useEffect(() => {
@@ -331,6 +388,51 @@ export function FluidSearchCanvas({
   
   // Debounced query for additional endpoints
   const debouncedQuery = useDebounce(localQuery, 300)
+
+  // ── Context-aware news query ─────────────────────────────────────────────
+  // Combines the current query, species/compound/genetics names from visible
+  // widgets, and recent search history so the news feed is always relevant
+  // to everything the user has seen or said.
+  const newsQuery = useMemo(() => {
+    const seen = new Set<string>()
+    const push = (t: string) => { const v = t?.trim(); if (v && v.length > 1 && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); terms.push(v) } }
+    const terms: string[] = []
+
+    // 1. Current typed/spoken query (highest priority)
+    if (debouncedQuery?.trim()) push(debouncedQuery.trim())
+
+    // 2. Species: prefer common name for readable headlines, fallback scientific
+    species.slice(0, 3).forEach(s => push(s.commonName || s.scientificName))
+
+    // 3. Chemistry: compound names (e.g. "psilocybin", "ergosterol")
+    compounds.slice(0, 2).forEach(c => push(c.name))
+
+    // 4. Genetics: species the gene belongs to + gene region if short
+    genetics.slice(0, 2).forEach(g => {
+      push(g.speciesName)
+      if (g.geneRegion && g.geneRegion.length < 20) push(g.geneRegion)
+    })
+
+    // 5. Research paper titles → extract first 3 words as context term
+    research.slice(0, 2).forEach(r => {
+      const firstWords = r.title?.split(/\s+/).slice(0, 3).join(" ")
+      if (firstWords && firstWords.length > 4) push(firstWords)
+    })
+
+    // 6. Recent searches (last 3, excluding current)
+    recentSearches
+      .filter(q => q !== debouncedQuery)
+      .slice(0, 3)
+      .forEach(q => push(q))
+
+    // Build NewsAPI boolean OR query, quoted phrases for multi-word terms
+    // Cap at 6 terms and keep total URL-friendly (< 300 chars unencoded)
+    const finalTerms = terms
+      .slice(0, 6)
+      .map(t => (t.includes(" ") ? `"${t}"` : t))
+
+    return finalTerms.length > 0 ? finalTerms.join(" OR ") : ""
+  }, [debouncedQuery, species, compounds, genetics, research, recentSearches])
   
   // Media widget data fetcher
   const { data: mediaData } = useSWR(
@@ -346,11 +448,11 @@ export function FluidSearchCanvas({
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   )
   
-  // News widget data fetcher
+  // News widget data fetcher — uses context-aware query (species + compounds + genetics + recent searches)
   const { data: newsData } = useSWR(
-    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/news?q=${encodeURIComponent(debouncedQuery)}&limit=10` : null,
+    newsQuery ? `/api/search/news?q=${encodeURIComponent(newsQuery)}&limit=15` : null,
     async (url) => { const res = await fetch(url); return res.json() },
-    { revalidateOnFocus: false, dedupingInterval: 10000 }
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
   
   // CREP fungal observations data fetcher
@@ -374,6 +476,7 @@ export function FluidSearchCanvas({
   const locationResults = locationData?.results || []
   const newsResults = newsData?.results || []
   const newsError = newsData?.error
+  const newsQueryUsed = newsData?.queryUsed as string | undefined
   const crepResults = crepData?.observations || []
   const earth2Data = earth2RawData?.available ? earth2RawData : null
   
@@ -630,6 +733,65 @@ export function FluidSearchCanvas({
     }
   }, [activeWidgets.length]) // eslint-disable-line
 
+  // Smart auto-expand: when results arrive, show every widget that actually has data.
+  // This ensures "Psilocybin" expands Chemistry + Research even though it has no Species.
+  // Priority order: whichever types have data get expanded; species is only shown if it has data
+  // or if nothing else does (fallback).
+  const prevAutoExpandKeyRef = useRef("")
+  useEffect(() => {
+    if (isLoading) return
+    if (!localQuery || localQuery.length < 2) return
+
+    // Build a signature of which types have data
+    const dataMap: Record<string, number> = {
+      species: species.length,
+      chemistry: compounds.length,
+      genetics: genetics.length,
+      research: research.length,
+    }
+    const key = `${localQuery}|${Object.values(dataMap).join(",")}`
+    if (key === prevAutoExpandKeyRef.current) return
+    prevAutoExpandKeyRef.current = key
+
+    // No data at all yet — nothing to do
+    const total = Object.values(dataMap).reduce((a, b) => a + b, 0)
+    if (total === 0) return
+
+    setExpandedWidgets((prev) => {
+      const next = new Set(prev)
+
+      // Always remove species from the default set if it has no data AND something else does
+      const hasNonSpeciesData = dataMap.chemistry > 0 || dataMap.genetics > 0 || dataMap.research > 0
+      if (dataMap.species === 0 && hasNonSpeciesData && next.has("species" as WidgetType) && next.size === 1) {
+        next.delete("species" as WidgetType)
+      }
+
+      // Expand every type that has data (don't collapse types already expanded by the user)
+      if (dataMap.species > 0)   next.add("species" as WidgetType)
+      if (dataMap.chemistry > 0) next.add("chemistry" as WidgetType)
+      if (dataMap.genetics > 0)  next.add("genetics" as WidgetType)
+      if (dataMap.research > 0)  next.add("research" as WidgetType)
+
+      // If still empty (shouldn't happen), default to species
+      if (next.size === 0) next.add("species" as WidgetType)
+
+      return next
+    })
+
+    // Remove the newly expanded types from minimized (in case the user had them minimized before)
+    setMinimizedTypes((prev) => {
+      const next = new Set(prev)
+      if (dataMap.chemistry > 0) next.delete("chemistry" as WidgetType)
+      if (dataMap.genetics > 0)  next.delete("genetics" as WidgetType)
+      if (dataMap.research > 0)  next.delete("research" as WidgetType)
+      if (dataMap.species > 0)   next.delete("species" as WidgetType)
+      return next
+    })
+  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length]) // eslint-disable-line
+
+  // Map from widgetType → DOM element for auto-scroll-into-view
+  const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
+
   const handleFocusWidget = useCallback(
     (target: { type: string; id?: string }) => {
       const t = target.type as WidgetType
@@ -647,6 +809,32 @@ export function FluidSearchCanvas({
         focused_widget: t,
         recent_interactions: recentSearches.slice(0, 5),
       })
+      // After Packery finishes laying out the new widget, scroll to it.
+      // Packery positions items with transform: translate3d(x, y, 0).
+      // Read the matrix to get the actual rendered Y position.
+      const scrollToWidget = () => {
+        const el = widgetElRefs.current[t]
+        const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | null
+        if (!el || !container) return
+
+        // Extract Y from Packery's CSS transform: matrix(a,b,c,d,tx,ty)
+        const transform = window.getComputedStyle(el).transform
+        let packeryY = 0
+        if (transform && transform !== "none") {
+          const match = transform.match(/matrix.*\((.+)\)/)
+          if (match) {
+            const vals = match[1].split(", ")
+            packeryY = parseFloat(vals[5] ?? "0") // ty in matrix(a,b,c,d,tx,ty)
+          }
+        }
+
+        // Fallback: use offsetTop if transform gave 0
+        const targetY = packeryY > 0 ? packeryY : el.offsetTop
+        container.scrollTo({ top: targetY - 8, behavior: "smooth" })
+      }
+      // Two passes: Packery first layout ~200ms, then after framer-motion animate ~500ms
+      setTimeout(scrollToWidget, 250)
+      setTimeout(scrollToWidget, 600)
     },
     [ctx, localQuery, recentSearches, trackWidgetFocus]
   )
@@ -664,11 +852,61 @@ export function FluidSearchCanvas({
 
   const handleAddToNotepad = useCallback(
     (item: any) => {
+      // meta carries the full article/paper data so notepad can re-open the reading modal
       ctx.addNotepadItem({ ...item, searchQuery: localQuery })
       trackNotepadAdd(item.type || "note", item.title || item.content?.slice(0, 50) || "Item")
     },
     [ctx, localQuery, trackNotepadAdd]
   )
+
+  // State for re-opening news/research reading modals from the notepad
+  const [notepadOpenArticle, setNotepadOpenArticle] = useState<any>(null)
+  const [notepadOpenPaper, setNotepadOpenPaper] = useState<any>(null)
+
+  // Pinned species: a specific species name to show in the Species widget
+  // when a user clicks a species name in Chemistry or Genetics widget.
+  const [pinnedSpeciesName, setPinnedSpeciesName] = useState<string | null>(null)
+
+  // Bridge window custom event from Genetics modal (portal can't access ctx directly)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const name = (e as CustomEvent).detail?.name
+      if (name) ctx.emit("navigate-to-species", { name })
+    }
+    window.addEventListener("mycosoft:navigate-to-species", handler)
+    return () => window.removeEventListener("mycosoft:navigate-to-species", handler)
+  }, [ctx])
+
+  // Listen for navigate-to-species events from Chemistry/Genetics widgets
+  useEffect(() => {
+    const unsub = ctx.on("navigate-to-species", ({ name }: { name: string }) => {
+      setPinnedSpeciesName(name)
+      // Auto-expand species widget and scroll to it
+      setExpandedWidgets((prev) => new Set(prev).add("species" as WidgetType))
+      setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("species" as WidgetType); return n })
+      // Small delay to let Packery place the widget before scrolling
+      setTimeout(() => {
+        const el = widgetElRefs.current["species"]
+        const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | null
+        if (el && container) container.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" })
+      }, 400)
+    })
+    return unsub
+  }, [ctx])
+
+  // Listen for read-item events emitted by NotepadWidget
+  useEffect(() => {
+    const unsub = ctx.on("read-item", ({ type, item }: { type: string; item: any }) => {
+      if (type === "news") {
+        setNotepadOpenArticle(item)
+        setExpandedWidgets((prev) => new Set(prev).add("news" as WidgetType))
+      } else if (type === "research") {
+        setNotepadOpenPaper(item)
+        setExpandedWidgets((prev) => new Set(prev).add("research" as WidgetType))
+      }
+    })
+    return unsub
+  }, [ctx])
 
   // Drag start -- include searchQuery for notepad restore
   // Note: Framer Motion's onDragStart doesn't provide dataTransfer, only native HTML5 drag does
@@ -722,21 +960,34 @@ export function FluidSearchCanvas({
             className="pl-8 sm:pl-9 pr-16 sm:pr-20 h-10 sm:h-9 text-base sm:text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
           />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:gap-1">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 sm:h-7 sm:w-7 rounded-full" onClick={() => setShowHistory(!showHistory)}>
-              <History className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-            </Button>
             <Button
               type="button"
-              variant={voiceSearch.isListening ? "default" : "ghost"}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 sm:h-7 sm:w-7 rounded-full"
+              onClick={() => setShowHistory(!showHistory)}
+              title="Recent searches"
+            >
+              <History className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            </Button>
+            {/* Single mic — drives UnifiedVoice + PersonaPlex search commands */}
+            <Button
+              type="button"
               size="icon"
               className={cn(
-                "h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-colors",
-                voiceSearch.isListening && "bg-green-600 text-white hover:bg-green-500"
+                "h-8 w-8 sm:h-7 sm:w-7 rounded-full transition-all duration-200",
+                isMicActive
+                  ? "bg-green-600 text-white hover:bg-green-500 shadow-lg shadow-green-600/40"
+                  : "bg-violet-600/80 text-white hover:bg-violet-600 shadow-sm"
               )}
-              onClick={() => voiceSearch.isListening ? voiceSearch.stopListening() : voiceSearch.startListening()}
-              title={voiceSearch.isListening ? "Stop listening" : "Start voice search"}
+              onClick={handleMicClick}
+              title={isMicActive ? "Stop listening" : "Voice search (speak to search)"}
+              aria-label={isMicActive ? "Stop voice search" : "Start voice search"}
             >
-              <Mic className={cn("h-4 w-4 sm:h-3.5 sm:w-3.5", voiceSearch.isListening && "animate-pulse")} />
+              {isMicActive
+                ? <Mic className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-pulse" />
+                : <Mic className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              }
             </Button>
           </div>
         </form>
@@ -761,35 +1012,20 @@ export function FluidSearchCanvas({
           )}
         </AnimatePresence>
       </div>
-      {voiceEnabled && (
-        <Button
-          type="button"
-          size="icon"
-          className={cn(
-            "absolute bottom-4 right-4 z-30 h-12 w-12 rounded-full shadow-xl",
-            voiceSearch.isListening
-              ? "bg-green-600 text-white hover:bg-green-500"
-              : "bg-violet-600 text-white hover:bg-violet-500"
-          )}
-          onClick={() => voiceSearch.isListening ? voiceSearch.stopListening() : voiceSearch.startListening()}
-          title={voiceSearch.isListening ? "Stop listening" : "Start voice search"}
-        >
-          <Mic className={cn("h-5 w-5", voiceSearch.isListening && "animate-pulse")} />
-        </Button>
-      )}
+      {/* Voice mic is in the search bar above — no second floating button needed */}
 
       {/* === MULTI-WIDGET GRID LAYOUT: grid -> context pills -> minimized bar === */}
       <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
         {/* Grid scrolls inside viewport so widgets never sit below the fold */}
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto" ref={(el) => { (widgetElRefs.current as any).__scrollContainer = el }}>
           <div 
             ref={packeryContainerRef}
             className="packery-container relative w-full"
             style={{ minHeight: 200 }}
           >
-            {/* Grid sizer element for responsive column width */}
-            <div className="grid-sizer" style={{ width: "calc(50% - 6px)" }} />
+            {/* Grid sizer — width drives Packery's column unit, updates on resize */}
+            <div className="grid-sizer" style={{ width: gridSizerWidth }} />
             
             <AnimatePresence mode="popLayout" onExitComplete={() => packeryLayout()}>
               {gridWidgets.map((config) => {
@@ -800,12 +1036,13 @@ export function FluidSearchCanvas({
                 <div
                   key={`expanded-${config.type}`}
                   data-widget-id={config.type}
+                  ref={(el) => { widgetElRefs.current[config.type] = el }}
                   className={cn(
                     "packery-widget z-20 mb-3",
                     sizeClasses,
-                    // Width classes
-                    currentSize.width === 2 ? "w-full" : "w-full md:w-[calc(50%-6px)]",
                   )}
+                  // Responsive width: driven by container columns, not by hardcoded breakpoints
+                  style={{ width: getWidgetWidth(currentSize.width) }}
                   draggable
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                     const labels: Record<string, string> = {
@@ -894,7 +1131,7 @@ export function FluidSearchCanvas({
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
                         research={research} aiAnswer={aiAnswer}
-                        media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError}
+                        media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={crepResults} earth2={earth2Data} mapObservations={mapObservations}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
@@ -909,6 +1146,9 @@ export function FluidSearchCanvas({
                         onAddToNotepad={handleAddToNotepad}
                         onViewOnMap={handleViewOnMap}
                         onExplore={(widgetType, itemId) => handleFocusWidget({ type: widgetType, id: itemId })}
+                        openArticle={config.type === "news" ? notepadOpenArticle : undefined}
+                        openPaper={config.type === "research" ? notepadOpenPaper : undefined}
+                        pinnedSpeciesName={config.type === "species" ? pinnedSpeciesName : undefined}
                       />
                     </div>
                   </motion.div>
@@ -1044,16 +1284,17 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
 // Widget content renderer -- now accepts focusedItemId and all data types
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
-  media, mediaError, location, news, newsError,
+  media, mediaError, location, news, newsError, newsQueryUsed,
   crep, earth2, mapObservations,
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
   isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore,
+  openArticle, openPaper, pinnedSpeciesName,
 }: {
   type: WidgetType
   species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
-  media: any[]; mediaError?: string; location: any[]; news: any[]; newsError?: string
+  media: any[]; mediaError?: string; location: any[]; news: any[]; newsError?: string; newsQueryUsed?: string
   crep: any[]; earth2: any; mapObservations: any[]
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
@@ -1062,9 +1303,14 @@ function WidgetContent({
   isFocused: boolean
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
-  onAddToNotepad: (item: { type: string; title: string; content: string; source?: string }) => void
+  onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
   onViewOnMap?: (observation: any) => void
   onExplore?: (type: string, id: string) => void
+  /** Article/paper to immediately open in the reading modal (from notepad restore) */
+  openArticle?: any
+  openPaper?: any
+  /** Species name from Chemistry/Genetics widget click — show it in Species widget */
+  pinnedSpeciesName?: string | null
 }) {
   switch (type) {
     case "myca-suggestions":
@@ -1077,9 +1323,9 @@ function WidgetContent({
         />
       )
     case "species":
-      if (isLoading && species.length === 0) return <SpeciesWidget data={[]} isLoading isFocused={isFocused} />
-      if (species.length === 0) return <EmptyWidgetState type="species" label="Species" />
-      return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
+      if (isLoading && species.length === 0 && !pinnedSpeciesName) return <SpeciesWidget data={[]} isLoading isFocused={isFocused} />
+      if (species.length === 0 && !pinnedSpeciesName) return <EmptyWidgetState type="species" label="Species" />
+      return <SpeciesWidget data={species} isFocused={isFocused} focusedId={focusedItemId || undefined} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} pinnedSpeciesName={pinnedSpeciesName} />
     case "chemistry":
       if (isLoading && compounds.length === 0) return <ChemistryWidget data={[]} isLoading isFocused={isFocused} />
       if (compounds.length === 0) return <EmptyWidgetState type="chemistry" label="Compounds" />
@@ -1091,7 +1337,7 @@ function WidgetContent({
     case "research":
       if (isLoading && research.length === 0) return <ResearchWidget data={[]} isLoading isFocused={isFocused} />
       if (research.length === 0) return <EmptyWidgetState type="research" label="Research Papers" />
-      return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} />
+      return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} openPaper={openPaper} />
     case "ai":
       if (isLoading && !aiAnswer) return <AIWidget answer={{ text: "", confidence: 0, sources: [] }} isLoading isFocused={isFocused} />
       if (!aiAnswer) return <EmptyWidgetState type="ai" label="AI Insights" />
@@ -1109,7 +1355,7 @@ function WidgetContent({
       if (newsError) return <NewsWidget data={[]} error={newsError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
       if (isLoading && news.length === 0) return <NewsWidget data={[]} isLoading isFocused={isFocused} />
       if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
-      return <NewsWidget data={news} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      return <NewsWidget data={news} isFocused={isFocused} queryUsed={newsQueryUsed} onAddToNotepad={onAddToNotepad} openArticle={openArticle} />
     case "crep":
       if (crep.length === 0) return <EmptyWidgetState type="crep" label="CREP Observations" />
       return <CrepWidget data={crep} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap} />

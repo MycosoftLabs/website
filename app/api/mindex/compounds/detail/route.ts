@@ -30,12 +30,36 @@ const mindexHeaders = () => ({
 // PubChem helpers
 // ---------------------------------------------------------------------------
 
+// All PubChem properties we want — expanded set for a full chemical profile
+const PUBCHEM_PROPS = [
+  "IUPACName",
+  "MolecularFormula",
+  "MolecularWeight",
+  "ExactMass",
+  "MonoisotopicMass",
+  "CanonicalSMILES",
+  "IsomericSMILES",
+  "InChI",
+  "InChIKey",
+  "XLogP",
+  "TPSA",
+  "Complexity",
+  "HBondDonorCount",
+  "HBondAcceptorCount",
+  "RotatableBondCount",
+  "HeavyAtomCount",
+  "AtomStereoCount",
+  "BondStereoCount",
+  "CovalentUnitCount",
+  "Charge",
+].join(",")
+
 async function fetchFromPubChem(name: string) {
   const encName = encodeURIComponent(name.trim())
 
-  // Fetch properties
+  // Fetch all properties in one call
   const propsRes = await fetch(
-    `${PUBCHEM_BASE}/compound/name/${encName}/property/IUPACName,MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,XLogP,Complexity,HBondDonorCount,HBondAcceptorCount,RotatableBondCount,Charge/JSON`,
+    `${PUBCHEM_BASE}/compound/name/${encName}/property/${PUBCHEM_PROPS}/JSON`,
     { signal: AbortSignal.timeout(15000), headers: PUBCHEM_HEADERS }
   )
   if (!propsRes.ok) return null
@@ -45,45 +69,75 @@ async function fetchFromPubChem(name: string) {
 
   const cid: number = props.CID
 
-  // Fetch description/synonyms
+  // Fetch description + synonyms + classification in parallel
   let description = ""
   let synonyms: string[] = []
+  let cas_number: string | null = null
+
   try {
     const [descRes, synRes] = await Promise.allSettled([
       fetch(`${PUBCHEM_BASE}/compound/cid/${cid}/description/JSON`, {
-        signal: AbortSignal.timeout(8000), headers: PUBCHEM_HEADERS
+        signal: AbortSignal.timeout(8000), headers: PUBCHEM_HEADERS,
       }),
       fetch(`${PUBCHEM_BASE}/compound/cid/${cid}/synonyms/JSON`, {
-        signal: AbortSignal.timeout(8000), headers: PUBCHEM_HEADERS
+        signal: AbortSignal.timeout(8000), headers: PUBCHEM_HEADERS,
       }),
     ])
+
     if (descRes.status === "fulfilled" && descRes.value.ok) {
       const dd = await descRes.value.json()
-      description = dd?.InformationList?.Information?.[1]?.Description || ""
+      // PubChem returns multiple descriptions; pick the most informative one
+      const infos: any[] = dd?.InformationList?.Information || []
+      description = infos.find(i => i.Description && i.Description.length > 60)?.Description
+        || infos[1]?.Description
+        || infos[0]?.Description
+        || ""
     }
     if (synRes.status === "fulfilled" && synRes.value.ok) {
       const sd = await synRes.value.json()
-      synonyms = (sd?.InformationList?.Information?.[0]?.Synonym || []).slice(0, 10)
+      const allSyns: string[] = sd?.InformationList?.Information?.[0]?.Synonym || []
+      // Extract CAS number (pattern: digits-digits-digit)
+      const casMatch = allSyns.find(s => /^\d{2,7}-\d{2}-\d$/.test(s))
+      if (casMatch) cas_number = casMatch
+      // Keep up to 12 non-CAS synonyms
+      synonyms = allSyns.filter(s => s !== casMatch && !s.startsWith("EINECS")).slice(0, 12)
     }
   } catch { /* non-critical */ }
+
+  // Derive Lipinski rule-of-5 pass/fail
+  const lipinskiViolations = [
+    (props.MolecularWeight ?? 0) > 500,
+    (props.XLogP ?? 0) > 5,
+    (props.HBondDonorCount ?? 0) > 5,
+    (props.HBondAcceptorCount ?? 0) > 10,
+  ].filter(Boolean).length
 
   return {
     id: 0,
     name,
     cid,
+    cas_number,
     iupac_name: props.IUPACName || null,
     molecular_formula: props.MolecularFormula || null,
-    molecular_weight: props.MolecularWeight || null,
+    molecular_weight: props.MolecularWeight ?? null,
+    exact_mass: props.ExactMass ?? null,
+    monoisotopic_mass: props.MonoisotopicMass ?? null,
     canonical_smiles: props.CanonicalSMILES || null,
     isomeric_smiles: props.IsomericSMILES || null,
     inchi: props.InChI || null,
     inchi_key: props.InChIKey || null,
     xlogp: props.XLogP ?? null,
+    tpsa: props.TPSA ?? null,
     complexity: props.Complexity ?? null,
     h_bond_donors: props.HBondDonorCount ?? null,
     h_bond_acceptors: props.HBondAcceptorCount ?? null,
     rotatable_bonds: props.RotatableBondCount ?? null,
+    heavy_atom_count: props.HeavyAtomCount ?? null,
+    atom_stereo_count: props.AtomStereoCount ?? null,
+    bond_stereo_count: props.BondStereoCount ?? null,
+    covalent_unit_count: props.CovalentUnitCount ?? null,
     charge: props.Charge ?? null,
+    lipinski_violations: lipinskiViolations,
     description: description || null,
     synonyms,
     source: "PubChem",
@@ -125,24 +179,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Provide id or name" }, { status: 400 })
   }
 
-  // ── 1. Try MINDEX ─────────────────────────────────────────────────────────
-  const lookupParam = id
-    ? `id=${encodeURIComponent(id.replace(/^mindex-cmp-/, ""))}`
-    : `name=${encodeURIComponent(name!)}`
-  try {
-    const res = await fetch(`${MINDEX_COMPOUNDS}?${lookupParam}&limit=1`, {
-      headers: mindexHeaders(),
-      signal: AbortSignal.timeout(8000),
-      cache: "no-store",
-    })
-    if (res.ok) {
-      const d = await res.json()
-      const item = d?.data?.[0] || d?.[0] || d
-      if (item?.name || item?.id) return NextResponse.json(item)
-    }
-  } catch { /* fall through */ }
+  // ── 1. Try MINDEX (only for numeric id lookups — name searches are too fuzzy) ─
+  if (id) {
+    try {
+      const res = await fetch(`${MINDEX_COMPOUNDS}?id=${encodeURIComponent(id.replace(/^mindex-cmp-/, ""))}&limit=1`, {
+        headers: mindexHeaders(),
+        signal: AbortSignal.timeout(8000),
+        cache: "no-store",
+      })
+      if (res.ok) {
+        const d = await res.json()
+        const item = d?.data?.[0] || d?.[0] || d
+        // Only use MINDEX result if it has proper PubChem data (cid present)
+        if (item?.cid && (item?.molecular_formula || item?.formula)) return NextResponse.json(item)
+      }
+    } catch { /* fall through */ }
+  }
 
-  // ── 2. PubChem direct ─────────────────────────────────────────────────────
+  // ── 2. PubChem direct (primary source for name-based lookups) ─────────────
   const searchName = name || id?.replace(/^mindex-cmp-/, "") || ""
   try {
     const compound = await fetchFromPubChem(searchName)

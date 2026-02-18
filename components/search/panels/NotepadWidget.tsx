@@ -34,6 +34,7 @@ const typeIcons: Record<string, React.ReactNode> = {
   compound: <FlaskConical className="h-3 w-3 text-purple-500" />,
   genetics: <Dna className="h-3 w-3 text-blue-500" />,
   research: <FileText className="h-3 w-3 text-orange-500" />,
+  news: <FileText className="h-3 w-3 text-yellow-500" />,
   ai: <Sparkles className="h-3 w-3 text-violet-500" />,
   note: <StickyNote className="h-3 w-3 text-yellow-500" />,
 }
@@ -47,10 +48,15 @@ const typeToWidgetType: Record<string, string> = {
   note: "species",
 }
 
-export function NotepadWidget() {
+interface NotepadWidgetProps {
+  /** Called when user clicks a news/research item to re-open it in-app */
+  onReadItem?: (type: "news" | "research", item: Record<string, unknown>) => void
+}
+
+export function NotepadWidget({ onReadItem }: NotepadWidgetProps = {}) {
   const {
     notepadItems, addNotepadItem, removeNotepadItem, clearNotepad,
-    focusWidget, setQuery,
+    focusWidget, setQuery, emit,
   } = useSearchContext()
   const { trackNotepadAdd } = useMYCAContext({ enabled: true })
   const [isDragOver, setIsDragOver] = useState(false)
@@ -86,18 +92,22 @@ export function NotepadWidget() {
 
   const handleDragLeave = useCallback(() => setIsDragOver(false), [])
 
-  // Restore: re-focus the correct widget with the correct item selected
+  // Restore: re-focus the correct widget, or re-open in-app reading modal
   const handleRestore = useCallback((note: NotepadItem) => {
+    // News and research items with stored meta → emit event so FluidSearchCanvas opens the modal
+    if ((note.type === "news" || note.type === "research") && note.meta) {
+      emit("read-item", { type: note.type, item: note.meta })
+      // Also optionally call the prop callback
+      onReadItem?.(note.type as "news" | "research", note.meta)
+      return
+    }
     const widgetType = typeToWidgetType[note.type] || "species"
-    // Use the original search query if saved, otherwise use the note title
     const searchFor = note.searchQuery || note.title
-    // Set the query first so results load
     setQuery(searchFor)
-    // Focus the widget with the specific item ID so it pre-selects the right one
     setTimeout(() => {
       focusWidget({ type: widgetType, id: note.title } as any)
-    }, 300) // Small delay to let search results populate
-  }, [focusWidget, setQuery])
+    }, 300)
+  }, [focusWidget, setQuery, onReadItem, emit])
 
   const handleExport = useCallback(() => {
     const text = notepadItems

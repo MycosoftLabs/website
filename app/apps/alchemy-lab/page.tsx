@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { MoleculeViewer } from "@/components/visualizations/MoleculeViewer"
 import { 
   FlaskConical, 
   Atom, 
@@ -434,6 +435,15 @@ export default function AlchemyLabPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+
+                  {/* 2D molecular structure from PubChem */}
+                  <div className="flex justify-center">
+                    <MoleculeViewer
+                      name={selectedCompound.name}
+                      size="md"
+                      showLink
+                    />
+                  </div>
                   
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-3">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -330,9 +331,14 @@ interface Species {
 }
 
 export default function ExplorerPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const urlSearch = searchParams.get("search") || ""
+
   const [species, setSpecies] = useState<Species[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
+  // Pre-fill from URL param (?search=Amanita+muscaria)
+  const [searchQuery, setSearchQuery] = useState(urlSearch)
   const [selectedFamily, setSelectedFamily] = useState("All Families")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [viewMode, setViewMode] = useState<"grid" | "list" | "compact">("grid")
@@ -893,16 +899,39 @@ export default function ExplorerPage() {
         {/* No Results */}
         {!loading && filteredSpecies.length === 0 && (
           <Card className="py-16">
-            <div className="text-center">
-              <Microscope className="h-16 w-16 mx-auto text-muted-foreground mb-6" />
-              <h3 className="text-2xl font-semibold mb-2">No species found</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                We couldn't find any species matching your criteria. Try adjusting your search or filters.
-              </p>
-              <Button onClick={resetFilters}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reset Filters
-              </Button>
+            <div className="text-center space-y-4">
+              <Microscope className="h-16 w-16 mx-auto text-muted-foreground mb-2" />
+              <h3 className="text-2xl font-semibold">No species found</h3>
+              {searchQuery.trim() ? (
+                <>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    <span className="italic font-medium text-foreground">{searchQuery}</span> was not found in the local database.
+                    It may exist in iNaturalist — open the detail page to view it directly.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                    <Button
+                      onClick={() => router.push(`/ancestry/species/name/${encodeURIComponent(searchQuery.trim())}`)}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Look up &ldquo;{searchQuery}&rdquo; on iNaturalist
+                    </Button>
+                    <Button variant="outline" onClick={resetFilters}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Clear search
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    We couldn't find any species matching your criteria. Try adjusting your search or filters.
+                  </p>
+                  <Button onClick={resetFilters}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reset Filters
+                  </Button>
+                </>
+              )}
             </div>
           </Card>
         )}

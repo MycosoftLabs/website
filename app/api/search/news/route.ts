@@ -1,15 +1,18 @@
 /**
- * News Search API Route - Feb 2026
- * 
- * Returns recent news articles about fungi, mushrooms, and mycology.
- * Real-data only: NewsAPI results, no curated/mock fallback.
+ * News Search API Route — Feb 2026
+ *
+ * Uses Google News RSS — completely free, no API key required.
+ * Parses compound OR queries into Google News search terms.
+ *
+ * - Sorts by publishedAt (most recent first, RSS already ordered)
+ * - Deduplicates by URL
+ * - Returns queryUsed so the widget can show context pills
+ * - No external keys needed
  */
 
 import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
-
-const NEWS_API_KEY = process.env.NEWS_API_KEY
 
 interface NewsResult {
   id: string
@@ -19,90 +22,193 @@ interface NewsResult {
   url: string
   summary: string
   imageUrl: string | null
-  category: "science" | "health" | "environment" | "business" | "general"
+  category: "research" | "industry" | "event" | "discovery" | "general"
+  trending?: boolean
 }
 
-async function searchNewsAPI(query: string, limit: number): Promise<{ results: NewsResult[], error?: string }> {
-  if (!NEWS_API_KEY) {
-    return { results: [], error: "NEWS_API_KEY not configured" }
-  }
-  
-  try {
-    // Use the query directly for NewsAPI
-    const searchQuery = query
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchQuery)}&sortBy=publishedAt&language=en&pageSize=${limit}&apiKey=${NEWS_API_KEY}`
-    
-    console.log('[News API] Searching:', searchQuery)
-    
-    const res = await fetch(url, { 
-      signal: AbortSignal.timeout(10000),
-      headers: {
-        'Accept': 'application/json',
-      }
+// ── Simple RSS XML parser (no dependencies) ──────────────────────────────
+
+function extractTag(xml: string, tag: string): string {
+  const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"))
+  return m ? decodeEntities(m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim()) : ""
+}
+
+function extractTagRaw(xml: string, tag: string): string {
+  const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"))
+  return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim() : ""
+}
+
+function extractAttr(xml: string, tag: string, attr: string): string {
+  const m = xml.match(new RegExp(`<${tag}[^>]*${attr}=["']([^"']+)["']`, "i"))
+  return m ? m[1] : ""
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+}
+
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, "").trim()
+}
+
+function parseRssItems(xml: string): Array<Record<string, string>> {
+  const items: Array<Record<string, string>> = []
+  const re = /<item>([\s\S]*?)<\/item>/gi
+  let m
+  while ((m = re.exec(xml)) !== null) {
+    const block = m[1]
+    items.push({
+      title:       extractTag(block, "title"),
+      link:        extractTagRaw(block, "link"),
+      pubDate:     extractTag(block, "pubDate"),
+      description: extractTag(block, "description"),
+      sourceName:  extractTag(block, "source"),
+      sourceUrl:   extractAttr(block, "source", "url"),
+      enclosure:   extractAttr(block, "enclosure", "url"),
     })
-    
+  }
+  return items
+}
+
+// ── Google News RSS fetch ─────────────────────────────────────────────────
+
+async function fetchGoogleNewsRss(
+  query: string,
+  limit: number,
+): Promise<{ results: NewsResult[]; error?: string }> {
+  // Convert compound OR query to Google News-friendly form
+  // e.g. "Amanita muscaria" OR psilocybin  →  "Amanita muscaria" OR psilocybin
+  const googleQuery = query
+    .split(" OR ")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .join(" OR ")
+
+  const rssUrl =
+    `https://news.google.com/rss/search?q=${encodeURIComponent(googleQuery)}` +
+    `&hl=en-US&gl=US&ceid=US:en`
+
+  console.log(`[NewsRSS] query="${googleQuery.slice(0, 120)}"`)
+
+  try {
+    const res = await fetch(rssUrl, {
+      signal: AbortSignal.timeout(12_000),
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; Mycosoft/1.0; +https://mycosoft.com)",
+        Accept: "application/rss+xml, application/xml, text/xml",
+      },
+    })
+
     if (!res.ok) {
-      const errorText = await res.text()
-      console.error('[News API] Error:', res.status, errorText)
-      return { results: [], error: `NewsAPI error: ${res.status} - ${errorText.slice(0, 100)}` }
+      return { results: [], error: `RSS fetch failed: HTTP ${res.status}` }
     }
-    
-    const data = await res.json()
-    console.log('[News API] Articles found:', data.articles?.length || 0)
-    
-    if (data.status === 'error') {
-      return { results: [], error: `NewsAPI: ${data.message}` }
+
+    const xml = await res.text()
+    const rawItems = parseRssItems(xml)
+    console.log(`[NewsRSS] ${rawItems.length} raw items`)
+
+    const seen = new Set<string>()
+    const results: NewsResult[] = []
+
+    for (const item of rawItems.slice(0, limit * 2)) {
+      // Google News redirect URL — use as-is (browser will follow it)
+      const url = item.link || item.sourceUrl
+      if (!url || seen.has(url)) continue
+      seen.add(url)
+
+      const title = stripHtml(item.title)
+      if (!title) continue
+
+      const summary = stripHtml(item.description).slice(0, 280)
+      const publishedAt = item.pubDate
+        ? new Date(item.pubDate).toISOString()
+        : new Date().toISOString()
+
+      // Source name: try <source> tag, fallback to hostname
+      let source = item.sourceName || ""
+      if (!source && url) {
+        try { source = new URL(url).hostname.replace(/^www\./, "") } catch {}
+      }
+
+      // Unique ID: extract the article-specific portion from the Google News URL
+      // All Google News URLs share the same prefix; the unique part is after /articles/
+      const articleSlug =
+        url.split("/articles/")[1]?.split("?")[0]?.slice(0, 24) ||
+        Buffer.from(url).toString("base64").slice(-20)
+
+      results.push({
+        id: `rss-${articleSlug}`,
+        title,
+        source: source || "News",
+        publishedAt,
+        url,
+        summary,
+        imageUrl: item.enclosure || null,
+        category: categorize(title, summary),
+        trending: isTrending(publishedAt),
+      })
+
+      if (results.length >= limit) break
     }
-    
-    const results = (data.articles || []).map((article: any, i: number) => ({
-      id: `newsapi-${i}-${Date.now()}`,
-      title: article.title || "",
-      source: article.source?.name || "Unknown",
-      publishedAt: article.publishedAt || new Date().toISOString(),
-      url: article.url || "",
-      summary: article.description || article.content?.slice(0, 200) || "",
-      imageUrl: article.urlToImage || null,
-      category: categorizeArticle(article.title, article.description),
-    }))
-    
+
+    console.log(`[NewsRSS] ${results.length} results after dedup`)
     return { results }
   } catch (err: any) {
-    console.error('[News API] Fetch error:', err.message)
-    return { results: [], error: `Fetch failed: ${err.message}` }
+    console.error("[NewsRSS] Error:", err.message)
+    return { results: [], error: `RSS error: ${err.message}` }
   }
 }
 
-function categorizeArticle(title: string, description: string): NewsResult["category"] {
-  const text = `${title} ${description}`.toLowerCase()
-  
-  if (text.includes("study") || text.includes("research") || text.includes("scientist") || text.includes("discover")) {
-    return "science"
-  }
-  if (text.includes("therapy") || text.includes("treatment") || text.includes("health") || text.includes("medical")) {
-    return "health"
-  }
-  if (text.includes("environment") || text.includes("climate") || text.includes("sustainable") || text.includes("eco")) {
-    return "environment"
-  }
-  if (text.includes("market") || text.includes("business") || text.includes("company") || text.includes("industry")) {
-    return "business"
-  }
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function categorize(title = "", desc = ""): NewsResult["category"] {
+  const t = `${title} ${desc}`.toLowerCase()
+  if (/study|research|scientist|discover|breakthrough|published|journal|paper|findings/.test(t))
+    return "research"
+  if (/therapy|treatment|health|medical|clinical|patient|drug|pharmaceutical/.test(t))
+    return "industry"
+  if (/conference|event|summit|award|festival|exhibition/.test(t))
+    return "event"
+  if (/new species|novel|first time|unknown|rare|found in/.test(t))
+    return "discovery"
   return "general"
 }
 
+function isTrending(publishedAt: string): boolean {
+  if (!publishedAt) return false
+  return Date.now() - new Date(publishedAt).getTime() < 24 * 60 * 60 * 1000
+}
+
+// ── Route handler ─────────────────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
-  const query = request.nextUrl.searchParams.get("q") || "fungi"
-  const limitParam = request.nextUrl.searchParams.get("limit")
-  const limit = Math.min(parseInt(limitParam || "10"), 20)
-  
-  const { results, error } = await searchNewsAPI(query, limit)
-  
-  return NextResponse.json({
-    query,
-    results,
-    total: results.length,
-    source: "NewsAPI",
-    error: error,
-    timestamp: new Date().toISOString(),
-  })
+  const params = request.nextUrl.searchParams
+  const rawQuery = (params.get("q") || "mycology fungi mushroom").trim()
+  const limit = Math.min(parseInt(params.get("limit") || "15"), 25)
+
+  const { results, error } = await fetchGoogleNewsRss(rawQuery, limit)
+
+  return NextResponse.json(
+    {
+      queryUsed: rawQuery.slice(0, 200),
+      results,
+      total: results.length,
+      source: "GoogleNewsRSS",
+      error: error ?? null,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      headers: {
+        // Cache for 5 minutes — news is fresh but we don't want to hammer RSS
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
+      },
+    },
+  )
 }

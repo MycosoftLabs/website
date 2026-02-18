@@ -373,11 +373,12 @@ export function Header() {
 
   return (
     <header className="border-b bg-background/80 backdrop-blur-xl sticky top-0 z-50" suppressHydrationWarning>
-      <div className="container max-w-7xl mx-auto flex h-14 items-center justify-between">
-        <div className="flex items-center gap-2 font-semibold">
-          <Link href="/" className="flex items-center gap-2 font-semibold group">
+      {/* h-12 on mobile (saves 8px), h-14 on desktop */}
+      <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
+        <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
+          <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
             <motion.div 
-              className="relative h-8 w-8"
+              className="relative h-7 w-7 md:h-8 md:w-8"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
@@ -389,7 +390,8 @@ export function Header() {
                 priority
               />
             </motion.div>
-            <span className="transition-colors duration-300 group-hover:text-primary">Mycosoft</span>
+            {/* Hide brand name on small mobile to save space */}
+            <span className="hidden sm:inline transition-colors duration-300 group-hover:text-primary">Mycosoft</span>
           </Link>
         </div>
 

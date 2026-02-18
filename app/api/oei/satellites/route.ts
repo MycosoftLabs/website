@@ -1,12 +1,17 @@
 /**
- * Satellite Tracking API Route
+ * Satellite Tracking API Route - Feb 18, 2026
+ * REAL DATA ONLY - no mock/sample data
  * 
- * GET /api/oei/satellites - Fetch satellite positions and TLE data
+ * GET /api/oei/satellites - Fetch satellite positions and TLE data from CelesTrak
  * 
  * Query params:
- * - category: stations | starlink | oneweb | weather | gnss | active | debris
+ * - category: stations | starlink | oneweb | weather | gnss | active | debris | planet
  * - norad: Comma-separated NORAD catalog IDs
  * - limit: Maximum results to return
+ * 
+ * Notes:
+ * - "debris" fetches from iridium-33-debris + cosmos-2251-debris (both real CelesTrak groups)
+ * - Timeout is 15 seconds to accommodate large categories like "active" and "starlink"
  */
 
 import { NextResponse } from "next/server"
@@ -25,12 +30,31 @@ const validCategories: SatelliteCategory[] = [
   "debris",
 ]
 
+// Timeout varies by category - multi-search categories need more time
+const CATEGORY_TIMEOUTS: Record<string, number> = {
+  active:   20000,  // broad search
+  starlink: 20000,  // thousands of satellites
+  debris:   20000,  // many objects
+  gnss:     20000,  // two searches in parallel
+  weather:  20000,  // two searches in parallel
+  planet:   18000,
+  oneweb:   18000,
+  stations: 15000,
+  default:  15000,
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   
   const category = searchParams.get("category") as SatelliteCategory | null
   const noradParam = searchParams.get("norad")
   const limit = searchParams.get("limit")
+
+  const validCategory = category && validCategories.includes(category)
+    ? category
+    : "stations"
+
+  const timeoutMs = CATEGORY_TIMEOUTS[validCategory] ?? CATEGORY_TIMEOUTS.default
 
   try {
     const startTime = Date.now()
@@ -41,28 +65,23 @@ export async function GET(request: Request) {
       ? noradParam.split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id))
       : undefined
 
-    // Validate category
-    const validCategory = category && validCategories.includes(category)
-      ? category
-      : "stations"
-
     const query = {
       category: validCategory,
       noradIds,
-      limit: limit ? parseInt(limit) : undefined, // No default limit - fetch all available
+      limit: limit ? parseInt(limit) : undefined,
     }
 
-    // Add timeout to prevent long hangs
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error("Satellite fetch timeout")), 8000)
-    );
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Satellite fetch timeout after ${timeoutMs}ms for category "${validCategory}"`)), timeoutMs)
+    )
     
     const satellites = await Promise.race([
       client.fetchSatellites(query),
       timeoutPromise
-    ]);
+    ])
     
     const latency = Date.now() - startTime
+    console.log(`[Satellites] Category "${validCategory}": ${satellites.length} satellites in ${latency}ms`)
     
     // Log to MINDEX
     logDataCollection("satellites", "celestrak.org", satellites.length, latency, false)
@@ -76,21 +95,23 @@ export async function GET(request: Request) {
       category: validCategory,
       total: satellites.length,
       satellites,
-      available: true,
+      available: satellites.length > 0,
+      latencyMs: latency,
     })
   } catch (error) {
-    console.error("[API] Satellite tracking error:", error)
-    logAPIError("satellites", "celestrak.org", String(error))
+    const errMsg = (error as Error).message
+    console.error(`[API] Satellite tracking error for category "${validCategory}":`, errMsg)
+    logAPIError("satellites", "celestrak.org", errMsg)
     
-    // Graceful fallback - return empty array with 200 status to prevent dashboard crashes
     return NextResponse.json({
       source: "celestrak",
       timestamp: new Date().toISOString(),
-      category: searchParams.get("category") || "stations",
+      category: validCategory,
       total: 0,
       satellites: [],
       available: false,
-      message: error instanceof Error ? error.message : "Failed to fetch satellite data"
-    })
+      error: errMsg,
+      message: `CelesTrak API unavailable for category "${validCategory}" - no satellite data`,
+    }, { status: 503 })
   }
 }
