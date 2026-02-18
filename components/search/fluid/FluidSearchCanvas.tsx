@@ -325,9 +325,12 @@ export function FluidSearchCanvas({
       setMinimizedTypes((prev) => { const n = new Set(prev); n.delete(widgetType); return n })
     },
     onAIQuestion: (question) => {
+      setLocalQuery(question)
+      ctx.setQuery(question)
       setExpandedWidgets((prev) => new Set(prev).add("ai"))
       ctx.addChatMessage("user", question)
       trackVoice(question)
+      trackSearch(question, undefined, { current_query: question, source: "voice_ai" })
     },
     enabled: voiceEnabled,
   })
@@ -335,15 +338,30 @@ export function FluidSearchCanvas({
   // The search page mic button drives the UNIFIED voice context so it stays in sync
   // with everything else (nav bar, MYCA widgets, etc.).
   const isMicActive = unifiedVoice.isListening || voiceSearch.isListening
-  const handleMicClick = () => {
-    if (isMicActive) {
+  const handleMicClickRef = useRef<() => void>()
+  handleMicClickRef.current = () => {
+    if (unifiedVoice.isListening || voiceSearch.isListening) {
       unifiedVoice.stopListening()
       voiceSearch.stopListening()
+      ctx.setVoiceListening(false)
     } else {
       unifiedVoice.startListening()
       voiceSearch.startListening()
+      ctx.setVoiceListening(true)
     }
   }
+  const handleMicClick = () => handleMicClickRef.current?.()
+
+  // Sync voice state to context for MYCA panel
+  useEffect(() => {
+    ctx.setVoiceListening(isMicActive)
+  }, [isMicActive, ctx])
+
+  // Let MYCA panel trigger voice via event bus (toggle)
+  useEffect(() => {
+    const unsub = ctx.on("voice:toggle", () => handleMicClickRef.current?.())
+    return unsub
+  }, [ctx])
 
   // Sync initialQuery
   useEffect(() => {

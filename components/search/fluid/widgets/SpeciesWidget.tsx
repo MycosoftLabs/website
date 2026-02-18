@@ -616,7 +616,7 @@ export function SpeciesWidget({
   useEffect(() => {
     if (focusedId && items.length > 0) {
       const idx = items.findIndex(s =>
-        s.id === focusedId ||
+          s.id === focusedId ||
         s.scientificName?.toLowerCase() === focusedId.toLowerCase() ||
         s.commonName?.toLowerCase() === focusedId.toLowerCase()
       )
@@ -679,7 +679,7 @@ export function SpeciesWidget({
   if (!isFocused) {
     return (
       <>
-        <div className={cn("flex items-center gap-2", className)} draggable onDragStart={handleDragStart}>
+      <div className={cn("flex items-center gap-2", className)} draggable onDragStart={handleDragStart}>
           {/* Always show image — even in compact mode */}
           <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-muted/40 shrink-0 border border-white/10">
             {mainPhoto ? (
@@ -696,10 +696,10 @@ export function SpeciesWidget({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold truncate">{selected.commonName || selected.scientificName}</p>
-            <p className="text-[10px] text-muted-foreground italic truncate">{selected.scientificName}</p>
+          <p className="text-[10px] text-muted-foreground italic truncate">{selected.scientificName}</p>
             {/* Taxonomy breadcrumb even in compact mode */}
             <TaxonomyTree taxonomy={taxonomy} compact />
-          </div>
+        </div>
           <Button
             variant="ghost"
             size="sm"
@@ -712,10 +712,10 @@ export function SpeciesWidget({
           >
             <Globe className="h-3 w-3" />
           </Button>
-          {items.length > 1 && (
-            <Badge variant="outline" className="text-[9px] shrink-0 ml-auto">{items.length}</Badge>
-          )}
-        </div>
+        {items.length > 1 && (
+          <Badge variant="outline" className="text-[9px] shrink-0 ml-auto">{items.length}</Badge>
+        )}
+      </div>
         {detailSpecies && <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />}
         {earthOpen && (earthSpeciesName || selected?.scientificName) && (
           <SpeciesEarthPortalLoader
@@ -731,7 +731,7 @@ export function SpeciesWidget({
   // ── FOCUSED: full dashboard layout ────────────────────────────────────────
   return (
     <>
-      <div className={cn("flex flex-col gap-2", className)} draggable onDragStart={handleDragStart}>
+    <div className={cn("flex flex-col gap-2", className)} draggable onDragStart={handleDragStart}>
 
         {/* ── Pinned species from Chemistry/Genetics click ───────────────────── */}
         {(pinnedSpeciesName) && (
@@ -826,8 +826,8 @@ export function SpeciesWidget({
         )}
 
         {/* Main content */}
-        <div className="flex gap-3 items-start">
-          {/* Photo column */}
+      <div className="flex gap-3 items-start">
+        {/* Photo column */}
           <div className="shrink-0 flex flex-col gap-1.5">
             <div className="relative rounded-xl overflow-hidden bg-muted/30 shadow-inner border border-white/10"
               style={{ width: 110, height: 110 }}>
@@ -856,8 +856,8 @@ export function SpeciesWidget({
                     <Image src={(photo as any).medium_url || photo.url} alt="" fill className="object-cover" sizes="24px" unoptimized />
                   </div>
                 ))}
-              </div>
-            )}
+            </div>
+          )}
             {/* Observation count */}
             {(enrichedForSelected?.observation_count || selected.observationCount) > 0 && (
               <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground">
@@ -932,11 +932,11 @@ export function SpeciesWidget({
 
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
-              <Button asChild size="sm" className="h-6 px-2 text-[10px] rounded-lg">
+            <Button asChild size="sm" className="h-6 px-2 text-[10px] rounded-lg">
                 <a href={getSpeciesPageUrl(selected)}>
-                  Full Page <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
-                </a>
-              </Button>
+                Full Page <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
+              </a>
+            </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg text-teal-400 border-teal-500/30 hover:bg-teal-500/10"
                 onClick={() => { setEarthSpeciesName(selected.scientificName); setEarthOpen(true) }}>
                 <Globe className="h-2.5 w-2.5 mr-0.5" /> On Earth
@@ -945,32 +945,32 @@ export function SpeciesWidget({
                 onClick={() => setDetailSpecies(selected)}>
                 <FileText className="h-2.5 w-2.5 mr-0.5" /> Details
               </Button>
-              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
-                onClick={() => onFocusWidget?.({ type: "chemistry", id: selected.scientificName })}>
-                <Leaf className="h-2.5 w-2.5 mr-0.5" /> Compounds
-              </Button>
-              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
-                onClick={() => onFocusWidget?.({ type: "genetics", id: selected.scientificName })}>
-                <Dna className="h-2.5 w-2.5 mr-0.5" /> Genetics
-              </Button>
-              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
-                onClick={() => onFocusWidget?.({ type: "ai" })}>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+              onClick={() => onFocusWidget?.({ type: "chemistry", id: selected.scientificName })}>
+              <Leaf className="h-2.5 w-2.5 mr-0.5" /> Compounds
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+              onClick={() => onFocusWidget?.({ type: "genetics", id: selected.scientificName })}>
+              <Dna className="h-2.5 w-2.5 mr-0.5" /> Genetics
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+              onClick={() => onFocusWidget?.({ type: "ai" })}>
                 <Sparkles className="h-2.5 w-2.5 mr-0.5" /> AI
+            </Button>
+            {onAddToNotepad && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
+                onClick={() => onAddToNotepad({
+                  type: "species",
+                  title: selected.commonName || selected.scientificName,
+                  content: selected.description?.slice(0, 200) || selected.scientificName,
+                  source: (selected as any)._source,
+                })}>
+                <BookmarkPlus className="h-2.5 w-2.5 mr-0.5" /> Save
               </Button>
-              {onAddToNotepad && (
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] rounded-lg"
-                  onClick={() => onAddToNotepad({
-                    type: "species",
-                    title: selected.commonName || selected.scientificName,
-                    content: selected.description?.slice(0, 200) || selected.scientificName,
-                    source: (selected as any)._source,
-                  })}>
-                  <BookmarkPlus className="h-2.5 w-2.5 mr-0.5" /> Save
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </div>
+          </div>
       </div>
 
       {detailSpecies && <SpeciesDetailModal species={detailSpecies} onClose={handleCloseDetail} />}

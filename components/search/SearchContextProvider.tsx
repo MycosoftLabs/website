@@ -125,6 +125,10 @@ interface SearchContextValue {
   rightPanelOpen: boolean
   setRightPanelOpen: (open: boolean) => void
 
+  // Voice (canvas drives; panel can request start/stop)
+  voiceListening: boolean
+  setVoiceListening: (v: boolean) => void
+
   // Event bus
   on: (event: string, handler: EventHandler) => () => void
   emit: (event: string, payload?: any) => void
@@ -268,6 +272,9 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
   // Panel visibility - start closed on mobile, open on desktop (defer to client)
   const [leftPanelOpen, setLeftPanelOpen] = useState(false)
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
+
+  // Voice listening state (driven by FluidSearchCanvas; panel can request via emit)
+  const [voiceListening, setVoiceListening] = useState(false)
   
   // Set panel defaults based on screen size after mount
   useEffect(() => {
@@ -352,6 +359,8 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     setLeftPanelOpen,
     rightPanelOpen,
     setRightPanelOpen,
+    voiceListening,
+    setVoiceListening,
     on,
     emit,
     isLoading,

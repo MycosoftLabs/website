@@ -76,8 +76,34 @@ export function useVoiceSearch(options: UseVoiceSearchOptions = {}): UseVoiceSea
   useEffect(() => { stopListeningRef.current = stopListening }, [stopListening])
 
   // Define voice commands using refs to avoid re-creating on every render
+  // More specific patterns MUST come before general ones
   const commands = useMemo<VoiceCommand[]>(() => [
-    // Search commands
+    // Show fungus/document/location (specific intents)
+    {
+      pattern: /^show\s+(?:me\s+)?(?:a\s+)?(?:fungus|fungi|mushroom|mushrooms)(?:\s+called)?\s+(.+)$/i,
+      action: (match) => {
+        onSearchRef.current?.(match[1].trim())
+        onFocusWidgetRef.current?.("species")
+      },
+      description: "Show me a fungus [name]",
+    },
+    {
+      pattern: /^show\s+(?:me\s+)?(?:a\s+)?(?:document|paper|research)\s+(?:on|about)\s+(.+)$/i,
+      action: (match) => {
+        onSearchRef.current?.(match[1].trim())
+        onFocusWidgetRef.current?.("research")
+      },
+      description: "Show documents about [topic]",
+    },
+    {
+      pattern: /^show\s+(?:me\s+)?(?:mushrooms?|fungi)\s+(?:in|near|around)\s+(.+)$/i,
+      action: (match) => {
+        onSearchRef.current?.(match[1].trim())
+        onFocusWidgetRef.current?.("location")
+      },
+      description: "Show locations [place]",
+    },
+    // General search commands
     {
       pattern: /^(?:search|find|look for|show me)\s+(.+)$/i,
       action: (match) => {

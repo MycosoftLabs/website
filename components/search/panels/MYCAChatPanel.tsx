@@ -26,6 +26,7 @@ import {
   Leaf,
   Brain,
   Heart,
+  Mic,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSearchContext, type ChatMessage } from "../SearchContextProvider"
@@ -90,6 +91,19 @@ export function MYCAChatPanel() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [chatMessages, streamingText])
+
+  // Sync aiAnswer from unified search (voice/text) into chat when we have a pending user message
+  const lastAiAnswerRef = useRef<string>("")
+  useEffect(() => {
+    const answer = ctx.aiAnswer?.text
+    if (!answer || answer === lastAiAnswerRef.current) return
+    const visible = chatMessages.filter((m) => m.role !== "system")
+    const last = visible[visible.length - 1]
+    if (last?.role === "user" && ctx.query && last.content === ctx.query) {
+      lastAiAnswerRef.current = answer
+      addChatMessage("assistant", answer, "search_ai")
+    }
+  }, [ctx.aiAnswer, ctx.query, chatMessages, addChatMessage])
 
   /** Try MAS Brain stream first, then fall back to ai-v2 */
   const tryBrainStream = async (message: string): Promise<string | null> => {
@@ -160,19 +174,20 @@ export function MYCAChatPanel() {
     return full.trim() || null
   }
 
-  /** Fallback: ai-v2 with context */
-  const tryAiV2 = async (message: string): Promise<string | null> => {
-    const res = await fetch("/api/search/ai-v2", {
+  /** Fallback: unified /api/search/ai (MYCA Consciousness → Brain → OpenAI → local KB) */
+  const trySearchAI = async (message: string): Promise<string | null> => {
+    const res = await fetch("/api/search/ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         q: message,
         context: {
+          species: ctx.species.slice(0, 5).map((s) => s.scientificName),
+          compounds: ctx.compounds.slice(0, 5).map((c) => c.name),
           previousSearches: chatMessages
             .filter((m) => m.role === "user")
             .slice(-5)
             .map((m) => m.content),
-          focusedSpecies: ctx.species.slice(0, 3).map((s) => s.scientificName),
         },
       }),
       signal: AbortSignal.timeout(30000),
@@ -192,7 +207,7 @@ export function MYCAChatPanel() {
 
     try {
       let answer: string | null = await tryBrainStream(q)
-      if (!answer) answer = await tryAiV2(q)
+      if (!answer) answer = await trySearchAI(q)
       if (answer) {
         addChatMessage("assistant", answer)
       } else {
@@ -346,6 +361,19 @@ export function MYCAChatPanel() {
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             disabled={isAsking}
           />
+          <Button
+            size="icon"
+            variant={ctx.voiceListening ? "default" : "outline"}
+            className={cn(
+              "h-7 w-7 shrink-0 rounded-lg",
+              ctx.voiceListening && "bg-red-500/80 hover:bg-red-500 animate-pulse"
+            )}
+            onClick={() => ctx.emit("voice:toggle")}
+            title={ctx.voiceListening ? "Stop listening" : "Voice input"}
+            disabled={isAsking}
+          >
+            <Mic className="h-3 w-3" />
+          </Button>
           <Button size="icon" className="h-7 w-7 shrink-0 rounded-lg" onClick={handleSend} disabled={!input.trim() || isAsking}>
             <Send className="h-3 w-3" />
           </Button>
