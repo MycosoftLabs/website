@@ -386,7 +386,7 @@ export default function AboutPage() {
                   <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
                     <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
                       <Image
-                        src="/images/logos/myca-logo-square.png"
+                        src="/assets/logos/myca-logo-square.png"
                         alt="MYCA Logo"
                         fill
                         className="object-cover"

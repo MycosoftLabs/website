@@ -87,6 +87,7 @@ function TreeNode({ node, depth, currentName, currentId, isLast }: TreeNodeProps
           "min-h-[44px] min-w-[44px] touch-manipulation",
           isCurrent && "rounded-md bg-primary/10 ring-1 ring-primary/20"
         )}
+      >
         <div
           className="flex items-center gap-1.5"
           style={{ paddingLeft: `${depth * 16}px` }}
