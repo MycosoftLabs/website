@@ -24,7 +24,11 @@ export function NeuromorphicProvider({
 }: NeuromorphicProviderProps) {
   const { resolvedTheme } = useTheme()
   const isDark = forceDark ?? resolvedTheme === "dark"
-  const wrapperClass = `neuromorphic-page ${isDark ? "neuromorphic-dark" : ""} ${className}`
+  const wrapperClass = `neuromorphic-page ${isDark ? "neuromorphic-dark" : ""} ${className}`.trim()
 
-  return <div className={wrapperClass}>{children}</div>
+  return (
+    <div className={wrapperClass} suppressHydrationWarning>
+      {children}
+    </div>
+  )
 }

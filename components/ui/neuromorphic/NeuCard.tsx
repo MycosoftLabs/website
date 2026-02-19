@@ -35,11 +35,12 @@ export function NeuCard({ children, className = "", ...props }: NeuCardProps) {
 
 export function NeuCardHeader({ children, className = "" }: NeuCardHeaderProps) {
   return (
-    <h2
+    <div
+      role="group"
       className={`text-lg font-semibold text-gray-700 dark:text-gray-200 mb-6 tracking-tight flex items-center gap-2 ${className}`}
     >
       {children}
-    </h2>
+    </div>
   )
 }
 
