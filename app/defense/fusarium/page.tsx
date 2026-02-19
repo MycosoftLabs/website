@@ -1,4 +1,5 @@
-import type { Metadata } from "next"
+"use client"
+
 import Link from "next/link"
 import { 
   ArrowLeft,
@@ -22,14 +23,14 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-
-export const metadata: Metadata = {
-  title: "Fusarium - Defense System | Mycosoft",
-  description: "Fusarium is Mycosoft's integrated defense system combining CREP dashboard, specialized devices, and AI-driven environmental intelligence for military applications.",
-}
+import {
+  NeuButton,
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 
 const fusariumComponents = [
   {
@@ -78,9 +79,10 @@ const crepFeatures = [
 
 export default function FusariumPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
       {/* Header */}
-      <div className="border-b">
+      <div className="border-b border-border/50">
         <div className="container max-w-7xl mx-auto px-4 py-4">
           <Link 
             href="/defense" 
@@ -94,14 +96,13 @@ export default function FusariumPage() {
 
       {/* Hero */}
       <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-destructive/5 to-background" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-10 pointer-events-none" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="outline" className="mb-4 border-destructive/50 text-destructive">
+            <NeuBadge variant="default" className="mb-4 border-destructive/30 text-destructive">
               DEFENSE SYSTEM
-            </Badge>
+            </NeuBadge>
             <h1 className="text-6xl md:text-8xl font-bold mb-6 tracking-tight">
               FUSARIUM
             </h1>
@@ -115,28 +116,28 @@ export default function FusariumPage() {
             </p>
             
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg" asChild>
-                <Link href="/defense/request-briefing">
+              <Link href="/defense/request-briefing">
+                <NeuButton variant="primary" className="text-base px-6 py-3">
                   Request Briefing
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/dashboard/crep">
+                </NeuButton>
+              </Link>
+              <Link href="/dashboard/crep">
+                <NeuButton variant="default" className="text-base px-6 py-3">
                   Access CREP Dashboard
-                </Link>
-              </Button>
+                </NeuButton>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* Why Fusarium */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-16">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-destructive/10 text-destructive">The Name</Badge>
+              <NeuBadge variant="default" className="mb-4 text-destructive">The Name</NeuBadge>
               <h2 className="text-4xl font-bold mb-6">Why Fusarium?</h2>
               <div className="space-y-4 text-lg text-muted-foreground">
                 <p>
@@ -158,16 +159,14 @@ export default function FusariumPage() {
               </div>
             </div>
             <div className="relative">
-              <div className="aspect-square bg-gradient-to-br from-destructive/10 via-muted to-orange-500/10 rounded-3xl p-8">
-                <div className="h-full w-full border border-destructive/20 rounded-2xl bg-background/50 flex items-center justify-center">
-                  <div className="text-center">
-                    <AlertCircle className="h-20 w-20 text-destructive/30 mx-auto mb-4" />
-                    <p className="text-lg font-semibold text-destructive/70">
-                      Embed. Adapt. Persist.
-                    </p>
-                  </div>
+              <NeuCard className="aspect-square p-8 flex items-center justify-center">
+                <div className="text-center">
+                  <AlertCircle className="h-20 w-20 text-destructive/30 mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-destructive/70">
+                    Embed. Adapt. Persist.
+                  </p>
                 </div>
-              </div>
+              </NeuCard>
             </div>
           </div>
         </div>
@@ -177,7 +176,7 @@ export default function FusariumPage() {
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">System Components</Badge>
+            <NeuBadge variant="default" className="mb-4">System Components</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">The Fusarium Stack</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               An integrated suite of hardware, software, and AI designed for defense applications.
@@ -186,19 +185,17 @@ export default function FusariumPage() {
 
           <div className="grid md:grid-cols-2 gap-8">
             {fusariumComponents.map((component) => (
-              <Card key={component.name} className="hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <component.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle>{component.name}</CardTitle>
-                      <CardDescription className="mt-1">{component.description}</CardDescription>
-                    </div>
+              <NeuCard key={component.name} className="transition-all hover:scale-[1.01]">
+                <NeuCardHeader className="flex flex-row items-start gap-4 space-y-0 pb-2">
+                  <div className="p-3 rounded-xl bg-primary/10">
+                    <component.icon className="h-6 w-6 text-primary" />
                   </div>
-                </CardHeader>
-                <CardContent>
+                  <div>
+                    <h3 className="text-lg font-semibold">{component.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{component.description}</p>
+                  </div>
+                </NeuCardHeader>
+                <NeuCardContent>
                   <div className="grid grid-cols-2 gap-2">
                     {component.features.map((feature) => (
                       <div key={feature} className="flex items-center gap-2 text-sm">
@@ -207,19 +204,19 @@ export default function FusariumPage() {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
       </section>
 
       {/* Hyphae One */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-green-500/10 text-green-500">NEW HARDWARE</Badge>
+              <NeuBadge variant="default" className="mb-4 text-green-500">NEW HARDWARE</NeuBadge>
               <h2 className="text-4xl font-bold mb-6">Hyphae One</h2>
               <p className="text-xl text-muted-foreground mb-8">
                 Named after the branching filaments that form the structure of fungi - 
@@ -228,7 +225,7 @@ export default function FusariumPage() {
               
               <div className="grid grid-cols-2 gap-4 mb-8">
                 {hyphaOneSpecs.map((spec) => (
-                  <div key={spec.label} className="bg-background p-4 rounded-lg border">
+                  <div key={spec.label} className="neu-raised p-4 rounded-xl">
                     <div className="text-sm text-muted-foreground">{spec.label}</div>
                     <div className="font-semibold">{spec.value}</div>
                   </div>
@@ -242,15 +239,13 @@ export default function FusariumPage() {
               </p>
             </div>
             <div className="relative">
-              <div className="aspect-square bg-gradient-to-br from-green-500/10 via-muted to-primary/10 rounded-3xl p-8">
-                <div className="h-full w-full border border-green-500/20 rounded-2xl bg-background/50 flex items-center justify-center">
-                  <div className="text-center">
-                    <Server className="h-20 w-20 text-green-500/30 mx-auto mb-4" />
-                    <p className="text-lg font-semibold">Edge Computing + Sensing</p>
-                    <p className="text-sm text-muted-foreground">The network backbone</p>
-                  </div>
+              <NeuCard className="aspect-square p-8 flex items-center justify-center">
+                <div className="text-center">
+                  <Server className="h-20 w-20 text-green-500/30 mx-auto mb-4" />
+                  <p className="text-lg font-semibold">Edge Computing + Sensing</p>
+                  <p className="text-sm text-muted-foreground">The network backbone</p>
                 </div>
-              </div>
+              </NeuCard>
             </div>
           </div>
         </div>
@@ -260,7 +255,7 @@ export default function FusariumPage() {
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Command Interface</Badge>
+            <NeuBadge variant="default" className="mb-4">Command Interface</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">CREP Dashboard</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Common Relevant Environmental Picture - the tactical interface for environmental intelligence.
@@ -269,31 +264,31 @@ export default function FusariumPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {crepFeatures.map((feature) => (
-              <Card key={feature.title} className="hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  <CardDescription>{feature.description}</CardDescription>
-                </CardHeader>
-              </Card>
+              <NeuCard key={feature.title} className="transition-all hover:scale-[1.01]">
+                <NeuCardHeader>
+                  <h3 className="text-lg font-semibold">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                </NeuCardHeader>
+              </NeuCard>
             ))}
           </div>
 
           <div className="text-center">
-            <Button size="lg" asChild>
-              <Link href="/dashboard/crep">
+            <Link href="/dashboard/crep">
+              <NeuButton variant="primary" className="text-base px-6 py-3">
                 Access CREP Dashboard
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* Protocols */}
-      <section className="py-24 bg-muted/30">
+      <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Protocols</Badge>
+            <NeuBadge variant="default" className="mb-4">Protocols</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">Mycorrhizae Protocol & Hyphae Language</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Purpose-built protocols for biological computing and environmental data exchange.
@@ -301,71 +296,51 @@ export default function FusariumPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <Card>
-              <CardHeader>
+            <NeuCard>
+              <NeuCardHeader>
                 <div className="p-3 rounded-xl bg-primary/10 w-fit mb-2">
                   <Network className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle>Mycorrhizae Protocol</CardTitle>
-                <CardDescription>
+                <h3 className="text-lg font-semibold">Mycorrhizae Protocol</h3>
+                <p className="text-sm text-muted-foreground">
                   Standardized data format for multi-modal environmental sensing - 
                   optimized for low-bandwidth tactical networks.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                </p>
+              </NeuCardHeader>
+              <NeuCardContent>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span>Efficient compression for tactical links</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span>Multi-modal sensor fusion</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span>Cryptographic integrity built-in</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span>Compatible with DoD data standards</span>
-                  </div>
+                  {["Efficient compression for tactical links", "Multi-modal sensor fusion", "Cryptographic integrity built-in", "Compatible with DoD data standards"].map((item) => (
+                    <div key={item} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              </NeuCardContent>
+            </NeuCard>
 
-            <Card>
-              <CardHeader>
+            <NeuCard>
+              <NeuCardHeader>
                 <div className="p-3 rounded-xl bg-purple-500/10 w-fit mb-2">
                   <Cpu className="h-6 w-6 text-purple-500" />
                 </div>
-                <CardTitle>Hyphae Language</CardTitle>
-                <CardDescription>
+                <h3 className="text-lg font-semibold">Hyphae Language</h3>
+                <p className="text-sm text-muted-foreground">
                   Domain-specific programming language for biological computing interfaces 
                   and fungal network communication.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+                </p>
+              </NeuCardHeader>
+              <NeuCardContent>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                    <span>Biological signal processing primitives</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                    <span>Temporal pattern matching</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                    <span>Environmental state machines</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-purple-500" />
-                    <span>Integration with NLM AI</span>
-                  </div>
+                  {["Biological signal processing primitives", "Temporal pattern matching", "Environmental state machines", "Integration with NLM AI"].map((item) => (
+                    <div key={item} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-purple-500" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              </NeuCardContent>
+            </NeuCard>
           </div>
         </div>
       </section>
@@ -376,25 +351,26 @@ export default function FusariumPage() {
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-4xl font-bold mb-6">Deploy Fusarium</h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Request a classified briefing to learn how Fusarium can enhance your 
+              Request a briefing to learn how Fusarium can enhance your 
               environmental intelligence capabilities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" asChild>
-                <Link href="/defense/request-briefing">
+              <Link href="/defense/request-briefing">
+                <NeuButton variant="primary" className="text-base px-6 py-3">
                   Request Briefing
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/defense/technical-docs">
+                </NeuButton>
+              </Link>
+              <Link href="/defense/technical-docs">
+                <NeuButton variant="default" className="text-base px-6 py-3">
                   Technical Documentation
-                </Link>
-              </Button>
+                </NeuButton>
+              </Link>
             </div>
           </div>
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }

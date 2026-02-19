@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { DefensePortal } from "@/components/defense/defense-portal"
+import { DefensePortalV2 } from "@/components/defense/defense-portal-v2"
 
 export const metadata: Metadata = {
   title: "Defense - Operational Environmental Intelligence | Mycosoft",
@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 export default function DefensePage() {
-  return <DefensePortal />
+  return <DefensePortalV2 />
 }
 
 

@@ -1,0 +1,352 @@
+/**
+ * Neuromorphic UI – scoped styles for the test page
+ * Use only within .neuromorphic-page to avoid affecting the rest of the site.
+ * Date: Feb 18, 2026
+ */
+
+.neuromorphic-page {
+  --neu-bg-primary: #e6e9ef;
+  --neu-bg-secondary: #d1d5db;
+  --neu-shadow-dark: #b8bcc2;
+  --neu-shadow-light: #ffffff;
+  --neu-primary: #7c3aed;
+  --neu-primary-dark: #6d28d9;
+  --transition-fast: 150ms;
+  --transition-normal: 300ms;
+}
+
+.neuromorphic-page.neuromorphic-dark {
+  --neu-bg-primary: #374151;
+  --neu-bg-secondary: #1f2937;
+  --neu-shadow-dark: #111827;
+  --neu-shadow-light: #4b5563;
+}
+
+.neuromorphic-page {
+  font-family: var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+  min-height: 100%;
+  transition: background 0.5s ease;
+  color: #374151;
+}
+
+.neuromorphic-page.neuromorphic-dark {
+  color: #e5e7eb;
+}
+
+/* Dark mode: force readable text and icons (sync with site theme) */
+.neuromorphic-page.neuromorphic-dark,
+.neuromorphic-page.neuromorphic-dark * {
+  /* Override any light-mode gray text so it’s visible on dark background */
+  --neu-text: #e5e7eb;
+  --neu-text-muted: #9ca3af;
+  --neu-text-faint: #6b7280;
+}
+.neuromorphic-page.neuromorphic-dark p,
+.neuromorphic-page.neuromorphic-dark span:not([class*="bg-"]):not([class*="text-white"]),
+.neuromorphic-page.neuromorphic-dark li,
+.neuromorphic-page.neuromorphic-dark td,
+.neuromorphic-page.neuromorphic-dark th,
+.neuromorphic-page.neuromorphic-dark label,
+.neuromorphic-page.neuromorphic-dark legend,
+.neuromorphic-page.neuromorphic-dark h1,
+.neuromorphic-page.neuromorphic-dark h2,
+.neuromorphic-page.neuromorphic-dark h3 {
+  color: inherit;
+}
+.neuromorphic-page.neuromorphic-dark input,
+.neuromorphic-page.neuromorphic-dark textarea,
+.neuromorphic-page.neuromorphic-dark select {
+  color: #e5e7eb;
+}
+.neuromorphic-page.neuromorphic-dark input::placeholder,
+.neuromorphic-page.neuromorphic-dark textarea::placeholder {
+  color: #9ca3af;
+}
+/* Icons (Lucide SVGs and any svg) use currentColor – ensure they’re light */
+.neuromorphic-page.neuromorphic-dark svg:not([class*="text-white"]):not([class*="text-green"]):not([class*="text-red"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]) {
+  color: #d1d5db;
+}
+.neuromorphic-page.neuromorphic-dark [class*="text-gray-"] {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-gray-300 {
+  color: #d1d5db !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-gray-400,
+.neuromorphic-page.neuromorphic-dark .text-gray-500 {
+  color: #9ca3af !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-gray-600 {
+  color: #d1d5db !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-gray-700 {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-gray-800 {
+  color: #f3f4f6 !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-purple-500,
+.neuromorphic-page.neuromorphic-dark .text-purple-600 {
+  color: #c4b5fd !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-blue-500 {
+  color: #93c5fd !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-yellow-500 {
+  color: #fcd34d !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-orange-500 {
+  color: #fdba74 !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-green-500 {
+  color: #6ee7b7 !important;
+}
+.neuromorphic-page.neuromorphic-dark .text-red-500 {
+  color: #f87171 !important;
+}
+.neuromorphic-page.neuromorphic-dark .border-gray-200,
+.neuromorphic-page.neuromorphic-dark .border-gray-300 {
+  border-color: #4b5563;
+}
+.neuromorphic-page.neuromorphic-dark .border-gray-600,
+.neuromorphic-page.neuromorphic-dark .border-gray-700 {
+  border-color: #6b7280;
+}
+.neuromorphic-page.neuromorphic-dark .hover\:text-gray-600:hover {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .hover\:text-red-500:hover {
+  color: #fca5a5 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hover\:text-gray-300:hover {
+  color: #d1d5db !important;
+}
+.neuromorphic-page.neuromorphic-dark .hover\:bg-purple-50:hover,
+.neuromorphic-page.neuromorphic-dark .hover\:bg-white\/30:hover {
+  background-color: rgba(147, 51, 234, 0.15);
+}
+.neuromorphic-page.neuromorphic-dark .dark\:hover\:bg-purple-900\/30:hover {
+  background-color: rgba(147, 51, 234, 0.2);
+}
+.neuromorphic-page.neuromorphic-dark .hover\:border-purple-400:hover {
+  border-color: #a78bfa;
+}
+.neuromorphic-page.neuromorphic-dark .focus\:border-purple-400:focus {
+  border-color: #a78bfa;
+}
+.neuromorphic-page.neuromorphic-dark .cursor-context-menu {
+  cursor: context-menu;
+}
+.neuromorphic-page.neuromorphic-dark .cursor-pointer {
+  cursor: pointer;
+}
+.neuromorphic-page.neuromorphic-dark .context-menu-item:hover {
+  background-color: rgba(147, 51, 234, 0.2);
+}
+.neuromorphic-page.neuromorphic-dark .tree-item button:hover,
+.neuromorphic-page.neuromorphic-dark .tree-leaf div:hover {
+  background-color: rgba(147, 51, 234, 0.15);
+}
+.neuromorphic-page.neuromorphic-dark .neu-tooltip {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+.neuromorphic-page.neuromorphic-dark .neu-tooltip .border-t-gray-800 {
+  border-top-color: #1f2937;
+}
+
+.neuromorphic-page .neu-raised {
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+  box-shadow:
+    8px 8px 16px var(--neu-shadow-dark),
+    -8px -8px 16px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-raised-sm {
+  box-shadow:
+    4px 4px 8px var(--neu-shadow-dark),
+    -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-inset {
+  background: linear-gradient(145deg, var(--neu-bg-secondary), var(--neu-bg-primary));
+  box-shadow:
+    inset 4px 4px 8px var(--neu-shadow-dark),
+    inset -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-flat {
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+}
+
+.neuromorphic-page .neu-btn {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.neuromorphic-page .neu-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.neuromorphic-page .neu-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 2px 2px 4px var(--neu-shadow-dark),
+    inset -2px -2px 4px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.neuromorphic-page .neu-focus:focus {
+  outline: none;
+}
+
+.neuromorphic-page .neu-focus:focus-visible {
+  outline: 3px solid var(--neu-primary);
+  outline-offset: 2px;
+}
+
+.neuromorphic-page .neu-skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 12px 24px;
+  background: var(--neu-primary);
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.neuromorphic-page .neu-skip-link:focus {
+  top: 16px;
+}
+
+@keyframes neu-toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes neu-toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.neuromorphic-page .neu-toast-enter {
+  animation: neu-toast-in 0.3s ease-out forwards;
+}
+
+.neuromorphic-page .neu-toast-exit {
+  animation: neu-toast-out 0.3s ease-in forwards;
+}
+
+@keyframes neu-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.neuromorphic-page .neu-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.neuromorphic-page .neu-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: neu-shimmer 1.5s infinite;
+}
+
+@keyframes neu-skeleton {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.neuromorphic-page .neu-skeleton {
+  background: linear-gradient(90deg, var(--neu-bg-secondary) 25%, var(--neu-bg-primary) 50%, var(--neu-bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: neu-skeleton 1.5s infinite;
+}
+
+@keyframes neu-grow-up {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.neuromorphic-page .neu-chart-bar {
+  animation: neu-grow-up 0.8s ease-out;
+  transform-origin: bottom;
+}
+
+.neuromorphic-page .neu-tooltip-container:hover .neu-tooltip,
+.neuromorphic-page .neu-tooltip-container:focus-within .neu-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.neuromorphic-page .neu-tooltip {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(4px);
+  transition: all var(--transition-fast);
+}
+
+.neuromorphic-page .neu-tab-btn[aria-selected="true"] {
+  background: linear-gradient(145deg, #7c3aed, #6d28d9);
+  color: white;
+  box-shadow: 4px 4px 8px var(--neu-shadow-dark), -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-tab-btn[aria-selected="false"] {
+  color: #6b7280;
+}
+
+.neuromorphic-page.neuromorphic-dark .neu-tab-btn[aria-selected="false"] {
+  color: #9ca3af;
+}
+
+.neuromorphic-page .neu-accordion-panel {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--neu-bg-secondary);
+  border-radius: 4px;
+}
+
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(145deg, var(--neu-shadow-dark), #9ca0a6);
+  border-radius: 4px;
+}
+
+.neuromorphic-page .neu-modal-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.neuromorphic-page .neu-progress-fill {
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  transition: width 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neuromorphic-page *,
+  .neuromorphic-page *::before,
+  .neuromorphic-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
