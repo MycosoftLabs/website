@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none" stroke="currentColor" stroke-width="1">
+  <title>SporeBase system architecture diagram</title>
+  <rect x="20" y="80" width="80" height="40" rx="4" />
+  <text x="60" y="105" text-anchor="middle" font-size="10">SporeBase</text>
+  <path d="M100 100h40" marker-end="url(#arrow)" />
+  <rect x="140" y="80" width="80" height="40" rx="4" />
+  <text x="180" y="105" text-anchor="middle" font-size="10">Gateway</text>
+  <path d="M220 100h40" />
+  <rect x="260" y="80" width="80" height="40" rx="4" />
+  <text x="300" y="105" text-anchor="middle" font-size="10">MAS / Cloud</text>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0l8 4-8 4z" fill="currentColor" /></marker></defs>
+</svg>

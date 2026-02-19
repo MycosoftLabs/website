@@ -202,7 +202,7 @@ export function DNASequenceViewer({
               {displaySeq.split("").map((b, i) => (
                 <span key={i} style={{ color: baseColor(b) }}>{b}</span>
               ))}
-              {isTruncated && <span className="text-muted-foreground">…</span>}
+              {isTruncated && <span className="text-gray-600 dark:text-gray-400">…</span>}
             </pre>
           </div>
           {clean.length > textPreview && (

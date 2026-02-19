@@ -63,6 +63,35 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
+/* Dark mode: ensure text and icons are readable site-wide when components use fixed Tailwind grays */
+.dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-600 { color: #d1d5db !important; }
+.dark .text-gray-700 { color: #e5e7eb !important; }
+.dark .text-gray-800 { color: #f3f4f6 !important; }
+.dark .text-gray-900 { color: #f9fafb !important; }
+.dark .text-gray-400 { color: #9ca3af !important; }
+.dark .text-gray-300 { color: #d1d5db !important; }
+.dark .text-slate-500,
+.dark .text-slate-600,
+.dark .text-slate-700,
+.dark .text-slate-800 { color: #e2e8f0 !important; }
+.dark .text-zinc-500,
+.dark .text-zinc-600,
+.dark .text-zinc-700 { color: #d4d4d8 !important; }
+/* Icons in header/nav and in content: ensure they use foreground when no explicit color so they stay visible in dark mode */
+.dark header svg,
+.dark nav svg,
+.dark footer svg {
+  color: var(--foreground);
+  stroke: currentColor;
+}
+.dark button svg,
+.dark a svg,
+.dark [role="button"] svg {
+  color: inherit;
+  stroke: currentColor;
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -312,12 +312,12 @@ function GeneticsDetailModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 16 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          className="relative z-10 w-full max-w-xl flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
           style={{ maxHeight: "min(88vh, 640px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Header ───────────────────────────────────────────────────── */}
-          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="mt-0.5 p-2 bg-green-500/15 rounded-lg shrink-0">
               <Dna className="h-4 w-4 text-green-400" />
             </div>
@@ -414,7 +414,7 @@ function GeneticsDetailModal({
               <>
                 {/* Definition — shown as a tidy annotation pill */}
                 {detail.definition && (
-                  <div className="rounded-lg bg-muted/30 border border-white/6 px-3 py-2.5">
+                  <div className="rounded-lg bg-muted/30 border border-border px-3 py-2.5">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
                       NCBI Definition
                     </p>
@@ -426,18 +426,18 @@ function GeneticsDetailModal({
 
                 {/* Stats grid */}
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                  <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Length</p>
                     <p className="mt-1 text-sm font-semibold tabular-nums">
                       {detail.sequence_length.toLocaleString()}
                       <span className="text-[10px] font-normal text-muted-foreground ml-0.5">bp</span>
                     </p>
                   </div>
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                  <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Type</p>
                     <p className="mt-1 text-sm font-semibold uppercase">{detail.sequence_type || "DNA"}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                  <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 text-center">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Source</p>
                     <p className="mt-1 text-sm font-semibold">{detail.source}</p>
                   </div>
@@ -516,7 +516,7 @@ function GeneticsDetailModal({
           </div>
 
           {/* ── Footer ───────────────────────────────────────────────────── */}
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-border">
             {detail?.source_url ? (
               <a
                 href={detail.source_url}

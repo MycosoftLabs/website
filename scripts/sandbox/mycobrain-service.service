@@ -1,0 +1,25 @@
+# MycoBrain ingestion service - always-on on sandbox for continuous board ingestion
+# Installed by deploy; ensures COM7/serial gateway and device ingestion stay up
+# Feb 18, 2026
+[Unit]
+Description=MycoBrain serial gateway and ingestion service (port 8003)
+After=network-online.target
+Wants=network-online.target
+# Vital company function: board ingestion must run continuously
+[Service]
+Type=simple
+User=mycosoft
+Group=mycosoft
+WorkingDirectory=/opt/mycosoft/mas/mycosoft-mas
+ExecStart=/usr/bin/python3 /opt/mycosoft/mas/mycosoft-mas/services/mycobrain/mycobrain_service_standalone.py
+Restart=always
+RestartSec=5
+# If the process hangs (e.g. serial lock), watchdog will restart via cron
+TimeoutStartSec=30
+Environment=MYCOBRAIN_SERVICE_PORT=8003
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mycobrain-service
+
+[Install]
+WantedBy=multi-user.target

@@ -342,18 +342,18 @@ export function ObservationEarthPortal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ type: "spring", damping: 28, stiffness: 340 }}
-          className="relative w-full max-w-5xl rounded-2xl border border-white/10 bg-[#060d1a] overflow-hidden shadow-2xl"
+          className="relative w-full max-w-5xl rounded-2xl border border-border bg-card text-card-foreground overflow-hidden shadow-2xl"
           style={{ height: "min(90vh, 720px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Header ──────────────────────────────────────────────────── */}
-          <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#060d1a]/95 to-transparent">
+          <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-card/95 to-transparent">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-teal-500/15 rounded-lg">
                 <Globe className="h-4 w-4 text-teal-400" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white leading-tight">
+                <h2 className="text-sm font-bold text-foreground leading-tight">
                   {title || obs?.commonName || obs?.speciesName || "Earth Observation"}
                 </h2>
                 <p className="text-[10px] text-teal-300 font-mono">
@@ -388,7 +388,7 @@ export function ObservationEarthPortal({
           <div className="absolute inset-0">
             {/* Overlay: loading / waiting / no results */}
             {(loadingMsg || cesiumError || waitingForObs || noObs) && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#060d1a] gap-4">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card gap-4">
                 {cesiumError ? (
                   <>
                     <Globe className="h-10 w-10 text-red-400 opacity-60" />
@@ -436,7 +436,7 @@ export function ObservationEarthPortal({
                   key={label}
                   onClick={fn}
                   title={label}
-                  className="w-8 h-8 rounded-lg bg-black/70 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-lg bg-background/80 border border-border text-foreground/80 hover:text-foreground hover:bg-background/90 flex items-center justify-center transition-colors"
                 >
                   <Icon className="h-3.5 w-3.5" />
                 </button>
@@ -446,11 +446,11 @@ export function ObservationEarthPortal({
 
           {/* ── Multi-observation navigator ───────────────────────────────── */}
           {obsArray.length > 1 && cesiumOk && (
-            <div className="absolute bottom-36 right-4 z-20 flex items-center gap-1.5 bg-black/70 rounded-lg px-2 py-1.5 border border-white/10">
+            <div className="absolute bottom-36 right-4 z-20 flex items-center gap-1.5 bg-background/80 rounded-lg px-2 py-1.5 border border-border">
               <button
                 disabled={selIdx === 0}
                 onClick={() => setSelIdx(i => i - 1)}
-                className="text-white/60 hover:text-white disabled:opacity-30 px-1 text-xs"
+                className="text-foreground/70 hover:text-foreground disabled:opacity-30 px-1 text-xs"
               >◀</button>
               <span className="text-[10px] text-teal-300 font-mono min-w-[3.5rem] text-center">
                 {selIdx + 1} / {obsArray.length}
@@ -458,7 +458,7 @@ export function ObservationEarthPortal({
               <button
                 disabled={selIdx === obsArray.length - 1}
                 onClick={() => setSelIdx(i => i + 1)}
-                className="text-white/60 hover:text-white disabled:opacity-30 px-1 text-xs"
+                className="text-foreground/70 hover:text-foreground disabled:opacity-30 px-1 text-xs"
               >▶</button>
             </div>
           )}
@@ -466,13 +466,13 @@ export function ObservationEarthPortal({
           {/* ── Observation details card ──────────────────────────────────── */}
           {cesiumOk && obs && (
             <div className="absolute bottom-4 left-4 z-20">
-              <div className="rounded-xl border border-white/10 bg-[#060d1a]/92 backdrop-blur-md p-4 space-y-3 max-w-[270px]">
+              <div className="rounded-xl border border-border bg-card/95 backdrop-blur-md p-4 space-y-3 max-w-[270px]">
                 <div className="flex items-start gap-3">
                   {obs.imageUrl ? (
                     <img
                       src={obs.imageUrl}
                       alt={obs.speciesName}
-                      className="w-14 h-14 rounded-xl object-cover shrink-0 border border-white/10"
+                      className="w-14 h-14 rounded-xl object-cover shrink-0 border border-border"
                     />
                   ) : (
                     <div className="w-14 h-14 rounded-xl bg-teal-900/40 border border-teal-500/20 flex items-center justify-center text-2xl shrink-0">
@@ -492,7 +492,7 @@ export function ObservationEarthPortal({
                   {obs.observer && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <User className="h-3 w-3 shrink-0" />
-                      <span className="truncate">Found by <span className="text-white">{obs.observer}</span></span>
+                      <span className="truncate">Found by <span className="text-foreground font-medium">{obs.observer}</span></span>
                     </div>
                   )}
                   {dateStr && (
@@ -509,7 +509,7 @@ export function ObservationEarthPortal({
                   </div>
                 </div>
 
-                <div className="pt-1.5 border-t border-white/6 space-y-1">
+                <div className="pt-1.5 border-t border-border space-y-1">
                   <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Explore in search</p>
                   {[
                     { icon: Leaf,         label: "Species widget",  color: "text-green-400  hover:bg-green-500/10",  fn: goToSpecies   },

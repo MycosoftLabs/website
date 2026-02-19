@@ -21,6 +21,22 @@ export async function GET() {
     const discoveredDevices: any[] = []
     const deviceMap = new Map<string, any>()
     const likelyPorts = new Set<string>()
+    let mycobrainReachable = false
+    let hint: string | undefined
+
+    // 0. Check if MycoBrain service is reachable (for diagnostics)
+    try {
+      const healthRes = await fetch(`${mycoBrainUrl}/health`, { signal: AbortSignal.timeout(2000) })
+      mycobrainReachable = healthRes.ok
+    } catch {
+      // unreachable
+    }
+    if (!mycobrainReachable) {
+      const isSandbox = mycoBrainUrl.includes("192.168.0.187") || mycoBrainUrl.includes("187")
+      hint = isSandbox
+        ? "MycoBrain service on sandbox (port 8003) is not reachable. Start it on the sandbox host (systemd: mycobrain-service). Devices on your dev PC (e.g. COM7) still appear here if the service on your PC has heartbeat enabled and MAS is reachable—they come from the MAS Device Registry."
+        : "MycoBrain service is not reachable. Start the service on this machine (port 8003) to see USB devices. Devices from other PCs appear via MAS registry when heartbeat is enabled."
+    }
 
     // 1. Get all ports (including unconnected ones)
     try {
@@ -172,6 +188,10 @@ export async function GET() {
       })
     }
 
+    if (mycobrainReachable && discoveredDevices.length === 0 && !hint) {
+      hint = "No serial ports from this MycoBrain service. If the board is on another machine (e.g. COM7 on your dev PC), it can still appear here via MAS Device Registry—run MycoBrain service on that machine with heartbeat enabled (MAS_REGISTRY_URL, MYCOBRAIN_HEARTBEAT_ENABLED=true)."
+    }
+
     return NextResponse.json({
       devices: discoveredDevices,
       total: discoveredDevices.length,
@@ -179,6 +199,9 @@ export async function GET() {
       offline: discoveredDevices.filter(d => d.status === "offline").length,
       discoveryActive: true,
       timestamp: new Date().toISOString(),
+      mycobrainServiceUrl: mycoBrainUrl,
+      mycobrainReachable,
+      hint,
     })
   } catch (error) {
     console.error("Device discovery error:", error)
@@ -191,6 +214,8 @@ export async function GET() {
         discoveryActive: false,
         error: String(error),
         timestamp: new Date().toISOString(),
+        mycobrainReachable: false,
+        hint: "Discovery failed. Devices on your dev PC (e.g. COM7) appear when MycoBrain service runs there with heartbeat to MAS; they show from the MAS Device Registry. See docs/DEVICE_MANAGER_AND_GATEWAY_ARCHITECTURE_FEB10_2026.md.",
       },
       { status: 500 }
     )

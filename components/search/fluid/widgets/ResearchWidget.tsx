@@ -114,12 +114,12 @@ function ResearchReadingModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
           style={{ maxHeight: "min(90vh, 720px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="p-2 bg-blue-500/15 rounded-lg shrink-0 mt-0.5">
               <FileText className="h-5 w-5 text-blue-400" />
             </div>
@@ -167,7 +167,7 @@ function ResearchReadingModal({
                 <p className="text-sm text-foreground/85 leading-relaxed">{paper.abstract}</p>
               </div>
             ) : (
-              <div className="rounded-xl bg-muted/20 border border-white/6 px-4 py-6 text-center">
+              <div className="rounded-xl bg-muted/20 border border-border px-4 py-6 text-center">
                 <FileText className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground">No abstract available.</p>
                 {paper.doi && (
@@ -192,7 +192,7 @@ function ResearchReadingModal({
 
             {/* DOI info */}
             {paper.doi && (
-              <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 flex items-center gap-2">
+              <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-[9px] uppercase tracking-widest text-muted-foreground">DOI</p>
                   <p className="text-xs font-mono truncate">{paper.doi}</p>
@@ -209,7 +209,7 @@ function ResearchReadingModal({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-border">
             {/* External link — secondary only */}
             {paper.doi ? (
               <a

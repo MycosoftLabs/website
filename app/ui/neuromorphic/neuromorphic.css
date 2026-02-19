@@ -1,0 +1,285 @@
+/**
+ * Neuromorphic UI – scoped styles for the test page
+ * Use only within .neuromorphic-page to avoid affecting the rest of the site.
+ * Date: Feb 18, 2026
+ */
+
+/* Scoped CSS custom properties */
+.neuromorphic-page {
+  --neu-bg-primary: #e6e9ef;
+  --neu-bg-secondary: #d1d5db;
+  --neu-shadow-dark: #b8bcc2;
+  --neu-shadow-light: #ffffff;
+  --neu-primary: #7c3aed;
+  --neu-primary-dark: #6d28d9;
+  --transition-fast: 150ms;
+  --transition-normal: 300ms;
+}
+
+.neuromorphic-page.neuromorphic-dark {
+  --neu-bg-primary: #374151;
+  --neu-bg-secondary: #1f2937;
+  --neu-shadow-dark: #111827;
+  --neu-shadow-light: #4b5563;
+}
+
+.neuromorphic-page {
+  font-family: var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+  min-height: 100%;
+  transition: background 0.5s ease;
+  color: #374151;
+}
+
+.neuromorphic-page.neuromorphic-dark {
+  color: #e5e7eb;
+}
+
+/* Neuromorphic surfaces */
+.neuromorphic-page .neu-raised {
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+  box-shadow:
+    8px 8px 16px var(--neu-shadow-dark),
+    -8px -8px 16px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-raised-sm {
+  box-shadow:
+    4px 4px 8px var(--neu-shadow-dark),
+    -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-inset {
+  background: linear-gradient(145deg, var(--neu-bg-secondary), var(--neu-bg-primary));
+  box-shadow:
+    inset 4px 4px 8px var(--neu-shadow-dark),
+    inset -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-flat {
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
+}
+
+/* Button states */
+.neuromorphic-page .neu-btn {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.neuromorphic-page .neu-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.neuromorphic-page .neu-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 2px 2px 4px var(--neu-shadow-dark),
+    inset -2px -2px 4px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Focus styles */
+.neuromorphic-page .neu-focus:focus {
+  outline: none;
+}
+
+.neuromorphic-page .neu-focus:focus-visible {
+  outline: 3px solid var(--neu-primary);
+  outline-offset: 2px;
+}
+
+/* Skip link */
+.neuromorphic-page .neu-skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 12px 24px;
+  background: var(--neu-primary);
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.neuromorphic-page .neu-skip-link:focus {
+  top: 16px;
+}
+
+/* Toast animations */
+@keyframes neu-toast-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes neu-toast-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.neuromorphic-page .neu-toast-enter {
+  animation: neu-toast-in 0.3s ease-out forwards;
+}
+
+.neuromorphic-page .neu-toast-exit {
+  animation: neu-toast-out 0.3s ease-in forwards;
+}
+
+/* Shimmer */
+@keyframes neu-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.neuromorphic-page .neu-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.neuromorphic-page .neu-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: neu-shimmer 1.5s infinite;
+}
+
+/* Skeleton */
+@keyframes neu-skeleton {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.neuromorphic-page .neu-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--neu-bg-secondary) 25%,
+    var(--neu-bg-primary) 50%,
+    var(--neu-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: neu-skeleton 1.5s infinite;
+}
+
+/* Chart bar animation */
+@keyframes neu-grow-up {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.neuromorphic-page .neu-chart-bar {
+  animation: neu-grow-up 0.8s ease-out;
+  transform-origin: bottom;
+}
+
+/* Tooltip */
+.neuromorphic-page .neu-tooltip-container:hover .neu-tooltip,
+.neuromorphic-page .neu-tooltip-container:focus-within .neu-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.neuromorphic-page .neu-tooltip {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(4px);
+  transition: all var(--transition-fast);
+}
+
+/* Tab active state */
+.neuromorphic-page .neu-tab-btn[aria-selected="true"] {
+  background: linear-gradient(145deg, #7c3aed, #6d28d9);
+  color: white;
+  box-shadow:
+    4px 4px 8px var(--neu-shadow-dark),
+    -4px -4px 8px var(--neu-shadow-light);
+}
+
+.neuromorphic-page .neu-tab-btn[aria-selected="false"] {
+  color: #6b7280;
+}
+
+.neuromorphic-page.neuromorphic-dark .neu-tab-btn[aria-selected="false"] {
+  color: #9ca3af;
+}
+
+/* Accordion panel */
+.neuromorphic-page .neu-accordion-panel {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+/* Custom scrollbar */
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--neu-bg-secondary);
+  border-radius: 4px;
+}
+
+.neuromorphic-page .neu-custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(145deg, var(--neu-shadow-dark), #9ca0a6);
+  border-radius: 4px;
+}
+
+/* Modal backdrop */
+.neuromorphic-page .neu-modal-backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+/* Progress fill */
+.neuromorphic-page .neu-progress-fill {
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  transition: width 0.3s ease;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .neuromorphic-page *,
+  .neuromorphic-page *::before,
+  .neuromorphic-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

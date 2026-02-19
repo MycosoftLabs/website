@@ -225,7 +225,7 @@ export function ChemistryWidget({
                 "px-2 py-1 rounded-xl text-xs shrink-0 transition-all border backdrop-blur-sm",
                 i === selectedIndex
                   ? "bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-400 font-medium shadow-sm"
-                  : "bg-card/40 border-white/5 hover:bg-card/60 hover:shadow-sm"
+                  : "bg-card/40 border-border hover:bg-card/60 hover:shadow-sm"
               )}
             >
               {c.name}
@@ -383,7 +383,7 @@ export function ChemistryWidget({
 function PropTile({ label, value, wide }: { label: string; value: string | number | null | undefined; wide?: boolean }) {
   if (value == null || value === "") return null
   return (
-    <div className={cn("rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5", wide && "col-span-2")}>
+    <div className={cn("rounded-lg bg-muted/20 border border-border px-3 py-2.5", wide && "col-span-2")}>
       <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium">{label}</p>
       <p className="mt-0.5 text-sm font-semibold break-all leading-tight">{String(value)}</p>
     </div>
@@ -466,12 +466,12 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
           style={{ maxHeight: "min(90vh, 700px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Header ─────────────────────────────────────────────── */}
-          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="p-2 bg-purple-500/15 rounded-lg shrink-0 mt-0.5">
               <FlaskConical className="h-5 w-5 text-purple-400" />
             </div>
@@ -569,7 +569,7 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
 
                 {/* Description */}
                 {data.description && (
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
+                  <div className="rounded-lg bg-muted/20 border border-border px-4 py-3">
                     <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-1.5">About</p>
                     <p className="text-xs text-foreground/85 leading-relaxed">{data.description}</p>
                   </div>
@@ -590,14 +590,14 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
 
                 {/* IUPAC name — shown separately, clearly labelled */}
                 {data.iupac_name && (
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
+                  <div className="rounded-lg bg-muted/20 border border-border px-4 py-3">
                     <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium mb-1">IUPAC Systematic Name</p>
                     <p className="text-xs font-mono break-words leading-relaxed text-foreground/80">{data.iupac_name}</p>
                   </div>
                 )}
 
                 {/* Structure identifiers — collapsible */}
-                <div className="rounded-lg border border-white/6 overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <button
                     className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/4 transition-colors"
                     onClick={() => setShowSMILES(v => !v)}
@@ -606,7 +606,7 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
                     <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", showSMILES && "rotate-180")} />
                   </button>
                   {showSMILES && (
-                    <div className="px-4 pb-4 space-y-3 border-t border-white/6">
+                    <div className="px-4 pb-4 space-y-3 border-t border-border">
                       {(data.isomeric_smiles || data.canonical_smiles) && (
                         <div>
                           <div className="flex items-center justify-between mb-1">
@@ -654,7 +654,7 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {data.synonyms.slice(0, 8).map((s: string, i: number) => (
-                        <span key={i} className="text-[10px] bg-muted/30 border border-white/8 rounded-lg px-2 py-0.5 break-words max-w-full text-muted-foreground">
+                        <span key={i} className="text-[10px] bg-muted/30 border border-border rounded-lg px-2 py-0.5 break-words max-w-full text-muted-foreground">
                           {s}
                         </span>
                       ))}
@@ -666,7 +666,7 @@ function CompoundDetailModal({ compound, onClose }: { compound: CompoundResult; 
           </div>
 
           {/* ── Footer ─────────────────────────────────────────────── */}
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-border">
             {data?.source_url ? (
               <a href={data.source_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-purple-400 transition-colors">

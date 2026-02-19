@@ -147,7 +147,7 @@ export function HeroSearch() {
             >
               <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
             </video>
-            <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background/90" />
           </div>
 
           {/* Content */}
@@ -169,13 +169,13 @@ export function HeroSearch() {
                     priority
                   />
                 </div>
-                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-to-r from-foreground via-foreground/90 to-foreground/80 bg-clip-text text-transparent">
                   Mycosoft
                 </h1>
               </motion.div>
               
               <motion.p 
-                className="text-base sm:text-lg md:text-xl text-gray-300 text-center flex items-center gap-2"
+                className="text-base sm:text-lg md:text-xl text-foreground/80 text-center flex items-center gap-2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
@@ -196,14 +196,14 @@ export function HeroSearch() {
               <div 
                 className={cn(
                   "relative flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl",
-                  "bg-white/10 backdrop-blur-md border border-white/20",
-                  "shadow-2xl shadow-black/20",
+                  "bg-background/60 dark:bg-white/10 backdrop-blur-md border border-border dark:border-white/20",
+                  "shadow-2xl shadow-black/10 dark:shadow-black/20",
                   "transition-all duration-300",
-                  isFocused && "bg-white/15 border-white/30 shadow-primary/20"
+                  isFocused && "bg-background/80 dark:bg-white/15 border-primary/30 dark:border-white/30 shadow-primary/20"
                 )}
               >
                 {/* Search Icon */}
-                <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-gray-400 shrink-0" />
+                <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-muted-foreground shrink-0" />
                 
                 {/* Input */}
                 <input
@@ -221,7 +221,7 @@ export function HeroSearch() {
                   placeholder={animatedPlaceholder || "Search fungi, compounds..."}
                   className={cn(
                     "flex-1 bg-transparent text-base sm:text-lg md:text-xl",
-                    "text-white placeholder:text-gray-400 placeholder:text-sm sm:placeholder:text-base",
+                    "text-foreground placeholder:text-muted-foreground placeholder:text-sm sm:placeholder:text-base",
                     "focus:outline-none",
                     "min-w-0"
                   )}
@@ -239,7 +239,7 @@ export function HeroSearch() {
                       onClick={() => setQuery("")}
                       className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
                     >
-                      <X className="h-4 w-4 text-gray-400" />
+                      <X className="h-4 w-4 text-muted-foreground" />
                     </motion.button>
                   )}
                 </AnimatePresence>
@@ -256,8 +256,8 @@ export function HeroSearch() {
                     isListening 
                       ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50" 
                       : isConnected 
-                        ? "bg-white/10 hover:bg-white/20 text-gray-300"
-                        : "bg-white/5 text-gray-500",
+                        ? "bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 text-foreground/90"
+                        : "bg-white/5 dark:bg-white/5 text-muted-foreground",
                     connectionState === "connecting" && "animate-pulse"
                   )}
                   title={
@@ -291,7 +291,7 @@ export function HeroSearch() {
                     "p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
                     query.trim()
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : "bg-white/10 text-gray-500"
+                      : "bg-background/40 dark:bg-white/10 text-muted-foreground"
                   )}
                 >
                   {isSearching ? (
@@ -327,7 +327,7 @@ export function HeroSearch() {
               transition={{ delay: 0.5, duration: 0.5 }}
               className="flex flex-wrap items-center justify-center gap-2 mt-4 sm:mt-6 sm:gap-3 sm:mt-8"
             >
-              <span className="text-xs text-gray-500 hidden sm:inline">Try:</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Try:</span>
               {[
                 { term: "Amanita", phoneVisible: true },
                 { term: "Psilocybin", phoneVisible: true },
@@ -345,8 +345,8 @@ export function HeroSearch() {
                   }}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-xs sm:text-sm",
-                    "bg-white/10 hover:bg-white/20 active:bg-white/30 text-gray-300",
-                    "border border-white/10 hover:border-white/25",
+                    "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground",
+                    "border border-border dark:border-white/10 dark:hover:border-white/25",
                     "transition-all duration-200 cursor-pointer select-none",
                     !phoneVisible && "hidden sm:inline-flex"
                   )}
@@ -354,7 +354,7 @@ export function HeroSearch() {
                   {term}
                 </button>
               ))}
-              <div className="hidden md:flex items-center gap-1 text-xs text-gray-500 ml-2">
+              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2">
                 <Command className="h-3 w-3" />
                 <span>K for commands</span>
               </div>

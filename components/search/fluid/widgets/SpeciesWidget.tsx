@@ -318,12 +318,12 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
           style={{ maxHeight: "min(90vh, 700px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="p-2 bg-emerald-500/15 rounded-lg shrink-0 mt-0.5">
               <Leaf className="h-5 w-5 text-emerald-400" />
             </div>
@@ -376,7 +376,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                 {/* Photo gallery */}
                 {photos.length > 0 && (
                   <div className="space-y-2">
-                    <div className="relative rounded-xl overflow-hidden bg-muted/20 border border-white/8" style={{ height: "220px" }}>
+                    <div className="relative rounded-xl overflow-hidden bg-muted/20 border border-border" style={{ height: "220px" }}>
                       <Image
                         src={mainPhoto?.url || mainPhoto?.large_url || ""}
                         alt={displayName}
@@ -435,14 +435,14 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2">
                   {(data?.observation_count ?? species.observationCount ?? 0) > 0 && (
-                    <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                    <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 text-center">
                       <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Observations</p>
                       <p className="mt-0.5 text-sm font-bold tabular-nums text-emerald-400">
                         {((data?.observation_count ?? species.observationCount) || 0).toLocaleString()}
                       </p>
                     </div>
                   )}
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 text-center">
+                  <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 text-center">
                     <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Rank</p>
                     <p className="mt-0.5 text-sm font-bold capitalize">{data?.rank || species.rank || "Species"}</p>
                   </div>
@@ -474,7 +474,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                     <p className="text-xs text-foreground/85 leading-relaxed">{description}</p>
                   </div>
                 ) : !loading && (
-                  <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3 text-center">
+                  <div className="rounded-lg bg-muted/20 border border-border px-4 py-3 text-center">
                     <p className="text-xs text-muted-foreground italic">Description not yet available. Loading from Wikipedia…</p>
                   </div>
                 )}
@@ -486,7 +486,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
                       <TreeDeciduous className="h-3.5 w-3.5 text-muted-foreground/60" />
                       <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium">Taxonomy</p>
                     </div>
-                    <div className="rounded-lg bg-muted/20 border border-white/6 px-4 py-3">
+                    <div className="rounded-lg bg-muted/20 border border-border px-4 py-3">
                       <div className="space-y-1">
                         {taxonomyLevels.map((l, i) => {
                           // Build fully internal URL — never links to iNaturalist
@@ -528,7 +528,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
           </div>
 
           {/* Footer — cross-widget explore links (all in-app, no external navigation) */}
-          <div className="shrink-0 px-5 py-3 border-t border-white/8 space-y-2.5">
+          <div className="shrink-0 px-5 py-3 border-t border-border space-y-2.5">
             <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-medium">Explore in search results</p>
             <div className="flex flex-wrap items-center gap-1.5">
               {[
@@ -681,7 +681,7 @@ export function SpeciesWidget({
       <>
       <div className={cn("flex items-center gap-2", className)} draggable onDragStart={handleDragStart}>
           {/* Always show image — even in compact mode */}
-          <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-muted/40 shrink-0 border border-white/10">
+          <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-muted/40 shrink-0 border border-border">
             {mainPhoto ? (
               <Image
                 src={mainPhoto.medium_url || mainPhoto.url}
@@ -738,10 +738,10 @@ export function SpeciesWidget({
           <div className={cn(
             "rounded-xl border px-3 py-2.5 space-y-1.5",
             pinnedLoading
-              ? "bg-muted/20 border-white/8"
+              ? "bg-muted/20 border-border"
               : pinnedData
                 ? "bg-emerald-500/8 border-emerald-500/20"
-                : "bg-muted/10 border-white/6"
+                : "bg-muted/10 border-border"
           )}>
             <div className="flex items-center gap-1.5">
               <Leaf className="h-3 w-3 text-emerald-400 shrink-0" />
@@ -829,7 +829,7 @@ export function SpeciesWidget({
       <div className="flex gap-3 items-start">
         {/* Photo column */}
           <div className="shrink-0 flex flex-col gap-1.5">
-            <div className="relative rounded-xl overflow-hidden bg-muted/30 shadow-inner border border-white/10"
+            <div className="relative rounded-xl overflow-hidden bg-muted/30 shadow-inner border border-border"
               style={{ width: 110, height: 110 }}>
               {mainPhoto ? (
                 <Image
@@ -852,7 +852,7 @@ export function SpeciesWidget({
             {photos.length > 1 && (
               <div className="flex gap-0.5">
                 {photos.slice(1, 5).map((photo, i) => (
-                  <div key={(photo as any).id || i} className="relative w-[24px] h-[24px] rounded overflow-hidden bg-muted border border-white/8">
+                  <div key={(photo as any).id || i} className="relative w-[24px] h-[24px] rounded overflow-hidden bg-muted border border-border">
                     <Image src={(photo as any).medium_url || photo.url} alt="" fill className="object-cover" sizes="24px" unoptimized />
                   </div>
                 ))}

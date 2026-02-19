@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+  <title>SporeBase product icon</title>
+  <rect x="8" y="16" width="48" height="36" rx="4" />
+  <circle cx="32" cy="34" r="8" />
+  <path d="M20 28h6M38 28h6M32 20v6M32 42v6" />
+</svg>

@@ -111,12 +111,12 @@ function NewsReadingModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97 }}
           transition={{ type: "spring", damping: 30, stiffness: 380 }}
-          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-white/10 bg-[#0f1117] shadow-2xl"
+          className="relative z-10 w-full max-w-2xl flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
           style={{ maxHeight: "min(88vh, 700px)" }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-start gap-3 px-5 py-4 border-b border-white/8 shrink-0">
+          <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="p-2 bg-yellow-500/15 rounded-lg shrink-0 mt-0.5">
               <Newspaper className="h-5 w-5 text-yellow-400" />
             </div>
@@ -167,7 +167,7 @@ function NewsReadingModal({
                   <p className="text-sm text-foreground/85 leading-relaxed">{article.summary}</p>
                 </div>
               ) : (
-                <div className="rounded-xl bg-muted/20 border border-white/6 px-4 py-6 text-center">
+                <div className="rounded-xl bg-muted/20 border border-border px-4 py-6 text-center">
                   <BookOpen className="h-6 w-6 mx-auto mb-2 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">No preview available for this article.</p>
                   {article.url && (
@@ -177,7 +177,7 @@ function NewsReadingModal({
               )}
 
               {/* Source details */}
-              <div className="rounded-lg bg-muted/20 border border-white/6 px-3 py-2.5 flex items-center gap-2">
+              <div className="rounded-lg bg-muted/20 border border-border px-3 py-2.5 flex items-center gap-2">
                 <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Source</p>
@@ -188,7 +188,7 @@ function NewsReadingModal({
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-white/8">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-border">
             {/* External link — secondary, opt-in only */}
             {article.url ? (
               <a
@@ -297,7 +297,7 @@ export function NewsWidget({
       case "industry": return "bg-green-500/20 text-green-300"
       case "event": return "bg-purple-500/20 text-purple-300"
       case "discovery": return "bg-yellow-500/20 text-yellow-300"
-      default: return "bg-gray-500/20 text-gray-300"
+      default: return "bg-muted/40 text-muted-foreground"
     }
   }
 
@@ -359,7 +359,7 @@ export function NewsWidget({
             className={cn(
               "group relative rounded-xl overflow-hidden cursor-pointer",
               "bg-gradient-to-r from-yellow-500/10 to-orange-500/10",
-              "border border-white/10 hover:border-yellow-500/40",
+              "border border-border hover:border-yellow-500/40",
               "transition-all duration-200 hover:scale-[1.01]",
               savedIds.has(article.id) && "border-yellow-500/30"
             )}

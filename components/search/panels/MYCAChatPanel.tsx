@@ -248,7 +248,7 @@ export function MYCAChatPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header with consciousness status */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <div className="relative">
             <Brain className="h-4 w-4 text-violet-500" />
@@ -278,7 +278,7 @@ export function MYCAChatPanel() {
 
       {/* Recent searches */}
       {searchSummaries.length > 0 && (
-        <div className="px-3 py-1.5 border-b border-white/5 shrink-0">
+        <div className="px-3 py-1.5 border-b border-border shrink-0">
           <div className="flex flex-wrap gap-1">
             {searchSummaries.map((msg) => (
               <Button
@@ -315,7 +315,7 @@ export function MYCAChatPanel() {
                 "text-xs leading-relaxed rounded-xl p-2",
                 msg.role === "user"
                   ? "bg-primary/10 ml-6"
-                  : "bg-card/60 backdrop-blur-sm border border-white/5 mr-3"
+                  : "bg-card/60 backdrop-blur-sm border border-border mr-3"
               )}
             >
               {msg.role === "assistant" && (
@@ -332,7 +332,7 @@ export function MYCAChatPanel() {
               animate={{ opacity: 1, y: 0 }}
               className={cn(
                 "text-xs leading-relaxed rounded-xl p-2",
-                "bg-card/60 backdrop-blur-sm border border-white/5 mr-3"
+                "bg-card/60 backdrop-blur-sm border border-border mr-3"
               )}
             >
               <div className="flex items-center gap-1 mb-1 text-[9px] text-violet-500 font-medium">
@@ -351,7 +351,7 @@ export function MYCAChatPanel() {
       </div>
 
       {/* Input */}
-      <div className="p-2 border-t border-white/5 shrink-0">
+      <div className="p-2 border-t border-border shrink-0">
         <div className="flex gap-1.5">
           <Input
             value={input}

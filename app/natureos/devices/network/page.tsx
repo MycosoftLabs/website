@@ -73,12 +73,14 @@ export default function DeviceNetworkPage() {
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [serviceStatus, setServiceStatus] = useState<"checking" | "online" | "offline">("checking")
+  const [discoverHint, setDiscoverHint] = useState<string | null>(null)
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [quickAction, setQuickAction] = useState<string | null>(null)
   const router = useRouter()
 
   const fetchDevices = async () => {
+    setDiscoverHint(null)
     try {
       // Fetch from both local discover and MAS network registry in parallel
       const [discoverRes, networkRes] = await Promise.allSettled([
@@ -93,6 +95,7 @@ export default function DeviceNetworkPage() {
       if (discoverRes.status === "fulfilled" && discoverRes.value.ok) {
         const discoverData = await discoverRes.value.json()
         console.log("[fetchDevices] Discover API returned", discoverData.devices?.length || 0, "devices")
+        setDiscoverHint(discoverData.hint ?? null)
         for (const device of discoverData.devices || []) {
           if (!seenDeviceIds.has(device.deviceId)) {
             seenDeviceIds.add(device.deviceId)
@@ -613,6 +616,11 @@ export default function DeviceNetworkPage() {
               <p className="text-muted-foreground text-center mb-6 max-w-md">
                 No MycoBrain devices discovered. Make sure devices are connected via USB and the MycoBrain service is running.
               </p>
+              {discoverHint && (
+                <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 mb-6 max-w-lg text-left text-sm text-amber-800 dark:text-amber-200">
+                  {discoverHint}
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button onClick={handleScan} disabled={scanning}>
                   <RefreshCw className={`h-4 w-4 mr-2 ${scanning ? "animate-spin" : ""}`} />

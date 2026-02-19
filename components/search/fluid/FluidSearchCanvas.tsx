@@ -1111,14 +1111,14 @@ export function FluidSearchCanvas({
                     }}
                     transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.9 }}
                     className={cn(
-                      "bg-card/90 backdrop-blur-md border border-white/10 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full flex flex-col",
+                      "bg-card/90 backdrop-blur-md border border-border rounded-xl sm:rounded-2xl overflow-hidden shadow-xl h-full flex flex-col",
                       // Height classes based on widget size
                       currentSize.height === 1 && "min-h-[200px]",
                       currentSize.height === 2 && "min-h-[350px]",
                       currentSize.height === 3 && "min-h-[500px]",
                     )}
                   >
-                    <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10 shrink-0", `bg-gradient-to-r ${config.gradient}`)}>
+                    <div className={cn("flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border shrink-0", `bg-gradient-to-r ${config.gradient}`)}>
                       {/* Drag handle - users can drag by this */}
                       <div className="flex items-center gap-1.5 sm:gap-2 widget-drag-handle cursor-grab active:cursor-grabbing">
                         <GripVertical className="h-3.5 w-3.5 sm:h-3 sm:w-3 text-muted-foreground" />
