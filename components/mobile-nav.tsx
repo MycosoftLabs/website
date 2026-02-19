@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { AnimatePresence, motion } from "framer-motion"
-import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind } from "lucide-react"
+import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Chat } from "@/components/chat/chat"
@@ -226,6 +226,12 @@ export function MobileNav() {
                   Search
                 </Link>
                 
+                {/* About Us - Direct Link */}
+                <Link href="/about" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                  <Users className="h-5 w-5" />
+                  About Us
+                </Link>
+
                 {/* Defense - Expandable */}
                 <ExpandableSection
                   title="Defense"

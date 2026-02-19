@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ParticleCanvas } from "@/components/effects/particle-canvas"
+import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
 import { teamMembers } from "@/lib/team-data"
 import { DEVICES } from "@/lib/devices"
 import {
@@ -13,7 +15,6 @@ import {
   Shield,
   ChevronRight,
   ExternalLink,
-  Play,
   CircuitBoard,
   Bot,
   Server,
@@ -24,6 +25,11 @@ import {
   Globe,
   Zap,
 } from "lucide-react"
+
+// NAS video — mounted at /assets/ in the production Docker container
+const HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
+// Fallback poster shown in local dev (NAS not mounted) or while video buffers
+const HERO_POSTER = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rs=w_1160,h_663-ESVi80C1sa4fkioBNtFcVtPlY1TkSq.webp"
 
 // Technology Pillars - AI, Defense, Biological Compute
 const technologyPillars = [
@@ -102,45 +108,62 @@ export default function AboutPage() {
     <div className="min-h-dvh bg-background">
       {/* Hero Section */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-green-950/90 via-background/80 to-background z-10" />
-          <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rs=w_1160,h_663-ESVi80C1sa4fkioBNtFcVtPlY1TkSq.webp"
-            alt="Mycelium network visualization"
-            fill
-            className="object-cover opacity-40"
-            priority
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px] z-20" />
-        </div>
+        {/* Background video — silent loop, no controls */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={HERO_POSTER}
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src={HERO_VIDEO_SRC} type="video/mp4" />
+        </video>
 
-        <div className="relative z-30 container max-w-6xl mx-auto px-4 md:px-6 text-center">
-          <Badge className="mb-6 bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
+        {/* Fallback image (local dev / while buffering) */}
+        <Image
+          src={HERO_POSTER}
+          alt="Mycelium network visualization"
+          fill
+          className="object-cover opacity-40 -z-10"
+          priority
+        />
+
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/60" />
+        {/* Grid texture */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
+
+        {/* Content */}
+        <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">
+          <Badge className="mb-6 bg-green-500/20 text-green-400 border-green-500/30">
             Est. 2021 · San Diego, CA
           </Badge>
-          
+
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6">
             <span className="bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">
               Mycelium
             </span>
             <br />
-            <span className="text-foreground">
+            <span className="text-white">
               Is The New Silicon
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Building the world's first biological computer by integrating fungal intelligence with modern technology.
+          <p className="text-lg md:text-xl text-white/75 max-w-2xl mx-auto mb-8">
+            Building the world&apos;s first biological computer by integrating fungal intelligence with modern technology.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="gap-2 bg-green-600 hover:bg-green-700 min-h-[44px]">
-              <Play className="h-4 w-4" />
-              Watch Our Story
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2 min-h-[44px]" asChild>
+            <Button size="lg" className="gap-2 bg-green-600 hover:bg-green-700 min-h-[44px]" asChild>
               <Link href="/devices">
                 Explore Devices
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="gap-2 min-h-[44px] border-white/30 text-white hover:bg-white/10" asChild>
+              <Link href="#about">
+                Learn More
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -188,32 +211,43 @@ export default function AboutPage() {
       </section>
 
       {/* About Mycosoft — Nature Compute Manifesto */}
-      <section className="py-16 md:py-24 bg-muted/30">
-        <div className="container max-w-6xl mx-auto px-4 md:px-6">
+      <section
+        id="about"
+        className="relative py-16 md:py-24 overflow-hidden"
+        style={{ backgroundColor: "#031927" }}
+      >
+        {/* Particle animation background */}
+        <ParticleCanvas className="absolute inset-0 w-full h-full" />
+        {/* Subtle dark vignette so text stays readable */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#031927]/60 via-transparent to-[#031927]/60 pointer-events-none" />
+
+        <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">About Mycosoft</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">Building the Earth Computer</h2>
-            <p className="text-green-500 font-medium text-lg">Nature Compute — where biological intelligence meets modern systems</p>
+            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">About Mycosoft</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white">Building the Earth Computer</h2>
+            <p className="text-green-400 font-medium text-lg">Nature Compute — where biological intelligence meets modern systems</p>
           </div>
 
           {/* Opening */}
           <div className="max-w-3xl mx-auto mb-16 text-center space-y-5">
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-lg text-white/70 leading-relaxed">
               Beneath our feet exists the largest distributed network on Earth: mycelium. These fungal networks sense, communicate, adapt, and respond to environmental change in real time — processing information across thousands of kilometers through chemical and bioelectric signals that predate silicon by 700 million years.
             </p>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-lg text-white/70 leading-relaxed">
               Mycosoft designs the hardware, software, and AI systems that interface directly with these living networks — transforming biological signals into actionable intelligence. We are not replacing nature. We are learning to communicate with it.
             </p>
           </div>
 
           {/* What We Build */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 items-center">
-            <div>
-              <h3 className="text-2xl font-bold mb-4">What We Build</h3>
-              <p className="text-muted-foreground mb-6">
+
+            {/* Glass card wrapping the whole "What We Build" column */}
+            <div className="p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+              <h3 className="text-2xl font-bold mb-3 text-white">What We Build</h3>
+              <p className="text-white/75 mb-6 text-sm leading-relaxed">
                 Mycosoft develops an integrated stack that spans physical hardware, edge computing, cloud platforms, and autonomous AI — purpose-built for environmental sensing and biological intelligence.
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {[
                   { icon: Cpu, label: "Biological sensing hardware", desc: "Mushroom 1, MycoNode, SporeBase, ALARM, Hyphae 1" },
                   { icon: Zap, label: "Edge AI & mesh networks", desc: "MycoBrain compute module, Mycorrhizae Protocol, LoRa mesh" },
@@ -221,34 +255,41 @@ export default function AboutPage() {
                   { icon: CircuitBoard, label: "Fungal Computer Interface (FCI)", desc: "Translates mycelial bioelectric signals into digital data streams" },
                   { icon: Brain, label: "MYCA", desc: "Autonomous multi-agent AI system — 117+ agents, 200+ API endpoints" },
                 ].map(({ icon: Icon, label, desc }) => (
-                  <div key={label} className="flex gap-3 p-3 rounded-lg hover:bg-background/60 transition-colors">
-                    <div className="mt-0.5 shrink-0">
-                      <Icon className="h-5 w-5 text-green-500" />
+                  <div
+                    key={label}
+                    className="flex gap-3 p-3 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-green-500/30 transition-all"
+                  >
+                    <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-green-500/15">
+                      <Icon className="h-4 w-4 text-green-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
+                      <p className="font-semibold text-sm text-white">{label}</p>
+                      <p className="text-xs text-white/65">{desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-sm text-muted-foreground mt-4">
-                Together, these systems create a persistent sensing layer across soil, air, and built environments — what we call <span className="text-green-500 font-medium">Operational Environmental Intelligence (OEI)</span>.
+              <p className="text-sm text-white/65 mt-4 pt-4 border-t border-white/10">
+                Together, these systems create a persistent sensing layer across soil, air, and built environments — what we call <span className="text-green-400 font-medium">Operational Environmental Intelligence (OEI)</span>.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-2xl font-bold mb-4">Why It Matters</h3>
-              <div className="p-5 rounded-xl border border-border bg-background/60">
-                <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
+            {/* Glass card wrapping the whole "Why It Matters" column */}
+            <div className="p-6 rounded-2xl border border-white/10 bg-black/45 backdrop-blur-md">
+              <h3 className="text-2xl font-bold mb-3 text-white">Why It Matters</h3>
+
+              {/* Description block */}
+              <div className="p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm mb-3">
+                <p className="text-white/80 mb-4 text-sm leading-relaxed">
                   Modern sensing infrastructure monitors the sky and the surface. Almost no one monitors the biological layer below ground. Environmental degradation, contamination, biological threats, and infrastructure stress all manifest first in microbial and fungal ecosystems.
                 </p>
-                <p className="text-muted-foreground text-sm leading-relaxed">
+                <p className="text-white/80 text-sm leading-relaxed">
                   Mycosoft provides the missing layer — continuous, in-situ biological telemetry — integrating with enterprise dashboards, defense systems, and scientific research platforms.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Bullet widgets */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[
                   "Early detection of environmental anomalies",
                   "Infrastructure resilience monitoring",
@@ -257,9 +298,12 @@ export default function AboutPage() {
                   "Climate-adaptive land management",
                   "Biosecurity & contamination response",
                 ].map((item) => (
-                  <div key={item} className="flex items-start gap-2 p-3 rounded-lg bg-background/60 border border-border/50">
-                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 mt-1.5 shrink-0" />
-                    <p className="text-xs text-muted-foreground">{item}</p>
+                  <div
+                    key={item}
+                    className="flex items-start gap-2.5 p-3 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-green-500/30 transition-all"
+                  >
+                    <div className="h-1.5 w-1.5 rounded-full bg-green-400 mt-1.5 shrink-0" />
+                    <p className="text-xs text-white/80 leading-relaxed">{item}</p>
                   </div>
                 ))}
               </div>
@@ -268,27 +312,27 @@ export default function AboutPage() {
 
           {/* Philosophy + Mission */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-xl border border-green-500/20 bg-green-500/5">
+            <div className="p-6 rounded-xl border border-green-500/30 bg-green-500/5 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Leaf className="h-5 w-5 text-green-500" />
-                <h3 className="font-bold text-lg">Our Philosophy</h3>
+                <Leaf className="h-5 w-5 text-green-400" />
+                <h3 className="font-bold text-lg text-white">Our Philosophy</h3>
               </div>
-              <div className="space-y-3 text-sm text-muted-foreground">
+              <div className="space-y-3 text-sm text-white/60">
                 <p>Technology should not dominate nature. It should understand it.</p>
                 <p>Mycosoft is built on biological respect, decentralized intelligence, and ethical machine autonomy. Our systems are sustainable, low-power, biodegradable where possible, and aligned with environmental stewardship.</p>
-                <p className="text-foreground font-medium">The future of computing is not purely silicon. It is hybrid — biological and digital.</p>
+                <p className="text-white font-medium">The future of computing is not purely silicon. It is hybrid — biological and digital.</p>
               </div>
             </div>
-            <div className="p-6 rounded-xl border border-border bg-background/60">
+            <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Globe className="h-5 w-5 text-green-500" />
-                <h3 className="font-bold text-lg">Our Mission</h3>
+                <Globe className="h-5 w-5 text-green-400" />
+                <h3 className="font-bold text-lg text-white">Our Mission</h3>
               </div>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>To unlock Earth's computational layer and transform environmental signals into intelligence that protects ecosystems, strengthens infrastructure, and advances scientific discovery.</p>
+              <div className="space-y-3 text-sm text-white/60">
+                <p>To unlock Earth&apos;s computational layer and transform environmental signals into intelligence that protects ecosystems, strengthens infrastructure, and advances scientific discovery.</p>
                 <p>This is not just environmental monitoring.</p>
                 <p>This is a new intelligence domain.</p>
-                <p className="text-green-500 font-bold text-base">This is Nature Compute.</p>
+                <p className="text-green-400 font-bold text-base">This is Nature Compute.</p>
               </div>
             </div>
           </div>
@@ -313,12 +357,12 @@ export default function AboutPage() {
               <Link href={`/about/team/${morgan.slug}`}>
                 <Card className="group hover:border-green-500/50 transition-all cursor-pointer overflow-hidden h-full">
                   <div className="grid md:grid-cols-2 h-full">
-                    <div className="relative aspect-square md:aspect-auto min-h-[250px]">
+                    <div className="relative aspect-square md:aspect-auto min-h-[250px] bg-slate-100 overflow-hidden">
                       <Image
                         src={morgan.image}
                         alt={morgan.name}
                         fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="object-contain group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                     <CardContent className="p-6 flex flex-col justify-center">
@@ -339,9 +383,14 @@ export default function AboutPage() {
             <Link href="/natureos/ai-studio">
               <Card className="group hover:border-purple-500/50 transition-all cursor-pointer overflow-hidden h-full bg-gradient-to-br from-purple-950/20 to-background">
                 <div className="grid md:grid-cols-2 h-full">
-                  <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-purple-500/5">
-                    <div className="p-8 rounded-full bg-purple-500/20 group-hover:scale-110 transition-transform duration-500">
-                      <Bot className="h-24 w-24 text-purple-400" />
+                  <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
+                    <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
+                      <Image
+                        src="/images/logos/myca-logo-square.png"
+                        alt="MYCA Logo"
+                        fill
+                        className="object-cover"
+                      />
                     </div>
                   </div>
                   <CardContent className="p-6 flex flex-col justify-center">
@@ -363,14 +412,14 @@ export default function AboutPage() {
             {coreTeam.map((member) => (
               <Link key={member.slug} href={`/about/team/${member.slug}`}>
                 <Card className="group hover:border-green-500/50 transition-all cursor-pointer overflow-hidden h-full">
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-slate-100">
                     <Image
                       src={member.image}
                       alt={member.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="object-contain group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/50 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-4">
                       <Badge className="mb-1 text-xs bg-green-500/20 text-green-400 border-green-500/30">
                         {member.role}
@@ -386,12 +435,17 @@ export default function AboutPage() {
       </section>
 
       {/* Devices Grid */}
-      <section className="py-16 md:py-24 bg-muted/30">
-        <div className="container max-w-7xl mx-auto px-4 md:px-6">
+      <section className="relative py-16 md:py-24 overflow-hidden" style={{ backgroundColor: "#020c06" }}>
+        {/* Neural network background — lazy starts on scroll */}
+        <NeuralNetworkCanvas className="absolute inset-0 w-full h-full" />
+        {/* Vignette to keep device cards readable */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#020c06]/50 via-transparent to-[#020c06]/50 pointer-events-none" />
+
+        <div className="relative z-10 container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">Hardware</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Our Devices</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
+            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">Hardware</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Our Devices</h2>
+            <p className="text-white/60 max-w-2xl mx-auto">
               Five devices bridging biological and digital worlds.
             </p>
           </div>
@@ -399,7 +453,7 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {DEVICES.map((device) => (
               <Link key={device.id} href={`/devices/${device.id}`}>
-                <Card className="group hover:border-green-500/50 transition-all cursor-pointer h-full">
+                <Card className="group hover:border-green-500/60 transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm border-white/10">
                   <div className="relative aspect-square overflow-hidden rounded-t-lg">
                     <Image
                       src={device.image}
@@ -410,15 +464,15 @@ export default function AboutPage() {
                   </div>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold">{device.name}</h3>
+                      <h3 className="font-bold text-white">{device.name}</h3>
                       <Badge
                         variant={device.status === "In Stock" ? "default" : "outline"}
-                        className={`text-xs ${device.status === "In Stock" ? "bg-green-500" : ""}`}
+                        className={`text-xs ${device.status === "In Stock" ? "bg-green-500" : "border-white/20 text-white/60"}`}
                       >
                         {device.status}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{device.tagline}</p>
+                    <p className="text-xs text-white/60 line-clamp-2">{device.tagline}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -426,7 +480,7 @@ export default function AboutPage() {
           </div>
 
           <div className="text-center mt-8">
-            <Button variant="outline" className="gap-2 min-h-[44px]" asChild>
+            <Button variant="outline" className="gap-2 min-h-[44px] border-white/20 text-white hover:bg-white/10" asChild>
               <Link href="/devices">
                 View All Devices
                 <ArrowRight className="h-4 w-4" />
@@ -476,27 +530,40 @@ export default function AboutPage() {
       </section>
 
       {/* Why Mycosoft - Closing Statement */}
-      <section className="py-16 md:py-24 relative overflow-hidden bg-muted/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-950/30 to-background z-0" />
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.02)_1px,transparent_1px)] bg-[size:60px_60px] z-10" />
-        
-        <div className="container max-w-4xl mx-auto px-4 md:px-6 relative z-20">
+      <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center">
+        {/* Background video — silent loop */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/assets/about us/10343918-hd_1920_1080_24fps.mp4" type="video/mp4" />
+        </video>
+
+        {/* Dark overlay so text is legible */}
+        <div className="absolute inset-0 bg-black/65" />
+        {/* Subtle green tint layer */}
+        <div className="absolute inset-0 bg-gradient-to-br from-green-950/40 via-transparent to-black/40" />
+
+        <div className="container max-w-4xl mx-auto px-4 md:px-6 relative z-10">
           <div className="text-center">
-            <Badge variant="outline" className="mb-4">Why Mycosoft</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-8">
+            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">Why Mycosoft</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-white">
               The Only Company Building
               <br />
-              <span className="text-green-500">Biological Computers</span>
+              <span className="text-green-400">Biological Computers</span>
             </h2>
-            
-            <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
+
+            <div className="space-y-6 text-lg text-white/75 leading-relaxed">
               <p>
                 No other company has built hardware that interfaces directly with living fungal networks. No other company has deployed a persistent mycelial sensor mesh at scale. No other company has a decade of original research connecting biological signaling to digital computation.
               </p>
               <p>
                 Mycosoft exists because the future of computing must grow rather than manufacture. Silicon requires rare earth mining, toxic fabrication, and massive energy consumption. Mycelium requires substrate, patience, and respect for living systems.
               </p>
-              <p className="text-foreground font-medium">
+              <p className="text-white font-medium">
                 We are foundational to sustainable computing, environmental defense, and the emerging field of biological intelligence. The next century of technology will be built on what we are growing today.
               </p>
             </div>
