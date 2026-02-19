@@ -198,7 +198,7 @@ export function DNASequenceViewer({
         <div className="space-y-1">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sequence</span>
           <div className="relative">
-            <pre className="text-[10px] font-mono leading-relaxed bg-black/40 border border-white/8 rounded-lg p-3 overflow-y-auto max-h-36 break-all whitespace-pre-wrap w-full select-all">
+            <pre className="text-[10px] font-mono leading-relaxed bg-gray-100 dark:bg-gray-800/60 border border-gray-200 dark:border-white/10 rounded-lg p-3 overflow-y-auto max-h-36 break-all whitespace-pre-wrap w-full select-all">
               {displaySeq.split("").map((b, i) => (
                 <span key={i} style={{ color: baseColor(b) }}>{b}</span>
               ))}
