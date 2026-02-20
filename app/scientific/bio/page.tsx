@@ -1,10 +1,15 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from '@/components/ui/neuromorphic'
 import { Progress } from '@/components/ui/progress'
 import { FCIMonitor } from '@/components/scientific/fci-monitor'
 import { ElectrodeMap } from '@/components/scientific/electrode-map'
@@ -49,6 +54,7 @@ export default function BioPage() {
   const totalElectrodes = electrodeStatus.length || 64
 
   return (
+    <NeuromorphicProvider>
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -57,71 +63,71 @@ export default function BioPage() {
         </div>
         <div className="flex items-center gap-2">
           {isLive ? (
-            <Badge className="bg-green-500"><Activity className="h-3 w-3 mr-1" /> Live</Badge>
+            <NeuBadge variant="success"><Activity className="h-3 w-3 mr-1" /> Live</NeuBadge>
           ) : (
-            <Badge variant="outline">Cached</Badge>
+            <NeuBadge variant="warning">Cached</NeuBadge>
           )}
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Zap className="h-4 w-4 text-yellow-500" />
               FCI Sessions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{sessions.length}</div>
             <p className="text-xs text-muted-foreground">
               {sessions.filter(s => s.status === 'recording').length} recording
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4 text-green-500" />
               Electrodes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{totalElectrodes}</div>
             <p className="text-xs text-muted-foreground">{activeElectrodes} active</p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Brain className="h-4 w-4 text-purple-500" />
               MycoBrain
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className={`text-2xl font-bold ${mycobrain?.status === 'online' ? 'text-green-500' : 'text-gray-500'}`}>
               {mycobrain?.status || 'Loading...'}
             </div>
             <p className="text-xs text-muted-foreground">
               {mycobrain?.queuedJobs || 0} computations queued
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Cpu className="h-4 w-4 text-blue-500" />
               Signal Quality
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{signalQuality}%</div>
             <Progress value={signalQuality} className="mt-1 h-2" />
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       </div>
 
       <Tabs defaultValue="fci" className="space-y-4">
@@ -141,19 +147,19 @@ export default function BioPage() {
         </TabsContent>
         
         <TabsContent value="mycobrain">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>MycoBrain Neuromorphic Processor</CardTitle>
+          <NeuCard>
+            <NeuCardHeader className="flex flex-row items-center justify-between">
+              <h3>MycoBrain Neuromorphic Processor</h3>
               <div className="flex items-center gap-2">
-                <Badge className={mycobrain?.status === 'online' ? 'bg-green-500' : 'bg-gray-500'}>
+                <NeuBadge variant={mycobrain?.status === 'online' ? 'success' : 'default'}>
                   {mycobrain?.status || 'Loading'}
-                </Badge>
-                <Button size="sm" variant="ghost" onClick={fetchMycoBrain}>
+                </NeuBadge>
+                <NeuButton variant="default" onClick={fetchMycoBrain} className="py-2 px-3">
                   <RefreshCw className="h-4 w-4" />
-                </Button>
+                </NeuButton>
               </div>
-            </CardHeader>
-            <CardContent>
+            </NeuCardHeader>
+            <NeuCardContent>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
                 <div className="p-4 border rounded-lg text-center">
                   <p className="text-3xl font-bold text-blue-500">{mycobrain?.activeJobs || 0}</p>
@@ -182,17 +188,17 @@ export default function BioPage() {
                 ))}
               </div>
               
-              <Button className="w-full">Submit Computation</Button>
-            </CardContent>
-          </Card>
+              <NeuButton className="w-full" fullWidth>Submit Computation</NeuButton>
+            </NeuCardContent>
+          </NeuCard>
         </TabsContent>
         
         <TabsContent value="signals">
-          <Card>
-            <CardHeader>
-              <CardTitle>Signal Visualization</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <NeuCard>
+            <NeuCardHeader>
+              <h3>Signal Visualization</h3>
+            </NeuCardHeader>
+            <NeuCardContent>
               <div className="h-64 bg-muted rounded flex items-center justify-center border-2 border-dashed">
                 <div className="text-center">
                   <Activity className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -200,10 +206,11 @@ export default function BioPage() {
                   <p className="text-sm text-muted-foreground">Connect to WebSocket for live data</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </NeuCardContent>
+          </NeuCard>
         </TabsContent>
       </Tabs>
     </div>
+    </NeuromorphicProvider>
   )
 }

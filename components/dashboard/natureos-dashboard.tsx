@@ -138,10 +138,14 @@ function useRealDevices() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : ""
+
     async function fetchDevices() {
       try {
         // Fetch from NatureOS telemetry API (includes MycoBrain + MINDEX devices)
-        const response = await fetch("/api/natureos/devices/telemetry")
+        const response = await fetch(`${base}/api/natureos/devices/telemetry`, {
+          signal: AbortSignal.timeout(10000),
+        })
         if (response.ok) {
           const data = await response.json()
           const telemetryDevices = Array.isArray(data) ? data : []
@@ -200,7 +204,9 @@ function useRealDevices() {
         } else {
           // Fallback: Try MycoBrain service directly
           try {
-            const mycoResponse = await fetch("/api/mycobrain")
+            const mycoResponse = await fetch(`${base}/api/mycobrain`, {
+              signal: AbortSignal.timeout(5000),
+            })
             if (mycoResponse.ok) {
               const mycoData = await mycoResponse.json()
               const mycoDevices = mycoData.devices || []
@@ -345,28 +351,32 @@ export function NatureOSDashboard() {
   }, [])
 
   // Fetch observations and MINDEX stats for species distribution
+  // Use independent fetches + Promise.allSettled to avoid one failure breaking the other
   useEffect(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : ""
+
     async function fetchMindexData() {
-      try {
-        // Fetch both observations and stats in parallel
-        const [obsRes, statsRes] = await Promise.all([
-          fetch("/api/mindex/observations?limit=1000"),
-          fetch("/api/natureos/mindex/stats"),
-        ])
-        
-        if (obsRes.ok) {
-          const data = await obsRes.json()
-          setObservations(data.observations || [])
-        }
-        
-        if (statsRes.ok) {
-          const stats = await statsRes.json()
-          setMindexStats(stats)
-        }
-      } catch (error) {
-        console.error("Failed to fetch MINDEX data:", error)
+      const obsUrl = `${base}/api/mindex/observations?limit=1000`
+      const statsUrl = `${base}/api/natureos/mindex/stats`
+
+      const [obsResult, statsResult] = await Promise.allSettled([
+        fetch(obsUrl, { signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)),
+        fetch(statsUrl, { signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)),
+      ])
+
+      if (obsResult.status === "fulfilled" && obsResult.value) {
+        setObservations(obsResult.value.observations || [])
+      } else if (obsResult.status === "rejected") {
+        console.warn("MINDEX observations fetch failed:", obsResult.reason?.message || obsResult.reason)
+      }
+
+      if (statsResult.status === "fulfilled" && statsResult.value) {
+        setMindexStats(statsResult.value)
+      } else if (statsResult.status === "rejected") {
+        console.warn("MINDEX stats fetch failed:", statsResult.reason?.message || statsResult.reason)
       }
     }
+
     fetchMindexData()
     const interval = setInterval(fetchMindexData, 30000) // Refresh every 30s
     return () => clearInterval(interval)

@@ -2,9 +2,13 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
 import { teamMembers } from "@/lib/team-data"
@@ -16,7 +20,6 @@ import {
   ChevronRight,
   ExternalLink,
   CircuitBoard,
-  Bot,
   Server,
   Activity,
   FileCode,
@@ -105,9 +108,10 @@ export default function AboutPage() {
   const coreTeam = teamMembers.filter(m => m.slug !== "morgan-rockwell")
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Hero Section */}
-      <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
+      {/* Hero Section — data-over-video: sharper outline in light mode */}
+      <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
         {/* Background video — silent loop, no controls */}
         <video
           autoPlay
@@ -136,9 +140,9 @@ export default function AboutPage() {
 
         {/* Content */}
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">
-          <Badge className="mb-6 bg-green-500/20 text-green-400 border-green-500/30">
+          <NeuBadge variant="success" className="mb-6">
             Est. 2021 · San Diego, CA
-          </Badge>
+          </NeuBadge>
 
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6">
             <span className="bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">
@@ -150,23 +154,23 @@ export default function AboutPage() {
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-white/75 max-w-2xl mx-auto mb-8">
+          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto mb-8">
             Building the world&apos;s first biological computer by integrating fungal intelligence with modern technology.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="gap-2 bg-green-600 hover:bg-green-700 min-h-[44px]" asChild>
-              <Link href="/devices">
+            <Link href="/devices">
+              <NeuButton variant="success" className="gap-2 min-h-[44px] px-6 py-3">
                 Explore Devices
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2 min-h-[44px] border-white/30 text-white hover:bg-white/10" asChild>
-              <Link href="#about">
+              </NeuButton>
+            </Link>
+            <Link href="#about">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 border-gray-900/30 dark:border-white/30 about-hero-learn-more">
                 Learn More
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>
@@ -175,7 +179,7 @@ export default function AboutPage() {
       <section className="py-16 md:py-24">
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">Technology</Badge>
+            <NeuBadge variant="default" className="mb-4">Technology</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Three Pillars of Innovation</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               AI, Defense, and Biological Computing converging to create technology that grows rather than manufactures.
@@ -184,7 +188,7 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {technologyPillars.map((pillar) => (
-              <Card key={pillar.id} className="p-6 hover:border-green-500/50 transition-all h-full flex flex-col">
+              <NeuCard key={pillar.id} className="p-6 transition-all h-full flex flex-col">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 rounded-xl bg-green-500/10">
                     <pillar.icon className="h-6 w-6 text-green-500" />
@@ -197,14 +201,14 @@ export default function AboutPage() {
                 <p className="text-muted-foreground text-sm flex-grow mb-4">{pillar.description}</p>
                 <div className="flex flex-wrap gap-2">
                   {pillar.links.map((link) => (
-                    <Button key={link.href} variant="ghost" size="sm" className="gap-1 p-0 h-auto text-green-500 hover:text-green-400" asChild>
-                      <Link href={link.href}>
+                    <Link key={link.href} href={link.href}>
+                      <NeuButton variant="default" className="gap-1 p-0 h-auto text-green-500 hover:text-green-400 bg-transparent shadow-none">
                         {link.label} <ChevronRight className="h-3 w-3" />
-                      </Link>
-                    </Button>
+                      </NeuButton>
+                    </Link>
                   ))}
                 </div>
-              </Card>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -223,7 +227,7 @@ export default function AboutPage() {
 
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">About Mycosoft</Badge>
+            <NeuBadge variant="default" className="mb-4 border-white/20 about-mycosoft-badge">About Mycosoft</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-2 text-white">Building the Earth Computer</h2>
             <p className="text-green-400 font-medium text-lg">Nature Compute — where biological intelligence meets modern systems</p>
           </div>
@@ -343,7 +347,7 @@ export default function AboutPage() {
       <section className="py-16 md:py-24">
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">Our Team</Badge>
+            <NeuBadge variant="default" className="mb-4">Our Team</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Leadership & Intelligence</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Human expertise and artificial intelligence working together.
@@ -355,7 +359,7 @@ export default function AboutPage() {
             {/* Morgan Rockwell */}
             {morgan && (
               <Link href={`/about/team/${morgan.slug}`}>
-                <Card className="group hover:border-green-500/50 transition-all cursor-pointer overflow-hidden h-full">
+                <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
                   <div className="grid md:grid-cols-2 h-full">
                     <div className="relative aspect-square md:aspect-auto min-h-[250px] bg-slate-100 overflow-hidden">
                       <Image
@@ -365,23 +369,23 @@ export default function AboutPage() {
                         className="object-contain group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
-                    <CardContent className="p-6 flex flex-col justify-center">
-                      <Badge className="mb-2 w-fit bg-green-500/20 text-green-400 border-green-500/30">
+                    <NeuCardContent className="p-6 flex flex-col justify-center">
+                      <NeuBadge variant="success" className="mb-2 w-fit">
                         Founder & CEO
-                      </Badge>
+                      </NeuBadge>
                       <h3 className="text-2xl font-bold mb-2">{morgan.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         Pioneer in fungal-computer integration. Founded Mycosoft in 2021 in San Diego to connect living mycelium to digital systems. Architect of NatureOS, MYCA, OEI, and the FUSARIUM defense platform.
                       </p>
-                    </CardContent>
+                    </NeuCardContent>
                   </div>
-                </Card>
+                </NeuCard>
               </Link>
             )}
 
             {/* MYCA AI */}
             <Link href="/natureos/ai-studio">
-              <Card className="group hover:border-purple-500/50 transition-all cursor-pointer overflow-hidden h-full bg-gradient-to-br from-purple-950/20 to-background">
+              <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full bg-gradient-to-br from-purple-950/20 to-background">
                 <div className="grid md:grid-cols-2 h-full">
                   <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
                     <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
@@ -393,25 +397,25 @@ export default function AboutPage() {
                       />
                     </div>
                   </div>
-                  <CardContent className="p-6 flex flex-col justify-center">
-                    <Badge className="mb-2 w-fit bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  <NeuCardContent className="p-6 flex flex-col justify-center">
+                    <NeuBadge variant="primary" className="mb-2 w-fit">
                       AI System
-                    </Badge>
+                    </NeuBadge>
                     <h3 className="text-2xl font-bold mb-2">MYCA</h3>
                     <p className="text-sm text-muted-foreground">
                       Mycosoft Cognitive Assistant. 117+ specialized agents, 200+ API endpoints — operating 24/7 across research, analysis, infrastructure, and autonomous science.
                     </p>
-                  </CardContent>
+                  </NeuCardContent>
                 </div>
-              </Card>
+              </NeuCard>
             </Link>
           </div>
 
-          {/* Core Team */}
+          {/* Core Team — badge and name below image, not over it */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {coreTeam.map((member) => (
               <Link key={member.slug} href={`/about/team/${member.slug}`}>
-                <Card className="group hover:border-green-500/50 transition-all cursor-pointer overflow-hidden h-full">
+                <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
                   <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-slate-100">
                     <Image
                       src={member.image}
@@ -419,23 +423,22 @@ export default function AboutPage() {
                       fill
                       className="object-contain group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <Badge className="mb-1 text-xs bg-green-500/20 text-green-400 border-green-500/30">
-                        {member.role}
-                      </Badge>
-                      <h3 className="text-lg font-bold">{member.name}</h3>
-                    </div>
                   </div>
-                </Card>
+                  <NeuCardContent className="p-4">
+                    <NeuBadge variant="success" className="mb-2 text-xs">
+                      {member.role}
+                    </NeuBadge>
+                    <h3 className="text-lg font-bold">{member.name}</h3>
+                  </NeuCardContent>
+                </NeuCard>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Devices Grid */}
-      <section className="relative py-16 md:py-24 overflow-hidden" style={{ backgroundColor: "#020c06" }}>
+      {/* Devices Grid — data-over-video: sharper outline in light mode */}
+      <section className="relative py-16 md:py-24 overflow-hidden" style={{ backgroundColor: "#020c06" }} data-over-video>
         {/* Neural network background — lazy starts on scroll */}
         <NeuralNetworkCanvas className="absolute inset-0 w-full h-full" />
         {/* Vignette to keep device cards readable */}
@@ -443,9 +446,9 @@ export default function AboutPage() {
 
         <div className="relative z-10 container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">Hardware</Badge>
+            <NeuBadge variant="default" className="mb-4 border-white/20 about-hardware-badge">Hardware</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Our Devices</h2>
-            <p className="text-white/60 max-w-2xl mx-auto">
+            <p className="text-white/80 max-w-2xl mx-auto">
               Five devices bridging biological and digital worlds.
             </p>
           </div>
@@ -453,7 +456,7 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {DEVICES.map((device) => (
               <Link key={device.id} href={`/devices/${device.id}`}>
-                <Card className="group hover:border-green-500/60 transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm border-white/10">
+                <NeuCard className="about-device-card group transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm">
                   <div className="relative aspect-square overflow-hidden rounded-t-lg">
                     <Image
                       src={device.image}
@@ -462,30 +465,22 @@ export default function AboutPage() {
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-white">{device.name}</h3>
-                      <Badge
-                        variant={device.status === "In Stock" ? "default" : "outline"}
-                        className={`text-xs ${device.status === "In Stock" ? "bg-green-500" : "border-white/20 text-white/60"}`}
-                      >
-                        {device.status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-white/60 line-clamp-2">{device.tagline}</p>
-                  </CardContent>
-                </Card>
+                  <NeuCardContent className="p-4">
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">{device.name}</h3>
+                    <p className="text-xs text-gray-600 dark:text-white/60 line-clamp-2">{device.tagline}</p>
+                  </NeuCardContent>
+                </NeuCard>
               </Link>
             ))}
           </div>
 
           <div className="text-center mt-8">
-            <Button variant="outline" className="gap-2 min-h-[44px] border-white/20 text-white hover:bg-white/10" asChild>
-              <Link href="/devices">
+            <Link href="/devices">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] border-white/20 about-devices-view-all">
                 View All Devices
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>
@@ -494,7 +489,7 @@ export default function AboutPage() {
       <section className="py-16 md:py-24">
         <div className="container max-w-7xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">Software</Badge>
+            <NeuBadge variant="default" className="mb-4">Software</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Applications</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               Platforms, intelligence systems, and scientific tools.
@@ -503,7 +498,7 @@ export default function AboutPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {applicationCategories.map((category) => (
-              <Card key={category.title} className="p-6">
+              <NeuCard key={category.title} className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 rounded-lg bg-green-500/20">
                     <category.icon className="h-5 w-5 text-green-500" />
@@ -523,14 +518,14 @@ export default function AboutPage() {
                     </Link>
                   ))}
                 </div>
-              </Card>
+              </NeuCard>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Why Mycosoft - Closing Statement */}
-      <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center">
+      {/* Why Mycosoft - Closing Statement — data-over-video */}
+      <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center" data-over-video>
         {/* Background video — silent loop */}
         <video
           autoPlay
@@ -549,14 +544,14 @@ export default function AboutPage() {
 
         <div className="container max-w-4xl mx-auto px-4 md:px-6 relative z-10">
           <div className="text-center">
-            <Badge variant="outline" className="mb-4 border-white/20 text-white/70">Why Mycosoft</Badge>
+            <NeuBadge variant="default" className="mb-4 border-white/20 text-white">Why Mycosoft</NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-8 text-white">
               The Only Company Building
               <br />
               <span className="text-green-400">Biological Computers</span>
             </h2>
 
-            <div className="space-y-6 text-lg text-white/75 leading-relaxed">
+            <div className="space-y-6 text-lg text-white/90 leading-relaxed">
               <p>
                 No other company has built hardware that interfaces directly with living fungal networks. No other company has deployed a persistent mycelial sensor mesh at scale. No other company has a decade of original research connecting biological signaling to digital computation.
               </p>
@@ -571,8 +566,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 md:py-24 bg-green-600 relative overflow-hidden">
+      {/* CTA Section — data-over-video for widget outline */}
+      <section className="py-16 md:py-24 bg-green-600 relative overflow-hidden" data-over-video>
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:40px_40px]" />
         <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -582,21 +577,22 @@ export default function AboutPage() {
             Whether you're a researcher, developer, defense professional, or enthusiast — the biological intelligence era has begun.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="gap-2 min-h-[44px]" asChild>
-              <Link href="/devices">
+            <Link href="/devices">
+              <NeuButton variant="success" className="gap-2 min-h-[44px] px-6 py-3">
                 Get a Device
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="gap-2 min-h-[44px] bg-transparent text-white border-white hover:bg-white hover:text-green-600" asChild>
-              <Link href="/science">
+              </NeuButton>
+            </Link>
+            <Link href="/science">
+              <NeuButton variant="default" className="gap-2 min-h-[44px] px-6 py-3 bg-white/20 dark:bg-transparent border-gray-900 dark:border-white about-cta-read-research">
                 Read Research
                 <ExternalLink className="h-4 w-4" />
-              </Link>
-            </Button>
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }

@@ -24,9 +24,13 @@ import {
   Settings,
   Play
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuButton,
+  NeuCard,
+  NeuCardContent,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const devices = [
@@ -240,7 +244,8 @@ export function DevicesPortal() {
   }, [])
 
   return (
-    <div className="min-h-dvh bg-background">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
       {/* Hero Section */}
       <section className="relative py-16 md:py-24 overflow-hidden">
         {/* Background Effects */}
@@ -253,7 +258,7 @@ export function DevicesPortal() {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <Badge className="mb-4">Hardware Platform</Badge>
+            <NeuBadge variant="default" className="mb-4">Hardware Platform</NeuBadge>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-6">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
                 Environmental
@@ -269,18 +274,18 @@ export function DevicesPortal() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button size="lg" className="w-full sm:w-auto" asChild>
-                <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
-                  <Play className="mr-2 h-5 w-5" />
+              <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                <NeuButton variant="primary" className="w-full sm:w-auto gap-2">
+                  <Play className="h-5 w-5" />
                   Watch Videos
-                </a>
-              </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
-                <Link href="/devices/specifications">
+                </NeuButton>
+              </a>
+              <Link href="/devices/specifications">
+                <NeuButton variant="default" className="w-full sm:w-auto gap-2">
                   View Specifications
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+                  <ChevronRight className="h-5 w-5" />
+                </NeuButton>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -337,15 +342,15 @@ export function DevicesPortal() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card
+                <NeuCard
                   className={`cursor-pointer transition-all ${
                     selectedDevice.id === device.id
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "hover:border-muted-foreground/50"
+                      ? "ring-2 ring-primary/20"
+                      : ""
                   }`}
                   onClick={() => setSelectedDevice(device)}
                 >
-                  <CardContent className="pt-6">
+                  <NeuCardContent className="pt-6">
                     <div className={`inline-flex p-3 rounded-xl mb-4 ${
                       device.color === "emerald-500" ? "bg-emerald-500/10" :
                       device.color === "orange-500"  ? "bg-orange-500/10"  :
@@ -365,11 +370,11 @@ export function DevicesPortal() {
                     </div>
                     <h3 className="font-bold text-lg">{device.name}</h3>
                     <p className="text-sm text-muted-foreground">{device.tagline}</p>
-                    <Badge variant="outline" className="mt-3 text-xs">
+                    <NeuBadge variant="default" className="mt-3 text-xs">
                       {device.status}
-                    </Badge>
-                  </CardContent>
-                </Card>
+                    </NeuBadge>
+                  </NeuCardContent>
+                </NeuCard>
               </motion.div>
             ))}
           </div>
@@ -416,7 +421,7 @@ export function DevicesPortal() {
             {/* Device Details */}
             <div className="space-y-8">
               <div>
-                <Badge className="mb-4">{selectedDevice.status}</Badge>
+                <NeuBadge variant="default" className="mb-4">{selectedDevice.status}</NeuBadge>
                 <h2 className="text-4xl font-bold mb-2">{selectedDevice.name}</h2>
                 <p className="text-xl text-muted-foreground mb-4">{selectedDevice.tagline}</p>
                 <p className="text-muted-foreground">{selectedDevice.description}</p>
@@ -450,17 +455,17 @@ export function DevicesPortal() {
 
               {/* CTA */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button size="lg" className="w-full sm:w-auto" asChild>
-                  <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
-                    <Play className="mr-2 h-5 w-5" />
+                <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+                  <NeuButton variant="primary" className="w-full sm:w-auto gap-2">
+                    <Play className="h-5 w-5" />
                     Learn More
-                  </a>
-                </Button>
-                <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
-                  <Link href={`/devices/${selectedDevice.id}`}>
+                  </NeuButton>
+                </a>
+                <Link href={`/devices/${selectedDevice.id}`}>
+                  <NeuButton variant="default" className="w-full sm:w-auto">
                     Full Details
-                  </Link>
-                </Button>
+                  </NeuButton>
+                </Link>
               </div>
             </div>
           </motion.div>
@@ -505,7 +510,7 @@ export function DevicesPortal() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold">{selectedDevice.name}</h2>
-              <Badge>{selectedDevice.status}</Badge>
+              <NeuBadge variant="default">{selectedDevice.status}</NeuBadge>
             </div>
             <p className="text-base text-muted-foreground font-medium mb-2">{selectedDevice.tagline}</p>
             <p className="text-sm text-muted-foreground leading-relaxed">{selectedDevice.description}</p>
@@ -539,18 +544,18 @@ export function DevicesPortal() {
 
           {/* CTA buttons */}
           <div className="flex flex-col gap-3 pb-2">
-            <Button size="lg" className="w-full" asChild>
-              <Link href={`/devices/${selectedDevice.id}`}>
+            <Link href={`/devices/${selectedDevice.id}`}>
+              <NeuButton variant="primary" className="w-full gap-2">
                 View Full Details
-                <ChevronRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="w-full" asChild>
-              <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
-                <Play className="mr-2 h-5 w-5" />
+                <ChevronRight className="h-5 w-5" />
+              </NeuButton>
+            </Link>
+            <a href="https://www.youtube.com/@mycosoft" target="_blank" rel="noopener noreferrer">
+              <NeuButton variant="default" className="w-full gap-2">
+                <Play className="h-5 w-5" />
                 Watch Demo
-              </a>
-            </Button>
+              </NeuButton>
+            </a>
           </div>
         </motion.div>
       </section>
@@ -559,7 +564,7 @@ export function DevicesPortal() {
       <section className="py-24">
         <div className="container px-4 max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Nature First Technology</Badge>
+            <NeuBadge variant="default" className="mb-4">Nature First Technology</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Giving Nature a Voice
             </h2>
@@ -592,15 +597,15 @@ export function DevicesPortal() {
                 description: "Alert systems that protect before threats become visible"
               }
             ].map((app) => (
-              <Card key={app.title} className="text-center hover:border-primary/50 transition-colors">
-                <CardContent className="pt-8">
+              <NeuCard key={app.title} className="text-center transition-colors">
+                <NeuCardContent className="pt-8">
                   <div className="inline-flex p-4 rounded-xl bg-primary/10 mb-4">
                     <app.icon className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="font-semibold mb-2">{app.title}</h3>
                   <p className="text-sm text-muted-foreground">{app.description}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -610,7 +615,7 @@ export function DevicesPortal() {
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Accessories</Badge>
+            <NeuBadge variant="default" className="mb-4">Accessories</NeuBadge>
             <h2 className="text-4xl font-bold mb-6">
               Complete Your Deployment
             </h2>
@@ -618,13 +623,13 @@ export function DevicesPortal() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
             {accessories.map((item) => (
-              <Card key={item.name} className="hover:border-primary/50 transition-colors">
-                <CardContent className="pt-6">
+              <NeuCard key={item.name} className="transition-colors">
+                <NeuCardContent className="pt-6">
                   <item.icon className="h-8 w-8 text-primary mb-4" />
                   <h3 className="font-semibold mb-1">{item.name}</h3>
                   <p className="text-sm text-muted-foreground">{item.description}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -651,15 +656,15 @@ export function DevicesPortal() {
                 description: "Comprehensive operator training for deployment, maintenance, and data interpretation."
               }
             ].map((service) => (
-              <Card key={service.title}>
-                <CardHeader>
+              <NeuCard key={service.title}>
+                <NeuCardContent>
                   <div className="p-3 rounded-xl bg-primary/10 w-fit mb-2">
                     <service.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>{service.title}</CardTitle>
-                  <CardDescription>{service.description}</CardDescription>
-                </CardHeader>
-              </Card>
+                  <h3 className="font-semibold mb-2">{service.title}</h3>
+                  <p className="text-sm text-muted-foreground">{service.description}</p>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -678,17 +683,17 @@ export function DevicesPortal() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="text-lg px-8" asChild>
-                <Link href="/devices/mushroom-1">
+              <Link href="/devices/mushroom-1">
+                <NeuButton variant="primary" className="text-lg px-8 gap-2">
                   Get Mushroom 1
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8" asChild>
-                <Link href="/natureos">
+                  <ArrowRight className="h-5 w-5" />
+                </NeuButton>
+              </Link>
+              <Link href="/natureos">
+                <NeuButton variant="default" className="text-lg px-8">
                   Explore NatureOS
-                </Link>
-              </Button>
+                </NeuButton>
+              </Link>
             </div>
 
             <div className="mt-12 pt-12 border-t">
@@ -711,6 +716,7 @@ export function DevicesPortal() {
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

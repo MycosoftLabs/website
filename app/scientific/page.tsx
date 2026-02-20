@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from '@/components/ui/neuromorphic'
 import { LabMonitor } from '@/components/scientific/lab-monitor'
 import { SimulationPanel } from '@/components/scientific/simulation-panel'
 import { ExperimentTracker } from '@/components/scientific/experiment-tracker'
@@ -62,6 +67,7 @@ export default function ScientificPage() {
   }, [])
 
   return (
+    <NeuromorphicProvider>
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -70,81 +76,81 @@ export default function ScientificPage() {
         </div>
         <div className="flex items-center gap-2">
           {stats?.source === 'live' ? (
-            <Badge variant="default" className="bg-green-500">
+            <NeuBadge variant="default" className="bg-green-500">
               <Activity className="h-3 w-3 mr-1" /> Live
-            </Badge>
+            </NeuBadge>
           ) : (
-            <Badge variant="outline" className="text-yellow-500 border-yellow-500">
+            <NeuBadge variant="warning" className="text-yellow-500 border border-yellow-500">
               Cached
-            </Badge>
+            </NeuBadge>
           )}
-          <Button size="sm" variant="outline" onClick={fetchStats} disabled={loading} className="min-h-[44px]">
+          <NeuButton variant="default" onClick={fetchStats} disabled={loading} className="min-h-[44px] py-2 px-4">
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </Button>
+          </NeuButton>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow cursor-pointer">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <FlaskConical className="h-4 w-4 text-blue-500" />
               Active Experiments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{stats?.experiments.total ?? '...'}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.experiments.running ?? 0} running, {stats?.experiments.pending ?? 0} pending
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow cursor-pointer">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Cpu className="h-4 w-4 text-purple-500" />
               Simulations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{stats?.simulations.total ?? '...'}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.simulations.byType?.alphafold ?? 0} AlphaFold, {stats?.simulations.byType?.mycelium ?? 0} Mycelium
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow cursor-pointer">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4 text-green-500" />
               Lab Instruments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{stats?.instruments.total ?? '...'}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.instruments.online ?? 0} online, {stats?.instruments.maintenance ?? 0} maintenance
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
+        <NeuCard className="hover:shadow-md transition-shadow cursor-pointer">
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium flex items-center gap-2">
               <Lightbulb className="h-4 w-4 text-yellow-500" />
               Hypotheses
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold">{stats?.hypotheses.total ?? '...'}</div>
             <p className="text-xs text-muted-foreground">
               {stats?.hypotheses.validated ?? 0} validated, {stats?.hypotheses.testing ?? 0} testing
             </p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -185,15 +191,15 @@ export default function ScientificPage() {
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {DEMO_SEQUENCES.map((s) => (
-              <Card key={s.accession} className="border-green-500/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium italic">{s.name}</CardTitle>
+              <NeuCard key={s.accession} className="border-green-500/20">
+                <NeuCardHeader className="pb-2">
+                  <h3 className="text-sm font-medium italic">{s.name}</h3>
                   <p className="text-[10px] font-mono text-muted-foreground">{s.accession}</p>
-                </CardHeader>
-                <CardContent>
+                </NeuCardHeader>
+                <NeuCardContent>
                   <DNASequenceViewer sequence={s.seq} maxBarBases={100} textPreview={100} />
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </TabsContent>
@@ -206,15 +212,15 @@ export default function ScientificPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {DEMO_COMPOUNDS.map((c) => (
-              <Card key={c.name} className="border-purple-500/20">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">{c.name}</CardTitle>
+              <NeuCard key={c.name} className="border-purple-500/20">
+                <NeuCardHeader className="pb-2">
+                  <h3 className="text-sm font-medium">{c.name}</h3>
                   <p className="text-xs font-mono text-muted-foreground">{c.formula}</p>
-                </CardHeader>
-                <CardContent className="flex justify-center">
+                </NeuCardHeader>
+                <NeuCardContent className="flex justify-center">
                   <MoleculeViewer name={c.name} size="md" showLink />
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </TabsContent>
@@ -236,5 +242,6 @@ export default function ScientificPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </NeuromorphicProvider>
   )
 }

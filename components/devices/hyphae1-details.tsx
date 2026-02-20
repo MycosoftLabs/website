@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Box, Network, Shield, Zap, Eye, Thermometer, Server, HardDrive,
@@ -221,19 +226,20 @@ export function Hyphae1Details() {
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.05])
 
   return (
-    <div className="relative bg-gradient-to-b from-slate-200 via-white to-slate-100 text-slate-900 overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="relative min-h-dvh bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Background pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:40px_40px]" />
         
         <motion.div 
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
-          <Badge className="mb-4 bg-slate-800 text-white border-0 text-sm px-4 py-1">
+          <NeuBadge variant="default" className="mb-4 bg-slate-800 text-white border-0 text-sm px-4 py-1">
             Modular I/O Platform
-          </Badge>
+          </NeuBadge>
           
           <motion.h1 
             className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
@@ -241,20 +247,20 @@ export function Hyphae1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 via-slate-600 to-slate-500">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 via-slate-600 to-slate-500 dark:from-slate-200 dark:via-slate-400 dark:to-slate-300">
               Hyphae 1
             </span>
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-slate-600 mb-8 max-w-3xl mx-auto font-light"
+            className="text-xl md:text-2xl lg:text-3xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
             Industrial-grade modular I/O.
             <br />
-            <span className="text-slate-900 font-medium">Three sizes. Infinite possibilities.</span>
+            <span className="text-slate-900 dark:text-slate-100 font-medium">Three sizes. Infinite possibilities.</span>
           </motion.p>
           
           {/* Size selector */}
@@ -270,8 +276,8 @@ export function Hyphae1Details() {
                 onClick={() => setSelectedVariant(variant)}
                 className={`px-6 py-3 rounded-xl border-2 transition-all ${
                   selectedVariant.id === variant.id
-                    ? 'border-slate-800 bg-slate-800 text-white'
-                    : 'border-slate-300 bg-white hover:border-slate-500'
+                    ? 'border-slate-800 dark:border-slate-200 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900'
+                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-500 dark:hover:border-slate-400'
                 }`}
               >
                 <variant.icon className="h-6 w-6 mx-auto mb-1" />
@@ -286,14 +292,14 @@ export function Hyphae1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.1 }}
           >
-            <Button size="lg" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-8">
+            <NeuButton size="lg" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Configure & Order
-            </Button>
-            <Button size="lg" variant="outline" className="border-slate-400 text-slate-700 hover:bg-slate-100">
+            </NeuButton>
+            <NeuButton size="lg" variant="outline" className="border-slate-400 text-slate-700 hover:bg-slate-100">
               <Download className="mr-2 h-5 w-5" />
               Download Datasheet
-            </Button>
+            </NeuButton>
           </motion.div>
         </motion.div>
       </section>
@@ -305,9 +311,9 @@ export function Hyphae1Details() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Product Line
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Choose Your Size
             </h2>
@@ -367,9 +373,9 @@ export function Hyphae1Details() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+              <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
                 Why Hyphae 1
-              </Badge>
+              </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
                 The Industrial Standard
               </h2>
@@ -431,9 +437,9 @@ export function Hyphae1Details() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Capabilities
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Built for Industry
             </h2>
@@ -450,15 +456,15 @@ export function Hyphae1Details() {
               { icon: Lock, title: "Secure", desc: "TLS encryption, access control" },
               { icon: Layers, title: "DIN Rail", desc: "Standard industrial mounting" },
             ].map((item) => (
-              <Card key={item.title} className="bg-slate-50 border-slate-200 hover:border-slate-400 hover:shadow-lg transition-all">
-                <CardContent className="pt-6">
+              <NeuCard key={item.title} className="bg-slate-50 border-slate-200 hover:border-slate-400 hover:shadow-lg transition-all">
+                <NeuCardContent className="pt-6">
                   <div className="p-3 rounded-xl bg-slate-800 w-fit mb-4">
                     <item.icon className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="font-bold text-lg mb-2 text-slate-800">{item.title}</h3>
                   <p className="text-slate-600 text-sm">{item.desc}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -471,9 +477,9 @@ export function Hyphae1Details() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Applications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Deployed Everywhere
             </h2>
@@ -518,9 +524,9 @@ export function Hyphae1Details() {
       <section className="py-24 bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-white/10 text-white border-white/20">
+            <NeuBadge variant="default" className="mb-4 bg-white/10 text-white border-white/20">
               Engineering
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside Hyphae 1
             </h2>
@@ -653,9 +659,9 @@ export function Hyphae1Details() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
               Specifications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Technical Details
             </h2>
@@ -694,14 +700,14 @@ export function Hyphae1Details() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <Button variant="outline" className="border-slate-400 text-slate-700">
+            <NeuButton variant="outline" className="border-slate-400 text-slate-700">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
-            </Button>
-            <Button variant="outline" className="border-slate-400 text-slate-700">
+            </NeuButton>
+            <NeuButton variant="outline" className="border-slate-400 text-slate-700">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
-            </Button>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -724,14 +730,14 @@ export function Hyphae1Details() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
+                <NeuButton size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
                   <ShoppingCart className="mr-2 h-5 w-5" />
                   Configure & Order
-                </Button>
-                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                </NeuButton>
+                <NeuButton size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
                   <ExternalLink className="mr-2 h-5 w-5" />
                   Contact Sales
-                </Button>
+                </NeuButton>
               </div>
               
               <p className="text-sm text-white/50 mt-8">
@@ -742,6 +748,7 @@ export function Hyphae1Details() {
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

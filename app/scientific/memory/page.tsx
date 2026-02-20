@@ -7,10 +7,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from '@/components/ui/neuromorphic';
 import { RefreshCw, Brain, Database, Network, Users, Calendar, History } from 'lucide-react';
 import { 
   BrainStatusWidget, 
@@ -91,6 +96,7 @@ export default function MemoryPage() {
   };
 
   return (
+    <NeuromorphicProvider>
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -107,9 +113,9 @@ export default function MemoryPage() {
               Updated: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
+          <NeuButton variant="default" onClick={fetchStats} disabled={loading} className="py-2 px-3">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          </NeuButton>
         </div>
       </div>
 
@@ -121,78 +127,78 @@ export default function MemoryPage() {
 
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Active Sessions</CardTitle>
+        <NeuCard>
+          <NeuCardHeader className="pb-2 flex flex-row items-center justify-between">
+            <h3 className="text-sm">Active Sessions</h3>
             <History className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-cyan-500">
               {stats?.active_sessions ?? '-'}
             </div>
             <p className="text-xs text-muted-foreground">Current conversations</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Facts Stored</CardTitle>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2 flex flex-row items-center justify-between">
+            <h3 className="text-sm">Facts Stored</h3>
             <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-purple-500">
               {stats ? formatNumber(stats.facts_stored) : '-'}
             </div>
             <p className="text-xs text-muted-foreground">Across all memory layers</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Knowledge Nodes</CardTitle>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2 flex flex-row items-center justify-between">
+            <h3 className="text-sm">Knowledge Nodes</h3>
             <Network className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-green-500">
               {stats ? formatNumber(stats.knowledge_nodes) : '-'}
             </div>
             <p className="text-xs text-muted-foreground">Semantic connections</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm">Embeddings</CardTitle>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2 flex flex-row items-center justify-between">
+            <h3 className="text-sm">Embeddings</h3>
             <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-orange-500">
               {stats ? formatNumber(stats.embeddings) : '-'}
             </div>
             <p className="text-xs text-muted-foreground">Vector representations</p>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       </div>
 
       {/* Memory Layers Breakdown */}
       {stats?.layers && Object.keys(stats.layers).length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
+        <NeuCard>
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm flex items-center gap-2">
               <Database className="h-4 w-4" />
               Memory Layers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="flex flex-wrap gap-3">
               {Object.entries(stats.layers).map(([layer, data]) => (
-                <Badge key={layer} variant="secondary" className="text-xs py-1.5 px-3">
+                <NeuBadge key={layer} variant="info" className="text-xs py-1.5 px-3">
                   {layer}: {data.count.toLocaleString()}
                   <span className="ml-1 text-muted-foreground">
                     ({(data.avg_importance * 100).toFixed(0)}% imp)
                   </span>
-                </Badge>
+                </NeuBadge>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       )}
 
       {/* Main Tabs */}
@@ -233,5 +239,6 @@ export default function MemoryPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </NeuromorphicProvider>
   );
 }

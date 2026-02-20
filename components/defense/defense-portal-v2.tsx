@@ -622,8 +622,8 @@ export function DefensePortalV2() {
         )}
       </AnimatePresence>
 
-      {/* Hero Section - Palantir/Anduril Style with Full-Screen Video */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+      {/* Hero Section - Palantir/Anduril Style with Full-Screen Video — data-over-video for theme consistency */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden" data-over-video>
         {/* Full-screen Background Video */}
         <video
           autoPlay
@@ -661,7 +661,7 @@ export function DefensePortalV2() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6"
+            className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold tracking-tight mb-6 portal-hero-title"
           >
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground to-foreground/70">
               OPERATIONAL
@@ -681,7 +681,7 @@ export function DefensePortalV2() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-xl md:text-2xl text-muted-foreground max-w-4xl mx-auto mb-12"
+            className="text-xl md:text-2xl text-muted-foreground max-w-4xl mx-auto mb-12 portal-hero-subtitle"
           >
             A new intelligence discipline for the Department of Defense.
             <br className="hidden md:block" />
@@ -698,13 +698,13 @@ export function DefensePortalV2() {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link href="/defense/request-briefing">
-              <NeuButton variant="primary" className="text-lg px-8 py-4">
+              <NeuButton variant="primary" className="text-lg px-8 py-4 portal-cta-over-video">
                 Request Briefing
                 <ArrowRight className="ml-2 h-5 w-5" />
               </NeuButton>
             </Link>
             <Link href="/defense/capabilities">
-              <NeuButton variant="default" className="text-lg px-8 py-4">
+              <NeuButton variant="default" className="text-lg px-8 py-4 portal-cta-over-video">
                 View Capabilities
                 <ChevronRight className="ml-2 h-5 w-5" />
               </NeuButton>

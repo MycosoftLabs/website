@@ -1,5 +1,6 @@
-﻿import { Metadata } from 'next'
+import { Metadata } from 'next'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { NeuromorphicProvider } from '@/components/ui/neuromorphic'
 import { ProteinStructureViewer } from '@/components/3d/protein-structure-viewer'
 import { Mycelium3DNetwork } from '@/components/3d/mycelium-3d-network'
 import { LabDigitalTwin } from '@/components/3d/lab-digital-twin'
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 
 export default function ThreeDPage() {
   return (
+    <NeuromorphicProvider>
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">3D Visualization</h1>
@@ -37,5 +39,6 @@ export default function ThreeDPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </NeuromorphicProvider>
   )
 }

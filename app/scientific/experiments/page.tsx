@@ -1,7 +1,12 @@
-﻿import { Metadata } from 'next'
+import { Metadata } from 'next'
 import { ExperimentTracker } from '@/components/scientific/experiment-tracker'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuromorphicProvider,
+} from '@/components/ui/neuromorphic'
 
 export const metadata: Metadata = {
   title: 'Experiments | MYCA Scientific',
@@ -10,6 +15,7 @@ export const metadata: Metadata = {
 
 export default function ExperimentsPage() {
   return (
+    <NeuromorphicProvider>
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -17,47 +23,48 @@ export default function ExperimentsPage() {
           <p className="text-muted-foreground">Design, run, and analyze experiments</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Import Protocol</Button>
-          <Button>New Experiment</Button>
+          <NeuButton variant="default">Import Protocol</NeuButton>
+          <NeuButton variant="primary">New Experiment</NeuButton>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Running</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <NeuCard>
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium">Running</h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-blue-500">3</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium">Pending</h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-yellow-500">9</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium">Completed</h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-green-500">47</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </NeuCardContent>
+        </NeuCard>
+        <NeuCard>
+          <NeuCardHeader className="pb-2">
+            <h3 className="text-sm font-medium">Failed</h3>
+          </NeuCardHeader>
+          <NeuCardContent>
             <div className="text-2xl font-bold text-red-500">2</div>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       </div>
 
       <ExperimentTracker />
     </div>
+    </NeuromorphicProvider>
   )
 }

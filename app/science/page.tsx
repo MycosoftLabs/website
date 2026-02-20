@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { Card } from "@/components/ui/card"
+import { NeuCard, NeuromorphicProvider } from "@/components/ui/neuromorphic"
 import { ExternalLink } from "lucide-react"
 
 export const metadata: Metadata = {
@@ -72,7 +72,7 @@ const FCISection = () => (
 
     <div className="grid gap-6 md:grid-cols-2">
       {/* Hypha Programming Language */}
-      <Card className="p-4">
+      <NeuCard className="p-4">
         <div className="relative aspect-video rounded-lg overflow-hidden mb-4">
           <Image
             src="/placeholder.svg?height=300&width=400&text=Hypha+Language"
@@ -87,10 +87,10 @@ const FCISection = () => (
           mycelial networks. It provides a high-level interface for controlling FCI devices, defining complex
           algorithms, and managing data flow within fungal systems.
         </p>
-      </Card>
+      </NeuCard>
 
       {/* Mycorrhizae Protocol */}
-      <Card className="p-4">
+      <NeuCard className="p-4">
         <div className="relative aspect-video rounded-lg overflow-hidden mb-4">
           <Image
             src="/placeholder.svg?height=300&width=400&text=Mycorrhizae+Protocol"
@@ -105,13 +105,14 @@ const FCISection = () => (
           integration of intelligence algorithms, APIs, and databases. It facilitates the exchange of data and commands
           across the entire Mycosoft ecosystem, ensuring interoperability and efficient network management.
         </p>
-      </Card>
+      </NeuCard>
     </div>
   </div>
 )
 
 export default function SciencePage() {
   return (
+    <NeuromorphicProvider>
     <div className="container py-6 md:py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <h1 className="text-4xl font-bold mb-8">Science & Research</h1>
@@ -128,7 +129,7 @@ export default function SciencePage() {
           {/* Strategic Partnerships */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Strategic Partnerships</h2>
-            <Card className="p-6">
+            <NeuCard className="p-6">
               <div className="flex items-start gap-4">
                 <div className="relative w-24 h-24 flex-shrink-0">
                   <Image
@@ -150,8 +151,8 @@ export default function SciencePage() {
                   </p>
                 </div>
               </div>
-            </Card>
-            <Card className="p-6">
+            </NeuCard>
+            <NeuCard className="p-6">
               <div className="flex items-start gap-4">
                 <div className="relative w-24 h-24 flex-shrink-0">
                   <Image
@@ -173,7 +174,7 @@ export default function SciencePage() {
                   </p>
                 </div>
               </div>
-            </Card>
+            </NeuCard>
             <p className="text-sm text-muted-foreground mt-4">More partnerships coming soon...</p>
           </div>
         </div>
@@ -242,5 +243,6 @@ export default function SciencePage() {
         </div>
       </div>
     </div>
+    </NeuromorphicProvider>
   )
 }

@@ -211,3 +211,69 @@
 [2026-02-19 11:42:23] [INFO] Dev server process launched.
 [2026-02-19 11:42:23] [INFO] Waiting up to 120s for server on :3010...
 [2026-02-19 11:42:44] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 13:18:23] [WARN] Not responding (fail 1/3)
+[2026-02-19 13:18:54] [INFO] Server recovered. Resetting counter.
+[2026-02-19 13:20:26] [WARN] Not responding (fail 1/3)
+[2026-02-19 13:20:56] [INFO] Server recovered. Resetting counter.
+[2026-02-19 13:21:29] [WARN] Not responding (fail 1/3)
+[2026-02-19 13:22:00] [INFO] Server recovered. Resetting counter.
+[2026-02-19 13:29:14] [WARN] Not responding (fail 1/3)
+[2026-02-19 13:29:49] [WARN] Not responding (fail 2/3)
+[2026-02-19 13:30:19] [INFO] Server recovered. Resetting counter.
+[2026-02-19 14:02:40] [WARN] Not responding (fail 1/3)
+[2026-02-19 14:03:10] [WARN] Not responding (fail 2/3)
+[2026-02-19 14:03:44] [INFO] Server recovered. Resetting counter.
+[2026-02-19 14:04:18] [WARN] Not responding (fail 1/3)
+[2026-02-19 14:04:49] [WARN] Not responding (fail 2/3)
+[2026-02-19 14:05:19] [WARN] Not responding (fail 3/3)
+[2026-02-19 14:05:19] [WARN] === RESTART #1 ===
+[2026-02-19 14:05:24] [INFO] Starting: npm run dev:next-only
+[2026-02-19 14:05:24] [INFO] Dev server process launched.
+[2026-02-19 14:05:24] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-19 14:05:35] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 14:05:35] [INFO] Server restarted OK.
+[2026-02-19 16:59:52] [WARN] Not responding (fail 1/3)
+[2026-02-19 17:00:22] [WARN] Not responding (fail 2/3)
+[2026-02-19 17:00:56] [WARN] Not responding (fail 3/3)
+[2026-02-19 17:00:56] [WARN] === RESTART #2 ===
+[2026-02-19 17:01:02] [INFO] Starting: npm run dev:next-only
+[2026-02-19 17:01:02] [INFO] Dev server process launched.
+[2026-02-19 17:01:02] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-19 17:01:12] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 17:01:12] [INFO] Server restarted OK.
+[2026-02-19 17:01:47] [WARN] Not responding (fail 1/3)
+[2026-02-19 17:02:17] [INFO] Server recovered. Resetting counter.
+[2026-02-19 17:31:43] [WARN] Not responding (fail 1/3)
+[2026-02-19 17:32:13] [INFO] Server recovered. Resetting counter.
+[2026-02-19 17:58:22] [WARN] Not responding (fail 1/3)
+[2026-02-19 17:58:52] [WARN] Not responding (fail 2/3)
+[2026-02-19 17:59:23] [WARN] Not responding (fail 3/3)
+[2026-02-19 17:59:23] [WARN] === RESTART #3 ===
+[2026-02-19 17:59:28] [INFO] Starting: npm run dev:next-only
+[2026-02-19 17:59:28] [INFO] Dev server process launched.
+[2026-02-19 17:59:28] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-19 17:59:38] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 17:59:38] [INFO] Server restarted OK.
+[2026-02-19 20:12:55] [WARN] Not responding (fail 1/3)
+[2026-02-19 20:13:30] [WARN] Not responding (fail 2/3)
+[2026-02-19 20:14:05] [WARN] Not responding (fail 3/3)
+[2026-02-19 20:14:05] [WARN] === RESTART #4 ===
+[2026-02-19 20:14:10] [INFO] Starting: npm run dev:next-only
+[2026-02-19 20:14:10] [INFO] Dev server process launched.
+[2026-02-19 20:14:10] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-19 20:14:21] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 20:14:21] [INFO] Server restarted OK.
+[2026-02-19 21:02:13] [WARN] Not responding (fail 1/3)
+[2026-02-19 21:02:43] [INFO] Server recovered. Resetting counter.
+[2026-02-19 21:06:57] [WARN] Not responding (fail 1/3)
+[2026-02-19 21:07:27] [WARN] Not responding (fail 2/3)
+[2026-02-19 21:07:57] [INFO] Server recovered. Resetting counter.
+[2026-02-19 21:17:12] [WARN] Not responding (fail 1/3)
+[2026-02-19 21:17:42] [WARN] Not responding (fail 2/3)
+[2026-02-19 21:18:13] [WARN] Not responding (fail 3/3)
+[2026-02-19 21:18:13] [WARN] === RESTART #5 ===
+[2026-02-19 21:18:18] [INFO] Starting: npm run dev:next-only
+[2026-02-19 21:18:18] [INFO] Dev server process launched.
+[2026-02-19 21:18:18] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-19 21:18:28] [INFO] Server is UP at http://localhost:3010
+[2026-02-19 21:18:28] [INFO] Server restarted OK.

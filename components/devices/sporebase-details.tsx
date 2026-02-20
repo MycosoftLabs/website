@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { SporeUniverse } from "@/components/effects/star-universe"
 import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
@@ -183,9 +188,10 @@ export function SporeBaseDetails() {
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
 
   return (
-    <div className="relative bg-gradient-to-b from-orange-950 via-slate-950 to-black text-white overflow-hidden">
-      {/* Hero Section */}
-      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
+      {/* Hero Section — data-over-video for dark background text consistency */}
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
         {/* Background gradient - matching CodePen style */}
         <motion.div 
           style={{ scale: heroScale }}
@@ -202,12 +208,12 @@ export function SporeBaseDetails() {
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
-          <Badge className="mb-4 bg-orange-500/20 text-orange-400 border-orange-500/50 text-sm px-4 py-1">
+          <NeuBadge variant="default" className="device-hero-badge mb-4 bg-orange-500/20 text-orange-400 border-orange-500/50 text-sm px-4 py-1">
             Bioaerosol Collection
-          </Badge>
+          </NeuBadge>
           
           <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -218,7 +224,7 @@ export function SporeBaseDetails() {
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl mx-auto font-light"
+            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
@@ -234,14 +240,14 @@ export function SporeBaseDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
+            <NeuButton className="device-cta-over-video min-h-[44px] px-8 bg-orange-500 hover:bg-orange-600 !text-black font-semibold">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
-            </Button>
-            <Button size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
+            </NeuButton>
+            <NeuButton variant="default" className="device-cta-over-video-outline min-h-[44px] px-8 border border-orange-500/50 hover:bg-orange-500/10">
               <Play className="mr-2 h-5 w-5" />
               Watch Demo
-            </Button>
+            </NeuButton>
           </motion.div>
         </motion.div>
         
@@ -262,13 +268,13 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-950 to-slate-900">
+      <section className="py-24 bg-gradient-to-b from-slate-950 to-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+              <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
                 Our Mission
-              </Badge>
+              </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
                 Why SporeBase Exists
               </h2>
@@ -388,16 +394,16 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Collection System Section */}
-      <section className="relative py-24 bg-slate-900 overflow-hidden">
+      <section className="relative py-24 bg-slate-900 text-white overflow-hidden">
         {/* Particle canvas background */}
         <div className="absolute inset-0 z-0">
           <SporeParticleCanvas />
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Technology
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               How SporeBase Works
             </h2>
@@ -413,30 +419,30 @@ export function SporeBaseDetails() {
               { icon: Database, title: "Chain of Custody", desc: "MINDEX provides tamper-evident records with Mycorrhizae Protocol data encoding" },
               { icon: FlaskRound, title: "Lab-Ready", desc: "Sealed cassettes ready for microscopy, qPCR, sequencing, or archive storage" },
             ].map((item) => (
-              <Card key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors backdrop-blur-sm">
-                <CardContent className="pt-6">
+              <NeuCard key={item.title} className="bg-slate-800/50 border-orange-500/20 hover:border-orange-500/40 transition-colors backdrop-blur-sm">
+                <NeuCardContent className="pt-6">
                   <div className="p-3 rounded-xl bg-orange-500/20 w-fit mb-4">
                     <item.icon className="h-6 w-6 text-orange-400" />
                   </div>
                   <h3 className="font-bold text-lg mb-2 text-white">{item.title}</h3>
                   <p className="text-white/60 text-sm">{item.desc}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
       </section>
 
       {/* Applications Section */}
-      <section className="relative py-24 bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden">
+      <section className="relative py-24 bg-gradient-to-b from-slate-900 to-slate-950 text-white overflow-hidden">
         {/* Interactive particle gravity effect - mouse/touch responsive */}
         <SporeGravity className="opacity-70" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Applications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Who Uses SporeBase?
             </h2>
@@ -479,12 +485,12 @@ export function SporeBaseDetails() {
       </section>
 
       {/* Inside SporeBase - Blueprint Section */}
-      <section className="py-24 bg-black">
+      <section className="py-24 bg-black text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Engineering
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside SporeBase
             </h2>
@@ -627,9 +633,9 @@ export function SporeBaseDetails() {
       <section className="py-24 bg-gradient-to-b from-black to-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-orange-500/10 text-orange-400 border-orange-500/30">
               Specifications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Technical Details
             </h2>
@@ -668,14 +674,14 @@ export function SporeBaseDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+            <NeuButton variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
-            </Button>
-            <Button variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+            </NeuButton>
+            <NeuButton variant="outline" className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
-            </Button>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -699,14 +705,14 @@ export function SporeBaseDetails() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
+            <NeuButton size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
-            </Button>
-            <Button size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
+            </NeuButton>
+            <NeuButton size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
               <Download className="mr-2 h-5 w-5" />
               Download Brochure
-            </Button>
+            </NeuButton>
           </div>
           
           <p className="text-sm text-white/40 mt-8">
@@ -715,6 +721,7 @@ export function SporeBaseDetails() {
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

@@ -1,4 +1,5 @@
-import type { Metadata } from "next"
+"use client"
+
 import Link from "next/link"
 import { 
   ArrowLeft,
@@ -17,15 +18,15 @@ import {
   Eye,
   CheckCircle2
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-
-export const metadata: Metadata = {
-  title: "Technical Documentation - OEI | Mycosoft",
-  description: "Access comprehensive technical documentation for Mycosoft's OEI platform including hardware specs, API references, integration guides, and protocol specifications.",
-}
+import {
+  NeuButton,
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuBadge,
+  NeuInput,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 
 const categories = [
   { id: "all", label: "All Documents", count: 24 },
@@ -78,7 +79,8 @@ const whyMatters = [
 
 export default function TechnicalDocsPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
       {/* Header */}
       <div className="border-b">
         <div className="container max-w-7xl mx-auto px-4 py-4">
@@ -96,9 +98,9 @@ export default function TechnicalDocsPage() {
       <section className="py-16 bg-gradient-to-b from-muted/30 to-background">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="outline" className="mb-4 border-yellow-500/50 text-yellow-500">
-              UNCLASS // FOR OFFICIAL USE ONLY
-            </Badge>
+            <NeuBadge variant="warning" className="mb-4">
+              TECHNICAL DOCUMENTATION
+            </NeuBadge>
             <h1 className="text-5xl font-bold mb-4">
               Technical Documentation
             </h1>
@@ -109,10 +111,10 @@ export default function TechnicalDocsPage() {
             
             {/* Search */}
             <div className="max-w-xl mx-auto relative">
-              <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
-              <Input 
+              <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground z-10 pointer-events-none" />
+              <NeuInput 
                 placeholder="Search documentation..." 
-                className="pl-12 h-12 text-lg"
+                className="pl-12 h-12 text-base"
               />
             </div>
           </div>
@@ -124,15 +126,14 @@ export default function TechnicalDocsPage() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="flex flex-wrap gap-3 justify-center">
             {categories.map((cat) => (
-              <Button 
+              <NeuButton 
                 key={cat.id} 
-                variant={cat.id === "all" ? "default" : "outline"}
+                variant={cat.id === "all" ? "primary" : "default"}
                 className="gap-2"
               >
                 {cat.icon && <cat.icon className="h-4 w-4" />}
-                {cat.label}
-                <Badge variant="secondary" className="ml-1">{cat.count}</Badge>
-              </Button>
+                {cat.label} ({cat.count})
+              </NeuButton>
             ))}
           </div>
         </div>
@@ -144,35 +145,35 @@ export default function TechnicalDocsPage() {
           <h2 className="text-2xl font-bold mb-8">Featured Documents</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {documents.filter(d => d.featured).map((doc) => (
-              <Card key={doc.title} className="hover:border-primary/50 transition-colors group cursor-pointer">
-                <CardHeader>
+              <NeuCard key={doc.title} className="hover:opacity-95 active:scale-[0.99] transition-all cursor-pointer group">
+                <NeuCardHeader>
                   <div className="flex items-start justify-between">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <FileText className="h-5 w-5 text-primary" />
                     </div>
-                    <Badge variant="outline">{doc.format}</Badge>
+                    <NeuBadge variant="default">{doc.format}</NeuBadge>
                   </div>
-                  <CardTitle className="text-lg mt-4 group-hover:text-primary transition-colors">
+                  <h3 className="text-lg mt-4 font-semibold group-hover:text-primary transition-colors">
                     {doc.title}
-                  </CardTitle>
-                  <CardDescription className="line-clamp-2">
+                  </h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                     {doc.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+                  </p>
+                </NeuCardHeader>
+                <NeuCardContent>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">{doc.size}</span>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost">
+                      <NeuButton variant="default" className="p-2">
                         <ExternalLink className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost">
+                      </NeuButton>
+                      <NeuButton variant="default" className="p-2">
                         <Download className="h-4 w-4" />
-                      </Button>
+                      </NeuButton>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -191,8 +192,8 @@ export default function TechnicalDocsPage() {
             </h3>
             <div className="space-y-3">
               {documents.filter(d => d.category === "hardware").map((doc) => (
-                <Card key={doc.title} className="hover:border-primary/50 transition-colors">
-                  <CardContent className="py-4">
+                <NeuCard key={doc.title} className="transition-colors">
+                  <NeuCardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <FileText className="h-5 w-5 text-muted-foreground" />
@@ -202,20 +203,20 @@ export default function TechnicalDocsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant="outline">{doc.format}</Badge>
+                        <NeuBadge variant="default">{doc.format}</NeuBadge>
                         <span className="text-sm text-muted-foreground">{doc.size}</span>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                          <NeuButton variant="default" className="p-2">
                             <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
+                          </NeuButton>
+                          <NeuButton variant="default" className="p-2">
                             <Download className="h-4 w-4" />
-                          </Button>
+                          </NeuButton>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               ))}
             </div>
           </div>
@@ -228,8 +229,8 @@ export default function TechnicalDocsPage() {
             </h3>
             <div className="space-y-3">
               {documents.filter(d => d.category === "software").map((doc) => (
-                <Card key={doc.title} className="hover:border-primary/50 transition-colors">
-                  <CardContent className="py-4">
+                <NeuCard key={doc.title} className="transition-colors">
+                  <NeuCardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <FileText className="h-5 w-5 text-muted-foreground" />
@@ -239,20 +240,20 @@ export default function TechnicalDocsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant="outline">{doc.format}</Badge>
+                        <NeuBadge variant="default">{doc.format}</NeuBadge>
                         <span className="text-sm text-muted-foreground">{doc.size}</span>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                          <NeuButton variant="default" className="p-2">
                             <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
+                          </NeuButton>
+                          <NeuButton variant="default" className="p-2">
                             <Download className="h-4 w-4" />
-                          </Button>
+                          </NeuButton>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               ))}
             </div>
           </div>
@@ -265,8 +266,8 @@ export default function TechnicalDocsPage() {
             </h3>
             <div className="space-y-3">
               {documents.filter(d => d.category === "protocols").map((doc) => (
-                <Card key={doc.title} className="hover:border-primary/50 transition-colors">
-                  <CardContent className="py-4">
+                <NeuCard key={doc.title} className="transition-colors">
+                  <NeuCardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <FileText className="h-5 w-5 text-muted-foreground" />
@@ -276,20 +277,20 @@ export default function TechnicalDocsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant="outline">{doc.format}</Badge>
+                        <NeuBadge variant="default">{doc.format}</NeuBadge>
                         <span className="text-sm text-muted-foreground">{doc.size}</span>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                          <NeuButton variant="default" className="p-2">
                             <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
+                          </NeuButton>
+                          <NeuButton variant="default" className="p-2">
                             <Download className="h-4 w-4" />
-                          </Button>
+                          </NeuButton>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               ))}
             </div>
           </div>
@@ -302,8 +303,8 @@ export default function TechnicalDocsPage() {
             </h3>
             <div className="space-y-3">
               {documents.filter(d => d.category === "integration").map((doc) => (
-                <Card key={doc.title} className="hover:border-primary/50 transition-colors">
-                  <CardContent className="py-4">
+                <NeuCard key={doc.title} className="transition-colors">
+                  <NeuCardContent className="py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <FileText className="h-5 w-5 text-muted-foreground" />
@@ -313,20 +314,20 @@ export default function TechnicalDocsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <Badge variant="outline">{doc.format}</Badge>
+                        <NeuBadge variant="default">{doc.format}</NeuBadge>
                         <span className="text-sm text-muted-foreground">{doc.size}</span>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                          <NeuButton variant="default" className="p-2">
                             <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
+                          </NeuButton>
+                          <NeuButton variant="default" className="p-2">
                             <Download className="h-4 w-4" />
-                          </Button>
+                          </NeuButton>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               ))}
             </div>
           </div>
@@ -337,18 +338,18 @@ export default function TechnicalDocsPage() {
       <section className="py-16">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
-            <Badge className="mb-4">Why It Matters</Badge>
+            <NeuBadge variant="default" className="mb-4">Why It Matters</NeuBadge>
             <h2 className="text-3xl font-bold">Documentation That Delivers</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {whyMatters.map((item) => (
-              <Card key={item.title} className="text-center">
-                <CardContent className="pt-8">
+              <NeuCard key={item.title} className="text-center">
+                <NeuCardContent className="pt-8">
                   <CheckCircle2 className="h-8 w-8 text-primary mx-auto mb-4" />
                   <h3 className="font-semibold mb-2">{item.title}</h3>
                   <p className="text-sm text-muted-foreground">{item.description}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -363,14 +364,15 @@ export default function TechnicalDocsPage() {
               For access to classified technical materials, please request a briefing 
               and our cleared personnel will arrange appropriate access.
             </p>
-            <Button size="lg" asChild>
-              <Link href="/defense/request-briefing">
+            <Link href="/defense/request-briefing">
+              <NeuButton variant="primary" className="px-8 py-3">
                 Request Access
-              </Link>
-            </Button>
+              </NeuButton>
+            </Link>
           </div>
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }

@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
@@ -279,12 +284,14 @@ export function Mushroom1Details() {
   }
 
   return (
-    <div className="min-h-dvh bg-black text-white overflow-x-hidden">
-      {/* Hero Section - Fullscreen Video */}
+    <NeuromorphicProvider>
+    <div className="min-h-dvh bg-background text-foreground overflow-x-hidden">
+      {/* Hero Section - Fullscreen Video — data-over-video for neuromorphic theme consistency */}
       <motion.section 
         ref={heroRef}
         className="relative h-screen w-full overflow-hidden"
         style={{ opacity: heroOpacity }}
+        data-over-video
       >
         {/* Background Video */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
@@ -312,13 +319,13 @@ export function Mushroom1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
           >
-            <Badge className="mb-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-sm px-4 py-1">
+            <NeuBadge variant="default" className="device-hero-badge mb-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/50 text-sm px-4 py-1">
               Environmental drone
-            </Badge>
+            </NeuBadge>
           </motion.div>
           
           <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -329,7 +336,7 @@ export function Mushroom1Details() {
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl font-light"
+            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
@@ -345,18 +352,17 @@ export function Mushroom1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <Button 
-              size="lg" 
-              className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-8"
+            <NeuButton 
+              className="device-cta-over-video min-h-[44px] px-8 bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
               onClick={() => setIsPreOrderModalOpen(true)}
             >
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
-            </Button>
-            <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}>
+            </NeuButton>
+            <NeuButton variant="default" className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10" onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}>
               <Play className="mr-2 h-5 w-5" />
               Watch Film
-            </Button>
+            </NeuButton>
           </motion.div>
 
           {/* Scroll indicator */}
@@ -377,7 +383,7 @@ export function Mushroom1Details() {
       </motion.section>
 
       {/* Why Mushroom 1 Exists */}
-      <section className="py-24 px-4 bg-gradient-to-b from-black via-slate-950 to-black">
+      <section className="py-24 px-4 bg-gradient-to-b from-black via-slate-950 to-black text-white">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -386,7 +392,7 @@ export function Mushroom1Details() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Our Mission</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Our Mission</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Why <span className="text-emerald-400">Mushroom 1</span> Exists
             </h2>
@@ -495,7 +501,7 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">Technology</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">Technology</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Advanced <span className="text-cyan-400">Sensor Suite</span>
             </h2>
@@ -513,16 +519,16 @@ export function Mushroom1Details() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
               >
-                <Card className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-colors h-full">
-                  <CardHeader>
+                <NeuCard className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-colors h-full">
+                  <NeuCardHeader>
                     <div className="flex items-center gap-3">
                       <div className="p-3 rounded-lg bg-cyan-500/10">
                         <sensor.icon className="h-6 w-6 text-cyan-400" />
                       </div>
-                      <CardTitle className="text-white">{sensor.name}</CardTitle>
+                      <h3 className="text-white font-semibold">{sensor.name}</h3>
                     </div>
-                  </CardHeader>
-                  <CardContent>
+                  </NeuCardHeader>
+                  <NeuCardContent>
                     <ul className="space-y-2">
                       {sensor.specs.map((spec, j) => (
                         <li key={j} className="flex items-center gap-2 text-white/70 text-sm">
@@ -531,8 +537,8 @@ export function Mushroom1Details() {
                         </li>
                       ))}
                     </ul>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               </motion.div>
             ))}
           </div>
@@ -568,7 +574,7 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <Badge className="mb-4 bg-white/10 text-white border-white/20">Field Deployments</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-white/10 text-white border-white/20">Field Deployments</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold">
               In the <span className="text-emerald-400">Wild</span>
             </h2>
@@ -595,10 +601,10 @@ export function Mushroom1Details() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                   <div className="absolute bottom-6 left-6">
-                    <Badge className="bg-black/50 backdrop-blur-sm border-white/20 mb-2">
+                    <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-2">
                       <MapPin className="h-3 w-3 mr-1" />
                       {MUSHROOM1_ASSETS.images[currentSlide].location}
-                    </Badge>
+                    </NeuBadge>
                     <p className="text-white/80">{MUSHROOM1_ASSETS.images[currentSlide].alt}</p>
                   </div>
                 </motion.div>
@@ -646,7 +652,7 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Applications</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Applications</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Who Uses <span className="text-emerald-400">Mushroom 1</span>?
             </h2>
@@ -696,7 +702,7 @@ export function Mushroom1Details() {
                       className="mt-4 flex flex-wrap gap-2"
                     >
                       {useCase.applications.map((app) => (
-                        <Badge key={app} className="bg-white/20 border-white/30">{app}</Badge>
+                        <NeuBadge key={app} variant="default" className="bg-white/20 border-white/30">{app}</NeuBadge>
                       ))}
                     </motion.div>
                   )}
@@ -742,10 +748,10 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-red-500/10 text-red-400 border-red-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-red-500/10 text-red-400 border-red-500/30">
               <Youtube className="h-4 w-4 mr-1" />
               Watch
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Official <span className="text-red-400">Videos</span>
             </h2>
@@ -795,7 +801,7 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/30">Engineering</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/30">Engineering</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside <span className="text-amber-400">Mushroom 1</span>
             </h2>
@@ -1023,7 +1029,7 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Connectivity</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Connectivity</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-purple-400">Mesh Network</span> Intelligence
             </h2>
@@ -1074,21 +1080,21 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <Badge className="mb-4 bg-slate-500/10 text-slate-400 border-slate-500/30">Specifications</Badge>
+            <NeuBadge variant="default" className="mb-4 bg-slate-500/10 text-slate-400 border-slate-500/30">Specifications</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Technical <span className="text-slate-400">Details</span>
             </h2>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+            <NeuCard className="bg-white/5 border-white/10">
+              <NeuCardHeader>
+                <h3 className="text-white flex items-center gap-2 font-semibold">
                   <Cpu className="h-5 w-5 text-cyan-400" />
                   Hardware
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </h3>
+              </NeuCardHeader>
+              <NeuCardContent className="space-y-4">
                 {[
                   { label: "Processor", value: "ESP32-S3 Dual-Core 240MHz" },
                   { label: "Memory", value: "16MB Flash + 8MB PSRAM" },
@@ -1103,17 +1109,17 @@ export function Mushroom1Details() {
                     <span className="text-white font-medium">{spec.value}</span>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </NeuCardContent>
+            </NeuCard>
 
-            <Card className="bg-white/5 border-white/10">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
+            <NeuCard className="bg-white/5 border-white/10">
+              <NeuCardHeader>
+                <h3 className="text-white flex items-center gap-2 font-semibold">
                   <Shield className="h-5 w-5 text-emerald-400" />
                   Environmental
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                </h3>
+              </NeuCardHeader>
+              <NeuCardContent className="space-y-4">
                 {[
                   { label: "IP Rating", value: "IP67 Waterproof" },
                   { label: "Operating Temp", value: "-20°C to 60°C" },
@@ -1128,14 +1134,14 @@ export function Mushroom1Details() {
                     <span className="text-white font-medium">{spec.value}</span>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </NeuCardContent>
+            </NeuCard>
           </div>
 
           <div className="mt-8 flex justify-center gap-4">
-            <Button 
+            <NeuButton 
               variant="outline" 
-              className="border-white/20 text-white hover:bg-white/10"
+              className="min-h-[44px] border-white/20 !text-white hover:!text-white hover:bg-white/10"
               onClick={() => {
                 // TODO: Download full specifications PDF
                 alert("Full specifications document will be available soon.")
@@ -1143,10 +1149,10 @@ export function Mushroom1Details() {
             >
               <Download className="mr-2 h-5 w-5" />
               Download Full Specifications
-            </Button>
-            <Button 
+            </NeuButton>
+            <NeuButton 
               variant="outline" 
-              className="border-white/20 text-white hover:bg-white/10"
+              className="min-h-[44px] border-white/20 !text-white hover:!text-white hover:bg-white/10"
               onClick={() => {
                 // TODO: Open 3D CAD viewer
                 alert("3D CAD model viewer will be available soon. CAD files pending upload.")
@@ -1154,7 +1160,7 @@ export function Mushroom1Details() {
             >
               <ExternalLink className="mr-2 h-5 w-5" />
               View CAD Models
-            </Button>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -1190,14 +1196,17 @@ export function Mushroom1Details() {
               Join the future of environmental intelligence. Pre-order Mushroom 1 today and be among the first to deploy the world&apos;s most advanced fungal sensing network.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-8 py-6 text-lg">
+              <NeuButton 
+                className="min-h-[44px] px-8 py-6 text-lg bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
+                onClick={() => setIsPreOrderModalOpen(true)}
+              >
                 <ShoppingCart className="mr-2 h-6 w-6" />
                 Pre-Order - $2,000
-              </Button>
-              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 px-8 py-6 text-lg">
+              </NeuButton>
+              <NeuButton variant="outline" className="min-h-[44px] px-8 py-6 text-lg border-white/30 !text-white hover:!text-white hover:bg-white/10">
                 <Download className="mr-2 h-6 w-6" />
                 Download Brochure
-              </Button>
+              </NeuButton>
             </div>
             <p className="text-white/50 mt-6 text-sm">
               Expected deployment mid-to-end 2026 • 30-day money-back guarantee • Free worldwide shipping
@@ -1253,6 +1262,7 @@ export function Mushroom1Details() {
         onClose={() => setIsPreOrderModalOpen(false)} 
       />
     </div>
+    </NeuromorphicProvider>
   )
 }
 

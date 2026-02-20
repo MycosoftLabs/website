@@ -23,9 +23,13 @@ import {
   Activity,
   Box
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuButton,
+  NeuCard,
+  NeuCardContent,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const defenseApps = [
@@ -352,36 +356,33 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
       transition={{ delay: index * 0.05 }}
     >
       <Link href={app.href}>
-        <Card className={`h-full ${theme.hoverBorder} hover:bg-muted/30 transition-all group cursor-pointer relative overflow-hidden`}>
+        <NeuCard className={`h-full ${theme.hoverBorder} transition-all group cursor-pointer relative overflow-hidden`}>
           {/* Subtle gradient overlay based on theme */}
           <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
           
-          <CardHeader className="relative z-10">
+          <NeuCardContent className="relative z-10">
             <div className="flex items-start justify-between">
               <div className={`p-3 rounded-xl ${theme.iconBg} group-hover:scale-110 transition-transform`}>
                 <app.icon className={`h-6 w-6 ${theme.iconColor}`} />
               </div>
-              <Badge 
-                variant={app.status === "operational" ? "default" : "secondary"}
-                className={app.status === "operational" ? "bg-green-500/10 text-green-500 border-green-500/30" : ""}
+              <NeuBadge 
+                variant={app.status === "operational" ? "success" : "default"}
               >
                 {app.status}
-              </Badge>
+              </NeuBadge>
             </div>
-            <CardTitle className={`mt-4 group-hover:${theme.accentColor} transition-colors`}>
+            <h3 className={`mt-4 font-semibold group-hover:${theme.accentColor} transition-colors`}>
               {app.title}
-            </CardTitle>
-            <CardDescription className="line-clamp-2">
+            </h3>
+            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
               {app.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="relative z-10">
-            <div className={`flex items-center text-sm ${theme.accentColor} opacity-0 group-hover:opacity-100 transition-opacity`}>
+            </p>
+            <div className={`flex items-center text-sm ${theme.accentColor} opacity-0 group-hover:opacity-100 transition-opacity mt-4`}>
               Launch Application
               <ArrowRight className="ml-2 h-4 w-4" />
             </div>
-          </CardContent>
-        </Card>
+          </NeuCardContent>
+        </NeuCard>
       </Link>
     </motion.div>
   )
@@ -389,9 +390,10 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
 
 export function AppsPortal() {
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Hero Section with Background Video */}
-      <section className="relative py-24 overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
+      {/* Hero Section with Background Video — data-over-video for theme-aware text over dark video */}
+      <section className="relative py-24 overflow-hidden" data-over-video>
         {/* Background Video */}
         <video
           autoPlay
@@ -417,8 +419,8 @@ export function AppsPortal() {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto text-center"
           >
-            <Badge className="mb-4">Application Suite</Badge>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+            <NeuBadge variant="default" className="mb-4 portal-hero-badge">Application Suite</NeuBadge>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 portal-hero-title">
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
                 Biological Computing
               </span>
@@ -427,7 +429,7 @@ export function AppsPortal() {
                 Applications
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 portal-hero-subtitle">
               Purpose-built software for environmental intelligence research operations. 
               Dual-use applications for science and beyond.
             </p>
@@ -440,7 +442,7 @@ export function AppsPortal() {
                 { value: "Real-time", label: "Processing" },
                 { value: "Open", label: "Platform" }
               ].map((stat) => (
-                <div key={stat.label} className="text-center">
+                <div key={stat.label} className="text-center portal-hero-stat">
                   <div className="text-3xl font-bold">{stat.value}</div>
                   <div className="text-sm text-muted-foreground">{stat.label}</div>
                 </div>
@@ -539,7 +541,7 @@ export function AppsPortal() {
         <div className="container px-4 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-primary/10 text-primary">Featured</Badge>
+              <NeuBadge variant="primary" className="mb-4">Featured</NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
                 NatureOS Command Center
               </h2>
@@ -562,12 +564,12 @@ export function AppsPortal() {
                 ))}
               </div>
 
-              <Button size="lg" asChild>
-                <Link href="/natureos">
+              <Link href="/natureos">
+                <NeuButton variant="primary" size="lg">
                   Launch NatureOS
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+                </NeuButton>
+              </Link>
             </div>
 
             <div className="relative">
@@ -617,7 +619,7 @@ export function AppsPortal() {
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Platform</Badge>
+            <NeuBadge variant="default" className="mb-4">Platform</NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               Built on Nature Compute
             </h2>
@@ -629,7 +631,7 @@ export function AppsPortal() {
 
           {/* Topology Diagram */}
           <div className="max-w-4xl mx-auto mb-16">
-            <Card className="p-8">
+            <NeuCard className="p-8">
               <div className="grid grid-cols-6 gap-4 items-center text-center">
                 {/* Layer 1: Hardware */}
                 <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
@@ -706,7 +708,7 @@ export function AppsPortal() {
                   <Zap className="h-6 w-6 text-primary" />
                 </div>
               </div>
-            </Card>
+            </NeuCard>
           </div>
 
           {/* Feature Cards */}
@@ -728,20 +730,21 @@ export function AppsPortal() {
                 description: "MINDEX integrity with cross-application access"
               }
             ].map((feature) => (
-              <Card key={feature.title} className="text-center bg-background/80 backdrop-blur">
-                <CardContent className="pt-8">
+              <NeuCard key={feature.title} className="text-center">
+                <NeuCardContent className="pt-8">
                   <div className="inline-flex p-4 rounded-xl bg-primary/10 mb-4">
                     <feature.icon className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

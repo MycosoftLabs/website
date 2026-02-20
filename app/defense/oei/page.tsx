@@ -1,4 +1,5 @@
-import type { Metadata } from "next"
+"use client"
+
 import Link from "next/link"
 import { 
   ArrowLeft,
@@ -21,14 +22,14 @@ import {
   CheckCircle2,
   Brain
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-
-export const metadata: Metadata = {
-  title: "Operational Environmental Intelligence - OEI | Mycosoft",
-  description: "Learn about Operational Environmental Intelligence (OEI) - a new intelligence discipline giving voice to the operational environment through persistent sensing and AI analysis.",
-}
+import {
+  NeuButton,
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 
 const dataFlowSteps = [
   { level: "Field Sensors", items: ["Mushroom1", "MycoNode", "SporeBase", "ALARM"], icon: Radar, color: "orange-500" },
@@ -83,7 +84,8 @@ const useCases = [
 
 export default function OEIPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <NeuromorphicProvider>
+    <div className="min-h-dvh">
       {/* Header */}
       <div className="border-b">
         <div className="container max-w-7xl mx-auto px-4 py-4">
@@ -102,9 +104,9 @@ export default function OEIPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-background" />
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="outline" className="mb-4 border-yellow-500/50 text-yellow-500">
+            <NeuBadge variant="warning" className="mb-4">
               NEW INTELLIGENCE DISCIPLINE
-            </Badge>
+            </NeuBadge>
             <h1 className="text-5xl md:text-7xl font-bold mb-6">
               <span className="text-foreground">Operational</span>
               <br />
@@ -125,7 +127,7 @@ export default function OEIPage() {
         <div className="container max-w-7xl mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4">Definition</Badge>
+              <NeuBadge variant="default" className="mb-4">Definition</NeuBadge>
               <h2 className="text-4xl font-bold mb-6">What is OEI?</h2>
               <div className="space-y-4 text-lg text-muted-foreground">
                 <p>
@@ -179,7 +181,7 @@ export default function OEIPage() {
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Architecture</Badge>
+            <NeuBadge variant="default" className="mb-4">Architecture</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">OEI Data Flow</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               From sensors in the field to decision-makers in command - a complete intelligence pipeline.
@@ -193,8 +195,8 @@ export default function OEIPage() {
                   {index < dataFlowSteps.length - 1 && (
                     <div className="absolute left-8 top-20 w-0.5 h-8 bg-gradient-to-b from-primary/50 to-primary/20" />
                   )}
-                  <Card className="hover:border-primary/50 transition-colors">
-                    <CardContent className="p-6">
+                  <NeuCard className="transition-colors">
+                    <NeuCardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <div className={`p-3 rounded-xl shrink-0 ${
                           step.color === 'orange-500' ? 'bg-orange-500/10' :
@@ -215,18 +217,18 @@ export default function OEIPage() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <Badge variant="outline">{index + 1}</Badge>
+                            <NeuBadge variant="default">{index + 1}</NeuBadge>
                             <h3 className="font-semibold text-lg">{step.level}</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {step.items.map((item) => (
-                              <Badge key={item} variant="secondary">{item}</Badge>
+                              <NeuBadge key={item} variant="default">{item}</NeuBadge>
                             ))}
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </NeuCardContent>
+                  </NeuCard>
                 </div>
               ))}
             </div>
@@ -238,7 +240,7 @@ export default function OEIPage() {
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-blue-500/10 text-blue-500">AI Foundation</Badge>
+            <NeuBadge variant="info" className="mb-4">AI Foundation</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">Nature Learning Model</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               The first AI model purpose-built for environmental intelligence - unlike general language models, 
@@ -248,17 +250,17 @@ export default function OEIPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {nlmCapabilities.map((cap) => (
-              <Card key={cap.title} className="hover:border-blue-500/50 transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+              <NeuCard key={cap.title} className="transition-colors">
+                <NeuCardHeader>
+                  <h3 className="flex items-center gap-2 font-semibold">
                     <Brain className="h-5 w-5 text-blue-500" />
                     {cap.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </h3>
+                </NeuCardHeader>
+                <NeuCardContent>
                   <p className="text-muted-foreground">{cap.description}</p>
-                </CardContent>
-              </Card>
+                </NeuCardContent>
+              </NeuCard>
             ))}
           </div>
 
@@ -276,7 +278,7 @@ export default function OEIPage() {
       <section className="py-24">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Applications</Badge>
+            <NeuBadge variant="default" className="mb-4">Applications</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">Who Uses OEI?</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               From warfighters to scientists - environmental intelligence serves multiple stakeholders.
@@ -285,15 +287,15 @@ export default function OEIPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {useCases.map((useCase) => (
-              <Card key={useCase.title} className="hover:border-primary/50 transition-colors">
-                <CardHeader>
+              <NeuCard key={useCase.title} className="transition-colors">
+                <NeuCardHeader>
                   <div className="p-3 rounded-xl bg-primary/10 w-fit mb-2">
                     <useCase.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>{useCase.title}</CardTitle>
-                  <CardDescription>{useCase.description}</CardDescription>
-                </CardHeader>
-              </Card>
+                  <h3 className="font-semibold">{useCase.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{useCase.description}</p>
+                </NeuCardHeader>
+              </NeuCard>
             ))}
           </div>
         </div>
@@ -303,7 +305,7 @@ export default function OEIPage() {
       <section className="py-24 bg-muted/30">
         <div className="container max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Tools</Badge>
+            <NeuBadge variant="default" className="mb-4">Tools</NeuBadge>
             <h2 className="text-4xl font-bold mb-4">The OEI Toolkit</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Everything needed to deploy and operate an OEI capability.
@@ -311,34 +313,34 @@ export default function OEIPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="text-center hover:border-primary/50 transition-colors">
-              <CardContent className="pt-8">
+            <NeuCard className="text-center transition-colors">
+              <NeuCardContent className="pt-8">
                 <Database className="h-10 w-10 text-purple-500 mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">MINDEX Database</h3>
                 <p className="text-sm text-muted-foreground">Cryptographic data store with chain-of-custody</p>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:border-primary/50 transition-colors">
-              <CardContent className="pt-8">
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="text-center transition-colors">
+              <NeuCardContent className="pt-8">
                 <Eye className="h-10 w-10 text-primary mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">NatureOS</h3>
                 <p className="text-sm text-muted-foreground">Unified command and visualization platform</p>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:border-primary/50 transition-colors">
-              <CardContent className="pt-8">
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="text-center transition-colors">
+              <NeuCardContent className="pt-8">
                 <Radar className="h-10 w-10 text-orange-500 mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">Device Suite</h3>
                 <p className="text-sm text-muted-foreground">Mushroom1, MycoNode, SporeBase, ALARM</p>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:border-primary/50 transition-colors">
-              <CardContent className="pt-8">
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="text-center transition-colors">
+              <NeuCardContent className="pt-8">
                 <Brain className="h-10 w-10 text-blue-500 mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">NLM AI</h3>
                 <p className="text-sm text-muted-foreground">Nature Learning Model for analysis</p>
-              </CardContent>
-            </Card>
+              </NeuCardContent>
+            </NeuCard>
           </div>
         </div>
       </section>
@@ -353,21 +355,22 @@ export default function OEIPage() {
               can enhance your operational capabilities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" asChild>
-                <Link href="/defense/request-briefing">
+              <Link href="/defense/request-briefing">
+                <NeuButton variant="primary" className="gap-2">
                   Request Briefing
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/defense/capabilities">
+                  <ArrowRight className="h-5 w-5" />
+                </NeuButton>
+              </Link>
+              <Link href="/defense/capabilities">
+                <NeuButton variant="default" className="gap-2">
                   View All Capabilities
-                </Link>
-              </Button>
+                </NeuButton>
+              </Link>
             </div>
           </div>
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }

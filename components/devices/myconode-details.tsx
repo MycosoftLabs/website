@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Radio, Network, Shield, Zap, Eye, Thermometer, Waves, Antenna,
@@ -247,9 +252,10 @@ export function MycoNodeDetails() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
   return (
-    <div className="relative bg-gradient-to-b from-violet-950 via-purple-950 to-slate-950 text-white overflow-hidden">
-      {/* Hero Section - with Video Background */}
-      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
+      {/* Hero Section - with Video Background — data-over-video for theme consistency */}
+      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
         {/* Video background */}
         <div className="absolute inset-0 z-0">
           <video
@@ -309,12 +315,12 @@ export function MycoNodeDetails() {
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
-          <Badge className="mb-4 bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-purple-300 border-purple-500/50 text-sm px-4 py-1">
+          <NeuBadge variant="default" className="device-hero-badge mb-4 bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-purple-300 border-purple-500/50 text-sm px-4 py-1">
             Subsurface Intelligence
-          </Badge>
+          </NeuBadge>
           
           <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
@@ -325,7 +331,7 @@ export function MycoNodeDetails() {
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl mx-auto font-light"
+            className="device-hero-subtitle text-xl md:text-2xl lg:text-3xl text-white/80 mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
@@ -343,14 +349,14 @@ export function MycoNodeDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <Button size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
+            <NeuButton size="lg" className="device-cta-over-video bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Contact Sales
-            </Button>
-            <Button size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+            </NeuButton>
+            <NeuButton size="lg" variant="default" className="device-cta-over-video-outline border border-purple-500/50 hover:bg-purple-500/10">
               <Play className="mr-2 h-5 w-5" />
               Watch Demo
-            </Button>
+            </NeuButton>
           </motion.div>
         </motion.div>
         
@@ -371,13 +377,13 @@ export function MycoNodeDetails() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-950 to-purple-950/50">
+      <section className="py-24 bg-gradient-to-b from-slate-950 to-purple-950/50 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+              <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
                 The Mission
-              </Badge>
+              </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
                 Decoding the Underground
               </h2>
@@ -449,9 +455,9 @@ export function MycoNodeDetails() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
               Quick Start
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Deploy in Minutes
             </h2>
@@ -547,9 +553,9 @@ export function MycoNodeDetails() {
       <section className="py-24 bg-purple-950/30">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
               Sensing Technology
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Multi-Modal Soil Intelligence
             </h2>
@@ -631,8 +637,8 @@ export function MycoNodeDetails() {
                 onHoverEnd={() => setHoveredSensor(null)}
                 className="relative"
               >
-                <Card className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-all overflow-hidden h-full cursor-pointer">
-                  <CardContent className="pt-6 relative">
+                <NeuCard className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-all overflow-hidden h-full cursor-pointer">
+                  <NeuCardContent className="pt-6 relative">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.color} opacity-10 rounded-full blur-2xl`} />
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${item.color} w-fit mb-4`}>
                       <item.icon className="h-6 w-6 text-white" />
@@ -656,8 +662,8 @@ export function MycoNodeDetails() {
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               </motion.div>
             ))}
           </div>
@@ -684,9 +690,9 @@ export function MycoNodeDetails() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30 backdrop-blur-sm">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30 backdrop-blur-sm">
               Applications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Who Uses MycoNode?
             </h2>
@@ -729,9 +735,9 @@ export function MycoNodeDetails() {
       <section className="py-24 bg-black">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
               Engineering
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside MycoNode
             </h2>
@@ -861,9 +867,9 @@ export function MycoNodeDetails() {
       <section className="py-24 bg-gradient-to-b from-black to-purple-950/50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30">
               Customization
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Choose Your Color
             </h2>
@@ -978,9 +984,9 @@ export function MycoNodeDetails() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
               Behind The Scenes
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Built & Tested at Mycosoft Labs
             </h2>
@@ -1026,9 +1032,9 @@ export function MycoNodeDetails() {
       <section className="py-24 bg-gradient-to-b from-purple-950/30 to-purple-950/50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
               Specifications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Technical Details
             </h2>
@@ -1067,14 +1073,14 @@ export function MycoNodeDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <Button variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            <NeuButton variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
-            </Button>
-            <Button variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            </NeuButton>
+            <NeuButton variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
-            </Button>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -1098,14 +1104,14 @@ export function MycoNodeDetails() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
+              <NeuButton size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Contact Sales
-              </Button>
-              <Button size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+              </NeuButton>
+              <NeuButton size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
                 <Download className="mr-2 h-5 w-5" />
                 Download Research Papers
-              </Button>
+              </NeuButton>
             </div>
             
             <p className="text-sm text-white/40 mt-8">
@@ -1115,6 +1121,7 @@ export function MycoNodeDetails() {
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

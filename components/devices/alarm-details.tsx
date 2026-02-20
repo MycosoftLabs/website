@@ -3,9 +3,14 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import {
+  NeuCard,
+  NeuCardContent,
+  NeuCardHeader,
+  NeuButton,
+  NeuBadge,
+  NeuromorphicProvider,
+} from "@/components/ui/neuromorphic"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   AlertTriangle, Shield, Zap, Eye, Thermometer, Flame, Waves, Bell,
@@ -189,14 +194,15 @@ export function AlarmDetails() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
   return (
-    <div className="relative bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 overflow-hidden">
+    <NeuromorphicProvider>
+    <div className="relative min-h-dvh bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean Glass Lab Aesthetic */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Clean white/glass background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-white" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
         
         {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f920_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f920_1px,transparent_1px)] bg-[size:60px_60px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f920_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f920_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#33415530_1px,transparent_1px),linear-gradient(to_bottom,#33415530_1px,transparent_1px)] bg-[size:60px_60px]" />
         
         {/* Pulsing warning light effects */}
         <div className="absolute top-20 right-20 w-4 h-4 bg-red-500 rounded-full shadow-lg shadow-red-500/50 animate-pulse" />
@@ -207,9 +213,9 @@ export function AlarmDetails() {
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
-          <Badge className="mb-4 bg-red-500 text-white border-0 text-sm px-4 py-1">
+          <NeuBadge variant="default" className="mb-4 bg-red-500 text-white border-0 text-sm px-4 py-1">
             Indoor Safety Monitor
-          </Badge>
+          </NeuBadge>
           
           <motion.h1 
             className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
@@ -217,20 +223,20 @@ export function AlarmDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-red-700 to-slate-800">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-red-700 to-slate-800 dark:from-slate-100 dark:via-red-400 dark:to-slate-200">
               ALARM
             </span>
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-slate-600 mb-8 max-w-3xl mx-auto font-light"
+            className="text-xl md:text-2xl lg:text-3xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
             The smartest safety device ever built for Earth.
             <br />
-            <span className="text-red-600 font-medium">Know what&apos;s coming—before it arrives.</span>
+            <span className="text-red-600 dark:text-red-400 font-medium">Know what&apos;s coming—before it arrives.</span>
           </motion.p>
           
           <motion.div
@@ -239,14 +245,14 @@ export function AlarmDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
+            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
-            </Button>
-            <Button size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+            </NeuButton>
+            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
               <Play className="mr-2 h-5 w-5" />
               Watch Video
-            </Button>
+            </NeuButton>
           </motion.div>
           
           <motion.p
@@ -280,9 +286,9 @@ export function AlarmDetails() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
+              <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
                 The Vision
-              </Badge>
+              </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
                 Replace Every Smoke Alarm on Earth
               </h2>
@@ -346,9 +352,9 @@ export function AlarmDetails() {
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
               8+ Sensors
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               What ALARM Detects
             </h2>
@@ -365,15 +371,15 @@ export function AlarmDetails() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <Card className="bg-white border-slate-200 hover:border-red-200 hover:shadow-lg transition-all h-full">
-                  <CardContent className="pt-6">
+                <NeuCard className="bg-white border-slate-200 hover:border-red-200 hover:shadow-lg transition-all h-full">
+                  <NeuCardContent className="pt-6">
                     <div className="p-3 rounded-xl bg-red-50 w-fit mb-4">
                       <item.icon className="h-6 w-6 text-red-500" />
                     </div>
                     <h3 className="font-bold text-lg mb-2 text-slate-800">{item.name}</h3>
                     <p className="text-slate-600 text-sm">{item.desc}</p>
-                  </CardContent>
-                </Card>
+                  </NeuCardContent>
+                </NeuCard>
               </motion.div>
             ))}
           </div>
@@ -395,9 +401,9 @@ export function AlarmDetails() {
             </div>
             
             <div className="order-1 lg:order-2">
-              <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
+              <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
                 Artificial Intelligence
-              </Badge>
+              </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
                 Smart Enough to Know the Difference
               </h2>
@@ -438,9 +444,9 @@ export function AlarmDetails() {
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
               Applications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Where ALARM Protects
             </h2>
@@ -485,9 +491,9 @@ export function AlarmDetails() {
       <section className="py-24 bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-red-500/20 text-red-400 border-red-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-400 border-red-500/30">
               Engineering
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside ALARM
             </h2>
@@ -621,9 +627,9 @@ export function AlarmDetails() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
               Specifications
-            </Badge>
+            </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
               Technical Details
             </h2>
@@ -662,14 +668,14 @@ export function AlarmDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
-            </Button>
-            <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            </NeuButton>
+            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
-            </Button>
+            </NeuButton>
           </div>
         </div>
       </section>
@@ -686,14 +692,14 @@ export function AlarmDetails() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
+            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
-            </Button>
-            <Button size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+            </NeuButton>
+            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
               <ExternalLink className="mr-2 h-5 w-5" />
               Bulk Ordering
-            </Button>
+            </NeuButton>
           </div>
           
           <p className="text-sm text-slate-500 mt-8">
@@ -702,6 +708,7 @@ export function AlarmDetails() {
         </div>
       </section>
     </div>
+    </NeuromorphicProvider>
   )
 }
 

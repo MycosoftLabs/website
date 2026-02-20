@@ -104,12 +104,17 @@ async function fetchGBIFObservations(limit: number, species?: string): Promise<O
   }
 }
 
-// Check MAS/MINDEX local database
+// Check MINDEX API (VM 189:8000 or local)
 async function fetchLocalMINDEX(limit: number): Promise<Observation[]> {
-  const mindexUrl = process.env.MINDEX_DATABASE_URL || "http://host.docker.internal:8001/api/mindex"
-  
+  const mindexUrl =
+    process.env.MINDEX_API_URL ||
+    process.env.MINDEX_API_BASE_URL ||
+    process.env.MINDEX_DATABASE_URL ||
+    "http://192.168.0.189:8000"
+
   try {
-    const response = await fetch(`${mindexUrl}/observations?limit=${limit}`, {
+    const url = mindexUrl.includes("/api/") ? `${mindexUrl}/observations` : `${mindexUrl}/api/mindex/observations`
+    const response = await fetch(`${url}?limit=${limit}`, {
       signal: AbortSignal.timeout(3000),
     })
 

@@ -15,15 +15,19 @@ export interface NeuromorphicProviderProps {
   className?: string
   /** Optional: force dark mode regardless of theme */
   forceDark?: boolean
+  /** When resolvedTheme is undefined (SSR/hydration), assume this. Must match layout defaultTheme. */
+  ssrFallback?: "light" | "dark"
 }
 
 export function NeuromorphicProvider({
   children,
   className = "",
   forceDark,
+  ssrFallback = "dark",
 }: NeuromorphicProviderProps) {
   const { resolvedTheme } = useTheme()
-  const isDark = forceDark ?? resolvedTheme === "dark"
+  // During SSR/hydration, resolvedTheme is undefined. Default to dark to match layout defaultTheme and avoid flash.
+  const isDark = forceDark ?? (resolvedTheme === undefined ? ssrFallback === "dark" : resolvedTheme === "dark")
   const wrapperClass = `neuromorphic-page ${isDark ? "neuromorphic-dark" : ""} ${className}`.trim()
 
   return (

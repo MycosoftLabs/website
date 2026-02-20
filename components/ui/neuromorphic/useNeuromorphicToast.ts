@@ -1,3 +1,4 @@
+"use client"
 /**
  * Toast notifications for Neuromorphic UI test page
  * Date: Feb 18, 2026
