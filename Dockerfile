@@ -37,6 +37,9 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Fix @tailwindcss/oxide musl native binding on Alpine (pnpm v10 doesn't auto-install optional platform deps)
+RUN npm install --no-save --ignore-scripts "@tailwindcss/oxide-linux-x64-musl" 2>&1 | tail -3 || true
+
 # Set build-time environment variables
 ARG NEXT_PUBLIC_MINDEX_API_BASE_URL=/api/mindex
 ARG NEXT_PUBLIC_NATUREOS_API_BASE_URL=/api/natureos
