@@ -11,7 +11,16 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${MAS_API_URL}/api/myca/soul`, {
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get("user_id")
+    const sessionId = searchParams.get("session_id")
+    const conversationId = searchParams.get("conversation_id")
+    const url = new URL(`${MAS_API_URL}/api/myca/soul`)
+    if (userId) url.searchParams.set("user_id", userId)
+    if (sessionId) url.searchParams.set("session_id", sessionId)
+    if (conversationId) url.searchParams.set("conversation_id", conversationId)
+
+    const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

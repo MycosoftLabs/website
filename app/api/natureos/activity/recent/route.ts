@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
+}
+
 // Fetch real activity from n8n, MAS, and system
 async function fetchRealActivity(limit: number) {
-  const n8nUrl = process.env.N8N_WEBHOOK_URL || "http://localhost:5678"
+  const n8nUrl = process.env.N8N_URL || process.env.N8N_WEBHOOK_URL || "http://localhost:5678"
   const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
   
   const activities: any[] = []
@@ -35,7 +39,9 @@ async function fetchRealActivity(limit: number) {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch n8n executions:", error)
+      if (!isTimeoutError(error)) {
+        console.error("Failed to fetch n8n executions:", error)
+      }
     }
 
     // Fetch MAS agent activity
@@ -97,7 +103,9 @@ async function fetchRealActivity(limit: number) {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit)
   } catch (error) {
-    console.error("Failed to fetch activity:", error)
+    if (!isTimeoutError(error)) {
+      console.error("Failed to fetch activity:", error)
+    }
     // Return empty array - no mock fallback
     return []
   }

@@ -44,10 +44,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "agentId is required", code: "VALIDATION_ERROR" }, { status: 400 })
     }
 
+    const metadata = {
+      ...(body.metadata || {}),
+      user_id: body.user_id || "anonymous",
+      session_id: body.session_id,
+      conversation_id: body.conversation_id,
+    }
+
     const result = await startAgentRun({
       agentId: body.agentId,
       input: body.input,
-      metadata: body.metadata,
+      metadata,
     })
 
     return NextResponse.json(result, { status: 201 })

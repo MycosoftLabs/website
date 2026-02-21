@@ -247,14 +247,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, workflowId, changes, source } = body
+    const { action, workflowId, changes, source, user_id, session_id, conversation_id } = body
     
     if (!action || !workflowId) {
       return NextResponse.json({ error: "action and workflowId are required" }, { status: 400 })
     }
     
     // First, validate changes with MYCA
-    const mycaValidation = await validateWithMYCA(action, workflowId, changes)
+    const mycaValidation = await validateWithMYCA(action, workflowId, changes, {
+      user_id: user_id || "anonymous",
+      session_id,
+      conversation_id,
+    })
     
     if (!mycaValidation.approved) {
       return NextResponse.json({
@@ -333,6 +337,11 @@ export async function POST(request: NextRequest) {
       workflowId,
       result: resultData,
       mycaAnalysis: mycaValidation.analysis,
+      context: {
+        user_id: user_id || "anonymous",
+        session_id,
+        conversation_id,
+      },
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
@@ -345,7 +354,12 @@ export async function POST(request: NextRequest) {
 }
 
 // Validate workflow changes with MYCA
-async function validateWithMYCA(action: string, workflowId: string, changes?: any): Promise<{
+async function validateWithMYCA(
+  action: string,
+  workflowId: string,
+  changes?: any,
+  context?: { user_id?: string; session_id?: string; conversation_id?: string }
+): Promise<{
   approved: boolean
   reason?: string
   suggestions?: string[]
@@ -356,7 +370,7 @@ async function validateWithMYCA(action: string, workflowId: string, changes?: an
     const response = await fetch(`${MAS_API_URL}/api/validate/workflow`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, workflowId, changes }),
+      body: JSON.stringify({ action, workflowId, changes, ...context }),
       signal: AbortSignal.timeout(5000),
     })
     

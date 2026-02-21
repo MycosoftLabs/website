@@ -23,6 +23,9 @@ interface ConnectionProposalRequest {
     category: string
   }
   baseProposal: ConnectionProposal
+  user_id?: string
+  session_id?: string
+  conversation_id?: string
 }
 
 interface LLMResponse {
@@ -278,6 +281,11 @@ export async function POST(request: NextRequest) {
       confidence: result.confidence,
       model: result.model,
       generatedAt: new Date().toISOString(),
+      context: {
+        user_id: body.user_id || "anonymous",
+        session_id: body.session_id,
+        conversation_id: body.conversation_id,
+      },
     })
   } catch (error) {
     console.error("Connection proposal API error:", error)

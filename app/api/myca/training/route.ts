@@ -11,6 +11,8 @@ interface TrainingData {
   timestamp: string
   source: string
   userId?: string
+  session_id?: string
+  conversation_id?: string
   feedback?: string
   metadata?: Record<string, any>
 }
@@ -20,9 +22,16 @@ export async function POST(request: NextRequest) {
   try {
     const data: TrainingData = await request.json()
     
+    const payload = {
+      ...data,
+      userId: data.userId || "anonymous",
+      session_id: data.session_id,
+      conversation_id: data.conversation_id,
+    }
+
     // Add to in-memory log (in production, store in database)
     trainingLog.push({
-      ...data,
+      ...payload,
       id: `train-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       receivedAt: new Date().toISOString(),
     })
@@ -38,7 +47,7 @@ export async function POST(request: NextRequest) {
       await fetch(`${MAS_API_URL}/api/training/log`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(5000),
       })
     } catch {

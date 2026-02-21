@@ -32,10 +32,28 @@ export function SidebarProvider({
   defaultOpen?: boolean
 }) {
   const [isOpen, setIsOpen] = React.useState(defaultOpen)
+  const [isDesktop, setIsDesktop] = React.useState(false)
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const media = window.matchMedia("(min-width: 768px)")
+
+    const handleChange = () => {
+      setIsDesktop(media.matches)
+      if (media.matches) {
+        setIsOpen(true)
+      }
+    }
+
+    handleChange()
+    media.addEventListener("change", handleChange)
+    return () => media.removeEventListener("change", handleChange)
+  }, [])
 
   const toggleSidebar = React.useCallback(() => {
+    if (isDesktop) return
     setIsOpen((prev) => !prev)
-  }, [])
+  }, [isDesktop])
 
   return <SidebarContext.Provider value={{ isOpen, setIsOpen, toggleSidebar }}>{children}</SidebarContext.Provider>
 }

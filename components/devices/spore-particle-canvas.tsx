@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef } from "react"
+import { useTheme } from "next-themes"
 
 interface Particle {
   x: number
@@ -26,7 +27,8 @@ const COLORS = [
   "#7c2d12", // orange-900 – oldest
 ]
 
-const BG_COLOR = "#0f172a"   // slate-900, matches section
+const BG_LIGHT = "#f8fafc" // slate-50
+const BG_DARK = "#0f172a"  // slate-900
 const EMITTER_COLOR = "#f97316" // orange-500
 
 function findColor(life: number): string {
@@ -39,6 +41,12 @@ function findColor(life: number): string {
 
 export function SporeParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const bgColorRef = useRef<string>(BG_LIGHT)
+  const { resolvedTheme } = useTheme()
+
+  useEffect(() => {
+    bgColorRef.current = resolvedTheme === "dark" ? BG_DARK : BG_LIGHT
+  }, [resolvedTheme])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -81,7 +89,7 @@ export function SporeParticleCanvas() {
       }
 
       ctx.globalCompositeOperation = "source-over"
-      ctx.fillStyle = BG_COLOR
+      ctx.fillStyle = bgColorRef.current
       ctx.fillRect(0, 0, W, H)
 
       const partNum = holder.length

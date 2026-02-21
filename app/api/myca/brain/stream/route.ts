@@ -11,10 +11,16 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const payload = {
+      ...body,
+      user_id: body.user_id || "anonymous",
+      session_id: body.session_id,
+      conversation_id: body.conversation_id,
+    }
     const response = await fetch(`${MAS_API_URL}/voice/brain/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(60000),
     })
 

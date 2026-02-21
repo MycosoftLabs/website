@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Activity, Zap, HardDrive, Cpu, Network } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 
 /**
  * Voice System Health Dashboard
@@ -486,6 +487,7 @@ export default function VoiceHealthDashboard() {
           )}
         </CardContent>
       </Card>
+      <MYCAFloatingButton title="MYCA Voice Diagnostics" className="right-20" />
     </div>
   )
 }

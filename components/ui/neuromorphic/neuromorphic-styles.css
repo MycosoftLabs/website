@@ -192,6 +192,45 @@
   border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+/* Light mode: widgets/cards have light bg — force dark text (device pages use text-white on parent) */
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised h1,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised h2,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised h3,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised h4,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised p,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised span,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised li,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised td,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised th,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised label {
+  color: #111827 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised .text-muted-foreground,
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised [class*="text-muted"] {
+  color: #6b7280 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised svg:not([class*="text-"]) {
+  color: #374151 !important;
+}
+/* Light mode: Shadcn Card widgets (device pages) */
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card h1,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card h2,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card h3,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card h4,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card p,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card span,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card li,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card td,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card th {
+  color: #111827 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card .text-muted-foreground,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"].bg-card [class*="text-muted"] {
+  color: #6b7280 !important;
+}
+
 /* Hero Learn More: light mode = dark text, dark mode = white (over dark video) */
 .neuromorphic-page:not(.neuromorphic-dark) [data-over-video] .about-hero-learn-more {
   color: #111827 !important;
@@ -210,6 +249,278 @@
 [data-over-video] .about-devices-view-all span,
 [data-over-video] .about-devices-view-all svg {
   color: #ffffff !important;
+}
+
+/* SporeBase hero title: remove any background/box artifacts */
+.sporebase-hero-title {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* SporeBase sections: force dark backgrounds in dark mode */
+.neuromorphic-page.neuromorphic-dark .sporebase-mission {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-applications {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-engineering {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-specs {
+  background-color: #0b1220 !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-technology {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-tech-card {
+  background-color: #111827 !important;
+  border-color: rgba(251, 146, 60, 0.25) !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-tech-card h3,
+.neuromorphic-page.neuromorphic-dark .sporebase-tech-card p {
+  color: #f97316 !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card[data-selected="false"],
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card:not([data-selected="true"]) {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card[data-selected="false"] h3,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card[data-selected="false"] p,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card[data-selected="false"] span,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card[data-selected="false"] svg,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card:not([data-selected="true"]) h3,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card:not([data-selected="true"]) p,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card:not([data-selected="true"]) span,
+.neuromorphic-page.neuromorphic-dark .sporebase-app-card:not([data-selected="true"]) svg {
+  color: #f97316 !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-spec-card {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .sporebase-spec-card span,
+.neuromorphic-page.neuromorphic-dark .sporebase-spec-card h3 {
+  color: #0f172a !important;
+}
+
+/* ALARM sections: force neuromorphic dark backgrounds in dark mode */
+.neuromorphic-page.neuromorphic-dark .alarm-hero-bg {
+  background: linear-gradient(180deg, #0f172a 0%, #111827 45%, #0b1220 100%) !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-hero-grid {
+  background-image:
+    linear-gradient(to_right, rgba(51, 65, 85, 0.35) 1px, transparent 1px),
+    linear-gradient(to_bottom, rgba(51, 65, 85, 0.35) 1px, transparent 1px) !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-mission,
+.neuromorphic-page.neuromorphic-dark .alarm-detections,
+.neuromorphic-page.neuromorphic-dark .alarm-ai,
+.neuromorphic-page.neuromorphic-dark .alarm-applications {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-engineering {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-specs {
+  background-color: #0b1220 !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-cta {
+  background-color: #0f172a !important;
+  background-image: none !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-section-badge {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-stat-box {
+  background-color: #111827 !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-ai-card,
+.neuromorphic-page.neuromorphic-dark .alarm-ai-card * {
+  color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"],
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"] h3,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"] p,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"] span,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"] svg,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) h3,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) p,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) span,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) svg {
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-app-card[data-selected="false"] svg,
+.neuromorphic-page.neuromorphic-dark .alarm-app-card:not([data-selected="true"]) svg {
+  color: #ef4444 !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-engineering .text-center,
+.neuromorphic-page.neuromorphic-dark .alarm-engineering .text-center * {
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-engineering-card,
+.neuromorphic-page.neuromorphic-dark .alarm-engineering-card * {
+  color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-engineering-card [class*="text-red-"],
+.neuromorphic-page.neuromorphic-dark .alarm-engineering-card svg[class*="text-red-"] {
+  color: #ef4444 !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-spec-card,
+.neuromorphic-page.neuromorphic-dark .alarm-spec-card * {
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .alarm-spec-card {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* Hyphae1 Product Line: light bg (dots) always; dark mode = dark widgets + light text; light mode = white widgets + dark text */
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-line {
+  background-color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-line .text-center h2,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-line .text-center p,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-line .hyphae1-product-badge,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-line .hyphae1-product-badge span {
+  color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card-selected {
+  background-color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card h3,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card p,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card span,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card .font-medium {
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card .text-slate-500,
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card [class*="text-slate-300"] {
+  color: #94a3b8 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card svg {
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card div[class*="bg-slate-"] svg {
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-product-card:not(.hyphae1-product-card-selected) div[class*="bg-slate-"] svg {
+  color: #0f172a !important;
+}
+
+/* Hyphae1 Why section: ensure dark mode background + readable text */
+.neuromorphic-page.neuromorphic-dark .hyphae1-why {
+  background-color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-why h2,
+.neuromorphic-page.neuromorphic-dark .hyphae1-why p,
+.neuromorphic-page.neuromorphic-dark .hyphae1-why span,
+.neuromorphic-page.neuromorphic-dark .hyphae1-why li {
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-why [class*="bg-"] {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-why [class*="text-slate-"] {
+  color: #cbd5e1 !important;
+}
+
+/* Hyphae1 Capabilities: darker background in dark mode */
+.neuromorphic-page.neuromorphic-dark .hyphae1-capabilities {
+  background-color: #020617 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-capabilities .hyphae1-capabilities-badge,
+.neuromorphic-page.neuromorphic-dark .hyphae1-capabilities .hyphae1-capabilities-badge span {
+  color: #e2e8f0 !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Hyphae1 Applications: light graphic bg, dark headings + unselected text */
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications {
+  background-color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications .text-center h2,
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge,
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge span {
+  color: #0f172a !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] h3,
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] p,
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] span,
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] svg {
+  color: #0f172a !important;
+}
+
+/* Hyphae1 Technical Details: dark mode = lighter grey than sections above/below (slate-800 vs slate-900) */
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs {
+  background-color: #1e293b !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-spec-card {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card span,
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card h2,
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card h3 {
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card .text-slate-600,
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card [class*="text-slate-"] {
+  color: #94a3b8 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card svg {
+  color: #94a3b8 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card .border-slate-200,
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .hyphae1-spec-card .border-b {
+  border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs [class*="NeuBadge"],
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .text-center h2 {
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs .mb-4[class*="bg-"] {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs button[class*="outline"],
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs a[class*="outline"] {
+  border-color: #64748b !important;
+  color: #e2e8f0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs button[class*="outline"]:hover,
+.neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs a[class*="outline"]:hover {
+  background-color: rgba(30, 41, 59, 0.8) !important;
 }
 
 /* CTA Read Research: light mode = dark text, dark mode = white */
@@ -269,6 +580,123 @@
 [data-over-video] .device-cta-over-video-outline span,
 [data-over-video] .device-cta-over-video-outline svg {
   color: #ffffff !important;
+}
+
+/* Light mode: never show framed boxes on hero titles */
+.neuromorphic-page:not(.neuromorphic-dark) [data-over-video] .device-hero-title {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  text-shadow: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) [data-over-video] .device-hero-title::before,
+.neuromorphic-page:not(.neuromorphic-dark) [data-over-video] .device-hero-title::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* MycoNode light mode hero: remove dark box feel + use dark text */
+.neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .device-hero-title,
+.neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .device-hero-subtitle {
+  color: #0f172a !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .myconode-hero-title-clean {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+/* Remove any box/frame from the MycoNode title span in light mode */
+.neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .myconode-hero-title-text {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .portal-hero-title span {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .myconode-hero .device-hero-badge {
+  color: #4c1d95 !important;
+  border-color: rgba(147, 51, 234, 0.3) !important;
+}
+
+/* MycoNode: force original dark mode visuals */
+.neuromorphic-page.neuromorphic-dark .myconode-hero .myconode-hero-overlay {
+  background: linear-gradient(180deg, rgba(49, 0, 75, 0.7), rgba(49, 0, 75, 0.5), rgba(2, 6, 23, 0.9)) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-quickstart {
+  background: linear-gradient(180deg, rgba(49, 0, 75, 0.5), rgba(49, 0, 75, 0.3)) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-quickstart .myconode-quickstart-overlay {
+  background: linear-gradient(180deg, rgba(49, 0, 75, 0.3), rgba(0, 0, 0, 0), rgba(49, 0, 75, 0.3)) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-apps-overlay {
+  background: linear-gradient(180deg, rgba(49, 0, 75, 0.85), rgba(2, 6, 23, 0.8), rgba(2, 6, 23, 0.9)) !important;
+}
+
+/* MycoNode: restore dark mode section backgrounds */
+.neuromorphic-page.neuromorphic-dark .myconode-sensing {
+  background-color: rgba(49, 0, 75, 0.3) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-engineering {
+  background-color: #000000 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-customization {
+  background: linear-gradient(180deg, #000000 0%, rgba(49, 0, 75, 0.5) 100%) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-cta {
+  background-color: #020617 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-cta .myconode-cta-widget {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-customization .myconode-customization-widget {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-behind-badge {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-behind-card {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-app-card {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* MycoNode hero title: force dark mode gradient text */
+.neuromorphic-page.neuromorphic-dark .myconode-hero .device-hero-title span {
+  color: transparent !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  background-image: linear-gradient(90deg, #a855f7, #d946ef, #22d3ee) !important;
+}
+.neuromorphic-page.neuromorphic-dark .myconode-hero .myconode-hero-whispers {
+  color: #ffffff !important;
+  background: none !important;
 }
 
 .neuromorphic-page .neu-inset {
@@ -441,6 +869,137 @@
 .neuromorphic-page .neu-progress-fill {
   background: linear-gradient(90deg, #7c3aed, #a855f7);
   transition: width 0.3s ease;
+}
+
+/* Mushroom 1 sections: force dark neuromorphic backgrounds in dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-mission {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-field-deployments {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-applications {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-watch {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-engineering {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  color: #f8fafc !important;
+}
+
+/* Mushroom 1: dark mode widget cards (technology, specifications, connectivity) */
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology [data-slot="card"],
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology .rounded-xl,
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications [data-slot="card"],
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity .backdrop-blur-sm {
+  background-color: #374151 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology [data-slot="card"] h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology [data-slot="card"] p,
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology [data-slot="card"] li,
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology .rounded-xl h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology .rounded-xl p,
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications [data-slot="card"] h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications [data-slot="card"] p,
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity .backdrop-blur-sm h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity .backdrop-blur-sm p {
+  color: #f8fafc !important;
+}
+
+/* Mushroom 1: specification values should be emerald green */
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications [data-slot="card"] .font-medium {
+  color: #34d399 !important;
+}
+
+/* Mushroom 1: dark mode buttons should have white text */
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications button,
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications button span,
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications button svg {
+  color: #ffffff !important;
+}
+
+/* Mushroom 1: Field Deployments carousel navigation buttons */
+.neuromorphic-page.neuromorphic-dark .mushroom1-field-deployments button.rounded-full {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-field-deployments button.rounded-full:hover {
+  background-color: #4b5563 !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-field-deployments button.rounded-full svg {
+  color: #ffffff !important;
+}
+
+/* Mushroom 1: Field Deployments badge dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-field-badge {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #6ee7b7 !important;
+}
+
+/* Mushroom 1: Applications unselected cards in dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-usecase-card {
+  background-color: #1f2937 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Mushroom 1: NeuCard backgrounds in dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-technology [data-slot="card"],
+.neuromorphic-page.neuromorphic-dark .mushroom1-specifications [data-slot="card"],
+.neuromorphic-page.neuromorphic-dark .mushroom1-sensor-card,
+.neuromorphic-page.neuromorphic-dark .mushroom1-network-card {
+  background-color: #374151 !important;
+  background: #374151 !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-sensor-card h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-sensor-card p,
+.neuromorphic-page.neuromorphic-dark .mushroom1-sensor-card li,
+.neuromorphic-page.neuromorphic-dark .mushroom1-network-card h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-network-card p {
+  color: #ffffff !important;
+}
+
+/* Mushroom 1: Specification cards in dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-spec-card {
+  background-color: #374151 !important;
+  background: #374151 !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-spec-card h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-spec-card > div > div > div > span:first-child {
+  color: #ffffff !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-spec-card > div > div > div > span.font-medium {
+  color: #34d399 !important;
+}
+
+/* Mushroom 1: Connectivity overlay cards in dark mode */
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity .backdrop-blur-sm.rounded-xl,
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity-card {
+  background-color: #374151 !important;
+  background: #374151 !important;
+}
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity-card h3,
+.neuromorphic-page.neuromorphic-dark .mushroom1-connectivity-card p {
+  color: #ffffff !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

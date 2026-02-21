@@ -22,6 +22,8 @@ import {
 import type { LucideIcon } from "lucide-react"
 import { PreOrderModal } from "./pre-order-modal"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
+import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
+import { NetworkCanvas } from "@/components/effects/network-canvas"
 interface SelectedVideo {
   kind: "youtube" | "mp4"
   src: string
@@ -191,6 +193,7 @@ const USE_CASES = [
     title: "Scientific Research",
     icon: Microscope,
     color: "from-blue-500 to-cyan-500",
+    colorDark: "dark:from-blue-800 dark:to-cyan-800",
     description: "Universities and research institutions use Mushroom 1 to study mycelial network communication, forest health, and ecosystem dynamics.",
     applications: ["Mycology research", "Forest ecology studies", "Climate change monitoring", "Biodiversity assessment"],
     video: "/assets/mushroom1/a.mp4"
@@ -199,6 +202,7 @@ const USE_CASES = [
     title: "Conservation & Wildlife",
     icon: Trees,
     color: "from-green-500 to-emerald-500",
+    colorDark: "dark:from-green-800 dark:to-emerald-800",
     description: "National parks and conservation areas deploy Mushroom 1 networks to monitor ecosystem health and detect environmental threats early.",
     applications: ["Park ecosystem monitoring", "Wildlife habitat tracking", "Fire risk assessment", "Pollution detection"],
     video: "/assets/mushroom1/b.mp4"
@@ -207,6 +211,7 @@ const USE_CASES = [
     title: "Agriculture & Farming",
     icon: Leaf,
     color: "from-amber-500 to-orange-500",
+    colorDark: "dark:from-amber-800 dark:to-orange-800",
     description: "Farmers and agricultural operations use Mushroom 1 to monitor soil health, predict crop conditions, and optimize growing environments.",
     applications: ["Soil health monitoring", "Irrigation optimization", "Pest early warning", "Organic certification"],
     video: "/assets/mushroom1/c.mp4"
@@ -215,6 +220,7 @@ const USE_CASES = [
     title: "Defense & Security",
     icon: Shield,
     color: "from-slate-600 to-slate-800",
+    colorDark: "dark:from-slate-700 dark:to-slate-900",
     description: "Military and security operations leverage Mushroom 1 for persistent environmental awareness and operational intelligence.",
     applications: ["Base perimeter monitoring", "Contamination detection", "Early warning systems", "Threat assessment"],
     video: "/assets/mushroom1/d.mp4"
@@ -383,7 +389,7 @@ export function Mushroom1Details() {
       </motion.section>
 
       {/* Why Mushroom 1 Exists */}
-      <section className="py-24 px-4 bg-gradient-to-b from-black via-slate-950 to-black text-white">
+      <section className="mushroom1-mission py-24 px-4 bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -392,9 +398,9 @@ export function Mushroom1Details() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Our Mission</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Why <span className="text-emerald-400">Mushroom 1</span> Exists
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Our Mission</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
+              Why <span className="text-emerald-600 dark:text-emerald-400">Mushroom 1</span> Exists
             </h2>
           </motion.div>
 
@@ -406,18 +412,18 @@ export function Mushroom1Details() {
               transition={{ duration: 0.8 }}
               className="space-y-6"
             >
-              <p className="text-xl text-white/80 leading-relaxed">
+              <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
                 For billions of years, fungi have been the Earth&apos;s oldest and most sophisticated communication network. 
                 Beneath every forest floor, meadow, and ecosystem, mycelial networks exchange information, nutrients, 
                 and warnings at scales we&apos;re only beginning to understand.
               </p>
-              <p className="text-xl text-white/80 leading-relaxed">
-                <span className="text-emerald-400 font-semibold">Mushroom 1</span> is humanity&apos;s first attempt to listen. 
+              <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Mushroom 1</span> is humanity&apos;s first attempt to listen. 
                 By deploying persistent, solar-powered sensor stations that tap into environmental signals—from soil bioelectrics 
                 to atmospheric conditions—we can finally give nature a voice.
               </p>
-              <p className="text-xl text-white/80 leading-relaxed">
-                This isn&apos;t just monitoring. It&apos;s <span className="text-emerald-400 font-semibold">Environmental Intelligence</span>—a 
+              <p className="text-xl text-slate-700 dark:text-white/80 leading-relaxed">
+                This isn&apos;t just monitoring. It&apos;s <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Environmental Intelligence</span>—a 
                 new paradigm where the natural world becomes an active participant in our decision-making, 
                 warning us of fires before they ignite, detecting contamination before it spreads, and 
                 revealing the hidden health of ecosystems in real-time.
@@ -425,20 +431,20 @@ export function Mushroom1Details() {
               
               <div className="flex gap-4 pt-4">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-emerald-400">2m</div>
-                  <div className="text-sm text-white/60">Sensing Depth</div>
+                  <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">2m</div>
+                  <div className="text-sm text-slate-500 dark:text-white/60">Sensing Depth</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-emerald-400">5km</div>
-                  <div className="text-sm text-white/60">Mesh Range</div>
+                  <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">5km</div>
+                  <div className="text-sm text-slate-500 dark:text-white/60">Mesh Range</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-emerald-400">6mo</div>
-                  <div className="text-sm text-white/60">Battery Life</div>
+                  <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">6mo</div>
+                  <div className="text-sm text-slate-500 dark:text-white/60">Battery Life</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-emerald-400">IP67</div>
-                  <div className="text-sm text-white/60">Weatherproof</div>
+                  <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">IP67</div>
+                  <div className="text-sm text-slate-500 dark:text-white/60">Weatherproof</div>
                 </div>
               </div>
             </motion.div>
@@ -490,9 +496,9 @@ export function Mushroom1Details() {
       </section>
 
       {/* Sensor Capabilities */}
-      <section className="relative py-24 bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden">
+      <section className="mushroom1-technology relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
         {/* Neural web sensor visualization background */}
-        <SensorNeuralWeb className="opacity-50" />
+        <SensorNeuralWeb className="opacity-60 dark:opacity-50" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
@@ -501,11 +507,11 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">Technology</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Advanced <span className="text-cyan-400">Sensor Suite</span>
+            <NeuBadge variant="default" className="mb-4 bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30">Technology</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              Advanced <span className="text-cyan-600 dark:text-cyan-400">Sensor Suite</span>
             </h2>
-            <p className="text-xl text-white/60 max-w-3xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
               Military-grade environmental sensors packed into a compact, solar-powered package.
             </p>
           </motion.div>
@@ -519,20 +525,20 @@ export function Mushroom1Details() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
               >
-                <NeuCard className="bg-white/5 border-white/10 hover:border-cyan-500/50 transition-colors h-full">
+                <NeuCard className="mushroom1-sensor-card bg-slate-50 dark:!bg-gray-700 border-slate-200 dark:border-white/10 hover:border-cyan-500/50 transition-colors h-full">
                   <NeuCardHeader>
                     <div className="flex items-center gap-3">
-                      <div className="p-3 rounded-lg bg-cyan-500/10">
-                        <sensor.icon className="h-6 w-6 text-cyan-400" />
+                      <div className="p-3 rounded-lg bg-cyan-500/20 dark:bg-cyan-500/10">
+                        <sensor.icon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
                       </div>
-                      <h3 className="text-white font-semibold">{sensor.name}</h3>
+                      <h3 className="text-slate-900 dark:text-white font-semibold">{sensor.name}</h3>
                     </div>
                   </NeuCardHeader>
                   <NeuCardContent>
                     <ul className="space-y-2">
                       {sensor.specs.map((spec, j) => (
-                        <li key={j} className="flex items-center gap-2 text-white/70 text-sm">
-                          <Check className="h-4 w-4 text-cyan-400 flex-shrink-0" />
+                        <li key={j} className="flex items-center gap-2 text-slate-600 dark:text-white/70 text-sm">
+                          <Check className="h-4 w-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
                           {spec}
                         </li>
                       ))}
@@ -552,13 +558,13 @@ export function Mushroom1Details() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="text-center p-6 rounded-xl bg-white/5 border border-white/10"
+                className="mushroom1-network-card text-center p-6 rounded-xl bg-slate-50 dark:!bg-gray-700 border border-slate-200 dark:border-white/10"
               >
-                <div className="inline-flex p-4 rounded-full bg-emerald-500/10 mb-4">
-                  <feature.icon className="h-8 w-8 text-emerald-400" />
+                <div className="inline-flex p-4 rounded-full bg-emerald-500/20 dark:bg-emerald-500/10 mb-4">
+                  <feature.icon className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-xl font-bold">{feature.title}</h3>
-                <p className="text-white/60 mt-2">{feature.description}</p>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">{feature.title}</h3>
+                <p className="text-slate-600 dark:text-white/60 mt-2">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -566,7 +572,7 @@ export function Mushroom1Details() {
       </section>
 
       {/* Photo Gallery Carousel */}
-      <section className="py-24 bg-black">
+      <section className="mushroom1-field-deployments py-24 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -574,9 +580,9 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <NeuBadge variant="default" className="mb-4 bg-white/10 text-white border-white/20">Field Deployments</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold">
-              In the <span className="text-emerald-400">Wild</span>
+            <NeuBadge variant="default" className="mushroom1-field-badge mb-4 bg-emerald-600/80 text-white border-emerald-700/40 dark:!bg-emerald-500/20 dark:!text-emerald-300 dark:!border-emerald-500/40">Field Deployments</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white">
+              In the <span className="text-emerald-600 dark:text-emerald-400">Wild</span>
             </h2>
           </motion.div>
 
@@ -601,7 +607,7 @@ export function Mushroom1Details() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                   <div className="absolute bottom-6 left-6">
-                    <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-2">
+                    <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-2 text-white">
                       <MapPin className="h-3 w-3 mr-1" />
                       {MUSHROOM1_ASSETS.images[currentSlide].location}
                     </NeuBadge>
@@ -613,13 +619,13 @@ export function Mushroom1Details() {
               {/* Navigation */}
               <button
                 onClick={prevSlide}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-3 transition-all"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-gray-700/80 hover:bg-gray-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
                 onClick={nextSlide}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full p-3 transition-all"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-gray-700/80 hover:bg-gray-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>
@@ -644,19 +650,21 @@ export function Mushroom1Details() {
       </section>
 
       {/* Use Cases Section */}
-      <section className="py-24 bg-gradient-to-b from-black via-slate-950 to-black">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="mushroom1-applications relative py-24 bg-white dark:bg-slate-900 overflow-hidden">
+        {/* Mycelium animation background */}
+        <MyceliumCanvas className="opacity-70 dark:opacity-60" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Applications</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Who Uses <span className="text-emerald-400">Mushroom 1</span>?
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Applications</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              Who Uses <span className="text-emerald-600 dark:text-emerald-400">Mushroom 1</span>?
             </h2>
-            <p className="text-xl text-white/60 max-w-3xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
               From remote research stations to military bases, Mushroom 1 provides persistent environmental intelligence across every domain.
             </p>
           </motion.div>
@@ -672,18 +680,18 @@ export function Mushroom1Details() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
                   onClick={() => setActiveUseCase(i)}
-                  className={`cursor-pointer p-6 rounded-xl border transition-all ${
+                  className={`mushroom1-usecase-card cursor-pointer p-6 rounded-xl border transition-all ${
                     activeUseCase === i 
-                      ? 'bg-gradient-to-r ' + useCase.color + ' border-white/20' 
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      ? 'bg-gradient-to-r ' + useCase.color + ' ' + useCase.colorDark + ' border-white/20 text-white' 
+                      : 'bg-white/80 dark:!bg-gray-800 border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-gray-700/90'
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-lg ${activeUseCase === i ? 'bg-white/20' : 'bg-white/10'}`}>
-                      <useCase.icon className="h-6 w-6" />
+                    <div className={`p-3 rounded-lg ${activeUseCase === i ? 'bg-white/20' : 'bg-slate-100 dark:bg-gray-600'}`}>
+                      <useCase.icon className={`h-6 w-6 ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold">{useCase.title}</h3>
+                      <h3 className={`text-xl font-semibold ${activeUseCase === i ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{useCase.title}</h3>
                       {activeUseCase === i && (
                         <motion.p 
                           initial={{ opacity: 0, height: 0 }}
@@ -702,7 +710,13 @@ export function Mushroom1Details() {
                       className="mt-4 flex flex-wrap gap-2"
                     >
                       {useCase.applications.map((app) => (
-                        <NeuBadge key={app} variant="default" className="bg-white/20 border-white/30">{app}</NeuBadge>
+                        <NeuBadge
+                          key={app}
+                          variant="default"
+                          className="bg-gray-900/80 border-white/20 text-white dark:bg-black/60 dark:border-white/20"
+                        >
+                          {app}
+                        </NeuBadge>
                       ))}
                     </motion.div>
                   )}
@@ -740,7 +754,7 @@ export function Mushroom1Details() {
       </section>
 
       {/* YouTube Videos Section */}
-      <section className="py-24 bg-black">
+      <section className="mushroom1-watch py-24 bg-[#C5CFC6] dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -748,14 +762,14 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-red-500/10 text-red-400 border-red-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
               <Youtube className="h-4 w-4 mr-1" />
               Watch
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Official <span className="text-red-400">Videos</span>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              Official <span className="text-emerald-600 dark:text-emerald-400">Videos</span>
             </h2>
-            <p className="text-xl text-white/60">
+            <p className="text-xl text-slate-600 dark:text-white/60">
               See Mushroom 1 in action through our official commercials and demos.
             </p>
           </motion.div>
@@ -779,8 +793,8 @@ export function Mushroom1Details() {
                 />
                 <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="bg-red-600 rounded-full p-4 group-hover:scale-110 transition-transform">
-                    <Play className="h-8 w-8 fill-white" />
+                  <div className="bg-gray-700/90 dark:bg-gray-700 rounded-full p-4 group-hover:scale-110 transition-transform border border-emerald-500/30">
+                    <Play className="h-8 w-8 fill-white text-emerald-400" />
                   </div>
                 </div>
                 <div className="absolute bottom-4 left-4 right-4">
@@ -793,7 +807,7 @@ export function Mushroom1Details() {
       </section>
 
       {/* Blueprint Section - Placeholder for Interactive 2D Diagram */}
-      <section className="py-24 bg-black">
+      <section className="mushroom1-engineering py-24 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -801,32 +815,32 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/30">Engineering</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Inside <span className="text-amber-400">Mushroom 1</span>
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Engineering</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              Inside <span className="text-emerald-600 dark:text-emerald-400">Mushroom 1</span>
             </h2>
-            <p className="text-xl text-white/60 max-w-3xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-white/60 max-w-3xl mx-auto">
               Explore the internal components and signal pathways of our fungal intelligence station.
             </p>
           </motion.div>
 
           {/* Control Device Layout - Industrial Control Panel Aesthetic */}
-          <div className="relative bg-slate-900/50 rounded-3xl border-2 border-amber-500/30 p-6 shadow-2xl shadow-amber-500/5">
+          <div className="relative bg-slate-100 dark:bg-slate-900/50 rounded-3xl border-2 border-emerald-500/30 p-6 shadow-2xl shadow-emerald-500/5">
             {/* Control Panel Frame */}
             <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel - Component Selectors */}
-                <div className="bg-slate-950 rounded-2xl border border-amber-500/40 p-4 shadow-inner">
+                <div className="bg-slate-950 rounded-2xl border border-emerald-500/40 p-4 shadow-inner">
                   {/* Panel Header */}
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-500/20">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-500/20">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-amber-400/70 uppercase tracking-wider">Component Selector</span>
+                    <span className="text-xs font-mono text-emerald-400/70 uppercase tracking-wider">Component Selector</span>
                   </div>
                   
                   {/* Component Buttons Grid */}
@@ -843,26 +857,26 @@ export function Mushroom1Details() {
                   onMouseLeave={() => setHoveredComponent(null)}
                           className={`p-3 rounded-xl border-2 transition-all text-left ${
                             isSelected 
-                              ? 'bg-amber-500/20 border-amber-400 shadow-lg shadow-amber-500/30' 
+                              ? 'bg-emerald-500/20 border-emerald-400 shadow-lg shadow-emerald-500/30' 
                               : isHovered
-                                ? 'bg-amber-500/10 border-amber-500/50'
-                                : 'bg-slate-900/50 border-slate-700 hover:border-amber-500/40'
+                                ? 'bg-emerald-500/10 border-emerald-500/50'
+                                : 'bg-slate-900/50 border-slate-700 hover:border-emerald-500/40'
                   }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-amber-500/30' : 'bg-slate-800'}`}>
-                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-amber-400' : 'text-white/50'}`} />
+                            <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-emerald-500/30' : 'bg-slate-800'}`}>
+                              <IconComponent className={`h-4 w-4 ${isSelected ? 'text-emerald-400' : 'text-white/50'}`} />
                     </div>
-                            <span className={`text-sm font-medium ${isSelected ? 'text-amber-400' : 'text-white/70'}`}>
+                            <span className={`text-sm font-medium ${isSelected ? 'text-emerald-400' : 'text-white/70'}`}>
                               {component.name}
                             </span>
                           </div>
                           {isSelected && (
                             <motion.div 
                               layoutId="selector-indicator"
-                              className="mt-2 h-0.5 bg-gradient-to-r from-amber-400 to-amber-600 rounded-full"
+                              className="mt-2 h-0.5 bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"
                             />
                           )}
                         </motion.button>
@@ -872,11 +886,11 @@ export function Mushroom1Details() {
                 </div>
 
                 {/* Description Widget - Below Controller */}
-                <div className="bg-slate-950 rounded-2xl border border-amber-500/40 p-4 shadow-inner flex-1">
+                <div className="bg-slate-950 rounded-2xl border border-emerald-500/40 p-4 shadow-inner flex-1">
                   {/* Panel Header */}
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-500/20">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    <span className="text-xs font-mono text-amber-400/70 uppercase tracking-wider">Component Details</span>
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-emerald-500/20">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-mono text-emerald-400/70 uppercase tracking-wider">Component Details</span>
                   </div>
                   
                   <AnimatePresence mode="wait">
@@ -889,11 +903,11 @@ export function Mushroom1Details() {
                         transition={{ duration: 0.2 }}
                       >
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/30">
-                            <component.icon className="h-6 w-6 text-amber-400" />
+                          <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30">
+                            <component.icon className="h-6 w-6 text-emerald-400" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-amber-400">{component.name}</h3>
+                            <h3 className="text-lg font-bold text-emerald-400">{component.name}</h3>
                             <p className="text-xs text-white/50 font-mono">{component.description}</p>
                           </div>
                         </div>
@@ -906,12 +920,12 @@ export function Mushroom1Details() {
 
               {/* RIGHT SIDE: Tall Vertical Blueprint */}
               <div className="flex-1 min-w-0 flex">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-amber-500/40 overflow-hidden shadow-inner">
+                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-emerald-500/40 overflow-hidden shadow-inner">
                 {/* Grid pattern */}
                   <div className="absolute inset-0 opacity-15" style={{
                   backgroundImage: `
-                      linear-gradient(rgba(251,191,36,0.4) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(251,191,36,0.4) 1px, transparent 1px)
+                      linear-gradient(rgba(16,185,129,0.4) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(16,185,129,0.4) 1px, transparent 1px)
                   `,
                     backgroundSize: '30px 30px'
                 }} />
@@ -959,7 +973,7 @@ export function Mushroom1Details() {
                                 className="absolute top-1/2 right-full -translate-y-1/2 w-16 h-px origin-right"
                                 style={{ marginRight: '12px' }}
                               >
-                                <div className="w-full h-full border-t-2 border-dashed border-amber-400" />
+                                <div className="w-full h-full border-t-2 border-dashed border-emerald-400" />
                               </motion.div>
                             )}
                             
@@ -967,8 +981,8 @@ export function Mushroom1Details() {
                             <motion.div
                               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                                 isActive 
-                                  ? 'bg-amber-400 border-white shadow-lg shadow-amber-400/50' 
-                                  : 'bg-amber-500/40 border-amber-500/50'
+                                  ? 'bg-emerald-400 border-white shadow-lg shadow-emerald-400/50' 
+                                  : 'bg-emerald-500/40 border-emerald-500/50'
                           }`}
                           animate={{
                                 scale: isActive ? 1.3 : 1,
@@ -991,9 +1005,9 @@ export function Mushroom1Details() {
                                   initial={{ opacity: 0, x: 10 }}
                                   animate={{ opacity: 1, x: 0 }}
                                   exit={{ opacity: 0, x: 10 }}
-                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-amber-500/30 z-30"
+                                  className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-emerald-500/30 z-30"
                                 >
-                                  <span className="text-sm font-medium text-amber-400 whitespace-nowrap">{component.name}</span>
+                                  <span className="text-sm font-medium text-emerald-400 whitespace-nowrap">{component.name}</span>
                                 </motion.div>
                               )}
                             </AnimatePresence>
@@ -1006,7 +1020,7 @@ export function Mushroom1Details() {
                   {/* Bottom status bar */}
                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
                     <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-amber-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                      <span>COMPONENT: <span className="text-emerald-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         SYSTEM READY
@@ -1021,24 +1035,26 @@ export function Mushroom1Details() {
       </section>
 
       {/* Mesh Network Visualization */}
-      <section className="py-24 bg-gradient-to-b from-black via-slate-950 to-black">
-        <div className="max-w-7xl mx-auto px-4">
+      <section className="mushroom1-connectivity relative py-24 bg-[#C5CFC6] dark:bg-slate-900 overflow-hidden">
+        {/* Network animation background */}
+        <NetworkCanvas className="opacity-80" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">Connectivity</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="text-purple-400">Mesh Network</span> Intelligence
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Connectivity</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              <span className="text-emerald-600 dark:text-emerald-400">Mesh Network</span> Intelligence
             </h2>
-            <p className="text-xl text-white/60 max-w-3xl mx-auto">
+            <p className="text-xl text-slate-700 dark:text-white/60 max-w-3xl mx-auto">
               Deploy multiple units to create an intelligent, self-healing network that spans entire ecosystems.
             </p>
           </motion.div>
 
-          <div className="relative aspect-video rounded-2xl overflow-hidden border border-purple-500/20">
+          <div className="relative aspect-video rounded-2xl overflow-hidden border border-emerald-500/20">
             <Image
               src="/assets/mushroom1/hill 1.jpg"
               alt="Mushroom 1 Mesh Network Deployment"
@@ -1050,20 +1066,20 @@ export function Mushroom1Details() {
             {/* Overlay content */}
             <div className="absolute bottom-0 left-0 right-0 p-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
-                  <Globe className="h-8 w-8 text-purple-400 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Area Coverage</h3>
-                  <p className="text-white/70">A single network of 10 units can monitor up to 80 square kilometers of terrain.</p>
+                <div className="mushroom1-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-emerald-500/20 dark:border-emerald-500/30">
+                  <Globe className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mb-4" />
+                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Area Coverage</h3>
+                  <p className="text-slate-600 dark:!text-white/90">A single network of 10 units can monitor up to 80 square kilometers of terrain.</p>
                 </div>
-                <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
-                  <Network className="h-8 w-8 text-purple-400 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Self-Healing</h3>
-                  <p className="text-white/70">If one node fails, the network automatically reroutes data through alternate paths.</p>
+                <div className="mushroom1-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-emerald-500/20 dark:border-emerald-500/30">
+                  <Network className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mb-4" />
+                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Self-Healing</h3>
+                  <p className="text-slate-600 dark:!text-white/90">If one node fails, the network automatically reroutes data through alternate paths.</p>
                 </div>
-                <div className="bg-black/60 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
-                  <Database className="h-8 w-8 text-purple-400 mb-4" />
-                  <h3 className="text-xl font-bold mb-2">Cloud Sync</h3>
-                  <p className="text-white/70">All data streams to NatureOS and MINDEX for real-time analysis and long-term storage.</p>
+                <div className="mushroom1-connectivity-card bg-white/80 dark:!bg-gray-700 backdrop-blur-sm rounded-xl p-6 border border-emerald-500/20 dark:border-emerald-500/30">
+                  <Database className="h-8 w-8 text-emerald-600 dark:text-emerald-400 mb-4" />
+                  <h3 className="text-xl font-bold mb-2 text-slate-900 dark:!text-white">Cloud Sync</h3>
+                  <p className="text-slate-600 dark:!text-white/90">All data streams to NatureOS and MINDEX for real-time analysis and long-term storage.</p>
                 </div>
               </div>
             </div>
@@ -1072,7 +1088,7 @@ export function Mushroom1Details() {
       </section>
 
       {/* Technical Specifications */}
-      <section className="py-24 bg-black">
+      <section className="mushroom1-specifications py-24 bg-slate-100 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -1080,17 +1096,17 @@ export function Mushroom1Details() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <NeuBadge variant="default" className="mb-4 bg-slate-500/10 text-slate-400 border-slate-500/30">Specifications</NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Technical <span className="text-slate-400">Details</span>
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Specifications</NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
+              Technical <span className="text-emerald-600 dark:text-emerald-400">Details</span>
             </h2>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <NeuCard className="bg-white/5 border-white/10">
+            <NeuCard className="mushroom1-spec-card bg-white dark:!bg-gray-700 border-slate-200 dark:border-white/10">
               <NeuCardHeader>
-                <h3 className="text-white flex items-center gap-2 font-semibold">
-                  <Cpu className="h-5 w-5 text-cyan-400" />
+                <h3 className="text-slate-900 dark:!text-white flex items-center gap-2 font-semibold">
+                  <Cpu className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                   Hardware
                 </h3>
               </NeuCardHeader>
@@ -1104,18 +1120,18 @@ export function Mushroom1Details() {
                   { label: "Dimensions", value: "30cm x 30cm x 100cm" },
                   { label: "Weight", value: "4.5kg" },
                 ].map((spec, i) => (
-                  <div key={i} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
-                    <span className="text-white/60">{spec.label}</span>
-                    <span className="text-white font-medium">{spec.value}</span>
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-white/10 last:border-0">
+                    <span className="text-slate-500 dark:!text-white">{spec.label}</span>
+                    <span className="text-slate-900 dark:!text-emerald-400 font-medium">{spec.value}</span>
                   </div>
                 ))}
               </NeuCardContent>
             </NeuCard>
 
-            <NeuCard className="bg-white/5 border-white/10">
+            <NeuCard className="mushroom1-spec-card bg-white dark:!bg-gray-700 border-slate-200 dark:border-white/10">
               <NeuCardHeader>
-                <h3 className="text-white flex items-center gap-2 font-semibold">
-                  <Shield className="h-5 w-5 text-emerald-400" />
+                <h3 className="text-slate-900 dark:!text-white flex items-center gap-2 font-semibold">
+                  <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   Environmental
                 </h3>
               </NeuCardHeader>
@@ -1129,9 +1145,9 @@ export function Mushroom1Details() {
                   { label: "Data Storage", value: "32GB local + cloud sync" },
                   { label: "Certifications", value: "FCC, CE, ROHS" },
                 ].map((spec, i) => (
-                  <div key={i} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
-                    <span className="text-white/60">{spec.label}</span>
-                    <span className="text-white font-medium">{spec.value}</span>
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-white/10 last:border-0">
+                    <span className="text-slate-500 dark:!text-white">{spec.label}</span>
+                    <span className="text-slate-900 dark:!text-emerald-400 font-medium">{spec.value}</span>
                   </div>
                 ))}
               </NeuCardContent>
@@ -1141,9 +1157,8 @@ export function Mushroom1Details() {
           <div className="mt-8 flex justify-center gap-4">
             <NeuButton 
               variant="outline" 
-              className="min-h-[44px] border-white/20 !text-white hover:!text-white hover:bg-white/10"
+              className="min-h-[44px] border-emerald-500/30 dark:border-emerald-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-emerald-500/10 dark:hover:bg-gray-600"
               onClick={() => {
-                // TODO: Download full specifications PDF
                 alert("Full specifications document will be available soon.")
               }}
             >
@@ -1152,9 +1167,8 @@ export function Mushroom1Details() {
             </NeuButton>
             <NeuButton 
               variant="outline" 
-              className="min-h-[44px] border-white/20 !text-white hover:!text-white hover:bg-white/10"
+              className="min-h-[44px] border-emerald-500/30 dark:border-emerald-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-emerald-500/10 dark:hover:bg-gray-600"
               onClick={() => {
-                // TODO: Open 3D CAD viewer
                 alert("3D CAD model viewer will be available soon. CAD files pending upload.")
               }}
             >
@@ -1189,7 +1203,7 @@ export function Mushroom1Details() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl md:text-6xl font-bold mb-6">
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
               Ready to take a walk in nature?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
@@ -1197,7 +1211,7 @@ export function Mushroom1Details() {
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <NeuButton 
-                className="min-h-[44px] px-8 py-6 text-lg bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
+                className="min-h-[44px] px-8 py-6 text-lg bg-emerald-600 hover:bg-emerald-700 !text-white font-semibold"
                 onClick={() => setIsPreOrderModalOpen(true)}
               >
                 <ShoppingCart className="mr-2 h-6 w-6" />

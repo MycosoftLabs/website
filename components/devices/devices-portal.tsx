@@ -37,7 +37,7 @@ const devices = [
   {
     id: "mushroom-1",
     name: "Mushroom 1",
-    tagline: "Ground-Based Fungal Intelligence Station",
+    tagline: "Quadrupedal Enviornment Droid",
     description: "Our flagship autonomous environmental drone that monitors underground fungal networks, soil conditions, and environmental data in real-time with unmatched precision.",
     icon: Radar,
     color: "emerald-500",
@@ -70,40 +70,40 @@ const devices = [
   {
     id: "sporebase",
     name: "SporeBase",
-    tagline: "Bioaerosol Collection System",
-    description: "The world's most advanced bioaerosol collector. Time-indexed spore capture for research and atmospheric monitoring.",
+    tagline: "Biological Collection System",
+    description: "Time-indexed bioaerosol collection with sealed adhesive tape cassettes for lab-grade analysis and long-term environmental monitoring.",
     icon: Wind,
     color: "orange-500",
-    image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/SporeBase%20%20website-HFUWL3s1Ga7G7AZOnbrzy2YQoahLYu.png",
+    image: "/assets/sporebase/sporebase%20main2.jpg",
     status: "In Stock",
     price: "$299",
     specs: [
-      { label: "Collection Rate", value: "100L/min" },
-      { label: "Sample Slots", value: "24 time-indexed" },
-      { label: "Filter Efficiency", value: "99.7% @ 0.3μm" },
-      { label: "Power", value: "Solar/Battery" },
-      { label: "Connectivity", value: "LTE, LoRa, WiFi" },
-      { label: "Weather Rating", value: "IP65" }
+      { label: "Sampling Method", value: "Fan-driven active deposition" },
+      { label: "Sample Intervals", value: "2,880 per cassette (30 days)" },
+      { label: "Collection Cadence", value: "15 min default (configurable)" },
+      { label: "Sample Format", value: "Sealed adhesive tape cassette" },
+      { label: "Power Source", value: "MPPT solar + Li-ion battery" },
+      { label: "Connectivity", value: "LoRa mesh, WiFi, cellular optional" }
     ],
     features: [
-      "Active sampling pump",
-      "Time-segmented collection",
-      "Lab-ready sample output",
-      "Environmental metadata logging",
-      "Weather-resistant enclosure",
-      "Remote configuration"
+      "Fan-driven active sampling",
+      "Time-indexed collection over 30 days",
+      "Sealed cassette for lab analysis",
+      "Chain-of-custody metadata logging",
+      "MycoBrain controller (Dual ESP32-S3)",
+      "Mesh networking + remote telemetry"
     ],
     applications: [
       "Mycology research",
       "Allergy forecasting",
-      "Agriculture disease warning",
-      "Air quality monitoring"
+      "Agriculture",
+      "Air quality"
     ]
   },
   {
     id: "hyphae-1",
     name: "Hyphae 1",
-    tagline: "Modular I/O Platform",
+    tagline: "Modular Sensor Platform",
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
     icon: Microscope,
     color: "slate-500",
@@ -140,7 +140,7 @@ const devices = [
     description: "Buried sensor nodes that detect bioelectric signals from mycelial networks and monitor soil conditions at the microvolt level.",
     icon: Radar,
     color: "purple-500",
-    image: "/placeholder.svg?height=600&width=800&text=MycoNode",
+    image: "/assets/myconode/myconode%20a.png",
     status: "Contact Sales",
     price: "Enterprise",
     specs: [
@@ -322,9 +322,6 @@ export function DevicesPortal() {
                 <span className="text-xs font-medium whitespace-nowrap leading-tight">
                   {device.name}
                 </span>
-                {isSelected && (
-                  <span className="text-[10px] opacity-80 whitespace-nowrap">{device.status}</span>
-                )}
               </button>
             )
           })}
@@ -370,9 +367,6 @@ export function DevicesPortal() {
                     </div>
                     <h3 className="font-bold text-lg">{device.name}</h3>
                     <p className="text-sm text-muted-foreground">{device.tagline}</p>
-                    <NeuBadge variant="default" className="mt-3 text-xs">
-                      {device.status}
-                    </NeuBadge>
                   </NeuCardContent>
                 </NeuCard>
               </motion.div>
@@ -421,7 +415,6 @@ export function DevicesPortal() {
             {/* Device Details */}
             <div className="space-y-8">
               <div>
-                <NeuBadge variant="default" className="mb-4">{selectedDevice.status}</NeuBadge>
                 <h2 className="text-4xl font-bold mb-2">{selectedDevice.name}</h2>
                 <p className="text-xl text-muted-foreground mb-4">{selectedDevice.tagline}</p>
                 <p className="text-muted-foreground">{selectedDevice.description}</p>
@@ -510,7 +503,6 @@ export function DevicesPortal() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold">{selectedDevice.name}</h2>
-              <NeuBadge variant="default">{selectedDevice.status}</NeuBadge>
             </div>
             <p className="text-base text-muted-foreground font-medium mb-2">{selectedDevice.tagline}</p>
             <p className="text-sm text-muted-foreground leading-relaxed">{selectedDevice.description}</p>

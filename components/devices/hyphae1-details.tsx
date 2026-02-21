@@ -296,7 +296,7 @@ export function Hyphae1Details() {
               <ShoppingCart className="mr-2 h-5 w-5" />
               Configure & Order
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-slate-400 text-slate-700 hover:bg-slate-100">
+            <NeuButton size="lg" variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-5 w-5" />
               Download Datasheet
             </NeuButton>
@@ -304,20 +304,20 @@ export function Hyphae1Details() {
         </motion.div>
       </section>
 
-      {/* Variant Showcase */}
-      <section className="relative py-24 bg-white overflow-hidden">
-        {/* Connected dots background animation */}
+      {/* Variant Showcase - Product Line: light bg/dots; dark mode = dark widgets + light text; light mode = white widgets + dark text */}
+      <section className="hyphae1-product-line relative py-24 bg-slate-100 dark:bg-slate-200 overflow-hidden">
+        {/* Connected dots background animation - light in both modes for contrast with dark widgets */}
         <ProductShowcaseDots className="opacity-100" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-900 border-slate-300 dark:border-slate-500">
               Product Line
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-900">
               Choose Your Size
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-slate-800 max-w-2xl mx-auto">
               From compact single-point monitors to industrial-scale systems, 
               Hyphae 1 scales to your needs.
             </p>
@@ -331,35 +331,35 @@ export function Hyphae1Details() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => setSelectedVariant(variant)}
-                className={`cursor-pointer rounded-2xl border-2 p-8 transition-all ${
+                className={`hyphae1-product-card cursor-pointer rounded-2xl border-2 p-8 transition-all ${
                   selectedVariant.id === variant.id
-                    ? 'border-slate-800 bg-slate-50 shadow-xl'
-                    : 'border-slate-200 bg-white hover:border-slate-400 hover:shadow-lg'
+                    ? 'border-slate-800 dark:border-slate-200 bg-slate-50 dark:bg-slate-800 shadow-xl dark:shadow-slate-900/50 hyphae1-product-card-selected'
+                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 hover:border-slate-500 dark:hover:border-slate-400 hover:shadow-lg'
                 }`}
               >
                 <div className={`p-4 rounded-2xl mb-6 w-fit ${
-                  selectedVariant.id === variant.id ? 'bg-slate-800' : 'bg-slate-100'
+                  selectedVariant.id === variant.id ? 'bg-slate-800 dark:bg-slate-500' : 'bg-slate-100 dark:bg-slate-600'
                 }`}>
                   <variant.icon className={`h-10 w-10 ${
-                    selectedVariant.id === variant.id ? 'text-white' : 'text-slate-600'
+                    selectedVariant.id === variant.id ? 'text-white' : 'text-slate-600 dark:text-slate-100'
                   }`} />
                 </div>
                 
-                <h3 className="text-2xl font-bold mb-2 text-slate-800">{variant.name}</h3>
-                <p className="text-slate-600 mb-4">{variant.description}</p>
+                <h3 className="text-2xl font-bold mb-2 text-slate-800 dark:text-slate-100">{variant.name}</h3>
+                <p className="text-slate-600 dark:text-slate-200 mb-4">{variant.description}</p>
                 
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Dimensions</span>
-                    <span className="font-medium text-slate-700">{variant.dimensions}</span>
+                    <span className="text-slate-500 dark:text-slate-300">Dimensions</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-100">{variant.dimensions}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Channels</span>
-                    <span className="font-medium text-slate-700">{variant.channels}</span>
+                    <span className="text-slate-500 dark:text-slate-300">Channels</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-100">{variant.channels}</span>
                   </div>
                 </div>
                 
-                <div className="text-3xl font-bold text-slate-800">
+                <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">
                   ${variant.price}
                 </div>
               </motion.div>
@@ -369,17 +369,17 @@ export function Hyphae1Details() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-24 bg-slate-50">
+      <section className="hyphae1-why py-24 bg-slate-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+              <NeuBadge variant="default" className="mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
                 Why Hyphae 1
               </NeuBadge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800 dark:text-slate-100">
                 The Industrial Standard
               </h2>
-              <div className="space-y-4 text-lg text-slate-600">
+              <div className="space-y-4 text-lg text-slate-600 dark:text-slate-300">
                 <p>
                   Hyphae 1 is a modular I/O platform designed for industrial, commercial, 
                   and agricultural environments. It bridges the gap between simple sensors 
@@ -397,33 +397,33 @@ export function Hyphae1Details() {
               </div>
               
               <div className="grid grid-cols-4 gap-4 mt-8">
-                <div className="text-center p-4 bg-white rounded-xl border border-slate-200">
-                  <div className="text-3xl font-bold text-slate-800">IP66</div>
-                  <div className="text-sm text-slate-500">Weather Rating</div>
+                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">IP66</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Weather Rating</div>
                 </div>
-                <div className="text-center p-4 bg-white rounded-xl border border-slate-200">
-                  <div className="text-3xl font-bold text-slate-800">16</div>
-                  <div className="text-sm text-slate-500">Max Channels</div>
+                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">16</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Max Channels</div>
                 </div>
-                <div className="text-center p-4 bg-white rounded-xl border border-slate-200">
-                  <div className="text-3xl font-bold text-slate-800">5yr</div>
-                  <div className="text-sm text-slate-500">Warranty</div>
+                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">5yr</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Warranty</div>
                 </div>
-                <div className="text-center p-4 bg-white rounded-xl border border-slate-200">
-                  <div className="text-3xl font-bold text-slate-800">UL</div>
-                  <div className="text-sm text-slate-500">Certified</div>
+                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
+                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">UL</div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">Certified</div>
                 </div>
               </div>
             </div>
             
             <div className="relative">
-              <div className="aspect-square rounded-3xl overflow-hidden border border-slate-200 bg-gradient-to-br from-white to-slate-100 flex items-center justify-center">
+              <div className="aspect-square rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
                 <div className="relative w-3/4 h-3/4">
-                  <Box className="w-full h-full text-slate-300" strokeWidth={0.5} />
+                  <Box className="w-full h-full text-slate-300 dark:text-slate-600" strokeWidth={0.5} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center">
-                      <p className="text-4xl font-bold text-slate-800">{selectedVariant.name}</p>
-                      <p className="text-slate-500">{selectedVariant.dimensions}</p>
+                      <p className="text-4xl font-bold text-slate-800 dark:text-slate-100">{selectedVariant.name}</p>
+                      <p className="text-slate-500 dark:text-slate-400">{selectedVariant.dimensions}</p>
                     </div>
                   </div>
                 </div>
@@ -434,13 +434,13 @@ export function Hyphae1Details() {
       </section>
 
       {/* Features Grid */}
-      <section className="py-24 bg-white">
+      <section className="hyphae1-capabilities py-24 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="hyphae1-capabilities-badge mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
               Capabilities
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
               Built for Industry
             </h2>
           </div>
@@ -456,13 +456,13 @@ export function Hyphae1Details() {
               { icon: Lock, title: "Secure", desc: "TLS encryption, access control" },
               { icon: Layers, title: "DIN Rail", desc: "Standard industrial mounting" },
             ].map((item) => (
-              <NeuCard key={item.title} className="bg-slate-50 border-slate-200 hover:border-slate-400 hover:shadow-lg transition-all">
+              <NeuCard key={item.title} className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-lg transition-all">
                 <NeuCardContent className="pt-6">
-                  <div className="p-3 rounded-xl bg-slate-800 w-fit mb-4">
+                  <div className="p-3 rounded-xl bg-slate-800 dark:bg-slate-600 w-fit mb-4">
                     <item.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="font-bold text-lg mb-2 text-slate-800">{item.title}</h3>
-                  <p className="text-slate-600 text-sm">{item.desc}</p>
+                  <h3 className="font-bold text-lg mb-2 text-slate-800 dark:text-slate-100">{item.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-300 text-sm">{item.desc}</p>
                 </NeuCardContent>
               </NeuCard>
             ))}
@@ -471,16 +471,16 @@ export function Hyphae1Details() {
       </section>
 
       {/* Applications Section */}
-      <section className="relative py-24 bg-slate-100 overflow-hidden">
+      <section className="hyphae1-applications relative py-24 bg-slate-100 dark:bg-slate-900 overflow-hidden">
         {/* Scrolling grid background effect - prominent visibility */}
         <InfrastructureGrid className="opacity-90" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
               Applications
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
               Deployed Everywhere
             </h2>
           </div>
@@ -495,22 +495,22 @@ export function Hyphae1Details() {
                 onClick={() => setSelectedCase(index)}
                 className={`cursor-pointer rounded-2xl border-2 p-6 transition-all ${
                   selectedCase === index
-                    ? 'border-slate-800 bg-slate-800 text-white'
-                    : 'border-slate-200 bg-white hover:border-slate-400'
+                    ? 'border-slate-800 dark:border-slate-400 bg-slate-800 dark:bg-slate-700 text-white'
+                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500'
                 }`}
               >
-                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-slate-600'}`} />
-                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-white' : 'text-slate-800'}`}>
+                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
+                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
                   {useCase.title}
                 </h3>
-                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/80' : 'text-slate-600'}`}>
+                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/80' : 'text-slate-600 dark:text-slate-300'}`}>
                   {useCase.description}
                 </p>
                 <div className="space-y-1">
                   {useCase.applications.map((app) => (
                     <div key={app} className="flex items-center gap-2 text-xs">
-                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/60' : 'text-slate-400'}`} />
-                      <span className={selectedCase === index ? 'text-white/80' : 'text-slate-500'}>{app}</span>
+                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/60' : 'text-slate-400 dark:text-slate-400'}`} />
+                      <span className={selectedCase === index ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}>{app}</span>
                     </div>
                   ))}
                 </div>
@@ -656,43 +656,43 @@ export function Hyphae1Details() {
       </section>
 
       {/* Technical Specifications */}
-      <section className="py-24 bg-white">
+      <section className="hyphae1-tech-specs py-24 bg-white dark:bg-slate-800" data-section="tech-specs">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-slate-200 text-slate-700 border-slate-300">
+            <NeuBadge variant="default" className="mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
               Specifications
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
               Technical Details
             </h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+            <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
               <div className="flex items-center gap-2 mb-6">
-                <Box className="h-5 w-5 text-slate-600" />
-                <span className="font-semibold text-slate-800">Physical</span>
+                <Box className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <span className="font-semibold text-slate-800 dark:text-slate-100">Physical</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(0, 6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200">
-                    <span className="text-slate-600">{key}</span>
-                    <span className="font-medium text-slate-800">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                    <span className="text-slate-600 dark:text-slate-400">{key}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{value}</span>
                   </div>
                 ))}
               </div>
             </div>
             
-            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+            <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
               <div className="flex items-center gap-2 mb-6">
-                <Cpu className="h-5 w-5 text-slate-600" />
-                <span className="font-semibold text-slate-800">System</span>
+                <Cpu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <span className="font-semibold text-slate-800 dark:text-slate-100">System</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200">
-                    <span className="text-slate-600">{key}</span>
-                    <span className="font-medium text-slate-800">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-600">
+                    <span className="text-slate-600 dark:text-slate-400">{key}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{value}</span>
                   </div>
                 ))}
               </div>
@@ -700,11 +700,11 @@ export function Hyphae1Details() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-slate-400 text-slate-700">
+            <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-slate-400 text-slate-700">
+            <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
             </NeuButton>

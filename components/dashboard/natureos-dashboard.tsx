@@ -132,6 +132,10 @@ interface RealDevice {
   }
 }
 
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
+}
+
   // Fetch real devices from APIs - no mock data
 function useRealDevices() {
   const [devices, setDevices] = useState<RealDevice[]>([])
@@ -235,8 +239,10 @@ function useRealDevices() {
           }
         }
       } catch (error) {
-        console.error("Failed to fetch devices:", error)
-        setDevices([])
+        if (!isTimeoutError(error)) {
+          console.error("Failed to fetch devices:", error)
+          setDevices([])
+        }
       }
       setLoading(false)
     }
@@ -366,13 +372,13 @@ export function NatureOSDashboard() {
 
       if (obsResult.status === "fulfilled" && obsResult.value) {
         setObservations(obsResult.value.observations || [])
-      } else if (obsResult.status === "rejected") {
+      } else if (obsResult.status === "rejected" && !isTimeoutError(obsResult.reason)) {
         console.warn("MINDEX observations fetch failed:", obsResult.reason?.message || obsResult.reason)
       }
 
       if (statsResult.status === "fulfilled" && statsResult.value) {
         setMindexStats(statsResult.value)
-      } else if (statsResult.status === "rejected") {
+      } else if (statsResult.status === "rejected" && !isTimeoutError(statsResult.reason)) {
         console.warn("MINDEX stats fetch failed:", statsResult.reason?.message || statsResult.reason)
       }
     }

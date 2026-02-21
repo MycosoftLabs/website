@@ -162,7 +162,7 @@ function formatTimeAgo(dateString: string): string {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const userId = searchParams.get("userId") || undefined
+  const userId = searchParams.get("userId") || searchParams.get("user_id") || undefined
   const limit = parseInt(searchParams.get("limit") || "50")
   
   try {
@@ -200,6 +200,9 @@ export async function GET(request: NextRequest) {
       total: formattedConversations.length,
       hasRealData,
       sources: ["MAS", "AgentRuns", "ChatThreads"],
+      context: {
+        user_id: userId || "anonymous",
+      },
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
@@ -218,7 +221,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { conversationId } = body
+    const { conversationId, user_id, session_id } = body
     
     if (!conversationId) {
       return NextResponse.json({ error: "conversationId is required" }, { status: 400 })
@@ -255,6 +258,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       messages: [],
       conversationId,
+      context: {
+        user_id: user_id || "anonymous",
+        session_id,
+      },
       error: "Conversation not found",
     }, { status: 404 })
   } catch (error) {

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { 
@@ -28,9 +29,10 @@ import {
   NeuCard,
   NeuCardContent,
   NeuBadge,
+  NeuTabs,
+  NeuTabsContent,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const defenseApps = [
   {
@@ -225,6 +227,13 @@ const developerApps = [
   }
 ]
 
+const appTabs = [
+  { id: "research", label: "Research" },
+  { id: "innovation", label: "Innovation" },
+  { id: "defense", label: "Defense" },
+  { id: "developer", label: "Developer" },
+]
+
 // Theme styling configuration for unique app appearances
 const THEME_STYLES: Record<string, { 
   iconBg: string; 
@@ -389,6 +398,8 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
 }
 
 export function AppsPortal() {
+  const [appTabIndex, setAppTabIndex] = useState(0)
+
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh">
@@ -455,29 +466,14 @@ export function AppsPortal() {
       {/* Apps Grid Section */}
       <section className="py-16 bg-muted/30">
         <div className="container px-4 max-w-7xl mx-auto">
-          <Tabs defaultValue="research" className="w-full">
-            <div className="flex justify-center mb-12">
-              <TabsList className="grid grid-cols-4 w-full max-w-2xl">
-                <TabsTrigger value="research" className="gap-2">
-                  <Microscope className="h-4 w-4" />
-                  Research
-                </TabsTrigger>
-                <TabsTrigger value="innovation" className="gap-2">
-                  <Zap className="h-4 w-4" />
-                  Innovation
-                </TabsTrigger>
-                <TabsTrigger value="defense" className="gap-2">
-                  <Shield className="h-4 w-4" />
-                  Defense
-                </TabsTrigger>
-                <TabsTrigger value="developer" className="gap-2">
-                  <Terminal className="h-4 w-4" />
-                  Developer
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="research">
+          <NeuTabs
+            tabs={appTabs}
+            activeIndex={appTabIndex}
+            onTabChange={setAppTabIndex}
+            className="w-full"
+            ariaLabel="Application categories"
+          >
+            <NeuTabsContent id="panel-research" tabId="research" isActive={appTabIndex === 0}>
               <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Research & Analysis</h2>
                 <p className="text-muted-foreground">
@@ -489,9 +485,9 @@ export function AppsPortal() {
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>
-            </TabsContent>
+            </NeuTabsContent>
 
-            <TabsContent value="innovation">
+            <NeuTabsContent id="panel-innovation" tabId="innovation" isActive={appTabIndex === 1}>
               <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Innovation Suite</h2>
                 <p className="text-muted-foreground">
@@ -503,9 +499,9 @@ export function AppsPortal() {
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>
-            </TabsContent>
+            </NeuTabsContent>
 
-            <TabsContent value="defense">
+            <NeuTabsContent id="panel-defense" tabId="defense" isActive={appTabIndex === 2}>
               <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Defense & Intelligence</h2>
                 <p className="text-muted-foreground">
@@ -517,9 +513,9 @@ export function AppsPortal() {
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>
-            </TabsContent>
+            </NeuTabsContent>
 
-            <TabsContent value="developer">
+            <NeuTabsContent id="panel-developer" tabId="developer" isActive={appTabIndex === 3}>
               <div className="mb-8 text-center max-w-3xl mx-auto">
                 <h2 className="text-2xl font-bold mb-2">Developer Tools</h2>
                 <p className="text-muted-foreground">
@@ -531,8 +527,8 @@ export function AppsPortal() {
                   <AppCard key={app.title} app={app} index={index} />
                 ))}
               </div>
-            </TabsContent>
-          </Tabs>
+            </NeuTabsContent>
+          </NeuTabs>
         </div>
       </section>
 
@@ -631,8 +627,9 @@ export function AppsPortal() {
 
           {/* Topology Diagram */}
           <div className="max-w-4xl mx-auto mb-16">
-            <NeuCard className="p-8">
-              <div className="grid grid-cols-6 gap-4 items-center text-center">
+            <NeuCard className="p-4 sm:p-8 overflow-x-auto">
+              <div className="min-w-[640px]">
+                <div className="grid grid-cols-6 gap-4 items-center text-center">
                 {/* Layer 1: Hardware */}
                 <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
                   <Radar className="h-8 w-8 text-orange-500 mx-auto mb-2" />
@@ -668,10 +665,10 @@ export function AppsPortal() {
                 <div className="flex items-center justify-center">
                   <ArrowRight className="h-6 w-6 text-muted-foreground/50" />
                 </div>
-              </div>
-              
-              {/* Second Row */}
-              <div className="grid grid-cols-6 gap-4 items-center text-center mt-4">
+                </div>
+                
+                {/* Second Row */}
+                <div className="grid grid-cols-6 gap-4 items-center text-center mt-4">
                 {/* Layer 4: Protocols */}
                 <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/20">
                   <Network className="h-8 w-8 text-green-500 mx-auto mb-2" />
@@ -706,6 +703,7 @@ export function AppsPortal() {
                 {/* Final */}
                 <div className="flex items-center justify-center">
                   <Zap className="h-6 w-6 text-primary" />
+                </div>
                 </div>
               </div>
             </NeuCard>

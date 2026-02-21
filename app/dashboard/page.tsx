@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { MemoryHealthWidget } from "@/components/memory"
+import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useSupabaseUser()
@@ -56,6 +57,13 @@ export default function DashboardPage() {
   const role = profile?.role || "user"
   const tier = profile?.subscription_tier || "free"
   const isSuperAdmin = role === 'super_admin' && user?.email === 'morgan@mycosoft.org'
+  const quickStats = [
+    { label: "Your Devices", value: null, caption: "No data available", icon: Cpu, color: "text-emerald-400" },
+    { label: "Data Points", value: null, caption: "No data available", icon: Activity, color: "text-blue-400" },
+    { label: "Species Tracked", value: null, caption: "No data available", icon: Leaf, color: "text-green-400" },
+    { label: "System Health", value: null, caption: "No data available", icon: TrendingUp, color: "text-emerald-500" },
+  ]
+  const recentActivity: Array<{ time: string; event: string; type: "device" | "sensor" | "account" }> = []
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -166,46 +174,21 @@ export default function DashboardPage() {
 
         {/* Quick Stats */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">Your Devices</CardTitle>
-              <Cpu className="h-4 w-4 text-emerald-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">2</div>
-              <p className="text-xs text-slate-500">MycoBrain connected</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">Data Points</CardTitle>
-              <Activity className="h-4 w-4 text-blue-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">1,247</div>
-              <p className="text-xs text-slate-500">Last 24 hours</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">Species Tracked</CardTitle>
-              <Leaf className="h-4 w-4 text-green-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-white">156</div>
-              <p className="text-xs text-slate-500">In your catalog</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">System Health</CardTitle>
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-400">98%</div>
-              <p className="text-xs text-slate-500">All systems operational</p>
-            </CardContent>
-          </Card>
+          {quickStats.map((stat) => {
+            const Icon = stat.icon
+            return (
+              <Card key={stat.label} className="bg-slate-800/50 border-slate-700">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-400">{stat.label}</CardTitle>
+                  <Icon className={cn("h-4 w-4", stat.color)} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{stat.value ?? "—"}</div>
+                  <p className="text-xs text-slate-500">{stat.caption}</p>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
         {/* Memory & Brain Health */}
@@ -308,26 +291,24 @@ export default function DashboardPage() {
             <CardDescription className="text-slate-400">Latest events from your devices and system</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { time: "2 min ago", event: "MycoBrain V1 reported temperature: 23.5°C", type: "device" },
-                { time: "5 min ago", event: "Humidity sensor reading: 65%", type: "sensor" },
-                { time: "10 min ago", event: "IAQ index updated: 42 (Good)", type: "sensor" },
-                { time: "15 min ago", event: "Connection established with SporeBase", type: "device" },
-                { time: "1 hour ago", event: "Profile settings updated", type: "account" },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center gap-4 text-sm">
-                  <span className="text-slate-500 w-24 text-right shrink-0">{item.time}</span>
-                  <span className={cn(
-                    "h-2 w-2 rounded-full shrink-0",
-                    item.type === "device" ? "bg-emerald-500" :
-                    item.type === "sensor" ? "bg-blue-500" :
-                    "bg-purple-500"
-                  )} />
-                  <span className="text-slate-300">{item.event}</span>
-                </div>
-              ))}
-            </div>
+            {recentActivity.length === 0 ? (
+              <div className="text-sm text-slate-500">No activity data available yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {recentActivity.map((item, index) => (
+                  <div key={index} className="flex items-center gap-4 text-sm">
+                    <span className="text-slate-500 w-24 text-right shrink-0">{item.time}</span>
+                    <span className={cn(
+                      "h-2 w-2 rounded-full shrink-0",
+                      item.type === "device" ? "bg-emerald-500" :
+                      item.type === "sensor" ? "bg-blue-500" :
+                      "bg-purple-500"
+                    )} />
+                    <span className="text-slate-300">{item.event}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
@@ -349,6 +330,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </footer>
+      <MYCAFloatingButton title="MYCA Assistant" className="right-20" />
     </div>
   )
 }

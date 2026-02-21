@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 
 const scientificNav = [
   { href: '/scientific', label: 'Overview' },
@@ -34,15 +35,16 @@ export default function ScientificLayout({
         </nav>
         <div className="mt-8 p-3 border rounded-lg bg-background">
           <h3 className="text-sm font-medium mb-2">Quick Stats</h3>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p>Active Experiments: 3</p>
-            <p>Running Simulations: 2</p>
-            <p>Connected Devices: 21</p>
-            <p>FCI Sessions: 2</p>
+          <div className="text-xs text-muted-foreground">
+            No data available yet.
           </div>
         </div>
       </aside>
       <main className="flex-1 overflow-auto">{children}</main>
+      <MYCAFloatingButton
+        title="MYCA Scientific Assistant"
+        className="right-auto left-4"
+      />
     </div>
   )
 }

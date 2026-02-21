@@ -277,3 +277,21 @@
 [2026-02-19 21:18:18] [INFO] Waiting up to 120s for server on :3010...
 [2026-02-19 21:18:28] [INFO] Server is UP at http://localhost:3010
 [2026-02-19 21:18:28] [INFO] Server restarted OK.
+[2026-02-20 20:11:14] [WARN] Not responding (fail 1/3)
+[2026-02-20 20:11:45] [INFO] Server recovered. Resetting counter.
+[2026-02-20 21:17:10] [WARN] Not responding (fail 1/3)
+[2026-02-20 21:17:40] [INFO] Server recovered. Resetting counter.
+[2026-02-20 21:31:45] [WARN] Not responding (fail 1/3)
+[2026-02-20 21:32:16] [INFO] Server recovered. Resetting counter.
+[2026-02-20 21:35:27] [WARN] Not responding (fail 1/3)
+[2026-02-20 21:36:02] [WARN] Not responding (fail 2/3)
+[2026-02-20 21:36:37] [WARN] Not responding (fail 3/3)
+[2026-02-20 21:36:37] [WARN] === RESTART #6 ===
+[2026-02-20 21:36:44] [INFO] Starting: npm run dev:next-only
+[2026-02-20 21:36:44] [INFO] Dev server process launched.
+[2026-02-20 21:36:44] [INFO] Waiting up to 120s for server on :3010...
+[2026-02-20 21:36:57] [INFO] Server is UP at http://localhost:3010
+[2026-02-20 21:36:57] [INFO] Server restarted OK.
+[2026-02-20 21:42:06] [WARN] Not responding (fail 1/3)
+[2026-02-20 21:42:36] [WARN] Not responding (fail 2/3)
+[2026-02-20 21:43:06] [INFO] Server recovered. Resetting counter.

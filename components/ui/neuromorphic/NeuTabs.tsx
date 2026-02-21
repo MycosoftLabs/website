@@ -69,7 +69,7 @@ export function NeuTabs({
               aria-selected={activeIndex === i}
               aria-controls={`panel-${tab.id}`}
               tabIndex={activeIndex === i ? 0 : -1}
-              className="neu-tab-btn neu-focus px-6 py-3 rounded-xl text-sm font-medium transition-all"
+              className="neu-tab-btn neu-focus px-6 py-3 min-h-[44px] min-w-[44px] whitespace-nowrap rounded-xl text-sm font-medium transition-all"
               onClick={() => onTabChange(i)}
               onKeyDown={(e) => handleKeyDown(e, i)}
             >
@@ -123,7 +123,7 @@ export function NeuTabsTrigger({
       aria-selected={isActive}
       aria-controls={panelId}
       tabIndex={isActive ? 0 : -1}
-      className="neu-tab-btn neu-focus px-6 py-3 rounded-xl text-sm font-medium transition-all"
+      className="neu-tab-btn neu-focus px-6 py-3 min-h-[44px] min-w-[44px] whitespace-nowrap rounded-xl text-sm font-medium transition-all"
       onClick={onClick}
       onKeyDown={onKeyDown}
     >

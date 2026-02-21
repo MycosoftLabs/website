@@ -8,16 +8,18 @@
 
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
 
-// Session ID persists across page loads
-function getSessionId(): string {
+// Session ID persists across tabs and reloads
+function getSessionId(userId: string | null): string {
   if (typeof window === "undefined") return ""
-  
-  let sessionId = sessionStorage.getItem("myca_session_id")
+
+  const storageKey = `myca_session_id:${userId || "anon"}`
+  let sessionId = localStorage.getItem(storageKey)
   if (!sessionId) {
-    sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
-    sessionStorage.setItem("myca_session_id", sessionId)
+    sessionId = `myca_${userId || "anon"}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+    localStorage.setItem(storageKey, sessionId)
   }
   return sessionId
 }
@@ -81,8 +83,18 @@ export function useMYCAContext(options?: {
   debounceMs?: number
 }): UseMYCAContextReturn {
   const { enabled = true, debounceMs = 100 } = options || {}
-  
-  const [sessionId] = useState(getSessionId)
+  const { user } = useAuth()
+  const userId = user?.id || null
+  const [sessionId, setSessionId] = useState("")
+
+  const resolvedSessionId = useMemo(
+    () => getSessionId(userId),
+    [userId]
+  )
+
+  useEffect(() => {
+    setSessionId(resolvedSessionId)
+  }, [resolvedSessionId])
   const [suggestions, setSuggestions] = useState<{ widgets: string[]; queries: string[] }>({
     widgets: [],
     queries: [],
@@ -107,6 +119,7 @@ export function useMYCAContext(options?: {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: sessionId,
+            user_id: userId || "anonymous",
             ...event,
             timestamp: new Date().toISOString(),
           }),
@@ -127,7 +140,7 @@ export function useMYCAContext(options?: {
       // Silent fail - intention tracking is non-critical
       setError(err instanceof Error ? err.message : "Tracking failed")
     }
-  }, [enabled, sessionId])
+  }, [enabled, sessionId, userId])
   
   const track = useCallback(async (event: IntentionEvent) => {
     if (!enabled) return

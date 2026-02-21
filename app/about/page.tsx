@@ -39,7 +39,7 @@ const technologyPillars = [
   {
     id: "ai",
     icon: Brain,
-    title: "Artificial Intelligence",
+    title: "Enviornmental Intelligence",
     subtitle: "MYCA & NLM",
     description: "MYCA is our multi-agent cognitive system — 117+ specialized agents managing research, analysis, infrastructure, and scientific discovery. The Nature Learning Model (NLM) processes environmental and ecological data to predict biological events with machine precision.",
     links: [

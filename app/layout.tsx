@@ -4,6 +4,7 @@ import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AppStateProvider } from "@/contexts/app-state-context"
+import { MYCAProvider } from "@/contexts/myca-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
@@ -46,19 +47,21 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <AppStateProvider>
-              <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
-                <PersonaPlexProvider>
-                  {/* suppressHydrationWarning: Cursor IDE browser may inject data-cursor-ref into DOM, causing hydration mismatch only in that environment */}
-                  <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
-                    <Header />
-                    <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
-                    <Footer />
-                  </div>
-                  {/* PersonaPlexProvider renders the ONE floating mic widget (bottom-right).
-                      It suppresses itself on /search and /test-voice which have their own mic. */}
-                  <Toaster richColors position="top-right" />
-                </PersonaPlexProvider>
-              </UnifiedVoiceProvider>
+              <MYCAProvider>
+                <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
+                  <PersonaPlexProvider>
+                    {/* suppressHydrationWarning: Cursor IDE browser may inject data-cursor-ref into DOM, causing hydration mismatch only in that environment */}
+                    <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
+                      <Header />
+                      <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
+                      <Footer />
+                    </div>
+                    {/* PersonaPlexProvider renders the ONE floating mic widget (bottom-right).
+                        It suppresses itself on /search and /test-voice which have their own mic. */}
+                    <Toaster richColors position="top-right" />
+                  </PersonaPlexProvider>
+                </UnifiedVoiceProvider>
+              </MYCAProvider>
             </AppStateProvider>
           </AuthProvider>
         </ThemeProvider>

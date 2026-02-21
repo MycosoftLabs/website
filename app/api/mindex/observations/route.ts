@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server"
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
 
+function isTimeoutError(error: unknown) {
+  return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")
+}
+
 interface Observation {
   id: string
   species: string
@@ -35,13 +39,11 @@ async function fetchINaturalistObservations(limit: number, species?: string): Pr
 
     const response = await fetch(`${INATURALIST_API}/observations?${params}`, {
       headers: { "Accept": "application/json" },
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
     })
 
-    if (!response.ok) {
-      console.error("iNaturalist API error:", response.status)
-      return []
-    }
+    if (!response.ok) return []
 
     const data = await response.json()
 
@@ -58,7 +60,9 @@ async function fetchINaturalistObservations(limit: number, species?: string): Pr
       imageUrl: obs.photos?.[0]?.url?.replace("square", "medium") || "",
     }))
   } catch (error) {
-    console.error("Failed to fetch iNaturalist data:", error)
+    if (!isTimeoutError(error)) {
+      console.error("Failed to fetch iNaturalist data:", error)
+    }
     return []
   }
 }
@@ -79,7 +83,8 @@ async function fetchGBIFObservations(limit: number, species?: string): Promise<O
 
     const response = await fetch(`${GBIF_API}/occurrence/search?${params}`, {
       headers: { "Accept": "application/json" },
-      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(8000),
+      cache: "no-store",
     })
 
     if (!response.ok) return []
@@ -99,7 +104,9 @@ async function fetchGBIFObservations(limit: number, species?: string): Promise<O
       imageUrl: "",
     }))
   } catch (error) {
-    console.error("Failed to fetch GBIF data:", error)
+    if (!isTimeoutError(error)) {
+      console.error("Failed to fetch GBIF data:", error)
+    }
     return []
   }
 }

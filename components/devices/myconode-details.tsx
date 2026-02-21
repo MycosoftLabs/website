@@ -255,7 +255,7 @@ export function MycoNodeDetails() {
     <NeuromorphicProvider>
     <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
       {/* Hero Section - with Video Background — data-over-video for theme consistency */}
-      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
+      <section ref={heroRef} className="myconode-hero relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
         {/* Video background */}
         <div className="absolute inset-0 z-0">
           <video
@@ -270,7 +270,7 @@ export function MycoNodeDetails() {
             <source src={MYCONODE_ASSETS.heroVideo} type="video/mp4" />
           </video>
           {/* Dark overlay for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/70 via-purple-950/50 to-slate-950/90" />
+          <div className="myconode-hero-overlay absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/70 dark:from-purple-950/70 dark:via-purple-950/50 dark:to-slate-950/90" />
         </div>
         
         {/* Animated gradient accents */}
@@ -315,17 +315,17 @@ export function MycoNodeDetails() {
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
-          <NeuBadge variant="default" className="device-hero-badge mb-4 bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-purple-300 border-purple-500/50 text-sm px-4 py-1">
+          <NeuBadge variant="default" className="device-hero-badge mb-4 bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 text-purple-800 dark:text-purple-300 border-purple-500/50 text-sm px-4 py-1">
             Subsurface Intelligence
           </NeuBadge>
           
           <motion.h1 
-            className="device-hero-title text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="device-hero-title myconode-hero-title-clean text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-fuchsia-400 to-cyan-400">
+            <span className="myconode-hero-title-text text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r from-purple-400 via-fuchsia-400 to-cyan-400">
               MycoNode
             </span>
           </motion.h1>
@@ -338,7 +338,7 @@ export function MycoNodeDetails() {
           >
             Listening to the underground.
             <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
+            <span className="myconode-hero-whispers text-purple-700 dark:text-white">
               Where fungal networks speak in bioelectric whispers.
             </span>
           </motion.p>
@@ -445,23 +445,23 @@ export function MycoNodeDetails() {
       </section>
 
       {/* Deployment Section - How It Works */}
-      <section className="relative py-24 bg-gradient-to-b from-purple-950/50 to-purple-950/30 overflow-hidden">
+      <section className="myconode-quickstart relative py-24 bg-white dark:bg-gradient-to-b dark:from-purple-950/50 dark:to-purple-950/30 overflow-hidden">
         {/* Mycelium Network Background Animation */}
         <div className="absolute inset-0 pointer-events-none">
           <MyceliumNetwork hue={280} opacity={0.7} />
           {/* Subtle gradient overlay for readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/30 via-transparent to-purple-950/30" />
+          <div className="myconode-quickstart-overlay absolute inset-0 bg-gradient-to-b from-white/70 via-transparent to-white/80 dark:from-purple-950/30 dark:via-transparent dark:to-purple-950/30" />
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
               Quick Start
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Deploy in Minutes
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-700 dark:text-white/60 max-w-2xl mx-auto">
               Simple installation, automatic network connection, instant data streaming.
             </p>
           </div>
@@ -474,8 +474,8 @@ export function MycoNodeDetails() {
                   1
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-emerald-400">Plant the Probe</h3>
-                  <p className="text-white/70">
+                  <h3 className="text-xl font-bold mb-2 text-emerald-600 dark:text-emerald-400">Plant the Probe</h3>
+                  <p className="text-slate-900 dark:text-white/70">
                     Push MycoNode into the soil at your desired depth (10-50cm). The mushroom-shaped 
                     head stays above ground for radio communication while sensors reach deep underground.
                   </p>
@@ -487,8 +487,8 @@ export function MycoNodeDetails() {
                   2
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-purple-400">Auto-Connect to Mycosoft Network</h3>
-                  <p className="text-white/70">
+                  <h3 className="text-xl font-bold mb-2 text-purple-600 dark:text-purple-400">Auto-Connect to Mycosoft Network</h3>
+                  <p className="text-slate-900 dark:text-white/70">
                     The device automatically establishes a secure LoRa mesh connection with nearby 
                     MycoNodes and Mycosoft infrastructure. No configuration required—just plant and go.
                   </p>
@@ -500,8 +500,8 @@ export function MycoNodeDetails() {
                   3
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-cyan-400">Start Streaming Fungal Data</h3>
-                  <p className="text-white/70">
+                  <h3 className="text-xl font-bold mb-2 text-blue-600 dark:text-cyan-400">Start Streaming Fungal Data</h3>
+                  <p className="text-slate-900 dark:text-white/70">
                     Bioelectric signals, soil conditions, and environmental factors are immediately 
                     broadcast to our cloud platform. View real-time data on your dashboard within seconds.
                   </p>
@@ -509,7 +509,7 @@ export function MycoNodeDetails() {
               </div>
               
               <div className="pt-4">
-                <div className="flex items-center gap-4 text-white/50 text-sm">
+                <div className="flex items-center gap-4 text-slate-600 dark:text-white/50 text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
                     <span>No tools required</span>
@@ -550,16 +550,16 @@ export function MycoNodeDetails() {
       </section>
 
       {/* Sensor Technology Section */}
-      <section className="py-24 bg-purple-950/30">
+      <section className="myconode-sensing py-24 bg-white dark:bg-purple-950/30">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-800 dark:text-purple-400 border-purple-500/30">
               Sensing Technology
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Multi-Modal Soil Intelligence
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-purple-800 dark:text-white/60 max-w-2xl mx-auto">
               Eight sensor modalities create a complete picture of underground dynamics.
             </p>
           </div>
@@ -637,14 +637,14 @@ export function MycoNodeDetails() {
                 onHoverEnd={() => setHoveredSensor(null)}
                 className="relative"
               >
-                <NeuCard className="bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-all overflow-hidden h-full cursor-pointer">
+                <NeuCard className="bg-white dark:bg-slate-900/50 border-purple-500/20 hover:border-purple-500/40 transition-all overflow-hidden h-full cursor-pointer">
                   <NeuCardContent className="pt-6 relative">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${item.color} opacity-10 rounded-full blur-2xl`} />
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${item.color} w-fit mb-4`}>
                       <item.icon className="h-6 w-6 text-white" />
                     </div>
-                    <h3 className="font-bold text-lg mb-2 text-white">{item.title}</h3>
-                    <p className="text-white/60 text-sm">{item.desc}</p>
+                    <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{item.title}</h3>
+                    <p className="text-slate-600 dark:text-white/60 text-sm">{item.desc}</p>
                     
                     {/* Hover expansion */}
                     <AnimatePresence>
@@ -656,8 +656,8 @@ export function MycoNodeDetails() {
                           className="overflow-hidden"
                         >
                           <div className="mt-4 pt-4 border-t border-purple-500/20">
-                            <p className="text-xs font-mono text-purple-400 mb-2">{item.specs}</p>
-                            <p className="text-sm text-white/70">{item.details}</p>
+                            <p className="text-xs font-mono text-purple-700 dark:text-purple-400 mb-2">{item.specs}</p>
+                            <p className="text-sm text-slate-700 dark:text-white/70">{item.details}</p>
                           </div>
                         </motion.div>
                       )}
@@ -685,15 +685,15 @@ export function MycoNodeDetails() {
             <source src={MYCONODE_ASSETS.myceliumVideo} type="video/mp4" />
           </video>
           {/* Dark overlay for content readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-purple-950/85 via-slate-950/80 to-slate-950/90" />
+          <div className="myconode-apps-overlay absolute inset-0 bg-white/70 dark:bg-gradient-to-b dark:from-purple-950/85 dark:via-slate-950/80 dark:to-slate-950/90" />
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30 backdrop-blur-sm">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-800 dark:text-purple-400 border-purple-500/30 backdrop-blur-sm">
               Applications
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Who Uses MycoNode?
             </h2>
           </div>
@@ -706,22 +706,22 @@ export function MycoNodeDetails() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => setSelectedCase(index)}
-                className={`cursor-pointer rounded-2xl border p-6 transition-all ${
+                className={`myconode-app-card cursor-pointer rounded-2xl border p-6 transition-all ${
                   selectedCase === index
                     ? 'bg-gradient-to-br ' + useCase.color + ' border-transparent text-white shadow-xl'
-                    : 'bg-slate-900/50 border-purple-500/20 hover:border-purple-500/50'
+                    : 'bg-white/80 dark:bg-slate-900/50 border-purple-500/20 hover:border-purple-500/50'
                 }`}
               >
-                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-purple-400'}`} />
-                <h3 className="font-bold text-lg mb-2">{useCase.title}</h3>
-                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/90' : 'text-white/60'}`}>
+                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-purple-700 dark:text-purple-400'}`} />
+                <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{useCase.title}</h3>
+                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/90' : 'text-slate-700 dark:text-white/60'}`}>
                   {useCase.description}
                 </p>
                 <div className="space-y-1">
                   {useCase.applications.map((app) => (
                     <div key={app} className="flex items-center gap-2 text-xs">
-                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/80' : 'text-purple-400/60'}`} />
-                      <span className={selectedCase === index ? 'text-white/90' : 'text-white/50'}>{app}</span>
+                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/80' : 'text-purple-600/70 dark:text-purple-400/60'}`} />
+                      <span className={selectedCase === index ? 'text-white/90' : 'text-slate-700 dark:text-white/50'}>{app}</span>
                     </div>
                   ))}
                 </div>
@@ -732,16 +732,16 @@ export function MycoNodeDetails() {
       </section>
 
       {/* Inside MycoNode - Blueprint Section */}
-      <section className="py-24 bg-black">
+      <section className="myconode-engineering py-24 bg-white dark:bg-black">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-purple-500/10 text-purple-800 dark:text-purple-400 border-purple-500/30">
               Engineering
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Inside MycoNode
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-700 dark:text-white/60 max-w-2xl mx-auto">
               Explore the components that enable underground sensing.
             </p>
           </div>
@@ -864,16 +864,16 @@ export function MycoNodeDetails() {
       </section>
 
       {/* Color Picker Section */}
-      <section className="py-24 bg-gradient-to-b from-black to-purple-950/50">
+      <section className="myconode-customization py-24 bg-purple-50 dark:bg-gradient-to-b dark:from-black dark:to-purple-950/50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30">
+            <NeuBadge variant="default" className="mb-4 bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-400 border-fuchsia-500/30">
               Customization
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Choose Your Color
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-700 dark:text-white/60 max-w-2xl mx-auto">
               MycoNode comes in 8 colors to blend with any environment.
             </p>
           </div>
@@ -908,17 +908,17 @@ export function MycoNodeDetails() {
                 ))}
               </div>
               
-              <div className="bg-slate-900/50 rounded-2xl border border-purple-500/20 p-6">
+              <div className="myconode-customization-widget bg-white/80 dark:bg-slate-900/50 rounded-2xl border border-purple-500/20 p-6">
                 <div className="flex items-center gap-4 mb-4">
                   <div 
                     className="w-12 h-12 rounded-xl border border-white/20"
                     style={{ backgroundColor: MYCONODE_ASSETS.colors[selectedColor].hex }}
                   />
                   <div>
-                    <h3 className="text-lg font-bold text-white">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                       MycoNode {MYCONODE_ASSETS.colors[selectedColor].name}
                     </h3>
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-slate-600 dark:text-white/50">
                       {MYCONODE_ASSETS.colors[selectedColor].hex}
                     </p>
                   </div>
@@ -926,10 +926,10 @@ export function MycoNodeDetails() {
                 
                 {/* Environment tags */}
                 <div className="mb-4">
-                  <p className="text-xs text-purple-400 font-medium mb-2 uppercase tracking-wider">Best For:</p>
+                  <p className="text-xs text-purple-700 dark:text-purple-400 font-medium mb-2 uppercase tracking-wider">Best For:</p>
                   <div className="flex flex-wrap gap-2">
                     {MYCONODE_ASSETS.colors[selectedColor].environments.split(', ').map((env, i) => (
-                      <span key={i} className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-xs text-purple-300">
+                      <span key={i} className="px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-xs text-purple-700 dark:text-purple-300">
                         {env}
                       </span>
                     ))}
@@ -937,7 +937,7 @@ export function MycoNodeDetails() {
                 </div>
                 
                 {/* Full description */}
-                <p className="text-white/70 text-sm leading-relaxed">
+                <p className="text-slate-700 dark:text-white/70 text-sm leading-relaxed">
                   {MYCONODE_ASSETS.colors[selectedColor].description}
                 </p>
               </div>
@@ -984,7 +984,7 @@ export function MycoNodeDetails() {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+            <NeuBadge variant="default" className="myconode-behind-badge mb-4 bg-white/80 text-slate-900 dark:bg-cyan-500/10 dark:text-cyan-400 border-cyan-500/30">
               Behind The Scenes
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -1008,17 +1008,17 @@ export function MycoNodeDetails() {
             </div>
             
             <div className="grid grid-cols-3 gap-4 mt-8">
-              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+              <div className="myconode-behind-card text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
                 <Cpu className="h-6 w-6 text-cyan-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-white">Hand-Assembled</p>
                 <p className="text-xs text-white/50">Quality craftsmanship</p>
               </div>
-              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+              <div className="myconode-behind-card text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
                 <Activity className="h-6 w-6 text-purple-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-white">Real Testing</p>
                 <p className="text-xs text-white/50">Verified sensors</p>
               </div>
-              <div className="text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
+              <div className="myconode-behind-card text-center p-4 bg-slate-900/50 rounded-xl border border-purple-500/20">
                 <Shield className="h-6 w-6 text-fuchsia-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-white">Production Ready</p>
                 <p className="text-xs text-white/50">Not a prototype</p>
@@ -1073,11 +1073,11 @@ export function MycoNodeDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            <NeuButton variant="outline" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            <NeuButton variant="outline" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
             </NeuButton>
@@ -1086,7 +1086,7 @@ export function MycoNodeDetails() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-24 bg-slate-950 overflow-hidden">
+      <section className="myconode-cta relative py-24 bg-slate-950 overflow-hidden">
         {/* Perlin flow background animation */}
         <UndergroundFlow className="opacity-80" />
         
@@ -1094,11 +1094,11 @@ export function MycoNodeDetails() {
         <div className="absolute inset-0 bg-gradient-to-b from-purple-950/40 via-transparent to-slate-950/60 pointer-events-none" />
         
         <div className="relative z-10 max-w-4xl mx-auto text-center px-4">
-          <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-purple-500/20 shadow-xl">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+          <div className="myconode-cta-widget bg-white/90 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-purple-500/20 shadow-xl">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
               Ready to listen to the underground?
             </h2>
-            <p className="text-xl text-white/60 mb-8">
+            <p className="text-xl text-purple-800 dark:text-white/60 mb-8">
               Join researchers and organizations around the world using MycoNode 
               to decode the secrets of soil ecosystems.
             </p>
@@ -1108,13 +1108,13 @@ export function MycoNodeDetails() {
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Contact Sales
               </NeuButton>
-              <NeuButton size="lg" variant="outline" className="border-purple-500/50 text-purple-300 hover:bg-purple-500/10">
+              <NeuButton size="lg" variant="outline" className="border-purple-500/50 text-purple-800 dark:text-purple-300 hover:bg-purple-500/10">
                 <Download className="mr-2 h-5 w-5" />
                 Download Research Papers
               </NeuButton>
             </div>
             
-            <p className="text-sm text-white/40 mt-8">
+            <p className="text-sm text-purple-700 dark:text-white/40 mt-8">
               Enterprise pricing • Custom configurations available • Academic discounts
             </p>
           </div>

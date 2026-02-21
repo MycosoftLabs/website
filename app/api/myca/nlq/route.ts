@@ -49,8 +49,12 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    const body: NLQQuery = await request.json()
-    const { text, context, options } = body
+    const body = await request.json()
+    const { text, context, options, user_id, session_id, conversation_id } = body as NLQQuery & {
+      user_id?: string
+      session_id?: string
+      conversation_id?: string
+    }
     
     if (!text || typeof text !== "string") {
       return NextResponse.json(
@@ -72,6 +76,13 @@ export async function POST(request: NextRequest) {
     const queryPromises: Promise<ConnectorResult>[] = []
     const sources: NLQSource[] = []
     
+    const resolvedContext = {
+      ...context,
+      user_id: user_id || "anonymous",
+      session_id,
+      conversation_id,
+    }
+
     for (const source of dataSources) {
       const connector = connectors[source as keyof typeof connectors]
       if (connector) {
@@ -79,7 +90,7 @@ export async function POST(request: NextRequest) {
           connector.query(intent, {
             maxResults: options?.maxResults || 20,
             timeout: 10000,
-            filters: context?.filters,
+            filters: resolvedContext?.filters,
           })
         )
       }
@@ -121,7 +132,14 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(response)
+    return NextResponse.json({
+      ...response,
+      context: {
+        user_id: resolvedContext.user_id,
+        session_id,
+        conversation_id,
+      },
+    })
   } catch (error) {
     console.error("NLQ API error:", error)
     return NextResponse.json(

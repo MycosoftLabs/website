@@ -197,12 +197,12 @@ export function AlarmDetails() {
     <NeuromorphicProvider>
     <div className="relative min-h-dvh bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean Glass Lab Aesthetic */}
-      <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
+      <section ref={heroRef} className="alarm-hero relative min-h-dvh flex items-center justify-center overflow-hidden">
         {/* Clean white/glass background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
+        <div className="alarm-hero-bg absolute inset-0 bg-gradient-to-b from-white via-slate-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" />
         
         {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#f1f5f920_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f920_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#33415530_1px,transparent_1px),linear-gradient(to_bottom,#33415530_1px,transparent_1px)] bg-[size:60px_60px]" />
+        <div className="alarm-hero-grid absolute inset-0 bg-[linear-gradient(to_right,#f1f5f920_1px,transparent_1px),linear-gradient(to_bottom,#f1f5f920_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#33415530_1px,transparent_1px),linear-gradient(to_bottom,#33415530_1px,transparent_1px)] bg-[size:60px_60px]" />
         
         {/* Pulsing warning light effects */}
         <div className="absolute top-20 right-20 w-4 h-4 bg-red-500 rounded-full shadow-lg shadow-red-500/50 animate-pulse" />
@@ -245,11 +245,11 @@ export function AlarmDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
+            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Play className="mr-2 h-5 w-5" />
               Watch Video
             </NeuButton>
@@ -282,11 +282,11 @@ export function AlarmDetails() {
       </section>
 
       {/* Mission Section */}
-      <section className="py-24 bg-white">
+      <section className="alarm-mission py-24 bg-white dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
+              <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
                 The Vision
               </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
@@ -311,21 +311,21 @@ export function AlarmDetails() {
               </div>
               
               <div className="grid grid-cols-4 gap-4 mt-8">
-                <div className="text-center p-4 bg-red-50 rounded-xl">
-                  <div className="text-3xl font-bold text-red-600">8+</div>
-                  <div className="text-sm text-slate-500">Sensors</div>
+                <div className="alarm-stat-box text-center p-4 bg-red-50 rounded-xl dark:bg-slate-900 dark:text-white">
+                  <div className="text-3xl font-bold text-red-600 dark:text-white">8+</div>
+                  <div className="text-sm text-slate-500 dark:text-white">Sensors</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-xl">
-                  <div className="text-3xl font-bold text-red-600">&lt;60s</div>
-                  <div className="text-sm text-slate-500">Alert Time</div>
+                <div className="alarm-stat-box text-center p-4 bg-red-50 rounded-xl dark:bg-slate-900 dark:text-white">
+                  <div className="text-3xl font-bold text-red-600 dark:text-white">&lt;60s</div>
+                  <div className="text-sm text-slate-500 dark:text-white">Alert Time</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-xl">
-                  <div className="text-3xl font-bold text-red-600">UL</div>
-                  <div className="text-sm text-slate-500">Certified</div>
+                <div className="alarm-stat-box text-center p-4 bg-red-50 rounded-xl dark:bg-slate-900 dark:text-white">
+                  <div className="text-3xl font-bold text-red-600 dark:text-white">UL</div>
+                  <div className="text-sm text-slate-500 dark:text-white">Certified</div>
                 </div>
-                <div className="text-center p-4 bg-red-50 rounded-xl">
-                  <div className="text-3xl font-bold text-red-600">AI</div>
-                  <div className="text-sm text-slate-500">Powered</div>
+                <div className="alarm-stat-box text-center p-4 bg-red-50 rounded-xl dark:bg-slate-900 dark:text-white">
+                  <div className="text-3xl font-bold text-red-600 dark:text-white">AI</div>
+                  <div className="text-sm text-slate-500 dark:text-white">Powered</div>
                 </div>
               </div>
             </div>
@@ -349,10 +349,10 @@ export function AlarmDetails() {
       </section>
 
       {/* Detection Capabilities */}
-      <section className="py-24 bg-slate-50">
+      <section className="alarm-detections py-24 bg-slate-50 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
               8+ Sensors
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
@@ -387,21 +387,21 @@ export function AlarmDetails() {
       </section>
 
       {/* AI Section */}
-      <section className="py-24 bg-white">
+      <section className="alarm-ai py-24 bg-white dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
-              <div className="aspect-video rounded-2xl bg-gradient-to-br from-slate-100 to-white border border-slate-200 p-8 flex items-center justify-center">
+              <div className="alarm-ai-card aspect-video rounded-2xl bg-gradient-to-br from-slate-100 to-white border border-slate-200 p-8 flex items-center justify-center dark:bg-white dark:border-slate-200 dark:text-slate-900">
                 <div className="text-center">
-                  <Cpu className="h-20 w-20 text-red-400 mx-auto mb-4" />
-                  <p className="text-2xl font-bold text-slate-700">TinyML Inference</p>
-                  <p className="text-slate-500">Pattern recognition at the edge</p>
+                  <Cpu className="h-20 w-20 text-red-400 mx-auto mb-4 dark:text-red-500" />
+                  <p className="text-2xl font-bold text-slate-700 dark:text-slate-900">TinyML Inference</p>
+                  <p className="text-slate-500 dark:text-slate-900">Pattern recognition at the edge</p>
                 </div>
               </div>
             </div>
             
             <div className="order-1 lg:order-2">
-              <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
+              <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
                 Artificial Intelligence
               </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
@@ -441,10 +441,10 @@ export function AlarmDetails() {
       </section>
 
       {/* Applications Section */}
-      <section className="py-24 bg-slate-50">
+      <section className="alarm-applications py-24 bg-slate-50 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
               Applications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
@@ -460,24 +460,25 @@ export function AlarmDetails() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => setSelectedCase(index)}
-                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all ${
+                data-selected={selectedCase === index}
+                className={`alarm-app-card cursor-pointer rounded-2xl border-2 p-6 transition-all ${
                   selectedCase === index
                     ? 'bg-gradient-to-br ' + useCase.color + ' border-transparent text-white shadow-xl'
-                    : 'border-slate-200 bg-white hover:border-red-200 hover:shadow-lg'
+                    : 'border-slate-200 bg-white hover:border-red-200 hover:shadow-lg dark:bg-slate-900 dark:border-slate-700'
                 }`}
               >
-                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-red-500'}`} />
-                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-white' : 'text-slate-800'}`}>
+                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-red-500 dark:text-red-500'}`} />
+                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-white' : 'text-slate-800 dark:text-white'}`}>
                   {useCase.title}
                 </h3>
-                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/90' : 'text-slate-600'}`}>
+                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/90' : 'text-slate-600 dark:text-white'}`}>
                   {useCase.description}
                 </p>
                 <div className="space-y-1">
                   {useCase.applications.map((app) => (
                     <div key={app} className="flex items-center gap-2 text-xs">
-                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/80' : 'text-red-400'}`} />
-                      <span className={selectedCase === index ? 'text-white/90' : 'text-slate-500'}>{app}</span>
+                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/80' : 'text-red-400 dark:text-red-500'}`} />
+                      <span className={selectedCase === index ? 'text-white/90' : 'text-slate-500 dark:text-white'}>{app}</span>
                     </div>
                   ))}
                 </div>
@@ -488,30 +489,30 @@ export function AlarmDetails() {
       </section>
 
       {/* Inside ALARM - Blueprint Section */}
-      <section className="py-24 bg-slate-900 text-white">
+      <section className="alarm-engineering py-24 bg-red-50 text-slate-900 dark:bg-white dark:text-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-red-500/20 text-red-400 border-red-500/30">
+            <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
               Engineering
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 dark:text-slate-900">
               Inside ALARM
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-slate-900 max-w-2xl mx-auto">
               Advanced sensor array packed into a standard smoke detector form factor.
             </p>
           </div>
 
           {/* Control Device Layout */}
-          <div className="relative bg-slate-800/50 rounded-3xl border border-red-500/20 p-6">
+          <div className="alarm-engineering-card relative bg-white/70 rounded-3xl border border-red-200 p-6 dark:bg-white dark:border-red-200 dark:text-slate-900">
             <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel */}
-                <div className="bg-slate-950 rounded-2xl border border-red-500/30 p-4 shadow-inner">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-500/20">
+                <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-inner dark:bg-white dark:border-red-200 dark:text-slate-900">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-200 dark:border-red-200">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Component Selector</span>
+                    <span className="text-xs font-mono text-red-700/70 uppercase tracking-wider dark:text-red-700/70">Component Selector</span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
@@ -525,14 +526,14 @@ export function AlarmDetails() {
                           className={`p-3 rounded-xl border transition-all text-left ${
                             isSelected 
                               ? 'bg-red-500/20 border-red-400 shadow-lg shadow-red-500/20' 
-                              : 'bg-slate-900/50 border-slate-700 hover:border-red-500/40'
+                              : 'bg-white border-slate-200 hover:border-red-300 dark:bg-white dark:border-slate-200 dark:hover:border-red-300'
                           }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-white/50'}`} />
-                            <span className={`text-xs font-medium ${isSelected ? 'text-red-400' : 'text-white/70'}`}>
+                            <IconComponent className={`h-4 w-4 ${isSelected ? 'text-red-400' : 'text-slate-500 dark:text-slate-700'}`} />
+                            <span className={`text-xs font-medium ${isSelected ? 'text-red-400' : 'text-slate-700 dark:text-slate-900'}`}>
                               {component.name}
                             </span>
                           </div>
@@ -543,10 +544,10 @@ export function AlarmDetails() {
                 </div>
 
                 {/* Description Widget */}
-                <div className="bg-slate-950 rounded-2xl border border-red-500/30 p-4 shadow-inner flex-1">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/20">
+                <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-inner flex-1 dark:bg-white dark:border-red-200 dark:text-slate-900">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-200 dark:border-red-200">
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-xs font-mono text-red-400/70 uppercase tracking-wider">Component Details</span>
+                    <span className="text-xs font-mono text-red-700/70 uppercase tracking-wider dark:text-red-700/70">Component Details</span>
                   </div>
                   
                   <AnimatePresence mode="wait">
@@ -562,11 +563,11 @@ export function AlarmDetails() {
                             <component.icon className="h-6 w-6 text-red-400" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-red-400">{component.name}</h3>
-                            <p className="text-xs text-white/50 font-mono">{component.description}</p>
+                            <h3 className="text-lg font-bold text-red-600 dark:text-red-600">{component.name}</h3>
+                            <p className="text-xs text-slate-500 font-mono dark:text-slate-900">{component.description}</p>
                           </div>
                         </div>
-                        <p className="text-sm text-white/80 leading-relaxed">{component.details}</p>
+                        <p className="text-sm text-slate-700 leading-relaxed dark:text-slate-900">{component.details}</p>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -575,7 +576,7 @@ export function AlarmDetails() {
 
               {/* RIGHT SIDE: Device Visual */}
               <div className="flex-1 min-w-0 flex flex-col">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-red-500/30 overflow-hidden shadow-inner">
+                <div className="relative flex-1 min-h-[500px] bg-white rounded-2xl border border-red-200 overflow-hidden shadow-inner dark:bg-white dark:border-red-200 dark:text-slate-900">
                   {/* Clean grid */}
                   <div className="absolute inset-0 opacity-10" style={{
                     backgroundImage: `
@@ -586,12 +587,12 @@ export function AlarmDetails() {
                   }} />
                   
                   {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-white/90 to-transparent z-10 dark:from-white">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-white/50 uppercase tracking-wider">Device Cross-Section</span>
+                      <span className="text-xs font-mono text-slate-500 uppercase tracking-wider dark:text-slate-900">Device Cross-Section</span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-white/30">ALARM // REV 1.0</span>
+                      <span className="text-xs font-mono text-slate-400 dark:text-slate-900">ALARM // REV 1.0</span>
                     </div>
                   </div>
                   
@@ -607,9 +608,9 @@ export function AlarmDetails() {
                   </div>
                   
                   {/* Status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
-                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-red-400">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-white/90 to-transparent dark:from-white">
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-slate-900">
+                      <span>COMPONENT: <span className="text-red-600 dark:text-red-600">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
                       <span className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         ALL CLEAR
@@ -624,10 +625,10 @@ export function AlarmDetails() {
       </section>
 
       {/* Technical Specifications */}
-      <section className="py-24 bg-white">
+      <section className="alarm-specs py-24 bg-white dark:bg-white dark:text-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-red-100 text-red-600 border-red-200">
+            <NeuBadge variant="default" className="alarm-section-badge mb-4 bg-red-500 text-white border-0">
               Specifications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800">
@@ -636,31 +637,31 @@ export function AlarmDetails() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+            <div className="alarm-spec-card bg-slate-50 rounded-2xl border border-slate-200 p-6 dark:bg-slate-900 dark:border-slate-700 dark:text-white">
               <div className="flex items-center gap-2 mb-6">
                 <AlertTriangle className="h-5 w-5 text-red-500" />
-                <span className="font-semibold text-slate-800">Physical</span>
+                <span className="font-semibold text-slate-800 dark:text-white">Physical</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(0, 6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200">
-                    <span className="text-slate-600">{key}</span>
-                    <span className="font-medium text-slate-800">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-white">{key}</span>
+                    <span className="font-medium text-slate-800 dark:text-white">{value}</span>
                   </div>
                 ))}
               </div>
             </div>
             
-            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+            <div className="alarm-spec-card bg-slate-50 rounded-2xl border border-slate-200 p-6 dark:bg-slate-900 dark:border-slate-700 dark:text-white">
               <div className="flex items-center gap-2 mb-6">
                 <Cpu className="h-5 w-5 text-red-500" />
-                <span className="font-semibold text-slate-800">System</span>
+                <span className="font-semibold text-slate-800 dark:text-white">System</span>
               </div>
               <div className="space-y-3">
                 {Object.entries(SPECIFICATIONS).slice(6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200">
-                    <span className="text-slate-600">{key}</span>
-                    <span className="font-medium text-slate-800">{value}</span>
+                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-white">{key}</span>
+                    <span className="font-medium text-slate-800 dark:text-white">{value}</span>
                   </div>
                 ))}
               </div>
@@ -668,11 +669,11 @@ export function AlarmDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
             </NeuButton>
@@ -681,7 +682,7 @@ export function AlarmDetails() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-gradient-to-b from-slate-50 to-red-50">
+      <section className="alarm-cta py-24 bg-gradient-to-b from-slate-50 to-red-50 dark:from-slate-950 dark:to-slate-950 dark:bg-slate-950 dark:text-white">
         <div className="max-w-4xl mx-auto text-center px-4">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800">
             Ready to breathe easier?
@@ -692,11 +693,11 @@ export function AlarmDetails() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8">
+            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <ExternalLink className="mr-2 h-5 w-5" />
               Bulk Ordering
             </NeuButton>

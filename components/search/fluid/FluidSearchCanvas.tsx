@@ -66,6 +66,8 @@ import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
 import { useSearchMemory } from "@/hooks/use-search-memory"
 import { useVoice } from "@/components/voice/UnifiedVoiceProvider"
+import { useMYCA } from "@/contexts/myca-context"
+import { useAuth } from "@/contexts/auth-context"
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
   | "myca-suggestions" | "crep" | "earth2" | "map"
@@ -174,6 +176,7 @@ export function FluidSearchCanvas({
   className,
 }: FluidSearchCanvasProps) {
   const ctx = useSearchContext()
+  const { user } = useAuth()
   const canvasRef = useRef<HTMLDivElement>(null)
   const prevLiveCountRef = useRef(0)
   // Stable ref for setLiveObservations to avoid infinite re-renders
@@ -192,7 +195,7 @@ export function FluidSearchCanvas({
   
   // MYCA Memory integration - track searches and record to memory system
   const searchMemory = useSearchMemory({ 
-    userId: "anonymous", // TODO: Replace with actual user ID when auth is available
+    userId: user?.id || "anonymous",
     autoStart: true,
   })
   
@@ -307,6 +310,7 @@ export function FluidSearchCanvas({
 
   // MYCA intention tracking
   const { trackSearch, trackWidgetFocus, trackNotepadAdd, trackVoice, suggestions } = useMYCAContext({ enabled: true })
+  const { sendMessage: sendMycaMessage } = useMYCA()
 
   // Unified voice context (global, driven by UnifiedVoiceProvider in layout)
   const unifiedVoice = useVoice()
@@ -328,7 +332,24 @@ export function FluidSearchCanvas({
       setLocalQuery(question)
       ctx.setQuery(question)
       setExpandedWidgets((prev) => new Set(prev).add("ai"))
-      ctx.addChatMessage("user", question)
+      const contextParts: string[] = []
+      if (ctx.query) contextParts.push(`current search: ${ctx.query}`)
+      if (ctx.species.length) {
+        contextParts.push(`species in view: ${ctx.species.slice(0, 3).map((s) => s.scientificName).join(", ")}`)
+      }
+      if (ctx.compounds.length) {
+        contextParts.push(`compounds in view: ${ctx.compounds.slice(0, 3).map((c) => c.name).join(", ")}`)
+      }
+      if (ctx.genetics.length) {
+        contextParts.push(`genetics in view: ${ctx.genetics.slice(0, 3).map((g) => g.name).join(", ")}`)
+      }
+      if (ctx.research.length) {
+        contextParts.push(`papers in view: ${ctx.research.slice(0, 3).map((r) => r.title).join(", ")}`)
+      }
+      sendMycaMessage(question, {
+        contextText: contextParts.length ? `Search context: ${contextParts.join("; ")}` : undefined,
+        source: "web-speech",
+      })
       trackVoice(question)
       trackSearch(question, undefined, { current_query: question, source: "voice_ai" })
     },

@@ -56,6 +56,10 @@ import {
   NeuTabsContent,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { ChallengeCanvas } from "@/components/defense/challenge-canvas"
+import { DefenseParticles } from "@/components/defense/defense-particles"
+import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
+import { CtaSnakeCanvas } from "@/components/defense/cta-snake-canvas"
 
 // Mission Critical Application Modal
 interface MissionModalData {
@@ -747,14 +751,7 @@ export function DefensePortalV2() {
 
       {/* Problem Statement Section - Environmental Threats */}
       <section className="py-24 relative overflow-hidden">
-        {/* Background Image with Opacity - neuromorphic gradient shows through */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center pointer-events-none"
-          style={{ 
-            backgroundImage: "url('/assets/backgrounds/environmental-threats.jpg')",
-            opacity: 0.08
-          }}
-        />
+        <ChallengeCanvas className="z-0" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center mb-16">
@@ -825,7 +822,7 @@ export function DefensePortalV2() {
 
       {/* OEI Solution Section */}
       <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
             <div>
               <NeuBadge variant="primary" className="mb-4">The Solution</NeuBadge>
@@ -968,8 +965,9 @@ export function DefensePortalV2() {
       </section>
 
       {/* Products/Capabilities Section */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
+      <section className="py-24 relative overflow-hidden">
+        <DefenseParticles className="z-0" />
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="mb-4">Nature Compute System</NeuBadge>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
@@ -991,7 +989,6 @@ export function DefensePortalV2() {
                   </div>
                   <h3 className="text-3xl font-bold">Mushroom1-D Defense Platform</h3>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl font-bold text-orange-500">$10,000</span>
                     <span className="text-sm text-muted-foreground">Defense-grade configuration</span>
                   </div>
                   <p className="text-muted-foreground text-lg">
@@ -1238,8 +1235,9 @@ export function DefensePortalV2() {
       </section>
 
       {/* Intelligence Products Section - Now with Hover Tooltips */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
+      <section className="py-24 relative">
+        <IntelligenceWaves className="z-0 overflow-hidden" targetSelector="[data-intel-key]" />
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="mb-4">Intelligence Products</NeuBadge>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">
@@ -1257,6 +1255,9 @@ export function DefensePortalV2() {
                 className="relative"
                 onMouseEnter={() => setHoveredPacket(product.acronym)}
                 onMouseLeave={() => setHoveredPacket(null)}
+                onClick={() => setHoveredPacket(product.acronym)}
+                onTouchStart={() => setHoveredPacket(product.acronym)}
+                data-intel-key={product.acronym}
               >
                 <NeuCard className="text-center transition-colors cursor-pointer hover:scale-[1.02]">
                   <NeuCardContent className="pt-6">
@@ -1273,11 +1274,10 @@ export function DefensePortalV2() {
                 <AnimatePresence>
                   {hoveredPacket === product.acronym && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute z-50 left-1/2 -translate-x-1/2 mt-2 w-[400px] bg-background border rounded-xl shadow-2xl p-4"
-                      style={{ top: "100%" }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="fixed z-[80] left-1/2 top-1/2 w-[90vw] max-w-[420px] -translate-x-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm border rounded-xl shadow-2xl p-4"
                     >
                       <div className="space-y-4">
                         <div>
@@ -1318,8 +1318,6 @@ export function DefensePortalV2() {
                         </div>
                       </div>
                       
-                      {/* Arrow pointer */}
-                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-background border-l border-t rotate-45" />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -1469,8 +1467,9 @@ export function DefensePortalV2() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24">
-        <div className="container max-w-7xl mx-auto px-4">
+      <section className="py-24 relative overflow-hidden">
+        <CtaSnakeCanvas className="z-0" />
+        <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
             <NeuBadge variant="default" className="mb-4">Get Started</NeuBadge>
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6">

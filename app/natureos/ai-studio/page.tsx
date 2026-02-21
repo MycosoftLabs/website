@@ -1,344 +1,497 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { DashboardHeader } from "@/components/dashboard/header"
-import { DashboardShell } from "@/components/dashboard/shell"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+/**
+ * MYCA v2 Command Center
+ * Three tabs: System (command + agents), Topology (nervous system), Activity (circulatory)
+ * Updated: Feb 6, 2026 - Tab rework and Activity topology
+ */
+
+import { useState, useEffect, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  AgentTopology,
+  NotificationCenter,
+  AgentCreator,
+  AgentGrid,
+  AdvancedTopology3D,
+  ActivityTopologyView,
+} from "@/components/mas"
+import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget"
+import { usePersonaPlexContext } from "@/components/voice"
+import {
+  Brain,
+  Plus,
+  Activity,
+  Zap,
+  MessageSquare,
+  Network,
   RefreshCw,
-  AlertTriangle,
-  TrendingUp,
-  Dna,
-  Cpu,
-  Upload,
-  Play,
+  LayoutDashboard,
+  Server,
+  Maximize2,
+  Volume2,
+  Sparkles,
+  Shield,
+  Radio,
+  Database,
+  Workflow,
 } from "lucide-react"
 
-interface AnomalyResult {
-  isAnomaly?: boolean[]
-  anomalyScores?: number[]
-  anomalyCount?: number
-  message?: string
+// MAS API URL - points to the MAS VM orchestrator
+const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+
+interface SystemStats {
+  activeAgents: number
+  totalAgents: number
+  tasksQueued: number
+  tasksCompleted: number
+  systemHealth: "healthy" | "degraded" | "critical"
+  uptime: number
 }
 
-interface ForecastResult {
-  predictions?: number[]
-  timestamps?: string[]
-  confidenceInterval?: number
-}
-
-interface ClassificationResult {
-  topSpecies?: string
-  confidence?: number
-  alternatives?: { species: string; confidence: number }[]
-}
-
-interface MatlabHealth {
-  available: boolean
-  mode: string
-  message?: string
-}
+// Import real agent registry - NO MOCK DATA
+import { 
+  COMPLETE_AGENT_REGISTRY, 
+  TOTAL_AGENT_COUNT, 
+  CATEGORY_STATS,
+  getActiveAgents 
+} from "@/components/mas/topology/agent-registry"
 
 export default function AIStudioPage() {
-  const [matlabHealth, setMatlabHealth] = useState<MatlabHealth | null>(null)
-  const [anomalyResult, setAnomalyResult] = useState<AnomalyResult | null>(null)
-  const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null)
-  const [classificationResult, setClassificationResult] = useState<ClassificationResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [anomalyInput, setAnomalyInput] = useState("")
-  const [forecastMetric, setForecastMetric] = useState("temperature")
-  const [forecastHours, setForecastHours] = useState(24)
-  const [classificationInput, setClassificationInput] = useState("")
+  // Initialize with REAL data from agent registry
+  const realActiveCount = getActiveAgents().length
+  const [stats, setStats] = useState<SystemStats>({
+    activeAgents: realActiveCount,
+    totalAgents: TOTAL_AGENT_COUNT,
+    tasksQueued: 0, // Will be fetched from MAS
+    tasksCompleted: 0, // Will be fetched from MAS
+    systemHealth: "checking" as "healthy" | "degraded" | "critical",
+    uptime: 0,
+  })
+  const [showAgentCreator, setShowAgentCreator] = useState(false)
+  const [selectedTab, setSelectedTab] = useState("system")
+  const [refreshing, setRefreshing] = useState(false)
+  const [orchestratorStatus, setOrchestratorStatus] = useState<"online" | "offline" | "checking">("checking")
+  const [topologyFullScreen, setTopologyFullScreen] = useState(false)
 
-  const base = typeof window !== "undefined" ? window.location.origin : ""
-
-  const fetchHealth = async () => {
+  // Check orchestrator health
+  const checkOrchestratorHealth = useCallback(async () => {
     try {
-      const res = await fetch(`${base}/api/natureos/matlab/health`)
-      const data = await res.json()
-      setMatlabHealth(data)
+      const res = await fetch("/api/mas/health", { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        setOrchestratorStatus(data.status === "ok" ? "online" : "offline")
+      } else {
+        setOrchestratorStatus("offline")
+      }
     } catch {
-      setMatlabHealth({ available: false, mode: "Unavailable", message: "Health check failed" })
+      setOrchestratorStatus("offline")
     }
-  }
-
-  useEffect(() => {
-    fetchHealth()
   }, [])
 
-  const runAnomalyDetection = async () => {
-    const values = anomalyInput
-      .split(/[\s,]+/)
-      .map((s) => parseFloat(s.trim()))
-      .filter((n) => !isNaN(n))
-    if (values.length === 0) return
-    setLoading(true)
-    setAnomalyResult(null)
+  // Fetch system stats - REAL DATA ONLY
+  const fetchStats = useCallback(async () => {
+    setRefreshing(true)
     try {
-      const res = await fetch(`${base}/api/natureos/matlab/anomaly-detection`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      })
-      if (res.ok) setAnomalyResult(await res.json())
-      else setAnomalyResult({ message: "Anomaly detection failed" })
-    } catch (err) {
-      setAnomalyResult({ message: "Backend unavailable" })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const runForecast = async () => {
-    setLoading(true)
-    setForecastResult(null)
-    try {
-      const res = await fetch(`${base}/api/natureos/matlab/forecast`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metric: forecastMetric,
-          horizonHours: forecastHours,
-          historicalData: [],
+      const [healthRes, agentsRes, tasksRes] = await Promise.allSettled([
+        fetch("/api/mas/health"),
+        fetch("/api/mas/agents"),
+        fetch("/api/mas/orchestrator/action", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "diagnostics" })
         }),
-      })
-      if (res.ok) setForecastResult(await res.json())
-      else setForecastResult({})
-    } catch {
-      setForecastResult({})
+      ])
+
+      // Health check from MAS VM
+      if (healthRes.status === "fulfilled" && healthRes.value.ok) {
+        const data = await healthRes.value.json()
+        setStats(prev => ({
+          ...prev,
+          systemHealth: data.status === "ok" ? "healthy" : "degraded",
+        }))
+      } else {
+        setStats(prev => ({ ...prev, systemHealth: "degraded" }))
+      }
+
+      // Agent counts - prioritize MAS VM data, fallback to registry
+      if (agentsRes.status === "fulfilled" && agentsRes.value.ok) {
+        const data = await agentsRes.value.json()
+        const agents = data.agents || []
+        // If MAS returns agents, use that count for "running" agents
+        // Total is ALWAYS from registry (all agents active 24/7)
+        setStats(prev => ({
+          ...prev,
+          activeAgents: agents.filter((a: any) => a.status === "active" || a.status === "busy").length || realActiveCount,
+          totalAgents: TOTAL_AGENT_COUNT, // ALWAYS use registry total
+        }))
+      } else {
+        // Fallback to registry counts
+        setStats(prev => ({
+          ...prev,
+          activeAgents: realActiveCount,
+          totalAgents: TOTAL_AGENT_COUNT,
+        }))
+      }
+
+      // Task queue stats from orchestrator
+      if (tasksRes.status === "fulfilled" && tasksRes.value.ok) {
+        const data = await tasksRes.value.json()
+        if (data.diagnostics) {
+          setStats(prev => ({
+            ...prev,
+            tasksQueued: data.diagnostics.pendingTasks || 0,
+            tasksCompleted: data.diagnostics.completedTasks || 0,
+            uptime: data.diagnostics.uptime || 0,
+          }))
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error)
+      // On error, use registry data
+      setStats(prev => ({
+        ...prev,
+        activeAgents: realActiveCount,
+        totalAgents: TOTAL_AGENT_COUNT,
+        systemHealth: "degraded",
+      }))
     } finally {
-      setLoading(false)
+      setRefreshing(false)
     }
+  }, [realActiveCount])
+
+  useEffect(() => {
+    checkOrchestratorHealth()
+    fetchStats()
+    const interval = setInterval(() => {
+      checkOrchestratorHealth()
+      fetchStats()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [checkOrchestratorHealth, fetchStats])
+
+  const handleAgentAction = (agentId: string, action: string) => {
+    console.log(`Agent action: ${action} on ${agentId}`)
+    // In production, this would call the MAS API
   }
 
-  const runClassificationRequest = async () => {
-    const values = classificationInput
-      .split(/[\s,]+/)
-      .map((s) => parseFloat(s.trim()))
-      .filter((n) => !isNaN(n))
-    if (values.length === 0) return
-    setLoading(true)
-    setClassificationResult(null)
-    try {
-      const res = await fetch(`${base}/api/natureos/matlab/classification`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      })
-      if (res.ok) setClassificationResult(await res.json())
-      else setClassificationResult({ topSpecies: "Error", confidence: 0 })
-    } catch {
-      setClassificationResult({ topSpecies: "Backend unavailable", confidence: 0 })
-    } finally {
-      setLoading(false)
-    }
+  // Use PersonaPlex context from app-level provider
+  const personaplex = usePersonaPlexContext()
+  const { isConnected, isListening, startListening, stopListening, lastTranscript, connectionState } = personaplex || {
+    isConnected: false,
+    isListening: false,
+    startListening: () => {},
+    stopListening: () => {},
+    lastTranscript: "",
+    connectionState: "disconnected",
   }
+
+  // Handle voice commands for AI Studio navigation (3 tabs: system, topology, activity)
+  useEffect(() => {
+    if (!lastTranscript) return
+    const command = lastTranscript.toLowerCase()
+    if (command.includes("show command") || command.includes("command tab") || command.includes("show agents") || command.includes("agents tab") || command.includes("show system")) {
+      setSelectedTab("system")
+    } else if (command.includes("show topology")) {
+      setSelectedTab("topology")
+    } else if (command.includes("show memory") || command.includes("show activity") || command.includes("show workflows")) {
+      setSelectedTab("activity")
+    } else if (command.includes("create agent") || command.includes("new agent")) {
+      setShowAgentCreator(true)
+    } else if (command.includes("refresh") || command.includes("update")) {
+      fetchStats()
+    }
+  }, [lastTranscript, fetchStats])
 
   return (
-    <DashboardShell>
-      <DashboardHeader
-        heading="AI Studio"
-        text="MATLAB-driven anomaly detection, forecasting, and classification"
-      >
-        <div className="flex gap-2 items-center">
-          <Badge variant={matlabHealth?.available ? "default" : "secondary"}>
-            {matlabHealth?.mode ?? "Checking..."}
-          </Badge>
-          <Button variant="outline" size="sm" onClick={fetchHealth} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
-      </DashboardHeader>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card/50 backdrop-blur sticky top-0 z-40">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30">
+                  <Brain className="h-8 w-8 text-purple-500" />
+                </div>
+                <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${
+                  orchestratorStatus === "online" ? "bg-green-500" :
+                  orchestratorStatus === "offline" ? "bg-red-500" :
+                  "bg-yellow-500 animate-pulse"
+                }`} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                  MYCA Command Center
+                  <Badge variant="outline" className="text-xs">v2</Badge>
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Multi-Agent System Orchestration Dashboard
+                </p>
+              </div>
+            </div>
 
-      <div className="space-y-6">
-        <Tabs defaultValue="anomaly">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-            <TabsTrigger value="anomaly" className="gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Anomaly Detection
+            <div className="flex items-center gap-3">
+              {/* Quick Stats */}
+              <div className="hidden lg:flex items-center gap-4 px-4 py-2 rounded-lg bg-muted/50">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-500">{stats.activeAgents}</div>
+                  <div className="text-xs text-muted-foreground">Active</div>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <div className="text-lg font-bold">{stats.totalAgents}</div>
+                  <div className="text-xs text-muted-foreground">Agents</div>
+                </div>
+                <div className="w-px h-8 bg-border" />
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-500">{stats.tasksQueued}</div>
+                  <div className="text-xs text-muted-foreground">Queued</div>
+                </div>
+              </div>
+
+              <Button variant="outline" size="sm" onClick={fetchStats} disabled={refreshing}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button onClick={() => setShowAgentCreator(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Agent
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-6">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 h-auto gap-1 p-1">
+            <TabsTrigger value="system" className="gap-2 py-2">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">System</span>
             </TabsTrigger>
-            <TabsTrigger value="forecast" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Forecasting
+            <TabsTrigger value="topology" className="gap-2 py-2">
+              <Network className="h-4 w-4" />
+              <span className="hidden sm:inline">Topology</span>
             </TabsTrigger>
-            <TabsTrigger value="classification" className="gap-2">
-              <Dna className="h-4 w-4" />
-              Classification
-            </TabsTrigger>
-            <TabsTrigger value="models" className="gap-2">
-              <Cpu className="h-4 w-4" />
-              Model Management
+            <TabsTrigger value="activity" className="gap-2 py-2">
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="anomaly" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Anomaly Detection</CardTitle>
-                <CardDescription>
-                  Paste time-series data (comma or space separated) to detect anomalies
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="anomaly-input">Time series values</Label>
-                  <Input
-                    id="anomaly-input"
-                    placeholder="e.g. 1.2, 1.5, 1.3, 10.0, 1.4, 1.2"
-                    value={anomalyInput}
-                    onChange={(e) => setAnomalyInput(e.target.value)}
-                    className="font-mono text-sm mt-1"
-                  />
-                </div>
-                <Button onClick={runAnomalyDetection} disabled={loading}>
-                  <Play className="h-4 w-4 mr-2" />
-                  {loading ? "Running..." : "Detect Anomalies"}
-                </Button>
-                {anomalyResult && (
-                  <div className="rounded-lg border p-4 space-y-2">
-                    <p className="text-sm font-medium">
-                      Anomalies found: {anomalyResult.anomalyCount ?? 0}
-                    </p>
-                    {anomalyResult.message && (
-                      <p className="text-sm text-muted-foreground">{anomalyResult.message}</p>
-                    )}
-                    {anomalyResult.anomalyScores && anomalyResult.anomalyScores.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Max score: {Math.max(...anomalyResult.anomalyScores).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/* System Tab - Command + Agents (merged) */}
+          <TabsContent value="system" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - MYCA Chat */}
+              <div className="lg:col-span-2">
+                <MYCAChatWidget className="h-[500px]" />
+              </div>
 
-          <TabsContent value="forecast" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Environmental Forecasting</CardTitle>
-                <CardDescription>Predict environmental metrics for the next hours</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Metric</Label>
-                    <Input
-                      value={forecastMetric}
-                      onChange={(e) => setForecastMetric(e.target.value)}
-                      placeholder="temperature"
-                    />
-                  </div>
-                  <div>
-                    <Label>Horizon (hours)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={168}
-                      value={forecastHours}
-                      onChange={(e) => setForecastHours(parseInt(e.target.value, 10) || 24)}
-                    />
-                  </div>
-                </div>
-                <Button onClick={runForecast} disabled={loading}>
-                  <Play className="h-4 w-4 mr-2" />
-                  {loading ? "Running..." : "Run Forecast"}
-                </Button>
-                {forecastResult && (
-                  <div className="rounded-lg border p-4 space-y-2">
-                    {forecastResult.predictions && forecastResult.predictions.length > 0 ? (
-                      <>
-                        <p className="text-sm font-medium">
-                          Predictions: {forecastResult.predictions.length} points
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          First: {forecastResult.predictions[0]?.toFixed(2)}, Last:{" "}
-                          {forecastResult.predictions[forecastResult.predictions.length - 1]?.toFixed(
-                            2
-                          )}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No predictions (NatureOS backend may not be configured)
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              {/* Right Column - Notifications */}
+              <div>
+                <NotificationCenter className="h-[500px]" />
+              </div>
+            </div>
 
-          <TabsContent value="classification" className="mt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fungal Morphology Classification</CardTitle>
-                <CardDescription>
-                  Paste signal/morphology feature vector (comma or space separated numbers)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="class-input">Signal vector</Label>
-                  <Input
-                    id="class-input"
-                    placeholder="e.g. 0.1, 0.5, 0.3, 0.8, 0.2"
-                    value={classificationInput}
-                    onChange={(e) => setClassificationInput(e.target.value)}
-                    className="font-mono text-sm mt-1"
-                  />
-                </div>
-                <Button onClick={runClassificationRequest} disabled={loading}>
-                  <Play className="h-4 w-4 mr-2" />
-                  {loading ? "Running..." : "Classify"}
-                </Button>
-                {classificationResult && (
-                  <div className="rounded-lg border p-4 space-y-2">
-                    <p className="text-sm font-medium">
-                      Top species: {classificationResult.topSpecies ?? "Unknown"}
-                    </p>
-                    <p className="text-sm">
-                      Confidence: {((classificationResult.confidence ?? 0) * 100).toFixed(1)}%
-                    </p>
-                    {classificationResult.alternatives &&
-                      classificationResult.alternatives.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          Alternatives:{" "}
-                          {classificationResult.alternatives
-                            .map((a) => `${a.species} (${(a.confidence * 100).toFixed(1)}%)`)
-                            .join(", ")}
-                        </div>
-                      )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="http://192.168.0.188:8001/docs" target="_blank" rel="noopener noreferrer">
+                  <Brain className="h-5 w-5 text-purple-500" />
+                  <span className="text-xs">MAS API Docs</span>
+                </a>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="http://localhost:5678" target="_blank" rel="noopener noreferrer">
+                  <Workflow className="h-5 w-5 text-orange-500" />
+                  <span className="text-xs">n8n Workflows</span>
+                </a>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="https://192.168.0.202:8006" target="_blank" rel="noopener noreferrer">
+                  <Server className="h-5 w-5 text-blue-500" />
+                  <span className="text-xs">Proxmox VE</span>
+                </a>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="/natureos/devices/network" target="_blank" rel="noopener noreferrer">
+                  <Radio className="h-5 w-5 text-green-500" />
+                  <span className="text-xs">Devices</span>
+                </a>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="/natureos/mindex" target="_blank" rel="noopener noreferrer">
+                  <Database className="h-5 w-5 text-cyan-500" />
+                  <span className="text-xs">MINDEX DB</span>
+                </a>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+                <a href="/natureos/monitoring" target="_blank" rel="noopener noreferrer">
+                  <Shield className="h-5 w-5 text-red-500" />
+                  <span className="text-xs">Security</span>
+                </a>
+              </Button>
+            </div>
 
-          <TabsContent value="models" className="mt-6 space-y-4">
+            {/* Agent Categories Overview - REAL DATA from Agent Registry */}
             <Card>
-              <CardHeader>
-                <CardTitle>Model Management</CardTitle>
-                <CardDescription>
-                  View deployed MATLAB models and retrain triggers (placeholder)
-                </CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Agent Categories ({TOTAL_AGENT_COUNT} Real Agents)
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Model management UI coming soon. MATLAB models run via NatureOS backend:
-                  anomalyDetector, environmentalForecaster, fungalClassifier, biodiversityPredictor.
-                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                  {[
+                    { name: "Core", key: "core" as const, icon: <Brain className="h-5 w-5" />, color: "purple" },
+                    { name: "Financial", key: "financial" as const, icon: <Sparkles className="h-5 w-5" />, color: "blue" },
+                    { name: "Mycology", key: "mycology" as const, icon: <Sparkles className="h-5 w-5" />, color: "green" },
+                    { name: "Research", key: "research" as const, icon: <Database className="h-5 w-5" />, color: "cyan" },
+                    { name: "DAO", key: "dao" as const, icon: <Zap className="h-5 w-5" />, color: "yellow" },
+                    { name: "Comms", key: "communication" as const, icon: <MessageSquare className="h-5 w-5" />, color: "pink" },
+                    { name: "Data", key: "data" as const, icon: <Database className="h-5 w-5" />, color: "cyan" },
+                    { name: "Infra", key: "infrastructure" as const, icon: <Server className="h-5 w-5" />, color: "green" },
+                    { name: "Simulation", key: "simulation" as const, icon: <Activity className="h-5 w-5" />, color: "orange" },
+                    { name: "Security", key: "security" as const, icon: <Shield className="h-5 w-5" />, color: "red" },
+                    { name: "Integration", key: "integration" as const, icon: <Zap className="h-5 w-5" />, color: "yellow" },
+                    { name: "Device", key: "device" as const, icon: <Radio className="h-5 w-5" />, color: "orange" },
+                    { name: "Chemistry", key: "chemistry" as const, icon: <Sparkles className="h-5 w-5" />, color: "purple" },
+                    { name: "NLM", key: "nlm" as const, icon: <Brain className="h-5 w-5" />, color: "blue" },
+                  ].map((cat) => {
+                    // Get REAL counts from the agent registry
+                    const categoryAgents = COMPLETE_AGENT_REGISTRY.filter(a => a.category === cat.key)
+                    const activeCount = categoryAgents.filter(a => a.defaultStatus === "active").length
+                    const totalCount = CATEGORY_STATS[cat.key]?.count || categoryAgents.length
+                    
+                    return (
+                      <div
+                        key={cat.name}
+                        className={`p-4 rounded-lg border bg-${cat.color}-500/5 border-${cat.color}-500/20 hover:border-${cat.color}-500/40 transition-colors cursor-pointer`}
+                      >
+                        <div className={`text-${cat.color}-500 mb-2`}>{cat.icon}</div>
+                        <div className="font-medium text-sm">{cat.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="text-green-500">{activeCount}</span>/{totalCount} active
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </CardContent>
             </Card>
+
+            {/* Agent Grid - same tab as command */}
+            <AgentGrid masApiUrl="/api/mas" refreshInterval={15000} />
+          </TabsContent>
+
+          {/* Topology Tab - Nervous system (agents, services, tools, integrations) */}
+          <TabsContent value="topology" className="space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Network className="h-5 w-5" />
+                  Agent Topology
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Nervous system – agents, services, tools, integrations
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setTopologyFullScreen(true)}
+                className="gap-2"
+              >
+                <Maximize2 className="h-4 w-4" />
+                Full Screen
+              </Button>
+            </div>
+            
+            {/* Embedded 3D Topology */}
+            <div className="h-[700px] rounded-xl overflow-hidden border-2 border-purple-500/20">
+              <AdvancedTopology3D
+                className="h-full"
+                fullScreen={false}
+              />
+            </div>
+            
+            {/* Full-screen mode */}
+            {topologyFullScreen && (
+              <AdvancedTopology3D
+                fullScreen={true}
+                onToggleFullScreen={() => setTopologyFullScreen(false)}
+              />
+            )}
+            
+            {/* Legacy grid view toggle */}
+            <details className="mt-6">
+              <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                Show Legacy Grid View
+              </summary>
+              <div className="mt-4">
+                <AgentTopology masApiUrl="/api/mas" />
+              </div>
+            </details>
+          </TabsContent>
+
+          {/* Activity Tab - Circulatory topology (routes, APIs, memory, sitemap, workflows, devices, DB) */}
+          <TabsContent value="activity" className="space-y-6">
+            <ActivityTopologyView />
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardShell>
+
+      {/* Agent Creator Modal */}
+      <AgentCreator
+        open={showAgentCreator}
+        onOpenChange={setShowAgentCreator}
+        masApiUrl="/api/mas"
+        onAgentCreated={(agent) => {
+          console.log("Agent created:", agent)
+          fetchStats()
+        }}
+      />
+
+      {/* Voice Status Indicator */}
+      {isConnected && (
+        <div className="fixed bottom-20 right-6 z-40 hidden lg:block">
+          <Card className="p-3 shadow-xl bg-background/95 backdrop-blur border-purple-500/20">
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${isListening ? "bg-red-500 animate-pulse" : "bg-green-500"}`} />
+              <span className="text-xs text-muted-foreground">
+                {isListening ? "Listening..." : "PersonaPlex Ready"}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => isListening ? stopListening() : startListening()}
+              >
+                <Volume2 className="h-3 w-3" />
+              </Button>
+            </div>
+            {lastTranscript && (
+              <p className="text-xs text-muted-foreground mt-2 truncate max-w-[200px]">
+                "{lastTranscript}"
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
+      
+      {/* Connection Status for PersonaPlex */}
+      {!isConnected && connectionState !== "disconnected" && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+            {connectionState === "connecting" ? "Connecting to PersonaPlex..." : "Voice Offline"}
+          </Badge>
+        </div>
+      )}
+    </div>
   )
 }
