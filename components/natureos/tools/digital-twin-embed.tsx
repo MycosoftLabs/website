@@ -1,7 +1,5 @@
-"use client"
-
 import { DigitalTwinContent } from "@/components/apps/digital-twin-content"
 
-export default function DigitalTwinPage() {
+export function DigitalTwinEmbed() {
   return <DigitalTwinContent />
 }

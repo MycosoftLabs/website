@@ -25,7 +25,7 @@ interface MINDEXCompound {
   chemspiderId?: number
 }
 
-export default function CompoundSimPage() {
+export function CompoundSimContent() {
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<MINDEXCompound | null>(null)
   const [mindexCompounds, setMindexCompounds] = useState<MINDEXCompound[]>([])
@@ -445,4 +445,8 @@ export default function CompoundSimPage() {
       </div>
     </div>
   )
+}
+
+export default function CompoundSimPage() {
+  return <CompoundSimContent />
 }

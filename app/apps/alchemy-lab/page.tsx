@@ -65,7 +65,7 @@ interface DesignedCompound {
   logP: number
 }
 
-export default function AlchemyLabPage() {
+export function AlchemyLabContent() {
   const [selectedScaffold, setSelectedScaffold] = useState<string>("")
   const [modifications, setModifications] = useState<Array<{ position: number; group: string }>>([])
   const [compoundName, setCompoundName] = useState("")
@@ -637,4 +637,8 @@ export default function AlchemyLabPage() {
       </div>
     </div>
   )
+}
+
+export default function AlchemyLabPage() {
+  return <AlchemyLabContent />
 }

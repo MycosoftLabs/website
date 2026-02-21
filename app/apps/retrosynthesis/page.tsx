@@ -173,7 +173,7 @@ const PATHWAYS: Record<string, BiosyntheticPathway> = {
   }
 }
 
-export default function RetrosynthesisPage() {
+export function RetrosynthesisContent() {
   const [selectedCompound, setSelectedCompound] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [pathway, setPathway] = useState<BiosyntheticPathway | null>(null)
@@ -581,4 +581,8 @@ export default function RetrosynthesisPage() {
       </div>
     </div>
   )
+}
+
+export default function RetrosynthesisPage() {
+  return <RetrosynthesisContent />
 }

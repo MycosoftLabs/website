@@ -77,7 +77,7 @@ interface SimulationState {
   fluxRate: number
 }
 
-export default function GeneticCircuitPage() {
+export function GeneticCircuitContent() {
   const [selectedCircuit, setSelectedCircuit] = useState("")
   const [isSimulating, setIsSimulating] = useState(false)
   const [simulation, setSimulation] = useState<SimulationState | null>(null)
@@ -600,4 +600,8 @@ export default function GeneticCircuitPage() {
       </div>
     </div>
   )
+}
+
+export default function GeneticCircuitPage() {
+  return <GeneticCircuitContent />
 }

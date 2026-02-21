@@ -72,7 +72,7 @@ interface GrowthPrediction {
   }
 }
 
-export default function GrowthAnalyticsPage() {
+export function GrowthAnalyticsContent() {
   // Species selection
   const [speciesList, setSpeciesList] = useState<SpeciesInfo[]>([])
   const [selectedSpecies, setSelectedSpecies] = useState("oyster")
@@ -598,4 +598,8 @@ export default function GrowthAnalyticsPage() {
       </Card>
     </div>
   )
+}
+
+export default function GrowthAnalyticsPage() {
+  return <GrowthAnalyticsContent />
 }

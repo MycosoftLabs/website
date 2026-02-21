@@ -58,7 +58,7 @@ interface FieldPhysicsData {
   fruitingPrediction: { probability: number, optimalTime: string }
 }
 
-export default function PhysicsSimPage() {
+export function PhysicsSimContent() {
   const [selectedMolecule, setSelectedMolecule] = useState<string>("")
   const [simulationType, setSimulationType] = useState<"qise" | "md" | "tensor">("qise")
   const [isSimulating, setIsSimulating] = useState(false)
@@ -771,4 +771,8 @@ export default function PhysicsSimPage() {
       </div>
     </div>
   )
+}
+
+export default function PhysicsSimPage() {
+  return <PhysicsSimContent />
 }

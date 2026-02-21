@@ -65,7 +65,7 @@ interface SimulationState {
   }
 }
 
-export default function LifecycleSimPage() {
+export function LifecycleSimContent() {
   const [selectedSpecies, setSelectedSpecies] = useState("")
   const [isRunning, setIsRunning] = useState(false)
   const [speed, setSpeed] = useState(1)
@@ -539,4 +539,8 @@ export default function LifecycleSimPage() {
       </div>
     </div>
   )
+}
+
+export default function LifecycleSimPage() {
+  return <LifecycleSimContent />
 }

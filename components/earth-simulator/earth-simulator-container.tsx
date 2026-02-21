@@ -72,9 +72,10 @@ interface GridTile {
 
 interface EarthSimulatorContainerProps {
   className?: string;
+  variant?: "full" | "embedded";
 }
 
-export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContainerProps) {
+export function EarthSimulatorContainer({ className = "", variant = "full" }: EarthSimulatorContainerProps) {
   const [selectedCell, setSelectedCell] = useState<{
     cellId: string;
     lat: number;
@@ -134,11 +135,22 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
     []
   );
 
+  const isEmbedded = variant === "embedded";
+  const containerClasses = isEmbedded
+    ? "earth-simulator-container w-full min-h-[70vh] relative flex flex-col lg:flex-row"
+    : "earth-simulator-container w-full h-screen relative flex";
+  const panelClasses = isEmbedded
+    ? "w-full lg:w-96 flex-shrink-0 z-20 max-h-[40vh] lg:max-h-none"
+    : "w-96 flex-shrink-0 z-20";
+  const globeClasses = isEmbedded
+    ? "flex-1 relative min-h-[45vh] lg:min-h-0"
+    : "flex-1 relative";
+
   return (
     <EarthSimulatorErrorBoundary>
-      <div className={`earth-simulator-container w-full h-screen relative flex ${className}`}>
+      <div className={`${containerClasses} ${className}`}>
       {/* Left Side Panel - Always Visible */}
-      <div className="w-96 flex-shrink-0 z-20">
+      <div className={panelClasses}>
         <ComprehensiveSidePanel
           viewport={viewport}
           selectedCell={selectedCell}
@@ -148,7 +160,7 @@ export function EarthSimulatorContainer({ className = "" }: EarthSimulatorContai
       </div>
 
       {/* Main Globe Area */}
-      <div className="flex-1 relative">
+      <div className={globeClasses}>
         {/* WebGL Globe */}
         <div className="absolute inset-0">
           <CesiumGlobe 

@@ -97,7 +97,7 @@ const generateNetworkData = (): NetworkData => {
   return { organisms, relationships }
 }
 
-export default function SymbiosisPage() {
+export function SymbiosisContent() {
   const [networkData, setNetworkData] = useState<NetworkData | null>(null)
   const [selectedOrganism, setSelectedOrganism] = useState<Organism | null>(null)
   const [filterType, setFilterType] = useState<string>("all")
@@ -567,4 +567,8 @@ export default function SymbiosisPage() {
       </div>
     </div>
   )
+}
+
+export default function SymbiosisPage() {
+  return <SymbiosisContent />
 }
