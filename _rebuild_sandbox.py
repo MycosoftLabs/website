@@ -70,6 +70,9 @@ def main():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=30)
+    transport = ssh.get_transport()
+    if transport:
+        transport.set_keepalive(30)
 
     def _run(cmd: str, timeout: int = 60) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
