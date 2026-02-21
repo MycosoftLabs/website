@@ -1,8 +1,8 @@
 "use client"
 
-import { MessageSquare } from "lucide-react"
+import { useState } from "react"
+import { MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { MYCAChatWidget } from "./MYCAChatWidget"
 
@@ -17,29 +17,42 @@ export function MYCAFloatingButton({
   title = "MYCA",
   getContextText,
 }: MYCAFloatingButtonProps) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          variant="default"
-          className={cn(
-            "fixed bottom-4 right-4 z-40 h-12 w-12 rounded-full shadow-lg",
-            "min-h-[44px] min-w-[44px]",
-            className
-          )}
-          aria-label="Open MYCA chat"
-        >
-          <MessageSquare className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full max-w-full sm:max-w-md p-0">
-        <SheetHeader className="px-4 pt-4">
-          <SheetTitle>{title}</SheetTitle>
-        </SheetHeader>
-        <div className="h-[calc(100dvh-96px)] px-4 pb-4">
-          <MYCAChatWidget showHeader={false} getContextText={getContextText} />
+    <>
+      <Button
+        type="button"
+        variant="default"
+        className={cn(
+          "fixed bottom-4 right-4 z-[9999] h-12 w-12 rounded-full shadow-lg",
+          "min-h-[44px] min-w-[44px] pointer-events-auto",
+          className
+        )}
+        aria-label="Open MYCA chat"
+        onClick={() => setOpen(true)}
+      >
+        <MessageSquare className="h-5 w-5" />
+      </Button>
+
+      {open && (
+        <div className="fixed inset-0 z-[80] flex justify-end bg-black/50" onClick={() => setOpen(false)}>
+          <div
+            className="h-full w-full max-w-full sm:max-w-md bg-background shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="text-base font-semibold">{title}</div>
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="h-[calc(100dvh-72px)] px-4 pb-4">
+              <MYCAChatWidget showHeader={false} getContextText={getContextText} />
+            </div>
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      )}
+    </>
   )
 }
