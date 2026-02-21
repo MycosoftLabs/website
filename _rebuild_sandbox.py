@@ -66,17 +66,30 @@ WantedBy=multi-user.target
 
 
 def main():
-    print(f"Connecting to {VM_HOST}...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=30)
-    transport = ssh.get_transport()
-    if transport:
-        transport.set_keepalive(30)
+    def _connect_ssh() -> paramiko.SSHClient:
+        print(f"Connecting to {VM_HOST}...")
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=30)
+        transport = client.get_transport()
+        if transport:
+            transport.set_keepalive(30)
+        return client
+
+    ssh = _connect_ssh()
 
     def _run(cmd: str, timeout: int = 60) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
-        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
+        nonlocal ssh
+        try:
+            stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
+        except paramiko.SSHException:
+            try:
+                ssh.close()
+            except Exception:
+                pass
+            ssh = _connect_ssh()
+            stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
         exit_code = stdout.channel.recv_exit_status()
         out = stdout.read().decode(errors="replace").strip()
         err = stderr.read().decode(errors="replace").strip()
