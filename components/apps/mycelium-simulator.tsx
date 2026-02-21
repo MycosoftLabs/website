@@ -14,6 +14,30 @@ import {
   Droplets, Thermometer, FlaskConical, Timer
 } from "lucide-react"
 
+const CHEMICAL_FIELDS = [
+  "glucose",
+  "amino_acids",
+  "laccase",
+  "xylanase",
+  "pectinase",
+  "amylase",
+  "cellulase",
+  "atp",
+  "oxygen",
+]
+
+const CHEMICAL_COLORS: Record<string, string> = {
+  glucose: "#facc15",
+  amino_acids: "#22c55e",
+  laccase: "#38bdf8",
+  xylanase: "#a855f7",
+  pectinase: "#f97316",
+  amylase: "#ef4444",
+  cellulase: "#14b8a6",
+  atp: "#e11d48",
+  oxygen: "#0ea5e9",
+}
+
 // Species properties with growth characteristics
 const SPECIES_PROPERTIES: Record<string, SpeciesProps> = {
   shiitake: { growthRate: 1.0, filamentThickness: 0.5, branchingProbability: 0.05, color: "#A0522D", edgeColor: "#FF6347", preferredAgar: "charcoal", mergeProbability: 0.2, antifungalStrength: 2 },
@@ -87,6 +111,7 @@ export function MyceliumSimulator() {
   const [temperature, setTemperature] = useState(70)
   const [humidity, setHumidity] = useState(70)
   const [virtualHours, setVirtualHours] = useState(0)
+  const [selectedChemicalOverlay, setSelectedChemicalOverlay] = useState("none")
   const [isRunning, setIsRunning] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [consoleLog, setConsoleLog] = useState<string[]>([])
@@ -97,6 +122,7 @@ export function MyceliumSimulator() {
   const nutrientGridRef = useRef<number[][]>([])
   const occupancyGridRef = useRef<(Organism | null)[][]>([])
   const antifungalGridRef = useRef<number[][]>([])
+  const chemicalFieldsRef = useRef<Record<string, number[][]>>({})
   
   const DISH_RADIUS = 300
   const CANVAS_SIZE = 650
@@ -111,21 +137,34 @@ export function MyceliumSimulator() {
     const grid: number[][] = []
     const occupancy: (Organism | null)[][] = []
     const antifungal: number[][] = []
+    const chemicalFields: Record<string, number[][]> = {}
+    CHEMICAL_FIELDS.forEach((field) => {
+      chemicalFields[field] = []
+    })
     
     for (let x = 0; x < CANVAS_SIZE; x++) {
       grid[x] = []
       occupancy[x] = []
       antifungal[x] = []
+      CHEMICAL_FIELDS.forEach((field) => {
+        chemicalFields[field][x] = []
+      })
       for (let y = 0; y < CANVAS_SIZE; y++) {
         grid[x][y] = nutrientLevel
         occupancy[x][y] = null
         antifungal[x][y] = 0
+        chemicalFields["glucose"][x][y] = nutrientLevel
+        chemicalFields["oxygen"][x][y] = 100
+        CHEMICAL_FIELDS.filter(field => field !== "glucose" && field !== "oxygen").forEach((field) => {
+          chemicalFields[field][x][y] = 0
+        })
       }
     }
     
     nutrientGridRef.current = grid
     occupancyGridRef.current = occupancy
     antifungalGridRef.current = antifungal
+    chemicalFieldsRef.current = chemicalFields
   }, [agarType])
   
   // Check if point is inside petri dish
@@ -148,6 +187,36 @@ export function MyceliumSimulator() {
     ctx.lineWidth = 2
     ctx.stroke()
   }, [])
+
+  const renderChemicalOverlay = useCallback((ctx: CanvasRenderingContext2D) => {
+    if (selectedChemicalOverlay === "none") return
+    const grid = chemicalFieldsRef.current[selectedChemicalOverlay]
+    if (!grid) return
+
+    const color = CHEMICAL_COLORS[selectedChemicalOverlay] || "#ffffff"
+    const step = 4
+    let maxValue = 0
+    for (let x = 0; x < CANVAS_SIZE; x += step) {
+      for (let y = 0; y < CANVAS_SIZE; y += step) {
+        if (!isInsideDish(x, y)) continue
+        maxValue = Math.max(maxValue, grid[x]?.[y] || 0)
+      }
+    }
+    const scale = maxValue > 0 ? 1 / maxValue : 0
+
+    ctx.save()
+    for (let x = 0; x < CANVAS_SIZE; x += step) {
+      for (let y = 0; y < CANVAS_SIZE; y += step) {
+        if (!isInsideDish(x, y)) continue
+        const value = grid[x]?.[y] || 0
+        if (value <= 0) continue
+        ctx.globalAlpha = Math.min(0.5, value * scale)
+        ctx.fillStyle = color
+        ctx.fillRect(x, y, step, step)
+      }
+    }
+    ctx.restore()
+  }, [selectedChemicalOverlay])
   
   // Get growth factors based on environment
   const getGrowthFactors = (species: string) => {
@@ -269,6 +338,12 @@ export function MyceliumSimulator() {
           
           if (nutrient > 0) {
             nutrientGridRef.current[gridX][gridY] = Math.max(0, nutrient - 0.5)
+            if (chemicalFieldsRef.current.glucose?.[gridX]?.[gridY] !== undefined) {
+              chemicalFieldsRef.current.glucose[gridX][gridY] = Math.max(
+                0,
+                chemicalFieldsRef.current.glucose[gridX][gridY] - 0.5
+              )
+            }
             
             const nutrientFactor = nutrient / 100
             drawFilament(ctx, branch.x, branch.y, newX, newY, props, nutrient < 10)
@@ -306,6 +381,8 @@ export function MyceliumSimulator() {
     
     samplesRef.current.forEach(simulateOrganism)
     contaminantsRef.current.forEach(simulateOrganism)
+
+    renderChemicalOverlay(ctx)
     
     // Clean up dead organisms
     samplesRef.current = samplesRef.current.filter(s => s.branches.length > 0)
@@ -584,6 +661,24 @@ export function MyceliumSimulator() {
               <SelectContent>
                 {Object.entries(AGAR_TYPES).map(([key, { label }]) => (
                   <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Chemical Overlay */}
+          <div className="space-y-2">
+            <Label className="text-xs">Chemical Overlay</Label>
+            <Select value={selectedChemicalOverlay} onValueChange={setSelectedChemicalOverlay}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" className="text-xs">None</SelectItem>
+                {CHEMICAL_FIELDS.map(field => (
+                  <SelectItem key={field} value={field} className="text-xs">
+                    {field.replace(/_/g, " ")}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
