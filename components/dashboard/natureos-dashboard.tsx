@@ -480,14 +480,10 @@ export function NatureOSDashboard() {
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <Tabs defaultValue="overview" className="space-y-5 w-full" onValueChange={setActiveTab}>
+      <Tabs defaultValue="devices" className="space-y-5 w-full" onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="crep" className="text-amber-500 data-[state=active]:text-amber-400">
-              <Shield className="h-3.5 w-3.5 mr-1" />
-              CREP
-            </TabsTrigger>
             <TabsTrigger value="devices">
               Devices
               {deviceStats.online > 0 && (
@@ -942,7 +938,7 @@ export function NatureOSDashboard() {
                 UNCLASS // FOUO
               </Badge>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/crep">
+                <Link href="/defense/crep">
                   <Maximize2 className="h-4 w-4 mr-2" />
                   CREP View
                           </Link>

@@ -1,103 +1,200 @@
-"use client";
+"use client"
 
 /**
  * LiveMapContent - Live device map using MapLibre GL
- * 
- * Simplified version that avoids deck.gl SSR/build issues
- * Uses MapLibre GL for mapping instead of deck.gl
+ *
+ * Displays real device locations from MAS Device Registry.
+ * No mock data: if no device locations are available, shows empty state.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import dynamic from "next/dynamic";
-import Link from "next/link";
-import { ArrowLeft, Layers, RefreshCw, Radio, MapPin, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
+import { ArrowLeft, MapPin, RefreshCw, Radio } from "lucide-react"
 
-// Device colors
 const DEVICE_COLORS: Record<string, string> = {
   mycobrain: "#00d4ff",
   sporebase: "#7fffcc",
   alarm: "#ff6b9d",
-};
+  gateway: "#8b5cf6",
+  unknown: "#94a3b8",
+}
 
-// Status colors
 const STATUS_COLORS: Record<string, string> = {
   online: "#00ff88",
   offline: "#ff4466",
+  stale: "#ffad14",
   degraded: "#ffad14",
-};
-
-interface Device {
-  device_id: string;
-  device_type: "mycobrain" | "sporebase" | "alarm";
-  position: [number, number];
-  status: "online" | "offline" | "degraded";
-  timestamp: number;
 }
 
-interface Alert {
-  id: string;
-  timestamp: number;
-  level: "info" | "warning" | "critical";
-  message: string;
-  device_id?: string;
+interface RegistryDevice {
+  device_id: string
+  device_name?: string
+  device_display_name?: string | null
+  device_role?: string
+  status?: string
+  location?: string | null
+  extra?: Record<string, unknown>
 }
 
-// Generate mock device data
-function generateMockDevices(): Device[] {
-  const now = Date.now() / 1000;
-  return [
-    {
-      device_id: "myco-001",
-      device_type: "mycobrain",
-      position: [-117.16, 32.72],
-      status: "online",
-      timestamp: now,
-    },
-    {
-      device_id: "myco-002",
-      device_type: "mycobrain",
-      position: [-117.14, 32.73],
-      status: "online",
-      timestamp: now,
-    },
-    {
-      device_id: "spore-001",
-      device_type: "sporebase",
-      position: [-117.18, 32.71],
-      status: "online",
-      timestamp: now,
-    },
-    {
-      device_id: "spore-002",
-      device_type: "sporebase",
-      position: [-117.15, 32.74],
-      status: "degraded",
-      timestamp: now - 120,
-    },
-    {
-      device_id: "alarm-001",
-      device_type: "alarm",
-      position: [-117.17, 32.70],
-      status: "offline",
-      timestamp: now - 600,
-    },
-  ];
+interface DevicePoint {
+  id: string
+  type: string
+  status: string
+  position: [number, number]
+  label: string
+  metadata: RegistryDevice
+}
+
+function parseLocation(raw?: string | null): [number, number] | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  try {
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed) && parsed.length >= 2) {
+        const [lng, lat] = parsed.map(Number)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return [lng, lat]
+      }
+      if (typeof parsed === "object" && parsed) {
+        const lat = Number((parsed as any).lat ?? (parsed as any).latitude)
+        const lng = Number((parsed as any).lng ?? (parsed as any).longitude)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return [lng, lat]
+      }
+    }
+  } catch {
+    // fall through to text parsing
+  }
+
+  const parts = trimmed.split(",").map((part) => Number(part.trim()))
+  if (parts.length >= 2 && parts.every((part) => Number.isFinite(part))) {
+    const [first, second] = parts
+    if (Math.abs(first) <= 180 && Math.abs(second) <= 90) return [first, second]
+    if (Math.abs(first) <= 90 && Math.abs(second) <= 180) return [second, first]
+  }
+
+  return null
+}
+
+function buildDevicePoints(devices: RegistryDevice[]): DevicePoint[] {
+  return devices
+    .map((device) => {
+      const position = parseLocation(device.location ?? null)
+      if (!position) return null
+      const type = device.device_role?.toLowerCase() || "unknown"
+      return {
+        id: device.device_id,
+        type,
+        status: device.status || "offline",
+        position,
+        label:
+          device.device_display_name ||
+          device.device_name ||
+          device.device_role ||
+          device.device_id,
+        metadata: device,
+      } satisfies DevicePoint
+    })
+    .filter((value): value is DevicePoint => Boolean(value))
+}
+
+function parseGeofence(raw: unknown): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
+  if (!raw) return null
+  if (typeof raw === "string") {
+    try {
+      return parseGeofence(JSON.parse(raw))
+    } catch {
+      return null
+    }
+  }
+  if (typeof raw === "object") {
+    const geom = raw as any
+    if (geom.type === "Polygon" || geom.type === "MultiPolygon") return geom
+    if (geom.geometry && (geom.geometry.type === "Polygon" || geom.geometry.type === "MultiPolygon")) {
+      return geom.geometry
+    }
+  }
+  return null
+}
+
+function buildGeofenceFeatures(devices: RegistryDevice[]) {
+  return devices
+    .map((device) => {
+      const geofence = parseGeofence(device.extra?.geofence ?? (device as any).geofence)
+      if (!geofence) return null
+      return {
+        type: "Feature",
+        geometry: geofence,
+        properties: {
+          id: device.device_id,
+          label:
+            device.device_display_name ||
+            device.device_name ||
+            device.device_role ||
+            device.device_id,
+        },
+      }
+    })
+    .filter((value): value is GeoJSON.Feature => Boolean(value))
 }
 
 export function LiveMapContent() {
-  const [mounted, setMounted] = useState(false);
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
+  const [isMounted, setIsMounted] = useState(false)
+  const [devices, setDevices] = useState<RegistryDevice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedDevice, setSelectedDevice] = useState<DevicePoint | null>(null)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
+
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<any>(null)
+
+  const devicePoints = useMemo(() => buildDevicePoints(devices), [devices])
+  const geofenceFeatures = useMemo(() => buildGeofenceFeatures(devices), [devices])
+  const filteredPoints = useMemo(() => {
+    return devicePoints.filter((point) => {
+      const matchesStatus = statusFilter === "all" || point.status === statusFilter
+      const matchesType = typeFilter === "all" || point.type === typeFilter
+      return matchesStatus && matchesType
+    })
+  }, [devicePoints, statusFilter, typeFilter])
+
+  const deviceTypes = useMemo(() => {
+    const types = new Set<string>()
+    devicePoints.forEach((point) => types.add(point.type))
+    return Array.from(types).sort()
+  }, [devicePoints])
+
+  const refreshDevices = useCallback(async () => {
+    setError(null)
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/devices/network?include_offline=true", {
+        cache: "no-store",
+      })
+      if (!response.ok) throw new Error("Failed to load devices")
+      const payload = await response.json()
+      setDevices(payload.devices || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load device map")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    setMounted(true);
-    setDevices(generateMockDevices());
+    setIsMounted(true)
+    refreshDevices()
+  }, [refreshDevices])
 
-    // Dynamically import MapLibre
+  useEffect(() => {
+    if (!isMounted) return
+    let mounted = true
+
     import("maplibre-gl").then((maplibregl) => {
-      if (!mapContainerRef.current || mapRef.current) return;
+      if (!mapContainerRef.current || mapRef.current || !mounted) return
 
       const map = new maplibregl.default.Map({
         container: mapContainerRef.current,
@@ -106,9 +203,7 @@ export function LiveMapContent() {
           sources: {
             osm: {
               type: "raster",
-              tiles: [
-                "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-              ],
+              tiles: ["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"],
               tileSize: 256,
               attribution: '© <a href="https://carto.com/">CARTO</a>',
             },
@@ -122,63 +217,180 @@ export function LiveMapContent() {
           ],
         },
         center: [-117.16, 32.72],
-        zoom: 11,
+        zoom: 4,
         pitch: 0,
-      });
+      })
 
-      mapRef.current = map;
+      mapRef.current = map
 
-      // Add device markers after map loads
       map.on("load", () => {
-        const mockDevices = generateMockDevices();
-        mockDevices.forEach((device) => {
-          const el = document.createElement("div");
-          el.className = "device-marker";
-          el.style.width = "16px";
-          el.style.height = "16px";
-          el.style.borderRadius = "50%";
-          el.style.backgroundColor = STATUS_COLORS[device.status];
-          el.style.border = `3px solid ${DEVICE_COLORS[device.device_type]}`;
-          el.style.cursor = "pointer";
-          el.style.boxShadow = `0 0 10px ${DEVICE_COLORS[device.device_type]}`;
+        map.addSource("devices", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [],
+          },
+          cluster: true,
+          clusterMaxZoom: 12,
+          clusterRadius: 48,
+        })
 
-          el.addEventListener("click", () => {
-            setSelectedDevice(device.device_id);
-          });
+        map.addSource("geofences", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [],
+          },
+        })
 
-          new maplibregl.default.Marker({ element: el })
-            .setLngLat(device.position)
-            .addTo(map);
-        });
-      });
-    });
+        map.addLayer({
+          id: "geofence-fill",
+          type: "fill",
+          source: "geofences",
+          paint: {
+            "fill-color": "#38bdf8",
+            "fill-opacity": 0.1,
+          },
+        })
+
+        map.addLayer({
+          id: "geofence-outline",
+          type: "line",
+          source: "geofences",
+          paint: {
+            "line-color": "#38bdf8",
+            "line-width": 2,
+          },
+        })
+
+        map.addLayer({
+          id: "device-clusters",
+          type: "circle",
+          source: "devices",
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": "#0ea5e9",
+            "circle-radius": ["step", ["get", "point_count"], 16, 25, 22, 50, 28],
+            "circle-opacity": 0.75,
+          },
+        })
+
+        map.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "devices",
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": "{point_count_abbreviated}",
+            "text-size": 12,
+          },
+          paint: {
+            "text-color": "#0f172a",
+          },
+        })
+
+        map.addLayer({
+          id: "device-points",
+          type: "circle",
+          source: "devices",
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-radius": 8,
+            "circle-color": ["get", "statusColor"],
+            "circle-stroke-color": ["get", "typeColor"],
+            "circle-stroke-width": 3,
+          },
+        })
+
+        map.on("click", "device-clusters", (event) => {
+          const features = map.queryRenderedFeatures(event.point, {
+            layers: ["device-clusters"],
+          })
+          const clusterId = features[0]?.properties?.cluster_id
+          const source = map.getSource("devices") as any
+          source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+            if (err) return
+            map.easeTo({ center: (features[0].geometry as any).coordinates, zoom })
+          })
+        })
+
+        map.on("click", "device-points", (event) => {
+          const feature = event.features?.[0]
+          if (!feature) return
+          const properties = feature.properties
+          const selected = filteredPoints.find((point) => point.id === properties?.id)
+          if (selected) setSelectedDevice(selected)
+        })
+
+        map.on("mouseenter", "device-clusters", () => {
+          map.getCanvas().style.cursor = "pointer"
+        })
+        map.on("mouseleave", "device-clusters", () => {
+          map.getCanvas().style.cursor = ""
+        })
+        map.on("mouseenter", "device-points", () => {
+          map.getCanvas().style.cursor = "pointer"
+        })
+        map.on("mouseleave", "device-points", () => {
+          map.getCanvas().style.cursor = ""
+        })
+      })
+    })
 
     return () => {
+      mounted = false
       if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
+        mapRef.current.remove()
+        mapRef.current = null
       }
-    };
-  }, []);
+    }
+  }, [isMounted])
 
-  const handleRefresh = useCallback(() => {
-    setDevices(generateMockDevices());
-  }, []);
+  useEffect(() => {
+    if (!mapRef.current) return
+    const map = mapRef.current
+    const source = map.getSource("devices") as any
+    if (!source) return
 
-  if (!mounted) {
-    return (
-      <div className="min-h-dvh bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-      </div>
-    );
-  }
+    const features = filteredPoints.map((point) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: point.position,
+      },
+      properties: {
+        id: point.id,
+        label: point.label,
+        status: point.status,
+        statusColor: STATUS_COLORS[point.status] || STATUS_COLORS.offline,
+        type: point.type,
+        typeColor: DEVICE_COLORS[point.type] || DEVICE_COLORS.unknown,
+      },
+    }))
 
-  const selectedDeviceData = devices.find((d) => d.device_id === selectedDevice);
+    source.setData({
+      type: "FeatureCollection",
+      features,
+    })
+  }, [filteredPoints])
+
+  useEffect(() => {
+    if (!mapRef.current) return
+    const map = mapRef.current
+    const source = map.getSource("geofences") as any
+    if (!source) return
+
+    source.setData({
+      type: "FeatureCollection",
+      features: geofenceFeatures,
+    })
+  }, [geofenceFeatures])
+
+  const onlineCount = devicePoints.filter((point) => point.status === "online").length
 
   return (
     <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
+      <div className="absolute top-0 left-0 right-0 z-20 flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between bg-gradient-to-b from-black/60 to-transparent">
         <div className="flex items-center gap-4">
           <Link
             href="/natureos"
@@ -195,27 +407,45 @@ export function LiveMapContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-9 rounded-md bg-black/50 text-xs text-white border border-white/10 px-2"
+          >
+            <option value="all">All Statuses</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="stale">Stale</option>
+          </select>
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value)}
+            className="h-9 rounded-md bg-black/50 text-xs text-white border border-white/10 px-2"
+          >
+            <option value="all">All Types</option>
+            {deviceTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
           <button
-            onClick={handleRefresh}
+            onClick={refreshDevices}
             className="p-2 rounded-lg bg-black/40 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-colors"
             title="Refresh devices"
           >
-            <RefreshCw className="w-5 h-5 text-white" />
+            <RefreshCw className={`w-5 h-5 text-white ${isLoading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
-      {/* Device Legend */}
       <div className="absolute top-20 right-4 z-10 p-3 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
         <div className="text-xs font-medium text-gray-400 mb-2">Devices</div>
         <div className="space-y-2">
           {Object.entries(DEVICE_COLORS).map(([type, color]) => (
             <div key={type} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: color }}
-              />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-xs text-gray-300 capitalize">{type}</span>
             </div>
           ))}
@@ -225,10 +455,7 @@ export function LiveMapContent() {
           <div className="space-y-1">
             {Object.entries(STATUS_COLORS).map(([status, color]) => (
               <div key={status} className="flex items-center gap-2">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                 <span className="text-xs text-gray-300 capitalize">{status}</span>
               </div>
             ))}
@@ -236,38 +463,47 @@ export function LiveMapContent() {
         </div>
       </div>
 
-      {/* Selected Device Info */}
-      {selectedDevice && selectedDeviceData && (
+      {selectedDevice ? (
         <div className="absolute top-20 left-4 z-10 p-4 rounded-lg bg-black/60 backdrop-blur-sm border border-cyan-500/30 max-w-xs">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-medium text-white">{selectedDevice}</span>
+              <span className="text-sm font-medium text-white">{selectedDevice.label}</span>
             </div>
-            <button
-              onClick={() => setSelectedDevice(null)}
-              className="text-gray-400 hover:text-white text-xs"
-            >
+            <button onClick={() => setSelectedDevice(null)} className="text-gray-400 hover:text-white text-xs">
               ✕
             </button>
           </div>
           <div className="space-y-1 text-xs text-gray-300">
-            <div>Type: <span className="capitalize">{selectedDeviceData.device_type}</span></div>
-            <div>Status: <span className="capitalize">{selectedDeviceData.status}</span></div>
-            <div>Position: {selectedDeviceData.position[1].toFixed(4)}, {selectedDeviceData.position[0].toFixed(4)}</div>
+            <div>Type: <span className="capitalize">{selectedDevice.type}</span></div>
+            <div>Status: <span className="capitalize">{selectedDevice.status}</span></div>
+            <div>Position: {selectedDevice.position[1].toFixed(4)}, {selectedDevice.position[0].toFixed(4)}</div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Map Container */}
       <div ref={mapContainerRef} className="absolute inset-0" />
 
-      {/* Device Count Badge */}
       <div className="absolute bottom-4 left-4 z-10 px-3 py-2 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10">
         <span className="text-xs text-gray-400">
-          {devices.filter((d) => d.status === "online").length}/{devices.length} devices online
+          {onlineCount}/{devicePoints.length} devices online
         </span>
       </div>
+
+      {error ? (
+        <div className="absolute bottom-4 right-4 z-10 px-3 py-2 rounded-lg bg-red-500/20 border border-red-500/40 text-xs text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {!isLoading && !devicePoints.length ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-center px-4">
+          <div className="max-w-md text-sm text-gray-200">
+            No device locations available yet. Add a location value in the MAS device registry
+            (lat,lng) to render device points on the map.
+          </div>
+        </div>
+      ) : null}
     </div>
-  );
+  )
 }

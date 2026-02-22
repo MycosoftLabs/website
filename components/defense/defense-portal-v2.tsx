@@ -96,7 +96,7 @@ const missionCriticalData: MissionModalData[] = [
         category: "Software & Analytics",
         items: [
           { name: "NatureOS", description: "Unified command center for real-time visualization and alerts", link: "/natureos" },
-          { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/dashboard/crep" },
+          { name: "CREP Dashboard", description: "Common Relevant Environmental Picture for situational awareness", link: "/defense/crep" },
           { name: "Nature Learning Model", description: "AI-powered anomaly detection and pattern recognition" }
         ]
       },
@@ -165,7 +165,7 @@ const missionCriticalData: MissionModalData[] = [
         items: [
           { name: "NatureOS Marine Module", description: "Specialized visualization for coastal operations", link: "/natureos" },
           { name: "Source Tracking AI", description: "ML-powered contamination source identification" },
-          { name: "CREP Maritime", description: "Coastal environmental picture integration", link: "/dashboard/crep" }
+          { name: "CREP Maritime", description: "Coastal environmental picture integration", link: "/defense/crep" }
         ]
       },
       {

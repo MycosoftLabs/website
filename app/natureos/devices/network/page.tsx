@@ -1,7 +1,5 @@
 "use client"
 
-import { DashboardHeader } from "@/components/dashboard/header"
-import { DashboardShell } from "@/components/dashboard/shell"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { DevicePageShell } from "@/components/natureos/device-page-shell"
 
 interface DeviceInfo {
   deviceId: string
@@ -313,28 +312,10 @@ export default function DeviceNetworkPage() {
   }
 
   return (
-    <DashboardShell>
-      {/* Back Navigation */}
-      <div className="flex items-center gap-4 mb-4">
-        <Link href="/natureos">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            NatureOS Dashboard
-          </Button>
-        </Link>
-        <Separator orientation="vertical" className="h-6" />
-        <Link href="/natureos/devices">
-          <Button variant="ghost" size="sm" className="gap-2">
-            Device Manager
-          </Button>
-        </Link>
-      </div>
-      
-      <DashboardHeader
-        heading="Device Network Topology"
-        text="Discover and manage all MycoBrain devices across serial, LoRa, and mesh networks"
-      />
-
+    <DevicePageShell
+      heading="Device Network Topology"
+      text="Discover and manage all MycoBrain devices across serial, LoRa, and mesh networks."
+    >
       <div className="space-y-6">
         {/* Service Status */}
         <Card className={serviceStatus === "online" ? "border-green-500/50 bg-green-500/5" : serviceStatus === "offline" ? "border-red-500/50 bg-red-500/5" : "border-yellow-500/50 bg-yellow-500/5"}>
@@ -856,7 +837,7 @@ export default function DeviceNetworkPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardShell>
+    </DevicePageShell>
   )
 }
 
