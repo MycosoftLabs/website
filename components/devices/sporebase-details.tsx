@@ -44,7 +44,7 @@ const SPOREBASE_ASSETS = {
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",
   // Hero video (add when available)
-  heroVideo: "/assets/sporebase/sporebase1publish.mp4",
+  heroVideo: "/assets/sporebase/Sporebase1publish.mp4",
 }
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
