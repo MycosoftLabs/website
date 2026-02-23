@@ -40,6 +40,7 @@ export function HeroSearch() {
   const [isSearching, setIsSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
@@ -63,6 +64,17 @@ export function HeroSearch() {
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
+  useEffect(() => {
+    const v = videoRef.current
+    if (v) {
+      v.play().catch(() => {})
+      const handler = () => v.play().catch(() => {})
+      document.addEventListener("touchstart", handler, { once: true })
+      return () => document.removeEventListener("touchstart", handler)
+    }
   }, [])
 
   // Handle mouse move for gradient effect
@@ -135,14 +147,16 @@ export function HeroSearch() {
           {/* Animated Gradient Border */}
           <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
           
-          {/* Background Video — hidden on phone to save bandwidth */}
+          {/* Background Video — autoplay on all devices (muted + playsInline required for mobile) */}
           <div className="absolute inset-[2px] rounded-[22px] overflow-hidden">
             <video
+              ref={videoRef}
               autoPlay
               muted
               loop
               playsInline
-              className="absolute inset-0 w-full h-full object-cover hidden sm:block"
+              preload="auto"
+              className="absolute inset-0 w-full h-full object-cover"
               style={{ filter: "brightness(0.4) saturate(1.2)" }}
             >
               <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />

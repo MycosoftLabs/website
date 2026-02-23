@@ -264,6 +264,17 @@ export function Mushroom1Details() {
     offset: ["start start", "end start"]
   })
 
+  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
+  useEffect(() => {
+    const v = videoRef.current
+    if (v) {
+      v.play().catch(() => {})
+      const handler = () => v.play().catch(() => {})
+      document.addEventListener("touchstart", handler, { once: true })
+      return () => document.removeEventListener("touchstart", handler)
+    }
+  }, [heroVideoSrc])
+
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, 100])
@@ -299,7 +310,7 @@ export function Mushroom1Details() {
         style={{ opacity: heroOpacity }}
         data-over-video
       >
-        {/* Background Video */}
+        {/* Background Video — preload="auto" and programmatic play for mobile/tablet reliability */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <video
             ref={videoRef}
@@ -307,7 +318,7 @@ export function Mushroom1Details() {
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
           >
             <source src={heroVideoSrc} type="video/mp4" />

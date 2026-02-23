@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,12 +20,13 @@ interface DeviceDetailsProps {
 }
 
 export function DeviceDetails({ device }: DeviceDetailsProps) {
-  const videoRef = useRef<HTMLDivElement>(null)
+  const videoSectionRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [videoError, setVideoError] = useState(false)
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
 
   const { scrollYProgress } = useScroll({
-    target: videoRef,
+    target: videoSectionRef,
     offset: ["start end", "end start"],
   })
 
@@ -38,6 +39,17 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
       [id]: true,
     }))
   }
+
+  // Mobile/tablet: programmatic play() for reliable autoplay
+  useEffect(() => {
+    const v = videoRef.current
+    if (v && device.video) {
+      v.play().catch(() => {})
+      const handler = () => v.play().catch(() => {})
+      document.addEventListener("touchstart", handler, { once: true })
+      return () => document.removeEventListener("touchstart", handler)
+    }
+  }, [device.video])
 
   return (
     <NeuromorphicProvider>
@@ -92,14 +104,16 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
       </section>
 
       {/* Video Section — data-over-video for theme-aware text over dark video */}
-      <section className="relative min-h-[80vh] w-full overflow-hidden mt-12" data-over-video>
+      <section ref={videoSectionRef} className="relative min-h-[80vh] w-full overflow-hidden mt-12" data-over-video>
         {!videoError ? (
           <>
             <video
+              ref={videoRef}
               autoPlay
               muted
               loop
               playsInline
+              preload="auto"
               className="absolute inset-0 w-full h-full object-cover"
               poster="/placeholder.svg?height=1080&width=1920"
               onError={() => setVideoError(true)}

@@ -209,6 +209,7 @@ export function SporeBaseDetails() {
   const [selectedCase, setSelectedCase] = useState(0)
   const [currentImage, setCurrentImage] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const floatingPixels = useMemo(() => buildFloatingPixels(20, 42, 0, 100), [])
   const floatingParticles = useMemo(() => buildFloatingPixels(8, 1337, 10, 90), [])
   
@@ -219,6 +220,17 @@ export function SporeBaseDetails() {
   
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
+
+  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
+  useEffect(() => {
+    const v = videoRef.current
+    if (v) {
+      v.play().catch(() => {})
+      const handler = () => v.play().catch(() => {})
+      document.addEventListener("touchstart", handler, { once: true })
+      return () => document.removeEventListener("touchstart", handler)
+    }
+  }, [])
 
   return (
     <NeuromorphicProvider>
@@ -231,11 +243,13 @@ export function SporeBaseDetails() {
           className="absolute inset-0"
         >
           <video
+            ref={videoRef}
             className="absolute inset-0 h-full w-full object-cover"
             autoPlay
             muted
             loop
             playsInline
+            preload="auto"
           >
             <source src={SPOREBASE_ASSETS.heroVideo} type="video/mp4" />
           </video>

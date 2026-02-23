@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
@@ -60,6 +60,33 @@ import { ChallengeCanvas } from "@/components/defense/challenge-canvas"
 import { DefenseParticles } from "@/components/defense/defense-particles"
 import { IntelligenceWaves } from "@/components/defense/intelligence-waves"
 import { CtaSnakeCanvas } from "@/components/defense/cta-snake-canvas"
+
+function DefenseHeroVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const v = videoRef.current
+    if (v) {
+      v.play().catch(() => {})
+      const handler = () => v.play().catch(() => {})
+      document.addEventListener("touchstart", handler, { once: true })
+      return () => document.removeEventListener("touchstart", handler)
+    }
+  }, [])
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      className="absolute inset-0 w-full h-full object-cover"
+      style={{ filter: "brightness(0.3)" }}
+    >
+      <source src="/assets/backgrounds/defense-hero.mp4" type="video/mp4" />
+    </video>
+  )
+}
 
 // Mission Critical Application Modal
 interface MissionModalData {
@@ -628,18 +655,8 @@ export function DefensePortalV2() {
 
       {/* Hero Section - Palantir/Anduril Style with Full-Screen Video — data-over-video for theme consistency */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden" data-over-video>
-        {/* Full-screen Background Video */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "brightness(0.3)" }}
-        >
-          <source src="/assets/backgrounds/defense-hero.mp4" type="video/mp4" />
-          {/* Fallback gradient if video doesn't load */}
-        </video>
+        {/* Full-screen Background Video — preload="auto" + programmatic play for mobile/tablet */}
+        <DefenseHeroVideo />
         
         {/* Overlay for better text readability */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
