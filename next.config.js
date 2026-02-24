@@ -21,6 +21,8 @@ const nextConfig = {
   experimental: {
     // This will make all pages dynamic by default
   },
+  // Increase timeout for "Collecting page data" (fixes build failures on large apps)
+  staticPageGenerationTimeout: 120,
   // Configure webpack for Cesium
   webpack: (config, { isServer, dev }) => {
     if (!isServer) {

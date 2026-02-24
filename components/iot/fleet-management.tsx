@@ -51,15 +51,17 @@ export function FleetManagement() {
   const { data: groups, mutate: mutateGroups, error: groupsError, isLoading: groupsLoading } =
     useSWR<FleetGroup[]>("/api/iot/fleet/groups", fetcher, { refreshInterval: 15000 })
 
-  const { data: devices, error: devicesError } = useSWR<RegistryDevice[]>(
+  const { data: networkData, error: devicesError } = useSWR<{ devices?: RegistryDevice[] }>(
     "/api/devices/network?include_offline=true",
     fetcher,
     { refreshInterval: 20000 }
   )
 
+  const devices = Array.isArray(networkData?.devices) ? networkData.devices : []
+
   const deviceOptions = useMemo(
     () =>
-      (devices || []).map((device) => ({
+      devices.map((device) => ({
         id: device.device_id,
         label: formatDeviceLabel(device),
         status: device.status ?? "unknown",
