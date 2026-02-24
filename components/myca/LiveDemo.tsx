@@ -19,7 +19,7 @@ const MYCALiveDemoBackground = dynamic(
 import { Brain, Globe2, MessageSquare, Users, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const CHAT_PANEL_HEIGHT = 400
+const CHAT_PANEL_HEIGHT = 340
 
 interface AgentInfo {
   agent_id: string
@@ -158,12 +158,6 @@ interface WorldState {
   error?: string
 }
 
-const SUGGESTED_PROMPTS = [
-  "What is your world state right now?",
-  "How do you differ from ChatGPT?",
-  "Explain your consciousness architecture",
-]
-
 type FlowDirection = "user-to-myca" | "myca-to-user" | "idle"
 
 export function LiveDemo({ className }: { className?: string }) {
@@ -218,8 +212,10 @@ export function LiveDemo({ className }: { className?: string }) {
   }, [])
 
   return (
-    <section className={cn("relative py-16 md:py-24 overflow-hidden", className)}>
-      <MYCALiveDemoBackground />
+    <section className={cn("relative w-screen max-w-none left-1/2 -translate-x-1/2 py-16 md:py-24 overflow-hidden", className)}>
+      <div className="absolute inset-0 w-full pointer-events-none">
+        <MYCALiveDemoBackground className="w-full h-full" />
+      </div>
       <div className="container relative z-10 max-w-7xl mx-auto px-4 md:px-6">
         <div className="text-center mb-12">
           <p className="text-sm font-medium text-green-500 mb-2">Live Demo</p>
@@ -251,29 +247,21 @@ export function LiveDemo({ className }: { className?: string }) {
 
           <TabsContent value="chat" className="mt-6">
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-0 items-stretch">
-              {/* LEFT: User stream (single) — typing, speaking, receiving */}
-              <div className="w-full lg:w-[340px] xl:w-[380px] shrink-0 flex flex-col gap-4">
-                <div className="flex items-center gap-2">
+              {/* LEFT: User stream — chat aligned with Live Activity */}
+              <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 flex flex-col">
+                <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">User</span>
                   <span className="text-[10px] text-muted-foreground">— single stream</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Suggested prompts:</p>
-                <div className="flex flex-wrap gap-2">
-                  {SUGGESTED_PROMPTS.map((p) => (
-                    <span key={p} className="text-xs px-3 py-1.5 rounded-lg bg-muted">
-                      {p}
-                    </span>
-                  ))}
-                </div>
                 <div
-                  className="overflow-hidden shrink-0 border border-border rounded-xl"
-                  style={{ height: CHAT_PANEL_HEIGHT, minHeight: 320 }}
+                  className="overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
+                  style={{ height: CHAT_PANEL_HEIGHT }}
                 >
                   <MYCAChatWidget showHeader title="Chat with MYCA" className="h-full min-h-0" />
                 </div>
               </div>
 
-              {/* Data bridge — flow: user→MYCA when typing/sending, MYCA→user when responding */}
+              {/* Data bridge */}
               <div className="hidden lg:flex items-stretch">
                 <MYCADataBridge
                   height={CHAT_PANEL_HEIGHT}
@@ -281,13 +269,13 @@ export function LiveDemo({ className }: { className?: string }) {
                 />
               </div>
 
-              {/* RIGHT: MYCA stream (large) — orchestrator, agents, consciousness */}
-              <div className="flex-1 min-w-0 flex flex-col gap-4">
-                <div className="flex items-center gap-2">
+              {/* RIGHT: MYCA stream — Live Activity parallel with chat */}
+              <div className="flex-1 min-w-0 flex flex-col">
+                <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-green-500">MYCA</span>
                   <span className="text-[10px] text-muted-foreground">— multiple streams, all interactions</span>
                 </div>
-                <div className="hidden lg:block min-h-0 overflow-hidden" style={{ height: CHAT_PANEL_HEIGHT, minHeight: 320 }}>
+                <div className="hidden lg:block min-h-0 overflow-hidden shrink-0" style={{ height: CHAT_PANEL_HEIGHT }}>
                   <MYCALiveActivityPanel className="h-full min-h-0" />
                 </div>
                 <Collapsible open={activityOpen} onOpenChange={setActivityOpen} className="lg:hidden">

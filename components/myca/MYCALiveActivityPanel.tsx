@@ -154,7 +154,7 @@ export function MYCALiveActivityPanel({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card/80 backdrop-blur-sm p-4 flex flex-col h-full min-h-[200px]",
+        "rounded-xl border border-border/50 bg-card/40 backdrop-blur-md p-4 flex flex-col h-full min-h-[200px]",
         className
       )}
     >

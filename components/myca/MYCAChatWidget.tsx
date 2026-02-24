@@ -50,6 +50,7 @@ export function MYCAChatWidget({
     await sendMessage(message, {
       contextText: getContextText?.(),
       source: "web",
+      wantAudio: false,
     })
   }
 

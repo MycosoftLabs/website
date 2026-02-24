@@ -97,6 +97,7 @@ interface RuntimeIdentityContext {
   userDisplayName: string
   isAuthenticated: boolean
   isSuperuser: boolean
+  isCreator: boolean
   recentStaffDirectory: Array<{
     id: string
     name: string
@@ -171,6 +172,7 @@ async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<Runt
     userDisplayName: fallbackDisplayName,
     isAuthenticated: fallbackUserId !== "anonymous",
     isSuperuser: ["superuser", "owner", "admin"].includes(fallbackRole.toLowerCase()),
+    isCreator: fallbackRole.toLowerCase() === "owner",
     recentStaffDirectory: [],
   }
 
@@ -183,16 +185,25 @@ async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<Runt
     const metadataRole = String(authUser.user_metadata?.role || "user")
     const isSuperuser = ["superuser", "owner", "admin"].includes(metadataRole.toLowerCase())
 
+    const displayName = String(
+      authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email ||
+        authUser.id
+    )
+    const email = String(authUser.email || "").toLowerCase()
+    const isCreator =
+      metadataRole.toLowerCase() === "owner" ||
+      displayName.toLowerCase().includes("morgan") ||
+      email.includes("morgan@")
+
     const context: RuntimeIdentityContext = {
       userId: authUser.id,
       userRole: metadataRole,
-      userDisplayName:
-        authUser.user_metadata?.full_name ||
-        authUser.user_metadata?.name ||
-        authUser.email ||
-        authUser.id,
+      userDisplayName: displayName,
       isAuthenticated: true,
       isSuperuser,
+      isCreator,
       recentStaffDirectory: [],
     }
 
@@ -793,16 +804,17 @@ async function callMycaConsciousness(
       body: JSON.stringify({
         message,
         session_id: sessionId,
-        user_id: runtimeIdentity.userId,
+        user_id: runtimeIdentity.isCreator ? "morgan" : runtimeIdentity.userId,
         context: {
           user_role: runtimeIdentity.userRole,
           user_display_name: runtimeIdentity.userDisplayName,
           is_superuser: runtimeIdentity.isSuperuser,
+          is_creator: runtimeIdentity.isCreator,
           recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
         },
         source: "voice-orchestrator"
       }),
-      signal: AbortSignal.timeout(10000) // 10s - fail fast if MAS unreachable, fall back to LLMs
+      signal: AbortSignal.timeout(4000) // 4s - fail fast if MAS unreachable, fall back to LLMs
     })
     
     if (response.ok) {

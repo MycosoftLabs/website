@@ -105,7 +105,14 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       scene.background = new THREE.Color("#080808")
       scene.fog = new THREE.FogExp2("#080808", 0.002)
 
-      const camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000)
+      const camera = new THREE.OrthographicCamera(
+        -width / 2,
+        width / 2,
+        height / 2,
+        -height / 2,
+        0.1,
+        1000
+      )
       camera.position.set(0, 0, 90)
       camera.lookAt(0, 0, 0)
 
@@ -116,8 +123,15 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       container.appendChild(renderer.domElement)
 
       const contentGroup = new THREE.Group()
-      const positionX = (50 - 100) / 2
-      contentGroup.position.set(positionX, 0, 0)
+      const pathWidth = 150
+      const pathCenterX = 25
+      const pathRightExtent = 50
+      const scale = Math.max(
+        (width / 2 + 24) / pathRightExtent,
+        (width * 1.15) / pathWidth
+      )
+      contentGroup.position.set(pathCenterX, 0, 0)
+      contentGroup.scale.set(scale, scale, 1)
       scene.add(contentGroup)
 
       const segmentCount = 150
@@ -129,7 +143,7 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       const curvePower = 0.8265
       const waveSpeed = 2.48
       const waveHeight = 0.145
-      const lineOpacity = 0.35
+      const lineOpacity = 0.58
 
       // 180° flipped: left = single stream (User), right = multiple streams (MYCA)
       function getPathPoint(
@@ -158,7 +172,7 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
       }
 
       const bgMaterial = new THREE.LineBasicMaterial({
-        color: "#373f48",
+        color: "#6b7a8a",
         transparent: true,
         opacity: lineOpacity,
         depthWrite: false,
@@ -172,9 +186,9 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
         transparent: true,
       })
 
-      const signalColor1 = new THREE.Color("#8fc9ff")
-      const signalColor2 = new THREE.Color("#34d399")
-      const signalColor3 = new THREE.Color("#a78bfa")
+      const signalColor1 = new THREE.Color("#b8dcff")
+      const signalColor2 = new THREE.Color("#5eead4")
+      const signalColor3 = new THREE.Color("#c4b5fd")
 
       let backgroundLines: THREE.Line[] = []
       interface Signal {
@@ -369,11 +383,20 @@ export function MYCALiveDemoBackground({ className }: { className?: string }) {
         if (!containerRef.current) return
         const w = containerRef.current.clientWidth
         const h = containerRef.current.clientHeight
-        camera.aspect = w / h
+        ;(camera as THREE.OrthographicCamera).left = -w / 2
+        ;(camera as THREE.OrthographicCamera).right = w / 2
+        ;(camera as THREE.OrthographicCamera).top = h / 2
+        ;(camera as THREE.OrthographicCamera).bottom = -h / 2
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
         composer.setSize(w, h)
         bloomPass.resolution.set(w, h)
+        const pathRightExtent = 50
+        const newScale = Math.max(
+          (w / 2 + 24) / pathRightExtent,
+          (w * 1.15) / 150
+        )
+        contentGroup.scale.set(newScale, newScale, 1)
       }
 
       window.addEventListener("resize", onResize)

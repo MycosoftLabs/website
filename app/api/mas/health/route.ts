@@ -7,9 +7,8 @@ export async function GET() {
   try {
     const response = await fetch(`${MAS_API_URL}/health`, {
       cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(5000),
     })
 
     if (response.ok) {
