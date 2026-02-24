@@ -28,6 +28,7 @@ import {
   Mic,
   Loader2,
   Sparkles,
+  MessageCircle,
   History,
   Minimize2,
   X,
@@ -42,8 +43,7 @@ import {
   ChemistryWidget,
   GeneticsWidget,
   ResearchWidget,
-  AIWidget,
-  MycaSuggestionsWidget,
+  AnswersWidget,
   MediaWidget,
   LocationWidget,
   NewsWidget,
@@ -69,8 +69,8 @@ import { useVoice } from "@/components/voice/UnifiedVoiceProvider"
 import { useMYCA } from "@/contexts/myca-context"
 import { useAuth } from "@/contexts/auth-context"
 
-export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "ai" | "media" | "location" | "news"
-  | "myca-suggestions" | "crep" | "earth2" | "map"
+export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
+  | "crep" | "earth2" | "map"
 
 interface WidgetConfig {
   type: WidgetType
@@ -153,17 +153,16 @@ interface FluidSearchCanvasProps {
   className?: string
 }
 
-// Default widget sizes - Species is double-width by default
+// Default widget sizes - Species and Answers are primary
 const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }> = {
   species: { width: 2, height: 2 },  // Species is main/double-sized
   chemistry: { width: 1, height: 1 },
   genetics: { width: 1, height: 1 },
   research: { width: 1, height: 2 },
-  ai: { width: 1, height: 2 },
+  answers: { width: 2, height: 2 },  // Answers is primary like Species
   media: { width: 1, height: 1 },
   location: { width: 1, height: 1 },
   news: { width: 1, height: 1 },
-  "myca-suggestions": { width: 1, height: 1 },
   crep: { width: 1, height: 1 },
   earth2: { width: 1, height: 1 },
   map: { width: 2, height: 2 },
@@ -310,7 +309,7 @@ export function FluidSearchCanvas({
 
   // MYCA intention tracking
   const { trackSearch, trackWidgetFocus, trackNotepadAdd, trackVoice, suggestions } = useMYCAContext({ enabled: true })
-  const { sendMessage: sendMycaMessage } = useMYCA()
+  const { sendMessage: sendMycaMessage, messages: mycaMessages } = useMYCA()
 
   // Unified voice context (global, driven by UnifiedVoiceProvider in layout)
   const unifiedVoice = useVoice()
@@ -331,7 +330,7 @@ export function FluidSearchCanvas({
     onAIQuestion: (question) => {
       setLocalQuery(question)
       ctx.setQuery(question)
-      setExpandedWidgets((prev) => new Set(prev).add("ai"))
+      setExpandedWidgets((prev) => new Set(prev).add("answers"))
       const contextParts: string[] = []
       if (ctx.query) contextParts.push(`current search: ${ctx.query}`)
       if (ctx.species.length) {
@@ -721,16 +720,15 @@ export function FluidSearchCanvas({
 
   // Widget configs with depth layers - ALL widget types enabled
   const widgetConfigs: WidgetConfig[] = useMemo(() => [
-    { type: "myca-suggestions", label: "MYCA", icon: <Brain className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: (suggestions.widgets?.length || 0) > 0 || (suggestions.queries?.length || 0) > 0, depth: getParallaxDepth("myca-suggestions") },
+    { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: (mycaMessages?.filter((m) => m.role !== "system").length || 0) > 0 || (suggestions.widgets?.length || 0) > 0 || (suggestions.queries?.length || 0) > 0, depth: getParallaxDepth("answers") },
     { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: compounds.length > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: genetics.length > 0, depth: getParallaxDepth("genetics") },
     { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: research.length > 0, depth: getParallaxDepth("research") },
-    { type: "ai", label: "AI", icon: <Sparkles className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: !!aiAnswer, depth: getParallaxDepth("ai") },
     { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: mediaResults.length > 0, depth: getParallaxDepth("media") },
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: locationResults.length > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: newsResults.length > 0, depth: getParallaxDepth("news") },
-  ], [species.length, compounds.length, genetics.length, research.length, aiAnswer, mediaResults.length, locationResults.length, newsResults.length, suggestions.widgets, suggestions.queries])
+  ], [species.length, compounds.length, genetics.length, research.length, mediaResults.length, locationResults.length, newsResults.length, suggestions.widgets, suggestions.queries, mycaMessages])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
@@ -779,10 +777,10 @@ export function FluidSearchCanvas({
     }
   }, [gridWidgets.length, expandedWidgets.size, packeryReady, reloadItems, packeryLayout])
 
-  // Auto-expand Species on first load if nothing expanded
+  // Auto-expand Species and Answers on first load if nothing expanded (Answers is primary for conversational search)
   useEffect(() => {
     if (expandedWidgets.size === 0 && activeWidgets.length > 0) {
-      setExpandedWidgets(new Set(["species"]))
+      setExpandedWidgets(new Set(["species", "answers"]))
     }
   }, [activeWidgets.length]) // eslint-disable-line
 
@@ -824,9 +822,10 @@ export function FluidSearchCanvas({
       if (dataMap.chemistry > 0) next.add("chemistry" as WidgetType)
       if (dataMap.genetics > 0)  next.add("genetics" as WidgetType)
       if (dataMap.research > 0)  next.add("research" as WidgetType)
+      next.add("answers" as WidgetType)  // Always show Answers for conversational search
 
-      // If still empty (shouldn't happen), default to species
-      if (next.size === 0) next.add("species" as WidgetType)
+      // If still empty (shouldn't happen), default to species and answers
+      if (next.size === 0) next.add("species" as WidgetType).add("answers" as WidgetType)
 
       return next
     })
@@ -973,7 +972,7 @@ export function FluidSearchCanvas({
       chemistry: compounds[0]?.name || "Compounds",
       genetics: "Genetics Data",
       research: research[0]?.title || "Research",
-      ai: "MYCA AI Answer",
+      answers: "Answers",
       media: "Media",
       location: "Location",
       news: "News",
@@ -1103,7 +1102,7 @@ export function FluidSearchCanvas({
                       chemistry: compounds[0]?.name || "Compounds",
                       genetics: "Genetics Data",
                       research: research[0]?.title || "Research",
-                      ai: "MYCA AI Answer",
+                      answers: "Answers",
                       media: "Media",
                       location: "Location",
                       news: "News",
@@ -1232,7 +1231,7 @@ export function FluidSearchCanvas({
                       chemistry: compounds[0]?.name || "Compounds",
                       genetics: "Genetics Data",
                       research: research[0]?.title || "Research",
-                      ai: "MYCA AI Answer",
+                      answers: "Answers",
                       media: "Media",
                       location: "Location",
                       news: "News",
@@ -1328,8 +1327,7 @@ export function FluidSearchCanvas({
 function EmptyWidgetState({ type, label }: { type: string; label: string }) {
   const icons: Record<string, string> = {
     species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
-    ai: "✨", media: "🎬", location: "📍", news: "📰",
-    "myca-suggestions": "🧠",
+    answers: "💬", media: "🎬", location: "📍", news: "📰",
   }
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">
@@ -1374,13 +1372,24 @@ function WidgetContent({
   pinnedSpeciesName?: string | null
 }) {
   switch (type) {
-    case "myca-suggestions":
+    case "answers":
       return (
-        <MycaSuggestionsWidget
-          suggestions={mycaSuggestions}
+        <AnswersWidget
           isFocused={isFocused}
+          getContextText={() => {
+            const parts: string[] = []
+            if (species.length) parts.push(`species: ${species.slice(0, 3).map((s) => (s as any).scientificName || (s as any).commonName).join(", ")}`)
+            if (compounds.length) parts.push(`compounds: ${compounds.slice(0, 3).map((c) => (c as any).name).join(", ")}`)
+            if (genetics.length) parts.push(`genetics: ${genetics.slice(0, 3).map((g) => (g as any).speciesName || (g as any).geneRegion).join(", ")}`)
+            if (research.length) parts.push(`research: ${research.slice(0, 3).map((r) => (r as any).title).join(", ")}`)
+            return parts.length ? `Search context: ${parts.join("; ")}` : ""
+          }}
+          searchContext={searchContext}
+          suggestions={mycaSuggestions}
           onSelectWidget={onSelectSuggestionWidget}
           onSelectQuery={onSelectSuggestionQuery}
+          onAddToNotepad={onAddToNotepad}
+          onFocusWidget={onFocusWidget}
         />
       )
     case "species":
@@ -1399,10 +1408,6 @@ function WidgetContent({
       if (isLoading && research.length === 0) return <ResearchWidget data={[]} isLoading isFocused={isFocused} />
       if (research.length === 0) return <EmptyWidgetState type="research" label="Research Papers" />
       return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} openPaper={openPaper} />
-    case "ai":
-      if (isLoading && !aiAnswer) return <AIWidget answer={{ text: "", confidence: 0, sources: [] }} isLoading isFocused={isFocused} />
-      if (!aiAnswer) return <EmptyWidgetState type="ai" label="AI Insights" />
-      return <AIWidget answer={aiAnswer} isFocused={isFocused} searchContext={searchContext} onAddToNotepad={onAddToNotepad} />
     case "media":
       if (mediaError) return <MediaWidget data={[]} error={mediaError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
       if (isLoading && media.length === 0) return <MediaWidget data={[]} isLoading isFocused={isFocused} />

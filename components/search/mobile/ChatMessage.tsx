@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { DataCardRenderer } from "./DataCardRenderer"
 import type { MobileChatMessage, DataCard } from "./MobileSearchChat"
+import { AnswerMessageContent } from "@/components/answers/AnswerMessageContent"
 
 interface ChatMessageProps {
   message: MobileChatMessage
@@ -84,7 +85,11 @@ export const ChatMessage = memo(function ChatMessage({
             ? "bg-primary text-primary-foreground ml-auto rounded-tr-sm" 
             : "bg-muted rounded-tl-sm"
         )}>
-          <MessageContent content={message.content} isUser={isUser} />
+          {isUser ? (
+            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</div>
+          ) : (
+            <AnswerMessageContent content={message.content} />
+          )}
         </div>
 
         {/* Data cards */}
@@ -172,84 +177,6 @@ export const ChatMessage = memo(function ChatMessage({
     </motion.div>
   )
 })
-
-function MessageContent({ content, isUser }: { content: string; isUser: boolean }) {
-  // Simple markdown rendering for mobile
-  const lines = content.split("\n")
-  
-  return (
-    <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-      {lines.map((line, idx) => {
-        // Headers
-        if (line.startsWith("### ")) {
-          return <h3 key={idx} className="font-semibold text-base mt-2 mb-1">{line.slice(4)}</h3>
-        }
-        if (line.startsWith("## ")) {
-          return <h2 key={idx} className="font-semibold text-lg mt-3 mb-1">{line.slice(3)}</h2>
-        }
-        if (line.startsWith("# ")) {
-          return <h1 key={idx} className="font-bold text-xl mt-3 mb-2">{line.slice(2)}</h1>
-        }
-        
-        // Bullet points
-        if (line.startsWith("- ") || line.startsWith("• ")) {
-          return (
-            <div key={idx} className="flex gap-2">
-              <span className="shrink-0">•</span>
-              <span>{formatInlineMarkdown(line.slice(2))}</span>
-            </div>
-          )
-        }
-        
-        // Numbered lists
-        const numberedMatch = line.match(/^(\d+)\.\s/)
-        if (numberedMatch) {
-          return (
-            <div key={idx} className="flex gap-2">
-              <span className="shrink-0 text-muted-foreground">{numberedMatch[1]}.</span>
-              <span>{formatInlineMarkdown(line.slice(numberedMatch[0].length))}</span>
-            </div>
-          )
-        }
-        
-        // Code blocks (inline)
-        if (line.startsWith("```")) {
-          return null // Skip code fence markers
-        }
-        
-        // Regular line
-        if (line.trim()) {
-          return <p key={idx}>{formatInlineMarkdown(line)}</p>
-        }
-        
-        // Empty line
-        return <br key={idx} />
-      })}
-    </div>
-  )
-}
-
-function formatInlineMarkdown(text: string): React.ReactNode {
-  // Handle bold **text**
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
-  return parts.map((part, idx) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>
-    }
-    // Handle inline code `code`
-    const codeParts = part.split(/(`[^`]+`)/g)
-    return codeParts.map((codePart, codeIdx) => {
-      if (codePart.startsWith("`") && codePart.endsWith("`")) {
-        return (
-          <code key={`${idx}-${codeIdx}`} className="px-1 py-0.5 rounded bg-muted text-xs font-mono">
-            {codePart.slice(1, -1)}
-          </code>
-        )
-      }
-      return codePart
-    })
-  })
-}
 
 function formatTime(timestamp: string): string {
   try {

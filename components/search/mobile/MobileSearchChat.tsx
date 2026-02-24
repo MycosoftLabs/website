@@ -152,7 +152,7 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             )}
           </div>
-          <span className="font-semibold">MYCA</span>
+          <span className="font-semibold">Answers</span>
           {consciousness?.is_conscious && (
             <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-green-500/10 text-green-500 border-green-500/20">
               conscious
@@ -200,28 +200,11 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
             <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-violet-500/10 mb-4">
               <Sparkles className="h-8 w-8 text-violet-500" />
             </div>
-            <h2 className="text-lg font-semibold mb-2">Ask MYCA anything</h2>
+            <h2 className="text-lg font-semibold mb-2">Answers</h2>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
               Search for fungi species, compounds, genetics, research papers, or ask questions about mycology.
             </p>
             
-            {/* Quick suggestions */}
-            <div className="flex flex-wrap justify-center gap-2 mt-6">
-              {[
-                "Show me edible mushrooms",
-                "What is Amanita muscaria?",
-                "Find psilocybin compounds",
-                "Research on mycelium networks",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => handleSend(suggestion)}
-                  className="px-3 py-1.5 text-xs rounded-full border bg-card hover:bg-muted transition-colors"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
           </motion.div>
         )}
 

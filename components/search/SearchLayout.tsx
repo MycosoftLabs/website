@@ -1,7 +1,7 @@
 /**
  * SearchLayout - Feb 2026
  *
- * 3-panel layout: MYCA chat (left) | Results (center) | Live + Notepad (right)
+ * 3-panel layout: Activity Stream (left) | Results (center) | Live + Notepad (right)
  * No scrolling on center panel. Only notepad scrolls internally.
  * Side panels slide via edge tabs.
  */
@@ -10,10 +10,9 @@
 
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { MessageSquare, StickyNote, ChevronLeft, ChevronRight } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Activity, StickyNote, ChevronLeft, ChevronRight } from "lucide-react"
 import { useSearchContext } from "./SearchContextProvider"
-import { MYCAChatPanel } from "./panels/MYCAChatPanel"
+import { ActivityStreamPanel } from "./panels/ActivityStreamPanel"
 import { LiveResultsWidget } from "./panels/LiveResultsWidget"
 import { NotepadWidget } from "./panels/NotepadWidget"
 
@@ -26,7 +25,7 @@ export function SearchLayout({ children }: SearchLayoutProps) {
 
   return (
     <div className="h-[calc(100vh-56px)] sm:h-[calc(100vh-64px)] overflow-hidden flex relative">
-      {/* Left Panel - MYCA Chat (hidden on mobile, overlay on tablet, inline on desktop) */}
+      {/* Left Panel - Activity Stream (memory, consciousness, agent activity) */}
       <AnimatePresence initial={false}>
         {leftPanelOpen && (
           <>
@@ -45,7 +44,7 @@ export function SearchLayout({ children }: SearchLayoutProps) {
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               className="fixed lg:relative left-0 top-0 bottom-0 w-[280px] sm:w-[300px] lg:w-[260px] z-50 lg:z-auto shrink-0 border-r border-white/5 bg-card/95 lg:bg-card/50 backdrop-blur-sm overflow-hidden"
             >
-              <MYCAChatPanel />
+              <ActivityStreamPanel />
             </motion.div>
           </>
         )}
@@ -58,9 +57,9 @@ export function SearchLayout({ children }: SearchLayoutProps) {
           animate={{ opacity: 1, x: 0 }}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-30 bg-card/80 backdrop-blur-sm border border-l-0 rounded-r-lg px-1.5 sm:px-1 py-4 sm:py-3 shadow-md hover:bg-card active:bg-card/90 transition-colors"
           onClick={() => setLeftPanelOpen(true)}
-          title="Show MYCA chat"
+          title="Show activity"
         >
-          <MessageSquare className="h-5 w-5 sm:h-4 sm:w-4 mb-1" />
+          <Activity className="h-5 w-5 sm:h-4 sm:w-4 mb-1" />
           <ChevronRight className="h-4 w-4 sm:h-3 sm:w-3" />
         </motion.button>
       )}

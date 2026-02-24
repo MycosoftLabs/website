@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
+export const dynamic = "force-dynamic"
+
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 /**
