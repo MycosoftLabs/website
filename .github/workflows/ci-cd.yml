@@ -77,6 +77,9 @@ jobs:
       - name: Run tests
         run: npm run test --if-present
 
+      - name: WebMCP protocol schema validation
+        run: npm run test -- tests/webmcp --passWithNoTests
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         if: always()
