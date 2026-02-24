@@ -71,14 +71,11 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Redirects for legacy routes
+  // Redirect: /myca-ai -> /myca (legacy chat page removed)
+  // Note: /MYCA redirect removed - caused redirect loop on some systems; use /myca directly
   async redirects() {
     return [
-      {
-        source: '/myca',
-        destination: '/myca-ai',
-        permanent: true,
-      },
+      { source: "/myca-ai", destination: "/myca", permanent: false },
     ]
   },
 }

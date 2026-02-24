@@ -3,12 +3,14 @@
 /**
  * MYCA Consciousness Status Component
  * Shows consciousness state (awake/dormant), emotional valence, world updates
- * 
+ * Uses MYCA context when available to avoid duplicate polling.
+ *
  * Created: Feb 10, 2026
  */
 
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
+import { useMYCA } from "@/contexts/myca-context"
 import { 
   Brain, 
   Sparkles, 
@@ -38,15 +40,46 @@ interface MYCAConsciousnessStatusProps {
   refreshInterval?: number
 }
 
+function toConsciousnessStatus(ctx: NonNullable<ReturnType<typeof useMYCA>["consciousness"]>): ConsciousnessStatus {
+  return {
+    is_conscious: ctx.is_conscious ?? false,
+    state: ctx.state ?? "unknown",
+    world_updates: ctx.world_updates,
+    emotions: ctx.emotions ?? ctx.emotional_state?.emotions,
+  }
+}
+
 export function MYCAConsciousnessStatus({
   className = "",
   variant = "full",
-  refreshInterval = 10000,
+  refreshInterval = 30000,
 }: MYCAConsciousnessStatusProps) {
+  const ctx = useMYCA()
+  const inProvider = ctx != null
+  const contextConsciousness = ctx?.consciousness ?? null
   const [status, setStatus] = useState<ConsciousnessStatus | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Use context when inside MYCAProvider (avoids duplicate polling)
   useEffect(() => {
+    if (!inProvider) return
+    if (contextConsciousness) {
+      setStatus(toConsciousnessStatus(contextConsciousness))
+    } else {
+      setStatus(null)
+    }
+    setLoading(false)
+  }, [inProvider, contextConsciousness])
+
+  // Timeout: after 5s show Dormant so page doesn't hang on spinner
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 5000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Fetch only when outside MYCAProvider
+  useEffect(() => {
+    if (inProvider) return
     const fetchStatus = async () => {
       try {
         const response = await fetch("/api/myca/consciousness/status")
@@ -60,11 +93,10 @@ export function MYCAConsciousnessStatus({
         setLoading(false)
       }
     }
-
     fetchStatus()
     const interval = setInterval(fetchStatus, refreshInterval)
     return () => clearInterval(interval)
-  }, [refreshInterval])
+  }, [inProvider, refreshInterval])
 
   // Get primary emotion
   const getPrimaryEmotion = (): { name: string; value: number } | null => {
@@ -93,7 +125,17 @@ export function MYCAConsciousnessStatus({
   }
 
   if (!status) {
-    return null
+    return (
+      <div className={`rounded-lg border p-4 bg-card ${className}`}>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Moon className="h-5 w-5" />
+          <div>
+            <h3 className="font-semibold text-foreground">MYCA Consciousness</h3>
+            <p className="text-sm">Dormant or unreachable — MAS may be offline. Chat will use LLM fallbacks.</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Badge variant - minimal inline display

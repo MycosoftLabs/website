@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-// In production, this would write to a database
-const trainingLog: any[] = []
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 interface TrainingData {
   type: string
@@ -21,43 +21,47 @@ interface TrainingData {
 export async function POST(request: NextRequest) {
   try {
     const data: TrainingData = await request.json()
-    
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    const authUser = auth.user
+
+    if (!authUser) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
     const payload = {
       ...data,
-      userId: data.userId || "anonymous",
+      userId: data.userId || authUser.id,
       session_id: data.session_id,
       conversation_id: data.conversation_id,
+      source: data.source || "myca-chat",
+      timestamp: data.timestamp || new Date().toISOString(),
     }
 
-    // Add to in-memory log (in production, store in database)
-    trainingLog.push({
-      ...payload,
-      id: `train-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      receivedAt: new Date().toISOString(),
+    const upstream = await fetch(`${MAS_API_URL}/api/training/log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
     })
 
-    // Keep only last 1000 entries in memory
-    if (trainingLog.length > 1000) {
-      trainingLog.shift()
+    if (!upstream.ok) {
+      const details = await upstream.text()
+      return NextResponse.json(
+        {
+          error: "Failed to persist training data",
+          details,
+        },
+        { status: upstream.status }
+      )
     }
 
-    // Forward to MAS for actual training if available
-    try {
-      const MAS_API_URL = process.env.MAS_API_URL || "http://host.docker.internal:8000"
-      await fetch(`${MAS_API_URL}/api/training/log`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(5000),
-      })
-    } catch {
-      // MAS not available, data is still stored locally
-    }
+    const result = await upstream.json().catch(() => ({}))
 
     return NextResponse.json({
       success: true,
-      message: "Training data logged",
-      id: trainingLog[trainingLog.length - 1].id,
+      message: "Training data persisted",
+      result,
     })
   } catch (error) {
     return NextResponse.json(
@@ -69,32 +73,37 @@ export async function POST(request: NextRequest) {
 
 // Get training statistics
 export async function GET(request: NextRequest) {
-  const type = request.nextUrl.searchParams.get("type")
-  
-  let filtered = trainingLog
-  if (type) {
-    filtered = trainingLog.filter(t => t.type === type)
-  }
+  try {
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
 
-  // Calculate statistics
-  const stats = {
-    totalInteractions: trainingLog.length,
-    byType: {
-      ai_response: trainingLog.filter(t => t.type === "ai_response").length,
-      code_generation: trainingLog.filter(t => t.context?.includes("code")).length,
-      debugging: trainingLog.filter(t => t.context === "debugging").length,
-      user_feedback: trainingLog.filter(t => t.type === "user_feedback").length,
-      sdk_usage: trainingLog.filter(t => t.source === "sdk").length,
-    },
-    bySource: {
-      shell: trainingLog.filter(t => t.source === "natureos-shell").length,
-      sdk: trainingLog.filter(t => t.source === "sdk").length,
-      api: trainingLog.filter(t => t.source === "api-explorer").length,
-      functions: trainingLog.filter(t => t.source === "functions").length,
-    },
-    recentInteractions: filtered.slice(-20).reverse(),
-    lastTraining: trainingLog.length > 0 ? trainingLog[trainingLog.length - 1].receivedAt : null,
-  }
+    const type = request.nextUrl.searchParams.get("type")
+    const upstreamUrl = new URL(`${MAS_API_URL}/api/training/stats`)
+    upstreamUrl.searchParams.set("user_id", auth.user.id)
+    if (type) upstreamUrl.searchParams.set("type", type)
 
-  return NextResponse.json(stats)
+    const upstream = await fetch(upstreamUrl.toString(), {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    })
+
+    if (!upstream.ok) {
+      const details = await upstream.text()
+      return NextResponse.json(
+        { error: "Failed to fetch training stats", details },
+        { status: upstream.status }
+      )
+    }
+
+    const data = await upstream.json()
+    return NextResponse.json(data)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to fetch training stats" },
+      { status: 500 }
+    )
+  }
 }

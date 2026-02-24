@@ -96,7 +96,34 @@ interface Organism {
   isContaminant: boolean
 }
 
-export function MyceliumSimulator() {
+export interface SimulatorMetrics {
+  virtual_hours: number
+  sample_count: number
+  contaminant_count: number
+  total_branches: number
+  avg_nutrient: number
+  glucose_mean: number
+  oxygen_mean: number
+}
+
+export interface SimulatorCompounds {
+  glucose: number
+  amino_acids: number
+  laccase: number
+  xylanase: number
+  pectinase: number
+  amylase: number
+  cellulase: number
+  atp: number
+  oxygen: number
+}
+
+export interface MyceliumSimulatorProps {
+  onMetricsUpdate?: (metrics: SimulatorMetrics) => void
+  onCompoundsUpdate?: (compounds: SimulatorCompounds) => void
+}
+
+export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: MyceliumSimulatorProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationRef = useRef<number>(0)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -130,6 +157,65 @@ export function MyceliumSimulator() {
   const logToConsole = useCallback((message: string) => {
     setConsoleLog(prev => [...prev.slice(-50), `[${new Date().toLocaleTimeString()}] ${message}`])
   }, [])
+
+  const isInsideDish = (x: number, y: number): boolean => {
+    const dx = x - CANVAS_SIZE / 2
+    const dy = y - CANVAS_SIZE / 2
+    return Math.sqrt(dx * dx + dy * dy) <= DISH_RADIUS
+  }
+
+  const emitMetricsAndCompounds = useCallback((overrideVirtualHours?: number) => {
+    if (!onMetricsUpdate && !onCompoundsUpdate) return
+    const samples = samplesRef.current
+    const contaminants = contaminantsRef.current
+    const nutrient = nutrientGridRef.current
+    const chem = chemicalFieldsRef.current
+    let totalNutrient = 0
+    let nutrientCells = 0
+    const compoundSums: Record<string, number> = {}
+    CHEMICAL_FIELDS.forEach(f => { compoundSums[f] = 0 })
+    let compoundCells = 0
+    for (let x = 0; x < CANVAS_SIZE; x++) {
+      for (let y = 0; y < CANVAS_SIZE; y++) {
+        if (!isInsideDish(x, y)) continue
+        if (nutrient[x]?.[y] !== undefined) {
+          totalNutrient += nutrient[x][y]
+          nutrientCells++
+        }
+        CHEMICAL_FIELDS.forEach(f => {
+          const v = chem[f]?.[x]?.[y]
+          if (typeof v === "number") {
+            compoundSums[f] += v
+            if (f === "glucose") compoundCells++
+          }
+        })
+      }
+    }
+    if (compoundCells === 0) compoundCells = 1
+    if (nutrientCells === 0) nutrientCells = 1
+    const totalBranches = samples.reduce((a, s) => a + s.branches.length, 0) +
+      contaminants.reduce((a, c) => a + c.branches.length, 0)
+    onMetricsUpdate?.({
+      virtual_hours: overrideVirtualHours ?? virtualHours,
+      sample_count: samples.length,
+      contaminant_count: contaminants.length,
+      total_branches: totalBranches,
+      avg_nutrient: totalNutrient / nutrientCells,
+      glucose_mean: compoundSums.glucose / compoundCells,
+      oxygen_mean: compoundSums.oxygen / compoundCells,
+    })
+    onCompoundsUpdate?.({
+      glucose: compoundSums.glucose / compoundCells,
+      amino_acids: compoundSums.amino_acids / compoundCells,
+      laccase: compoundSums.laccase / compoundCells,
+      xylanase: compoundSums.xylanase / compoundCells,
+      pectinase: compoundSums.pectinase / compoundCells,
+      amylase: compoundSums.amylase / compoundCells,
+      cellulase: compoundSums.cellulase / compoundCells,
+      atp: compoundSums.atp / compoundCells,
+      oxygen: compoundSums.oxygen / compoundCells,
+    })
+  }, [virtualHours, onMetricsUpdate, onCompoundsUpdate])
   
   // Initialize grids
   const initializeGrids = useCallback(() => {
@@ -166,13 +252,6 @@ export function MyceliumSimulator() {
     antifungalGridRef.current = antifungal
     chemicalFieldsRef.current = chemicalFields
   }, [agarType])
-  
-  // Check if point is inside petri dish
-  const isInsideDish = (x: number, y: number): boolean => {
-    const dx = x - CANVAS_SIZE / 2
-    const dy = y - CANVAS_SIZE / 2
-    return Math.sqrt(dx * dx + dy * dy) <= DISH_RADIUS
-  }
   
   // Draw petri dish background
   const drawBackground = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -288,7 +367,8 @@ export function MyceliumSimulator() {
     
     if (!isRunning) setIsRunning(true)
     logToConsole(`Placed ${isContaminant ? "contaminant" : "sample"}: ${species} at (${x.toFixed(0)}, ${y.toFixed(0)})`)
-  }, [selectedSpecies, selectedContaminant, isRunning, logToConsole])
+    emitMetricsAndCompounds()
+  }, [selectedSpecies, selectedContaminant, isRunning, logToConsole, emitMetricsAndCompounds])
   
   // Draw filament
   const drawFilament = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, props: SpeciesProps, isStarved: boolean = false) => {
@@ -391,7 +471,9 @@ export function MyceliumSimulator() {
     if (samplesRef.current.length === 0 && contaminantsRef.current.length === 0) {
       setIsRunning(false)
     }
-  }, [agarType, pH, temperature, humidity])
+
+    emitMetricsAndCompounds(virtualHours + 1)
+  }, [agarType, pH, temperature, humidity, emitMetricsAndCompounds])
   
   // Animation loop
   useEffect(() => {
@@ -414,7 +496,8 @@ export function MyceliumSimulator() {
     
     initializeGrids()
     drawBackground(ctx)
-  }, [initializeGrids, drawBackground])
+    emitMetricsAndCompounds()
+  }, [initializeGrids, drawBackground, emitMetricsAndCompounds])
   
   // Handle canvas click
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -458,6 +541,7 @@ export function MyceliumSimulator() {
     }
     
     logToConsole("Simulation reset")
+    emitMetricsAndCompounds(0)
   }
   
   // Save simulation data

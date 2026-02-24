@@ -799,6 +799,45 @@ function reconstructAbstractText(invertedIndex: Record<string, number[]>): strin
 }
 
 // ---------------------------------------------------------------------------
+// Exa semantic web search (optional)
+// ---------------------------------------------------------------------------
+
+async function searchExaWeb(query: string, limit: number, origin: string) {
+  try {
+    const res = await fetch(`${origin}/api/search/exa`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        numResults: Math.min(limit, 10),
+        category: "research paper",
+        includeText: true,
+        includeHighlights: true,
+      }),
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const results = data?.result?.results || []
+    return results.map((r: any) => ({
+      id: `exa-${r.id}`,
+      title: r.title || "",
+      authors: r.author ? [r.author] : [],
+      journal: r.url ? new URL(r.url).hostname : "",
+      year: r.published_date ? new Date(r.published_date).getFullYear() : 0,
+      doi: "",
+      url: r.url || "",
+      abstract: r.summary || r.text || "",
+      relatedSpecies: [],
+      _source: "Exa",
+      _highlights: r.highlights || [],
+    }))
+  } catch {
+    return []
+  }
+}
+
+// ---------------------------------------------------------------------------
 // AI answer
 // ---------------------------------------------------------------------------
 
@@ -877,6 +916,7 @@ export async function GET(request: NextRequest) {
   const types = typesStr.split(",").map((t) => t.trim())
   const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100)
   const includeAI = searchParams.get("ai") === "true"
+  const includeWeb = searchParams.get("include_web") === "true"
 
   if (!query || query.length < 2) {
     return NextResponse.json({
@@ -897,6 +937,8 @@ export async function GET(request: NextRequest) {
     const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
 
     // Run ALL searches in parallel — species, compounds, genetics simultaneously
+    const origin = new URL(request.url).origin
+
     const [
       mindexResults,
       mindexResearch,
@@ -904,6 +946,7 @@ export async function GET(request: NextRequest) {
       liveResults,
       crossRefResearch,
       openAlexResearch,
+      exaResearch,
       ncbiSequencesRaw,        // generic NCBI (works for species name queries)
       speciesGeneticsRaw,      // targeted NCBI by resolved scientific name
       speciesCompoundsRaw,     // PubChem compounds for this specific species
@@ -916,6 +959,7 @@ export async function GET(request: NextRequest) {
       types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
       types.includes("research") ? searchCrossRefResearch(query, limit) : Promise.resolve([]),
       types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5)) : Promise.resolve([]),
+      types.includes("research") && includeWeb ? searchExaWeb(query, Math.min(limit, 6), origin) : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
       types.includes("genetics") ? searchNCBIGenetics(query, Math.min(limit, 8)) : Promise.resolve([]),
       // Targeted genetics: when "Reishi" → search "Ganoderma lucidum[Organism] AND ITS[Gene]"
@@ -930,7 +974,7 @@ export async function GET(request: NextRequest) {
       types.includes("species")
         ? searchFungiForCompound(query, Math.min(limit, 8))
         : Promise.resolve([]),
-      includeAI ? getAIAnswer(query, new URL(request.url).origin) : Promise.resolve(undefined),
+      includeAI ? getAIAnswer(query, origin) : Promise.resolve(undefined),
     ])
 
     // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
@@ -1013,7 +1057,7 @@ export async function GET(request: NextRequest) {
     const genetics = ensureUniqueIds([...ncbiSequences, ...mindexNotInNcbi], "gen").slice(0, limit)
 
     // Research: MINDEX first, CrossRef primary, OpenAlex additive
-    const allResearch = [...mindexResearch, ...crossRefResearch, ...openAlexResearch]
+    const allResearch = [...mindexResearch, ...crossRefResearch, ...openAlexResearch, ...exaResearch]
     const research = ensureUniqueIds(allResearch, "res").slice(0, limit)
 
     const totalCount = species.length + compounds.length + genetics.length + research.length
@@ -1021,8 +1065,6 @@ export async function GET(request: NextRequest) {
     // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──
     // This ensures every search result gets stored in MINDEX so future searches
     // hit the DB instead of external APIs.
-    const origin = new URL(request.url).origin
-
     // 1. Species (from iNaturalist and compound-derived fungi)
     const speciesToIngest = species
       .filter((s: any) => String(s.id).startsWith("inat-"))

@@ -1,8 +1,22 @@
+"use client"
+
+import { useCallback, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { MyceliumSimulator } from "@/components/apps/mycelium-simulator"
+import { MyceliumSimulator, SimulatorCompounds, SimulatorMetrics } from "@/components/apps/mycelium-simulator"
+import { ChemicalParamsPanel } from "@/components/apps/chemical-params-panel"
+import { SimulationMetricsDashboard } from "@/components/apps/simulation-metrics-dashboard"
 import { MyceliumsegValidationPanel } from "@/components/scientific/myceliumseg-validation-panel"
 import { ArrowLeft, Microscope } from "lucide-react"
+
+const DEFAULT_COMPOUNDS: SimulatorCompounds = {
+  glucose: 0, amino_acids: 0, laccase: 0, xylanase: 0, pectinase: 0,
+  amylase: 0, cellulase: 0, atp: 0, oxygen: 0,
+}
+
+const DEFAULT_ENZYMES: Record<string, boolean> = {
+  laccase: true, xylanase: true, pectinase: true, amylase: true, cellulase: true,
+}
 
 export interface PetriDishSimContentProps {
   showBackLink?: boolean
@@ -10,6 +24,31 @@ export interface PetriDishSimContentProps {
 }
 
 export function PetriDishSimContent({ showBackLink = true, variant = "app" }: PetriDishSimContentProps) {
+  const [metrics, setMetrics] = useState<SimulatorMetrics>({
+    virtual_hours: 0,
+    sample_count: 0,
+    contaminant_count: 0,
+    total_branches: 0,
+    avg_nutrient: 0,
+    glucose_mean: 0,
+    oxygen_mean: 0,
+  })
+  const [compounds, setCompounds] = useState<SimulatorCompounds>(DEFAULT_COMPOUNDS)
+  const [enzymes] = useState(DEFAULT_ENZYMES)
+
+  const onMetricsUpdate = useCallback((m: SimulatorMetrics) => setMetrics(m), [])
+  const onCompoundsUpdate = useCallback((c: SimulatorCompounds) => setCompounds(c), [])
+
+  const metricsForDashboard = {
+    virtual_hours: metrics.virtual_hours,
+    sample_count: metrics.sample_count,
+    contaminant_count: metrics.contaminant_count,
+    total_branches: metrics.total_branches,
+    avg_nutrient: metrics.avg_nutrient,
+    glucose_mean: metrics.glucose_mean,
+    oxygen_mean: metrics.oxygen_mean,
+  }
+
   const wrapperClass =
     variant === "app" ? "container py-6 md:py-8 space-y-6" : "space-y-6"
 
@@ -56,7 +95,26 @@ export function PetriDishSimContent({ showBackLink = true, variant = "app" }: Pe
         </div>
       </div>
 
-      <MyceliumSimulator />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 min-w-0">
+            <MyceliumSimulator
+              onMetricsUpdate={onMetricsUpdate}
+              onCompoundsUpdate={onCompoundsUpdate}
+            />
+          </div>
+          <div className="flex flex-col gap-4 lg:w-72 shrink-0">
+            <ChemicalParamsPanel
+              compounds={compounds}
+              enzymes={enzymes}
+              onCompoundChange={() => {}}
+              onEnzymeToggle={() => {}}
+              readOnly
+            />
+            <SimulationMetricsDashboard metrics={metricsForDashboard} />
+          </div>
+        </div>
+      </div>
 
       <MyceliumsegValidationPanel />
 

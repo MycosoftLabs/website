@@ -417,6 +417,16 @@ export function Header() {
             <span>About Us</span>
           </Link>
 
+          {/* MYCA - Direct Link */}
+          <Link
+            href="/myca"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
+            onMouseEnter={() => setOpenDropdown(null)}
+          >
+            <Bot className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
+            <span>MYCA</span>
+          </Link>
+
           {/* Defense Dropdown */}
           <NavDropdown
             label="Defense"

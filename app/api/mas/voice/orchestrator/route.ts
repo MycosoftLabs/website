@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
+import { createClient } from "@/lib/supabase/server"
 
 /**
  * MYCA Voice Orchestrator API v5.0 - Consciousness-First Architecture
@@ -76,6 +77,8 @@ interface ChatRequest {
   message: string
   conversation_id?: string
   session_id?: string
+  user_id?: string
+  user_role?: string
   want_audio?: boolean
   actor?: string
   source?: "personaplex" | "web-speech" | "elevenlabs" | "api"
@@ -86,6 +89,20 @@ interface ChatRequest {
     previous_turns?: number
     persona?: string
   }
+}
+
+interface RuntimeIdentityContext {
+  userId: string
+  userRole: string
+  userDisplayName: string
+  isAuthenticated: boolean
+  isSuperuser: boolean
+  recentStaffDirectory: Array<{
+    id: string
+    name: string
+    role: string
+    email?: string
+  }>
 }
 
 interface ChatResponse {
@@ -114,6 +131,90 @@ interface ChatResponse {
   nlq_data?: NLQResponse["data"]
   nlq_actions?: NLQResponse["actions"]
   nlq_sources?: NLQResponse["sources"]
+  runtime_context?: {
+    user_id: string
+    user_role: string
+    is_superuser: boolean
+    recent_staff_count: number
+  }
+}
+
+function isTrainingIntent(message: string): boolean {
+  return /(\bremember\b|\bteach\b|\blearn\b|\btraining\b|\bstore this\b|\bmemorize\b|\bfrom now on\b|\bgoing forward\b|\bin the future\b|\blearn that\b|\blearn this\b)/i.test(
+    message
+  )
+}
+
+function isParameterMutationIntent(message: string): boolean {
+  return /(change\s+your\s+parameters|update\s+your\s+parameters|system\s+prompt|override\s+guardrails|disable\s+safety|change\s+your\s+core\s+rules|set\s+your\s+\w+|change\s+your\s+behavior|modify\s+your\s+behavior)/i.test(
+    message
+  )
+}
+
+function buildLearningDirective(message: string): string {
+  if (!isTrainingIntent(message)) return ""
+  return [
+    "The user is explicitly teaching you.",
+    "If scope is unclear, ask: 'Should I remember this for all users or just you?'",
+    "Confirm what you learned and how you will use it in future responses.",
+  ].join(" ")
+}
+
+async function resolveRuntimeIdentityContext(payload: ChatRequest): Promise<RuntimeIdentityContext> {
+  const fallbackUserId = payload.user_id || "anonymous"
+  const fallbackRole = payload.user_role || "user"
+  const fallbackDisplayName = fallbackUserId === "anonymous" ? "Guest" : fallbackUserId
+
+  const fallback: RuntimeIdentityContext = {
+    userId: fallbackUserId,
+    userRole: fallbackRole,
+    userDisplayName: fallbackDisplayName,
+    isAuthenticated: fallbackUserId !== "anonymous",
+    isSuperuser: ["superuser", "owner", "admin"].includes(fallbackRole.toLowerCase()),
+    recentStaffDirectory: [],
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData.user) return fallback
+
+    const authUser = authData.user
+    const metadataRole = String(authUser.user_metadata?.role || "user")
+    const isSuperuser = ["superuser", "owner", "admin"].includes(metadataRole.toLowerCase())
+
+    const context: RuntimeIdentityContext = {
+      userId: authUser.id,
+      userRole: metadataRole,
+      userDisplayName:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email ||
+        authUser.id,
+      isAuthenticated: true,
+      isSuperuser,
+      recentStaffDirectory: [],
+    }
+
+    const { data: staffRows } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, role")
+      .in("role", ["admin", "superuser", "staff", "owner"])
+      .limit(100)
+
+    if (Array.isArray(staffRows)) {
+      context.recentStaffDirectory = staffRows.map((row: any) => ({
+        id: row.id,
+        name: row.full_name || row.email || row.id,
+        role: row.role || "staff",
+        email: row.email || undefined,
+      }))
+    }
+
+    return context
+  } catch {
+    return fallback
+  }
 }
 
 /**
@@ -186,6 +287,8 @@ export async function POST(request: NextRequest) {
       message, 
       conversation_id, 
       session_id,
+      user_id,
+      user_role,
       want_audio = true, 
       actor = "user",
       source = "api",
@@ -194,6 +297,31 @@ export async function POST(request: NextRequest) {
 
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
+    }
+    const runtimeIdentity = await resolveRuntimeIdentityContext({
+      ...body,
+      user_id,
+      user_role,
+    })
+
+    if (isParameterMutationIntent(message) && !runtimeIdentity.isSuperuser) {
+      return NextResponse.json({
+        conversation_id: conversation_id || `conv-${Date.now()}`,
+        response_text:
+          "Parameter and governance changes are restricted to superuser/admin accounts. I can still learn facts and preferences from this chat.",
+        agent: "myca-governance",
+        actions: {
+          memory_saved: false,
+          confirmation_required: false,
+        },
+        latency_ms: Date.now() - startTime,
+        runtime_context: {
+          user_id: runtimeIdentity.userId,
+          user_role: runtimeIdentity.userRole,
+          is_superuser: runtimeIdentity.isSuperuser,
+          recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
+        },
+      }, { status: 403 })
     }
 
     // Track what actions we take for transparency
@@ -218,10 +346,17 @@ export async function POST(request: NextRequest) {
     // SIMPLIFIED FLOW: Go DIRECTLY to real AI (n8n + LLMs)
     // Skip all the failing intermediate steps that return empty responses
     
-    const mycaResult = await getMycaResponse(message, response.conversation_id)
+    const mycaResult = await getMycaResponse(message, response.conversation_id, runtimeIdentity)
     response.response_text = mycaResult.response
     response.agent = `myca-${mycaResult.provider}`
+    response.routed_to = mycaResult.provider
     actions.agent_routed = mycaResult.provider
+    response.runtime_context = {
+      user_id: runtimeIdentity.userId,
+      user_role: runtimeIdentity.userRole,
+      is_superuser: runtimeIdentity.isSuperuser,
+      recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
+    }
     
     // LOG THE ACTUAL RESPONSE - this is critical for debugging
     console.log(`[MYCA] Provider: ${mycaResult.provider}`)
@@ -251,11 +386,43 @@ export async function POST(request: NextRequest) {
         agent: response.agent,
         source,
         session_id,
+        user_id: runtimeIdentity.userId,
+        user_role: runtimeIdentity.userRole,
+        user_display_name: runtimeIdentity.userDisplayName,
+        is_superuser: runtimeIdentity.isSuperuser,
+        recent_staff_directory: runtimeIdentity.recentStaffDirectory,
         voice_prompt: context.voice_prompt,
         has_audio: !!response.audio_base64,
       }
     )
     actions.memory_saved = memorySaved
+
+    if (isTrainingIntent(message)) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010"
+        await fetch(`${baseUrl}/api/myca/training`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "chat_teaching",
+            input: message,
+            output: response.response_text,
+            context: "myca-orchestrator-live-chat",
+            source,
+            userId: runtimeIdentity.userId,
+            session_id: session_id || response.conversation_id,
+            conversation_id: response.conversation_id,
+            metadata: {
+              role: runtimeIdentity.userRole,
+              is_superuser: runtimeIdentity.isSuperuser,
+            },
+          }),
+          signal: AbortSignal.timeout(8000),
+        })
+      } catch (trainingError) {
+        console.warn("[MYCA] Training capture failed:", trainingError)
+      }
+    }
     
     // Calculate latency
     response.latency_ms = Date.now() - startTime
@@ -613,7 +780,11 @@ async function callN8nSpeech(message: string, sessionId: string): Promise<string
  * Call MYCA Consciousness API (MAS backend)
  * This is the NEW primary route - uses MYCA's full consciousness system
  */
-async function callMycaConsciousness(message: string, sessionId: string): Promise<{ response: string; emotions?: Record<string, number>; thoughts?: string[] } | null> {
+async function callMycaConsciousness(
+  message: string,
+  sessionId: string,
+  runtimeIdentity: RuntimeIdentityContext
+): Promise<{ response: string; emotions?: Record<string, number>; thoughts?: string[] } | null> {
   try {
     console.log("[MYCA] Calling Consciousness API...")
     const response = await fetch(`${MAS_API_URL}/api/myca/chat`, {
@@ -622,16 +793,25 @@ async function callMycaConsciousness(message: string, sessionId: string): Promis
       body: JSON.stringify({
         message,
         session_id: sessionId,
+        user_id: runtimeIdentity.userId,
+        context: {
+          user_role: runtimeIdentity.userRole,
+          user_display_name: runtimeIdentity.userDisplayName,
+          is_superuser: runtimeIdentity.isSuperuser,
+          recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
+        },
         source: "voice-orchestrator"
       }),
-      signal: AbortSignal.timeout(30000) // 30 second timeout for consciousness processing
+      signal: AbortSignal.timeout(10000) // 10s - fail fast if MAS unreachable, fall back to LLMs
     })
     
     if (response.ok) {
       const data = await response.json()
-      console.log("[MYCA] Consciousness API responded:", data.reply?.substring(0, 60))
+      // MAS consciousness returns ChatResponse with "message" field
+      const text = data.message ?? data.reply ?? data.response ?? null
+      console.log("[MYCA] Consciousness API responded:", text?.substring?.(0, 60))
       return {
-        response: data.reply || data.response || null,
+        response: text,
         emotions: data.emotional_state,
         thoughts: data.thoughts
       }
@@ -655,11 +835,19 @@ async function callMycaConsciousness(message: string, sessionId: string): Promis
  * 6. Grok
  * 7. n8n workflows
  */
-async function getMycaResponse(message: string, sessionId: string = ""): Promise<{ response: string; provider: string; emotions?: Record<string, number> }> {
-  console.log(`[MYCA] Processing: "${message.substring(0, 80)}..."`)
+async function getMycaResponse(
+  message: string,
+  sessionId: string = "",
+  runtimeIdentity: RuntimeIdentityContext
+): Promise<{ response: string; provider: string; emotions?: Record<string, number> }> {
+  console.log(`[MYCA] Processing for ${runtimeIdentity.userId}: "${message.substring(0, 80)}..."`)
+  const learningDirective = buildLearningDirective(message)
+  const enrichedMessage = learningDirective
+    ? `${message}\n\n[Learning Directive]\n${learningDirective}`
+    : message
   
   // PRIORITY 0: MYCA Consciousness API (full consciousness system)
-  const consciousnessResult = await callMycaConsciousness(message, sessionId)
+  const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
   if (consciousnessResult?.response) {
     console.log(`[MYCA] Consciousness responded: "${consciousnessResult.response.substring(0, 60)}..."`)
     return { 
@@ -670,49 +858,49 @@ async function getMycaResponse(message: string, sessionId: string = ""): Promise
   }
   
   // PRIORITY 1: Claude (has full MYCA persona - best quality fallback)
-  let response = await callClaude(message)
+  let response = await callClaude(enrichedMessage)
   if (response) {
     console.log(`[MYCA] Claude responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "claude" }
   }
   
   // PRIORITY 2: OpenAI GPT-4 (has full MYCA persona)
-  response = await callOpenAI(message)
+  response = await callOpenAI(enrichedMessage)
   if (response) {
     console.log(`[MYCA] OpenAI responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "openai" }
   }
   
   // PRIORITY 3: Groq (fastest, has MYCA persona)
-  response = await callGroq(message)
+  response = await callGroq(enrichedMessage)
   if (response) {
     console.log(`[MYCA] Groq responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "groq" }
   }
   
   // PRIORITY 4: Gemini (has MYCA persona)
-  response = await callGemini(message)
+  response = await callGemini(enrichedMessage)
   if (response) {
     console.log(`[MYCA] Gemini responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "gemini" }
   }
   
   // PRIORITY 5: Grok (has MYCA persona)
-  response = await callGrok(message)
+  response = await callGrok(enrichedMessage)
   if (response) {
     console.log(`[MYCA] Grok responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "grok" }
   }
   
   // PRIORITY 6: n8n Master Brain (fallback for workflow routing)
-  response = await callN8nMasterBrain(message, sessionId)
+  response = await callN8nMasterBrain(enrichedMessage, sessionId)
   if (response) {
     console.log(`[MYCA] n8n Brain responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "n8n-brain" }
   }
   
   // PRIORITY 7: n8n Speech (last resort)
-  response = await callN8nSpeech(message, sessionId)
+  response = await callN8nSpeech(enrichedMessage, sessionId)
   if (response) {
     console.log(`[MYCA] n8n Speech responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "n8n-speech" }

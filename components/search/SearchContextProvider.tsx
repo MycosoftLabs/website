@@ -21,6 +21,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react"
+import { useRouter } from "next/navigation"
+import { useWebMCPProvider } from "@/hooks/useWebMCPProvider"
 import type {
   SpeciesResult,
   CompoundResult,
@@ -78,6 +80,13 @@ export interface LiveObservation {
 
 type EventHandler = (payload: any) => void
 
+export type SearchAction =
+  | { type: "search"; query: string }
+  | { type: "focus_widget"; widget: WidgetFocusTarget["type"]; id?: string }
+  | { type: "expand_widget"; widget: WidgetFocusTarget["type"]; id?: string }
+  | { type: "add_to_notepad"; item: Omit<NotepadItem, "id" | "timestamp"> }
+  | { type: "clear_search" }
+
 interface SearchContextValue {
   // Query state
   query: string
@@ -132,6 +141,9 @@ interface SearchContextValue {
   // Event bus
   on: (event: string, handler: EventHandler) => () => void
   emit: (event: string, payload?: any) => void
+
+  // MYCA search actions
+  executeSearchAction: (action: SearchAction) => void
 
   // Loading
   isLoading: boolean
@@ -308,8 +320,70 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const executeSearchAction = useCallback(
+    (action: SearchAction) => {
+      if (!action) return
+      if (action.type === "search") {
+        setQuery(action.query)
+        emit("search:execute", { query: action.query })
+        return
+      }
+      if (action.type === "clear_search") {
+        setQuery("")
+        setResults(null)
+        emit("search:clear")
+        return
+      }
+      if (action.type === "add_to_notepad") {
+        addNotepadItem(action.item)
+        return
+      }
+      if (action.type === "focus_widget" || action.type === "expand_widget") {
+        focusWidget({ type: action.widget, id: action.id })
+      }
+    },
+    [addNotepadItem, emit, focusWidget, setResults]
+  )
+
+  useEffect(() => {
+    if (!mounted) return
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<SearchAction>).detail
+      if (!detail) return
+      executeSearchAction(detail)
+    }
+    window.addEventListener("myca-search-action", handler as EventListener)
+    return () => window.removeEventListener("myca-search-action", handler as EventListener)
+  }, [executeSearchAction, mounted])
+
   // Loading
   const [isLoading, setIsLoading] = useState(false)
+
+  // WebMCP provider - register tools when navigator.modelContext available
+  const router = useRouter()
+  useWebMCPProvider({
+    onRunSearch: (q) => executeSearchAction({ type: "search", query: q }),
+    onFocusWidget: (widget, id) =>
+      focusWidget({
+        type: widget as WidgetFocusTarget["type"],
+        id,
+      }),
+    onAddNotepadItem: (item) =>
+      addNotepadItem({
+        type: item.type as NotepadItem["type"],
+        title: item.title,
+        content: item.content,
+        source: item.source,
+      }),
+    onReadPageContext: async () => ({
+      query: query || undefined,
+      activeEntities: [
+        ...(focusedSpeciesId ? [`species:${focusedSpeciesId}`] : []),
+        ...(focusedCompoundId ? [`compound:${focusedCompoundId}`] : []),
+      ],
+    }),
+    onNavigate: (path) => router.push(path),
+  })
 
   // Auto-summarize searches in chat
   useEffect(() => {
@@ -363,6 +437,7 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     setVoiceListening,
     on,
     emit,
+    executeSearchAction,
     isLoading,
     setIsLoading,
   }

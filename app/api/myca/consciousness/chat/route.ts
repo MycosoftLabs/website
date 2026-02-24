@@ -6,17 +6,27 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    const authUser = auth.user
+    const resolvedUserId = authUser?.id || body.user_id || "anonymous"
+    const resolvedUserRole = authUser?.user_metadata?.role || body.user_role || "user"
     const payload = {
       ...body,
-      user_id: body.user_id || "anonymous",
+      user_id: resolvedUserId,
       session_id: body.session_id,
       conversation_id: body.conversation_id,
+      context: {
+        ...(body.context || {}),
+        user_role: resolvedUserRole,
+      },
     }
     
     const response = await fetch(`${MAS_API_URL}/api/myca/chat`, {

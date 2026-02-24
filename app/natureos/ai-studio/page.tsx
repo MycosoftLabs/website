@@ -7,6 +7,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { useWebMCPProvider } from "@/hooks/useWebMCPProvider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -61,6 +63,9 @@ import {
 } from "@/components/mas/topology/agent-registry"
 
 export default function AIStudioPage() {
+  const router = useRouter()
+  useWebMCPProvider({ onNavigate: (path) => router.push(path) })
+
   // Initialize with REAL data from agent registry
   const realActiveCount = getActiveAgents().length
   const [stats, setStats] = useState<SystemStats>({

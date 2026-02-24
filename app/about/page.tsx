@@ -44,7 +44,7 @@ const technologyPillars = [
     description: "MYCA is our multi-agent cognitive system — 117+ specialized agents managing research, analysis, infrastructure, and scientific discovery. The Nature Learning Model (NLM) processes environmental and ecological data to predict biological events with machine precision.",
     links: [
       { label: "AI Studio", href: "/natureos/ai-studio" },
-      { label: "MYCA Chat", href: "/myca-ai" },
+      { label: "MYCA", href: "/myca" },
     ],
   },
   {

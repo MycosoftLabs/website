@@ -232,6 +232,12 @@ export function MobileNav() {
                   About Us
                 </Link>
 
+                {/* MYCA - Direct Link */}
+                <Link href="/myca" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                  <Bot className="h-5 w-5" />
+                  MYCA
+                </Link>
+
                 {/* Defense - Expandable */}
                 <ExpandableSection
                   title="Defense"

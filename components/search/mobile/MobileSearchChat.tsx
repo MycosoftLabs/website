@@ -83,16 +83,30 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
+  // Build context for MYCA from initial query and recent conversation
+  const getContextText = useCallback(() => {
+    const parts: string[] = []
+    if (initialQuery?.trim()) parts.push(`Current search query: ${initialQuery}`)
+    const recentUserMessages = messages
+      .filter((m) => m.role === "user")
+      .slice(-2)
+      .map((m) => m.content)
+    if (recentUserMessages.length) {
+      parts.push(`Recent user messages: ${recentUserMessages.join("; ")}`)
+    }
+    return parts.length ? parts.join(". ") : undefined
+  }, [initialQuery, messages])
+
   // Handle sending messages
   const handleSend = async (text: string) => {
     if (!text.trim()) return
-    await sendMessage(text, { source: "web" })
+    await sendMessage(text, { source: "web", contextText: getContextText() })
   }
 
   // Handle voice input
   const handleVoice = async (transcript: string) => {
     if (!transcript.trim()) return
-    await sendMessage(transcript, { source: "web-speech" })
+    await sendMessage(transcript, { source: "web-speech", contextText: getContextText() })
   }
 
   // Save message to notepad

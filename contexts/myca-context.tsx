@@ -37,6 +37,19 @@ export interface MYCASendOptions {
   source?: "web" | "personaplex" | "web-speech" | "api"
 }
 
+export interface MYCASearchAction {
+  type: "search" | "focus_widget" | "expand_widget" | "add_to_notepad" | "clear_search"
+  query?: string
+  widget?: "species" | "chemistry" | "genetics" | "research" | "ai"
+  id?: string
+  item?: Record<string, unknown>
+}
+
+export interface MYCALastResponseMetadata {
+  agent?: string
+  routed_to?: string
+}
+
 export interface MYCAContextValue {
   sessionId: string
   userId: string | null
@@ -44,6 +57,7 @@ export interface MYCAContextValue {
   setConversationId: (id: string | null) => void
   messages: MYCAMessage[]
   isLoading: boolean
+  lastResponseMetadata: MYCALastResponseMetadata | null
   memoryEnabled: boolean
   setMemoryEnabled: (enabled: boolean) => void
   pendingConfirmationId: string | null
@@ -53,6 +67,7 @@ export interface MYCAContextValue {
   loadConversation: (conversationId: string) => Promise<void>
   restoreFromMAS: () => Promise<void>
   syncToMAS: () => Promise<void>
+  executeSearchAction: (action: MYCASearchAction) => void
   consciousness: MYCAConsciousnessState | null
 }
 
@@ -85,6 +100,7 @@ function normalizeMessages(rawMessages: Array<Record<string, any>>): MYCAMessage
 export function MYCAProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const userId = user?.id || null
+  const userRole = user?.role || null
 
   const [sessionId, setSessionId] = useState("")
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -93,7 +109,14 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
   const [memoryEnabled, setMemoryEnabled] = useState(true)
   const [pendingConfirmationId, setPendingConfirmationId] = useState<string | null>(null)
   const [consciousness, setConsciousness] = useState<MYCAConsciousnessState | null>(null)
+  const [lastResponseMetadata, setLastResponseMetadata] = useState<MYCALastResponseMetadata | null>(null)
   const hasInitializedRef = useRef(false)
+
+  const executeSearchAction = useCallback((action: MYCASearchAction) => {
+    if (typeof window === "undefined") return
+    if (!action || !action.type) return
+    window.dispatchEvent(new CustomEvent("myca-search-action", { detail: action }))
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -168,11 +191,24 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       const requestMessage = contextText ? `${contextText}\n\n${text}` : text
 
       try {
+        const timeoutMs = 180_000
+        const timeoutSignal =
+          typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+            ? AbortSignal.timeout(timeoutMs)
+            : (() => {
+                const c = new AbortController()
+                setTimeout(() => c.abort(new DOMException("Request timeout", "TimeoutError")), timeoutMs)
+                return c.signal
+              })()
+
         const response = await fetch("/api/mas/voice/orchestrator", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: timeoutSignal,
           body: JSON.stringify({
             message: requestMessage,
+            user_id: userId || undefined,
+            user_role: userRole || undefined,
             conversation_id: conversationId || undefined,
             session_id: sessionId || undefined,
             want_audio: options?.wantAudio ?? false,
@@ -187,7 +223,14 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
 
         if (!response.ok) {
           const errorText = await response.text()
-          throw new Error(errorText || "Failed to reach MYCA orchestrator")
+          let errMsg = "Failed to reach MYCA"
+          try {
+            const errJson = JSON.parse(errorText)
+            errMsg = errJson.error || errJson.message || errMsg
+          } catch {
+            if (errorText) errMsg = errorText.slice(0, 200)
+          }
+          throw new Error(errMsg)
         }
 
         const data = await response.json()
@@ -214,6 +257,17 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
         }
 
         appendMessage(assistantMessage)
+        setLastResponseMetadata({
+          agent: data.agent,
+          routed_to: data.routed_to,
+        })
+
+        const actionList = Array.isArray(data.search_actions)
+          ? data.search_actions
+          : Array.isArray(data.actions)
+            ? data.actions
+            : []
+        actionList.forEach((action: MYCASearchAction) => executeSearchAction(action))
 
         if (assistantMessage.requires_confirmation) {
           setPendingConfirmationId(assistantMessage.confirmation_id || nextConversationId)
@@ -225,10 +279,20 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
           await Promise.all([storeMemory(userMessage), storeMemory(assistantMessage)])
         }
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : "Unknown error"
+        const isAbort = error instanceof Error && error.name === "AbortError"
+        const isTimeout = isAbort || /abort|timeout/i.test(errMsg)
+        const isNetwork = /fetch|network|failed to fetch|timeout/i.test(errMsg)
         appendMessage({
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: "assistant",
-          content: "MYCA is currently unavailable. Please try again in a moment.",
+          content: isTimeout
+            ? "Request timed out. The orchestrator or LLM may be slow. Check MAS (192.168.0.188:8001) and API keys in .env.local."
+            : isNetwork
+            ? "MYCA can't reach the API backend. Ensure MAS (192.168.0.188) is reachable and LLM keys (ANTHROPIC_API_KEY, etc.) are in .env.local."
+            : errMsg.includes("API keys")
+            ? "MYCA's AI backends need API keys. Add ANTHROPIC_API_KEY or other LLM keys to .env.local."
+            : `MYCA is unavailable: ${errMsg.slice(0, 120)}`,
           timestamp: new Date().toISOString(),
           agent: "myca-orchestrator",
         })
@@ -237,7 +301,7 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false)
       }
     },
-    [appendMessage, conversationId, memoryEnabled, sessionId, storeMemory, userId]
+    [appendMessage, conversationId, executeSearchAction, memoryEnabled, sessionId, storeMemory, userId, userRole]
   )
 
   const confirmAction = useCallback(
@@ -281,6 +345,7 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
     setMessages([])
     setConversationId(null)
     setPendingConfirmationId(null)
+    setLastResponseMetadata(null)
     if (typeof window !== "undefined") {
       const conversationKey = buildStorageKey(CONVERSATION_KEY_PREFIX, userId)
       localStorage.removeItem(conversationKey)
@@ -364,7 +429,11 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     const fetchConsciousness = async () => {
       try {
-        const response = await fetch("/api/myca/consciousness/status", {
+        const params = new URLSearchParams()
+        if (userId) params.set("user_id", userId)
+        if (sessionId) params.set("session_id", sessionId)
+        if (conversationId) params.set("conversation_id", conversationId)
+        const response = await fetch(`/api/myca/consciousness/status?${params.toString()}`, {
           cache: "no-store",
           signal: AbortSignal.timeout(8000),
         })
@@ -376,12 +445,12 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       }
     }
     fetchConsciousness()
-    const interval = setInterval(fetchConsciousness, 15000)
+    const interval = setInterval(fetchConsciousness, 30000)
     return () => {
       mounted = false
       clearInterval(interval)
     }
-  }, [])
+  }, [conversationId, sessionId, userId])
 
   const value = useMemo(
     () => ({
@@ -400,7 +469,9 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       loadConversation,
       restoreFromMAS,
       syncToMAS,
+      executeSearchAction,
       consciousness,
+      lastResponseMetadata,
     }),
     [
       sessionId,
@@ -416,7 +487,9 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       loadConversation,
       restoreFromMAS,
       syncToMAS,
+      executeSearchAction,
       consciousness,
+      lastResponseMetadata,
     ]
   )
 

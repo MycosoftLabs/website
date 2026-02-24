@@ -384,6 +384,14 @@ export function FluidSearchCanvas({
     return unsub
   }, [ctx])
 
+  // When MYCA triggers a search action, update localQuery so results refresh
+  useEffect(() => {
+    const unsub = ctx.on("search:execute", (payload: { query?: string }) => {
+      if (payload?.query) setLocalQuery(payload.query)
+    })
+    return unsub
+  }, [ctx])
+
   // Sync initialQuery
   useEffect(() => {
     if (initialQuery) {
@@ -1176,6 +1184,12 @@ export function FluidSearchCanvas({
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
                         research={research} aiAnswer={aiAnswer}
+                        searchContext={{
+                          species: species.slice(0, 5).map((s) => s.scientificName || s.commonName).filter(Boolean),
+                          compounds: compounds.slice(0, 5).map((c) => c.name).filter(Boolean),
+                          genetics: genetics.slice(0, 5).map((g) => g.speciesName || g.geneRegion).filter(Boolean),
+                          research: research.slice(0, 5).map((r) => r.title).filter(Boolean),
+                        }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={crepResults} earth2={earth2Data} mapObservations={mapObservations}
                         mycaSuggestions={suggestions}
@@ -1329,6 +1343,7 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
 // Widget content renderer -- now accepts focusedItemId and all data types
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
+  searchContext,
   media, mediaError, location, news, newsError, newsQueryUsed,
   crep, earth2, mapObservations,
   mycaSuggestions,
@@ -1339,6 +1354,7 @@ function WidgetContent({
 }: {
   type: WidgetType
   species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
+  searchContext?: { species?: string[]; compounds?: string[]; genetics?: string[]; research?: string[] }
   media: any[]; mediaError?: string; location: any[]; news: any[]; newsError?: string; newsQueryUsed?: string
   crep: any[]; earth2: any; mapObservations: any[]
   mycaSuggestions: { widgets: string[]; queries: string[] }
@@ -1386,7 +1402,7 @@ function WidgetContent({
     case "ai":
       if (isLoading && !aiAnswer) return <AIWidget answer={{ text: "", confidence: 0, sources: [] }} isLoading isFocused={isFocused} />
       if (!aiAnswer) return <EmptyWidgetState type="ai" label="AI Insights" />
-      return <AIWidget answer={aiAnswer} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      return <AIWidget answer={aiAnswer} isFocused={isFocused} searchContext={searchContext} onAddToNotepad={onAddToNotepad} />
     case "media":
       if (mediaError) return <MediaWidget data={[]} error={mediaError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
       if (isLoading && media.length === 0) return <MediaWidget data={[]} isLoading isFocused={isFocused} />

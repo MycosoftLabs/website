@@ -15,6 +15,7 @@ const METABASE_URL = process.env.METABASE_URL || "http://192.168.0.188:3000"
 const METABASE_API_KEY = process.env.METABASE_API_KEY || ""
 const METABASE_USERNAME = process.env.METABASE_USERNAME || "morgan@mycosoft.org"
 const METABASE_PASSWORD = process.env.METABASE_PASSWORD || "Mushroom1!"
+const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 interface MetabaseSession {
   id: string
@@ -149,33 +150,75 @@ async function executeQuestion(questionId: number): Promise<unknown> {
   return response.json()
 }
 
-// Natural language to SQL (placeholder - would use AI)
-async function naturalLanguageQuery(question: string): Promise<{ sql: string; explanation: string }> {
-  // This would ideally use an LLM to convert natural language to SQL
-  // For now, we provide common query patterns
-  const lowerQuestion = question.toLowerCase()
-  
-  let sql = ""
-  let explanation = ""
-  
-  if (lowerQuestion.includes("count") && lowerQuestion.includes("species")) {
-    sql = "SELECT COUNT(*) as total_species FROM species"
-    explanation = "Counting total species in the database"
-  } else if (lowerQuestion.includes("revenue") || lowerQuestion.includes("sales")) {
-    sql = "SELECT SUM(amount) as total_revenue, DATE(created_at) as date FROM transactions GROUP BY DATE(created_at) ORDER BY date DESC LIMIT 30"
-    explanation = "Getting revenue by day for the last 30 days"
-  } else if (lowerQuestion.includes("user") && lowerQuestion.includes("count")) {
-    sql = "SELECT COUNT(*) as total_users FROM users WHERE active = true"
-    explanation = "Counting active users"
-  } else if (lowerQuestion.includes("agent") && lowerQuestion.includes("task")) {
-    sql = "SELECT agent_id, COUNT(*) as task_count FROM agent_tasks GROUP BY agent_id ORDER BY task_count DESC LIMIT 10"
-    explanation = "Getting task counts by agent"
-  } else {
-    sql = ""
-    explanation = "I couldn't determine the right query. Please be more specific about what data you need."
+// Schema context for LLM (add tables/columns as Metabase schema evolves)
+const METABASE_SCHEMA_CONTEXT = `
+Common tables: taxa, compounds, observations, genetics, research, users, sessions.
+When user asks for counts, aggregations, or analytics, generate appropriate SELECT with COUNT, SUM, GROUP BY.
+`
+
+// Natural language to SQL (LLM-backed)
+async function naturalLanguageQuery(
+  question: string,
+  databaseId: number
+): Promise<{ sql?: string; explanation: string; needsClarification?: boolean }> {
+  const prompt = [
+    "You are MYCA, a SQL assistant for Metabase.",
+    "Rules:",
+    "- Return ONLY JSON with keys: sql, explanation, needsClarification.",
+    "- SQL must be a single SELECT statement (no writes, no DDL).",
+    "- If the question is ambiguous, set needsClarification=true and leave sql empty.",
+    `- Database ID: ${databaseId}.`,
+    "- Schema context:" + METABASE_SCHEMA_CONTEXT,
+    "",
+    `Question: ${question}`,
+  ].join("\n")
+
+  try {
+    const res = await fetch(`${MAS_API_URL}/voice/brain/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: prompt,
+        provider: "auto",
+        include_memory_context: false,
+        user_id: "metabase-nlq",
+        session_id: `metabase-nlq-${Date.now()}`,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) {
+      return {
+        explanation: "Unable to generate SQL at this time.",
+        needsClarification: true,
+      }
+    }
+
+    const data = await res.json()
+    const raw = (data.response || data.message || data.content || "").trim()
+    if (!raw) {
+      return {
+        explanation: "No SQL was generated. Please clarify your question.",
+        needsClarification: true,
+      }
+    }
+
+    const parsed = JSON.parse(raw) as {
+      sql?: string
+      explanation?: string
+      needsClarification?: boolean
+    }
+
+    return {
+      sql: parsed.sql?.trim(),
+      explanation: parsed.explanation || "Generated a SQL query for your request.",
+      needsClarification: parsed.needsClarification,
+    }
+  } catch {
+    return {
+      explanation: "Unable to generate SQL at this time.",
+      needsClarification: true,
+    }
   }
-  
-  return { sql, explanation }
 }
 
 // GET - Health check and available databases
@@ -243,7 +286,10 @@ export async function POST(request: NextRequest) {
         if (!naturalQuery) {
           return NextResponse.json({ error: "Natural query is required" }, { status: 400 })
         }
-        const { sql, explanation } = await naturalLanguageQuery(naturalQuery)
+        const { sql, explanation, needsClarification } = await naturalLanguageQuery(
+          naturalQuery,
+          databaseId || 1
+        )
         
         if (sql) {
           try {
@@ -267,7 +313,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           explanation,
           type: "natural",
-          needsClarification: true
+          needsClarification: needsClarification ?? true
         })
         
       default:

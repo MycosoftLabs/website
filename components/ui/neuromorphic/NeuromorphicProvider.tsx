@@ -31,7 +31,7 @@ export function NeuromorphicProvider({
   const wrapperClass = `neuromorphic-page ${isDark ? "neuromorphic-dark" : ""} ${className}`.trim()
 
   return (
-    <div className={wrapperClass} suppressHydrationWarning>
+    <div className={`${wrapperClass} w-full min-h-full`} suppressHydrationWarning>
       {children}
     </div>
   )

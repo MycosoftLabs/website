@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
@@ -20,13 +21,16 @@ interface SyncRequest {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const sessionId = searchParams.get("session_id")
-  const userId = searchParams.get("user_id") || "anonymous"
+  const requestedUserId = searchParams.get("user_id")
 
   if (!sessionId) {
     return NextResponse.json({ error: "session_id is required" }, { status: 400 })
   }
 
   try {
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    const userId = auth.user?.id || requestedUserId || "anonymous"
     const response = await fetch(
       `${MAS_API_URL}/memory/conversations?user_id=${encodeURIComponent(userId)}&session_id=${encodeURIComponent(sessionId)}`,
       { cache: "no-store" }
@@ -53,6 +57,9 @@ export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json()
     const { session_id, user_id, conversation_id, messages = [] } = body
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    const resolvedUserId = auth.user?.id || user_id || "anonymous"
 
     if (!session_id || messages.length === 0) {
       return NextResponse.json(
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id,
-            user_id: user_id || "anonymous",
+            user_id: resolvedUserId,
             message: message.content,
             role: message.role,
             agent: message.agent,

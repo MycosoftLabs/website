@@ -111,7 +111,7 @@ export function MYCAChatWidget({
         </div>
       )}
 
-      <ScrollArea className="flex-1 px-3 py-2" ref={scrollRef}>
+      <ScrollArea className="flex-1 min-h-0 px-3 py-2" ref={scrollRef}>
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-xs text-muted-foreground text-center py-8">

@@ -1,0 +1,37 @@
+/**
+ * MAS Commerce Checkout proxy - February 17, 2026
+ *
+ * Proxies to MAS /api/commerce/checkout for UCP-first commerce.
+ */
+
+import { NextRequest, NextResponse } from "next/server"
+
+const MAS_API_URL =
+  process.env.MAS_API_URL ||
+  process.env.NEXT_PUBLIC_MAS_API_URL ||
+  "http://192.168.0.188:8001"
+
+export async function POST(req: NextRequest) {
+  let body: unknown = null
+  try {
+    body = await req.json()
+  } catch {
+    body = {}
+  }
+
+  try {
+    const res = await fetch(`${MAS_API_URL.replace(/\/$/, "")}/api/commerce/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+    const data = await res.json()
+    return NextResponse.json(data, { status: res.status })
+  } catch (e) {
+    return NextResponse.json(
+      { success: false, error: String(e) },
+      { status: 502 }
+    )
+  }
+}

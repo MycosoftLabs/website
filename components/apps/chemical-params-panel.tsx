@@ -10,6 +10,7 @@ interface ChemicalParamsPanelProps {
   enzymes: Record<string, boolean>
   onCompoundChange: (compound: string, concentration: number) => void
   onEnzymeToggle: (enzyme: string, enabled: boolean) => void
+  readOnly?: boolean
 }
 
 export function ChemicalParamsPanel({
@@ -17,6 +18,7 @@ export function ChemicalParamsPanel({
   enzymes,
   onCompoundChange,
   onEnzymeToggle,
+  readOnly = false,
 }: ChemicalParamsPanelProps) {
   return (
     <Card>
@@ -36,7 +38,8 @@ export function ChemicalParamsPanel({
                 min={0}
                 max={100}
                 step={0.5}
-                onValueChange={([next]) => onCompoundChange(compound, next)}
+                onValueChange={([next]) => !readOnly && onCompoundChange(compound, next)}
+                disabled={readOnly}
               />
             </div>
           ))}
@@ -45,7 +48,7 @@ export function ChemicalParamsPanel({
           {Object.entries(enzymes).map(([enzyme, enabled]) => (
             <div key={enzyme} className="flex items-center justify-between gap-2">
               <Label className="text-xs">{enzyme.replace(/_/g, " ")}</Label>
-              <Switch checked={enabled} onCheckedChange={(next) => onEnzymeToggle(enzyme, next)} />
+              <Switch checked={enabled} onCheckedChange={(next) => !readOnly && onEnzymeToggle(enzyme, next)} disabled={readOnly} />
             </div>
           ))}
         </div>

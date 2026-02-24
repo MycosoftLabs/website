@@ -36,6 +36,8 @@ import {
   Wrench,
   FileText,
   Wifi,
+  Droplets,
+  Shield,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -129,6 +131,12 @@ const navSections: NavSection[] = [
     defaultOpen: false,
     items: [
       { title: "Device Network", href: "/natureos/devices", icon: Network },
+      { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu },
+      { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets },
+      { title: "FCI Monitor", href: "/natureos/fci", icon: Brain },
+      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity },
+      { title: "Petri Simulator", href: "/natureos/petri-sim", icon: PipetteIcon },
+      { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database },
       { title: "Storage", href: "/natureos/storage", icon: Layers },
       { title: "Containers", href: "/natureos/containers", icon: Boxes },

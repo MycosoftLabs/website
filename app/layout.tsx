@@ -3,6 +3,7 @@ import type { Viewport } from "next"
 import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
+import { PresenceProvider } from "@/contexts/presence-context"
 import { AppStateProvider } from "@/contexts/app-state-context"
 import { MYCAProvider } from "@/contexts/myca-context"
 import { Header } from "@/components/header"
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className={geistSans.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
+            <PresenceProvider>
             <AppStateProvider>
               <MYCAProvider>
                 <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
@@ -63,6 +65,7 @@ export default function RootLayout({
                 </UnifiedVoiceProvider>
               </MYCAProvider>
             </AppStateProvider>
+            </PresenceProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -1002,6 +1002,117 @@
   color: #ffffff !important;
 }
 
+/* ========== MYCA Page: Dark mode section backgrounds and widgets ========== */
+.neuromorphic-page.neuromorphic-dark .myca-page {
+  background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary)) !important;
+}
+/* MYCA sections: dark backgrounds */
+.neuromorphic-page.neuromorphic-dark .myca-page .neuromorphic-section,
+.neuromorphic-page.neuromorphic-dark .myca-page section:not([data-over-video]) {
+  background-color: #1f2937 !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page section[class*="bg-muted"] {
+  background-color: #111827 !important;
+}
+/* NeuCard / neu-raised in MYCA: dark background */
+.neuromorphic-page.neuromorphic-dark .myca-page .neu-raised,
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="neu-raised"] {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  box-shadow:
+    8px 8px 16px #111827,
+    -8px -8px 16px #4b5563 !important;
+  border-color: #4b5563 !important;
+}
+/* Override bg-card/80, bg-green-500/5 etc. on NeuCards */
+.neuromorphic-page.neuromorphic-dark .myca-page .neu-raised[class*="bg-card"],
+.neuromorphic-page.neuromorphic-dark .myca-page .neu-raised[class*="bg-green"] {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+}
+/* Shadcn Card in MYCA (LiveDemo, ComparisonTable) */
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"],
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] h3,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] p,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] span,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] pre,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] td,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="card"] th,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card h3,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card p,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card span,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card pre,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card td,
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-card th {
+  color: #e5e7eb !important;
+}
+/* All bg-muted variants in MYCA */
+.neuromorphic-page.neuromorphic-dark .myca-page .bg-muted,
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="bg-muted"] {
+  background-color: #374151 !important;
+}
+/* NLM Architecture diagram container */
+.neuromorphic-page.neuromorphic-dark .myca-page .rounded-xl.border[class*="bg-muted"] {
+  background-color: #1f2937 !important;
+  border-color: #4b5563 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="bg-slate-700"] {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="bg-green-600"] {
+  background-color: rgba(34, 197, 94, 0.2) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #bbf7d0 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="bg-blue-900"] {
+  background-color: rgba(30, 58, 138, 0.3) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #bfdbfe !important;
+}
+/* NeuBadge and Badge in MYCA dark mode */
+.neuromorphic-page.neuromorphic-dark .myca-page [class*="rounded-full"].px-4,
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="badge"] {
+  background: linear-gradient(145deg, #374151, #1f2937) !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+/* Tabs (LiveDemo) - TabsList and triggers */
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="tabs-list"],
+.neuromorphic-page.neuromorphic-dark .myca-page [role="tablist"] {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="tabs-trigger"],
+.neuromorphic-page.neuromorphic-dark .myca-page [role="tab"] {
+  color: #9ca3af !important;
+}
+.neuromorphic-page.neuromorphic-dark .myca-page [data-slot="tabs-trigger"][data-state="active"],
+.neuromorphic-page.neuromorphic-dark .myca-page [role="tab"][data-state="active"] {
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+}
+/* neu-inset (TechnicalSpecs chevron buttons) */
+.neuromorphic-page.neuromorphic-dark .myca-page .neu-inset {
+  background: linear-gradient(145deg, #1f2937, #374151) !important;
+  box-shadow:
+    inset 4px 4px 8px #111827,
+    inset -4px -4px 8px #4b5563 !important;
+}
+/* text-green-700, text-green-600 dark mode fix */
+.neuromorphic-page.neuromorphic-dark .myca-page .text-green-700,
+.neuromorphic-page.neuromorphic-dark .myca-page .text-green-600 {
+  color: #6ee7b7 !important;
+}
+/* Suggested prompts pills, agent chips (LiveDemo) */
+.neuromorphic-page.neuromorphic-dark .myca-page .rounded-lg[class*="bg-muted"] {
+  background-color: #374151 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .neuromorphic-page *,
   .neuromorphic-page *::before,

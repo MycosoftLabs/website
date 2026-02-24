@@ -39,10 +39,24 @@ interface FollowUpResponse {
   sources: string[]
 }
 
+interface FollowUpEntry {
+  id: string
+  question: string
+  answer: FollowUpResponse
+}
+
+interface SearchContextForAI {
+  species?: string[]
+  compounds?: string[]
+  genetics?: string[]
+  research?: string[]
+}
+
 interface AIWidgetProps {
   answer: AIAnswer
   isFocused: boolean
   isLoading?: boolean
+  searchContext?: SearchContextForAI
   onFollowUp?: (question: string) => void
   onFeedback?: (positive: boolean) => void
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
@@ -76,16 +90,26 @@ export function AIWidget({
   answer,
   isFocused,
   isLoading = false,
+  searchContext,
   onFollowUp,
   onFeedback,
   onAddToNotepad,
   className,
 }: AIWidgetProps) {
   const [followUpQuestion, setFollowUpQuestion] = useState("")
-  const [followUpResponses, setFollowUpResponses] = useState<Array<{ question: string; answer: FollowUpResponse }>>([])
+  const [followUpResponses, setFollowUpResponses] = useState<FollowUpEntry[]>([])
   const [isAsking, setIsAsking] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const [showSources, setShowSources] = useState(false)
   const [feedbackGiven, setFeedbackGiven] = useState<boolean | null>(null)
+
+  const updateFollowUpAnswer = useCallback((id: string, updater: (prev: FollowUpResponse) => FollowUpResponse) => {
+    setFollowUpResponses((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, answer: updater(entry.answer) } : entry
+      )
+    )
+  }, [])
 
   const handleFollowUp = useCallback(
     async (question?: string) => {
@@ -93,56 +117,95 @@ export function AIWidget({
       if (!q) return
       setFollowUpQuestion("")
       setIsAsking(true)
+      setIsStreaming(true)
+
+      const entryId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      setFollowUpResponses((prev) => [
+        ...prev,
+        {
+          id: entryId,
+          question: q,
+          answer: {
+            text: "",
+            confidence: 0.5,
+            sources: ["stream"],
+          },
+        },
+      ])
 
       try {
-        const res = await fetch(`/api/search/ai?q=${encodeURIComponent(q)}`, {
-          signal: AbortSignal.timeout(15000),
+        const res = await fetch(`/api/search/ai/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: q,
+            context: searchContext,
+          }),
+          signal: AbortSignal.timeout(20000),
         })
-        if (res.ok) {
-          const data = await res.json()
-          setFollowUpResponses((prev) => [
-            ...prev,
-            {
-              question: q,
-              answer: {
-                text: data.result?.answer || "No response available.",
-                confidence: data.result?.confidence || 0.5,
-                sources: [data.result?.source || "ai"],
-              },
-            },
-          ])
-        } else {
-          setFollowUpResponses((prev) => [
-            ...prev,
-            {
-              question: q,
-              answer: {
-                text: "Unable to get a response. Please try again.",
-                confidence: 0.3,
-                sources: ["error"],
-              },
-            },
-          ])
+
+        if (!res.ok || !res.body) {
+          updateFollowUpAnswer(entryId, () => ({
+            text: "Unable to get a response. Please try again.",
+            confidence: 0.3,
+            sources: ["error"],
+          }))
+          return
+        }
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder("utf-8")
+        let buffer = ""
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          const parts = buffer.split("\n\n")
+          buffer = parts.pop() || ""
+
+          for (const part of parts) {
+            const line = part.split("\n").find((l) => l.startsWith("data: "))
+            if (!line) continue
+            const payload = line.replace("data: ", "").trim()
+            if (!payload) continue
+            let data: { token?: string; done?: boolean; source?: string } | null = null
+            try {
+              data = JSON.parse(payload)
+            } catch {
+              data = null
+            }
+            if (!data) continue
+            if (data.token) {
+              updateFollowUpAnswer(entryId, (prevAnswer) => ({
+                ...prevAnswer,
+                text: prevAnswer.text + data.token,
+                sources: data.source ? [data.source] : prevAnswer.sources,
+              }))
+            }
+            if (data.done) {
+              updateFollowUpAnswer(entryId, (prevAnswer) => ({
+                ...prevAnswer,
+                confidence: Math.max(prevAnswer.confidence, 0.6),
+              }))
+            }
+          }
         }
       } catch {
-        setFollowUpResponses((prev) => [
-          ...prev,
-          {
-            question: q,
-            answer: {
-              text: "Request timed out. Please try again.",
-              confidence: 0.3,
-              sources: ["timeout"],
-            },
-          },
-        ])
+        updateFollowUpAnswer(entryId, () => ({
+          text: "Request timed out. Please try again.",
+          confidence: 0.3,
+          sources: ["timeout"],
+        }))
       } finally {
         setIsAsking(false)
+        setIsStreaming(false)
       }
 
       onFollowUp?.(q)
     },
-    [followUpQuestion, onFollowUp]
+    [followUpQuestion, onFollowUp, searchContext]
   )
 
   const handleFeedback = (positive: boolean) => {
@@ -184,9 +247,9 @@ export function AIWidget({
 
       {/* Follow-up conversation */}
       <AnimatePresence>
-        {followUpResponses.map((fu, i) => (
+        {followUpResponses.map((fu) => (
           <motion.div
-            key={i}
+            key={fu.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-2 pl-4 border-l-2 border-violet-500/30"
@@ -200,7 +263,7 @@ export function AIWidget({
       </AnimatePresence>
 
       {/* Loading indicator */}
-      {isAsking && (
+      {(isAsking || isStreaming) && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground pl-4">
           <Loader2 className="h-4 w-4 animate-spin" />
           MYCA is thinking...

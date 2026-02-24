@@ -27,6 +27,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { useWebMCPProvider } from "@/hooks/useWebMCPProvider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -130,6 +132,9 @@ interface InjectionItem {
 }
 
 export default function VoiceTestPage() {
+  const router = useRouter()
+  useWebMCPProvider({ onNavigate: (path) => router.push(path) })
+
   // WebSocket base must be reachable from the *browser* (client-side).
   // For the split-architecture (5090 inference + gpu01 bridge), set:
   // - NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL=ws://192.168.0.190:8999
@@ -217,6 +222,10 @@ export default function VoiceTestPage() {
   const [lastClonedText, setLastClonedText] = useState("")
   const [bridgeFeatures, setBridgeFeatures] = useState<Record<string, boolean>>({})
   
+  // Protocol mode: legacy (voice/orchestrator) vs a2a (A2A gateway)
+  const [protocolMode, setProtocolMode] = useState<"legacy" | "a2a">("legacy")
+  const [lastProtocolMode, setLastProtocolMode] = useState<string | null>(null)
+  
   // Memory Session
   const [memorySession, setMemorySession] = useState<MemorySession | null>(null)
   
@@ -302,9 +311,13 @@ export default function VoiceTestPage() {
     const masStart = Date.now()
     
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (protocolMode === "a2a") {
+        headers["X-Protocol-Mode"] = "a2a"
+      }
       const response = await fetch("/api/test-voice/mas/orchestrator-chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           message: text,
           session_id: sessionId,
@@ -312,14 +325,15 @@ export default function VoiceTestPage() {
           mode: "clone", // Tell MAS this is a clone, not primary
           return_injection: true, // Request any feedback to inject
         }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(protocolMode === "a2a" ? 30000 : 5000),
       })
-      
       const masLatency = Date.now() - masStart
       recordLatency("mas", masLatency)
       
       if (response.ok) {
         const data = await response.json()
+        const respProtocol = response.headers.get("X-Protocol-Mode") ?? (data as { protocol_mode?: string }).protocol_mode
+        if (respProtocol) setLastProtocolMode(respProtocol)
         setTextCloneStatus("success")
         
         // Update memory session stats
@@ -392,7 +406,7 @@ export default function VoiceTestPage() {
     
     // Reset status after a moment
     setTimeout(() => setTextCloneStatus("idle"), 2000)
-  }, [addLog, recordLatency])
+  }, [addLog, recordLatency, protocolMode])
   
   // Add item to injection queue
   const addInjection = useCallback((type: InjectionItem["type"], content: string) => {
@@ -1371,6 +1385,41 @@ export default function VoiceTestPage() {
                   </div>
                 )}
               </div>
+            </div>
+            
+            {/* Protocol Mode Diagnostics - A2A vs legacy for agent validation */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <h2 className="font-semibold text-sm flex items-center gap-2 mb-2">
+                <span className="text-cyan-400">🔗</span>
+                Protocol Mode
+              </h2>
+              <div className="flex items-center gap-2 mb-2">
+                <Button
+                  variant={protocolMode === "legacy" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs h-8"
+                  onClick={() => setProtocolMode("legacy")}
+                >
+                  Legacy
+                </Button>
+                <Button
+                  variant={protocolMode === "a2a" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs h-8"
+                  onClick={() => setProtocolMode("a2a")}
+                >
+                  A2A
+                </Button>
+              </div>
+              <p className="text-[10px] text-zinc-500">
+                Selected: <code className="text-cyan-400">{protocolMode}</code>
+                {lastProtocolMode && (
+                  <span> • Last response: <code className="text-emerald-400">{lastProtocolMode}</code></span>
+                )}
+              </p>
+              <p className="text-[10px] text-zinc-600 mt-1">
+                Text clone uses orchestrator-chat. A2A routes via MAS A2A gateway; Legacy uses voice/orchestrator/chat.
+              </p>
             </div>
             
             {/* Voice Controls */}
