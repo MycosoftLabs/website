@@ -1,55 +1,49 @@
 /**
- * Mycorrhizae Protocol SSE Streaming Endpoint
+ * Mycorrhizae Protocol SSE Stream
  *
- * Server-Sent Events for real-time channel subscriptions.
- * Proxies to the Mycorrhizae Protocol API or falls back to local simulation.
+ * Explicit route for /api/mycorrhizae/stream to satisfy Next.js module resolution.
+ * Proxies to Mycorrhizae API (port 8002) or provides simulation when unavailable.
+ * Created: February 24, 2026 - Fix for build "Module not found" error.
  */
 
-import { NextRequest } from "next/server"
-import { env } from "@/lib/env"
+import { NextRequest } from "next/server";
 
-export const dynamic = "force-dynamic"
-export const runtime = "edge"
+const MYCORRHIZAE_URL =
+  process.env.MYCORRHIZAE_API_URL || "http://192.168.0.187:8002";
 
-const MYCORRHIZAE_API_URL = env.mycorrhizaeApiUrl || "http://192.168.0.187:8002"
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const channel = searchParams.get("channel") || "system.*"
-  const apiKey = request.headers.get("X-API-Key") || env.mycorrhizaePublishKey || ""
-
-  const encoder = new TextEncoder()
+  const { searchParams } = new URL(request.url);
+  const channel = searchParams.get("channel") || "system.*";
+  const apiKey =
+    request.headers.get("X-API-Key") || process.env.MYCORRHIZAE_PUBLISH_KEY || "";
+  const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Send initial connection event
       const connectionEvent = `event: connected\ndata: ${JSON.stringify({
         channel,
         timestamp: new Date().toISOString(),
         message: "Connected to Mycorrhizae Protocol",
-      })}\n\n`
-      controller.enqueue(encoder.encode(connectionEvent))
+      })}\n\n`;
+      controller.enqueue(encoder.encode(connectionEvent));
 
-      // Try to connect to actual Mycorrhizae API
-      let useSimulation = true
-
+      let useSimulation = true;
       try {
-        const healthCheck = await fetch(`${MYCORRHIZAE_API_URL}/health`, {
+        const healthCheck = await fetch(`${MYCORRHIZAE_URL}/health`, {
           signal: AbortSignal.timeout(5000),
-        })
-        if (healthCheck.ok) {
-          useSimulation = false
-        }
+        });
+        if (healthCheck.ok) useSimulation = false;
       } catch {
-        // API not available, use simulation
+        // API not available
       }
 
       if (useSimulation) {
-        // Simulation mode - generate sample messages
-        let count = 0
+        let count = 0;
         const interval = setInterval(() => {
-          count++
-
+          count++;
           const message = {
             id: `msg-${Date.now()}-${count}`,
             channel: `device.simulation.telemetry`,
@@ -68,71 +62,51 @@ export async function GET(request: NextRequest) {
               conductivity: 500 + Math.random() * 200,
               quality: 0.8 + Math.random() * 0.2,
             },
-            tracing: {
-              correlation_id: `corr-${Date.now()}`,
-            },
+            tracing: { correlation_id: `corr-${Date.now()}` },
             priority: 5,
             tags: ["simulation", "telemetry"],
-          }
-
-          const event = `event: message\nid: ${message.id}\ndata: ${JSON.stringify(message)}\n\n`
-          controller.enqueue(encoder.encode(event))
-
-          // Send ping every 10 messages
+          };
+          const event = `event: message\nid: ${message.id}\ndata: ${JSON.stringify(message)}\n\n`;
+          controller.enqueue(encoder.encode(event));
           if (count % 10 === 0) {
-            const ping = `event: ping\ndata: ${JSON.stringify({ ts: Date.now() })}\n\n`
-            controller.enqueue(encoder.encode(ping))
+            controller.enqueue(
+              encoder.encode(
+                `event: ping\ndata: ${JSON.stringify({ ts: Date.now() })}\n\n`
+              )
+            );
           }
-        }, 2000) // Every 2 seconds
-
-        // Cleanup on abort
+        }, 2000);
         request.signal.addEventListener("abort", () => {
-          clearInterval(interval)
-          controller.close()
-        })
+          clearInterval(interval);
+          controller.close();
+        });
       } else {
-        // Real mode - proxy from Mycorrhizae API
         try {
           const response = await fetch(
-            `${MYCORRHIZAE_API_URL}/api/stream/subscribe?channel=${encodeURIComponent(channel)}`,
-            {
-              headers: {
-                "X-API-Key": apiKey,
-              },
-            }
-          )
-
-          if (!response.body) {
-            throw new Error("No response body")
-          }
-
-          const reader = response.body.getReader()
-
+            `${MYCORRHIZAE_URL}/api/stream/subscribe?channel=${encodeURIComponent(channel)}`,
+            { headers: { "X-API-Key": apiKey } }
+          );
+          if (!response.body) throw new Error("No response body");
+          const reader = response.body.getReader();
           const pump = async () => {
             while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
-              controller.enqueue(value)
+              const { done, value } = await reader.read();
+              if (done) break;
+              controller.enqueue(value);
             }
-            controller.close()
-          }
-
-          pump().catch((error) => {
-            console.error("Stream error:", error)
-            controller.close()
-          })
-
+            controller.close();
+          };
+          pump().catch(() => controller.close());
           request.signal.addEventListener("abort", () => {
-            reader.cancel()
-            controller.close()
-          })
-        } catch (error) {
-          console.error("Failed to connect to Mycorrhizae API:", error)
-          controller.close()
+            reader.cancel();
+            controller.close();
+          });
+        } catch {
+          controller.close();
         }
       }
     },
-  })
+  });
 
   return new Response(stream, {
     headers: {
@@ -141,5 +115,5 @@ export async function GET(request: NextRequest) {
       Connection: "keep-alive",
       "Access-Control-Allow-Origin": "*",
     },
-  })
+  });
 }
