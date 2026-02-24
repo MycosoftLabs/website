@@ -118,10 +118,11 @@ export default function AboutPage() {
           muted
           loop
           playsInline
+          preload="auto"
           poster={HERO_POSTER}
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src={HERO_VIDEO_SRC} type="video/mp4" />
+          <source src={encodeURI(HERO_VIDEO_SRC)} type="video/mp4" />
         </video>
 
         {/* Fallback image (local dev / while buffering) */}
@@ -363,7 +364,7 @@ export default function AboutPage() {
                   <div className="grid md:grid-cols-2 h-full">
                     <div className="relative aspect-square md:aspect-auto min-h-[250px] bg-slate-100 overflow-hidden">
                       <Image
-                        src={morgan.image}
+                        src={morgan.image.startsWith("/") ? encodeURI(morgan.image) : morgan.image}
                         alt={morgan.name}
                         fill
                         className="object-contain group-hover:scale-105 transition-transform duration-500"
@@ -390,7 +391,7 @@ export default function AboutPage() {
                   <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
                     <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
                       <Image
-                        src="/assets/logos/myca-logo-square.png"
+                        src={encodeURI("/assets/logos/myca-logo-square.png")}
                         alt="MYCA Logo"
                         fill
                         className="object-cover"
@@ -418,7 +419,7 @@ export default function AboutPage() {
                 <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
                   <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-slate-100">
                     <Image
-                      src={member.image}
+                      src={member.image.startsWith("/") ? encodeURI(member.image) : member.image}
                       alt={member.name}
                       fill
                       className="object-contain group-hover:scale-105 transition-transform duration-500"
@@ -459,7 +460,7 @@ export default function AboutPage() {
                 <NeuCard className="about-device-card group transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm">
                   <div className="relative aspect-square overflow-hidden rounded-t-lg">
                     <Image
-                      src={device.image}
+                      src={device.image.startsWith("/") ? encodeURI(device.image) : device.image}
                       alt={device.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -534,7 +535,7 @@ export default function AboutPage() {
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
         >
-          <source src="/assets/about us/10343918-hd_1920_1080_24fps.mp4" type="video/mp4" />
+          <source src={encodeURI("/assets/about us/10343918-hd_1920_1080_24fps.mp4")} type="video/mp4" />
         </video>
 
         {/* Dark overlay so text is legible */}

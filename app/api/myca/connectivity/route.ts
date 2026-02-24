@@ -40,6 +40,26 @@ export async function GET() {
       }
     }
 
+    // Verify consciousness route exists (often 404 if consciousness router failed to load)
+    const consciousnessStart = Date.now()
+    try {
+      const r = await fetch(`${MAS_API_URL}/api/myca/ping`, {
+        signal: AbortSignal.timeout(5000),
+        cache: "no-store",
+      })
+      results.mas_consciousness = {
+        ok: r.ok,
+        ms: Date.now() - consciousnessStart,
+        error: r.ok ? undefined : `HTTP ${r.status} (route may be missing if consciousness failed to load)`,
+      }
+    } catch (e) {
+      results.mas_consciousness = {
+        ok: false,
+        ms: Date.now() - consciousnessStart,
+        error: e instanceof Error ? e.message : String(e),
+      }
+    }
+
     results.llm_keys = {
       ok: HAS_ANTHROPIC || HAS_OPENAI || HAS_GROQ || HAS_GOOGLE || HAS_XAI,
       error: !(HAS_ANTHROPIC || HAS_OPENAI || HAS_GROQ || HAS_GOOGLE || HAS_XAI)
@@ -47,16 +67,22 @@ export async function GET() {
         : undefined,
     }
 
-    const chatReady = results.mas.ok || results.llm_keys.ok
+    const masOk = results.mas?.ok ?? false
+    const consciousnessOk = results.mas_consciousness?.ok ?? false
+    const chatReady = (masOk && consciousnessOk) || results.llm_keys.ok
+    let summary = "Chat unavailable — MAS offline and no LLM keys"
+    if (chatReady) {
+      if (masOk && consciousnessOk) summary = "MAS + Consciousness API online — chat uses MYCA"
+      else if (masOk && !consciousnessOk) summary = "MAS online but /api/myca not loaded — check MAS logs for consciousness import errors"
+      else summary = "MAS offline — chat uses LLM fallback (Claude/Groq/etc.)"
+    }
     return NextResponse.json({
       ok: chatReady,
       mas: results.mas,
+      mas_consciousness: results.mas_consciousness,
       llm_keys: results.llm_keys,
-      summary: chatReady
-        ? results.mas.ok
-          ? "MAS online — chat uses Consciousness API"
-          : "MAS offline — chat uses LLM fallback (Claude/Groq/etc.)"
-        : "Chat unavailable — MAS offline and no LLM keys",
+      summary,
+      mas_api_url: MAS_API_URL,
       total_ms: Date.now() - start,
       timestamp: new Date().toISOString(),
     })

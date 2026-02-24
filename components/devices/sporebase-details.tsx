@@ -251,7 +251,7 @@ export function SporeBaseDetails() {
             playsInline
             preload="auto"
           >
-            <source src={SPOREBASE_ASSETS.heroVideo} type="video/mp4" />
+            <source src={encodeURI(SPOREBASE_ASSETS.heroVideo)} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-slate-950/70" />
         </motion.div>

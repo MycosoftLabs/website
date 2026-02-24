@@ -264,10 +264,11 @@ export function MycoNodeDetails() {
             muted
             loop
             playsInline
+            preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
-            poster="/assets/myconode/myconode a.png"
+            poster={encodeURI("/assets/myconode/myconode a.png")}
           >
-            <source src={MYCONODE_ASSETS.heroVideo} type="video/mp4" />
+            <source src={encodeURI(MYCONODE_ASSETS.heroVideo)} type="video/mp4" />
           </video>
           {/* Dark overlay for text readability */}
           <div className="myconode-hero-overlay absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/70 dark:from-purple-950/70 dark:via-purple-950/50 dark:to-slate-950/90" />
@@ -537,7 +538,7 @@ export function MycoNodeDetails() {
                   className="w-full h-full object-cover"
                   poster={MYCONODE_ASSETS.mainImage}
                 >
-                  <source src={MYCONODE_ASSETS.deployVideo} type="video/mp4" />
+                  <source src={encodeURI(MYCONODE_ASSETS.deployVideo)} type="video/mp4" />
                 </video>
               </div>
               <div className="absolute -bottom-4 -left-4 p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-xl rounded-2xl border border-emerald-500/30">
@@ -682,7 +683,7 @@ export function MycoNodeDetails() {
             className="absolute inset-0 w-full h-full object-cover"
             poster={MYCONODE_ASSETS.mainImage}
           >
-            <source src={MYCONODE_ASSETS.myceliumVideo} type="video/mp4" />
+            <source src={encodeURI(MYCONODE_ASSETS.myceliumVideo)} type="video/mp4" />
           </video>
           {/* Dark overlay for content readability */}
           <div className="myconode-apps-overlay absolute inset-0 bg-white/70 dark:bg-gradient-to-b dark:from-purple-950/85 dark:via-slate-950/80 dark:to-slate-950/90" />
@@ -1003,7 +1004,7 @@ export function MycoNodeDetails() {
                 className="w-full h-full object-cover"
                 poster={MYCONODE_ASSETS.mainImage}
               >
-                <source src={MYCONODE_ASSETS.labTestVideo} type="video/mp4" />
+                <source src={encodeURI(MYCONODE_ASSETS.labTestVideo)} type="video/mp4" />
               </video>
             </div>
             

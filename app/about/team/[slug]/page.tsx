@@ -151,7 +151,7 @@ export default function TeamMemberPage() {
             {/* Photo */}
             <div className="relative aspect-square rounded-2xl overflow-hidden border border-green-500/20 w-full max-w-[280px] mx-auto md:mx-0">
               <Image
-                src={member.image}
+                src={member.image.startsWith("/") ? encodeURI(member.image) : member.image}
                 alt={member.name}
                 fill
                 className="object-cover"

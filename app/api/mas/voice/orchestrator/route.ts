@@ -788,49 +788,82 @@ async function callN8nSpeech(message: string, sessionId: string): Promise<string
 }
 
 /**
- * Call MYCA Consciousness API (MAS backend)
- * This is the NEW primary route - uses MYCA's full consciousness system
+ * Call MYCA Consciousness API (MAS backend).
+ * Uses longer timeout and one retry so the connection actually succeeds when MAS is up.
  */
 async function callMycaConsciousness(
   message: string,
   sessionId: string,
   runtimeIdentity: RuntimeIdentityContext
 ): Promise<{ response: string; emotions?: Record<string, number>; thoughts?: string[] } | null> {
-  try {
-    console.log("[MYCA] Calling Consciousness API...")
-    const response = await fetch(`${MAS_API_URL}/api/myca/chat`, {
+  const url = `${MAS_API_URL}/api/myca/chat`
+  const body = {
+    message,
+    session_id: sessionId,
+    user_id: runtimeIdentity.isCreator ? "morgan" : runtimeIdentity.userId,
+    context: {
+      user_role: runtimeIdentity.userRole,
+      user_display_name: runtimeIdentity.userDisplayName,
+      is_superuser: runtimeIdentity.isSuperuser,
+      is_creator: runtimeIdentity.isCreator,
+      recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
+    },
+    source: "voice-orchestrator",
+  }
+  const timeoutMs = 15000 // 15s – consciousness can take awaken + first response
+
+  const doFetch = async (): Promise<Response> => {
+    return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        session_id: sessionId,
-        user_id: runtimeIdentity.isCreator ? "morgan" : runtimeIdentity.userId,
-        context: {
-          user_role: runtimeIdentity.userRole,
-          user_display_name: runtimeIdentity.userDisplayName,
-          is_superuser: runtimeIdentity.isSuperuser,
-          is_creator: runtimeIdentity.isCreator,
-          recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
-        },
-        source: "voice-orchestrator"
-      }),
-      signal: AbortSignal.timeout(4000) // 4s - fail fast if MAS unreachable, fall back to LLMs
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     })
-    
-    if (response.ok) {
-      const data = await response.json()
-      // MAS consciousness returns ChatResponse with "message" field
-      const text = data.message ?? data.reply ?? data.response ?? null
-      console.log("[MYCA] Consciousness API responded:", text?.substring?.(0, 60))
-      return {
-        response: text,
-        emotions: data.emotional_state,
-        thoughts: data.thoughts
+  }
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`[MYCA] Consciousness API attempt ${attempt}/2 → ${url}`)
+      const response = await doFetch()
+
+      if (response.ok) {
+        const data = await response.json()
+        const text = data.message ?? data.reply ?? data.response ?? null
+        console.log("[MYCA] Consciousness API responded:", text?.substring?.(0, 60))
+        return {
+          response: text,
+          emotions: data.emotional_state,
+          thoughts: data.thoughts,
+        }
       }
+
+      const bodyText = await response.text()
+      console.error(
+        `[MYCA] Consciousness API error: ${response.status} ${response.statusText} → ${url}`,
+        bodyText.slice(0, 300)
+      )
+      if (attempt === 1 && response.status >= 500) {
+        await new Promise((r) => setTimeout(r, 2000))
+        continue
+      }
+      return null
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      const msg = err.message || ""
+      const cause = err.cause instanceof Error ? err.cause.message : err.cause
+      console.error(
+        `[MYCA] Consciousness API failed (attempt ${attempt}/2):`,
+        msg,
+        cause ? String(cause) : "",
+        "→",
+        url
+      )
+      if (attempt === 1 && (msg.includes("fetch") || msg.includes("timeout") || msg.includes("ECONNREFUSED") || msg.includes("ETIMEDOUT") || msg.includes("network"))) {
+        await new Promise((r) => setTimeout(r, 2000))
+        continue
+      }
+      return null
     }
-    console.log("[MYCA] Consciousness API error:", response.status)
-  } catch (e) {
-    console.log("[MYCA] Consciousness API failed:", e)
   }
   return null
 }
@@ -918,11 +951,11 @@ async function getMycaResponse(
     return { response, provider: "n8n-speech" }
   }
   
-  // All failed - return error message
-  console.log("[MYCA] All providers failed!")
-  return { 
-    response: "I'm MYCA, but I'm having trouble connecting to my AI backends. Please check that the API keys are configured.", 
-    provider: "none" 
+  console.log("[MYCA] All providers failed (check logs above for Consciousness API failure reason)")
+  return {
+    response:
+      "I'm MYCA, but I'm having trouble connecting to my AI backends. Please check that the API keys are configured.",
+    provider: "none",
   }
 }
 

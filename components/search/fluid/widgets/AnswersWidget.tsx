@@ -143,8 +143,8 @@ export function AnswersWidget({
         </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 min-h-0 px-2 sm:px-3 py-2" ref={scrollRef}>
+      {/* Messages - scrollable cap so widget doesn't grow endlessly */}
+      <ScrollArea className="flex-1 min-h-0 max-h-[55vh] px-2 sm:px-3 py-2 overflow-y-auto" ref={scrollRef}>
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-xs text-muted-foreground text-center py-6">

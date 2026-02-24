@@ -321,7 +321,7 @@ export function Mushroom1Details() {
             preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
           >
-            <source src={heroVideoSrc} type="video/mp4" />
+            <source src={encodeURI(heroVideoSrc)} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
         </motion.div>
@@ -476,7 +476,7 @@ export function Mushroom1Details() {
                   preload="metadata"
                   className="absolute inset-0 w-full h-full object-cover object-center"
                 >
-                  <source src={MUSHROOM1_ASSETS.videos.waterfall} type="video/mp4" />
+                  <source src={encodeURI(MUSHROOM1_ASSETS.videos.waterfall)} type="video/mp4" />
                 </video>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               </div>
@@ -752,7 +752,7 @@ export function Mushroom1Details() {
                 preload="metadata"
                 className="absolute inset-0 w-full h-full object-cover"
               >
-                <source src={USE_CASES[activeUseCase].video} type="video/mp4" />
+                <source src={encodeURI(USE_CASES[activeUseCase].video)} type="video/mp4" />
               </video>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
@@ -1203,7 +1203,7 @@ export function Mushroom1Details() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
           >
-            <source src={MUSHROOM1_ASSETS.videos.walking} type="video/mp4" />
+            <source src={encodeURI(MUSHROOM1_ASSETS.videos.walking)} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/20" />
         </div>
