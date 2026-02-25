@@ -21,8 +21,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
 
-# Install dependencies (use --no-frozen-lockfile for flexibility)
-RUN pnpm install --no-frozen-lockfile
+# Install dependencies (frozen lockfile for reproducible VM builds)
+RUN pnpm install --frozen-lockfile
 
 # =========================
 # Stage 2: Builder
