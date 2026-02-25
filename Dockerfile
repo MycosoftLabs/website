@@ -15,14 +15,11 @@
 FROM node:18-alpine AS deps
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 # Copy package files
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json package-lock.json ./
 
-# Install dependencies (frozen lockfile for reproducible VM builds)
-RUN pnpm install --frozen-lockfile
+# Install with npm (reliable in Docker; avoids pnpm resolution issues)
+RUN npm ci
 
 # =========================
 # Stage 2: Builder
@@ -30,10 +27,7 @@ RUN pnpm install --frozen-lockfile
 FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-# Copy dependencies from deps stage
+# Copy dependencies from deps stage (npm or pnpm)
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -77,7 +71,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Use swc with wasm fallback for broader CPU compatibility
 ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
-RUN pnpm build
+RUN npm run build
 
 # =========================
 # Stage 3: Runner
