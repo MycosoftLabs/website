@@ -31,8 +31,6 @@ import {
 
 // NAS video — mounted at /assets/ in the production Docker container
 const HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
-// Fallback poster shown in local dev (NAS not mounted) or while video buffers
-const HERO_POSTER = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rs=w_1160,h_663-ESVi80C1sa4fkioBNtFcVtPlY1TkSq.webp"
 
 // Technology Pillars - AI, Defense, Biological Compute
 const technologyPillars = [
@@ -110,29 +108,18 @@ export default function AboutPage() {
   return (
     <NeuromorphicProvider>
     <div className="min-h-dvh">
-      {/* Hero Section — data-over-video: sharper outline in light mode */}
+      {/* Hero Section — no poster, instant start, no image flash */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
-        {/* Background video — silent loop, no controls */}
         <video
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
-          poster={HERO_POSTER}
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src={encodeURI(HERO_VIDEO_SRC)} type="video/mp4" />
         </video>
-
-        {/* Fallback image (local dev / while buffering) */}
-        <Image
-          src={HERO_POSTER}
-          alt="Mycelium network visualization"
-          fill
-          className="object-cover opacity-40 -z-10"
-          priority
-        />
 
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-black/60" />
@@ -527,12 +514,12 @@ export default function AboutPage() {
 
       {/* Why Mycosoft - Closing Statement — data-over-video */}
       <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center" data-over-video>
-        {/* Background video — silent loop */}
         <video
           autoPlay
           muted
           loop
           playsInline
+          preload="auto"
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src={encodeURI("/assets/about us/10343918-hd_1920_1080_24fps.mp4")} type="video/mp4" />

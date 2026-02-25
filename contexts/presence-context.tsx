@@ -18,8 +18,9 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
 
   useEffect(() => {
+    if (!user?.id) return
     initApiUsageInterceptor()
-  }, [])
+  }, [user?.id])
 
   const enabled = !!user?.id
   const { sessionId, activityType } = usePresenceHeartbeat(enabled, user?.id)

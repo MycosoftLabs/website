@@ -38,6 +38,7 @@ import {
   Wifi,
   Droplets,
   Shield,
+  Leaf,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
@@ -65,6 +66,7 @@ const navSections: NavSection[] = [
     defaultOpen: true,
     items: [
       { title: "Overview", href: "/natureos", icon: Home },
+      { title: "Nature Statistics", href: "/natureos/species", icon: Leaf },
       { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Brain },
       { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Globe },
       { title: "Petri Dish Simulator", href: "/natureos/tools/petri-dish", icon: PipetteIcon },

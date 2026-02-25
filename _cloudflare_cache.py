@@ -39,6 +39,9 @@ def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str
     cwd = Path.cwd()
     if cwd != script_dir:
         _load_dotenv_into_os(cwd)
+    # Also try .credentials.local (MAS and website repos)
+    for base in (script_dir, cwd, script_dir.parent.parent / "MAS" / "mycosoft-mas"):
+        _load_dotenv_into_os(base, (".credentials.local",))
 
     token = os.getenv("CLOUDFLARE_API_TOKEN")
     zone_id = os.getenv("CLOUDFLARE_ZONE_ID")

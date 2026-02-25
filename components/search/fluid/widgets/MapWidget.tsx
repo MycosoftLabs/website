@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { Map, MapPin, AlertTriangle, Maximize2, Minimize2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import dynamic from "next/dynamic"
+import "leaflet/dist/leaflet.css"
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(

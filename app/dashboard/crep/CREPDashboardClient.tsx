@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import { Map as MapComponent, MapControls, MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import Link from "next/link";
 import { 
@@ -136,16 +137,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// OEI Real-time Data Widgets
-import { SpaceWeatherWidget } from "@/components/crep/space-weather-widget";
-import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
-import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
-import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
+// OEI Real-time Data Widgets (lazy-loaded per tab)
+const SpaceWeatherWidget = dynamic(() => import("@/components/crep/space-weather-widget").then((m) => ({ default: m.SpaceWeatherWidget })), { ssr: false });
+const FlightTrackerWidget = dynamic(() => import("@/components/crep/flight-tracker-widget").then((m) => ({ default: m.FlightTrackerWidget })), { ssr: false });
+const VesselTrackerWidget = dynamic(() => import("@/components/crep/vessel-tracker-widget").then((m) => ({ default: m.VesselTrackerWidget })), { ssr: false });
+const SatelliteTrackerWidget = dynamic(() => import("@/components/crep/satellite-tracker-widget").then((m) => ({ default: m.SatelliteTrackerWidget })), { ssr: false });
 
-// Conservation Demo Widgets (Feb 05, 2026)
-import { SmartFenceWidget, type FenceSegment } from "@/components/crep/smart-fence-widget";
-import { PresenceDetectionWidget, type PresenceReading } from "@/components/crep/presence-detection-widget";
-import { BiosignalWidget } from "@/components/crep/biosignal-widget";
+// Conservation Demo Widgets (Feb 05, 2026) - lazy loaded
+const SmartFenceWidget = dynamic(() => import("@/components/crep/smart-fence-widget").then((m) => ({ default: m.SmartFenceWidget })), { ssr: false });
+const PresenceDetectionWidget = dynamic(() => import("@/components/crep/presence-detection-widget").then((m) => ({ default: m.PresenceDetectionWidget })), { ssr: false });
+const BiosignalWidget = dynamic(() => import("@/components/crep/biosignal-widget").then((m) => ({ default: m.BiosignalWidget })), { ssr: false });
+import type { FenceSegment } from "@/components/crep/smart-fence-widget";
+import type { PresenceReading } from "@/components/crep/presence-detection-widget";
 
 // Map Markers for OEI Data
 import { type FungalObservation } from "@/components/crep/markers";
@@ -3957,62 +3960,66 @@ export default function CREPDashboardPage() {
                         }}
                       />
                       
-                      {/* Space Weather Widget */}
-                      <SpaceWeatherWidget compact />
-                      
-                      {/* Flight Tracker Widget */}
-                      <FlightTrackerWidget compact limit={10} />
-                      
-                      {/* Vessel Tracker Widget */}
-                      <VesselTrackerWidget compact limit={10} />
-                      
-                      {/* Satellite Tracker Widget */}
-                      <SatelliteTrackerWidget compact limit={10} />
-                      
-                      {/* Conservation Demo Widgets (Feb 05, 2026) - Individual toggles (Feb 17, 2026) */}
-                      {/* Elephant Biosignal Widget - toggled individually */}
-                      {showBiosignalWidget && elephants.length > 0 && (
-                        <BiosignalWidget 
-                          elephants={elephants}
-                          onElephantClick={(elephant) => {
-                            setSelectedElephant(elephant);
-                            mapRef?.flyTo({
-                              center: [elephant.lng, elephant.lat],
-                              zoom: 12,
-                              duration: 1500,
-                            });
-                          }}
-                        />
-                      )}
-                      
-                      {/* Smart Fence Network Widget - toggled individually */}
-                      {showSmartFenceWidget && fenceSegments.length > 0 && (
-                        <SmartFenceWidget 
-                          fenceSegments={fenceSegments}
-                          onSegmentClick={(segment) => {
-                            const midLat = (segment.startLat + segment.endLat) / 2;
-                            const midLng = (segment.startLng + segment.endLng) / 2;
-                            mapRef?.flyTo({
-                              center: [midLng, midLat],
-                              zoom: 13,
-                              duration: 1500,
-                            });
-                          }}
-                        />
-                      )}
-                      
-                      {/* Presence Detection Widget - toggled individually */}
-                      {showPresenceWidget && presenceReadings.length > 0 && (
-                        <PresenceDetectionWidget 
-                          readings={presenceReadings}
-                          onMonitorClick={(reading) => {
-                            mapRef?.flyTo({
-                              center: [reading.lng, reading.lat],
-                              zoom: 14,
-                              duration: 1500,
-                            });
-                          }}
-                        />
+                      {rightPanelTab === "data" && (
+                        <>
+                          {/* Space Weather Widget */}
+                          <SpaceWeatherWidget compact />
+                          
+                          {/* Flight Tracker Widget */}
+                          <FlightTrackerWidget compact limit={10} />
+                          
+                          {/* Vessel Tracker Widget */}
+                          <VesselTrackerWidget compact limit={10} />
+                          
+                          {/* Satellite Tracker Widget */}
+                          <SatelliteTrackerWidget compact limit={10} />
+                          
+                          {/* Conservation Demo Widgets (Feb 05, 2026) - Individual toggles (Feb 17, 2026) */}
+                          {/* Elephant Biosignal Widget - toggled individually */}
+                          {showBiosignalWidget && elephants.length > 0 && (
+                            <BiosignalWidget 
+                              elephants={elephants}
+                              onElephantClick={(elephant) => {
+                                setSelectedElephant(elephant);
+                                mapRef?.flyTo({
+                                  center: [elephant.lng, elephant.lat],
+                                  zoom: 12,
+                                  duration: 1500,
+                                });
+                              }}
+                            />
+                          )}
+                          
+                          {/* Smart Fence Network Widget - toggled individually */}
+                          {showSmartFenceWidget && fenceSegments.length > 0 && (
+                            <SmartFenceWidget 
+                              fenceSegments={fenceSegments}
+                              onSegmentClick={(segment) => {
+                                const midLat = (segment.startLat + segment.endLat) / 2;
+                                const midLng = (segment.startLng + segment.endLng) / 2;
+                                mapRef?.flyTo({
+                                  center: [midLng, midLat],
+                                  zoom: 13,
+                                  duration: 1500,
+                                });
+                              }}
+                            />
+                          )}
+                          
+                          {/* Presence Detection Widget - toggled individually */}
+                          {showPresenceWidget && presenceReadings.length > 0 && (
+                            <PresenceDetectionWidget 
+                              readings={presenceReadings}
+                              onMonitorClick={(reading) => {
+                                mapRef?.flyTo({
+                                  center: [reading.lng, reading.lat],
+                                  zoom: 14,
+                                  duration: 1500,
+                                });
+                              }}
+                            />
+                          )}
+                        </>
                       )}
                       
                       {/* Data Sources Footer */}

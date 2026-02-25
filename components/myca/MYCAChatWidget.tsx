@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -33,6 +33,7 @@ export function MYCAChatWidget({
     pendingConfirmationId,
     confirmAction,
     consciousness,
+    setIsActive,
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
@@ -69,6 +70,11 @@ export function MYCAChatWidget({
       // Audio playback is best-effort
     }
   }
+
+  useEffect(() => {
+    setIsActive(true)
+    return () => setIsActive(false)
+  }, [setIsActive])
 
   return (
     <Card className={cn("flex h-full flex-col bg-card/80 backdrop-blur-sm", className)}>

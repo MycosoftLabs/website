@@ -38,19 +38,7 @@ import {
   Brain,
   GripVertical,
 } from "lucide-react"
-import {
-  SpeciesWidget,
-  ChemistryWidget,
-  GeneticsWidget,
-  ResearchWidget,
-  AnswersWidget,
-  MediaWidget,
-  LocationWidget,
-  NewsWidget,
-  MapWidget,
-  CrepWidget,
-  Earth2Widget,
-} from "./widgets"
+import nextDynamic from "next/dynamic"
 import {
   getWidgetFloatVariants,
   getParallaxDepth,
@@ -68,6 +56,18 @@ import { useSearchMemory } from "@/hooks/use-search-memory"
 import { useVoice } from "@/components/voice/UnifiedVoiceProvider"
 import { useMYCA } from "@/contexts/myca-context"
 import { useAuth } from "@/contexts/auth-context"
+
+const SpeciesWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.SpeciesWidget })), { ssr: false })
+const ChemistryWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.ChemistryWidget })), { ssr: false })
+const GeneticsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.GeneticsWidget })), { ssr: false })
+const ResearchWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.ResearchWidget })), { ssr: false })
+const AnswersWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.AnswersWidget })), { ssr: false })
+const MediaWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MediaWidget })), { ssr: false })
+const LocationWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.LocationWidget })), { ssr: false })
+const NewsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.NewsWidget })), { ssr: false })
+const MapWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MapWidget })), { ssr: false })
+const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
+const Earth2Widget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.Earth2Widget })), { ssr: false })
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
   | "crep" | "earth2" | "map"
@@ -143,6 +143,41 @@ function MyceliumBackground({ width, height }: { width: number; height: number }
       height={height}
       className="absolute inset-0 pointer-events-none opacity-40"
     />
+  )
+}
+
+function LazyWidgetMount({
+  children,
+  rootMargin = "250px",
+}: {
+  children: React.ReactNode
+  rootMargin?: string
+}) {
+  const hostRef = useRef<HTMLDivElement | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const element = hostRef.current
+    if (!element || isVisible || typeof IntersectionObserver === "undefined") return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [isVisible, rootMargin])
+
+  return (
+    <div ref={hostRef} className="h-full">
+      {isVisible ? children : <div className="h-full min-h-[120px]" />}
+    </div>
   )
 }
 

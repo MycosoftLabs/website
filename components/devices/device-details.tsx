@@ -115,10 +115,9 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
               playsInline
               preload="auto"
               className="absolute inset-0 w-full h-full object-cover"
-              poster="/placeholder.svg?height=1080&width=1920"
               onError={() => setVideoError(true)}
             >
-              <source src={device.video || ""} type="video/mp4" />
+              <source src={device.video ? encodeURI(device.video) : ""} type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-black/50" />
           </>
