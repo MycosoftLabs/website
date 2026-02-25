@@ -155,6 +155,10 @@ interface WorldState {
   crep?: Record<string, unknown>
   earth2?: Record<string, unknown>
   mindex?: Record<string, unknown>
+  mycobrain?: Record<string, unknown>
+  nlm?: Record<string, unknown>
+  earthlive?: Record<string, unknown>
+  presence?: Record<string, unknown>
   error?: string
 }
 
