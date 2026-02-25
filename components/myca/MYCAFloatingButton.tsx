@@ -1,10 +1,16 @@
 "use client"
 
 import { useState } from "react"
+import dynamic from "next/dynamic"
 import { MessageSquare, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { MYCAChatWidget } from "./MYCAChatWidget"
+import { useMYCA } from "@/contexts/myca-context"
+
+const MYCAChatWidget = dynamic(
+  () => import("./MYCAChatWidget").then((m) => ({ default: m.MYCAChatWidget })),
+  { ssr: false }
+)
 
 interface MYCAFloatingButtonProps {
   className?: string
@@ -18,6 +24,22 @@ export function MYCAFloatingButton({
   getContextText,
 }: MYCAFloatingButtonProps) {
   const [open, setOpen] = useState(false)
+  const { setIsActive } = useMYCA()
+
+  const handleOpen = () => {
+    try {
+      window.localStorage.setItem("myca_has_used", "1")
+    } catch {
+      // Ignore storage errors in private mode.
+    }
+    setIsActive(true)
+    setOpen(true)
+  }
+
+  const handleClose = () => {
+    setIsActive(false)
+    setOpen(false)
+  }
 
   return (
     <>
@@ -30,20 +52,20 @@ export function MYCAFloatingButton({
           className
         )}
         aria-label="Open MYCA chat"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
       >
         <MessageSquare className="h-5 w-5" />
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-[80] flex justify-end bg-black/50" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[80] flex justify-end bg-black/50" onClick={handleClose}>
           <div
             className="h-full w-full max-w-full sm:max-w-md bg-background shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div className="text-base font-semibold">{title}</div>
-              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setOpen(false)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleClose}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { PetriDishSimContent } from "@/components/apps/petri-dish-sim-content"
+import { PetriDishSimClient } from "./PetriDishSimClient"
 
 export const metadata: Metadata = {
   title: "Petri Dish Simulator - Mycosoft",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 }
 
 export default function PetriDishSimPage() {
-  return <PetriDishSimContent variant="app" />
+  return <PetriDishSimClient />
 }

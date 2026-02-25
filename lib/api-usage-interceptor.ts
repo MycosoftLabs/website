@@ -19,6 +19,8 @@ interface ApiUsageEvent {
 
 const buffer: ApiUsageEvent[] = []
 let flushTimer: ReturnType<typeof setTimeout> | null = null
+let interceptorInitialized = false
+let originalFetchRef: typeof window.fetch | null = null
 
 function shouldLog(url: string): boolean {
   try {
@@ -70,12 +72,16 @@ function getRequestSize(request: Request): number | null {
 
 export function initApiUsageInterceptor(): void {
   if (typeof window === "undefined") return
+  if (interceptorInitialized) return
 
-  const originalFetch = window.fetch
+  interceptorInitialized = true
+  originalFetchRef = window.fetch
+
   window.fetch = async function (
     input: RequestInfo | URL,
     init?: RequestInit
   ): Promise<Response> {
+    const originalFetch = originalFetchRef || window.fetch
     const request = typeof input === "string" ? new Request(input, init) : input instanceof Request ? input : new Request(input.toString(), init)
     const url = request.url
 

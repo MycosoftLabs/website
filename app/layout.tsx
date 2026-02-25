@@ -3,15 +3,7 @@ import type { Viewport } from "next"
 import { Geist } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
-import { PresenceProvider } from "@/contexts/presence-context"
-import { AppStateProvider } from "@/contexts/app-state-context"
-import { MYCAProvider } from "@/contexts/myca-context"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
-import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
-import { PersonaPlexProvider } from "@/components/voice/PersonaPlexProvider"
-import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
-import { Toaster } from "sonner"
+import { AppShellProviders } from "@/components/providers/AppShellProviders"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -48,26 +40,7 @@ export default function RootLayout({
       <body className={geistSans.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <PresenceProvider>
-            <AppStateProvider>
-              <MYCAProvider>
-                <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
-                  <PersonaPlexProvider>
-                    {/* suppressHydrationWarning: Cursor IDE browser may inject data-cursor-ref into DOM, causing hydration mismatch only in that environment */}
-                    <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
-                      <Header />
-                      <main className="flex-1 relative w-full overflow-x-hidden">{children}</main>
-                      <Footer />
-                    </div>
-                    {/* PersonaPlexProvider renders the ONE floating mic widget (bottom-right).
-                        MYCAFloatingButton renders the MYCA chat brain icon (global access). */}
-                    <MYCAFloatingButton title="MYCA" />
-                    <Toaster richColors position="top-right" />
-                  </PersonaPlexProvider>
-                </UnifiedVoiceProvider>
-              </MYCAProvider>
-            </AppStateProvider>
-            </PresenceProvider>
+            <AppShellProviders>{children}</AppShellProviders>
           </AuthProvider>
         </ThemeProvider>
       </body>

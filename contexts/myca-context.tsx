@@ -69,6 +69,8 @@ export interface MYCAContextValue {
   syncToMAS: () => Promise<void>
   executeSearchAction: (action: MYCASearchAction) => void
   consciousness: MYCAConsciousnessState | null
+  isActive: boolean
+  setIsActive: (active: boolean) => void
 }
 
 const MYCAContext = createContext<MYCAContextValue | null>(null)
@@ -97,7 +99,13 @@ function normalizeMessages(rawMessages: Array<Record<string, any>>): MYCAMessage
   }))
 }
 
-export function MYCAProvider({ children }: { children: React.ReactNode }) {
+export function MYCAProvider({
+  children,
+  initialConsciousnessActive = false,
+}: {
+  children: React.ReactNode
+  initialConsciousnessActive?: boolean
+}) {
   const { user } = useAuth()
   const userId = user?.id || null
   const userRole = user?.role || null
@@ -109,6 +117,8 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
   const [memoryEnabled, setMemoryEnabled] = useState(true)
   const [pendingConfirmationId, setPendingConfirmationId] = useState<string | null>(null)
   const [consciousness, setConsciousness] = useState<MYCAConsciousnessState | null>(null)
+  const [isUserActive, setIsUserActive] = useState(false)
+  const isActive = initialConsciousnessActive || isUserActive
   const [lastResponseMetadata, setLastResponseMetadata] = useState<MYCALastResponseMetadata | null>(null)
   const hasInitializedRef = useRef(false)
 
@@ -185,6 +195,7 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
         timestamp,
       }
       appendMessage(userMessage)
+      setIsUserActive(true)
       setIsLoading(true)
 
       const contextText = options?.contextText?.trim()
@@ -426,6 +437,7 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
   }, [messages, userId])
 
   useEffect(() => {
+    if (!isActive) return
     let mounted = true
     const fetchConsciousness = async () => {
       try {
@@ -450,7 +462,7 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       clearInterval(interval)
     }
-  }, [conversationId, sessionId, userId])
+  }, [conversationId, isActive, sessionId, userId])
 
   const value = useMemo(
     () => ({
@@ -472,6 +484,8 @@ export function MYCAProvider({ children }: { children: React.ReactNode }) {
       executeSearchAction,
       consciousness,
       lastResponseMetadata,
+      isActive,
+      setIsActive: setIsUserActive,
     }),
     [
       sessionId,
