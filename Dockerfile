@@ -18,8 +18,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install with npm (reliable in Docker; avoids pnpm resolution issues)
-RUN npm ci
+# Install with npm (legacy-peer-deps for React 19 / Next 15 peer resolution in Docker)
+RUN npm install --legacy-peer-deps
 
 # =========================
 # Stage 2: Builder
