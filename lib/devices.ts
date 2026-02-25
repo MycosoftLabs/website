@@ -57,7 +57,7 @@ export const DEVICES: Device[] = [
     price: 2000,
     status: "Pre-order",
     image: "/assets/mushroom1/Main A.jpg",
-    video: "https://mycosoft.org/videos/mushroom1-promo.mp4",
+    video: "/assets/mushroom1/waterfall 1.mp4",
     videoTitle: "Discover the Underground Network",
     videoDescription: "Experience real-time monitoring of mycelial networks with unprecedented precision and insight.",
     features: [
@@ -120,7 +120,7 @@ export const DEVICES: Device[] = [
     price: 299,
     status: "In Stock",
     image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/SporeBase%20%20website-HFUWL3s1Ga7G7AZOnbrzy2YQoahLYu.png",
-    video: "https://mycosoft.org/videos/sporebase-promo.mp4",
+    video: "/assets/sporebase/Sporebase1publish.mp4",
     videoTitle: "Map the Fungal Future",
     videoDescription: "Create a dynamic map of fungal activity with our distributed spore collection network.",
     features: [
@@ -246,7 +246,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "Contact Sales",
     image: "/placeholder.svg?height=600&width=800&text=MycoNode",
-    video: "https://mycosoft.org/videos/myconode-promo.mp4",
+    video: "/assets/myconode/myconode hero1.mp4",
     videoTitle: "Listening to the Underground",
     videoDescription: "Decode the bioelectric whispers of fungal networks.",
     features: [

@@ -31,7 +31,7 @@ import type { LucideIcon } from "lucide-react"
 // See docs/DEVICE_MEDIA_ASSETS_PIPELINE.md for details
 // ============================================================================
 const MYCONODE_ASSETS = {
-  // Hero video background
+  // Hero video — myconode hero1.mp4 exists on NAS
   heroVideo: "/assets/myconode/myconode hero1.mp4",
   // Primary product image - main marketing image
   mainImage: "/assets/myconode/myconode a.png",
@@ -266,7 +266,6 @@ export function MycoNodeDetails() {
             playsInline
             preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
-            poster={encodeURI("/assets/myconode/myconode a.png")}
           >
             <source src={encodeURI(MYCONODE_ASSETS.heroVideo)} type="video/mp4" />
           </video>
