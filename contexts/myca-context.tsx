@@ -29,6 +29,13 @@ export interface MYCAConsciousnessState {
   world_updates?: number
 }
 
+export interface MYCAGroundingState {
+  is_grounded: boolean
+  ep_id: string | null
+  thought_count: number
+  enabled: boolean
+}
+
 export interface MYCASendOptions {
   contextText?: string
   context?: Record<string, unknown>
@@ -69,6 +76,7 @@ export interface MYCAContextValue {
   syncToMAS: () => Promise<void>
   executeSearchAction: (action: MYCASearchAction) => void
   consciousness: MYCAConsciousnessState | null
+  grounding: MYCAGroundingState | null
   isActive: boolean
   setIsActive: (active: boolean) => void
 }
@@ -117,6 +125,7 @@ export function MYCAProvider({
   const [memoryEnabled, setMemoryEnabled] = useState(true)
   const [pendingConfirmationId, setPendingConfirmationId] = useState<string | null>(null)
   const [consciousness, setConsciousness] = useState<MYCAConsciousnessState | null>(null)
+  const [grounding, setGrounding] = useState<MYCAGroundingState | null>(null)
   const [isUserActive, setIsUserActive] = useState(false)
   const isActive = initialConsciousnessActive || isUserActive
   const [lastResponseMetadata, setLastResponseMetadata] = useState<MYCALastResponseMetadata | null>(null)
@@ -452,7 +461,7 @@ export function MYCAProvider({
         if (!response.ok) return
         const data = await response.json()
         if (mounted) setConsciousness(data)
-      } catch (error) {
+      } catch {
         if (mounted) setConsciousness(null)
       }
     }
@@ -463,6 +472,37 @@ export function MYCAProvider({
       clearInterval(interval)
     }
   }, [conversationId, isActive, sessionId, userId])
+
+  useEffect(() => {
+    if (!isActive) return
+    let mounted = true
+    const fetchGrounding = async () => {
+      try {
+        const response = await fetch("/api/myca/grounding/status", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        if (mounted) {
+          setGrounding({
+            is_grounded: Boolean(data.enabled && data.last_ep_id && (data.thought_count ?? 0) > 0),
+            ep_id: data.last_ep_id ?? null,
+            thought_count: data.thought_count ?? 0,
+            enabled: data.enabled ?? false,
+          })
+        }
+      } catch {
+        if (mounted) setGrounding(null)
+      }
+    }
+    fetchGrounding()
+    const interval = setInterval(fetchGrounding, 30000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
+  }, [isActive])
 
   const value = useMemo(
     () => ({
@@ -483,6 +523,7 @@ export function MYCAProvider({
       syncToMAS,
       executeSearchAction,
       consciousness,
+      grounding,
       lastResponseMetadata,
       isActive,
       setIsActive: setIsUserActive,
@@ -503,6 +544,7 @@ export function MYCAProvider({
       syncToMAS,
       executeSearchAction,
       consciousness,
+      grounding,
       lastResponseMetadata,
     ]
   )

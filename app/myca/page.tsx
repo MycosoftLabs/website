@@ -2,7 +2,7 @@
 
 /**
  * MYCA Introduction Page - Architectural Showcase
- * Presents MYCA as the Opposable Thumb of AI
+ * Presents MYCA as Environmental Superintelligence
  * Route: /myca (and /MYCA via redirect)
  * Created: Feb 17, 2026
  */
@@ -37,7 +37,7 @@ export default function MYCAPage() {
               MYCA
             </span>
             <br />
-            <span className="text-foreground">The Opposable Thumb of AI</span>
+            <span className="text-foreground">Environmental Superintelligence</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
             A Nature Learning Model grounded in physics, chemistry, biology, and

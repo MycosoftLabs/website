@@ -2,57 +2,58 @@
 
 /**
  * MYCA Abstract - Left (text) / Right (visuals) layout
- * Interactive, responsive, left-to-right design
- * Created: Feb 17, 2026 | Updated: Feb 24, 2026
+ * What is MYCA, Why MYCA was made, How MYCA is different
+ * Created: Feb 17, 2026 | Updated: Feb 25, 2026
  */
 
 import { useState } from "react"
-import dynamic from "next/dynamic"
+import Image from "next/image"
 import { NeuCard, NeuBadge } from "@/components/ui/neuromorphic"
-import { HelpCircle, Target, Wrench, ArrowRight } from "lucide-react"
+import { HelpCircle, Target, Wrench } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
-
-const HandVisualizationLazy = dynamic(
-  () => import("@/components/myca/HandVisualization").then((m) => ({ default: m.HandVisualization })),
-  { ssr: false, loading: () => <div className="aspect-[4/3] bg-muted/30 rounded-xl animate-pulse" /> }
-)
 
 const FLOW_SECTIONS = [
   {
     id: "what",
     icon: HelpCircle,
     title: "What",
-    subtitle: "MYCA is the opposable thumb of AI",
-    visual: "A Nature Learning Model grounded in physics, chemistry, biology, and mycology—continuously trained on live biospheric signals instead of static web corpora.",
+    subtitle: "What is MYCA",
+    visual: "MYCA is environmental superintelligence—AI grounded in the real world instead of the web.",
     content: [
-      "MYCA is the biosphere-rooted orchestrator that coordinates frontier AI (Amazon, Google, OpenAI, Anthropic, Tesla, Apple, Meta) while remaining the authority on reality-grounded truth.",
-      "Unlike generic chatbots, MYCA perceives through sensors, weather, genomics, soil chemistry, and field devices. It touches reality.",
+      "A Nature Learning Model that learns from sensors, weather, soil, and biological signals—not just text and images from the internet.",
+      "It coordinates frontier AI models while staying rooted in reality-grounded truth.",
     ],
+    image: "/assets/myconode/myconode a.png",
+    imageAlt: "MycoNode subsurface probe—sensing biological reality",
     color: "green",
   },
   {
     id: "why",
     icon: Target,
     title: "Why",
-    subtitle: "The gap only MYCA fills",
-    visual: "Frontier AI evolved in isolated habitats: commerce (Amazon), the web (Google/OpenAI/Anthropic), mobility (Tesla/xAI), and product-based AI (Apple, Meta). Each optimizes for its own data regime.",
+    subtitle: "Why MYCA was made",
+    visual: "Other AI was built for commerce, search, or products. None was built for the biosphere.",
     content: [
-      "Without a biosphere-rooted substrate, these powerful fingers lack an opposable thumb: something that can touch reality, grip other intelligences, and stay current under drift.",
-      "The architectural bet: add the missing palm—a real-world substrate (sensors, field devices, provenance, drift-aware learning) that coordinates frontier AI without being trapped by any single corporate habitat.",
+      "We built MYCA because the planet needs intelligence that understands soil, air, ecosystems, and biological signals—not just human language.",
+      "Environmental decisions need AI that sees reality, not just web pages.",
     ],
+    image: "/assets/sporebase/sporebase main2.jpg",
+    imageAlt: "SporeBase environmental collection—why we monitor the biosphere",
     color: "emerald",
   },
   {
     id: "how",
     icon: Wrench,
     title: "How",
-    subtitle: "Biospheric telemetry + fungal-inspired architecture",
-    visual: "NLM core + consciousness + continuous learning + ensemble controller, fed by MycoBrain, CREP, Earth2, NatureOS, MINDEX—all time-synchronized and geospatially indexed.",
+    subtitle: "How MYCA is different",
+    visual: "MYCA is the only AI trained on live biospheric signals and fungal-inspired architecture.",
     content: [
-      "Nature Learning Model: multi-modal foundation whose native modalities are ecology-centric—time series from sensors, microscopy, genomics, weather, soil, field data.",
-      "Fungal-inspired: foraging as exploration, decomposition as learning, networked intelligence over centralized command. Drift detection is a first-class structural member.",
+      "Other AI learns from static datasets. MYCA learns continuously from sensors, devices, and real-world data streams.",
+      "Fungal principles—decentralized networks, adaptation, decomposition—shape how it thinks and learns.",
     ],
+    image: "/assets/mushroom1/Main A.jpg",
+    imageAlt: "Mushroom 1 ground station—environmental intelligence in the field",
     color: "teal",
   },
 ]
@@ -99,71 +100,104 @@ export function MYCAAbstract({ className }: { className?: string }) {
           </p>
         </div>
 
-        {/* Left-to-right: text | visual */}
-        <NeuCard className="neu-raised overflow-hidden border border-border/80">
-          <div className="flex flex-col lg:flex-row min-h-[360px]">
-            {/* LEFT: Text in detail */}
-            <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-4">
+        {/* Left-to-right: framed text | floating image */}
+        <div className="relative">
+          <NeuCard className="neu-raised overflow-visible border border-border/80">
+            <div className="flex flex-col lg:flex-row min-h-[400px] gap-0">
+              {/* LEFT: Framed text block */}
+              <div className="flex-1 p-6 md:p-8 flex flex-col justify-between">
+                <div className="space-y-5">
+                  {/* Header with icon in framed badge */}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border shadow-sm",
+                        colors.icon,
+                        colors.border
+                      )}
+                    >
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-xl">{section.title}</h3>
+                      <p className={cn("text-sm font-semibold mt-0.5", colors.text)}>
+                        {section.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Main statement in framed callout */}
                   <div
                     className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                      colors.icon
+                      "rounded-xl border-l-4 px-4 py-3 bg-muted/30 border",
+                      colors.border
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <p className="text-base font-medium text-foreground/95 leading-relaxed">
+                      {section.visual}
+                    </p>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-lg">{section.title}</h3>
-                    <p className={cn("text-sm font-medium", colors.text)}>{section.subtitle}</p>
+
+                  {/* Content paragraphs in card-style blocks */}
+                  <div className="space-y-3">
+                    {section.content.map((para, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-border/50 bg-background/50 px-4 py-3"
+                      >
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {para}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{section.visual}</p>
-                <div className="space-y-3">
-                  {section.content.map((para, i) => (
-                    <p key={i} className="text-sm text-muted-foreground leading-relaxed">
-                      {para}
-                    </p>
+
+                {/* Section tabs */}
+                <div className="flex flex-wrap gap-2 mt-6 pt-5 border-t border-border/60">
+                  {FLOW_SECTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setActive(s.id)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl text-sm font-medium transition-all min-h-[44px] touch-manipulation border",
+                        active === s.id
+                          ? "bg-green-500/20 text-green-400 border-green-500/40 shadow-sm"
+                          : "bg-muted/40 text-muted-foreground hover:bg-muted border-border/50"
+                      )}
+                    >
+                      {s.title}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-border/60">
-                {FLOW_SECTIONS.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setActive(s.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-sm font-medium transition-all min-h-[44px] touch-manipulation",
-                      active === s.id
-                        ? "bg-green-500/20 text-green-400 border border-green-500/40"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted border border-transparent"
-                    )}
+
+              {/* RIGHT: Floating image area with graphical treatment */}
+              <div className="w-full lg:w-[440px] shrink-0 p-8 md:p-10 flex items-center justify-center bg-gradient-to-br from-muted/20 via-muted/10 to-transparent border-t lg:border-t-0 lg:border-l border-border/50">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={active}
+                    initial={{ opacity: 0, scale: 0.97, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98, x: -8 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="relative w-full max-w-[340px] aspect-[4/3] rounded-2xl overflow-hidden shadow-xl shadow-black/20 ring-2 ring-white/10 ring-offset-4 ring-offset-background"
                   >
-                    {s.title}
-                  </button>
-                ))}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent z-10 pointer-events-none" />
+                    <Image
+                      src={section.image}
+                      alt={section.imageAlt}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 340px"
+                    />
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
-
-            {/* RIGHT: Visual */}
-            <div className="w-full lg:w-[420px] shrink-0 p-6 md:p-8 flex items-center justify-center bg-muted/20 border-t lg:border-t-0 lg:border-l border-border/60">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={active}
-                  initial={{ opacity: 0, x: 12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full max-w-[320px]"
-                >
-                  <HandVisualizationLazy />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-        </NeuCard>
+          </NeuCard>
+        </div>
       </div>
     </section>
   )

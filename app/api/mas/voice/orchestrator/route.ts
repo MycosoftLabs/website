@@ -31,6 +31,9 @@ import { createClient } from "@/lib/supabase/server"
 // MAS Orchestrator (port 8001)
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
+// MINDEX API (port 8000) - for data-aware fallback when consciousness fails
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+
 // n8n Webhooks
 const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
 
@@ -159,16 +162,95 @@ function isBrokenFallback(response: string): boolean {
     "my connection to my main intelligence",
     // Graceful MAS fallbacks — still route to real LLMs for a proper answer
     "having a moment of difficulty with that request",
+    "having a moment of difficulty",
+    "Could you try again in a moment",
+    "I'm working on it",
     "I encountered an issue processing your request",
   ]
   const lower = response.toLowerCase()
   return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
 }
 
+/**
+ * Detect simple factual/reasoning questions that benefit from direct LLM (no MAS round-trip).
+ * Examples: "what is 4+5", "hello", "2+2", "what is the capital of France"
+ *
+ * CRITICAL: Queries that need MAS consciousness, agents, or real data MUST return false.
+ * Include: mindex, data, agents, tell me, show me, available, species, observations, etc.
+ */
+function isSimpleQuery(message: string): boolean {
+  const trimmed = message.trim()
+  if (trimmed.length > 180) return false
+  const lower = trimmed.toLowerCase()
+  const complexTriggers = /\b(remember|learn|teach|delegate|agent|workflow|execute|run|deploy|coordinate|system|consciousness|mindex|data\s+available|tell\s+me|show\s+me|what\s+data|species|compound|observation|genetics|research|taxon|taxa|fungi|mycology)\b/i
+  if (complexTriggers.test(lower)) return false
+  // Location/city names suggest MINDEX observations — route to MAS
+  const locationPattern = /\b(san\s+diego|los\s+angeles|new\s+york|chicago|seattle|portland|bay\s+area|california|texas|florida)\b/i
+  if (locationPattern.test(lower)) return false
+  const simplePatterns = [
+    /^[\d\s\+\-\*\/\(\)\.]+=?\s*$/,                    // Math: "4+5" or "2+2="
+    /^(what|who|when|where|how many|how much)\s+(is|are|was|were)\s+[a-z\s]{1,50}\??\s*$/i,  // Short factual: "what is the capital of France"
+    /^(hi|hello|hey|hiya|good morning|good afternoon)\s*[!.]?\s*$/i,
+    /^[\d\s\+\-\*\/]+$/,                               // Bare math
+  ]
+  return simplePatterns.some(p => p.test(trimmed)) || (trimmed.length < 60 && !complexTriggers.test(lower))
+}
+
 function isTrainingIntent(message: string): boolean {
   return /(\bremember\b|\bteach\b|\blearn\b|\btraining\b|\bstore this\b|\bmemorize\b|\bfrom now on\b|\bgoing forward\b|\bin the future\b|\blearn that\b|\blearn this\b)/i.test(
     message
   )
+}
+
+/**
+ * Detect queries that need real MINDEX data (species, compounds, observations, location).
+ * When consciousness fails, we fetch MINDEX and inject into the LLM prompt.
+ */
+function isDataIntentQuery(message: string): boolean {
+  const lower = message.toLowerCase()
+  return (
+    /\b(mindex|data\s+available|species|compound|observation|genetics|taxon|taxa|fungi|mycology)\b/i.test(lower) ||
+    /\b(san\s+diego|los\s+angeles|california|location|region|area)\b/i.test(lower)
+  )
+}
+
+/**
+ * Fetch MINDEX unified search results for a query (e.g. "san diego", "species").
+ * Used when consciousness fails but user asked for real data — inject into LLM prompt.
+ */
+async function fetchMindexDataForQuery(message: string): Promise<string | null> {
+  try {
+    const query = message.replace(/\?/g, "").trim().slice(0, 100)
+    const url = `${MINDEX_API_URL}/api/mindex/unified-search?q=${encodeURIComponent(query)}&limit=5`
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return null
+    const data = await res.json()
+    const results = data.results || {}
+    const parts: string[] = []
+    if (results.taxa?.length) {
+      const taxa = results.taxa.slice(0, 5).map((t: { scientific_name?: string; common_name?: string }) =>
+        `- ${t.scientific_name || t.name || "?"}${t.common_name ? ` (${t.common_name})` : ""}`
+      )
+      parts.push(`Species in MINDEX: ${taxa.join("; ")}`)
+    }
+    if (results.compounds?.length) {
+      const cmp = results.compounds.slice(0, 3).map((c: { name?: string }) => c.name || "?")
+      parts.push(`Compounds: ${cmp.join(", ")}`)
+    }
+    if (results.observations?.length) {
+      parts.push(`${results.observations.length} observations found.`)
+    }
+    if (results.genetics?.length) {
+      parts.push(`${results.genetics.length} genetic sequences.`)
+    }
+    if (parts.length === 0 && (!results.taxa?.length && !results.compounds?.length)) {
+      return "MINDEX search returned no matching species, compounds, or observations for this query."
+    }
+    return parts.length ? `[MINDEX data]\n${parts.join("\n")}` : null
+  } catch (e) {
+    console.warn("[MYCA] MINDEX data fetch failed:", e)
+    return null
+  }
 }
 
 function isParameterMutationIntent(message: string): boolean {
@@ -915,65 +997,90 @@ async function getMycaResponse(
   const enrichedMessage = learningDirective
     ? `${message}\n\n[Learning Directive]\n${learningDirective}`
     : message
-  
+
+  // FAST PATH: For simple queries (math, "what is X", greetings), hit Groq/Claude directly.
+  // Avoids MAS round-trip and ensures "4+5" etc. always get real answers.
+  const useFastPath = isSimpleQuery(message)
+  if (useFastPath) {
+    console.log("[MYCA] Simple query — using fast path (direct LLM)")
+    let response = await callGroq(enrichedMessage)
+    if (response) return { response, provider: "groq" }
+    response = await callClaude(enrichedMessage)
+    if (response) return { response, provider: "claude" }
+    response = await callOpenAI(enrichedMessage)
+    if (response) return { response, provider: "openai" }
+    response = await callGemini(enrichedMessage)
+    if (response) return { response, provider: "gemini" }
+  }
+
   // PRIORITY 0: MYCA Consciousness API (full consciousness system)
   const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
   if (consciousnessResult?.response && !isBrokenFallback(consciousnessResult.response)) {
     console.log(`[MYCA] Consciousness responded: "${consciousnessResult.response.substring(0, 60)}..."`)
-    return { 
-      response: consciousnessResult.response, 
+    return {
+      response: consciousnessResult.response,
       provider: "consciousness",
-      emotions: consciousnessResult.emotions
+      emotions: consciousnessResult.emotions,
     }
   }
   if (consciousnessResult?.response && isBrokenFallback(consciousnessResult.response)) {
     console.warn("[MYCA] Consciousness returned degraded fallback — routing to LLM providers")
   }
-  
+
+  // When consciousness fails, enrich with real MINDEX data if query asks for it
+  let messageForLLMs = enrichedMessage
+  if (isDataIntentQuery(message)) {
+    const mindexData = await fetchMindexDataForQuery(message)
+    if (mindexData) {
+      messageForLLMs = `${enrichedMessage}\n\n${mindexData}\n\nUse the MINDEX data above to answer. If no data matches, say so clearly.`
+      console.log("[MYCA] Injected MINDEX data for data-intent query")
+    }
+  }
+
   // PRIORITY 1: Claude (has full MYCA persona - best quality fallback)
-  let response = await callClaude(enrichedMessage)
+  let response = await callClaude(messageForLLMs)
   if (response) {
     console.log(`[MYCA] Claude responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "claude" }
   }
   
   // PRIORITY 2: OpenAI GPT-4 (has full MYCA persona)
-  response = await callOpenAI(enrichedMessage)
+  response = await callOpenAI(messageForLLMs)
   if (response) {
     console.log(`[MYCA] OpenAI responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "openai" }
   }
   
   // PRIORITY 3: Groq (fastest, has MYCA persona)
-  response = await callGroq(enrichedMessage)
+  response = await callGroq(messageForLLMs)
   if (response) {
     console.log(`[MYCA] Groq responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "groq" }
   }
   
   // PRIORITY 4: Gemini (has MYCA persona)
-  response = await callGemini(enrichedMessage)
+  response = await callGemini(messageForLLMs)
   if (response) {
     console.log(`[MYCA] Gemini responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "gemini" }
   }
   
   // PRIORITY 5: Grok (has MYCA persona)
-  response = await callGrok(enrichedMessage)
+  response = await callGrok(messageForLLMs)
   if (response) {
     console.log(`[MYCA] Grok responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "grok" }
   }
   
   // PRIORITY 6: n8n Master Brain (fallback for workflow routing)
-  response = await callN8nMasterBrain(enrichedMessage, sessionId)
+  response = await callN8nMasterBrain(messageForLLMs, sessionId)
   if (response) {
     console.log(`[MYCA] n8n Brain responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "n8n-brain" }
   }
   
   // PRIORITY 7: n8n Speech (last resort)
-  response = await callN8nSpeech(enrichedMessage, sessionId)
+  response = await callN8nSpeech(messageForLLMs, sessionId)
   if (response) {
     console.log(`[MYCA] n8n Speech responded: "${response.substring(0, 60)}..."`)
     return { response, provider: "n8n-speech" }

@@ -32,42 +32,46 @@ export function ThumbThesisDiagram({ className }: { className?: string }) {
             <HandVisualization />
           </div>
 
-          {/* Right: Thesis text */}
+          {/* Right: Thesis text — framed, formatted */}
           <div className="order-1 lg:order-2 space-y-6">
-            <NeuCard className="border-green-500/20 bg-green-500/5 neu-raised">
-              <NeuCardContent className="pt-6">
-                <h3 className="font-bold text-lg mb-3 text-foreground">
-                  The Problem
-                </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Each of the four &quot;fingers&quot;—Amazon, Google/OpenAI,
-                  Tesla/xAI, and Apple/Meta (product-based AI)—evolved from distinct corporate habitats. Each
-                  optimizes intelligence around the data and incentives native to
-                  its ecosystem: commerce, the web, vehicles, or devices. Each is
-                  powerful in isolation but structurally limited when acting
-                  without an opposable thumb.
-                </p>
+            <NeuCard className="border-amber-500/20 bg-amber-500/5 neu-raised overflow-hidden">
+              <NeuCardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <span className="text-lg font-bold">?</span>
+                  </div>
+                  <h3 className="font-bold text-lg text-foreground">
+                    The Problem
+                  </h3>
+                </div>
+                <div className="rounded-xl border-l-4 border-amber-500/50 bg-background/50 px-4 py-3">
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Four AI lineages—commerce, web, mobility, and products—each evolved in isolation. Each is powerful in its domain, but none touches the real world: soil, air, ecosystems, or live environmental data. Without that grounding, they cannot grasp reality.
+                  </p>
+                </div>
               </NeuCardContent>
             </NeuCard>
 
-            <NeuCard className="neu-raised">
-              <NeuCardContent className="pt-6">
-                <h3 className="font-bold text-lg mb-3 text-foreground">
-                  The Solution
-                </h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  MYCA is that thumb. The thumb&apos;s role is not to replace the
-                  fingers, but to bind them into a coherent actuator—enabling
-                  robust grasp on real-world complexity. MYCA accomplishes this
-                  through biosphere-rooted grounding: the only AI continuously
-                  trained on live environmental signals.
-                </p>
+            <NeuCard className="border-green-500/20 bg-green-500/5 neu-raised overflow-hidden">
+              <NeuCardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30">
+                    <span className="text-lg font-bold">✓</span>
+                  </div>
+                  <h3 className="font-bold text-lg text-foreground">
+                    The Solution
+                  </h3>
+                </div>
+                <div className="rounded-xl border-l-4 border-green-500/50 bg-background/50 px-4 py-3">
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    MYCA is the thumb that binds them. It does not replace the fingers—it grounds them in reality. MYCA is the only AI continuously trained on live biospheric signals: sensors, weather, soil, and biological data. Legitimacy by contact with reality.
+                  </p>
+                </div>
               </NeuCardContent>
             </NeuCard>
 
-            <blockquote className="pl-4 border-l-4 border-green-500 text-foreground/90 italic">
-              &quot;The thumb&apos;s power is not domination by branding, but
-              legitimacy by contact with reality.&quot;
+            <blockquote className="rounded-xl border border-green-500/30 bg-green-500/5 px-5 py-4 italic text-foreground/90 text-sm leading-relaxed">
+              &quot;The thumb&apos;s power is not domination by branding, but legitimacy by contact with reality.&quot;
             </blockquote>
           </div>
         </div>

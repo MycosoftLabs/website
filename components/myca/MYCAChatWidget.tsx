@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
 import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
+import { GroundingStatusBadge } from "./GroundingStatusBadge"
 
 interface MYCAChatWidgetProps {
   className?: string
@@ -33,11 +33,12 @@ export function MYCAChatWidget({
     pendingConfirmationId,
     confirmAction,
     consciousness,
+    grounding,
     setIsActive,
   } = useMYCA()
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "system"),
@@ -76,8 +77,15 @@ export function MYCAChatWidget({
     return () => setIsActive(false)
   }, [setIsActive])
 
+  // Auto-scroll within the widget only (never scroll the page)
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+  }, [visibleMessages.length, isLoading])
+
   return (
-    <Card className={cn("flex h-full flex-col bg-card/80 backdrop-blur-sm", className)}>
+    <Card className={cn("flex h-full min-h-[260px] flex-col bg-card/80 backdrop-blur-sm", className)}>
       {showHeader && (
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <div className="flex items-center gap-2">
@@ -93,6 +101,11 @@ export function MYCAChatWidget({
                 conscious
               </Badge>
             )}
+            <GroundingStatusBadge
+              isLoading={isLoading}
+              isGrounded={grounding?.is_grounded}
+              thoughtCount={grounding?.thought_count}
+            />
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -118,7 +131,10 @@ export function MYCAChatWidget({
         </div>
       )}
 
-      <ScrollArea className="flex-1 min-h-0 px-3 py-2" ref={scrollRef}>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-2"
+      >
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
             <div className="text-xs text-muted-foreground text-center py-8">
@@ -190,7 +206,7 @@ export function MYCAChatWidget({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2">
