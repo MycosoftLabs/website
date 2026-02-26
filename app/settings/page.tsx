@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,11 +8,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/contexts/auth-context"
-import { Bell, Shield, Laptop, Globe } from "lucide-react"
+import { Bell, Shield, Laptop, Globe, Brain } from "lucide-react"
+
+const GROUNDING_PREF_KEY = "myca_grounded_cognition_enabled"
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const [isSaving, setIsSaving] = useState(false)
+  const [groundingEnabled, setGroundingEnabled] = useState(true)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(GROUNDING_PREF_KEY)
+      setGroundingEnabled(stored !== "false")
+    } catch {
+      setGroundingEnabled(true)
+    }
+  }, [])
+
+  const handleGroundingChange = (checked: boolean) => {
+    setGroundingEnabled(checked)
+    try {
+      localStorage.setItem(GROUNDING_PREF_KEY, String(checked))
+    } catch {
+      // ignore
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -90,6 +111,18 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">Make the interface more compact</p>
                   </div>
                   <Switch />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-violet-500" />
+                      <Label>Enable Grounded Cognition</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Use grounded cognition (ThoughtObjects, EP) when available. Backend must have MYCA_GROUNDED_COGNITION=1 for full behavior.
+                    </p>
+                  </div>
+                  <Switch checked={groundingEnabled} onCheckedChange={handleGroundingChange} />
                 </div>
               </CardContent>
             </Card>
