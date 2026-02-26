@@ -146,7 +146,6 @@ interface ChatResponse {
  */
 function isBrokenFallback(response: string): boolean {
   const internalPhrases = [
-    "lLM API connectivity",
     "LLM API connectivity",
     "API keys are valid",
     "API key configurations",
@@ -157,8 +156,10 @@ function isBrokenFallback(response: string): boolean {
     "connection to external language models",
     "temporarily limited due to LLM",
     "temporarily limited in my eloquence",
-    "Please try again in a moment",
     "my connection to my main intelligence",
+    // Graceful MAS fallbacks — still route to real LLMs for a proper answer
+    "having a moment of difficulty with that request",
+    "I encountered an issue processing your request",
   ]
   const lower = response.toLowerCase()
   return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
