@@ -5,6 +5,7 @@
  * In browser: uses /api/mycorrhizae proxy when baseUrl not set.
  * In server: uses MYCORRHIZAE_API_URL or localhost:8002.
  */
+import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url";
 
 function getDefaultBaseUrl(): string {
   if (typeof window !== 'undefined') {
@@ -103,8 +104,8 @@ export class MycorrhizaeClient {
     channelPatterns: string,
     callback: (message: MycorrhizaeMessage) => void
   ): () => void {
-    const wsUrl = this.baseUrl.replace(/^http/, 'ws');
-    const ws = new WebSocket(`${wsUrl}/api/ws/subscribe?channels=${encodeURIComponent(channelPatterns)}`);
+    const wsUrl = getSecureWebSocketUrl(this.baseUrl.replace(/^https?:\/\//, "ws://"));
+    const ws = new WebSocket(`${wsUrl.replace(/\/$/, "")}/api/ws/subscribe?channels=${encodeURIComponent(channelPatterns)}`);
     let aborted = false;
 
     ws.onopen = () => {

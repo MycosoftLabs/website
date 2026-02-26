@@ -79,7 +79,6 @@ import {
   Users,
   Microscope,
   Leaf,
-  Heart,
   Bird,
   PawPrint,
   Waves,
@@ -146,15 +145,11 @@ const SatelliteTrackerWidget = dynamic(() => import("@/components/crep/satellite
 // Conservation Demo Widgets (Feb 05, 2026) - lazy loaded
 const SmartFenceWidget = dynamic(() => import("@/components/crep/smart-fence-widget").then((m) => ({ default: m.SmartFenceWidget })), { ssr: false });
 const PresenceDetectionWidget = dynamic(() => import("@/components/crep/presence-detection-widget").then((m) => ({ default: m.PresenceDetectionWidget })), { ssr: false });
-const BiosignalWidget = dynamic(() => import("@/components/crep/biosignal-widget").then((m) => ({ default: m.BiosignalWidget })), { ssr: false });
 import type { FenceSegment } from "@/components/crep/smart-fence-widget";
 import type { PresenceReading } from "@/components/crep/presence-detection-widget";
 
 // Map Markers for OEI Data
 import { type FungalObservation } from "@/components/crep/markers";
-
-// Elephant Conservation Marker (Feb 05, 2026)
-import { ElephantMarker, type ElephantData } from "@/components/crep/markers/elephant-marker";
 
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
@@ -1450,15 +1445,11 @@ export default function CREPDashboardPage() {
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Elephant Conservation Demo States (Feb 05, 2026)
-  const [elephants, setElephants] = useState<ElephantData[]>([]);
+  // Conservation Demo widget data (fence/presence - empty until real MAS devices exist)
   const [fenceSegments, setFenceSegments] = useState<FenceSegment[]>([]);
   const [presenceReadings, setPresenceReadings] = useState<PresenceReading[]>([]);
-  const [selectedElephant, setSelectedElephant] = useState<ElephantData | null>(null);
-  const [conservationDemoEnabled, setConservationDemoEnabled] = useState(true);
   
   // Individual widget toggle states (Feb 17, 2026) - default OFF per user request
-  const [showBiosignalWidget, setShowBiosignalWidget] = useState(false);
   const [showSmartFenceWidget, setShowSmartFenceWidget] = useState(false);
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
   
@@ -1590,8 +1581,6 @@ export default function CREPDashboardPage() {
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
-    // Elephant Conservation Demo (Feb 05, 2026)
-    { id: "elephants", name: "ðŸ˜ Elephant Trackers", category: "devices", icon: <PawPrint className="w-3 h-3" />, enabled: true, opacity: 1, color: "#8b5cf6", description: "GPS collars with biosignal monitoring - Ghana/Africa" },
     { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
@@ -1865,61 +1854,6 @@ export default function CREPDashboardPage() {
           }
         } catch (e) {
           console.warn("[CREP] Failed to fetch MycoBrain devices:", e);
-        }
-
-        // Fetch Elephant Conservation Demo Data (Feb 05, 2026)
-        try {
-          const conservationRes = await fetch("/api/crep/demo/elephant-conservation");
-          if (conservationRes.ok) {
-            const data = await conservationRes.json();
-            if (data.ok) {
-              // Set elephants
-              setElephants(data.elephants || []);
-              // Set fence segments
-              setFenceSegments(data.fenceSegments || []);
-              // Convert environment monitors to presence readings (deduplicated)
-              const readings: PresenceReading[] = (data.environmentMonitors || []).map((m: any) => ({
-                monitorId: m.id,
-                monitorName: m.name,
-                zone: m.zone,
-                lat: m.lat,
-                lng: m.lng,
-                presenceDetected: m.readings?.presenceDetected || false,
-                lastMovement: m.readings?.lastMovement || new Date().toISOString(),
-                motionIntensity: m.readings?.presenceDetected ? 75 : 0,
-                smellDetected: m.readings?.smellDetected,
-              }));
-              // Deduplicate by monitorId
-              const seenMonitors = new Set<string>();
-              const uniqueReadings = readings.filter(r => {
-                if (seenMonitors.has(r.monitorId)) return false;
-                seenMonitors.add(r.monitorId);
-                return true;
-              });
-              setPresenceReadings(uniqueReadings);
-              // Add demo devices to devices list (deduplicated to prevent React key errors)
-              const demoDevices: Device[] = (data.devices || []).map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                lat: d.lat,
-                lng: d.lng,
-                status: d.status as "online" | "offline",
-                type: d.deviceType,
-                port: d.port,
-                firmware: d.firmware,
-                protocol: d.protocol,
-              }));
-              setDevices(prev => {
-                // Filter out any existing demo devices to prevent duplicates
-                const existingIds = new Set(prev.map(d => d.id));
-                const newDevices = demoDevices.filter(d => !existingIds.has(d.id));
-                return [...prev, ...newDevices];
-              });
-              console.log(`[CREP] Loaded ${data.elephants?.length || 0} elephants, ${data.fenceSegments?.length || 0} fence segments (Demo)`);
-            }
-          }
-        } catch (e) {
-          console.warn("[CREP] Failed to fetch elephant conservation demo:", e);
         }
 
         // Fetch aircraft data from FlightRadar24 API (NO LIMIT - fetch all available)
@@ -3793,16 +3727,6 @@ export default function CREPDashboardPage() {
               ));
             })()}
 
-            {/* Elephant Markers (Conservation Demo - Feb 05, 2026) */}
-            {layers.find(l => l.id === "elephants")?.enabled && elephants.map(elephant => (
-              <ElephantMarker
-                key={elephant.id}
-                elephant={elephant}
-                isSelected={selectedElephant?.id === elephant.id}
-                onClick={() => setSelectedElephant(selectedElephant?.id === elephant.id ? null : elephant)}
-              />
-            ))}
-
             {/* Aircraft / Vessel / Satellite / Fungal rendering moved to deck.gl EntityDeckLayer */}
           </MapComponent>
 
@@ -3975,21 +3899,6 @@ export default function CREPDashboardPage() {
                           <SatelliteTrackerWidget compact limit={10} />
                           
                           {/* Conservation Demo Widgets (Feb 05, 2026) - Individual toggles (Feb 17, 2026) */}
-                          {/* Elephant Biosignal Widget - toggled individually */}
-                          {showBiosignalWidget && elephants.length > 0 && (
-                            <BiosignalWidget 
-                              elephants={elephants}
-                              onElephantClick={(elephant) => {
-                                setSelectedElephant(elephant);
-                                mapRef?.flyTo({
-                                  center: [elephant.lng, elephant.lat],
-                                  zoom: 12,
-                                  duration: 1500,
-                                });
-                              }}
-                            />
-                          )}
-                          
                           {/* Smart Fence Network Widget - toggled individually */}
                           {showSmartFenceWidget && fenceSegments.length > 0 && (
                             <SmartFenceWidget 
@@ -4029,7 +3938,7 @@ export default function CREPDashboardPage() {
                           <Badge variant="outline" className="px-1 py-0 h-3 border-sky-500/30 text-sky-400">FR24</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
-                          {(showBiosignalWidget || showSmartFenceWidget || showPresenceWidget) && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
+                          {(showSmartFenceWidget || showPresenceWidget) && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
                         </div>
                       </div>
                     </div>
@@ -4058,25 +3967,10 @@ export default function CREPDashboardPage() {
                           <span className="text-[11px] font-semibold text-white">Conservation Widgets</span>
                         </div>
                         <Badge variant="outline" className="text-[8px] border-green-600 text-green-400">
-                          {(showBiosignalWidget ? 1 : 0) + (showSmartFenceWidget ? 1 : 0) + (showPresenceWidget ? 1 : 0)}/3
+                          {(showSmartFenceWidget ? 1 : 0) + (showPresenceWidget ? 1 : 0)}/2
                         </Badge>
                       </div>
                       <div className="p-2 space-y-1">
-                        {/* Biosignal Widget Toggle */}
-                        <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded flex items-center justify-center bg-green-500/20">
-                              <Heart className="w-3 h-3 text-green-400" />
-                            </div>
-                            <span className="text-[10px] text-gray-300">Elephant Biosignals</span>
-                          </div>
-                          <Switch
-                            checked={showBiosignalWidget}
-                            onCheckedChange={setShowBiosignalWidget}
-                            className="h-4 w-7 data-[state=checked]:bg-green-500"
-                          />
-                        </div>
-                        
                         {/* Smart Fence Widget Toggle */}
                         <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
                           <div className="flex items-center gap-2">

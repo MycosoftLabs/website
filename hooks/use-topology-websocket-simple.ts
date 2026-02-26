@@ -7,12 +7,13 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url"
 
 const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
 
 function getWsUrl(): string {
-  const base = MAS_API_URL.replace(/^http/, "ws")
-  return `${base}/ws/topology`
+  const base = getSecureWebSocketUrl(MAS_API_URL.replace(/^https?:\/\//, "ws://"))
+  return `${base.replace(/\/$/, "")}/ws/topology`
 }
 
 export type AgentStatus = "active" | "busy" | "idle" | "healthy" | "degraded" | "error" | "offline"

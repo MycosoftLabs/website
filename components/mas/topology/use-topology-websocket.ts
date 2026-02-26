@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url"
 import type {
   TopologyNode,
   TopologyConnection,
@@ -239,7 +240,7 @@ export function useTopologyWebSocket(
     setState((prev) => ({ ...prev, connecting: true, error: null }))
 
     try {
-      const ws = new WebSocket(WS_URL)
+      const ws = new WebSocket(getSecureWebSocketUrl(WS_URL))
       
       // Connection timeout - if no open event in 5 seconds, abort
       const connectTimeout = setTimeout(() => {

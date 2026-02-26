@@ -186,8 +186,10 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
       
       if (response.ok) {
         const data = await response.json()
-        if (data.reply) {
-          setMycaResponse(data.reply)
+        const reply = data.reply
+        const replyText = typeof reply === "string" ? reply : (reply?.text ?? reply?.content ?? (reply && typeof reply === "object" ? JSON.stringify(reply) : null))
+        if (replyText) {
+          setMycaResponse(replyText)
           setMycaQuery("")
           setMycaLoading(false)
           return
@@ -207,7 +209,9 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
       
       if (nlqResponse.ok) {
         const nlqData = await nlqResponse.json()
-        setMycaResponse(nlqData.text || "I understand. How can I help with FCI analysis?")
+        const text = nlqData.text
+        const textStr = typeof text === "string" ? text : (text?.toString?.() ?? nlqData.results?.[0]?.text ?? "I understand. How can I help with FCI analysis?")
+        setMycaResponse(textStr || "I understand. How can I help with FCI analysis?")
       } else {
         setMycaResponse("MYCA is currently unavailable. Please try again.")
       }
@@ -391,7 +395,9 @@ export function ControlPanel({ deviceId }: ControlPanelProps) {
                     <Brain className="h-4 w-4 text-emerald-400" />
                     <span className="text-xs font-semibold text-emerald-400">MYCA</span>
                   </div>
-                  <p className="text-xs text-cyan-100/90 leading-relaxed">{mycaResponse}</p>
+                  <p className="text-xs text-cyan-100/90 leading-relaxed">
+                    {typeof mycaResponse === "string" ? mycaResponse : String(mycaResponse ?? "")}
+                  </p>
                 </div>
               )}
             </div>

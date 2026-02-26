@@ -157,7 +157,7 @@ export function FungiComputeDashboard() {
                 className="border-cyan-500/30 text-cyan-400 bg-cyan-500/10 backdrop-blur-sm text-xs px-2 py-0.5 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
               >
                 <Activity className="h-3 w-3 mr-1" />
-                {selectedDevice.sampleRate} Hz
+                {typeof selectedDevice.sampleRate === "number" ? selectedDevice.sampleRate : (selectedDevice.sampleRate as Record<string, unknown>)?.value ?? "-"} Hz
               </Badge>
             )}
 

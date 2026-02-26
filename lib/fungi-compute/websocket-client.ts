@@ -5,6 +5,7 @@
  * Handles connection management, message parsing, and reconnection.
  */
 
+import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url"
 import {
   WSMessage,
   WSSamplePayload,
@@ -66,7 +67,8 @@ export class FCIWebSocketClient {
     this.setStatus("connecting")
     
     // Correct endpoint: /api/fci/ws/stream/{device_id}
-    const wsUrl = `${this.config.url}/api/fci/ws/stream/${this.config.deviceId}`
+    const base = getSecureWebSocketUrl(this.config.url || "ws://192.168.0.188:8001")
+    const wsUrl = `${base.replace(/\/$/, "")}/api/fci/ws/stream/${this.config.deviceId}`
     
     try {
       this.ws = new WebSocket(wsUrl)

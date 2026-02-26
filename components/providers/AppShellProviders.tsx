@@ -73,19 +73,8 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
 
   let content: React.ReactNode = children
 
-  if (enableMyca) {
-    content = <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{content}</MYCAProvider>
-  }
-
-  if (enableVoice) {
-    content = (
-      <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
-        <PersonaPlexProvider>{content}</PersonaPlexProvider>
-      </UnifiedVoiceProvider>
-    )
-  }
-
-  const shell = (
+  // Build the page layout (MYCAFloatingButton goes inside MYCAProvider below)
+  const pageLayout = (
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
@@ -98,9 +87,26 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     </>
   )
 
+  // MYCAProvider must wrap MYCAFloatingButton (which calls useMYCA internally)
+  let shell: React.ReactNode = pageLayout
+
+  if (enableMyca) {
+    shell = <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{pageLayout}</MYCAProvider>
+  }
+
+  if (enableVoice) {
+    shell = (
+      <UnifiedVoiceProvider defaultMode="web-speech" autoConnect={false}>
+        <PersonaPlexProvider>{shell}</PersonaPlexProvider>
+      </UnifiedVoiceProvider>
+    )
+  }
+
+  const shellWithProviders = shell
+
   return (
     <PresenceProvider>
-      {enableAppState ? <AppStateProvider>{shell}</AppStateProvider> : shell}
+      {enableAppState ? <AppStateProvider>{shellWithProviders}</AppStateProvider> : shellWithProviders}
     </PresenceProvider>
   )
 }

@@ -33,16 +33,19 @@ const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188
 // ============================================================================
 
 // Static demo devices to prevent re-renders
+// Use mycobrain type + copper_steel probeType for compatibility with FCIDevice interface
 const DEMO_DEVICES: FCIDevice[] = [
   {
     id: "demo-fci-001",
     name: "FCI Probe - Lab Demo",
-    type: "fci",
+    type: "mycobrain",
+    probeType: "copper_steel",
     status: "online",
-    location: { lat: 40.7128, lon: -74.0060, name: "Lab A, Station 3" },
+    location: { lat: 40.7128, lng: -74.0060 },
     sampleRate: 250,
     channels: 4,
     lastSeen: new Date().toISOString(),
+    firmwareVersion: "1.0.0-demo",
   }
 ]
 

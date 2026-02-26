@@ -13,14 +13,13 @@ export { VesselTrackerWidget } from "./vessel-tracker-widget"
 // Conservation Widgets (Feb 05, 2026)
 export { SmartFenceWidget, type FenceSegment, type FenceSensor } from "./smart-fence-widget"
 export { PresenceDetectionWidget, type PresenceReading } from "./presence-detection-widget"
-export { BiosignalWidget } from "./biosignal-widget"
 
 // FCI - Fungal Computer Interface Widgets (Feb 10, 2026)
 export { FCISignalWidget, FCIPatternChart } from "./fci"
 
 // Map Markers
-export { AircraftMarker, VesselMarker, SatelliteMarker, ElephantMarker, FungalMarker } from "./markers"
-export type { ElephantData, FungalObservation } from "./markers"
+export { AircraftMarker, VesselMarker, SatelliteMarker, FungalMarker } from "./markers"
+export type { FungalObservation } from "./markers"
 
 // Map Controls
 export {

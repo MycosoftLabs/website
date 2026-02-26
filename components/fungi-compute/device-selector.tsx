@@ -33,19 +33,32 @@ const STATUS_COLORS = {
   error: "text-red-400",
 }
 
-const DEVICE_TYPE_LABELS = {
+const DEVICE_TYPE_LABELS: Record<string, string> = {
   mycobrain: "MycoBrain",
   mushroom1: "Mushroom1",
   myconode: "MycoNode",
   sporebase: "SporeBase",
+  fci: "FCI Probe",
 }
 
-const PROBE_TYPE_LABELS = {
+const PROBE_TYPE_LABELS: Record<string, string> = {
   copper_steel: "Cu/Steel",
   silver_chloride: "Ag/AgCl",
   platinum_iridium: "Pt/Ir",
   carbon_fiber: "Carbon",
   agar_interface: "Agar",
+}
+
+function safeLabel(value: unknown, labels: Record<string, string>, fallback = "-"): string {
+  if (value == null) return fallback
+  const key = typeof value === "string" ? value : (typeof value === "object" && value !== null && "id" in value ? (value as { id?: string }).id : String(value))
+  return labels[key] ?? fallback
+}
+
+function safeSampleRate(value: unknown): string | number {
+  if (typeof value === "number" && !Number.isNaN(value)) return value
+  if (typeof value === "object" && value !== null && "value" in value) return (value as { value?: number }).value ?? "-"
+  return "-"
 }
 
 export function DeviceSelector({ devices, selectedId, onSelect, loading }: DeviceSelectorProps) {
@@ -123,15 +136,15 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] text-cyan-400/50">
-                    {DEVICE_TYPE_LABELS[device.type]}
+                    {safeLabel(device.type, DEVICE_TYPE_LABELS)}
                   </span>
                   <span className="text-cyan-500/30">•</span>
                   <span className="text-[10px] text-cyan-400/50">
-                    {PROBE_TYPE_LABELS[device.probeType]}
+                    {safeLabel(device.probeType, PROBE_TYPE_LABELS)}
                   </span>
                   <span className="text-cyan-500/30">•</span>
                   <span className="text-[10px] text-cyan-400/50">
-                    {device.channels}ch
+                    {typeof device.channels === "number" ? device.channels : "-"}ch
                   </span>
                 </div>
               </div>
@@ -145,7 +158,7 @@ export function DeviceSelector({ devices, selectedId, onSelect, loading }: Devic
                     textShadow: isSelected ? `0 0 8px ${FUNGI_COLORS.glow}` : "none"
                   }}
                 >
-                  {device.sampleRate}
+                  {safeSampleRate(device.sampleRate)}
                 </span>
                 <span className="text-[10px] text-cyan-400/40 ml-0.5">Hz</span>
               </div>

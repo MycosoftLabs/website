@@ -56,7 +56,8 @@ const STATUS_CONFIG = {
 }
 
 export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
-  const config = STATUS_CONFIG[status]
+  const statusKey = typeof status === "string" ? status : "disconnected"
+  const config = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.disconnected
   const Icon = config.icon
 
   return (
@@ -77,24 +78,24 @@ export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
         <div 
           className={cn(
             "h-2 w-2 rounded-full",
-            status === "connected" && "bg-emerald-400",
-            status === "connecting" && "bg-amber-400",
-            status === "reconnecting" && "bg-amber-400",
-            status === "error" && "bg-red-400",
-            status === "disconnected" && "bg-gray-400"
+            statusKey === "connected" && "bg-emerald-400",
+            statusKey === "connecting" && "bg-amber-400",
+            statusKey === "reconnecting" && "bg-amber-400",
+            statusKey === "error" && "bg-red-400",
+            statusKey === "disconnected" && "bg-gray-400"
           )}
           style={{
-            boxShadow: status === "connected" 
+            boxShadow: statusKey === "connected" 
               ? `0 0 8px ${config.glowColor}` 
               : undefined
           }}
         />
-        {(status === "connected" || status === "connecting" || status === "reconnecting") && (
+        {(statusKey === "connected" || statusKey === "connecting" || statusKey === "reconnecting") && (
           <div 
             className={cn(
               "absolute inset-0 rounded-full animate-ping",
-              status === "connected" && "bg-emerald-400",
-              (status === "connecting" || status === "reconnecting") && "bg-amber-400"
+              statusKey === "connected" && "bg-emerald-400",
+              (statusKey === "connecting" || statusKey === "reconnecting") && "bg-amber-400"
             )}
             style={{ animationDuration: "2s" }}
           />
@@ -109,7 +110,7 @@ export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
           config.animate && "animate-spin"
         )}
         style={{
-          filter: status === "connected" 
+          filter: statusKey === "connected" 
             ? `drop-shadow(0 0 4px ${config.glowColor})` 
             : undefined
         }}
@@ -122,7 +123,7 @@ export function ConnectionStatus({ status, className }: ConnectionStatusProps) {
           config.color
         )}
         style={{
-          textShadow: status === "connected" 
+          textShadow: statusKey === "connected" 
             ? `0 0 8px ${config.glowColor}` 
             : undefined
         }}

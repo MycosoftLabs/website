@@ -4,6 +4,7 @@ import {
 } from "@/lib/crep/proto/entity-codec";
 import { getViewportCells, MapBounds } from "@/lib/crep/spatial/s2-indexer";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
+import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url";
 
 export interface EntityStreamConnectOptions {
   types?: string[];
@@ -52,7 +53,8 @@ export class EntityStreamClient {
   private openSocket(): void {
     if (!this.onEntityHandler) return;
 
-    const url = new URL(`${this.endpointBase.replace(/^http/, "ws")}/api/entities/stream`);
+    const wsBase = getSecureWebSocketUrl(this.endpointBase);
+    const url = new URL(`${wsBase.replace(/\/$/, "")}/api/entities/stream`);
     if (this.cells.size > 0) {
       url.searchParams.set("cells", [...this.cells].join(","));
     }

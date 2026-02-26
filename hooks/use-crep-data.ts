@@ -305,20 +305,6 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
   // Fetch additional data not in unified endpoint
   const fetchAdditionalData = async (currentData: CREPDataState) => {
     try {
-      // Fetch elephant conservation demo (separate because it has unique structure)
-      const conservationRes = await fetch("/api/crep/demo/elephant-conservation")
-      if (conservationRes.ok) {
-        const conservationData = await conservationRes.json()
-        if (conservationData.ok && isMounted.current) {
-          setData(prev => ({
-            ...prev,
-            elephants: conservationData.elephants || [],
-            fenceSegments: conservationData.fenceSegments || [],
-            presenceReadings: transformPresenceReadings(conservationData.environmentMonitors || []),
-          }))
-        }
-      }
-
       // Fetch space weather scales
       const spaceWxRes = await fetch("/api/oei/space-weather")
       if (spaceWxRes.ok) {
