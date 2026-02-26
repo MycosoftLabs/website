@@ -140,6 +140,30 @@ interface ChatResponse {
   }
 }
 
+/**
+ * Detect degraded internal fallback responses from MAS that must never reach users.
+ * These phrases are internal error states, not real MYCA responses.
+ */
+function isBrokenFallback(response: string): boolean {
+  const internalPhrases = [
+    "lLM API connectivity",
+    "LLM API connectivity",
+    "API keys are valid",
+    "API key configurations",
+    "check the API key",
+    "run out of credits",
+    "language models, which currently",
+    "connection to my main intelligence",
+    "connection to external language models",
+    "temporarily limited due to LLM",
+    "temporarily limited in my eloquence",
+    "Please try again in a moment",
+    "my connection to my main intelligence",
+  ]
+  const lower = response.toLowerCase()
+  return internalPhrases.some(phrase => lower.includes(phrase.toLowerCase()))
+}
+
 function isTrainingIntent(message: string): boolean {
   return /(\bremember\b|\bteach\b|\blearn\b|\btraining\b|\bstore this\b|\bmemorize\b|\bfrom now on\b|\bgoing forward\b|\bin the future\b|\blearn that\b|\blearn this\b)/i.test(
     message
@@ -893,13 +917,16 @@ async function getMycaResponse(
   
   // PRIORITY 0: MYCA Consciousness API (full consciousness system)
   const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
-  if (consciousnessResult?.response) {
+  if (consciousnessResult?.response && !isBrokenFallback(consciousnessResult.response)) {
     console.log(`[MYCA] Consciousness responded: "${consciousnessResult.response.substring(0, 60)}..."`)
     return { 
       response: consciousnessResult.response, 
       provider: "consciousness",
       emotions: consciousnessResult.emotions
     }
+  }
+  if (consciousnessResult?.response && isBrokenFallback(consciousnessResult.response)) {
+    console.warn("[MYCA] Consciousness returned degraded fallback — routing to LLM providers")
   }
   
   // PRIORITY 1: Claude (has full MYCA persona - best quality fallback)
@@ -953,8 +980,7 @@ async function getMycaResponse(
   
   console.log("[MYCA] All providers failed (check logs above for Consciousness API failure reason)")
   return {
-    response:
-      "I'm MYCA, but I'm having trouble connecting to my AI backends. Please check that the API keys are configured.",
+    response: "I'm having trouble reaching my full intelligence right now. Please try again in a moment.",
     provider: "none",
   }
 }
