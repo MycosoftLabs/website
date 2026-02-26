@@ -18,16 +18,8 @@ import { RefreshCw, Activity, FlaskConical, Cpu, Lightbulb, Dna, Atom } from 'lu
 import { DNASequenceViewer, DNAHelixBanner } from '@/components/visualizations/DNASequenceViewer'
 import { MoleculeViewer } from '@/components/visualizations/MoleculeViewer'
 
-// Sample reference sequences and molecules for the visualization tab
-const DEMO_SEQUENCES = [
-  { name: "ITS1-5.8S-ITS2 (Amanita muscaria)", accession: "LN877747.1", seq: "GATCATTATTGAAAGAAACCTCAGGCAGGGGGAGATGGTTGTAGCTGGCCTCTAGGGGCATGTGCACACTGTGTCTCTCT" },
-  { name: "18S rRNA (Amanita muscaria)", accession: "AJ549964.1", seq: "AAGGATCATTATTGAAAGAAACCTCAGGCAGGGGGAGATGGTTGTAGCTGGCCTCTAGGGGCATGTGCACACTGTGTCTCTCTCTAGACTAGTATTACGAGCTA" },
-]
-const DEMO_COMPOUNDS = [
-  { name: "Psilocybin", formula: "C12H17N2O4P" },
-  { name: "Muscimol", formula: "C4H6N2O2" },
-  { name: "Amanita Toxin", formula: "C39H54N10O14S" },
-]
+const sequences: Array<{ name: string; accession: string; seq: string }> = []
+const compounds: Array<{ name: string; formula: string }> = []
 
 interface DashboardStats {
   experiments: { total: number; running: number; pending: number }
@@ -189,19 +181,27 @@ export default function ScientificPage() {
               <p className="text-sm text-muted-foreground">A=green · T=red · G=blue · C=amber</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {DEMO_SEQUENCES.map((s) => (
-              <NeuCard key={s.accession} className="border-green-500/20">
-                <NeuCardHeader className="pb-2">
-                  <h3 className="text-sm font-medium italic">{s.name}</h3>
-                  <p className="text-[10px] font-mono text-muted-foreground">{s.accession}</p>
-                </NeuCardHeader>
-                <NeuCardContent>
-                  <DNASequenceViewer sequence={s.seq} maxBarBases={100} textPreview={100} />
-                </NeuCardContent>
-              </NeuCard>
-            ))}
-          </div>
+          {sequences.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {sequences.map((s) => (
+                <NeuCard key={s.accession} className="border-green-500/20">
+                  <NeuCardHeader className="pb-2">
+                    <h3 className="text-sm font-medium italic">{s.name}</h3>
+                    <p className="text-[10px] font-mono text-muted-foreground">{s.accession}</p>
+                  </NeuCardHeader>
+                  <NeuCardContent>
+                    <DNASequenceViewer sequence={s.seq} maxBarBases={100} textPreview={100} />
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+          ) : (
+            <NeuCard className="border-green-500/20">
+              <NeuCardContent className="text-sm text-muted-foreground py-6 text-center">
+                No data available.
+              </NeuCardContent>
+            </NeuCard>
+          )}
         </TabsContent>
 
         {/* ── Chemistry visualization tab ─────────────────────────── */}
@@ -210,19 +210,27 @@ export default function ScientificPage() {
             <Atom className="h-5 w-5 text-purple-400" />
             Molecular Structure Viewer
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {DEMO_COMPOUNDS.map((c) => (
-              <NeuCard key={c.name} className="border-purple-500/20">
-                <NeuCardHeader className="pb-2">
-                  <h3 className="text-sm font-medium">{c.name}</h3>
-                  <p className="text-xs font-mono text-muted-foreground">{c.formula}</p>
-                </NeuCardHeader>
-                <NeuCardContent className="flex justify-center">
-                  <MoleculeViewer name={c.name} size="md" showLink />
-                </NeuCardContent>
-              </NeuCard>
-            ))}
-          </div>
+          {compounds.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {compounds.map((c) => (
+                <NeuCard key={c.name} className="border-purple-500/20">
+                  <NeuCardHeader className="pb-2">
+                    <h3 className="text-sm font-medium">{c.name}</h3>
+                    <p className="text-xs font-mono text-muted-foreground">{c.formula}</p>
+                  </NeuCardHeader>
+                  <NeuCardContent className="flex justify-center">
+                    <MoleculeViewer name={c.name} size="md" showLink />
+                  </NeuCardContent>
+                </NeuCard>
+              ))}
+            </div>
+          ) : (
+            <NeuCard className="border-purple-500/20">
+              <NeuCardContent className="text-sm text-muted-foreground py-6 text-center">
+                No data available.
+              </NeuCardContent>
+            </NeuCard>
+          )}
         </TabsContent>
         
         <TabsContent value="lab">

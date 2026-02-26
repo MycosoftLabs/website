@@ -31,9 +31,9 @@ const LIGHT_PUBLIC_ROUTES = new Set([
 ])
 
 const LIGHT_PUBLIC_PREFIXES = ["/devices/", "/about/", "/research/", "/science/"]
-const MYCA_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps"]
+const MYCA_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/scientific", "/admin"]
 const VOICE_PREFIXES = ["/search", "/myca", "/natureos", "/test-voice", "/apps"]
-const APP_STATE_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/protocols"]
+const APP_STATE_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/protocols", "/scientific", "/admin"]
 
 function startsWithAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))

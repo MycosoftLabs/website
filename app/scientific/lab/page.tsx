@@ -35,29 +35,7 @@ export default function LabPage() {
           <h3>Lab Protocols</h3>
         </NeuCardHeader>
         <NeuCardContent>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">Fungal Culture Inoculation</p>
-                <p className="text-sm text-muted-foreground">Standard protocol for starting fungal cultures</p>
-              </div>
-              <span className="text-sm bg-green-500/10 text-green-500 px-2 py-1 rounded">Active</span>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">DNA Extraction</p>
-                <p className="text-sm text-muted-foreground">Genomic DNA extraction from mycelium</p>
-              </div>
-              <span className="text-sm bg-gray-500/10 text-gray-500 px-2 py-1 rounded">Available</span>
-            </div>
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">Bioelectric Recording</p>
-                <p className="text-sm text-muted-foreground">FCI electrode recording protocol</p>
-              </div>
-              <span className="text-sm bg-gray-500/10 text-gray-500 px-2 py-1 rounded">Available</span>
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">No data available.</p>
         </NeuCardContent>
       </NeuCard>
     </div>

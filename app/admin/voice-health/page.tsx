@@ -111,27 +111,10 @@ export default function VoiceHealthDashboard() {
           latency: masRes?.ok ? masLatency : -1,
           url: masUrl,
         },
-        gpu: {
-          available: false, // Would need actual GPU metrics API
-          usage: 0,
-          vram: 0,
-          vramTotal: 0,
-        },
       })
-      
-      // Fetch metrics (mock for now - would come from real API)
-      setMetrics({
-        activeSessions: 0,
-        totalSessions: 0,
-        avgLatency: {
-          stt: 450,
-          llm: 1200,
-          tts: 650,
-          total: 2300,
-        },
-        recentQueries: [],
-        errors: [],
-      })
+
+      // Metrics require a real backend source. Keep empty until an API is available.
+      setMetrics(null)
     } catch (error) {
       console.error('[VoiceHealth] Error fetching health:', error)
     } finally {
@@ -320,16 +303,20 @@ export default function VoiceHealthDashboard() {
             <CardDescription>Current and total voice sessions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Active Now</span>
-                <span className="text-2xl font-bold">{metrics?.activeSessions || 0}</span>
+            {metrics ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Active Now</span>
+                  <span className="text-2xl font-bold">{metrics.activeSessions}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Today</span>
+                  <span className="text-lg font-mono">{metrics.totalSessions}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total Today</span>
-                <span className="text-lg font-mono">{metrics?.totalSessions || 0}</span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">No data available</p>
+            )}
           </CardContent>
         </Card>
         
@@ -340,45 +327,49 @@ export default function VoiceHealthDashboard() {
             <CardDescription>Voice processing pipeline</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Speech-to-Text</span>
-                <span className={cn(
-                  "text-sm font-mono",
-                  getLatencyColor(metrics?.avgLatency.stt || 0)
-                )}>
-                  {metrics?.avgLatency.stt || 0}ms
-                </span>
+            {metrics ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Speech-to-Text</span>
+                  <span className={cn(
+                    "text-sm font-mono",
+                    getLatencyColor(metrics.avgLatency.stt)
+                  )}>
+                    {metrics.avgLatency.stt}ms
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">LLM Response</span>
+                  <span className={cn(
+                    "text-sm font-mono",
+                    getLatencyColor(metrics.avgLatency.llm)
+                  )}>
+                    {metrics.avgLatency.llm}ms
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Text-to-Speech</span>
+                  <span className={cn(
+                    "text-sm font-mono",
+                    getLatencyColor(metrics.avgLatency.tts)
+                  )}>
+                    {metrics.avgLatency.tts}ms
+                  </span>
+                </div>
+                <div className="h-px bg-border my-2" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">Total</span>
+                  <span className={cn(
+                    "text-lg font-bold font-mono",
+                    getLatencyColor(metrics.avgLatency.total)
+                  )}>
+                    {metrics.avgLatency.total}ms
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">LLM Response</span>
-                <span className={cn(
-                  "text-sm font-mono",
-                  getLatencyColor(metrics?.avgLatency.llm || 0)
-                )}>
-                  {metrics?.avgLatency.llm || 0}ms
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Text-to-Speech</span>
-                <span className={cn(
-                  "text-sm font-mono",
-                  getLatencyColor(metrics?.avgLatency.tts || 0)
-                )}>
-                  {metrics?.avgLatency.tts || 0}ms
-                </span>
-              </div>
-              <div className="h-px bg-border my-2" />
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">Total</span>
-                <span className={cn(
-                  "text-lg font-bold font-mono",
-                  getLatencyColor(metrics?.avgLatency.total || 0)
-                )}>
-                  {metrics?.avgLatency.total || 0}ms
-                </span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">No data available</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -449,7 +440,7 @@ export default function VoiceHealthDashboard() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No recent queries. Voice system ready for use.
+              {metrics ? "No recent queries." : "No data available."}
             </p>
           )}
         </CardContent>
@@ -482,7 +473,7 @@ export default function VoiceHealthDashboard() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No errors. System operating normally.
+              {metrics ? "No errors." : "No data available."}
             </p>
           )}
         </CardContent>
