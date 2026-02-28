@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 import { getEventBus } from "@/lib/oei/event-bus"
 import type { Entity, GeoLocation } from "@/types/oei"
 
@@ -218,42 +221,8 @@ export async function GET() {
       apiKey: "API key for webhook authentication",
       metadata: "Additional key-value metadata",
     },
-    exampleRequest: {
-      deviceId: "mycobrain-001",
-      deviceType: "mycobrain",
-      name: "Grow Room Sensor 1",
-      description: "Environmental sensor in main cultivation room",
-      location: {
-        latitude: 37.7749,
-        longitude: -122.4194,
-      },
-      manufacturer: "Mycosoft",
-      model: "MycoBrain v2.0",
-      firmware: "1.2.3",
-      capabilities: ["temperature", "humidity", "pressure", "iaq", "voc", "co2"],
-    },
-    exampleResponse: {
-      success: true,
-      message: "Device registered successfully",
-      device: {
-        entityId: "mycobrain_mycobrain-001",
-        deviceId: "mycobrain-001",
-        deviceType: "mycobrain",
-        name: "Grow Room Sensor 1",
-        status: "pending",
-        createdAt: "2026-01-16T00:00:00.000Z",
-      },
-      mqtt: {
-        topic: "mycobrain/mycobrain-001/telemetry",
-        statusTopic: "mycobrain/mycobrain-001/status",
-        commandTopic: "mycobrain/mycobrain-001/command",
-        brokerUrl: "mqtt://localhost:1883",
-      },
-      webhook: {
-        url: "http://localhost:3000/api/devices/ingest",
-        method: "POST",
-      },
-    },
+    exampleRequest: null,
+    exampleResponse: null,
   })
 }
 

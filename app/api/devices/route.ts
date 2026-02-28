@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
 // Check for real MycoBrain devices from local service or MAS
 async function fetchMycoBrainDevices() {
   // Try local MycoBrain service first (for local dev), then MAS VM
@@ -119,14 +122,11 @@ export async function POST(request: Request) {
     // MycoBrain not available
   }
 
-  // Return success with local registration
-  return NextResponse.json({
-    success: true,
-    device: {
-      id: `device-${Date.now()}`,
-      ...data,
-      createdAt: new Date().toISOString(),
+  return NextResponse.json(
+    {
+      success: false,
+      error: "MycoBrain service unavailable. Device was not registered.",
     },
-    note: "Device registered locally. Sync with MycoBrain when available.",
-  })
+    { status: 503 }
+  )
 }
