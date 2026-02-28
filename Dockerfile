@@ -31,6 +31,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Apply patch-package patches after source copy
+RUN npx patch-package
+
 # Fix @tailwindcss/oxide musl native binding on Alpine (pnpm v10 doesn't auto-install optional platform deps)
 RUN npm install --no-save --ignore-scripts "@tailwindcss/oxide-linux-x64-musl" 2>&1 | tail -3 || true
 
