@@ -11,7 +11,7 @@ export interface EmbeddingResult {
   id: string
   content: string
   embedding: number[]
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   similarity?: number
 }
 
@@ -70,7 +70,7 @@ export async function storeEmbedding(
   id: string,
   content: string,
   embedding: number[],
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
   const supabase = await createClient()
   
@@ -119,7 +119,7 @@ export async function semanticSearch(
  */
 export async function batchGenerateEmbeddings(
   table: 'documents' | 'species',
-  items: Array<{ id: string; content: string; metadata?: Record<string, any> }>
+  items: Array<{ id: string; content: string; metadata?: Record<string, unknown> }>
 ) {
   const results = []
   

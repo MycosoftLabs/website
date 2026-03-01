@@ -23,6 +23,7 @@ interface ClusterizeOptions {
 }
 
 // Dynamic import for Clusterize (client-side only)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Clusterize.js has no TypeScript declarations
 let ClusterizeJS: any = null
 
 interface VirtualTableProps<T> {
@@ -73,6 +74,7 @@ export function VirtualTable<T>({
 }: VirtualTableProps<T>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLTableSectionElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Clusterize.js instance has no TypeScript declarations
   const clusterizeRef = useRef<any>(null)
   const [isClient, setIsClient] = useState(false)
   const [initialized, setInitialized] = useState(false)
@@ -214,6 +216,7 @@ export function VirtualList<T>({
 }: VirtualListProps<T>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Clusterize.js instance has no TypeScript declarations
   const clusterizeRef = useRef<any>(null)
   const [isClient, setIsClient] = useState(false)
 
@@ -292,6 +295,7 @@ export function useVirtualScroll<T>(
   const uniqueId = useId()
   const scrollId = `vs-scroll-${uniqueId.replace(/:/g, '')}`
   const contentId = `vs-content-${uniqueId.replace(/:/g, '')}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Clusterize.js instance has no TypeScript declarations
   const clusterizeRef = useRef<any>(null)
   const [isReady, setIsReady] = useState(false)
 

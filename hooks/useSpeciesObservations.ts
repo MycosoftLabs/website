@@ -22,6 +22,22 @@ const observationCache = new Map<string, LocationResult[]>()
 
 const INAT_BASE = "https://api.inaturalist.org/v1"
 
+// Raw iNaturalist observation shape
+interface INatObservationRaw {
+  id: number
+  taxon?: {
+    name?: string
+    preferred_common_name?: string
+  }
+  geojson?: {
+    coordinates?: [number, number]
+  }
+  observed_on?: string
+  created_at?: string
+  photos?: Array<{ url?: string }>
+  user?: { login?: string; name?: string }
+}
+
 interface UseSpeciesObservationsResult {
   observations: LocationResult[]
   loading: boolean
@@ -54,7 +70,7 @@ export function useSpeciesObservations(
 
     const ctrl = new AbortController()
 
-    const mapObs = (obs: any, name: string): LocationResult | null => {
+    const mapObs = (obs: INatObservationRaw, name: string): LocationResult | null => {
       if (!obs.geojson?.coordinates) return null
       return {
         id:          String(obs.id),
@@ -94,7 +110,7 @@ export function useSpeciesObservations(
           const res = await fetch(`${INAT_BASE}/observations?${params}`, { signal: ctrl.signal })
           if (!res.ok) break
           const data = await res.json()
-          const batch = (data.results || []).map((o: any) => mapObs(o, speciesName)).filter(Boolean) as LocationResult[]
+          const batch = (data.results || []).map((o: INatObservationRaw) => mapObs(o, speciesName)).filter(Boolean) as LocationResult[]
           allResults.push(...batch)
 
           // If iNaturalist returned fewer than asked, no more pages
@@ -126,7 +142,7 @@ export function useSpeciesObservations(
             if (gRes.ok) {
               const gData = await gRes.json()
               const gBatch = (gData.results || [])
-                .map((o: any) => mapObs(o, speciesName))
+                .map((o: INatObservationRaw) => mapObs(o, speciesName))
                 .filter(Boolean) as LocationResult[]
               if (gBatch.length > 0) {
                 observationCache.set(key, gBatch)

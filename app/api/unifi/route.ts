@@ -70,10 +70,10 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case "dashboard": {
         const [health, devices, clients, alarms] = await Promise.all([
-          unifiGet<any>("/stat/health"),
-          unifiGet<any>("/stat/device"),
-          unifiGet<any>("/stat/sta"),
-          unifiGet<any>("/stat/alarm").catch(() => []),
+          unifiGet<Record<string, unknown>>("/stat/health"),
+          unifiGet<Record<string, unknown>>("/stat/device"),
+          unifiGet<Record<string, unknown>>("/stat/sta"),
+          unifiGet<Record<string, unknown>>("/stat/alarm").catch(() => []),
         ])
         return NextResponse.json({
           timestamp: new Date().toISOString(),
@@ -84,26 +84,26 @@ export async function GET(request: NextRequest) {
         })
       }
       case "health":
-        return NextResponse.json({ data: await unifiGet<any>("/stat/health"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/stat/health"), timestamp: new Date().toISOString() })
       case "devices":
-        return NextResponse.json({ data: await unifiGet<any>("/stat/device"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/stat/device"), timestamp: new Date().toISOString() })
       case "clients":
-        return NextResponse.json({ data: await unifiGet<any>("/stat/sta"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/stat/sta"), timestamp: new Date().toISOString() })
       case "alarms":
-        return NextResponse.json({ data: (await unifiGet<any>("/stat/alarm")).slice(0, limit), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: (await unifiGet<Record<string, unknown>>("/stat/alarm")).slice(0, limit), timestamp: new Date().toISOString() })
       case "events":
-        return NextResponse.json({ data: (await unifiGet<any>("/stat/event")).slice(0, limit), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: (await unifiGet<Record<string, unknown>>("/stat/event")).slice(0, limit), timestamp: new Date().toISOString() })
       case "dpi":
-        return NextResponse.json({ data: await unifiGet<any>("/stat/dpi"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/stat/dpi"), timestamp: new Date().toISOString() })
       case "wifi":
       case "wlans":
-        return NextResponse.json({ data: await unifiGet<any>("/rest/wlanconf"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/rest/wlanconf"), timestamp: new Date().toISOString() })
       case "topology": {
-        const [devices, clients] = await Promise.all([unifiGet<any>("/stat/device"), unifiGet<any>("/stat/sta")])
+        const [devices, clients] = await Promise.all([unifiGet<Record<string, unknown>>("/stat/device"), unifiGet<Record<string, unknown>>("/stat/sta")])
         return NextResponse.json({ devices, clients, timestamp: new Date().toISOString() })
       }
       case "traffic":
-        return NextResponse.json({ data: await unifiGet<any>("/stat/traffic"), timestamp: new Date().toISOString() })
+        return NextResponse.json({ data: await unifiGet<Record<string, unknown>>("/stat/traffic"), timestamp: new Date().toISOString() })
       default:
         return NextResponse.json({ error: "Unknown action", code: "VALIDATION_ERROR" }, { status: 400 })
     }

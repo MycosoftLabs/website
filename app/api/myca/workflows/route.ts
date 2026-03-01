@@ -37,6 +37,26 @@ interface WorkflowExecution {
   duration?: number
 }
 
+interface N8NWorkflowRaw {
+  id: string
+  name: string
+  active: boolean
+  meta?: { description?: string }
+  createdAt: string
+  updatedAt: string
+  tags?: string[]
+  nodes?: Array<{ type?: string }>
+}
+
+interface N8NExecutionRaw {
+  id: string
+  workflowId: string
+  workflowData?: { name?: string }
+  status: string
+  startedAt: string
+  stoppedAt?: string
+}
+
 async function fetchN8NWorkflows(baseUrl: string, apiKey?: string, source: "local" | "cloud" = "local"): Promise<Workflow[]> {
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -59,11 +79,11 @@ async function fetchN8NWorkflows(baseUrl: string, apiKey?: string, source: "loca
     }
 
     const workflowsData = await workflowsRes.json()
-    const workflows = workflowsData.data || []
+    const workflows: N8NWorkflowRaw[] = workflowsData.data || []
 
     // Fetch execution stats for each workflow
     const enrichedWorkflows = await Promise.all(
-      workflows.map(async (wf: any) => {
+      workflows.map(async (wf) => {
         let executionCount = 0
         let lastExecution: string | undefined
         let lastStatus: "success" | "error" | "running" | undefined
@@ -111,10 +131,10 @@ async function fetchN8NWorkflows(baseUrl: string, apiKey?: string, source: "loca
   }
 }
 
-function extractDescription(workflow: any): string {
+function extractDescription(workflow: N8NWorkflowRaw): string {
   // Try to extract description from workflow nodes
   const nodes = workflow.nodes || []
-  const triggerNode = nodes.find((n: any) => n.type?.includes("trigger") || n.type?.includes("webhook"))
+  const triggerNode = nodes.find((n) => n.type?.includes("trigger") || n.type?.includes("webhook"))
   if (triggerNode) {
     return `Triggered by ${triggerNode.type?.replace("n8n-nodes-base.", "")}`
   }
@@ -145,7 +165,7 @@ async function fetchN8NExecutions(baseUrl: string, apiKey?: string): Promise<Wor
     const execData = await execRes.json()
     const executions = execData.data || []
 
-    return executions.map((exec: any) => ({
+    return executions.map((exec: N8NExecutionRaw) => ({
       id: exec.id,
       workflowId: exec.workflowId,
       workflowName: exec.workflowData?.name,
@@ -247,7 +267,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, workflowId, changes, source, user_id, session_id, conversation_id } = body
+    const { action, workflowId, changes, source, user_id, session_id, conversation_id } = body as {
+      action?: string
+      workflowId?: string
+      changes?: Record<string, unknown>
+      source?: "local" | "cloud"
+      user_id?: string
+      session_id?: string
+      conversation_id?: string
+    }
     
     if (!action || !workflowId) {
       return NextResponse.json({ error: "action and workflowId are required" }, { status: 400 })
@@ -282,8 +310,8 @@ export async function POST(request: NextRequest) {
       headers.Authorization = `Bearer ${apiKey}`
     }
     
-    let result: any
-    
+    let result: Response
+
     switch (action) {
       case "activate":
         result = await fetch(`${baseUrl}/api/v1/workflows/${workflowId}/activate`, {
@@ -357,7 +385,7 @@ export async function POST(request: NextRequest) {
 async function validateWithMYCA(
   action: string,
   workflowId: string,
-  changes?: any,
+  changes?: Record<string, unknown>,
   context?: { user_id?: string; session_id?: string; conversation_id?: string }
 ): Promise<{
   approved: boolean
@@ -392,7 +420,7 @@ async function validateWithMYCA(
   }
 }
 
-function performLocalValidation(action: string, workflowId: string, changes?: any): {
+function performLocalValidation(action: string, workflowId: string, changes?: Record<string, unknown>): {
   safe: boolean
   reason?: string
   suggestions: string[]
@@ -429,8 +457,8 @@ function performLocalValidation(action: string, workflowId: string, changes?: an
   if (action === "update" && changes) {
     // Check for potentially dangerous changes
     const dangerousNodes = ["Execute Command", "SSH", "Code", "Function"]
-    if (changes.nodes) {
-      const hasNewDangerous = changes.nodes.some((node: any) => 
+    if (changes.nodes && Array.isArray(changes.nodes)) {
+      const hasNewDangerous = (changes.nodes as Array<{ type?: string }>).some((node) =>
         dangerousNodes.some(d => node.type?.includes(d))
       )
       if (hasNewDangerous) {

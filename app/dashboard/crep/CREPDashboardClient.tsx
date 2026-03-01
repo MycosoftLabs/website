@@ -249,6 +249,8 @@ interface Device {
   lastUpdate?: string;
 }
 
+type LayerDataStatus = "real" | "planned_real" | "mock";
+
 interface LayerConfig {
   id: string;
   name: string;
@@ -258,6 +260,8 @@ interface LayerConfig {
   opacity: number;
   color: string;
   description: string;
+  dataStatus?: LayerDataStatus;
+  dataSource?: string;
 }
 
 interface MissionContext {
@@ -1568,6 +1572,53 @@ export default function CREPDashboardPage() {
     },
   ]);
   
+  const layerMetadataById: Record<string, { status: LayerDataStatus; source: string }> = {
+    fungi: { status: "real", source: "MINDEX" },
+    mycobrain: { status: "real", source: "MAS Devices" },
+    sporebase: { status: "planned_real", source: "SporeBase" },
+    partners: { status: "planned_real", source: "Partner Networks" },
+    smartfence: { status: "planned_real", source: "MycoBrain Fence" },
+    biodiversity: { status: "planned_real", source: "Biodiversity Datasets" },
+    weather: { status: "planned_real", source: "Weather APIs" },
+    earthquakes: { status: "planned_real", source: "USGS" },
+    volcanoes: { status: "planned_real", source: "NOAA/Smithsonian" },
+    wildfires: { status: "planned_real", source: "NASA FIRMS" },
+    storms: { status: "planned_real", source: "NOAA" },
+    solar: { status: "planned_real", source: "NOAA SWPC" },
+    lightning: { status: "planned_real", source: "Lightning API" },
+    tornadoes: { status: "planned_real", source: "NOAA" },
+    aviation: { status: "planned_real", source: "OpenSky" },
+    aviationRoutes: { status: "planned_real", source: "OpenSky" },
+    ships: { status: "planned_real", source: "AISstream" },
+    shipRoutes: { status: "planned_real", source: "AISstream" },
+    fishing: { status: "planned_real", source: "Global Fishing Watch" },
+    containers: { status: "planned_real", source: "Shipping" },
+    vehicles: { status: "planned_real", source: "Traffic" },
+    drones: { status: "planned_real", source: "UAV Feeds" },
+    satellites: { status: "real", source: "CelesTrak" },
+    population: { status: "planned_real", source: "Census/WorldPop" },
+    humanMovement: { status: "planned_real", source: "Mobility Providers" },
+    events_human: { status: "planned_real", source: "Event Feeds" },
+    militaryAir: { status: "mock", source: "Mock" },
+    militaryNavy: { status: "mock", source: "Mock" },
+    militaryBases: { status: "mock", source: "Mock" },
+    tanks: { status: "mock", source: "Mock" },
+    militaryDrones: { status: "mock", source: "Mock" },
+    factories: { status: "planned_real", source: "Industrial Registries" },
+    co2Sources: { status: "planned_real", source: "Emissions Inventories" },
+    methaneSources: { status: "planned_real", source: "Methane Datasets" },
+    oilGas: { status: "planned_real", source: "Energy Infra" },
+    powerPlants: { status: "planned_real", source: "Power Plants" },
+    metalOutput: { status: "planned_real", source: "Mining Data" },
+    waterPollution: { status: "planned_real", source: "Water Quality" },
+    earth2Forecast: { status: "planned_real", source: "Earth-2" },
+    earth2Nowcast: { status: "planned_real", source: "Earth-2" },
+    earth2Spore: { status: "planned_real", source: "Earth-2" },
+    earth2Wind: { status: "planned_real", source: "Earth-2" },
+    earth2Temp: { status: "planned_real", source: "Earth-2" },
+    earth2Precip: { status: "planned_real", source: "Earth-2" },
+  };
+
   // Layer states - FUNGAL DATA FIRST, transport/military OFF by default
   // Primary layers: Fungal observations and MycoBrain devices
   // Secondary layers: Transport, military - toggleable demos for correlation analysis

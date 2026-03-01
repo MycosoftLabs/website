@@ -1,3 +1,56 @@
+import Link from "next/link"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "MINDEX Explorer | NatureOS",
+  description: "Species explorer powered by MINDEX intelligence services.",
+}
+
+export default function MindexExplorerPage() {
+  return (
+    <main className="min-h-dvh bg-background">
+      <section className="container mx-auto px-4 py-10 md:py-14">
+        <Link
+          href="/natureos"
+          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-primary"
+        >
+          Back to NatureOS
+        </Link>
+        <p className="mt-4 text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">
+          MINDEX Explorer
+        </p>
+        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">Species Explorer</h1>
+        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          Browse and analyze global species intelligence with curated taxonomic data,
+          genetics, and observation telemetry.
+        </p>
+      </section>
+
+      <section className="container mx-auto px-4 pb-12">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Taxonomy intelligence</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Explore classification trees and lineage relationships backed by MINDEX.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Observation context</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Combine field data, imagery, and habitat metadata for richer context.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Research workflows</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Feed species intelligence into labs, simulations, and applied models.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
 import type { Metadata } from "next"
 import { MindexExplorerClient } from "./explorer-client"
 

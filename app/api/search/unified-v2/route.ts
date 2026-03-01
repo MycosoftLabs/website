@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 // Shared Redis cache for CREP and Search (Feb 12, 2026)
 import { cacheSearchUnified, cacheSearchTaxa, cacheSearchObservations } from "@/lib/crep/redis-cache"
 
@@ -1012,6 +1013,13 @@ export async function GET(request: NextRequest) {
     },
   }
 
+  await recordUsageFromRequest({
+    request,
+    usageType: "SPECIES_IDENTIFICATION",
+    quantity: 1,
+    metadata: { query },
+  })
+
   return NextResponse.json(response)
 }
 
@@ -1104,6 +1112,13 @@ export async function POST(request: NextRequest) {
       providers_used: providersUsed,
     },
   }
+
+  await recordUsageFromRequest({
+    request,
+    usageType: "SPECIES_IDENTIFICATION",
+    quantity: 1,
+    metadata: { query },
+  })
 
   return NextResponse.json(response)
 }

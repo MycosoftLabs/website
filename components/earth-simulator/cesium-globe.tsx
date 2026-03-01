@@ -77,8 +77,11 @@ export function CesiumGlobe({
   layers 
 }: CesiumGlobeProps) {
   const cesiumContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Viewer loaded from CDN has no TypeScript declarations in this context
   const viewerRef = useRef<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Entity instances from CDN-loaded library
   const gridEntitiesRef = useRef<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium Entity instances from CDN-loaded library
   const fungalEntitiesRef = useRef<any[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +117,7 @@ export function CesiumGlobe({
         }
 
         // Load Cesium JS
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
         if (!(window as any).Cesium) {
           await new Promise((resolve, reject) => {
             const script = document.createElement("script");
@@ -132,16 +136,20 @@ export function CesiumGlobe({
           });
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
         const Cesium = (window as any).Cesium;
         if (!Cesium) {
           throw new Error("Cesium failed to load");
         }
 
         // Set Cesium base URL (try unpkg first, fallback to official)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium CDN config on window global
         (window as any).CESIUM_BASE_URL = "https://unpkg.com/cesium@1.115.0/Build/Cesium/";
-        
+
         // Fallback to official CDN if unpkg fails
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium CDN config on window global
         if (!(window as any).Cesium) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium CDN config on window global
           (window as any).CESIUM_BASE_URL = "https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/";
         }
 
@@ -223,7 +231,7 @@ export function CesiumGlobe({
 
         // Handle clicks on the globe
         const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-        handler.setInputAction((click: any) => {
+        handler.setInputAction((click: { position: { x: number; y: number } }) => {
           const cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
           if (cartesian && onCellClick) {
             const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
@@ -279,6 +287,7 @@ export function CesiumGlobe({
   useEffect(() => {
     if (!initialized || !viewerRef.current || !showLandGrid) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
     const Cesium = (window as any).Cesium;
     const viewer = viewerRef.current;
     let loadTimeout: NodeJS.Timeout | null = null;
@@ -359,6 +368,7 @@ export function CesiumGlobe({
         }
 
         // Store tiles for click handler
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom property on Cesium Viewer instance for tile lookup
         (viewer as any)._gridTiles = tiles;
         setGridLoaded(true);
       } catch (err) {
@@ -409,11 +419,12 @@ export function CesiumGlobe({
 
     // Add click handler for tiles
     const clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-    clickHandler.setInputAction((click: any) => {
+    clickHandler.setInputAction((click: { position: { x: number; y: number } }) => {
       const picked = viewer.scene.pick(click.position);
       if (Cesium.defined(picked) && picked.id && picked.id.id?.startsWith("grid-")) {
         const tileId = picked.id.properties?.tileId?.getValue();
         if (tileId && onTileClick) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom property on Cesium Viewer instance for tile lookup
           const tiles = (viewer as any)._gridTiles || [];
           const matchingTile = tiles.find((t: GridTile) => t.id === tileId);
           if (matchingTile) {
@@ -463,7 +474,22 @@ export function CesiumGlobe({
           
           // Handle GeoJSON format
           if (data.type === 'FeatureCollection' && data.features) {
-            const observations = data.features.map((f: any) => ({
+            interface GeoJSONFeature {
+              properties?: {
+                id?: number
+                timestamp?: string
+                species?: string
+                scientificName?: string
+                source?: string
+                imageUrl?: string
+                observer?: string
+                verified?: boolean
+              }
+              geometry?: {
+                coordinates?: [number, number]
+              }
+            }
+            const observations = data.features.map((f: GeoJSONFeature) => ({
               id: f.properties?.id || Math.random(),
               observed_on: f.properties?.timestamp || new Date().toISOString(),
               latitude: f.geometry?.coordinates?.[1],
@@ -500,6 +526,7 @@ export function CesiumGlobe({
     const viewer = viewerRef.current;
     if (!viewer || !initialized) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
     const Cesium = (window as any).Cesium;
     if (!Cesium) return;
 
@@ -576,13 +603,16 @@ export function CesiumGlobe({
 
   // Add custom overlay layers when enabled
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
     if (!viewerRef.current || !initialized || !(window as any).Cesium) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium loaded from CDN as window global
     const Cesium = (window as any).Cesium;
     const viewer = viewerRef.current;
 
     // Remove existing custom layers (keep base satellite layer)
     const existingLayers = viewer.imageryLayers;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cesium ImageryLayer from CDN has no TS declarations
     const layersToRemove: any[] = [];
     for (let i = existingLayers.length - 1; i >= 1; i--) {
       const layer = existingLayers.get(i);

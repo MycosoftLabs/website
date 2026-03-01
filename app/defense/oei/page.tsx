@@ -1,3 +1,56 @@
+import Link from "next/link"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "OEI | Mycosoft Defense",
+  description: "Operational Environmental Intelligence (OEI) for persistent bio-risk monitoring.",
+}
+
+export default function OeiPage() {
+  return (
+    <main className="min-h-dvh bg-background">
+      <section className="container mx-auto px-4 py-10 md:py-14">
+        <Link
+          href="/defense"
+          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-primary"
+        >
+          Back to Defense
+        </Link>
+        <p className="mt-4 text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">OEI</p>
+        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">
+          Operational Environmental Intelligence
+        </h1>
+        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          OEI provides continuous environmental intelligence with adaptive sensing and
+          risk scoring across critical regions.
+        </p>
+      </section>
+
+      <section className="container mx-auto px-4 pb-12">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Live monitoring</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Tracks biological, chemical, and ecological signals in real time.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Threat scoring</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Prioritizes anomalies using context-aware risk models and agent oversight.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Operational alerts</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Streams alert events into MAS workflows, incident response, and dashboards.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
 "use client"
 
 import Link from "next/link"

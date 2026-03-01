@@ -35,13 +35,14 @@ interface ChemSpiderCompound {
 }
 
 // Add compound validation
-function validateCompound(compound: any): compound is ChemSpiderCompound {
+function validateCompound(compound: unknown): compound is ChemSpiderCompound {
+  if (!compound || typeof compound !== "object") return false
+  const c = compound as Record<string, unknown>
   return (
-    compound &&
-    typeof compound.id === "string" &&
-    typeof compound.commonName === "string" &&
-    typeof compound.molecularFormula === "string" &&
-    typeof compound.molecularWeight === "number"
+    typeof c.id === "string" &&
+    typeof c.commonName === "string" &&
+    typeof c.molecularFormula === "string" &&
+    typeof c.molecularWeight === "number"
   )
 }
 

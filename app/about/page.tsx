@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import {
   NeuCard,
   NeuCardContent,
@@ -15,17 +16,20 @@ import { teamMembers } from "@/lib/team-data"
 import { DEVICES } from "@/lib/devices"
 import {
   ArrowRight,
+  Bot,
   Brain,
+  Code2,
+  Cpu,
   Shield,
   ChevronRight,
   ExternalLink,
   CircuitBoard,
+  Leaf,
   Server,
   Activity,
   FileCode,
-  Leaf,
-  Cpu,
   Globe,
+  Users2,
   Zap,
 } from "lucide-react"
 
@@ -103,7 +107,31 @@ const applicationCategories = [
 export default function AboutPage() {
   // Filter team members: Morgan first, then the rest
   const morgan = teamMembers.find(m => m.slug === "morgan-rockwell")
-  const coreTeam = teamMembers.filter(m => m.slug !== "morgan-rockwell")
+  const [metrics, setMetrics] = useState<{
+    updated_at?: string
+    grounding?: { enabled?: boolean; thought_count?: number }
+    api_usage_90d?: { total_calls?: number }
+  } | null>(null)
+
+  useEffect(() => {
+    let isActive = true
+    const load = async () => {
+      try {
+        const res = await fetch("/api/public/about-metrics", { cache: "no-store" })
+        if (!res.ok) return
+        const data = await res.json()
+        if (isActive) setMetrics(data)
+      } catch {
+        // keep silent — live data is optional
+      }
+    }
+    load()
+    const interval = setInterval(load, 30000)
+    return () => {
+      isActive = false
+      clearInterval(interval)
+    }
+  }, [])
 
   return (
     <NeuromorphicProvider>
@@ -354,7 +382,7 @@ export default function AboutPage() {
                         src={morgan.image.startsWith("/") ? encodeURI(morgan.image) : morgan.image}
                         alt={morgan.name}
                         fill
-                        className="object-contain group-hover:scale-105 transition-transform duration-500"
+                        className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                     <NeuCardContent className="p-6 flex flex-col justify-center">
@@ -391,7 +419,7 @@ export default function AboutPage() {
                     </NeuBadge>
                     <h3 className="text-2xl font-bold mb-2">MYCA</h3>
                     <p className="text-sm text-muted-foreground">
-                      Mycosoft Cognitive Assistant. 117+ specialized agents, 200+ API endpoints — operating 24/7 across research, analysis, infrastructure, and autonomous science.
+                      MYCA is Mycosoft’s environmental superintelligence—an autonomous cognitive system grounded in real biospheric signals. It coordinates agents, models, and infrastructure to turn live environmental data into action.
                     </p>
                   </NeuCardContent>
                 </div>
@@ -399,28 +427,173 @@ export default function AboutPage() {
             </Link>
           </div>
 
-          {/* Core Team — badge and name below image, not over it */}
+          {/* Intelligence + Team Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {coreTeam.map((member) => (
-              <Link key={member.slug} href={`/about/team/${member.slug}`}>
-                <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-slate-100">
-                    <Image
-                      src={member.image.startsWith("/") ? encodeURI(member.image) : member.image}
-                      alt={member.name}
-                      fill
-                      className="object-contain group-hover:scale-105 transition-transform duration-500"
-                    />
+            <NeuCard className="overflow-hidden h-full">
+              <NeuCardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-center shrink-0">
+                    <Bot className="h-5 w-5 text-green-400" />
                   </div>
-                  <NeuCardContent className="p-4">
-                    <NeuBadge variant="success" className="mb-2 text-xs">
-                      {member.role}
-                    </NeuBadge>
-                    <h3 className="text-lg font-bold">{member.name}</h3>
-                  </NeuCardContent>
-                </NeuCard>
-              </Link>
-            ))}
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight">Digital Team</h3>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      Growing digital beings
+                    </p>
+                  </div>
+                </div>
+                <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-border/60 bg-black/30">
+                  <Image
+                    src="/assets/team/digital-team.png"
+                    alt="Digital team visualization"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 320px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  MYCA and her digital team of agents, APIs, skills &amp; integrations coordinate research, infrastructure, and autonomous science with real-world grounding.
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  Live grounding thoughts: {metrics?.grounding?.thought_count ?? "No data available"}
+                </div>
+                <Link
+                  href="/myca"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-lg border border-green-500/30 text-green-300 text-sm font-semibold hover:bg-green-500/10 transition-colors"
+                >
+                  View all digital teams
+                </Link>
+              </NeuCardContent>
+            </NeuCard>
+
+            <NeuCard className="overflow-hidden h-full">
+              <NeuCardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+                    <Cpu className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight">Corporate Team</h3>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      AI frontier services
+                    </p>
+                  </div>
+                </div>
+                <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-border/60 bg-black/30">
+                  <Image
+                    src="/assets/team/corporate-team.png"
+                    alt="Corporate team AI logos"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 320px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Mycosoft is run fully autonomously from the Board of Directors, to the C-suite, to all director positions using 24/7 autonomous frontier models.
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  MAS grounding: {metrics?.grounding?.enabled ? "enabled" : "disabled"}
+                </div>
+                <Link
+                  href="/about/corporate-team"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-lg border border-blue-500/30 text-blue-300 text-sm font-semibold hover:bg-blue-500/10 transition-colors"
+                >
+                  View corporate team
+                </Link>
+              </NeuCardContent>
+            </NeuCard>
+
+            <NeuCard className="overflow-hidden h-full">
+              <NeuCardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0">
+                    <Code2 className="h-5 w-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight">Technology Team</h3>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      Cursor + MYCA engineering
+                    </p>
+                  </div>
+                </div>
+                <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-border/60 bg-black/30">
+                  <Image
+                    src="/assets/team/technology-team.png"
+                    alt="Technology team workspace"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 320px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Built by rapid autonomous self learning &amp; evolving development across a massive codebase spanning software, firmware, and hardware systems.
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  API calls (90d): {metrics?.api_usage_90d?.total_calls ?? "No data available"}
+                </div>
+                <Link
+                  href="/about/technology-team"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-lg border border-purple-500/30 text-purple-300 text-sm font-semibold hover:bg-purple-500/10 transition-colors"
+                >
+                  View engineering team
+                </Link>
+              </NeuCardContent>
+            </NeuCard>
+
+            <NeuCard className="group transition-all overflow-hidden h-full">
+              <NeuCardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                    <Users2 className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold leading-tight">Human Team</h3>
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                      Human in the loop
+                    </p>
+                  </div>
+                </div>
+                <div className="relative aspect-[16/10] rounded-xl overflow-hidden border border-border/60 bg-black/30">
+                  <Image
+                    src="/assets/team/mycosoft-team.png"
+                    alt="Mycosoft team"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 320px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Human leadership guides purpose, vision, context, insight, accountability, and ecological responsibility across all digital teams &amp; the entire platform.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "Garret", slug: "garret-baquet" },
+                    { label: "RJ", slug: "rj-ricasata" },
+                    { label: "Chris", slug: "chris-freetage" },
+                    { label: "Alberto", slug: "alberto-septien" },
+                    { label: "Michelle", slug: "michelle-seven" },
+                  ].map((person) => (
+                    <Link
+                      key={person.slug}
+                      href={`/about/team/${person.slug}`}
+                      className="text-xs text-amber-300 hover:text-amber-200 underline underline-offset-4"
+                    >
+                      {person.label}
+                    </Link>
+                  ))}
+                </div>
+                <Link
+                  href="/about/human-team"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-lg border border-amber-500/30 text-amber-300 text-sm font-semibold hover:bg-amber-500/10 transition-colors"
+                >
+                  View All Humans
+                </Link>
+              </NeuCardContent>
+            </NeuCard>
           </div>
         </div>
       </section>

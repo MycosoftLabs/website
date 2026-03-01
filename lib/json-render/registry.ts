@@ -16,7 +16,7 @@ interface ComponentSpec {
 }
 
 interface RegisteredComponent {
-  component: ComponentType<any>;
+  component: ComponentType<Record<string, unknown>>;
   allowedProps: string[];
   description: string;
 }
@@ -25,7 +25,7 @@ const registry = new Map<string, RegisteredComponent>();
 
 export function registerComponent(
   type: string,
-  component: ComponentType<any>,
+  component: ComponentType<Record<string, unknown>>,
   allowedProps: string[],
   description: string
 ): void {

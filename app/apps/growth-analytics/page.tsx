@@ -1,3 +1,57 @@
+import Link from "next/link"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Growth Analytics | Apps",
+  description: "Growth analytics for fungal systems and environmental programs.",
+}
+
+export default function GrowthAnalyticsPage() {
+  return (
+    <main className="min-h-dvh bg-background">
+      <section className="container mx-auto px-4 py-10 md:py-14">
+        <Link
+          href="/apps"
+          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-primary"
+        >
+          Back to Apps
+        </Link>
+        <p className="mt-4 text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">
+          Growth Analytics
+        </p>
+        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">
+          Growth Analytics
+        </h1>
+        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          Analyze growth performance, environmental conditions, and operational outcomes.
+        </p>
+      </section>
+
+      <section className="container mx-auto px-4 pb-12">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Performance metrics</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Compare growth outcomes across programs and deployment regions.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Environmental context</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Correlate growth trends with telemetry and habitat data.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Operational reporting</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Export analytics for research teams and field operations.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
 "use client"
 
 import { useState, useEffect, useCallback } from "react"

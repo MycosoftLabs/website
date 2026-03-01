@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
 export const dynamic = "force-dynamic"
 
@@ -68,6 +69,19 @@ export async function POST(request: NextRequest) {
 
     const text = await res.text()
     if (!res.ok) return NextResponse.json({ error: "MINDEX ingest failed", details: text }, { status: res.status })
+    const quantity = Array.isArray(body?.samples)
+      ? body.samples.length
+      : Array.isArray(body?.envelope?.samples)
+      ? body.envelope.samples.length
+      : 1
+
+    await recordUsageFromRequest({
+      request,
+      usageType: "TELEMETRY_INGESTION",
+      quantity,
+      metadata: { source: "mindex-envelope" },
+    })
+
     return NextResponse.json(JSON.parse(text))
   } catch (error) {
     return NextResponse.json({ error: "Failed to ingest envelope", details: String(error) }, { status: 500 })

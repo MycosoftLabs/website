@@ -90,15 +90,15 @@ class SearchSessionMemory {
           ...parsed,
           startedAt: new Date(parsed.startedAt),
           lastActiveAt: new Date(parsed.lastActiveAt),
-          searches: parsed.searches.map((s: any) => ({
+          searches: parsed.searches.map((s: { timestamp: string } & Record<string, unknown>) => ({
             ...s,
             timestamp: new Date(s.timestamp),
           })),
-          conversations: parsed.conversations.map((c: any) => ({
+          conversations: parsed.conversations.map((c: { timestamp: string } & Record<string, unknown>) => ({
             ...c,
             timestamp: new Date(c.timestamp),
           })),
-          activeEntities: parsed.activeEntities.map((e: any) => ({
+          activeEntities: parsed.activeEntities.map((e: { addedAt: string } & Record<string, unknown>) => ({
             ...e,
             addedAt: new Date(e.addedAt),
           })),
@@ -392,15 +392,15 @@ class SearchSessionMemory {
         ...parsed,
         startedAt: new Date(parsed.startedAt),
         lastActiveAt: new Date(),
-        searches: parsed.searches.map((s: any) => ({
+        searches: parsed.searches.map((s: { timestamp: string } & Record<string, unknown>) => ({
           ...s,
           timestamp: new Date(s.timestamp),
         })),
-        conversations: parsed.conversations.map((c: any) => ({
+        conversations: parsed.conversations.map((c: { timestamp: string } & Record<string, unknown>) => ({
           ...c,
           timestamp: new Date(c.timestamp),
         })),
-        activeEntities: parsed.activeEntities.map((e: any) => ({
+        activeEntities: parsed.activeEntities.map((e: { addedAt: string } & Record<string, unknown>) => ({
           ...e,
           addedAt: new Date(e.addedAt),
         })),

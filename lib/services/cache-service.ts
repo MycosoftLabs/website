@@ -12,7 +12,7 @@ export const TREE_DATA_COLLECTION = "tree_data"
 /**
  * Cache data with a specific key in a collection
  */
-export async function cacheData(collection: string, key: string, data: any): Promise<void> {
+export async function cacheData(collection: string, key: string, data: unknown): Promise<void> {
   try {
     // Store in memory first
     if (!tempDB[collection]) {
@@ -33,7 +33,7 @@ export async function cacheData(collection: string, key: string, data: any): Pro
 /**
  * Get cached data by key from a collection
  */
-export async function getCachedData(collection: string, key: string): Promise<any | null> {
+export async function getCachedData(collection: string, key: string): Promise<unknown | null> {
   try {
     // Try memory cache first
     if (tempDB[collection]?.[key]) {
@@ -70,28 +70,28 @@ export async function getCachedData(collection: string, key: string): Promise<an
 /**
  * Cache tree data for a specific root species
  */
-export async function cacheTreeData(rootSpeciesId: string, treeData: any): Promise<void> {
+export async function cacheTreeData(rootSpeciesId: string, treeData: unknown): Promise<void> {
   return cacheData(TREE_DATA_COLLECTION, rootSpeciesId, treeData)
 }
 
 /**
  * Get cached tree data for a specific root species
  */
-export async function getCachedTreeData(rootSpeciesId: string): Promise<any | null> {
+export async function getCachedTreeData(rootSpeciesId: string): Promise<unknown | null> {
   return getCachedData(TREE_DATA_COLLECTION, rootSpeciesId)
 }
 
 /**
  * Cache species data
  */
-export async function cacheSpeciesData(speciesId: string, speciesData: any): Promise<void> {
+export async function cacheSpeciesData(speciesId: string, speciesData: unknown): Promise<void> {
   return cacheData(SPECIES_COLLECTION, speciesId, speciesData)
 }
 
 /**
  * Get cached species data
  */
-export async function getCachedSpeciesData(speciesId: string): Promise<any | null> {
+export async function getCachedSpeciesData(speciesId: string): Promise<unknown | null> {
   return getCachedData(SPECIES_COLLECTION, speciesId)
 }
 
@@ -128,7 +128,7 @@ const CACHE_TTL = {
 }
 
 // Helper function to store data in Vercel Blob
-async function storeInBlob(key: string, data: any): Promise<void> {
+async function storeInBlob(key: string, data: unknown): Promise<void> {
   try {
     const blob = await put(key, JSON.stringify(data), {
       access: "public",
@@ -140,7 +140,7 @@ async function storeInBlob(key: string, data: any): Promise<void> {
 }
 
 // Helper function to retrieve data from Vercel Blob
-async function retrieveFromBlob(key: string): Promise<any | null> {
+async function retrieveFromBlob(key: string): Promise<unknown | null> {
   try {
     const response = await fetch(`https://public.blob.vercel-storage.com/${key}`)
     if (response.ok) {
@@ -155,7 +155,7 @@ async function retrieveFromBlob(key: string): Promise<any | null> {
 }
 
 // Cache compound data
-export async function cacheCompoundData(id: string, data: any): Promise<void> {
+export async function cacheCompoundData(id: string, data: unknown): Promise<void> {
   try {
     const existingData = await tempDB.findOne(COLLECTIONS.COMPOUNDS, { id })
 
@@ -188,7 +188,7 @@ export async function cacheCompoundData(id: string, data: any): Promise<void> {
 }
 
 // Get cached compound data
-export async function getCachedCompoundData(id: string): Promise<any | null> {
+export async function getCachedCompoundData(id: string): Promise<unknown | null> {
   try {
     // Try to retrieve from Blob first
     const blobData = await retrieveFromBlob(`compound-${id}.json`)
@@ -212,7 +212,7 @@ export async function getCachedCompoundData(id: string): Promise<any | null> {
 }
 
 // Cache search results
-export async function cacheSearchResults(query: string, results: any[]): Promise<void> {
+export async function cacheSearchResults(query: string, results: unknown[]): Promise<void> {
   try {
     const normalizedQuery = query.toLowerCase().trim()
     const existingData = await tempDB.findOne(COLLECTIONS.SEARCH_RESULTS, { query: normalizedQuery })
@@ -249,7 +249,7 @@ export async function cacheSearchResults(query: string, results: any[]): Promise
 }
 
 // Get cached search results
-export async function getCachedSearchResults(query: string): Promise<any[] | null> {
+export async function getCachedSearchResults(query: string): Promise<unknown[] | null> {
   try {
     const normalizedQuery = query.toLowerCase().trim()
 
@@ -275,7 +275,7 @@ export async function getCachedSearchResults(query: string): Promise<any[] | nul
 }
 
 // Cache article data
-export async function cacheArticleData(id: string, data: any): Promise<void> {
+export async function cacheArticleData(id: string, data: unknown): Promise<void> {
   try {
     const existingData = await tempDB.findOne(COLLECTIONS.ARTICLES, { id })
 
@@ -308,7 +308,7 @@ export async function cacheArticleData(id: string, data: any): Promise<void> {
 }
 
 // Get cached article data
-export async function getCachedArticleData(id: string): Promise<any | null> {
+export async function getCachedArticleData(id: string): Promise<unknown | null> {
   try {
     // Try to retrieve from Blob first
     const blobData = await retrieveFromBlob(`article-${id}.json`)
@@ -466,7 +466,7 @@ async function triggerContingency(apiName: string): Promise<void> {
                 species: species.scientificName,
               },
               characteristics: species.characteristics || {},
-              images: (species.defaultImages || []).map((img: any) => ({
+              images: (species.defaultImages || []).map((img: Record<string, unknown>) => ({
                 ...img,
                 taxon_id: species.iNaturalistId,
                 source: "mycosoft" as const,
@@ -493,24 +493,27 @@ async function triggerContingency(apiName: string): Promise<void> {
         if (!cachedResults) {
           // Generate fallback results from our mapping
           const fallbackResults = Object.values(SPECIES_MAPPING)
-            .filter((species: any) => {
+            .filter((species: Record<string, unknown>) => {
               const normalizedQuery = query.toLowerCase()
+              const commonNames = species.commonNames as string[]
+              const scientificName = species.scientificName as string
+              const searchTerms = species.searchTerms as string[] | undefined
               return (
-                species.commonNames.some((name: string) => name.toLowerCase().includes(normalizedQuery)) ||
-                species.scientificName.toLowerCase().includes(normalizedQuery) ||
-                species.searchTerms?.some((term: string) => term.toLowerCase().includes(normalizedQuery))
+                commonNames.some((name: string) => name.toLowerCase().includes(normalizedQuery)) ||
+                scientificName.toLowerCase().includes(normalizedQuery) ||
+                searchTerms?.some((term: string) => term.toLowerCase().includes(normalizedQuery))
               )
             })
-            .map((species: any) => ({
+            .map((species: Record<string, unknown>) => ({
               id: species.iNaturalistId,
               name: species.scientificName,
-              preferred_common_name: species.commonNames[0],
+              preferred_common_name: (species.commonNames as string[])[0],
               iconic_taxon_name: "Fungi",
               rank: "species",
               is_active: true,
-              matched_term: species.commonNames[0],
+              matched_term: (species.commonNames as string[])[0],
               default_photo: {
-                medium_url: species.imageUrl || "",
+                medium_url: (species.imageUrl as string) || "",
                 attribution: "© Mycosoft",
               },
             }))
@@ -564,24 +567,27 @@ async function triggerContingency(apiName: string): Promise<void> {
       if (!cachedResults) {
         // Generate fallback results from our mapping
         const fallbackResults = Object.values(SPECIES_MAPPING)
-          .filter((species: any) => {
+          .filter((species: Record<string, unknown>) => {
             const normalizedQuery = query.toLowerCase()
+            const commonNames = species.commonNames as string[]
+            const scientificName = species.scientificName as string
+            const searchTerms = species.searchTerms as string[] | undefined
             return (
-              species.commonNames.some((name: string) => name.toLowerCase().includes(normalizedQuery)) ||
-              species.scientificName.toLowerCase().includes(normalizedQuery) ||
-              species.searchTerms?.some((term: string) => term.toLowerCase().includes(normalizedQuery))
+              commonNames.some((name: string) => name.toLowerCase().includes(normalizedQuery)) ||
+              scientificName.toLowerCase().includes(normalizedQuery) ||
+              searchTerms?.some((term: string) => term.toLowerCase().includes(normalizedQuery))
             )
           })
-          .map((species: any) => ({
+          .map((species: Record<string, unknown>) => ({
             id: species.iNaturalistId,
             name: species.scientificName,
-            preferred_common_name: species.commonNames[0],
+            preferred_common_name: (species.commonNames as string[])[0],
             iconic_taxon_name: "Fungi",
             rank: "species",
             is_active: true,
-            matched_term: species.commonNames[0],
+            matched_term: (species.commonNames as string[])[0],
             default_photo: {
-              medium_url: species.imageUrl || "",
+              medium_url: (species.imageUrl as string) || "",
               attribution: "© Mycosoft",
             },
           }))

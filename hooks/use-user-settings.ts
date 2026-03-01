@@ -45,8 +45,8 @@ export interface SettingsChange {
   timestamp: string
   category: string
   key: string
-  oldValue: any
-  newValue: any
+  oldValue: unknown
+  newValue: unknown
   source: "user" | "system" | "api"
 }
 
@@ -224,7 +224,7 @@ export function useUserSettings(): UseUserSettingsReturn {
           newSettings[category as keyof UserSettings] = {
             ...settings[category as keyof UserSettings],
             ...updates[category as keyof UserSettings],
-          } as any
+          } as UserSettings[keyof UserSettings]
         }
       }
       setSettings(newSettings)

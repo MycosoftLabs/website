@@ -69,6 +69,40 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+/** Raw serial port info returned by the MycoBrain ports API */
+interface SerialPortInfo {
+  port?: string;
+  path?: string;
+  device?: string;
+  id?: string;
+  description?: string;
+  is_mycobrain?: boolean;
+  is_connected?: boolean;
+}
+
+/** Raw device info returned by the MycoBrain devices API */
+interface RawMycoBrainDevice {
+  port?: string;
+  connected?: boolean;
+}
+
+/** Diagnostics result returned by the MycoBrain diagnostics API */
+interface DiagnosticsResult {
+  status: string;
+  checks?: Array<{ name: string; status: string; message?: string }>;
+  [key: string]: unknown;
+}
+
+/** Network device returned by the MAS Device Registry */
+interface NetworkDevice {
+  id: string;
+  name?: string;
+  type?: string;
+  status?: string;
+  ip?: string;
+  [key: string]: unknown;
+}
+
 interface SensorHistoryPoint {
   timestamp: Date
   bme1_temp: number
@@ -199,15 +233,15 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
   const [scanning, setScanning] = useState(false)
   const [scanResult, setScanResult] = useState<string | null>(null)
   const [serviceStatus, setServiceStatus] = useState<"checking" | "online" | "offline">("checking")
-  const [availablePorts, setAvailablePorts] = useState<any[]>([])
+  const [availablePorts, setAvailablePorts] = useState<SerialPortInfo[]>([])
   const [portStatuses, setPortStatuses] = useState<Record<string, "available" | "locked" | "connected" | "unknown">>({})
   const [serialData, setSerialData] = useState<string[]>([])
   const [serialMonitoring, setSerialMonitoring] = useState(false)
-  const [diagnostics, setDiagnostics] = useState<any>(null)
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null)
   const [machineModeActive, setMachineModeActive] = useState(false)
   
   // Network devices state
-  const [networkDevices, setNetworkDevices] = useState<any[]>([])
+  const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([])
   const [networkLoading, setNetworkLoading] = useState(false)
   const [networkError, setNetworkError] = useState<string | null>(null)
 
@@ -328,7 +362,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         
         if (statusRes.ok) {
           const statusData = await statusRes.json()
-          const mycobrainService = statusData.services?.find((s: any) => s.id === "mycobrain")
+          const mycobrainService = statusData.services?.find((s: { id: string; status?: string }) => s.id === "mycobrain")
           if (mycobrainService && mycobrainService.status === "online") {
             setServiceStatus("online")
           }
@@ -356,7 +390,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               
               // Update port statuses
               const statusMap: Record<string, "available" | "locked" | "connected" | "unknown"> = {}
-              portsData.ports?.forEach((p: any) => {
+              portsData.ports?.forEach((p: SerialPortInfo) => {
                 const key = p.path || p.port || p.id
                 if (!key) return
                 // Our service currently doesn't report locks; treat listed ports as available.
@@ -373,7 +407,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
 
         // Timeouts are common during container restarts / cold paths; don't flip UI offline.
         const isTimeout =
-          (error as any)?.name === "TimeoutError" ||
+          (error instanceof Error && error.name === "TimeoutError") ||
           msg.toLowerCase().includes("timeout") ||
           msg.toLowerCase().includes("timed out")
 
@@ -410,7 +444,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         const connectedDevicePorts = new Set<string>()
         if (devicesRes?.ok) {
           const devicesData = await devicesRes.json()
-          devicesData.devices?.forEach((d: any) => {
+          devicesData.devices?.forEach((d: RawMycoBrainDevice) => {
             if (d.port) connectedDevicePorts.add(d.port)
           })
         }
@@ -430,16 +464,16 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
         
         // Find MycoBoard devices that aren't connected yet
         // Be more permissive - try to connect to ANY serial port that's not already connected
-        const mycoboardPorts = ports.filter((p: any) => {
+        const mycoboardPorts = ports.filter((p: SerialPortInfo) => {
           const portKey = p.path || p.port || p.id
           if (!portKey) return false
-          
+
           // Check if already connected
           if (connectedDevicePorts.has(portKey)) return false
-          
+
           // Accept ANY serial port - be very permissive for auto-discovery
           // This will try to connect to any available port
-          const isSerialPort = 
+          const isSerialPort =
             p.is_mycobrain ||
             portKey.startsWith("COM") ||
             portKey.startsWith("/dev/tty") ||
@@ -597,10 +631,10 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       logToConsole(`> Found ${ports.length} serial port(s)`)
       
       // Prioritize COM7 (common MycoBrain port), then COM5, COM4, then other COM ports
-      const com7Port = ports.find((p: any) => (p.port || p.device) === "COM7")
-      const com5Port = ports.find((p: any) => (p.port || p.device) === "COM5")
-      const com4Port = ports.find((p: any) => (p.port || p.device) === "COM4")
-      const mycobrainPorts = ports.filter((p: any) => {
+      const com7Port = ports.find((p: SerialPortInfo) => (p.port || p.device) === "COM7")
+      const com5Port = ports.find((p: SerialPortInfo) => (p.port || p.device) === "COM5")
+      const com4Port = ports.find((p: SerialPortInfo) => (p.port || p.device) === "COM4")
+      const mycobrainPorts = ports.filter((p: SerialPortInfo) => {
         const portName = p.port || p.device
         return p.is_mycobrain ||
           (portName?.startsWith("COM") && !["COM4", "COM5", "COM7"].includes(portName)) ||
@@ -643,8 +677,8 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
             }
           }
-        } catch (error: any) {
-          if (error.name === "AbortError") {
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") {
             logToConsole(`✗ Connection to ${port} timed out (port may be locked)`)
             setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
           } else {
@@ -652,7 +686,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
           }
         }
       }
-      
+
       setScanResult("Found ports but could not connect. Check device is powered on and not in use by another application.")
       logToConsole("✗ Could not connect to any device")
     } catch (error) {
@@ -876,8 +910,8 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                {(availablePorts.length > 0 ? availablePorts.map((p: any) => p.port) : ["COM3", "COM4", "COM5", "COM6"]).map((port: string) => {
-                  const portInfo = availablePorts.find((p: any) => p.port === port)
+                {(availablePorts.length > 0 ? availablePorts.map((p) => p.port).filter((p): p is string => !!p) : ["COM3", "COM4", "COM5", "COM6"]).map((port: string) => {
+                  const portInfo = availablePorts.find((p) => p.port === port)
                   const status = portStatuses[port] || (portInfo?.is_connected ? "connected" : portInfo ? "available" : "unknown")
                   const isLocked = status === "locked"
                   
@@ -941,8 +975,8 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                               setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
                             }
                           }
-                        } catch (error: any) {
-                          if (error.name === "AbortError") {
+                        } catch (error) {
+                          if (error instanceof Error && error.name === "AbortError") {
                             setScanResult(`Connection to ${port} timed out (port may be locked)`)
                             logToConsole(`✗ Connection timeout - port may be locked`)
                             setPortStatuses(prev => ({ ...prev, [port]: "locked" }))
@@ -1023,7 +1057,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                         const data = await res.json()
                         setAvailablePorts(data.ports || [])
                         logToConsole(`✓ Found ${data.ports?.length || 0} port(s)`)
-                        data.ports?.forEach((p: any) => {
+                        data.ports?.forEach((p: SerialPortInfo) => {
                           logToConsole(`  - ${p.port}: ${p.description || "Unknown"} (Connected: ${p.is_connected})`)
                         })
                       }

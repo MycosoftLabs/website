@@ -105,18 +105,18 @@ export async function getSpeciesPhotos(taxonId: string, limit = 12): Promise<INa
 
     const obsData = await obsResponse.json()
     const observationPhotos = obsData.results
-      .filter((obs: any) => obs.photos && obs.photos.length > 0)
-      .map((obs: any) => obs.photos[0])
+      .filter((obs: Record<string, unknown>) => obs.photos && (obs.photos as unknown[]).length > 0)
+      .map((obs: Record<string, unknown>) => (obs.photos as Record<string, unknown>[])[0])
 
     // Combine and deduplicate photos with proper tagging
     const allPhotos = [...taxonPhotos, ...observationPhotos]
-      .filter((photo: any) => photo && photo.url)
-      .map((photo: any) => ({
-        url: photo.original_url || photo.large_url || photo.url,
-        medium_url: photo.medium_url || photo.url,
-        large_url: photo.large_url || photo.url,
-        attribution: photo.attribution || "© iNaturalist",
-        license_code: photo.license_code || "CC-BY-NC",
+      .filter((photo: Record<string, unknown>) => photo && photo.url)
+      .map((photo: Record<string, unknown>) => ({
+        url: (photo.original_url || photo.large_url || photo.url) as string,
+        medium_url: (photo.medium_url || photo.url) as string,
+        large_url: (photo.large_url || photo.url) as string,
+        attribution: (photo.attribution as string) || "© iNaturalist",
+        license_code: (photo.license_code as string) || "CC-BY-NC",
         taxon_id: taxonId,
         observation_id: photo.observation_id,
         photo_id: photo.id,
@@ -133,7 +133,7 @@ export async function getSpeciesPhotos(taxonId: string, limit = 12): Promise<INa
 }
 
 // Add image validation function
-async function validateAndFilterPhotos(photos: any[]): Promise<INaturalistPhoto[]> {
+async function validateAndFilterPhotos(photos: INaturalistPhoto[]): Promise<INaturalistPhoto[]> {
   const validatedPhotos = await Promise.all(
     photos.map(async (photo) => {
       try {
@@ -191,12 +191,12 @@ export async function getFullTaxonomy(taxonId: string): Promise<INaturalistTaxon
     }
 
     // Map ancestor ranks to our taxonomy structure
-    ancestors.forEach((ancestor: any) => {
-      if (ancestor.rank === "phylum") taxonomy.phylum = ancestor.name
-      if (ancestor.rank === "class") taxonomy.class = ancestor.name
-      if (ancestor.rank === "order") taxonomy.order = ancestor.name
-      if (ancestor.rank === "family") taxonomy.family = ancestor.name
-      if (ancestor.rank === "genus") taxonomy.genus = ancestor.name
+    ancestors.forEach((ancestor: Record<string, unknown>) => {
+      if (ancestor.rank === "phylum") taxonomy.phylum = ancestor.name as string
+      if (ancestor.rank === "class") taxonomy.class = ancestor.name as string
+      if (ancestor.rank === "order") taxonomy.order = ancestor.name as string
+      if (ancestor.rank === "family") taxonomy.family = ancestor.name as string
+      if (ancestor.rank === "genus") taxonomy.genus = ancestor.name as string
     })
 
     return taxonomy
@@ -294,7 +294,7 @@ export async function getFungiDetails(id: string) {
 const FUNGI_TAXON_ID = "47170"
 
 // Add timeout and retry logic to searchFungi
-export async function searchFungi(query: string, retries = 3): Promise<any> {
+export async function searchFungi(query: string, retries = 3): Promise<{ results: Record<string, unknown>[] }> {
   const timeout = 5000 // 5 second timeout
 
   for (let attempt = 0; attempt <= retries; attempt++) {

@@ -1,5 +1,11 @@
 import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
 
+interface INatTaxonResult {
+  id: number
+  name: string
+  matched_term?: string
+}
+
 interface ValidationResult {
   species: string
   currentId: string
@@ -45,7 +51,7 @@ async function validateSpeciesId(scientificName: string, currentId: string): Pro
 
     const data = await response.json()
     const exactMatch = data.results.find(
-      (result: any) =>
+      (result: INatTaxonResult) =>
         result.name.toLowerCase() === scientificName.toLowerCase() ||
         result.matched_term?.toLowerCase() === scientificName.toLowerCase(),
     )

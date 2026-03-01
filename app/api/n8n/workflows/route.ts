@@ -8,7 +8,18 @@ const N8N_PASSWORD = process.env.N8N_PASSWORD || "";
 const N8N_CLOUD_URL = process.env.N8N_CLOUD_URL || "";
 const N8N_CLOUD_API_KEY = process.env.N8N_CLOUD_API_KEY || "";
 
-async function n8nRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+interface N8NWorkflow {
+  id: string
+  name: string
+  active: boolean
+  nodes?: { type?: string }[]
+  createdAt?: string
+  updatedAt?: string
+  category?: string
+  nodesCount?: number
+}
+
+async function n8nRequest(endpoint: string, options: RequestInit = {}): Promise<unknown> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Accept": "application/json",
@@ -79,31 +90,32 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category");
 
   try {
-    const data = await n8nRequest("/workflows");
-    let workflows = data.data || [];
+    const data = await n8nRequest("/workflows") as { data?: N8NWorkflow[] };
+    let workflows: N8NWorkflow[] = data.data || [];
 
     if (active === "true") {
-      workflows = workflows.filter((w: any) => w.active);
+      workflows = workflows.filter((w) => w.active);
     } else if (active === "false") {
-      workflows = workflows.filter((w: any) => !w.active);
+      workflows = workflows.filter((w) => !w.active);
     }
 
-    workflows = workflows.map((w: any) => ({
+    workflows = workflows.map((w) => ({
       ...w,
       category: categorizeWorkflow(w.name),
       nodesCount: w.nodes?.length || 0,
     }));
 
     if (category) {
-      workflows = workflows.filter((w: any) => w.category === category);
+      workflows = workflows.filter((w) => w.category === category);
     }
 
     const stats = {
       total: workflows.length,
-      active: workflows.filter((w: any) => w.active).length,
-      inactive: workflows.filter((w: any) => !w.active).length,
-      byCategory: workflows.reduce((acc: any, w: any) => {
-        acc[w.category] = (acc[w.category] || 0) + 1;
+      active: workflows.filter((w) => w.active).length,
+      inactive: workflows.filter((w) => !w.active).length,
+      byCategory: workflows.reduce((acc: Record<string, number>, w) => {
+        const cat = w.category || "custom";
+        acc[cat] = (acc[cat] || 0) + 1;
         return acc;
       }, {}),
     };

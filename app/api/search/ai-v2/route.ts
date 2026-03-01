@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -360,6 +361,13 @@ export async function GET(request: NextRequest) {
 
   const totalLatency = Math.round(performance.now() - startTime)
 
+  await recordUsageFromRequest({
+    request,
+    usageType: "AI_QUERY",
+    quantity: 1,
+    metadata: { query },
+  })
+
   return NextResponse.json({
     query,
     result: {
@@ -427,6 +435,13 @@ export async function POST(request: NextRequest) {
   }
 
   const totalLatency = Math.round(performance.now() - startTime)
+
+  await recordUsageFromRequest({
+    request,
+    usageType: "AI_QUERY",
+    quantity: 1,
+    metadata: { query },
+  })
 
   return NextResponse.json({
     query,

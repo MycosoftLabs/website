@@ -8,7 +8,7 @@ export interface Point {
   id: string;
   lat: number;
   lng: number;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
 }
 
 export interface Cluster {
@@ -17,7 +17,7 @@ export interface Cluster {
   lng: number;
   count: number;
   points: Point[];
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
 }
 
 export interface ClusterOptions {

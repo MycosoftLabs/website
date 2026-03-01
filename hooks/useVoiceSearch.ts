@@ -79,8 +79,8 @@ export function useVoiceSearch(options: VoiceSearchOptions = {}) {
       onSearchTriggered?.(query)
       
       // Analytics
-      if (typeof window !== "undefined" && (window as any).gtag) {
-        (window as any).gtag("event", "voice_search", {
+      if (typeof window !== "undefined" && "gtag" in window) {
+        (window as unknown as { gtag: (...args: unknown[]) => void }).gtag("event", "voice_search", {
           query,
           query_length: query.length,
         })

@@ -25,6 +25,7 @@ export async function createMindexGrpcClient(options: MindexGrpcClientOptions) {
     oneofs: true,
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- gRPC dynamic proto loading has no static type information
   const loaded = grpc.loadPackageDefinition(packageDefinition) as any
   const ServiceCtor = loaded?.mindex?.v2?.MindexTelemetry
   if (!ServiceCtor) throw new Error("Failed to load MindexTelemetry service from proto")

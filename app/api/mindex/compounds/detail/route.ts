@@ -21,26 +21,25 @@ const MINDEX_COMPOUNDS = `${MINDEX_API_URL}/api/mindex/compounds`
 const PUBCHEM_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 const PUBCHEM_HEADERS = { "User-Agent": "Mycosoft/1.0 (mycosoft.com; dev@mycosoft.org)" }
 
-/** Compound → fungi (for SourceSpeciesList when compound detail has no species) */
-const COMPOUND_TO_FUNGI: Record<string, string[]> = {
-  "ganodermic acid": ["Ganoderma lucidum", "Ganoderma tsugae"],
-  "ganodermic acid a": ["Ganoderma lucidum"],
-  "lucidenic acid": ["Ganoderma lucidum"],
-  "ganoderic acid": ["Ganoderma lucidum"],
-  "hericenone": ["Hericium erinaceus"],
-  "erinacine": ["Hericium erinaceus"],
-  "polysaccharide k": ["Trametes versicolor"],
-  "cordycepin": ["Cordyceps militaris"],
-  "psilocybin": ["Psilocybe cubensis", "Psilocybe semilanceata"],
-  "muscimol": ["Amanita muscaria"],
-  "lentinan": ["Lentinula edodes"],
-  "betulinic acid": ["Inonotus obliquus"],
-}
-
 const mindexHeaders = () => ({
   "X-API-Key": env.mindexApiKey || "",
   "Content-Type": "application/json",
 })
+
+function normalizeSourceSpecies(raw: unknown): string[] | undefined {
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw === "string" && raw.trim()) return [raw.trim()]
+  return undefined
+}
+
+function applySourceSpecies(item: Record<string, unknown>) {
+  const fromMindex =
+    normalizeSourceSpecies((item as { sourceSpecies?: unknown }).sourceSpecies) ??
+    normalizeSourceSpecies((item as { source_species?: unknown }).source_species)
+  if (fromMindex?.length) {
+    ;(item as { sourceSpecies?: string[] }).sourceSpecies = fromMindex
+  }
+}
 
 // ---------------------------------------------------------------------------
 // PubChem helpers
@@ -208,14 +207,7 @@ export async function GET(request: NextRequest) {
         const item = d?.data?.[0] || d?.[0] || d
         // Only use MINDEX result if it has proper PubChem data (cid present)
         if (item?.cid && (item?.molecular_formula || item?.formula)) {
-          // Attach source species when known (for Chemistry widget Found In)
-          const nameLower = (item?.name || "").toLowerCase()
-          for (const [key, fungi] of Object.entries(COMPOUND_TO_FUNGI)) {
-            if (nameLower.includes(key)) {
-              item.sourceSpecies = fungi
-              break
-            }
-          }
+          applySourceSpecies(item)
           return NextResponse.json(item)
         }
       }
@@ -227,14 +219,6 @@ export async function GET(request: NextRequest) {
   try {
     const compound = await fetchFromPubChem(searchName)
     if (compound) {
-      // Attach source species for Chemistry widget "Found In" when known
-      const nameLower = (compound.name || "").toLowerCase()
-      for (const [key, fungi] of Object.entries(COMPOUND_TO_FUNGI)) {
-        if (nameLower.includes(key)) {
-          ;(compound as any).sourceSpecies = fungi
-          break
-        }
-      }
       storeCompoundInBackground(compound)
       return NextResponse.json(compound)
     }

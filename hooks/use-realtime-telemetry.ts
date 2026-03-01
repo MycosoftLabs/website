@@ -19,7 +19,7 @@ export interface TelemetryData {
   pressure?: number
   gas_resistance?: number
   air_quality?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export function useRealtimeTelemetry(deviceId?: string) {

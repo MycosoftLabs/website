@@ -14,7 +14,7 @@ export interface LoadRequest {
   timeRange?: { start: number; end: number };
   resolution?: 'low' | 'medium' | 'high';
   onProgress?: (progress: number) => void;
-  onComplete?: (data: any) => void;
+  onComplete?: (data: unknown) => void;
   onError?: (error: Error) => void;
 }
 

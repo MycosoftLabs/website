@@ -9,6 +9,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Home & Core
     { url: baseUrl, lastModified: now, changeFrequency: 'daily', priority: 1.0 },
     { url: `${baseUrl}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${baseUrl}/about/corporate-team`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/about/technology-team`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/about/human-team`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/about/team`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/pricing`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${baseUrl}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${baseUrl}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
@@ -17,7 +21,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/devices`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 },
     { url: `${baseUrl}/devices/mushroom-1`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/sporebase`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/devices/hyphae-1`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/myconode`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${baseUrl}/devices/alarm`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/mycobrain`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${baseUrl}/devices/specifications`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/devices/mycobrain/integration`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
@@ -48,6 +54,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/apps/retrosynthesis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/spore-tracker`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${baseUrl}/apps/symbiosis`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+
+    // NatureOS
+    { url: `${baseUrl}/natureos`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/natureos/mindex/explorer`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/ai-studio/explainer`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/devices/registry`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/devices/telemetry`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/devices/alerts`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/devices/map`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${baseUrl}/natureos/devices/fleet`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/natureos/devices/insights`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     
     // Ancestry & Research
     { url: `${baseUrl}/ancestry`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
@@ -89,6 +106,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Docs & Shop
     { url: `${baseUrl}/docs`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${baseUrl}/shop`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${baseUrl}/profile`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/settings`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     
     // Auth pages (for discoverability)
     { url: `${baseUrl}/login`, lastModified: now, changeFrequency: 'yearly', priority: 0.4 },

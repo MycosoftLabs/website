@@ -53,8 +53,8 @@ class FlightsCollector(BaseCollector):
             except Exception as e:
                 self.logger.warning("opensky_fetch_failed", error=str(e))
             
-            # Fallback to sample data
-            return self._get_sample_aircraft()
+            # No mock fallback. Return empty if unavailable.
+            return []
     
     def _parse_opensky_states(self, states: list) -> list[dict]:
         """Parse OpenSky state vectors."""
@@ -76,14 +76,6 @@ class FlightsCollector(BaseCollector):
                 })
         return aircraft
     
-    def _get_sample_aircraft(self) -> list[dict]:
-        """Sample aircraft data for demonstration."""
-        return [
-            {"icao24": "a12345", "callsign": "UAL123", "latitude": 37.7, "longitude": -122.4, "altitude": 35000, "velocity": 450, "heading": 90, "origin_country": "United States"},
-            {"icao24": "a67890", "callsign": "AAL456", "latitude": 40.6, "longitude": -73.8, "altitude": 28000, "velocity": 420, "heading": 270, "origin_country": "United States"},
-            {"icao24": "c12345", "callsign": "BAW789", "latitude": 51.4, "longitude": -0.4, "altitude": 38000, "velocity": 480, "heading": 45, "origin_country": "United Kingdom"},
-            {"icao24": "e45678", "callsign": "DLH101", "latitude": 50.0, "longitude": 8.5, "altitude": 33000, "velocity": 460, "heading": 180, "origin_country": "Germany"},
-        ]
     
     def transform_data(self, raw_data: list[dict]) -> list[dict]:
         """Transform aircraft data to CREP format."""

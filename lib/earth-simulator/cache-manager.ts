@@ -11,7 +11,7 @@ export interface CacheConfig {
 
 export class CacheManager {
   private config: CacheConfig;
-  private cache: Map<string, { data: any; expires: number }> = new Map();
+  private cache: Map<string, { data: unknown; expires: number }> = new Map();
 
   constructor(config?: CacheConfig) {
     this.config = {
@@ -24,7 +24,7 @@ export class CacheManager {
   /**
    * Get cached data
    */
-  async get(key: string): Promise<any | null> {
+  async get(key: string): Promise<unknown | null> {
     // In-memory cache (fallback)
     const cached = this.cache.get(key);
     if (cached && cached.expires > Date.now()) {
@@ -44,7 +44,7 @@ export class CacheManager {
   /**
    * Set cached data
    */
-  async set(key: string, data: any, ttl?: number): Promise<void> {
+  async set(key: string, data: unknown, ttl?: number): Promise<void> {
     const expires = Date.now() + (ttl || this.config.defaultTTL!) * 1000;
     
     // In-memory cache

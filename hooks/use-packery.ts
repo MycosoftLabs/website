@@ -15,7 +15,9 @@
 import { useEffect, useRef, useCallback, useState } from "react"
 
 // Packery and Draggabilly require browser environment
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Packery has no TypeScript declarations
 let Packery: any = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Draggabilly has no TypeScript declarations
 let Draggabilly: any = null
 
 if (typeof window !== "undefined") {
@@ -85,12 +87,15 @@ interface UsePackeryReturn {
   /** Update widget size class and trigger relayout */
   updateWidgetSize: (element: HTMLElement, width: 1 | 2, height?: 1 | 2 | 3) => void
   /** Packery instance ref for advanced usage */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Packery has no TypeScript declarations
   packeryInstance: React.RefObject<any>
 }
 
 export function usePackery(options: UsePackeryOptions = {}): UsePackeryReturn {
   const containerRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Packery has no TypeScript declarations
   const packeryRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Draggabilly instances have no TypeScript declarations
   const draggiesRef = useRef<Map<HTMLElement, any>>(new Map())
   const [isReady, setIsReady] = useState(false)
 
@@ -139,8 +144,8 @@ export function usePackery(options: UsePackeryOptions = {}): UsePackeryReturn {
 
         // Listen for layout complete
         if (onLayoutComplete) {
-          packeryRef.current.on("layoutComplete", (items: any[]) => {
-            const elems = items.map((item: any) => item.element)
+          packeryRef.current.on("layoutComplete", (items: Array<{ element: HTMLElement }>) => {
+            const elems = items.map((item) => item.element)
             onLayoutComplete(elems)
           })
         }

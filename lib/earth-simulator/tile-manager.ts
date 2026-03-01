@@ -14,7 +14,7 @@ export interface TileCoord {
 export interface TileData {
   coord: TileCoord;
   gridCells: string[]; // Cell IDs in this tile
-  data?: any; // Cached data
+  data?: unknown; // Cached data
   loaded: boolean;
   loading: boolean;
   timestamp?: number;
@@ -95,7 +95,7 @@ export class TileManager {
   /**
    * Mark tile as loaded
    */
-  setTileLoaded(coord: TileCoord, data: any): void {
+  setTileLoaded(coord: TileCoord, data: unknown): void {
     const key = this.getTileKey(coord);
     const tile = this.getTile(coord);
     tile.data = data;

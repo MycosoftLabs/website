@@ -9,12 +9,12 @@ import { createMINDEXClient } from "../sdk/mindex"
 
 export interface MINDEXQueryInput {
   operation: "search" | "getTaxa" | "getObservations" | "getStats" | "getTaxon"
-  params?: Record<string, any>
+  params?: Record<string, unknown>
 }
 
 export interface MINDEXQueryOutput {
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
   timestamp: string
   executionTime: number
@@ -28,7 +28,7 @@ export async function mindexQuery(input: MINDEXQueryInput): Promise<MINDEXQueryO
   
   try {
     const client = createMINDEXClient()
-    let data: any
+    let data: unknown
 
     switch (input.operation) {
       case "search":
@@ -106,7 +106,7 @@ export async function scheduledMINDEXSync(): Promise<{
  * Ancestry database enrichment function
  * Fetches additional data from MINDEX for ancestry records
  */
-export async function enrichAncestryData(speciesId: number): Promise<any> {
+export async function enrichAncestryData(speciesId: number): Promise<Record<string, unknown>> {
   const client = createMINDEXClient()
   
   try {

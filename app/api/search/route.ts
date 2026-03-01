@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { searchFungi } from "@/lib/services/inaturalist"
 import { searchElsevierArticles } from "@/lib/services/elsevier"
 import type { SearchResult } from "@/types/search"
@@ -6,20 +6,68 @@ import { SPECIES_MAPPING } from "@/lib/services/species-mapping"
 import { searchCompounds } from "@/lib/data/compounds"
 import { searchExpandedMushrooms } from "@/lib/data/top-mushrooms-expanded"
 import { searchTracker } from "@/lib/services/search-tracker"
+import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
+
+interface SpeciesMappingEntry {
+  iNaturalistId?: string | number
+  scientificName: string
+  commonNames: string[]
+  searchTerms?: string[]
+  description?: string
+}
+
+interface ExpandedMushroom {
+  iNaturalistId?: string | number
+  scientificName: string
+  commonNames: string[]
+  description?: string
+  category?: string
+  popularity?: number
+  regions?: string[]
+}
+
+interface CompoundEntry {
+  id: string
+  name: string
+  chemicalClass?: string
+  description?: string
+  formula?: string
+  molecularWeight?: number
+  sourceSpecies?: string[]
+  biologicalActivity?: string[]
+}
+
+interface INaturalistResult {
+  id: number
+  name: string
+  preferred_common_name?: string
+  iconic_taxon_name?: string
+  ancestor_ids?: number[]
+  wikipedia_summary?: string
+}
+
+interface ElsevierArticle {
+  doi: string
+  title: string
+  abstract?: string
+  authors: Array<{ name: string }>
+  publicationDate: string
+  journal: { name: string }
+}
 
 // Helper functions
 function getLocalSearchResults(query: string) {
   try {
     return Object.values(SPECIES_MAPPING)
-      .filter((species) => matchesSearch(species, query))
-      .map(formatSpeciesResult)
+      .filter((species) => matchesSearch(species as SpeciesMappingEntry, query))
+      .map((species) => formatSpeciesResult(species as SpeciesMappingEntry))
   } catch (error) {
     console.error("Local search error:", error)
     return []
   }
 }
 
-function matchesSearch(species: any, query: string) {
+function matchesSearch(species: SpeciesMappingEntry, query: string) {
   const normalizedQuery = query.toLowerCase()
   return (
     species.searchTerms?.some((term: string) => term.toLowerCase().includes(normalizedQuery)) ||
@@ -28,7 +76,7 @@ function matchesSearch(species: any, query: string) {
   )
 }
 
-function formatSpeciesResult(species: any) {
+function formatSpeciesResult(species: SpeciesMappingEntry) {
   return {
     id: species.iNaturalistId,
     title: species.commonNames[0],
@@ -40,7 +88,7 @@ function formatSpeciesResult(species: any) {
 }
 
 // Add function to format expanded mushroom results
-function formatExpandedMushroomResults(mushrooms: any[]) {
+function formatExpandedMushroomResults(mushrooms: ExpandedMushroom[]) {
   return mushrooms.map((mushroom) => ({
     id: mushroom.iNaturalistId || `expanded-${mushroom.scientificName.toLowerCase().replace(/\s+/g, "-")}`,
     title: mushroom.commonNames[0],
@@ -60,7 +108,7 @@ function formatExpandedMushroomResults(mushrooms: any[]) {
 }
 
 // Add function to format compound results
-function formatCompoundResults(compounds: any[]) {
+function formatCompoundResults(compounds: CompoundEntry[]) {
   return compounds.map((compound) => ({
     id: compound.id,
     title: compound.name,
@@ -77,14 +125,14 @@ function formatCompoundResults(compounds: any[]) {
   }))
 }
 
-function formatFungiResults(fungiResults: any[]) {
+function formatFungiResults(fungiResults: INaturalistResult[]) {
   return fungiResults
-    .filter((result: any) => {
+    .filter((result) => {
       const isFungi = result.iconic_taxon_name === "Fungi" || result.ancestor_ids?.includes(47170)
       const hasValidName = result.preferred_common_name || result.name
       return isFungi && hasValidName
     })
-    .map((result: any) => ({
+    .map((result) => ({
       id: result.id.toString(),
       title: result.preferred_common_name || result.name,
       description: result.wikipedia_summary || `A species of fungus (${result.name})`,
@@ -94,7 +142,7 @@ function formatFungiResults(fungiResults: any[]) {
     }))
 }
 
-function formatArticleResults(articleResults: any[]) {
+function formatArticleResults(articleResults: ElsevierArticle[]) {
   return articleResults.map((article) => ({
     id: article.doi,
     title: article.title,
@@ -112,7 +160,7 @@ function formatArticleResults(articleResults: any[]) {
 }
 
 // Add better error handling and fallbacks
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const headers = {
     "Content-Type": "application/json",
   }
@@ -167,6 +215,13 @@ export async function GET(request: Request) {
         }).catch(() => null)
         if (aiRes?.ok) {
           const ai = await aiRes.json()
+          await recordUsageFromRequest({
+            request,
+            usageType: "SPECIES_IDENTIFICATION",
+            quantity: 1,
+            metadata: { query },
+          })
+
           return NextResponse.json(
             {
               results: [],
@@ -180,6 +235,13 @@ export async function GET(request: Request) {
         // ignore
       }
     }
+
+    await recordUsageFromRequest({
+      request,
+      usageType: "SPECIES_IDENTIFICATION",
+      quantity: 1,
+      metadata: { query },
+    })
 
     return NextResponse.json({ results: uniqueResults, query }, { status: 200, headers })
   } catch (error) {

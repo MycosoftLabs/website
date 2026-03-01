@@ -179,7 +179,7 @@ export const mapSchema = baseComponentSchema.extend({
 })
 
 // Combined component schema
-export const componentSchema: z.ZodType<any> = z.discriminatedUnion('type', [
+export const componentSchema: z.ZodType<unknown> = z.discriminatedUnion('type', [
   textComponentSchema,
   linkComponentSchema,
   statsCardSchema,

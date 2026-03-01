@@ -147,10 +147,10 @@ interface PersonaPlexContextValue {
   lastTranscript: string
   
   // Voice commands
-  executeCommand: (command: string) => Promise<any>
+  executeCommand: (command: string) => Promise<unknown>
   
   // n8n workflows
-  runWorkflow: (name: string, data?: any) => Promise<any>
+  runWorkflow: (name: string, data?: Record<string, unknown>) => Promise<unknown>
   
   // Navigation
   navigateTo: (path: string) => void
@@ -161,7 +161,7 @@ interface PersonaPlexContextValue {
   
   // State
   lastCommand: string
-  lastResult: any
+  lastResult: unknown
 }
 
 const PersonaPlexContext = createContext<PersonaPlexContextValue | null>(null)
@@ -198,7 +198,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   const pathname = usePathname()
   const showWidget = enabled && !PAGES_WITH_OWN_MIC.some((p) => pathname?.startsWith(p))
   const [lastCommand, setLastCommand] = useState("")
-  const [lastResult, setLastResult] = useState<any>(null)
+  const [lastResult, setLastResult] = useState<unknown>(null)
   const [isListening, setIsListening] = useState(false)
   const [lastTranscript, setLastTranscript] = useState("")
   const [usingFallback, setUsingFallback] = useState(false)
@@ -423,7 +423,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
     }
   }, [personaplex])
   
-  const runWorkflow = useCallback(async (name: string, data?: any) => {
+  const runWorkflow = useCallback(async (name: string, data?: Record<string, unknown>) => {
     try {
       // Resolve by name, then execute via MYCA-supervised n8n route
       const wfRes = await fetch("/api/myca/workflows", {

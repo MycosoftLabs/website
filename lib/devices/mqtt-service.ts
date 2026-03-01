@@ -105,7 +105,7 @@ export const MQTT_TOPICS = {
 
 export class MqttService {
   private config: MqttServiceConfig
-  private client: any = null  // Will be MQTT.js client
+  private client: unknown = null  // Will be MQTT.js client
   private connected = false
   private reconnecting = false
   private subscriptions = new Map<string, Set<MessageHandler>>()

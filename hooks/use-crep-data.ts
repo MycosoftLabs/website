@@ -187,6 +187,98 @@ export interface PresenceReading {
   smellDetected?: boolean
 }
 
+// Raw API response types (for transform functions)
+interface RawGlobalEvent {
+  id: string
+  type: string
+  title: string
+  description?: string
+  severity?: string
+  timestamp?: string
+  link?: string
+  source?: string
+  sourceUrl?: string
+  magnitude?: number
+  location?: {
+    latitude?: number
+    longitude?: number
+    name?: string
+    depth?: number
+  }
+  affected?: {
+    area_km2?: number
+    population?: number
+  }
+}
+
+interface RawDevice {
+  id?: string
+  device_id?: string
+  name?: string
+  port?: string
+  connected?: boolean
+  protocol?: string
+  info?: {
+    board?: string
+    firmware?: string
+  }
+  location?: {
+    lat?: number
+    lng?: number
+  }
+  sensor_data?: {
+    temperature?: number
+    humidity?: number
+    pressure?: number
+    gas_resistance?: number
+    iaq?: number
+    iaq_accuracy?: number
+    co2_equivalent?: number
+    voc_equivalent?: number
+    uptime_seconds?: number
+    uptime_s?: number
+    firmware_version?: string
+    last_update?: string
+  }
+}
+
+interface RawFungalObservation {
+  id: string
+  timestamp?: string
+  observed_on?: string
+  latitude?: number
+  longitude?: number
+  lat?: number
+  lng?: number
+  commonName?: string
+  species?: string
+  scientificName?: string
+  taxon_id?: number
+  imageUrl?: string
+  thumbnailUrl?: string
+  verified?: boolean
+  observer?: string
+  source?: string
+  location?: string
+  habitat?: string
+  notes?: string
+  sourceUrl?: string
+  externalId?: string
+}
+
+interface RawMonitor {
+  id: string
+  name: string
+  zone: string
+  lat: number
+  lng: number
+  readings?: {
+    presenceDetected?: boolean
+    lastMovement?: string
+    smellDetected?: boolean
+  }
+}
+
 // Hook options
 export interface UseCREPDataOptions {
   refreshInterval?: number // Auto-refresh interval in ms (0 = disabled)
@@ -322,10 +414,10 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
   }
 
   // Transform functions
-  function transformGlobalEvents(events: any[]): GlobalEvent[] {
+  function transformGlobalEvents(events: RawGlobalEvent[]): GlobalEvent[] {
     return events
-      .filter((e: any) => e.location?.latitude && e.location?.longitude)
-      .map((e: any) => ({
+      .filter((e) => e.location?.latitude && e.location?.longitude)
+      .map((e) => ({
         id: e.id,
         type: e.type,
         title: e.title,
@@ -349,10 +441,10 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
       }))
   }
 
-  function transformDevices(devices: any[]): Device[] {
+  function transformDevices(devices: RawDevice[]): Device[] {
     const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 }
-    
-    return devices.map((d: any, index: number) => {
+
+    return devices.map((d, index: number) => {
       const hasValidLocation = d.location?.lat && d.location?.lng && 
         Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
         !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1)
@@ -382,8 +474,8 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
     })
   }
 
-  function transformFungalObservations(observations: any[]): FungalObservation[] {
-    return observations.map((obs: any) => ({
+  function transformFungalObservations(observations: RawFungalObservation[]): FungalObservation[] {
+    return observations.map((obs) => ({
       id: obs.id,
       observed_on: obs.timestamp || obs.observed_on,
       latitude: obs.latitude || obs.lat,
@@ -412,10 +504,10 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
     }))
   }
 
-  function transformPresenceReadings(monitors: any[]): PresenceReading[] {
+  function transformPresenceReadings(monitors: RawMonitor[]): PresenceReading[] {
     const seenMonitors = new Set<string>()
     return monitors
-      .map((m: any) => ({
+      .map((m) => ({
         monitorId: m.id,
         monitorName: m.name,
         zone: m.zone,

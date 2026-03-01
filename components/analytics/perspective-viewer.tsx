@@ -71,6 +71,7 @@ export function PerspectiveViewer({
 }: PerspectiveViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLElement | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Perspective table has dynamic WASM-backed type
   const tableRef = useRef<any>(null)
   const [isClient, setIsClient] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -115,33 +116,26 @@ export function PerspectiveViewer({
         const worker = await perspective.default.worker()
         
         // Determine data format and create table
-        let tableData: any = data
-        if (typeof data === "string") {
-          // CSV string
-          tableData = data
-        } else if (data instanceof ArrayBuffer) {
-          // Arrow format
-          tableData = data
-        } else if (Array.isArray(data)) {
-          // JSON array - convert to Arrow-compatible format
-          tableData = data
-        }
+        // Perspective worker.table() accepts string | ArrayBuffer | Record[]
+        const tableData: string | ArrayBuffer | Record<string, unknown>[] = data
 
         const table = await worker.table(tableData, { name: "data" })
         tableRef.current = table
 
         // Load table into viewer
-        await (viewer as any).load(table)
+        // Perspective viewer is a custom element with dynamic methods
+        const viewerEl = viewer as HTMLElement & { load: (t: unknown) => Promise<void>; restore: (c: unknown) => Promise<void>; save: () => Promise<PerspectiveConfig> }
+        await viewerEl.load(table)
 
         // Apply configuration
         if (config) {
-          await (viewer as any).restore(config)
+          await viewerEl.restore(config)
         }
 
         // Listen for config changes
-        viewer.addEventListener("perspective-config-update", (event: any) => {
+        viewer.addEventListener("perspective-config-update", () => {
           if (onConfigChange) {
-            (viewer as any).save().then(onConfigChange)
+            viewerEl.save().then(onConfigChange)
           }
         })
 
@@ -189,7 +183,7 @@ export function PerspectiveViewer({
 
     async function updateConfig() {
       try {
-        await (viewerRef.current as any).restore(config)
+        await (viewerRef.current as HTMLElement & { restore: (c: unknown) => Promise<void> }).restore(config)
       } catch (e) {
         console.error("Failed to update config:", e)
       }

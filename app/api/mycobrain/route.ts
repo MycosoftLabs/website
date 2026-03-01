@@ -6,19 +6,54 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
 export const dynamic = "force-dynamic"
 
+interface MASDevice {
+  device_id: string
+  device_name?: string
+  device_role?: string
+  device_display_name?: string
+  status?: string
+  host?: string
+  port?: number | string
+  sensors?: string | string[]
+  capabilities?: string | string[]
+  firmware_version?: string
+  board_type?: string
+  extra?: Record<string, unknown>
+}
+
+interface NormalizedDevice {
+  port: string
+  device_id: string
+  connected: boolean
+  status?: string
+  is_mycobrain: boolean
+  verified: boolean
+  source?: string
+  network_host?: string
+  network_port?: number | string
+  device_info: Record<string, unknown>
+  info?: Record<string, unknown>
+  sensor_data: Record<string, unknown>
+  capabilities: Record<string, unknown>
+  device_name?: string
+  device_role?: string
+  device_display_name?: string
+  display_name: string
+}
+
 // Helpers: MAS may return sensors/capabilities as string ("a b c") or array
-function parseList(v: any): string[] {
-  if (Array.isArray(v)) return v
+function parseList(v: unknown): string[] {
+  if (Array.isArray(v)) return v as string[]
   if (typeof v === "string") return v.trim() ? v.split(/\s+/) : []
   return []
 }
-function hasCapability(caps: any, name: string): boolean {
+function hasCapability(caps: unknown, name: string): boolean {
   const list = parseList(caps)
   return list.some((c) => c.toLowerCase().includes(name.toLowerCase()))
 }
 
 // Fetch devices from MAS network registry (for when no local service)
-async function fetchNetworkDevices(): Promise<any[]> {
+async function fetchNetworkDevices(): Promise<NormalizedDevice[]> {
   try {
     const url = `${MAS_API_URL}/api/devices`
     const response = await fetch(url, {
@@ -31,7 +66,7 @@ async function fetchNetworkDevices(): Promise<any[]> {
     const devices = data.devices || []
     if (!devices.length) return []
 
-    return devices.map((d: any) => {
+    return devices.map((d: MASDevice) => {
       const sensors = parseList(d.sensors)
       const bmeCount = sensors.length || 2
       return {
@@ -74,7 +109,7 @@ async function fetchNetworkDevices(): Promise<any[]> {
 }
 
 // Normalize device data from service to match frontend expectations
-function normalizeDevice(d: any) {
+function normalizeDevice(d: Record<string, unknown>) {
   return {
     ...d,
     port: d.port || d.device,
@@ -160,7 +195,7 @@ export async function GET(request: NextRequest) {
       
       const portsData = portsRes && portsRes.ok ? await portsRes.json().catch(() => ({})) : { ports: [], discovery_running: false }
       
-      const localDeviceIds = new Set(normalizedDevices.map((d: any) => d.device_id))
+      const localDeviceIds = new Set(normalizedDevices.map((d: { device_id?: string }) => d.device_id))
       const additionalNetworkDevices = networkDevices.filter(d => !localDeviceIds.has(d.device_id))
       
       return NextResponse.json({

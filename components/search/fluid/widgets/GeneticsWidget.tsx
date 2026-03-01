@@ -10,7 +10,7 @@
 
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useSpeciesObservations } from "@/hooks/useSpeciesObservations"
@@ -40,7 +40,7 @@ import type { GeneticsResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAutoFetchDetail } from "@/hooks/useAutoFetchDetail"
-import { DNAColorBar, DNASequenceViewer } from "@/components/visualizations/DNASequenceViewer"
+import { DNASequenceViewer } from "@/components/visualizations/DNASequenceViewer"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,20 +121,15 @@ function GeneticsLoadingSkeleton() {
 
 // ─── List card ───────────────────────────────────────────────────────────────
 
-// Placeholder color bar when no real sequence is available yet
-// Uses a synthetic sequence derived from the GC content hint or just a demo
-function GCColorBar({ sequenceLength, gcContent }: { sequenceLength: number; gcContent?: number | null }) {
-  // Synthesize a representative bar from GC% (for list preview)
-  const gc = gcContent != null ? gcContent : 0.5
-  const len = Math.min(sequenceLength, 80)
-  const synth = Array.from({ length: len }, (_, i) => {
-    const r = Math.sin(i * 73.137 + gc * 1000) * 0.5 + 0.5 // deterministic pseudo-random
-    if (r < gc * 0.5) return "G"
-    if (r < gc) return "C"
-    if (r < gc + (1 - gc) * 0.5) return "A"
-    return "T"
-  }).join("")
-  return <DNAColorBar sequence={synth} maxBases={80} height={5} />
+function SequencePreviewPlaceholder({ sequenceLength }: { sequenceLength: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-full rounded-full bg-muted/60" />
+      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+        {sequenceLength.toLocaleString()} bp
+      </span>
+    </div>
+  )
 }
 
 function GeneticsCard({
@@ -172,7 +167,7 @@ function GeneticsCard({
       </div>
       {/* DNA color bar preview for every card */}
       {item.sequenceLength > 0 && (
-        <GCColorBar sequenceLength={item.sequenceLength} gcContent={item.gcContent} />
+        <SequencePreviewPlaceholder sequenceLength={item.sequenceLength} />
       )}
       <div className="flex flex-wrap gap-1.5">
         {item.geneRegion && (
@@ -550,6 +545,7 @@ export function GeneticsWidget({
   onExplore,
   className,
 }: GeneticsWidgetProps) {
+  const ctx = useSearchContext()
   const items = Array.isArray(data) ? data : (data?.id ? [data] : [])
   const [modalItem, setModalItem] = useState<GeneticsResult | null>(null)
   const [earthSpecies, setEarthSpecies] = useState<string | null>(null)

@@ -85,7 +85,7 @@ export class OpenAIProvider {
     return {
       provider: 'openai',
       model: data.model,
-      embeddings: data.data.map((d: any) => d.embedding),
+      embeddings: data.data.map((d: { embedding: number[] }) => d.embedding),
       dimensions: data.data[0].embedding.length,
       usage: {
         totalTokens: data.usage.total_tokens,

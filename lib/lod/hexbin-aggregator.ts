@@ -16,13 +16,13 @@ export interface Hexbin {
   vertices: Array<{ lat: number; lng: number }>;
   count: number;
   density: number;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
 }
 
 export interface Point {
   lat: number;
   lng: number;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
 }
 
 /**

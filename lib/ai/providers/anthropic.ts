@@ -52,8 +52,8 @@ export class AnthropicProvider {
     const data = await response.json()
 
     // Handle tool use
-    const toolUse = data.content.find((c: any) => c.type === 'tool_use')
-    const textContent = data.content.find((c: any) => c.type === 'text')
+    const toolUse = data.content.find((c: { type: string }) => c.type === 'tool_use')
+    const textContent = data.content.find((c: { type: string }) => c.type === 'text')
 
     return {
       id: data.id,
@@ -130,7 +130,7 @@ export class AnthropicProvider {
   }): Promise<ChatCompletionResponse> {
     const { systemMessage, messages } = this.convertMessages(options.messages)
 
-    const tools: any[] = []
+    const tools: Array<Record<string, unknown>> = []
     
     if (options.computerTool) {
       tools.push({
@@ -177,8 +177,8 @@ export class AnthropicProvider {
     }
 
     const data = await response.json()
-    const textContent = data.content.find((c: any) => c.type === 'text')
-    const toolUse = data.content.find((c: any) => c.type === 'tool_use')
+    const textContent = data.content.find((c: { type: string }) => c.type === 'text')
+    const toolUse = data.content.find((c: { type: string }) => c.type === 'tool_use')
 
     return {
       id: data.id,

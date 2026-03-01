@@ -10,12 +10,202 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi } from "@/lib/services/inaturalist"
 
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
+const MINDEX_API_KEY = process.env.MINDEX_API_KEY
+
+// ---------------------------------------------------------------------------
+// Shared interfaces for API response shapes
+// ---------------------------------------------------------------------------
+
+interface MindexTaxon {
+  id: string | number
+  scientific_name?: string
+  name?: string
+  common_name?: string
+  preferred_common_name?: string
+  description?: string
+  image_url?: string
+  observation_count?: number
+  rank?: string
+}
+
+interface MindexCompound {
+  id: string | number
+  name?: string
+  compound_name?: string
+  formula?: string
+  molecular_formula?: string
+  molecular_weight?: string | number
+  smiles?: string
+  inchi?: string
+  cas_number?: string
+  description?: string
+  bioactivity?: string[]
+  source_species?: string[]
+  chemical_class?: string
+}
+
+interface MindexSequence {
+  id: string | number
+  accession?: string
+  genbank_id?: string
+  species_name?: string
+  taxon_name?: string
+  gene?: string
+  region?: string
+  sequence_length?: number
+  length?: number
+  sequence?: string
+  gc_content?: number
+  source?: string
+}
+
+interface MindexResearchItem {
+  id: string | number
+  title?: string
+  authors?: string[]
+  journal?: string
+  source?: string
+  year?: number
+  publication_year?: number
+  doi?: string
+  abstract?: string
+  related_species?: string[]
+}
+
+interface INaturalistTaxon {
+  id: number
+  name?: string
+  preferred_common_name?: string
+  iconic_taxon_name?: string
+  ancestor_ids?: number[]
+  ancestors?: Array<{ rank?: string; name?: string }>
+  wikipedia_summary?: string
+  default_photo?: {
+    id?: number
+    square_url?: string
+    medium_url?: string
+    large_url?: string
+    attribution?: string
+  }
+  observations_count?: number
+  rank?: string
+}
+
+interface SpeciesResult {
+  id: string
+  scientificName: string
+  commonName: string
+  taxonomy: Record<string, string>
+  description: string
+  photos: Array<{ id: string; url: string; medium_url: string; large_url: string; attribution: string }>
+  observationCount: number
+  rank: string
+  _source: string
+  _derivedFromCompound?: string
+}
+
+interface CompoundResult {
+  id: string
+  name: string
+  formula: string
+  molecularWeight: number
+  chemicalClass: string
+  sourceSpecies: string[]
+  biologicalActivity: string[]
+  structure: string
+  smiles: string
+  _source: string
+  _cid?: number
+}
+
+interface GeneticsResult {
+  id: string
+  accession: string
+  speciesName: string
+  geneRegion: string
+  sequenceLength: number
+  gcContent?: number
+  source: string
+  _source: string
+}
+
+interface ResearchResult {
+  id: string
+  title: string
+  authors: string[]
+  journal: string
+  year: number
+  citationCount?: number
+  doi: string
+  url?: string
+  abstract: string
+  relatedSpecies: string[]
+  _source: string
+  _highlights?: string[]
+}
+
+interface CrossRefWork {
+  DOI?: string
+  title?: string | string[]
+  author?: Array<{ given?: string; family?: string; name?: string }>
+  "container-title"?: string[]
+  publisher?: string
+  "published-print"?: { "date-parts"?: number[][] }
+  "published-online"?: { "date-parts"?: number[][] }
+  created?: { "date-parts"?: number[][] }
+  "is-referenced-by-count"?: number
+  URL?: string
+  abstract?: string
+}
+
+interface OpenAlexWork {
+  id?: string
+  title?: string
+  authorships?: Array<{ author?: { display_name?: string } }>
+  primary_location?: { source?: { display_name?: string } }
+  host_venue?: { display_name?: string }
+  publication_year?: number
+  cited_by_count?: number
+  doi?: string
+  abstract_inverted_index?: Record<string, number[]>
+}
+
+interface ExaResult {
+  id?: string
+  title?: string
+  author?: string
+  url?: string
+  published_date?: string
+  summary?: string
+  text?: string
+  highlights?: string[]
+}
+
+interface PubChemProperties {
+  CID?: number
+  IUPACName?: string
+  MolecularFormula?: string
+  MolecularWeight?: string | number
+  CanonicalSMILES?: string
+  XLogP?: number
+  Complexity?: number
+}
+
+interface INaturalistObservation {
+  id: number
+  taxon?: { preferred_common_name?: string; name?: string }
+  place_guess?: string
+  observed_on?: string
+  created_at?: string
+  photos?: Array<{ url?: string }>
+  geojson?: { coordinates?: [number, number] }
+}
 
 // ---------------------------------------------------------------------------
 // MINDEX queries (PRIMARY)
@@ -44,8 +234,8 @@ async function searchMindexUnified(query: string, limit: number) {
   }
 }
 
-async function transformMindexTaxa(taxa: any[]) {
-  return taxa.map((t: any) => ({
+async function transformMindexTaxa(taxa: MindexTaxon[]): Promise<SpeciesResult[]> {
+  return taxa.map((t) => ({
     id: `mindex-${t.id}`,
     scientificName: t.scientific_name || t.name || "",
     commonName: t.common_name || t.preferred_common_name || "",
@@ -71,8 +261,8 @@ async function transformMindexTaxa(taxa: any[]) {
   }))
 }
 
-async function transformMindexCompounds(compounds: any[]) {
-  return compounds.map((c: any) => ({
+async function transformMindexCompounds(compounds: MindexCompound[]): Promise<CompoundResult[]> {
+  return compounds.map((c) => ({
     id: `mindex-cmp-${c.id}`,
     name: c.name || c.compound_name || "",
     formula: c.formula || c.molecular_formula || "",
@@ -91,8 +281,8 @@ async function transformMindexCompounds(compounds: any[]) {
   }))
 }
 
-async function transformMindexGenetics(sequences: any[]) {
-  return sequences.map((s: any) => ({
+async function transformMindexGenetics(sequences: MindexSequence[]): Promise<GeneticsResult[]> {
+  return sequences.map((s) => ({
     id: `mindex-seq-${s.id}`,
     accession: s.accession || s.genbank_id || "",
     speciesName: s.species_name || s.taxon_name || "",
@@ -107,21 +297,32 @@ async function transformMindexGenetics(sequences: any[]) {
 
 // REMOVED: Old individual search functions replaced by unified search above
 
-async function searchMindexResearch(query: string, limit: number) {
+async function searchMindexResearch(query: string, limit: number, origin?: string) {
   try {
-    // TODO: Create /api/mindex/research/search endpoint in MINDEX API
-    // For now, return empty until the research endpoint is created
+    const proxyParams = new URLSearchParams({ q: query, limit: String(limit) })
+    const directParams = new URLSearchParams({ search: query, limit: String(limit) })
+    const requestUrl = origin
+      ? `${origin}/api/mindex/research/search?${proxyParams.toString()}`
+      : `${MINDEX_API_URL}/api/mindex/research?${directParams.toString()}`
+    const headers = origin
+      ? undefined
+      : MINDEX_API_KEY
+        ? { "X-API-Key": MINDEX_API_KEY }
+        : undefined
     const res = await fetch(
-      `${MINDEX_API_URL}/api/mindex/research?search=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(2500) }
+      requestUrl,
+      {
+        signal: AbortSignal.timeout(2500),
+        headers,
+        cache: "no-store",
+      }
     )
     if (!res.ok) {
-      // Endpoint may not exist yet - this is expected
       return []
     }
     const data = await res.json()
     const research = data.data || data.results || data || []
-    return Array.isArray(research) ? research.map((r: any) => ({
+    return Array.isArray(research) ? research.map((r: MindexResearchItem) => ({
       id: `mindex-res-${r.id}`,
       title: r.title || "",
       authors: r.authors || [],
@@ -133,7 +334,6 @@ async function searchMindexResearch(query: string, limit: number) {
       _source: "MINDEX",
     })) : []
   } catch (error) {
-    // Don't log error for 404 - endpoint may not exist yet
     return []
   }
 }
@@ -148,12 +348,12 @@ async function searchINaturalist(query: string, limit: number) {
     if (!data?.results) return []
     return data.results
       .filter(
-        (r: any) =>
+        (r: INaturalistTaxon) =>
           (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
           (r.preferred_common_name || r.name)
       )
       .slice(0, limit)
-      .map((r: any) => {
+      .map((r: INaturalistTaxon) => {
         // Parse real taxonomy from ancestor array (never hardcode empty strings)
         const taxonomy: Record<string, string> = {
           kingdom: "Fungi", phylum: "", class: "", order: "", family: "", genus: "",
@@ -371,7 +571,7 @@ function getCompoundNamesForSpecies(query: string, scientificName?: string | nul
  * Fetch a compound from PubChem and return it in CompoundResult shape.
  * Lightweight version for the unified search (only fetches essential properties).
  */
-async function fetchCompoundLite(name: string): Promise<any | null> {
+async function fetchCompoundLite(name: string): Promise<CompoundResult | null> {
   try {
     const encName = encodeURIComponent(name.trim())
     const propsRes = await fetch(
@@ -405,20 +605,20 @@ async function fetchCompoundLite(name: string): Promise<any | null> {
  * Fetch key bioactive compounds for a species.
  * Runs fetches in parallel; returns at most 4 results to keep latency low.
  */
-async function searchCompoundsForSpecies(query: string, scientificName?: string | null): Promise<any[]> {
+async function searchCompoundsForSpecies(query: string, scientificName?: string | null): Promise<CompoundResult[]> {
   const names = getCompoundNamesForSpecies(query, scientificName)
   if (!names.length) return []
 
   // Fetch top 4 in parallel (PubChem can handle this without rate-limit issues)
   const results = await Promise.all(names.slice(0, 4).map(n => fetchCompoundLite(n)))
-  return results.filter(Boolean)
+  return results.filter((r): r is CompoundResult => r !== null)
 }
 
 /**
  * Run a species-targeted NCBI genetics search using the scientific name.
  * Far more accurate than searching for a common name like "Reishi".
  */
-async function searchGeneticsForSpecies(scientificName: string, limit: number): Promise<any[]> {
+async function searchGeneticsForSpecies(scientificName: string, limit: number): Promise<GeneticsResult[]> {
   if (!scientificName) return []
   const HEADERS = { "User-Agent": "Mycosoft/1.0 (mycosoft.com; dev@mycosoft.org)" }
 
@@ -537,7 +737,7 @@ function extractGenusFromCompound(name: string): string | null {
   return stripped.charAt(0).toUpperCase() + stripped.slice(1)
 }
 
-async function searchFungiForCompound(compoundName: string, limit: number): Promise<any[]> {
+async function searchFungiForCompound(compoundName: string, limit: number): Promise<SpeciesResult[]> {
   const n = compoundName.toLowerCase().trim()
 
   // 1. Exact curated match
@@ -564,9 +764,9 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
     if (!res.ok) return []
     const data = await res.json()
     const results = (data.results || [])
-      .filter((r: any) => r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170))
+      .filter((r: INaturalistTaxon) => r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170))
       .slice(0, limit)
-      .map((r: any) => {
+      .map((r: INaturalistTaxon) => {
         const taxonomy: Record<string, string> = {
           kingdom: "Fungi", phylum: "", class: "", order: "", family: "", genus: "",
         }
@@ -625,7 +825,7 @@ async function searchINaturalistLiveObservations(query: string, limit: number) {
     })
     if (!res.ok) return []
     const data = await res.json()
-    return (data.results || []).map((obs: any) => ({
+    return (data.results || []).map((obs: INaturalistObservation) => ({
       id: `inat-obs-${obs.id}`,
       species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown species",
       location: obs.place_guess || "Unknown location",
@@ -663,10 +863,10 @@ async function searchCrossRefResearch(query: string, limit: number) {
     }
     const data = await res.json()
     const items = data?.message?.items || []
-    return items.slice(0, limit).map((w: any) => ({
+    return items.slice(0, limit).map((w: CrossRefWork) => ({
       id: w.DOI || `crossref-${Math.random().toString(36).slice(2)}`,
       title: Array.isArray(w.title) ? w.title[0] : (w.title || ""),
-      authors: (w.author || []).slice(0, 5).map((a: any) => 
+      authors: (w.author || []).slice(0, 5).map((a) =>
         a.given && a.family ? `${a.given} ${a.family}` : (a.name || "Unknown")
       ),
       journal: w["container-title"]?.[0] || w.publisher || "",
@@ -695,7 +895,7 @@ function _extractGeneRegion(title: string): string {
   return m ? m[1].toUpperCase() : ""
 }
 
-async function searchNCBIGenetics(query: string, limit: number): Promise<any[]> {
+async function searchNCBIGenetics(query: string, limit: number): Promise<GeneticsResult[]> {
   try {
     const term = `${query}[Organism] AND fungi[filter]`
     const esearchRes = await fetch(
@@ -759,10 +959,10 @@ async function searchOpenAlexResearch(query: string, limit: number) {
     )
     if (!res.ok) return []
     const data = await res.json()
-    return (data.results || []).slice(0, limit).map((w: any) => ({
+    return (data.results || []).slice(0, limit).map((w: OpenAlexWork) => ({
       id: w.id || `oalex-${Math.random().toString(36).slice(2)}`,
       title: w.title || "",
-      authors: (w.authorships || []).slice(0, 5).map((a: any) => a.author?.display_name || "Unknown"),
+      authors: (w.authorships || []).slice(0, 5).map((a) => a.author?.display_name || "Unknown"),
       journal: w.primary_location?.source?.display_name || w.host_venue?.display_name || "",
       year: w.publication_year || 0,
       citationCount: w.cited_by_count || 0,
@@ -819,7 +1019,7 @@ async function searchExaWeb(query: string, limit: number, origin: string) {
     if (!res.ok) return []
     const data = await res.json()
     const results = data?.result?.results || []
-    return results.map((r: any) => ({
+    return results.map((r: ExaResult) => ({
       id: `exa-${r.id}`,
       title: r.title || "",
       authors: r.author ? [r.author] : [],
@@ -863,9 +1063,9 @@ async function getAIAnswer(query: string, origin: string) {
 // Deduplication
 // ---------------------------------------------------------------------------
 
-function deduplicateSpecies(primary: any[], secondary: any[]): any[] {
+function deduplicateSpecies(primary: SpeciesResult[], secondary: SpeciesResult[]): SpeciesResult[] {
   const seen = new Set<string>()
-  const results: any[] = []
+  const results: SpeciesResult[] = []
 
   // MINDEX results first (primary)
   for (const item of primary) {
@@ -888,7 +1088,7 @@ function deduplicateSpecies(primary: any[], secondary: any[]): any[] {
   return results
 }
 
-function ensureUniqueIds(arr: any[], prefix: string): any[] {
+function ensureUniqueIds<T extends { id?: string; scientificName?: string; name?: string }>(arr: T[], prefix: string): T[] {
   const seen = new Set<string>()
   let counter = 0
   return arr
@@ -954,7 +1154,7 @@ export async function GET(request: NextRequest) {
       aiAnswer,
     ] = await Promise.all([
       searchMindexUnified(query, limit),
-      types.includes("research") ? searchMindexResearch(query, limit) : Promise.resolve([]),
+      types.includes("research") ? searchMindexResearch(query, limit, origin) : Promise.resolve([]),
       types.includes("species") ? searchINaturalist(query, Math.min(limit, 10)) : Promise.resolve([]),
       types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
       types.includes("research") ? searchCrossRefResearch(query, limit) : Promise.resolve([]),
@@ -978,11 +1178,11 @@ export async function GET(request: NextRequest) {
     ])
 
     // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
-    const ncbiSeqMap = new Map<string, any>()
+    const ncbiSeqMap = new Map<string, GeneticsResult>()
     for (const s of [...(speciesGeneticsRaw || []), ...(ncbiSequencesRaw || [])]) {
       if (s.accession && !ncbiSeqMap.has(s.accession)) ncbiSeqMap.set(s.accession, s)
     }
-    const ncbiSequences: any[] = Array.from(ncbiSeqMap.values())
+    const ncbiSequences: GeneticsResult[] = Array.from(ncbiSeqMap.values())
 
     // Transform MINDEX results to website format
     const mindexSpecies = await transformMindexTaxa(mindexResults.taxa)
@@ -993,7 +1193,7 @@ export async function GET(request: NextRequest) {
 
     // Build a map of NCBI data keyed by numeric UID (accession without version suffix)
     // so we can enrich MINDEX records that are missing gene/length metadata.
-    const ncbiByAccNum = new Map<string, any>()
+    const ncbiByAccNum = new Map<string, GeneticsResult>()
     for (const n of ncbiSequences) {
       // ncbi id is `ncbi-{uid}` — strip prefix to get raw UID
       const uid = String(n.id).replace(/^ncbi-/, "")
@@ -1002,7 +1202,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Enrich MINDEX genetics records from NCBI where fields are missing
-    const enrichedMindex = mindexSequences.map((m: any) => {
+    const enrichedMindex = mindexSequences.map((m: GeneticsResult) => {
       const needsEnrich = !m.geneRegion && !m.sequenceLength
       if (!needsEnrich) return m
       // Try to find matching NCBI record by accession number (strip .version)
@@ -1018,7 +1218,7 @@ export async function GET(request: NextRequest) {
 
     // Merge: MINDEX primary (enriched), iNaturalist secondary
     // Use pre-fetched compound-fungi results if species is empty (ran in parallel)
-    const compoundFungi: any[] = compoundFungiRaw || []
+    const compoundFungi: SpeciesResult[] = compoundFungiRaw || []
     const inatSpeciesAll = inatSpecies.length > 0 || mindexSpecies.length > 0
       ? inatSpecies
       : compoundFungi  // Use compound-derived fungi when no direct species match
@@ -1029,11 +1229,11 @@ export async function GET(request: NextRequest) {
     ).slice(0, limit)
 
     // Merge compounds: MINDEX first, then species-specific from PubChem, then NCBI-derived
-    const speciesCompounds: any[] = speciesCompoundsRaw || []
-    const mindexCompoundNames = new Set(mindexCompounds.map((c: any) => (c.name || "").toLowerCase()))
+    const speciesCompounds: CompoundResult[] = speciesCompoundsRaw || []
+    const mindexCompoundNames = new Set(mindexCompounds.map((c) => (c.name || "").toLowerCase()))
     // Only add species compounds not already present from MINDEX
     const newSpeciesCompounds = speciesCompounds.filter(
-      (c: any) => !mindexCompoundNames.has((c.name || "").toLowerCase())
+      (c) => !mindexCompoundNames.has((c.name || "").toLowerCase())
     )
     let compounds = ensureUniqueIds(
       [...mindexCompounds, ...newSpeciesCompounds],
@@ -1043,8 +1243,8 @@ export async function GET(request: NextRequest) {
     // When this was a compound query (e.g. "Ganodermic acid"), attach compoundFungi as sourceSpecies
     // so Chemistry widget shows "Found In — Ganoderma lucidum, etc."
     if (compoundFungi.length > 0 && compounds.length > 0) {
-      const fungiNames = compoundFungi.map((f: any) => f.scientificName).filter(Boolean)
-      compounds = compounds.map((c: any) => ({
+      const fungiNames = compoundFungi.map((f) => f.scientificName).filter(Boolean)
+      compounds = compounds.map((c) => ({
         ...c,
         sourceSpecies: (c.sourceSpecies?.length ? c.sourceSpecies : fungiNames) as string[],
       }))
@@ -1052,8 +1252,8 @@ export async function GET(request: NextRequest) {
 
     // Genetics: NCBI results come first (they have geneRegion + sequenceLength populated).
     // MINDEX records with incomplete metadata are appended only if not already represented.
-    const ncbiAccSet = new Set(ncbiSequences.map((n: any) => n.accession).filter(Boolean))
-    const mindexNotInNcbi = enrichedMindex.filter((m: any) => !ncbiAccSet.has(m.accession))
+    const ncbiAccSet = new Set(ncbiSequences.map((n) => n.accession).filter(Boolean))
+    const mindexNotInNcbi = enrichedMindex.filter((m) => !ncbiAccSet.has(m.accession))
     const genetics = ensureUniqueIds([...ncbiSequences, ...mindexNotInNcbi], "gen").slice(0, limit)
 
     // Research: MINDEX first, CrossRef primary, OpenAlex additive
@@ -1067,8 +1267,8 @@ export async function GET(request: NextRequest) {
     // hit the DB instead of external APIs.
     // 1. Species (from iNaturalist and compound-derived fungi)
     const speciesToIngest = species
-      .filter((s: any) => String(s.id).startsWith("inat-"))
-      .map((s: any) => ({ id: String(s.id), name: s.scientificName }))
+      .filter((s) => String(s.id).startsWith("inat-"))
+      .map((s) => ({ id: String(s.id), name: s.scientificName }))
       .slice(0, 15)
     if (speciesToIngest.length > 0) {
       void fetch(`${origin}/api/mindex/species/ingest-background`, {
@@ -1080,8 +1280,8 @@ export async function GET(request: NextRequest) {
 
     // 2. Genetics (NCBI accessions)
     const accessionsToPrime = genetics
-      .map((g: any) => g.accession)
-      .filter((a: string) => !!a)
+      .map((g) => g.accession)
+      .filter((a): a is string => !!a)
       .slice(0, 10)
     if (accessionsToPrime.length > 0) {
       void fetch(`${origin}/api/mindex/genetics/ingest-background`, {
@@ -1093,7 +1293,7 @@ export async function GET(request: NextRequest) {
 
     // 3. Compounds from PubChem — store any external-source compounds in MINDEX
     //    so next search for "psilocybin" hits DB directly
-    const compoundsToStore = compounds.filter((c: any) => c._source === "MINDEX" ? false : true)
+    const compoundsToStore = compounds.filter((c) => c._source !== "MINDEX")
     for (const c of compoundsToStore.slice(0, 5)) {
       void fetch(`${origin}/api/mindex/compounds/detail?name=${encodeURIComponent(c.name)}`, {
         cache: "no-store",
@@ -1109,6 +1309,13 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }).catch(() => {})
     }
+
+    await recordUsageFromRequest({
+      request,
+      usageType: "SPECIES_IDENTIFICATION",
+      quantity: 1,
+      metadata: { query },
+    })
 
     return NextResponse.json(
       {

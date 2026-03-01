@@ -51,7 +51,8 @@ const DEFAULT_FALLBACK_ORDER: AIProvider[] = [
 
 export class UnifiedAI {
   private config: UnifiedAIConfig
-  private providers: Map<AIProvider, any> = new Map()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Provider instances lack shared base interface; accessed via duck-typed chat/embed/streamChat methods
+  private providers: Map<AIProvider, { chat: (opts: ChatCompletionOptions) => Promise<ChatCompletionResponse>; streamChat?: (opts: ChatCompletionOptions) => AsyncGenerator<string>; embed?: (opts: EmbeddingOptions) => Promise<EmbeddingResponse> }> = new Map()
   private providerStatus: Map<AIProvider, AIProviderStatus> = new Map()
   private requestCounts: Map<AIProvider, number> = new Map()
 

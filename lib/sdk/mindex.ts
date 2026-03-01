@@ -75,7 +75,7 @@ export interface SearchOptions {
 export interface SearchResults {
   taxa: MINDEXTaxon[]
   observations: MINDEXObservation[]
-  compounds: any[]
+  compounds: Record<string, unknown>[]
   total: number
 }
 
@@ -186,7 +186,7 @@ export class MINDEXClient {
   /**
    * Get health status
    */
-  async getHealth(): Promise<any> {
+  async getHealth(): Promise<Record<string, unknown>> {
     const response = await fetch(`${this.baseURL}/health`)
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`)
@@ -201,7 +201,7 @@ export class MINDEXClient {
     search?: string
     source?: string
     limit?: number
-  }): Promise<any[]> {
+  }): Promise<Record<string, unknown>[]> {
     const params = new URLSearchParams()
     if (filters?.search) params.set("search", filters.search)
     if (filters?.limit) params.set("limit", String(filters.limit))

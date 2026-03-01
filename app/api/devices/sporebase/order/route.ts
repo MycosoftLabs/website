@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL
 
 /**
  * POST /api/devices/sporebase/order
@@ -16,6 +16,12 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!MAS_API_URL) {
+      return NextResponse.json(
+        { error: "MAS_API_URL not configured" },
+        { status: 503 }
+      )
+    }
     const body = await request.json()
     const response = await fetch(`${MAS_API_URL}/api/sporebase/order`, {
       method: "POST",
@@ -31,10 +37,10 @@ export async function POST(request: NextRequest) {
       if (response.status === 404 || response.status === 501) {
         return NextResponse.json(
           {
-            error: "Pre-order not yet implemented",
-            note: "SporeBase order endpoint is not deployed. Contact sales@mycosoft.com.",
+            error: "Pre-order service unavailable",
+            note: "SporeBase order intake is temporarily unavailable. Contact sales@mycosoft.com.",
           },
-          { status: 501 }
+          { status: 503 }
         )
       }
       const text = await response.text()

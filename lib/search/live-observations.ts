@@ -17,6 +17,17 @@ interface LiveObservation {
   quality: string
 }
 
+interface INatObservation {
+  id: number
+  taxon?: { preferred_common_name?: string; name?: string }
+  place_guess?: string
+  observed_on?: string
+  created_at?: string
+  photos?: Array<{ url?: string }>
+  geojson?: { coordinates?: [number, number] }
+  quality_grade?: string
+}
+
 interface FetchOptions {
   taxonName: string
   lat?: number
@@ -65,7 +76,7 @@ export async function fetchLiveObservations(
 
     const data = await res.json()
     const observations: LiveObservation[] = (data.results || []).map(
-      (obs: any) => ({
+      (obs: INatObservation) => ({
         id: String(obs.id),
         species:
           obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",

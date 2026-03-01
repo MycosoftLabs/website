@@ -24,7 +24,7 @@ export class TileCache {
   /**
    * Get cached tile data
    */
-  async getTile(coord: TileCoord): Promise<any | null> {
+  async getTile(coord: TileCoord): Promise<unknown | null> {
     const key = this.getTileKey(coord);
     return await this.cache.get(key);
   }
@@ -32,7 +32,7 @@ export class TileCache {
   /**
    * Cache tile data
    */
-  async setTile(coord: TileCoord, data: any, ttl?: number): Promise<void> {
+  async setTile(coord: TileCoord, data: unknown, ttl?: number): Promise<void> {
     const key = this.getTileKey(coord);
     await this.cache.set(key, data, ttl);
   }
@@ -63,7 +63,7 @@ export class TileCache {
    */
   async preloadTiles(
     tiles: TileCoord[],
-    fetcher: (coord: TileCoord) => Promise<any>
+    fetcher: (coord: TileCoord) => Promise<unknown>
   ): Promise<void> {
     const promises = tiles.map(async (coord) => {
       const cached = await this.getTile(coord);

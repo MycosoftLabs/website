@@ -166,8 +166,8 @@ export function useSignalStream({
             id: Math.random().toString(36),
             deviceId: deviceId!,
             channelId: 0,
-            pattern: currentPatternType as any,  // PatternType
-            category: "metabolic" as any,  // PatternCategory
+            pattern: currentPatternType as DetectedPattern["pattern"],
+            category: "metabolic" as DetectedPattern["category"],
             confidence: 0.6 + Math.random() * 0.3,
             timestamp: new Date().toISOString(),
             duration: 1 + Math.random() * 5,
@@ -227,7 +227,7 @@ export function useSignalStream({
       },
       onEvent: (payload: WSEventPayload) => {
         // Handle hot-plug events
-        const eventType = (payload as any).type || payload.event?.type
+        const eventType = (payload as unknown as Record<string, unknown>).type || payload.event?.type
         if (eventType === "device_connected") {
           onDeviceConnected?.(deviceId!)
         } else if (eventType === "device_disconnected") {

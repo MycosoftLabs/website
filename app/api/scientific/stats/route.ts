@@ -1,8 +1,11 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
+const MAS_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL
 
 export async function GET() {
+  if (!MAS_URL)
+    return NextResponse.json({ error: 'MAS_API_URL not configured' }, { status: 503 })
+
   try {
     // Fetch all stats in parallel
     const [labRes, simRes, expRes, hypRes] = await Promise.all([
@@ -25,37 +28,31 @@ export async function GET() {
     return NextResponse.json({
       experiments: {
         total: experiments.length,
-        running: experiments.filter((e: any) => e.status === 'running').length,
-        pending: experiments.filter((e: any) => e.status === 'pending').length,
+        running: experiments.filter((e: { status?: string }) => e.status === 'running').length,
+        pending: experiments.filter((e: { status?: string }) => e.status === 'pending').length,
       },
       simulations: {
         total: simulations.length,
-        running: simulations.filter((s: any) => s.status === 'running').length,
+        running: simulations.filter((s: { status?: string }) => s.status === 'running').length,
         byType: {
-          alphafold: simulations.filter((s: any) => s.type === 'alphafold').length,
-          mycelium: simulations.filter((s: any) => s.type === 'mycelium').length,
+          alphafold: simulations.filter((s: { type?: string }) => s.type === 'alphafold').length,
+          mycelium: simulations.filter((s: { type?: string }) => s.type === 'mycelium').length,
         },
       },
       instruments: {
         total: instruments.length,
-        online: instruments.filter((i: any) => i.status === 'online').length,
-        maintenance: instruments.filter((i: any) => i.status === 'maintenance').length,
+        online: instruments.filter((i: { status?: string }) => i.status === 'online').length,
+        maintenance: instruments.filter((i: { status?: string }) => i.status === 'maintenance').length,
       },
       hypotheses: {
         total: hypotheses.length,
-        validated: hypotheses.filter((h: any) => h.status === 'validated').length,
-        testing: hypotheses.filter((h: any) => h.status === 'testing').length,
+        validated: hypotheses.filter((h: { status?: string }) => h.status === 'validated').length,
+        testing: hypotheses.filter((h: { status?: string }) => h.status === 'testing').length,
       },
-      source: labRes?.ok ? 'live' : 'fallback',
+      source: labRes?.ok ? 'live' : 'partial',
     })
   } catch (error) {
     console.error('Stats API Error:', error)
-    return NextResponse.json({
-      experiments: { total: 12, running: 3, pending: 9 },
-      simulations: { total: 5, running: 2, byType: { alphafold: 2, mycelium: 3 } },
-      instruments: { total: 8, online: 7, maintenance: 1 },
-      hypotheses: { total: 24, validated: 6, testing: 4 },
-      source: 'fallback',
-    })
+    return NextResponse.json({ error: 'Scientific stats unavailable' }, { status: 502 })
   }
 }

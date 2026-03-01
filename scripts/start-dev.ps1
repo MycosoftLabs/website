@@ -6,7 +6,7 @@
 
 param(
     [switch]$NoKill,      # Don't kill process on 3010; just start (will fail if port in use)
-    [switch]$Stable       # Use 8GB Node heap to reduce OOM crashes (npm run dev:stable)
+    [switch]$Stable       # Use capped Node heap (3GB) to reduce OOM crashes (npm run dev:stable)
 )
 
 $Port = 3010
@@ -34,7 +34,7 @@ if (Test-Path $nextDir) {
 }
 
 if ($Stable) {
-    Write-Host "Starting Next.js dev server (stable: 8GB heap) at http://localhost:$Port..."
+    Write-Host "Starting Next.js dev server (stable: 3GB heap cap) at http://localhost:$Port..."
 } else {
     Write-Host "Starting Next.js dev server at http://localhost:$Port (no GPU services)..."
 }

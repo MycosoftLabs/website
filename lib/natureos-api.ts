@@ -37,7 +37,7 @@ export interface DeviceTelemetry {
     soilMoisture?: number
     sporeCount?: number
     networkConnections?: number
-    [key: string]: any
+    [key: string]: number | undefined
   }
   alerts?: Array<{
     type: "warning" | "error" | "info"
@@ -94,7 +94,7 @@ export interface RecentActivity {
   message: string
   timestamp: string
   status: "success" | "warning" | "error" | "info"
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // API Fetcher with error handling - returns null on error instead of throwing

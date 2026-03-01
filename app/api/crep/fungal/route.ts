@@ -106,7 +106,7 @@ async function fetchMINDEXObservations(limit?: number): Promise<FungalObservatio
     const BATCH_SIZE = 1000
     const MAX_OBSERVATIONS = limit || 25000 // Cap at 25k for performance
     
-    const allObservations: any[] = []
+    const allObservations: Record<string, unknown>[] = []
     let offset = 0
     let hasMore = true
     
@@ -179,7 +179,7 @@ let taxaCacheExpiry: number = 0
  * Since MINDEX API doesn't support filtering by IDs, we fetch all ~19K taxa
  * and cache them for efficient lookups
  */
-async function fetchTaxaLookup(_observations: any[]): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
+async function fetchTaxaLookup(_observations: Record<string, unknown>[]): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
   // Return cached lookup if still valid
   if (taxaLookupCache && Date.now() < taxaCacheExpiry) {
     console.log(`[CREP/Fungal] Using cached taxa lookup (${taxaLookupCache.size} taxa)`)
@@ -257,9 +257,9 @@ async function fetchTaxaLookup(_observations: any[]): Promise<Map<string, { cano
  * - source: "inat" or "gbif"
  * - source_id: external observation ID
  */
-function transformMINDEXData(observations: any[], taxaLookup: Map<string, { canonical_name: string; common_name?: string }>): FungalObservation[] {
+function transformMINDEXData(observations: Record<string, unknown>[], taxaLookup: Map<string, { canonical_name: string; common_name?: string }>): FungalObservation[] {
   return observations
-    .filter((obs: any) => {
+    .filter((obs) => {
       // Parse coordinates from MINDEX format ("lng lat" string)
       const coords = parseCoordinates(obs)
       if (!coords || coords.lat === 0 || coords.lng === 0) return false
@@ -270,7 +270,7 @@ function transformMINDEXData(observations: any[], taxaLookup: Map<string, { cano
       
       return true
     })
-    .map((obs: any) => {
+    .map((obs) => {
       // Parse coordinates
       const coords = parseCoordinates(obs)!
       
@@ -363,7 +363,7 @@ function transformMINDEXData(observations: any[], taxaLookup: Map<string, { cano
  * Parse coordinates from MINDEX location format
  * MINDEX stores coordinates as: location.coordinates = "lng lat" (space-separated string)
  */
-function parseCoordinates(obs: any): { lat: number; lng: number } | null {
+function parseCoordinates(obs: Record<string, unknown>): { lat: number; lng: number } | null {
   // Try direct lat/lng fields first
   if (typeof obs.latitude === "number" && typeof obs.longitude === "number") {
     return { lat: obs.latitude, lng: obs.longitude }
@@ -467,8 +467,8 @@ async function fetchINaturalistObservations(
         console.log(`[CREP/Fungal] Fetched ${data.results?.length || 0} observations from ${region.name}`)
 
         const regionObs = (data.results || [])
-          .filter((obs: any) => obs.geojson?.coordinates || obs.location)
-          .map((obs: any) => ({
+          .filter((obs: Record<string, unknown>) => (obs.geojson as Record<string, unknown>)?.coordinates || obs.location)
+          .map((obs: Record<string, unknown>) => ({
             id: `inat-${obs.id}`,
             species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
             scientificName: obs.taxon?.name || "Unknown",
@@ -520,8 +520,8 @@ async function fetchGBIFObservations(limit: number): Promise<FungalObservation[]
     const data = await response.json()
 
     return (data.results || [])
-      .filter((obs: any) => obs.decimalLatitude && obs.decimalLongitude)
-      .map((obs: any) => ({
+      .filter((obs: Record<string, unknown>) => obs.decimalLatitude && obs.decimalLongitude)
+      .map((obs: Record<string, unknown>) => ({
         id: `gbif-${obs.key}`,
         species: obs.vernacularName || obs.species || "Unknown",
         scientificName: obs.scientificName || "Unknown",
@@ -564,7 +564,7 @@ async function queuePendingGeocoding(): Promise<number> {
       fetch(`${MINDEX_API}/api/v1/geocoding/queue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ observation_ids: data.observations.map((o: any) => o.id) }),
+        body: JSON.stringify({ observation_ids: data.observations.map((o: Record<string, unknown>) => o.id) }),
       }).catch(() => {
         // Fire and forget - geocoding runs in background
       })

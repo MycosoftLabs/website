@@ -17,7 +17,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
-import { useUnifiedSearch } from "@/hooks/use-unified-search"
+import { useUnifiedSearch, type SpeciesResult, type CompoundResult, type GeneticsResult, type ResearchResult } from "@/hooks/use-unified-search"
 import { usePackery } from "@/hooks/use-packery"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -79,6 +79,12 @@ interface WidgetConfig {
   gradient: string
   hasData: boolean
   depth: number
+}
+
+/** Typed observation for map display (combined from location + CREP data) */
+interface MapObservation {
+  id: string; lat: number; lng: number; species: string;
+  scientificName: string; timestamp: string; source: string; thumbnailUrl?: string;
 }
 
 // Mycelium particle background component
@@ -568,8 +574,19 @@ export function FluidSearchCanvas({
   const earth2Data = earth2RawData?.available ? earth2RawData : null
   
   // Map observations from location and CREP data
-  const mapObservations = useMemo(() => {
-    const locations = locationResults.map((loc: any) => ({
+  interface LocationResult {
+    id?: string; lat: number; lng: number; species?: string; commonName?: string;
+    scientificName?: string; observedOn?: string; timestamp?: string;
+    source?: string; imageUrl?: string;
+    speciesName?: string; placeName?: string; observedAt?: string;
+  }
+  interface CrepResult {
+    id?: string; latitude: number; longitude: number; commonName?: string; species?: string;
+    scientificName?: string; timestamp?: string; source?: string;
+    thumbnailUrl?: string; imageUrl?: string;
+  }
+  const mapObservations = useMemo((): MapObservation[] => {
+    const locations = (locationResults as LocationResult[]).map((loc) => ({
       id: loc.id || `loc-${loc.lat}-${loc.lng}`,
       lat: loc.lat,
       lng: loc.lng,
@@ -579,11 +596,11 @@ export function FluidSearchCanvas({
       source: loc.source || "iNaturalist",
       thumbnailUrl: loc.imageUrl,
     }))
-    const creps = crepResults.map((obs: any) => ({
+    const creps = (crepResults as CrepResult[]).map((obs) => ({
       id: obs.id || `crep-${obs.latitude}-${obs.longitude}`,
       lat: obs.latitude,
       lng: obs.longitude,
-      species: obs.commonName || obs.species,
+      species: obs.commonName || obs.species || "Unknown",
       scientificName: obs.scientificName || "",
       timestamp: obs.timestamp || new Date().toISOString(),
       source: obs.source || "CREP",
@@ -593,7 +610,7 @@ export function FluidSearchCanvas({
   }, [locationResults, crepResults])
   
   // Handler to view an observation on the map
-  const handleViewOnMap = useCallback((observation: any) => {
+  const handleViewOnMap = useCallback((observation: MapObservation) => {
     // Expand the map widget and set focus
     setExpandedWidgets((prev) => new Set(prev).add("map"))
     setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("map"); return n })
@@ -662,7 +679,7 @@ export function FluidSearchCanvas({
     const currentCount = liveResults.length || locationResults.length
     if (liveResults.length > 0 && prevLiveCountRef.current !== liveResults.length) {
       prevLiveCountRef.current = liveResults.length
-      setLiveObservationsRef.current(liveResults.map((obs: any) => ({
+      setLiveObservationsRef.current(liveResults.map((obs) => ({
         id: obs.id,
         species: obs.species,
         location: obs.location || "Unknown location",
@@ -676,9 +693,9 @@ export function FluidSearchCanvas({
     // Keep compatibility fallback while live_results propagates through all environments
     if (locationResults.length > 0 && prevLiveCountRef.current !== locationResults.length) {
       prevLiveCountRef.current = locationResults.length
-      setLiveObservationsRef.current(locationResults.map((obs: any) => ({
-        id: obs.id,
-        species: obs.commonName || obs.speciesName,
+      setLiveObservationsRef.current((locationResults as LocationResult[]).map((obs) => ({
+        id: obs.id || `loc-${obs.lat}-${obs.lng}`,
+        species: obs.commonName || obs.speciesName || obs.species || "Unknown",
         location: obs.placeName || "Unknown location",
         date: obs.observedAt?.split("T")[0] || "",
         photoUrl: obs.imageUrl,
@@ -890,6 +907,7 @@ export function FluidSearchCanvas({
       })
       if (target.id) setFocusedItemId(target.id)
       else setFocusedItemId(null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SearchContext.focusWidget accepts a broader event payload
       ctx.focusWidget(target as any)
       trackWidgetFocus(t, target.id, {
         current_query: localQuery,
@@ -901,6 +919,7 @@ export function FluidSearchCanvas({
       // Read the matrix to get the actual rendered Y position.
       const scrollToWidget = () => {
         const el = widgetElRefs.current[t]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom __scrollContainer property attached to ref map at runtime
         const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | null
         if (!el || !container) return
 
@@ -938,7 +957,7 @@ export function FluidSearchCanvas({
   }, [])
 
   const handleAddToNotepad = useCallback(
-    (item: any) => {
+    (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => {
       // meta carries the full article/paper data so notepad can re-open the reading modal
       ctx.addNotepadItem({ ...item, searchQuery: localQuery })
       trackNotepadAdd(item.type || "note", item.title || item.content?.slice(0, 50) || "Item")
@@ -947,8 +966,8 @@ export function FluidSearchCanvas({
   )
 
   // State for re-opening news/research reading modals from the notepad
-  const [notepadOpenArticle, setNotepadOpenArticle] = useState<any>(null)
-  const [notepadOpenPaper, setNotepadOpenPaper] = useState<any>(null)
+  const [notepadOpenArticle, setNotepadOpenArticle] = useState<Record<string, unknown> | null>(null)
+  const [notepadOpenPaper, setNotepadOpenPaper] = useState<Record<string, unknown> | null>(null)
 
   // Pinned species: a specific species name to show in the Species widget
   // when a user clicks a species name in Chemistry or Genetics widget.
@@ -974,6 +993,7 @@ export function FluidSearchCanvas({
       // Small delay to let Packery place the widget before scrolling
       setTimeout(() => {
         const el = widgetElRefs.current["species"]
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom __scrollContainer property attached to ref map at runtime
         const container = (widgetElRefs.current as any).__scrollContainer as HTMLElement | null
         if (el && container) container.scrollTo({ top: el.offsetTop - 8, behavior: "smooth" })
       }, 400)
@@ -983,7 +1003,7 @@ export function FluidSearchCanvas({
 
   // Listen for read-item events emitted by NotepadWidget
   useEffect(() => {
-    const unsub = ctx.on("read-item", ({ type, item }: { type: string; item: any }) => {
+    const unsub = ctx.on("read-item", ({ type, item }: { type: string; item: Record<string, unknown> }) => {
       if (type === "news") {
         setNotepadOpenArticle(item)
         setExpandedWidgets((prev) => new Set(prev).add("news" as WidgetType))
@@ -998,7 +1018,7 @@ export function FluidSearchCanvas({
   // Drag start -- include searchQuery for notepad restore
   // Note: Framer Motion's onDragStart doesn't provide dataTransfer, only native HTML5 drag does
   // So we check if dataTransfer exists before using it
-  const handleWidgetDragStart = useCallback((e: any, config: WidgetConfig) => {
+  const handleWidgetDragStart = useCallback((e: DragEvent | { dataTransfer?: DataTransfer | null }, config: WidgetConfig) => {
     // Framer Motion drag events don't have dataTransfer - only native HTML5 drag does
     if (!e?.dataTransfer) return
     
@@ -1105,6 +1125,7 @@ export function FluidSearchCanvas({
       <div className="flex-1 flex flex-col overflow-hidden px-2 sm:px-4 pb-2 gap-2 sm:gap-3">
 
         {/* Grid scrolls inside viewport so widgets never sit below the fold */}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom __scrollContainer property attached to ref map at runtime */}
         <div className="flex-1 min-h-0 overflow-auto" ref={(el) => { (widgetElRefs.current as any).__scrollContainer = el }}>
           <div 
             ref={packeryContainerRef}
@@ -1386,10 +1407,10 @@ function WidgetContent({
   openArticle, openPaper, pinnedSpeciesName,
 }: {
   type: WidgetType
-  species: any[]; compounds: any[]; genetics: any[]; research: any[]; aiAnswer: any
+  species: SpeciesResult[]; compounds: CompoundResult[]; genetics: GeneticsResult[]; research: ResearchResult[]; aiAnswer: string | undefined
   searchContext?: { species?: string[]; compounds?: string[]; genetics?: string[]; research?: string[] }
-  media: any[]; mediaError?: string; location: any[]; news: any[]; newsError?: string; newsQueryUsed?: string
-  crep: any[]; earth2: any; mapObservations: any[]
+  media: Record<string, unknown>[]; mediaError?: string; location: Record<string, unknown>[]; news: Record<string, unknown>[]; newsError?: string; newsQueryUsed?: string
+  crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
   onSelectSuggestionQuery: (query: string) => void
@@ -1398,11 +1419,11 @@ function WidgetContent({
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
-  onViewOnMap?: (observation: any) => void
+  onViewOnMap?: (observation: MapObservation) => void
   onExplore?: (type: string, id: string) => void
   /** Article/paper to immediately open in the reading modal (from notepad restore) */
-  openArticle?: any
-  openPaper?: any
+  openArticle?: Record<string, unknown> | null
+  openPaper?: Record<string, unknown> | null
   /** Species name from Chemistry/Genetics widget click — show it in Species widget */
   pinnedSpeciesName?: string | null
 }) {
@@ -1413,10 +1434,10 @@ function WidgetContent({
           isFocused={isFocused}
           getContextText={() => {
             const parts: string[] = []
-            if (species.length) parts.push(`species: ${species.slice(0, 3).map((s) => (s as any).scientificName || (s as any).commonName).join(", ")}`)
-            if (compounds.length) parts.push(`compounds: ${compounds.slice(0, 3).map((c) => (c as any).name).join(", ")}`)
-            if (genetics.length) parts.push(`genetics: ${genetics.slice(0, 3).map((g) => (g as any).speciesName || (g as any).geneRegion).join(", ")}`)
-            if (research.length) parts.push(`research: ${research.slice(0, 3).map((r) => (r as any).title).join(", ")}`)
+            if (species.length) parts.push(`species: ${species.slice(0, 3).map((s) => s.scientificName || s.commonName).join(", ")}`)
+            if (compounds.length) parts.push(`compounds: ${compounds.slice(0, 3).map((c) => c.name).join(", ")}`)
+            if (genetics.length) parts.push(`genetics: ${genetics.slice(0, 3).map((g) => g.speciesName || g.geneRegion).join(", ")}`)
+            if (research.length) parts.push(`research: ${research.slice(0, 3).map((r) => r.title).join(", ")}`)
             return parts.length ? `Search context: ${parts.join("; ")}` : ""
           }}
           searchContext={searchContext}

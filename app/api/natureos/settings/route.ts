@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 // In production, this would use a proper database
 // For now, using in-memory storage with persistence simulation
-const settingsStore: Record<string, any> = {
+const settingsStore: Record<string, Record<string, unknown>> = {
   // System Settings
   system: {
     name: "NatureOS",
@@ -139,8 +139,8 @@ const changeLog: Array<{
   timestamp: string
   category: string
   key: string
-  oldValue: any
-  newValue: any
+  oldValue: unknown
+  newValue: unknown
   source: "user" | "myca" | "system" | "api"
   userId?: string
   approved: boolean
@@ -149,14 +149,25 @@ const changeLog: Array<{
 }> = []
 
 // Pending changes awaiting approval
-const pendingChanges: Map<string, any> = new Map()
+interface PendingChange {
+  category: string
+  key: string
+  oldValue: unknown
+  newValue: unknown
+  source: string
+  userId?: string
+  requestedAt: string
+  approved: boolean
+}
+
+const pendingChanges: Map<string, PendingChange> = new Map()
 
 export async function GET(request: NextRequest) {
   const category = request.nextUrl.searchParams.get("category")
   const includeLog = request.nextUrl.searchParams.get("includeLog") === "true"
   const logLimit = parseInt(request.nextUrl.searchParams.get("logLimit") || "50")
   
-  const response: any = {}
+  const response: Record<string, unknown> = {}
   
   if (category) {
     response.settings = settingsStore[category] || null
@@ -374,21 +385,26 @@ export async function PUT(request: NextRequest) {
 }
 
 // Helper functions
-function getNestedValue(obj: any, path: string): any {
-  return path.split(".").reduce((acc, part) => acc?.[part], obj)
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  return path.split(".").reduce((acc: unknown, part) => {
+    if (acc && typeof acc === "object" && part in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[part]
+    }
+    return undefined
+  }, obj)
 }
 
-function setNestedValue(obj: any, path: string, value: any): void {
+function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
   const parts = path.split(".")
   const last = parts.pop()!
-  const target = parts.reduce((acc, part) => {
-    if (!acc[part]) acc[part] = {}
-    return acc[part]
+  const target = parts.reduce((acc: Record<string, unknown>, part) => {
+    if (!acc[part] || typeof acc[part] !== "object") acc[part] = {}
+    return acc[part] as Record<string, unknown>
   }, obj)
   target[last] = value
 }
 
-async function logToMyca(data: any): Promise<void> {
+async function logToMyca(data: Record<string, unknown>): Promise<void> {
   try {
     // Log to MYCA training API
     await fetch("http://localhost:3000/api/myca/training", {
@@ -410,7 +426,7 @@ async function logToMyca(data: any): Promise<void> {
   }
 }
 
-async function notifySubscribers(data: any): Promise<void> {
+async function notifySubscribers(data: Record<string, unknown>): Promise<void> {
   // In production, this would use WebSockets or Server-Sent Events
   // For now, we store notifications that can be polled
   console.log("[Settings] Notification:", data.event, data.category, data.key)

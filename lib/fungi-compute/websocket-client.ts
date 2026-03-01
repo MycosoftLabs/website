@@ -96,7 +96,7 @@ export class FCIWebSocketClient {
     this.send({
       type: "sdr_config",
       config: config,
-    } as any)
+    } as unknown as WSMessage)
   }
 
   sendStimulationCommand(command: {
@@ -110,7 +110,7 @@ export class FCIWebSocketClient {
     this.send({
       type: "stimulate",
       command: command,
-    } as any)
+    } as unknown as WSMessage)
   }
 
   setPattern(pattern: string): void {
@@ -119,7 +119,7 @@ export class FCIWebSocketClient {
     this.send({
       type: "set_pattern",
       pattern: pattern,
-    } as any)
+    } as unknown as WSMessage)
   }
 
   private setupEventHandlers(): void {
@@ -202,7 +202,7 @@ export class FCIWebSocketClient {
         // Keep-alive response - no action needed
         break
       case "error":
-        this.handleError(new Error(String(message.payload || (message as any).message)))
+        this.handleError(new Error(String(message.payload || (message as unknown as Record<string, unknown>).message)))
         break
     }
   }

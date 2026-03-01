@@ -200,14 +200,21 @@ export class OpenRailwayClient {
 
       const data = await response.json()
       
+      interface OverpassElement {
+        type: string
+        id: number
+        lat: number
+        lon: number
+        tags: Record<string, string>
+      }
       const stations: RailwayStation[] = (data.elements || [])
-        .filter((el: any) => el.type === "node" && el.tags)
-        .map((el: any) => ({
+        .filter((el: OverpassElement) => el.type === "node" && el.tags)
+        .map((el: OverpassElement) => ({
           id: el.id,
           name: el.tags.name || `Station ${el.id}`,
           latitude: el.lat,
           longitude: el.lon,
-          railway_type: el.tags.railway,
+          railway_type: el.tags.railway as RailwayStation["railway_type"],
           operator: el.tags.operator,
           platforms: el.tags.platforms ? parseInt(el.tags.platforms) : undefined,
           electrified: el.tags.electrified === "yes",

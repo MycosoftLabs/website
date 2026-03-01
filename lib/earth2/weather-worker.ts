@@ -10,18 +10,18 @@
 interface WeatherWorkerRequest {
   type: "generateCloudGeoJSON" | "generatePrecipGeoJSON" | "generateWindVectors" | "interpolateGrid";
   id: string;
-  data: any;
+  data: unknown;
 }
 
 interface WeatherWorkerResponse {
   type: "result" | "error";
   id: string;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
 // Check if we're in a worker context
-const isWorker = typeof self !== "undefined" && typeof (self as any).WorkerGlobalScope !== "undefined";
+const isWorker = typeof self !== "undefined" && typeof (self as unknown as Record<string, unknown>).WorkerGlobalScope !== "undefined";
 
 if (isWorker) {
   // Worker code
@@ -29,25 +29,25 @@ if (isWorker) {
     const { type, id, data } = event.data;
     
     try {
-      let result: any;
-      
+      let result: unknown;
+
       switch (type) {
         case "generateCloudGeoJSON":
-          result = generateCloudGeoJSONWorker(data);
+          result = generateCloudGeoJSONWorker(data as Parameters<typeof generateCloudGeoJSONWorker>[0]);
           break;
         case "generatePrecipGeoJSON":
-          result = generatePrecipGeoJSONWorker(data);
+          result = generatePrecipGeoJSONWorker(data as Parameters<typeof generatePrecipGeoJSONWorker>[0]);
           break;
         case "generateWindVectors":
-          result = generateWindVectorsWorker(data);
+          result = generateWindVectorsWorker(data as Parameters<typeof generateWindVectorsWorker>[0]);
           break;
         case "interpolateGrid":
-          result = interpolateGridWorker(data);
+          result = interpolateGridWorker(data as Parameters<typeof interpolateGridWorker>[0]);
           break;
         default:
           throw new Error(`Unknown worker message type: ${type}`);
       }
-      
+
       const response: WeatherWorkerResponse = { type: "result", id, data: result };
       self.postMessage(response);
     } catch (error) {
@@ -283,7 +283,7 @@ function interpolateGridWorker(params: {
 // Main thread helper class for communicating with the worker
 export class WeatherWorkerClient {
   private worker: Worker | null = null;
-  private pendingRequests: Map<string, { resolve: (data: any) => void; reject: (error: Error) => void }> = new Map();
+  private pendingRequests: Map<string, { resolve: (data: unknown) => void; reject: (error: Error) => void }> = new Map();
   private requestCounter: number = 0;
 
   constructor() {
@@ -328,38 +328,38 @@ export class WeatherWorkerClient {
     return `req-${++this.requestCounter}-${Date.now()}`;
   }
 
-  private sendRequest<T>(type: WeatherWorkerRequest["type"], data: any): Promise<T> {
+  private sendRequest<T>(type: WeatherWorkerRequest["type"], data: unknown): Promise<T> {
     const id = this.generateId();
-    
+
     return new Promise((resolve, reject) => {
       if (!this.worker) {
         // Fallback to main thread processing
         try {
-          let result: any;
+          let result: unknown;
           switch (type) {
             case "generateCloudGeoJSON":
-              result = generateCloudGeoJSONWorker(data);
+              result = generateCloudGeoJSONWorker(data as Parameters<typeof generateCloudGeoJSONWorker>[0]);
               break;
             case "generatePrecipGeoJSON":
-              result = generatePrecipGeoJSONWorker(data);
+              result = generatePrecipGeoJSONWorker(data as Parameters<typeof generatePrecipGeoJSONWorker>[0]);
               break;
             case "generateWindVectors":
-              result = generateWindVectorsWorker(data);
+              result = generateWindVectorsWorker(data as Parameters<typeof generateWindVectorsWorker>[0]);
               break;
             case "interpolateGrid":
-              result = interpolateGridWorker(data);
+              result = interpolateGridWorker(data as Parameters<typeof interpolateGridWorker>[0]);
               break;
             default:
               throw new Error(`Unknown type: ${type}`);
           }
-          resolve(result);
+          resolve(result as T);
         } catch (error) {
           reject(error);
         }
         return;
       }
       
-      this.pendingRequests.set(id, { resolve, reject });
+      this.pendingRequests.set(id, { resolve: resolve as (data: unknown) => void, reject });
       this.worker.postMessage({ type, id, data });
       
       // Timeout after 10 seconds

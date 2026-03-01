@@ -9,7 +9,7 @@ interface AggregatedDocument {
   content: string
   source: string
   type: "research" | "taxonomy" | "observation"
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   lastUpdated: Date
 }
 

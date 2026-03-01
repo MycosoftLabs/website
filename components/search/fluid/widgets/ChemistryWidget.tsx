@@ -145,6 +145,7 @@ export function ChemistryWidget({
   onAddToNotepad,
   className,
 }: ChemistryWidgetProps) {
+  const ctx = useSearchContext()
   const items = Array.isArray(data) ? data : [data]
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showSources, setShowSources] = useState(false)

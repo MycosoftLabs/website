@@ -62,8 +62,8 @@ interface SettingsChange {
   timestamp: string
   category: string
   key: string
-  oldValue: any
-  newValue: any
+  oldValue: unknown
+  newValue: unknown
   source: "user" | "system" | "api"
 }
 
@@ -98,7 +98,7 @@ async function loadUserSettings(userId: string): Promise<typeof DEFAULT_SETTINGS
 }
 
 // Save user settings
-async function saveUserSettings(userId: string, settings: any): Promise<void> {
+async function saveUserSettings(userId: string, settings: typeof DEFAULT_SETTINGS): Promise<void> {
   await ensureStorageDir()
   const filePath = getUserSettingsPath(userId)
   await fs.writeFile(filePath, JSON.stringify(settings, null, 2))
@@ -126,11 +126,11 @@ async function addChangelogEntry(entry: SettingsChange): Promise<void> {
 }
 
 // Deep merge helper
-function deepMerge(target: any, source: any): any {
-  const result = { ...target }
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...target }
   for (const key in source) {
-    if (source[key] instanceof Object && key in target) {
-      result[key] = deepMerge(target[key], source[key])
+    if (source[key] instanceof Object && key in target && target[key] instanceof Object) {
+      result[key] = deepMerge(target[key] as Record<string, unknown>, source[key] as Record<string, unknown>)
     } else {
       result[key] = source[key]
     }
@@ -150,9 +150,9 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    const user = session.user as any
-    const userId = user.id || user.email
-    
+    const user = session.user as { id?: string; email?: string }
+    const userId = user.id || user.email || "anonymous"
+
     const settings = await loadUserSettings(userId)
     
     // Get user's changelog (last 50 entries)
@@ -195,46 +195,54 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const user = session.user as any
-    const userId = user.id || user.email
+    const user = session.user as { id?: string; email?: string }
+    const userId = user.id || user.email || "anonymous"
     const userEmail = user.email || "unknown"
-    
+
     const body = await request.json()
-    const { settings: newSettings, category, key, value } = body
-    
+    const { settings: newSettings, category, key, value } = body as {
+      settings?: Record<string, Record<string, unknown>>
+      category?: string
+      key?: string
+      value?: unknown
+    }
+
     // Load current settings
     const currentSettings = await loadUserSettings(userId)
     let updatedSettings = { ...currentSettings }
-    const changes: { category: string; key: string; oldValue: any; newValue: any }[] = []
-    
+    const changes: { category: string; key: string; oldValue: unknown; newValue: unknown }[] = []
+
     if (newSettings) {
       // Full or partial settings object provided
       for (const cat in newSettings) {
         if (updatedSettings[cat as keyof typeof updatedSettings]) {
           const categorySettings = newSettings[cat]
           for (const k in categorySettings) {
-            const oldValue = (updatedSettings[cat as keyof typeof updatedSettings] as any)?.[k]
+            const catObj = updatedSettings[cat as keyof typeof updatedSettings] as Record<string, unknown>
+            const oldValue = catObj?.[k]
             const newValue = categorySettings[k]
-            
+
             if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
               changes.push({ category: cat, key: k, oldValue, newValue })
             }
           }
+          const existingCat = updatedSettings[cat as keyof typeof updatedSettings] as Record<string, unknown>
           updatedSettings = {
             ...updatedSettings,
-            [cat]: { ...(updatedSettings[cat as keyof typeof updatedSettings] as any), ...categorySettings }
+            [cat]: { ...existingCat, ...categorySettings }
           }
         }
       }
     } else if (category && key !== undefined) {
       // Single setting update
-      const oldValue = (updatedSettings[category as keyof typeof updatedSettings] as any)?.[key]
+      const catObj = updatedSettings[category as keyof typeof updatedSettings] as Record<string, unknown>
+      const oldValue = catObj?.[key]
       if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
         changes.push({ category, key, oldValue, newValue: value })
       }
       updatedSettings = {
         ...updatedSettings,
-        [category]: { ...(updatedSettings[category as keyof typeof updatedSettings] as any), [key]: value }
+        [category]: { ...catObj, [key]: value }
       }
     } else {
       return NextResponse.json(
@@ -290,10 +298,10 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
-    const user = session.user as any
-    const userId = user.id || user.email
+    const user = session.user as { id?: string; email?: string }
+    const userId = user.id || user.email || "anonymous"
     const userEmail = user.email || "unknown"
-    
+
     const category = request.nextUrl.searchParams.get("category")
     
     if (category) {
@@ -323,7 +331,7 @@ export async function DELETE(request: NextRequest) {
         timestamp: new Date().toISOString(),
         category,
         key: "*",
-        oldValue: (currentSettings as any)[category],
+        oldValue: currentSettings[category as keyof typeof currentSettings],
         newValue: defaultCat,
         source: "user",
       })

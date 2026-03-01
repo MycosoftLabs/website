@@ -94,7 +94,7 @@ export class GoogleVertexProvider {
     }
 
     const data = await response.json()
-    const embeddings = data.predictions.map((p: any) => p.embeddings.values)
+    const embeddings = data.predictions.map((p: { embeddings: { values: number[] } }) => p.embeddings.values)
 
     return {
       provider: 'google-vertex',

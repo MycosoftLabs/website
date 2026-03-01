@@ -51,6 +51,29 @@ type StatusHandler = (status: StreamStatus) => void
 // AISSTREAM WEBSOCKET CLIENT
 // =============================================================================
 
+interface AISStreamMessage {
+  MetaData?: {
+    MMSI?: number
+    ShipName?: string
+    latitude?: number
+    longitude?: number
+    time_utc?: string
+  }
+  Message?: {
+    PositionReport?: {
+      Latitude?: number
+      Longitude?: number
+      TrueHeading?: number
+      Cog?: number
+      Sog?: number
+    }
+    ShipStaticData?: {
+      ShipName?: string
+      ShipType?: number
+    }
+  }
+}
+
 const AISSTREAM_WS = "wss://stream.aisstream.io/v0/stream"
 
 class AISStreamConnection {
@@ -152,7 +175,7 @@ class AISStreamConnection {
     }
   }
 
-  private parseAISMessage(data: any): VesselEntity | null {
+  private parseAISMessage(data: AISStreamMessage): VesselEntity | null {
     if (!data.MetaData) return null
 
     const mmsi = String(data.MetaData.MMSI)

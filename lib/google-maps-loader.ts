@@ -122,8 +122,8 @@ export function loadGoogleMaps(libraries: string[] = ["visualization", "places"]
     
     // Use callback to ensure proper initialization
     const callbackName = `__googleMapsCallback_${Date.now()}`
-    ;(window as any)[callbackName] = () => {
-      delete (window as any)[callbackName]
+    ;(window as unknown as Record<string, unknown>)[callbackName] = () => {
+      delete (window as unknown as Record<string, unknown>)[callbackName]
       if (checkGoogleMapsReady()) {
         loadPromise = null
         resolve()
@@ -139,9 +139,9 @@ export function loadGoogleMaps(libraries: string[] = ["visualization", "places"]
     script.id = "google-maps-script"
     
     script.onerror = () => {
-      delete (window as any)[callbackName]
+      delete (window as unknown as Record<string, unknown>)[callbackName]
       loadPromise = null
-      
+
       // Retry logic
       if (loadAttempts < MAX_LOAD_ATTEMPTS) {
         console.warn(`[Google Maps] Load attempt ${loadAttempts} failed, retrying...`)
@@ -160,15 +160,15 @@ export function loadGoogleMaps(libraries: string[] = ["visualization", "places"]
     // Timeout fallback
     const timeout = setTimeout(() => {
       if (!checkGoogleMapsReady()) {
-        delete (window as any)[callbackName]
+        delete (window as unknown as Record<string, unknown>)[callbackName]
         loadPromise = null
         reject(new Error("Google Maps load timeout"))
       }
     }, 15000)
-    
+
     // Clear timeout on successful load
-    const originalCallback = (window as any)[callbackName]
-    ;(window as any)[callbackName] = () => {
+    const originalCallback = (window as unknown as Record<string, unknown>)[callbackName] as () => void
+    ;(window as unknown as Record<string, unknown>)[callbackName] = () => {
       clearTimeout(timeout)
       originalCallback()
     }

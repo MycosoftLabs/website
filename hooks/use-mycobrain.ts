@@ -75,6 +75,44 @@ export interface MycoBrainState {
   isConnected: boolean
 }
 
+// Raw API response shape (before mapping to MycoBrainDevice)
+interface RawMycoBrainApiDevice {
+  port?: string
+  device_id?: string
+  connected?: boolean
+  status?: string
+  verified?: boolean
+  is_mycobrain?: boolean
+  device_info?: {
+    side?: string
+    mdp_version?: number
+    status?: string
+    lora_status?: string
+    firmware_version?: string
+    board_type?: string
+    mac_address?: string
+    uptime?: number
+    bme688_count?: number
+  }
+  sensor_data?: MycoBrainSensors
+  last_message_time?: string
+  location?: {
+    lat: number
+    lng: number
+    accuracy?: number
+    source: "gps" | "manual" | "network" | "estimated"
+  }
+  capabilities?: {
+    bme688_count: number
+    has_lora: boolean
+    has_neopixel: boolean
+    has_buzzer: boolean
+    i2c_bus: boolean
+    analog_inputs: number
+    digital_io: number
+  }
+}
+
 export function useMycoBrain(refreshInterval = 15000) {
   const [state, setState] = useState<MycoBrainState>({
     devices: [],
@@ -120,7 +158,7 @@ export function useMycoBrain(refreshInterval = 15000) {
         setState((prev) => {
           // Filter to only include verified MycoBrain devices
           // Devices must be explicitly marked as MycoBrain or have verified=true
-          const rawDevices = (data.devices || []).filter((d: any) => {
+          const rawDevices = (data.devices || []).filter((d: RawMycoBrainApiDevice) => {
             // Include if explicitly verified as MycoBrain
             if (d.verified === true || d.is_mycobrain === true) return true
             // Include if device has MycoBrain-specific fields
@@ -134,7 +172,7 @@ export function useMycoBrain(refreshInterval = 15000) {
           })
           
           // Map filtered devices while preserving existing sensor_data to prevent blinking
-          const devices: MycoBrainDevice[] = rawDevices.map((d: any) => {
+          const devices: MycoBrainDevice[] = rawDevices.map((d: RawMycoBrainApiDevice) => {
             // Find existing device to preserve its sensor_data
             const existing = prev.devices.find((e) => e.port === d.port || e.device_id === d.device_id)
             

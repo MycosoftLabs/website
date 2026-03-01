@@ -43,8 +43,11 @@ function getSqlClient() {
 }
 
 // Proxy wrapper to keep template usage unchanged
-const sql: any = (...args: any[]) => (getSqlClient() as any)(...args)
-sql.query = (...args: any[]) => (getSqlClient() as any).query(...args)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Neon tagged template proxy requires dynamic call signature
+const sql: ReturnType<typeof neon> & { query: (...args: unknown[]) => unknown } = Object.assign(
+  (...args: unknown[]) => (getSqlClient() as Function)(...args),
+  { query: (...args: unknown[]) => (getSqlClient() as unknown as { query: Function }).query(...args) }
+) as ReturnType<typeof neon> & { query: (...args: unknown[]) => unknown }
 
 // Get all ancestry records
 export const getAllAncestryRecords = cache(async (): Promise<FungalAncestry[]> => {
@@ -229,7 +232,7 @@ export async function updateAncestryRecord(id: number, data: Partial<FungalAnces
   try {
     // Create dynamic SET clause based on provided data
     const updates: string[] = []
-    const values: any[] = []
+    const values: unknown[] = []
 
     Object.entries(data).forEach(([key, value], index) => {
       if (key !== "id" && key !== "created_at" && key !== "updated_at") {

@@ -320,7 +320,7 @@ export class UniFiApiClient {
     return clients[0] || null;
   }
 
-  async getClientHistory(mac: string, hours: number = 24): Promise<any[]> {
+  async getClientHistory(mac: string, hours: number = 24): Promise<Record<string, unknown>[]> {
     const end = Math.floor(Date.now() / 1000);
     const start = end - (hours * 3600);
     return this.request(`/stat/report/hourly.user?start=${start}&end=${end}&macs=${mac}`);
@@ -368,17 +368,17 @@ export class UniFiApiClient {
     return this.request<UniFiHealth>('/stat/health');
   }
 
-  async getSiteSettings(): Promise<any[]> {
+  async getSiteSettings(): Promise<Record<string, unknown>[]> {
     return this.request('/rest/setting');
   }
 
-  async getSysinfo(): Promise<any[]> {
+  async getSysinfo(): Promise<Record<string, unknown>[]> {
     return this.request('/stat/sysinfo');
   }
 
   // ===== Network Configuration =====
 
-  async getNetworks(): Promise<any[]> {
+  async getNetworks(): Promise<Record<string, unknown>[]> {
     return this.request('/rest/networkconf');
   }
 
@@ -386,7 +386,7 @@ export class UniFiApiClient {
     return this.request<UniFiWifiNetwork>('/rest/wlanconf');
   }
 
-  async getPortProfiles(): Promise<any[]> {
+  async getPortProfiles(): Promise<Record<string, unknown>[]> {
     return this.request('/rest/portconf');
   }
 
@@ -400,19 +400,19 @@ export class UniFiApiClient {
     return this.request<UniFiDPIApp>('/stat/sitedpi');
   }
 
-  async getTopClients(hours: number = 24): Promise<any[]> {
+  async getTopClients(hours: number = 24): Promise<Record<string, unknown>[]> {
     const end = Math.floor(Date.now() / 1000);
     const start = end - (hours * 3600);
     return this.request(`/stat/report/hourly.site?start=${start}&end=${end}&attrs=wlan-num_sta,lan-num_sta,num_sta,tx_bytes,rx_bytes`);
   }
 
-  async getHourlyStats(hours: number = 24): Promise<any[]> {
+  async getHourlyStats(hours: number = 24): Promise<Record<string, unknown>[]> {
     const end = Math.floor(Date.now() / 1000);
     const start = end - (hours * 3600);
     return this.request(`/stat/report/hourly.site?start=${start}&end=${end}`);
   }
 
-  async getDailyStats(days: number = 7): Promise<any[]> {
+  async getDailyStats(days: number = 7): Promise<Record<string, unknown>[]> {
     const end = Math.floor(Date.now() / 1000);
     const start = end - (days * 86400);
     return this.request(`/stat/report/daily.site?start=${start}&end=${end}`);
@@ -424,7 +424,7 @@ export class UniFiApiClient {
     return this.request<UniFiAlarm>('/stat/alarm');
   }
 
-  async getEvents(limit: number = 50): Promise<any[]> {
+  async getEvents(limit: number = 50): Promise<Record<string, unknown>[]> {
     return this.request(`/stat/event?_limit=${limit}&_sort=-time`);
   }
 
@@ -450,7 +450,7 @@ export class UniFiApiClient {
     return this.request<UniFiFirewallGroup>('/rest/firewallgroup');
   }
 
-  async getFirewallRules(): Promise<any[]> {
+  async getFirewallRules(): Promise<Record<string, unknown>[]> {
     return this.request('/rest/firewallrule');
   }
 
@@ -460,7 +460,7 @@ export class UniFiApiClient {
 
   // ===== WAN & Internet =====
 
-  async getWANStatus(): Promise<any> {
+  async getWANStatus(): Promise<UniFiHealth | undefined> {
     const health = await this.getHealth();
     const wan = health.find(h => h.subsystem === 'wan');
     return wan;
@@ -483,7 +483,7 @@ export class UniFiApiClient {
   async getTopology(): Promise<{
     devices: UniFiDevice[];
     clients: UniFiClient[];
-    networks: any[];
+    networks: Record<string, unknown>[];
     connections: Array<{ from: string; to: string; type: string }>;
   }> {
     const [devices, clients, networks] = await Promise.all([
@@ -648,7 +648,7 @@ export class UniFiApiClient {
     return clients.filter(c => c.blocked);
   }
 
-  async getRogueAPs(): Promise<any[]> {
+  async getRogueAPs(): Promise<Record<string, unknown>[]> {
     return this.request('/stat/rogueap');
   }
 

@@ -30,7 +30,7 @@ export interface MapState {
 export interface Earth2State {
   activeModel: string | null;
   activeLayers: string[];
-  lastForecast: any | null;
+  lastForecast: unknown;
   gpuMemoryUsed: number;
 }
 

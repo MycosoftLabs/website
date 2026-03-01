@@ -70,7 +70,7 @@ function generateDefaultKey(): string {
 // Auto-generate Mycorrhizae key in development if not set
 if (typeof window === "undefined" && env.isDevelopment && !env.mycorrhizaePublishKey) {
   const devKey = generateDefaultKey()
-  ;(env as any).mycorrhizaePublishKey = devKey
+  ;(env as unknown as Record<string, string>).mycorrhizaePublishKey = devKey
   console.log(`[DEV] Auto-generated MYCORRHIZAE_PUBLISH_KEY: ${devKey}`)
 }
 

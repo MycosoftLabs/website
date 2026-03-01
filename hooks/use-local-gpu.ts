@@ -18,6 +18,13 @@ const MOSHI_URL = process.env.NEXT_PUBLIC_MOSHI_URL || 'ws://localhost:8998';
 const USE_LOCAL_GPU = process.env.NEXT_PUBLIC_USE_LOCAL_GPU === 'true';
 
 // Types
+interface BridgeHealthStatus {
+  status: string;
+  moshi_connected?: boolean;
+  active_sessions?: number;
+  uptime?: number;
+}
+
 interface GPUStatus {
   available: boolean;
   name?: string;
@@ -241,7 +248,7 @@ export function useEarth2() {
 
 // Hook: useVoiceBridge
 export function useVoiceBridge() {
-  const [bridgeHealth, setBridgeHealth] = useState<any>(null);
+  const [bridgeHealth, setBridgeHealth] = useState<BridgeHealthStatus | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);

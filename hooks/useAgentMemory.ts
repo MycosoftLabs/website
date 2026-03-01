@@ -18,7 +18,7 @@ export interface KnowledgeNode {
   node_type: string;
   name: string;
   description?: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   importance?: number;
 }
 

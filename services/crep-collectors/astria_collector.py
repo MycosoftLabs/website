@@ -53,17 +53,8 @@ class AstriaCollector(BaseCollector):
             except Exception as e:
                 self.logger.warning("astria_api_unavailable", error=str(e))
             
-            # Return sample debris data as fallback
-            return self._get_sample_debris()
-    
-    def _get_sample_debris(self) -> list[dict]:
-        """Sample space debris for demonstration."""
-        return [
-            {"norad_id": 25544, "name": "ISS (ZARYA)", "type": "PAYLOAD", "country": "ISS", "launch_year": 1998},
-            {"norad_id": 48274, "name": "STARLINK-1007", "type": "PAYLOAD", "country": "US", "launch_year": 2021},
-            {"norad_id": 43013, "name": "COSMOS 2519 DEB", "type": "DEBRIS", "country": "CIS", "launch_year": 2017},
-            {"norad_id": 37348, "name": "FENGYUN 1C DEB", "type": "DEBRIS", "country": "PRC", "launch_year": 2007},
-        ]
+            # No mock fallback. Return empty if unavailable.
+            return []
     
     def transform_data(self, raw_data: list[dict]) -> list[dict]:
         """Transform AstriaGraph data to CREP format."""

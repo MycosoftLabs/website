@@ -50,16 +50,22 @@ export interface AircraftEntity {
   registration?: string;
   airline?: string;
   aircraft_type?: string;
+  aircraftType?: string;
+  flightNumber?: string;
   origin?: string;
   destination?: string;
   latitude: number;
   longitude: number;
   altitude?: number;
   speed?: number;
+  velocity?: number;
   heading?: number;
   on_ground?: boolean;
+  onGround?: boolean;
   squawk?: string;
   last_updated?: string;
+  location?: { longitude?: number; latitude?: number; coordinates?: [number, number] };
+  properties?: Record<string, unknown>;
 }
 
 export interface VesselEntity {
@@ -69,13 +75,21 @@ export interface VesselEntity {
   imo?: string;
   callsign?: string;
   ship_type?: string;
+  shipType?: string;
   destination?: string;
+  eta?: string;
+  flag?: string;
   latitude: number;
   longitude: number;
   speed?: number;
+  sog?: number;
   heading?: number;
+  cog?: number;
+  course?: number;
   status?: string;
   last_updated?: string;
+  location?: { longitude?: number; latitude?: number; coordinates?: [number, number] };
+  properties?: Record<string, unknown>;
 }
 
 export interface SatelliteEntity {
@@ -366,20 +380,20 @@ function EventDetail({ event, onClose }: { event: GlobalEvent; onClose: () => vo
 // Aircraft Detail Content - COMPACT VERSION
 function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClose: () => void }) {
   // Extract coordinates from nested location - handle both GeoJSON and direct properties
-  const longitude = (aircraft.location as any)?.longitude ?? 
-                    aircraft.location?.coordinates?.[0] ?? 
-                    (aircraft as any).longitude ?? null;
-  const latitude = (aircraft.location as any)?.latitude ?? 
-                   aircraft.location?.coordinates?.[1] ?? 
-                   (aircraft as any).latitude ?? null;
+  const longitude = aircraft.location?.longitude ??
+                    aircraft.location?.coordinates?.[0] ??
+                    aircraft.longitude ?? null;
+  const latitude = aircraft.location?.latitude ??
+                   aircraft.location?.coordinates?.[1] ??
+                   aircraft.latitude ?? null;
   // Handle both velocity (standard) and speed; FR24/OpenSky may use properties
-  const speed = aircraft.velocity ?? (aircraft as any).speed ?? (aircraft as any).properties?.velocity ?? (aircraft as any).properties?.groundSpeed ?? 0;
+  const speed = aircraft.velocity ?? aircraft.speed ?? (aircraft.properties?.velocity as number) ?? (aircraft.properties?.groundSpeed as number) ?? 0;
   // Heading from top-level or properties
-  const heading = typeof aircraft.heading === "number" ? aircraft.heading : (aircraft as any).properties?.heading ?? 0;
+  const heading = typeof aircraft.heading === "number" ? aircraft.heading : (aircraft.properties?.heading as number) ?? 0;
   // Handle aircraft type variations
-  const aircraftType = aircraft.aircraftType ?? (aircraft as any).aircraft_type ?? "Unknown Aircraft";
+  const aircraftType = aircraft.aircraftType ?? aircraft.aircraft_type ?? "Unknown Aircraft";
   // Handle on_ground variations
-  const onGround = aircraft.onGround ?? (aircraft as any).on_ground ?? false;
+  const onGround = aircraft.onGround ?? aircraft.on_ground ?? false;
   
   return (
     <div className="bg-[#0a1628] border border-blue-500/30 rounded-lg overflow-hidden shadow-2xl">
@@ -452,19 +466,19 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
 // Vessel Detail Content
 function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () => void }) {
   // Extract coordinates from nested location - handle both GeoJSON and direct properties
-  const longitude = (vessel.location as any)?.longitude ?? 
-                    vessel.location?.coordinates?.[0] ?? 
-                    (vessel as any).longitude ?? null;
-  const latitude = (vessel.location as any)?.latitude ?? 
-                   vessel.location?.coordinates?.[1] ?? 
-                   (vessel as any).latitude ?? null;
+  const longitude = vessel.location?.longitude ??
+                    vessel.location?.coordinates?.[0] ??
+                    vessel.longitude ?? null;
+  const latitude = vessel.location?.latitude ??
+                   vessel.location?.coordinates?.[1] ??
+                   vessel.latitude ?? null;
   // Handle speed variations (sog = speed over ground; AIS often in properties)
-  const speed = vessel.sog ?? (vessel as any).speed ?? (vessel as any).properties?.sog ?? 0;
+  const speed = vessel.sog ?? vessel.speed ?? (vessel.properties?.sog as number) ?? 0;
   // Handle ship_type variations
-  const shipType = vessel.shipType ?? (vessel as any).ship_type ?? "Unknown Vessel";
+  const shipType = vessel.shipType ?? vessel.ship_type ?? "Unknown Vessel";
   // Course over ground (AIS: cog often in properties)
-  const cog = vessel.cog ?? (vessel as any).course ?? (vessel as any).properties?.cog ?? 0;
-  const heading = vessel.heading ?? (vessel as any).properties?.heading ?? cog;
+  const cog = vessel.cog ?? vessel.course ?? (vessel.properties?.cog as number) ?? 0;
+  const heading = vessel.heading ?? (vessel.properties?.heading as number) ?? cog;
   
   return (
     <div className="bg-[#0a1628] border border-cyan-500/30 rounded-lg overflow-hidden">
@@ -479,7 +493,7 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
         </div>
         <div className="flex items-center gap-2">
           {vessel.flag && <span className="text-sm">{vessel.flag}</span>}
-          <Badge className="bg-cyan-500">{(vessel as any).status || "ACTIVE"}</Badge>
+          <Badge className="bg-cyan-500">{vessel.status || "ACTIVE"}</Badge>
           <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors">
             <X className="w-5 h-5 text-gray-400" />
           </button>

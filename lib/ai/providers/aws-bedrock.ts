@@ -133,7 +133,8 @@ export class AWSBedrockProvider {
     }
   }
 
-  private parseResponse(data: any, model: string, family: string): ChatCompletionResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bedrock response shapes vary by model family; typed per-branch is impractical
+  private parseResponse(data: Record<string, any>, model: string, family: string): ChatCompletionResponse {
     let content = ''
     let usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 

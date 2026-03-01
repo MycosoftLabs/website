@@ -11,6 +11,27 @@
 import type { SearchIntent } from "./intent-parser"
 
 // =============================================================================
+// INATURALIST API RESPONSE TYPE
+// =============================================================================
+
+interface INatObservationResponse {
+  id: number
+  taxon?: {
+    preferred_common_name?: string
+    name?: string
+  }
+  place_guess?: string
+  geojson?: {
+    coordinates?: [number, number]
+  }
+  observed_on?: string
+  created_at?: string
+  photos?: Array<{ url?: string }>
+  quality_grade?: string
+  user?: { login?: string }
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -96,7 +117,7 @@ export async function fetchINaturalistObservations(
     if (!res.ok) return []
 
     const data = await res.json()
-    return (data.results || []).map((obs: any) => ({
+    return (data.results || []).map((obs: INatObservationResponse) => ({
       id: String(obs.id),
       species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
       scientificName: obs.taxon?.name,
@@ -143,7 +164,7 @@ export async function fetchObservationsByLocation(
     if (!res.ok) return []
 
     const data = await res.json()
-    return (data.results || []).map((obs: any) => ({
+    return (data.results || []).map((obs: INatObservationResponse) => ({
       id: String(obs.id),
       species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
       scientificName: obs.taxon?.name,

@@ -158,7 +158,7 @@ export class BlitzortungClient {
     this.reconnectTimers.set(region, timer);
   }
 
-  private processMessage(data: any, region: number): void {
+  private processMessage(data: Record<string, unknown> | Record<string, unknown>[], region: number): void {
     // Blitzortung sends strike data in various formats
     if (Array.isArray(data)) {
       // Batch of strikes
@@ -171,23 +171,23 @@ export class BlitzortungClient {
     }
   }
 
-  private processBinaryMessage(data: any, region: number): void {
+  private processBinaryMessage(data: unknown, region: number): void {
     // Handle binary strike data if needed
     // Blitzortung may use compressed formats
   }
 
-  private processStrike(data: any, region: number): void {
+  private processStrike(data: Record<string, unknown>, region: number): void {
     const strike: LightningStrike = {
       id: `strike-${Date.now()}-${this.strikeCount++}`,
-      time: data.time || Date.now() * 1000000, // Convert to ns if not provided
-      lat: data.lat || data.latitude || 0,
-      lon: data.lon || data.longitude || 0,
-      alt: data.alt,
-      pol: data.pol,
-      mA: data.mA,
-      mcg: data.mcg,
-      sta: data.sta,
-      delay: data.delay,
+      time: (data.time || Date.now() * 1000000) as number, // Convert to ns if not provided
+      lat: (data.lat || data.latitude || 0) as number,
+      lon: (data.lon || data.longitude || 0) as number,
+      alt: data.alt as number | undefined,
+      pol: data.pol as number | undefined,
+      mA: data.mA as number | undefined,
+      mcg: data.mcg as number | undefined,
+      sta: data.sta as number | undefined,
+      delay: data.delay as number | undefined,
       region,
     };
 
@@ -329,16 +329,16 @@ export class BlitzortungPollingClient {
       const now = Date.now();
 
       // Parse strikes from response
-      const newStrikes: LightningStrike[] = (data.strikes || data || []).map((s: any) => ({
+      const newStrikes: LightningStrike[] = (data.strikes || data || []).map((s: Record<string, unknown>) => ({
         id: `poll-strike-${this.strikeCount++}`,
-        time: (s.time || s.timestamp || now) * 1000000,
-        lat: s.lat || s.latitude || 0,
-        lon: s.lon || s.longitude || 0,
-        alt: s.alt,
-        pol: s.pol,
-        mA: s.mA,
-        sta: s.sta,
-        region: s.region || 1,
+        time: ((s.time || s.timestamp || now) as number) * 1000000,
+        lat: (s.lat || s.latitude || 0) as number,
+        lon: (s.lon || s.longitude || 0) as number,
+        alt: s.alt as number | undefined,
+        pol: s.pol as number | undefined,
+        mA: s.mA as number | undefined,
+        sta: s.sta as number | undefined,
+        region: (s.region || 1) as number,
       }));
 
       // Add new strikes

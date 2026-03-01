@@ -4,7 +4,7 @@
  * Comprehensive registry of all available AI models across providers
  */
 
-import { AIModel } from './types'
+import { AIModel, ModelCapability } from './types'
 
 export const AI_MODELS: AIModel[] = [
   // ============================================
@@ -399,7 +399,7 @@ export function getModelsByProvider(provider: string): AIModel[] {
 }
 
 export function getModelsByCapability(capability: string): AIModel[] {
-  return AI_MODELS.filter(m => m.capabilities.includes(capability as any))
+  return AI_MODELS.filter(m => m.capabilities.includes(capability as ModelCapability))
 }
 
 export function getOpenSourceModels(): AIModel[] {

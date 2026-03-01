@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { ingestEvents, ingestLightning, ingestFires } from "@/lib/oei/mindex-ingest";
+import { ingestEvents } from "@/lib/oei/mindex-ingest";
 
 export interface GlobalEvent {
   id: string;
@@ -261,274 +261,11 @@ async function fetchNASAEONET(): Promise<GlobalEvent[]> {
   }
 }
 
-function generateSimulatedEvents(): GlobalEvent[] {
-  // Generate DETERMINISTIC real-time events for comprehensive coverage
-  // These events are always generated to ensure the dashboard has data
-  const now = Date.now();
-  const events: GlobalEvent[] = [];
-  
-  // ========= LIGHTNING EVENTS - Multiple Locations =========
-  const lightningLocations = [
-    { lat: 29.7604, lng: -95.3698, name: "Houston, TX", strikes: 347 },
-    { lat: 25.7617, lng: -80.1918, name: "Miami, FL", strikes: 523 },
-    { lat: -23.5505, lng: -46.6333, name: "São Paulo, Brazil", strikes: 412 },
-    { lat: 13.7563, lng: 100.5018, name: "Bangkok, Thailand", strikes: 289 },
-    { lat: -6.2088, lng: 106.8456, name: "Jakarta, Indonesia", strikes: 678 },
-    { lat: 9.0820, lng: 8.6753, name: "Nigeria", strikes: 234 },
-    { lat: -4.4419, lng: 15.2663, name: "Congo Basin", strikes: 891 },
-    { lat: 28.6139, lng: 77.2090, name: "New Delhi, India", strikes: 156 },
-    { lat: 1.3521, lng: 103.8198, name: "Singapore", strikes: 445 },
-    { lat: -12.0464, lng: -77.0428, name: "Lima, Peru", strikes: 312 },
-  ];
-  
-  lightningLocations.forEach((loc, idx) => {
-    events.push({
-      id: `lightning-${loc.name.replace(/[^a-zA-Z0-9]/g, '')}-${loc.lat.toFixed(2)}-${loc.lng.toFixed(2)}`,
-      type: "lightning",
-      title: `${loc.strikes} Lightning Strikes`,
-      description: `Intense thunderstorm activity with ${loc.strikes} lightning strikes detected in the last 15 minutes near ${loc.name}.`,
-      severity: loc.strikes > 500 ? "high" : loc.strikes > 300 ? "medium" : "low",
-      timestamp: new Date(now - (idx * 120000)).toISOString(),
-      location: {
-        latitude: loc.lat,
-        longitude: loc.lng,
-        name: loc.name,
-      },
-      magnitude: loc.strikes,
-      source: "Blitzortung",
-      sourceUrl: "https://www.blitzortung.org",
-      link: `https://www.blitzortung.org/en/live_lightning_maps.php?map=10#${loc.lat},${loc.lng}`,
-    });
-  });
-  
-  // ========= VOLCANIC ACTIVITY =========
-  const volcanos = [
-    { lat: 37.7510, lng: 14.9934, name: "Mount Etna, Italy", id: "211060", status: "Elevated seismic activity" },
-    { lat: -8.3405, lng: 115.5080, name: "Mount Agung, Bali", id: "264020", status: "Minor ash emissions" },
-    { lat: 35.3606, lng: 138.7274, name: "Mount Fuji, Japan", id: "283030", status: "Increased fumarole activity" },
-    { lat: 19.4285, lng: -155.2838, name: "Kilauea, Hawaii", id: "332010", status: "Active lava flows" },
-    { lat: -37.5220, lng: 177.1800, name: "White Island, NZ", id: "241040", status: "Steam venting" },
-    { lat: 14.3800, lng: 120.9500, name: "Taal Volcano, Philippines", id: "273080", status: "Phreatic explosions possible" },
-    { lat: 63.6310, lng: -19.0212, name: "Katla, Iceland", id: "372030", status: "Glacial melt detected" },
-    { lat: -15.7867, lng: -71.8561, name: "Ubinas, Peru", id: "354020", status: "Ash plume to 5km" },
-  ];
-  
-  volcanos.forEach((vol, idx) => {
-    events.push({
-      id: `volcano-${vol.id}-${vol.lat.toFixed(2)}-${vol.lng.toFixed(2)}`,
-      type: "volcano",
-      title: `Volcanic Activity - ${vol.name}`,
-      description: `${vol.status}. Aviation color code: ORANGE. Monitor for updates.`,
-      severity: idx < 2 ? "high" : "medium",
-      timestamp: new Date(now - (idx * 300000)).toISOString(),
-      location: {
-        latitude: vol.lat,
-        longitude: vol.lng,
-        name: vol.name,
-      },
-      source: "Smithsonian GVP",
-      sourceUrl: "https://volcano.si.edu",
-      link: `https://volcano.si.edu/volcano.cfm?vn=${vol.id}`,
-    });
-  });
-  
-  // ========= WILDFIRES =========
-  const wildfires = [
-    { lat: 34.0522, lng: -118.2437, name: "Los Angeles County, CA", acres: 15234, containment: 35 },
-    { lat: -33.8688, lng: 151.2093, name: "Blue Mountains, Australia", acres: 45000, containment: 20 },
-    { lat: 39.9042, lng: 116.4074, name: "Hebei Province, China", acres: 8500, containment: 55 },
-    { lat: 37.5665, lng: 126.9780, name: "Gangwon Province, South Korea", acres: 12000, containment: 40 },
-    { lat: 55.7558, lng: 92.6173, name: "Siberia, Russia", acres: 250000, containment: 5 },
-    { lat: 36.7783, lng: -119.4179, name: "Sierra Nevada, CA", acres: 8700, containment: 65 },
-    { lat: -19.9167, lng: -43.9345, name: "Minas Gerais, Brazil", acres: 18500, containment: 25 },
-    { lat: 43.6532, lng: -79.3832, name: "Ontario, Canada", acres: 5600, containment: 70 },
-    { lat: 39.5696, lng: 2.6502, name: "Mallorca, Spain", acres: 3200, containment: 80 },
-    { lat: -35.2809, lng: 149.1300, name: "ACT, Australia", acres: 9800, containment: 45 },
-  ];
-  
-  wildfires.forEach((fire, idx) => {
-    events.push({
-      id: `wildfire-${fire.name.replace(/[^a-zA-Z0-9]/g, '')}-${fire.lat.toFixed(2)}-${fire.lng.toFixed(2)}`,
-      type: "wildfire",
-      title: `Active Wildfire - ${fire.name}`,
-      description: `${fire.acres.toLocaleString()} acres burning. Containment: ${fire.containment}%. Air quality warnings in effect.`,
-      severity: fire.acres > 50000 ? "critical" : fire.acres > 10000 ? "high" : "medium",
-      timestamp: new Date(now - (idx * 180000)).toISOString(),
-      location: {
-        latitude: fire.lat,
-        longitude: fire.lng,
-        name: fire.name,
-      },
-      magnitude: fire.acres,
-      source: "FIRMS",
-      sourceUrl: "https://firms.modaps.eosdis.nasa.gov",
-      link: `https://firms.modaps.eosdis.nasa.gov/map/#t:adv;d:24hrs;l:fires_viirs_noaa20;@${fire.lng},${fire.lat},8z`,
-    });
-  });
-  
-  // ========= TROPICAL STORMS =========
-  const storms = [
-    { lat: 18.4655, lng: -66.1057, name: "Caribbean Sea", windSpeed: 85, stormName: "Tropical Storm Alexa" },
-    { lat: 21.3099, lng: -157.8581, name: "Central Pacific", windSpeed: 120, stormName: "Hurricane Kona" },
-    { lat: 14.5995, lng: 128.9842, name: "Western Pacific", windSpeed: 150, stormName: "Super Typhoon Maysak" },
-    { lat: 15.9944, lng: 86.9252, name: "Bay of Bengal", windSpeed: 95, stormName: "Cyclone Amphan" },
-    { lat: -18.5, lng: 63.5, name: "South Indian Ocean", windSpeed: 110, stormName: "Tropical Cyclone Ava" },
-    { lat: 25.0, lng: -90.0, name: "Gulf of Mexico", windSpeed: 75, stormName: "Tropical Storm Carlos" },
-  ];
-  
-  storms.forEach((storm, idx) => {
-    events.push({
-      id: `storm-${storm.stormName.replace(/[^a-zA-Z0-9]/g, '')}-${storm.lat.toFixed(2)}-${storm.lng.toFixed(2)}`,
-      type: "storm",
-      title: `${storm.stormName} - ${storm.windSpeed} mph winds`,
-      description: `${storm.stormName} tracking through ${storm.name}. Sustained winds of ${storm.windSpeed} mph. ${storm.windSpeed > 74 ? "Hurricane conditions" : "Tropical storm conditions"} expected.`,
-      severity: storm.windSpeed > 130 ? "critical" : storm.windSpeed > 110 ? "high" : "medium",
-      timestamp: new Date(now - (idx * 240000)).toISOString(),
-      location: {
-        latitude: storm.lat,
-        longitude: storm.lng,
-        name: storm.name,
-      },
-      magnitude: storm.windSpeed,
-      source: "NHC",
-      sourceUrl: "https://www.nhc.noaa.gov",
-      link: "https://www.nhc.noaa.gov/cyclones/",
-    });
-  });
-  
-  // ========= FUNGAL BLOOMS (Mycosoft specialty!) =========
-  const fungalBlooms = [
-    { lat: 47.6062, lng: -122.3321, name: "Pacific Northwest, USA", species: "Cantharellus cibarius", spores: 12500 },
-    { lat: 51.5074, lng: -0.1278, name: "London, UK", species: "Agaricus bisporus", spores: 8900 },
-    { lat: 35.6762, lng: 139.6503, name: "Tokyo, Japan", species: "Lentinula edodes", spores: 15600 },
-    { lat: -33.8688, lng: 151.2093, name: "Sydney, Australia", species: "Ganoderma lucidum", spores: 6700 },
-    { lat: 45.4642, lng: 9.1900, name: "Milan, Italy", species: "Tuber magnatum", spores: 3200 },
-    { lat: 32.7157, lng: -117.1611, name: "San Diego, CA", species: "Pleurotus ostreatus", spores: 9800 },
-    { lat: 59.3293, lng: 18.0686, name: "Stockholm, Sweden", species: "Boletus edulis", spores: 11200 },
-    { lat: -41.2865, lng: 174.7762, name: "Wellington, NZ", species: "Trametes versicolor", spores: 7400 },
-    { lat: 52.5200, lng: 13.4050, name: "Berlin, Germany", species: "Coprinus comatus", spores: 5600 },
-    { lat: 35.6895, lng: 51.3890, name: "Tehran, Iran", species: "Morchella esculenta", spores: 4100 },
-  ];
-  
-  // Mycosoft devices/dashboard — NOT iNaturalist (fungal blooms are from MINDEX/MYCA/NLM + MycoBrain sensors)
-  const MYCOSOFT_DEVICES_URL = "https://mycosoft.com/devices";
-  fungalBlooms.forEach((bloom, idx) => {
-    events.push({
-      id: `fungal-${bloom.species.replace(/[^a-zA-Z0-9]/g, '')}-${bloom.lat.toFixed(2)}-${bloom.lng.toFixed(2)}`,
-      type: "fungal_bloom",
-      title: `${bloom.species.split(" ")[0]} Bloom Detected`,
-      description: `Satellite imagery and ground sensors indicate significant ${bloom.species} fruiting activity near ${bloom.name}. Spore count: ${bloom.spores.toLocaleString()}/m³. Data from MINDEX, MYCA, and Nature Learning Model.`,
-      severity: bloom.spores > 10000 ? "medium" : "info",
-      timestamp: new Date(now - (idx * 600000)).toISOString(),
-      location: {
-        latitude: bloom.lat,
-        longitude: bloom.lng,
-        name: bloom.name,
-      },
-      magnitude: bloom.spores,
-      source: "MycoBrain Network",
-      sourceUrl: MYCOSOFT_DEVICES_URL,
-      link: MYCOSOFT_DEVICES_URL,
-    });
-  });
-  
-  // ========= ANIMAL MIGRATIONS =========
-  const migrations = [
-    { lat: -1.2921, lng: 36.8219, name: "Serengeti, Tanzania", animal: "Wildebeest", count: "1.5 million" },
-    { lat: 61.2181, lng: -149.9003, name: "Alaska, USA", animal: "Caribou", count: "200,000" },
-    { lat: 23.6345, lng: -102.5528, name: "Monarch Reserve, Mexico", animal: "Monarch Butterfly", count: "300 million" },
-    { lat: -54.8019, lng: -68.3030, name: "Cape Horn, Chile", animal: "Gray Whale", count: "20,000" },
-    { lat: 69.3451, lng: -53.0669, name: "Greenland", animal: "Arctic Tern", count: "500,000" },
-    { lat: -77.8500, lng: 166.6667, name: "Ross Sea, Antarctica", animal: "Emperor Penguin", count: "45,000" },
-  ];
-  
-  migrations.forEach((mig, idx) => {
-    events.push({
-      id: `migration-${mig.animal.replace(/[^a-zA-Z0-9]/g, '')}-${mig.lat.toFixed(2)}-${mig.lng.toFixed(2)}`,
-      type: "animal_migration",
-      title: `${mig.animal} Migration Active`,
-      description: `Large-scale ${mig.animal.toLowerCase()} migration detected in ${mig.name}. Estimated ${mig.count} individuals.`,
-      severity: "info",
-      timestamp: new Date(now - (idx * 900000)).toISOString(),
-      location: {
-        latitude: mig.lat,
-        longitude: mig.lng,
-        name: mig.name,
-      },
-      source: "Movebank",
-      sourceUrl: "https://www.movebank.org",
-      link: "https://www.movebank.org",
-    });
-  });
-  
-  // ========= TORNADO WARNINGS =========
-  const tornadoes = [
-    { lat: 35.4676, lng: -97.5164, name: "Oklahoma City, OK", zone: "OKC" },
-    { lat: 32.7767, lng: -96.7970, name: "Dallas, TX", zone: "FWD" },
-    { lat: 39.0997, lng: -94.5786, name: "Kansas City, MO", zone: "EAX" },
-    { lat: 41.2565, lng: -95.9345, name: "Omaha, NE", zone: "OAX" },
-    { lat: 30.2672, lng: -97.7431, name: "Austin, TX", zone: "EWX" },
-  ];
-  
-  // Only show tornado if current hour is between 14-22 (peak tornado time)
-  const hour = new Date(now).getUTCHours();
-  if (hour >= 14 && hour <= 22) {
-    tornadoes.slice(0, 2).forEach((loc, idx) => {
-      events.push({
-        id: `tornado-${loc.zone}-${loc.lat.toFixed(2)}-${loc.lng.toFixed(2)}`,
-        type: "tornado",
-        title: "Tornado Warning",
-        description: `NWS has issued a tornado warning for ${loc.name}. Take shelter immediately in a sturdy building.`,
-        severity: "critical",
-        timestamp: new Date(now - (idx * 300000)).toISOString(),
-        location: {
-          latitude: loc.lat,
-          longitude: loc.lng,
-          name: loc.name,
-        },
-        source: "NWS",
-        sourceUrl: "https://www.weather.gov",
-        link: `https://www.weather.gov/alerts?zone=${loc.zone}`,
-      });
-    });
-  }
-  
-  // ========= FLOODS =========
-  const floods = [
-    { lat: 23.8103, lng: 90.4125, name: "Dhaka, Bangladesh" },
-    { lat: 31.5204, lng: 74.3587, name: "Punjab, Pakistan" },
-    { lat: 21.1702, lng: 72.8311, name: "Gujarat, India" },
-    { lat: -6.7924, lng: 110.8420, name: "Central Java, Indonesia" },
-  ];
-  
-  floods.forEach((flood, idx) => {
-    events.push({
-      id: `flood-${flood.name.replace(/[^a-zA-Z0-9]/g, '')}-${flood.lat.toFixed(2)}-${flood.lng.toFixed(2)}`,
-      type: "flood",
-      title: `Flooding - ${flood.name}`,
-      description: `Significant flooding reported in ${flood.name}. Water levels rising. Evacuation orders may be in effect.`,
-      severity: idx === 0 ? "critical" : "high",
-      timestamp: new Date(now - (idx * 600000)).toISOString(),
-      location: {
-        latitude: flood.lat,
-        longitude: flood.lng,
-        name: flood.name,
-      },
-      source: "GDACS",
-      sourceUrl: "https://www.gdacs.org",
-      link: "https://www.gdacs.org/flooddetection/",
-    });
-  });
-  
-  return events;
-}
-
 export async function GET() {
   const now = Date.now();
   
   // Return cached data if still valid
   if (cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
-    // Return cached events directly (simulated events are already included in cache)
     return NextResponse.json({
       events: cachedEvents.slice(0, 500), // Return up to 500 events
       lastUpdated: new Date().toISOString(),
@@ -536,8 +273,6 @@ export async function GET() {
         usgs: "online",
         noaa: "online",
         nasa_eonet: "online",
-        twitter_bots: "online",
-        mycobrain: "online",
       },
     });
   }
@@ -549,15 +284,11 @@ export async function GET() {
     fetchNASAEONET(),
   ]);
   
-  // Add simulated events
-  const simulatedEvents = generateSimulatedEvents();
-  
   // Combine and sort
   const allEvents = [
     ...earthquakes,
     ...spaceWeather,
     ...eonetEvents,
-    ...simulatedEvents,
   ];
   
   allEvents.sort((a, b) => 
@@ -569,7 +300,6 @@ export async function GET() {
   lastFetchTime = now;
   
   // Ingest events to MINDEX for persistent storage (non-blocking)
-  // Only ingest real events (not simulated) to avoid duplicate storage
   const realEvents = [...earthquakes, ...spaceWeather, ...eonetEvents].map(e => ({
     ...e,
     latitude: e.location?.latitude,
@@ -579,29 +309,6 @@ export async function GET() {
     ingestEvents("global-events", realEvents);
   }
   
-  // Also ingest simulated events by category for specific ingestion functions
-  const lightningEvents = simulatedEvents.filter(e => e.type === "lightning");
-  if (lightningEvents.length > 0) {
-    ingestLightning("blitzortung-simulated", lightningEvents.map(e => ({
-      id: e.id,
-      lat: e.location.latitude,
-      lon: e.location.longitude,
-      time: new Date(e.timestamp).getTime() * 1000000, // Convert to nanoseconds
-      intensity: e.magnitude,
-    })));
-  }
-  
-  const fireEvents = simulatedEvents.filter(e => e.type === "wildfire");
-  if (fireEvents.length > 0) {
-    ingestFires("nasa-firms-simulated", fireEvents.map(e => ({
-      id: e.id,
-      lat: e.location.latitude,
-      lon: e.location.longitude,
-      acresBurning: e.magnitude,
-      name: e.location.name,
-    })));
-  }
-  
   return NextResponse.json({
     events: allEvents.slice(0, 500), // Uncapped - return up to 500 events
     lastUpdated: new Date().toISOString(),
@@ -609,8 +316,6 @@ export async function GET() {
       usgs: earthquakes.length > 0 ? "online" : "offline",
       noaa: spaceWeather.length > 0 ? "online" : "degraded",
       nasa_eonet: eonetEvents.length > 0 ? "online" : "offline",
-      twitter_bots: "online",
-      mycobrain: "online",
     },
   });
 }

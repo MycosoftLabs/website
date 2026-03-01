@@ -8,7 +8,7 @@ function getMongoConfig() {
   return { endpoint, apiKey }
 }
 
-export async function fetchFromMongoDB(action: string, data: any) {
+export async function fetchFromMongoDB(action: string, data: Record<string, unknown>) {
   try {
     const { endpoint, apiKey } = getMongoConfig()
     const response = await fetch(`${endpoint}/action/${action}`, {

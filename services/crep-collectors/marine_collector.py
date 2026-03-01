@@ -53,18 +53,8 @@ class MarineCollector(BaseCollector):
                 except Exception as e:
                     self.logger.warning("aisstream_fetch_failed", error=str(e))
             
-            # Fallback to sample data
-            return self._get_sample_vessels()
-    
-    def _get_sample_vessels(self) -> list[dict]:
-        """Sample vessel data for demonstration."""
-        return [
-            {"mmsi": "367596020", "name": "EVER GIVEN", "lat": 31.0, "lng": 32.5, "sog": 12.5, "cog": 180, "ship_type": 70, "destination": "ROTTERDAM NL"},
-            {"mmsi": "244820539", "name": "MSC GULSUN", "lat": 51.9, "lng": 4.1, "sog": 0.2, "cog": 45, "ship_type": 70, "destination": "HAMBURG DE"},
-            {"mmsi": "538006119", "name": "CMA CGM ANTOINE", "lat": 1.2, "lng": 103.8, "sog": 18.7, "cog": 270, "ship_type": 70, "destination": "BUSAN KR"},
-            {"mmsi": "256789000", "name": "HARMONY OF SEAS", "lat": 25.7, "lng": -80.1, "sog": 8.5, "cog": 90, "ship_type": 60, "destination": "NASSAU BS"},
-            {"mmsi": "412445090", "name": "COSCO SHIPPING", "lat": 31.2, "lng": 121.4, "sog": 14.2, "cog": 135, "ship_type": 70, "destination": "LOS ANGELES"},
-        ]
+            # No mock fallback. Return empty if unavailable.
+            return []
     
     def transform_data(self, raw_data: list[dict]) -> list[dict]:
         """Transform vessel data to CREP format."""

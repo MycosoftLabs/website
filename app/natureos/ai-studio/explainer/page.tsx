@@ -1,3 +1,56 @@
+import Link from "next/link"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "AI Studio Explainer | NatureOS",
+  description: "Understand how AI Studio orchestrates MAS agents, models, and workflows.",
+}
+
+export default function AiStudioExplainerPage() {
+  return (
+    <main className="min-h-dvh bg-background">
+      <section className="container mx-auto px-4 py-10 md:py-14">
+        <Link
+          href="/natureos"
+          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-primary"
+        >
+          Back to NatureOS
+        </Link>
+        <p className="mt-4 text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">
+          AI Studio Explainer
+        </p>
+        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">AI Studio Overview</h1>
+        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          AI Studio powers the orchestration layer for MYCA agents, model routing,
+          and structured decision pipelines.
+        </p>
+      </section>
+
+      <section className="container mx-auto px-4 pb-12">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Agent orchestration</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Coordinate multi-agent tasks, tool pipelines, and routing logic at scale.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Model governance</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Enforce permissions, safety policies, and evaluation workflows.
+            </p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <h2 className="text-lg font-semibold">Workflow telemetry</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Track execution health, latency, and outcomes across pipelines.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
+}
 "use client"
 
 import React, { useState } from "react"
