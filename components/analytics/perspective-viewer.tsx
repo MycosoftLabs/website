@@ -43,6 +43,11 @@ export interface PerspectiveViewerProps {
   title?: string
 }
 
+interface PerspectiveTable {
+  update: (data: Record<string, unknown>[]) => Promise<void>
+  delete: () => void
+}
+
 /**
  * PerspectiveViewer - High-performance data visualization component
  * Uses WebAssembly for fast processing of large datasets (millions of rows)
@@ -71,8 +76,7 @@ export function PerspectiveViewer({
 }: PerspectiveViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLElement | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Perspective table has dynamic WASM-backed type
-  const tableRef = useRef<any>(null)
+  const tableRef = useRef<PerspectiveTable | null>(null)
   const [isClient, setIsClient] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)

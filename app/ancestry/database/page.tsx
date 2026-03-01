@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,11 +48,7 @@ export default function AncestryDatabasePage() {
   const [letterTotal, setLetterTotal] = useState<number>(0)
   const [letterOffset, setLetterOffset] = useState<number>(0)
 
-  useEffect(() => {
-    fetchSpecies()
-  }, [selectedLetter, letterOffset])
-
-  const fetchSpecies = async () => {
+  const fetchSpecies = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -84,7 +80,11 @@ export default function AncestryDatabasePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedLetter, letterOffset])
+
+  useEffect(() => {
+    fetchSpecies()
+  }, [fetchSpecies])
 
   // Filter species based on search query
   const filteredSpecies = species.filter((s) => {
