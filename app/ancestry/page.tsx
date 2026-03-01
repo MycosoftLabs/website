@@ -1,49 +1,12 @@
+import Link from "next/link"
 import { Metadata } from "next"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = {
   title: "Ancestry | Mycosoft",
   description: "Ancestry database for lineage tracking and species intelligence.",
 }
-
-export default function AncestryPage() {
-  return (
-    <main className="min-h-dvh bg-background">
-      <section className="container mx-auto px-4 py-10 md:py-14">
-        <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">Ancestry</p>
-        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">Ancestry Database</h1>
-        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
-          Explore lineage intelligence, phylogenetic data, and genetic relationships across species.
-        </p>
-      </section>
-
-      <section className="container mx-auto px-4 pb-12">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Lineage tracking</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Trace species ancestry and historical classifications across datasets.
-            </p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Genetic context</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Connect genetic markers and sequence data to taxonomy records.
-            </p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Research tools</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Integrate ancestry data into analysis and modeling workflows.
-            </p>
-          </div>
-        </div>
-      </section>
-    </main>
-  )
-}
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AncestryPage() {
   return (

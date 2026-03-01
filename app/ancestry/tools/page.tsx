@@ -1,55 +1,5 @@
 import Link from "next/link"
 import { Metadata } from "next"
-
-export const metadata: Metadata = {
-  title: "Ancestry Tools | Mycosoft",
-  description: "Tools for ancestry analysis, phylogeny visualization, and lineage review.",
-}
-
-export default function AncestryToolsPage() {
-  return (
-    <main className="min-h-dvh bg-background">
-      <section className="container mx-auto px-4 py-10 md:py-14">
-        <Link
-          href="/ancestry"
-          className="inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-primary"
-        >
-          Back to Ancestry
-        </Link>
-        <p className="mt-4 text-xs sm:text-sm text-muted-foreground uppercase tracking-wide">
-          Ancestry Tools
-        </p>
-        <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-semibold">Analysis Tools</h1>
-        <p className="mt-4 text-base sm:text-lg text-muted-foreground">
-          Utilities for lineage analysis, phylogenetic comparisons, and research workflows.
-        </p>
-      </section>
-
-      <section className="container mx-auto px-4 pb-12">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Phylogeny views</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Visualize evolutionary trees and lineage relationships.
-            </p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Comparative analysis</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Compare species traits and genetic markers across datasets.
-            </p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Export utilities</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Generate reports and exports for research partners.
-            </p>
-          </div>
-        </div>
-      </section>
-    </main>
-  )
-}
 import { DNASequencingSearch } from "@/components/ancestry/dna-sequencing-search"
 import { BiologicalTools } from "@/components/ancestry/biological-tools"
 import { ITSLookupTool } from "@/components/ancestry/its-lookup"
@@ -67,7 +17,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dna, Layers, CircleDot, ArrowRight } from "lucide-react"
-import Link from "next/link"
+
+export const metadata: Metadata = {
+  title: "Ancestry Tools | Mycosoft",
+  description: "Tools for ancestry analysis, phylogeny visualization, and lineage review.",
+}
 
 export default function AncestryToolsPage() {
   return (
