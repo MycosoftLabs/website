@@ -185,15 +185,15 @@ export default function StoragePage() {
     }
   }, [currentPath, activeStorage])
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     setLoading(true)
     await Promise.all([fetchNASInfo(), fetchGoogleDrive(), fetchFiles()])
     setLoading(false)
-  }
+  }, [fetchNASInfo, fetchGoogleDrive, fetchFiles])
 
   useEffect(() => {
     refreshAll()
-  }, [])
+  }, [refreshAll])
 
   useEffect(() => {
     fetchFiles()

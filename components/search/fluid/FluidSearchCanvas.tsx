@@ -566,11 +566,11 @@ export function FluidSearchCanvas({
   // Extract results from new endpoints
   const mediaResults = mediaData?.results || []
   const mediaError = mediaData?.error
-  const locationResults = locationData?.results || []
+  const locationResults = useMemo(() => locationData?.results || [], [locationData])
   const newsResults = newsData?.results || []
   const newsError = newsData?.error
   const newsQueryUsed = newsData?.queryUsed as string | undefined
-  const crepResults = crepData?.observations || []
+  const crepResults = useMemo(() => crepData?.observations || [], [crepData])
   const earth2Data = earth2RawData?.available ? earth2RawData : null
   
   // Map observations from location and CREP data

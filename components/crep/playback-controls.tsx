@@ -8,7 +8,7 @@
  * Allows scrubbing through historical events, weather, and entity positions
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -82,8 +82,14 @@ export function PlaybackControls({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Calculate timeline bounds
-  const timelineStart = startTime || new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-  const timelineEnd = endTime || new Date();
+  const timelineEnd = useMemo(
+    () => endTime ?? currentTime ?? new Date(),
+    [endTime, currentTime]
+  );
+  const timelineStart = useMemo(
+    () => startTime ?? new Date(timelineEnd.getTime() - 24 * 60 * 60 * 1000),
+    [startTime, timelineEnd]
+  );
   const timelineRange = timelineEnd.getTime() - timelineStart.getTime();
 
   // Calculate slider position (0-100)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Network, Cpu, Radio, Thermometer, Droplets, Activity, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -69,7 +69,7 @@ export function DigitalTwinContent() {
   const [sensorData, setSensorData] = useState<SensorData | null>(null)
   const [twinState, setTwinState] = useState<MyceliumState | null>(null)
 
-  const fetchTwinData = async () => {
+  const fetchTwinData = useCallback(async () => {
     if (!deviceId) return
     setIsLoading(true)
     setLastError(null)
@@ -92,13 +92,13 @@ export function DigitalTwinContent() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [deviceId])
 
   useEffect(() => {
     if (!autoUpdate || !deviceId) return
     const interval = setInterval(fetchTwinData, 10000)
     return () => clearInterval(interval)
-  }, [autoUpdate, deviceId])
+  }, [autoUpdate, deviceId, fetchTwinData])
 
   const hasSensorData = useMemo(() => sensorData && Object.values(sensorData).some((value) => value !== undefined), [sensorData])
   const hasTwinState = useMemo(() => twinState && Object.values(twinState).some((value) => value !== undefined), [twinState])

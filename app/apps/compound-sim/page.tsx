@@ -61,8 +61,8 @@ export function CompoundSimContent() {
           }))
           setMindexCompounds(compounds)
           setMindexConnected(true)
-          if (!selected && compounds.length) {
-            setSelected(compounds[0])
+          if (compounds.length) {
+            setSelected((prev) => prev ?? compounds[0])
           }
         } else {
           // Fallback to existing API
@@ -71,8 +71,8 @@ export function CompoundSimContent() {
             const data = await response.json()
             setMindexCompounds(data.compounds || [])
             setMindexConnected(true)
-            if (!selected && Array.isArray(data.compounds) && data.compounds.length) {
-              setSelected(data.compounds[0])
+            if (Array.isArray(data.compounds) && data.compounds.length) {
+              setSelected((prev) => prev ?? data.compounds[0])
             }
           }
         }

@@ -228,9 +228,10 @@ export function WindVectorLayer({
   }, [map, opacity]);
 
   useEffect(() => {
+    const animationId = animationRef.current;
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
+      if (animationId) {
+        cancelAnimationFrame(animationId);
       }
       try {
         if (map?.getLayer?.(STREAM_LAYER_ID)) map.removeLayer(STREAM_LAYER_ID);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
@@ -29,42 +29,7 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
     controls: OrbitControls
   } | null>(null)
 
-  // Mock tree data for fallback
-  const mockTreeData: Node = {
-    id: "root",
-    name: "Agaricales",
-    children: [
-      {
-        id: "1",
-        name: "Agaricaceae",
-        children: [
-          { id: "1.1", name: "Agaricus bisporus", distance: 0.05 },
-          { id: "1.2", name: "Lepiota cristata", distance: 0.07 },
-        ],
-        distance: 0.1,
-      },
-      {
-        id: "2",
-        name: "Amanitaceae",
-        children: [
-          { id: "2.1", name: "Amanita muscaria", distance: 0.06 },
-          { id: "2.2", name: "Amanita phalloides", distance: 0.08 },
-        ],
-        distance: 0.15,
-      },
-      {
-        id: "3",
-        name: "Psathyrellaceae",
-        children: [
-          { id: "3.1", name: "Coprinopsis cinerea", distance: 0.09 },
-          { id: "3.2", name: "Psathyrella candolleana", distance: 0.11 },
-        ],
-        distance: 0.2,
-      },
-    ],
-  }
-
-  async function fetchData(rootId: number) {
+  const fetchData = useCallback(async (rootId: number) => {
     try {
       setLoading(true)
       setError(null)
@@ -90,18 +55,88 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
       // Cache the data in sessionStorage
       sessionStorage.setItem(cacheKey, JSON.stringify(data))
 
-      return data
+      return data as Node
     } catch (err) {
       console.error("Error fetching tree data:", err)
-      setError("Failed to fetch tree data. Using sample visualization instead.")
-      // Return mock data as fallback
-      return mockTreeData
+      setError("Failed to fetch tree data. No data available yet.")
+      return null
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  function createVisualization(treeData: Node) {
+  const calculateNodePositions = useCallback(
+    (node: Node, x: number, y: number, startAngle: number, radius: number, angleSpan: number) => {
+      node.position = new THREE.Vector3(x, y, 0)
+
+      if (!node.children || node.children.length === 0) return
+
+      const angleStep = angleSpan / node.children.length
+      let currentAngle = startAngle
+
+      node.children.forEach((child) => {
+        const childDistance = child.distance || 1
+        const childX = x + radius * Math.cos(currentAngle) * childDistance
+        const childY = y + radius * Math.sin(currentAngle) * childDistance
+        calculateNodePositions(child, childX, childY, currentAngle, radius * 0.8, angleStep * 0.8)
+        currentAngle += angleStep
+      })
+    },
+    [],
+  )
+
+  const createTreeVisuals = useCallback((node: Node, scene: THREE.Scene, parentPosition?: THREE.Vector3) => {
+    if (!node.position) return
+
+    // Create sphere for node
+    const geometry = new THREE.SphereGeometry(0.2, 32, 32)
+    const material = new THREE.MeshStandardMaterial({ color: 0x44aa88 })
+    const sphere = new THREE.Mesh(geometry, material)
+    sphere.position.copy(node.position)
+    scene.add(sphere)
+    node.object = sphere
+
+    // Create label for node
+    const canvas = document.createElement("canvas")
+    const context = canvas.getContext("2d")
+    if (context) {
+      canvas.width = 256
+      canvas.height = 64
+      context.fillStyle = "#ffffff"
+      context.fillRect(0, 0, canvas.width, canvas.height)
+
+      context.font = "24px Arial"
+      context.fillStyle = "#000000"
+      context.textAlign = "center"
+      context.textBaseline = "middle"
+      context.fillText(node.name, canvas.width / 2, canvas.height / 2)
+
+      const texture = new THREE.CanvasTexture(canvas)
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture })
+      const sprite = new THREE.Sprite(spriteMaterial)
+      sprite.position.copy(node.position)
+      sprite.position.y += 0.5
+      sprite.scale.set(2, 0.5, 1)
+      scene.add(sprite)
+    }
+
+    // Draw line to parent
+    if (parentPosition) {
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([parentPosition, node.position])
+      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x888888 })
+      const line = new THREE.Line(lineGeometry, lineMaterial)
+      scene.add(line)
+    }
+
+    // Process children
+    if (node.children && node.children.length > 0) {
+      node.children.forEach((child) => {
+        createTreeVisuals(child, scene, node.position)
+      })
+    }
+  }, [])
+
+  const createVisualization = useCallback((treeData: Node) => {
     if (!containerRef.current) return
 
     // Clean up previous scene if it exists
@@ -185,81 +220,7 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
     return () => {
       window.removeEventListener("resize", handleResize)
     }
-  }
-
-  function calculateNodePositions(
-    node: Node,
-    x: number,
-    y: number,
-    startAngle: number,
-    radius: number,
-    angleSpan: number,
-  ) {
-    node.position = new THREE.Vector3(x, y, 0)
-
-    if (!node.children || node.children.length === 0) return
-
-    const angleStep = angleSpan / node.children.length
-    let currentAngle = startAngle
-
-    node.children.forEach((child) => {
-      const childDistance = child.distance || 1
-      const childX = x + radius * Math.cos(currentAngle) * childDistance
-      const childY = y + radius * Math.sin(currentAngle) * childDistance
-      calculateNodePositions(child, childX, childY, currentAngle, radius * 0.8, angleStep * 0.8)
-      currentAngle += angleStep
-    })
-  }
-
-  function createTreeVisuals(node: Node, scene: THREE.Scene, parentPosition?: THREE.Vector3) {
-    if (!node.position) return
-
-    // Create sphere for node
-    const geometry = new THREE.SphereGeometry(0.2, 32, 32)
-    const material = new THREE.MeshStandardMaterial({ color: 0x44aa88 })
-    const sphere = new THREE.Mesh(geometry, material)
-    sphere.position.copy(node.position)
-    scene.add(sphere)
-    node.object = sphere
-
-    // Create label for node
-    const canvas = document.createElement("canvas")
-    const context = canvas.getContext("2d")
-    if (context) {
-      canvas.width = 256
-      canvas.height = 64
-      context.fillStyle = "#ffffff"
-      context.fillRect(0, 0, canvas.width, canvas.height)
-
-      context.font = "24px Arial"
-      context.fillStyle = "#000000"
-      context.textAlign = "center"
-      context.fillText(node.name, canvas.width / 2, canvas.height / 2 + 8)
-
-      const texture = new THREE.CanvasTexture(canvas)
-      const labelMaterial = new THREE.SpriteMaterial({ map: texture })
-      const label = new THREE.Sprite(labelMaterial)
-      label.position.set(node.position.x, node.position.y + 0.5, node.position.z)
-      label.scale.set(2, 0.5, 1)
-      scene.add(label)
-    }
-
-    // Create line to parent
-    if (parentPosition) {
-      const points = [parentPosition, node.position]
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints(points)
-      const lineMaterial = new THREE.LineBasicMaterial({ color: 0x999999 })
-      const line = new THREE.Line(lineGeometry, lineMaterial)
-      scene.add(line)
-    }
-
-    // Process children
-    if (node.children) {
-      node.children.forEach((child) => {
-        createTreeVisuals(child, scene, node.position)
-      })
-    }
-  }
+  }, [calculateNodePositions, createTreeVisuals])
 
   useEffect(() => {
     let cleanup: (() => void) | undefined
@@ -268,6 +229,7 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
       try {
         setLoading(true)
         const treeData = await fetchData(rootSpeciesId)
+        if (!treeData) return
         cleanup = createVisualization(treeData)
       } catch (err) {
         console.error("Error building phylogeny visualization:", err)
@@ -282,7 +244,7 @@ export default function PhylogenyVisualization({ rootSpeciesId }: PhylogenyVisua
     return () => {
       if (cleanup) cleanup()
     }
-  }, [rootSpeciesId])
+  }, [rootSpeciesId, fetchData, createVisualization])
 
   return (
     <div className="w-full">

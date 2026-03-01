@@ -125,7 +125,7 @@ export function LiveCounter({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [value, animate]);
+  }, [animate, displayValue, value]);
 
   // Simulate real-time increments
   useEffect(() => {

@@ -298,7 +298,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
   }, [selectedChemicalOverlay])
   
   // Get growth factors based on environment
-  const getGrowthFactors = (species: string) => {
+  const getGrowthFactors = useCallback((species: string) => {
     const optimalPH: Record<string, number> = { shiitake: 5.5, oyster: 6.0, lionsMane: 6.0, mold: 5.0, bacteria: 7.0 }
     const optimalTemp: Record<string, { optimal: number; range: number }> = {
       shiitake: { optimal: 60, range: 20 }, oyster: { optimal: 65, range: 25 }, 
@@ -319,7 +319,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     const humidFactor = Math.max(0, 1 - Math.abs(humidity - humidData.optimal) / humidData.range)
     
     return pHFactor * tempFactor * humidFactor
-  }
+  }, [humidity, pH, temperature])
   
   // Place sample on canvas
   const placeSample = useCallback((x: number, y: number, isContaminant: boolean = false) => {
@@ -473,7 +473,7 @@ export function MyceliumSimulator({ onMetricsUpdate, onCompoundsUpdate }: Myceli
     }
 
     emitMetricsAndCompounds(virtualHours + 1)
-  }, [agarType, pH, temperature, humidity, emitMetricsAndCompounds])
+  }, [agarType, emitMetricsAndCompounds, getGrowthFactors, renderChemicalOverlay, virtualHours])
   
   // Animation loop
   useEffect(() => {

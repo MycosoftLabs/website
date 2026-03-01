@@ -87,6 +87,19 @@ export function UnifiedVoiceProvider({
   const handlersRef = useRef<CommandHandler[]>([])
   
   // Initialize Web Speech API
+  // Process command through handlers
+  const processCommand = useCallback((text: string) => {
+    const normalizedText = text.toLowerCase().trim()
+    
+    for (const { pattern, handler } of handlersRef.current) {
+      const match = normalizedText.match(pattern)
+      if (match) {
+        handler(match)
+        return
+      }
+    }
+  }, [])
+  
   const initWebSpeech = useCallback(() => {
     if (typeof window === "undefined") return null
     
@@ -139,20 +152,7 @@ export function UnifiedVoiceProvider({
     }
     
     return recognition
-  }, [isListening, onTranscript, onError])
-  
-  // Process command through handlers
-  const processCommand = useCallback((text: string) => {
-    const normalizedText = text.toLowerCase().trim()
-    
-    for (const { pattern, handler } of handlersRef.current) {
-      const match = normalizedText.match(pattern)
-      if (match) {
-        handler(match)
-        return
-      }
-    }
-  }, [])
+  }, [isListening, onTranscript, onError, processCommand])
   
   // Start listening
   const startListening = useCallback(() => {
@@ -328,7 +328,7 @@ export function UnifiedVoiceProvider({
         wsRef.current.close()
       }
     }
-  }, [autoConnect])
+  }, [autoConnect, startListening])
   
   const value: VoiceContextValue = {
     isListening,

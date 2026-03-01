@@ -171,7 +171,7 @@ export function GrowthAnalyticsContent() {
   // Initial prediction
   useEffect(() => {
     runPrediction()
-  }, [])
+  }, [runPrediction])
 
   const getFactorColor = (score: number) => {
     if (score >= 80) return "text-green-500"

@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -12,77 +12,7 @@ export function MyceliumNetworkViz() {
   const nodesRef = useRef<Array<{ x: number; y: number; signal: number }>>([])
   const edgesRef = useRef<Array<{ source: number; target: number }>>([])
 
-  useEffect(() => {
-    initializeNetwork()
-    return () => { 
-      if (animationRef.current) cancelAnimationFrame(animationRef.current) 
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isSimulating) {
-      const animate = () => {
-        updateNetwork()
-        drawNetwork()
-        animationRef.current = requestAnimationFrame(animate)
-      }
-      animate()
-    } else {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
-      drawNetwork()
-    }
-  }, [isSimulating])
-
-  const initializeNetwork = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const width = canvas.width
-    const height = canvas.height
-    const centerX = width / 2
-    const centerY = height / 2
-
-    nodesRef.current = [{ x: centerX, y: centerY, signal: 1 }]
-    edgesRef.current = []
-
-    for (let i = 1; i <= 20; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const distance = 50 + Math.random() * 150
-      nodesRef.current.push({
-        x: centerX + Math.cos(angle) * distance,
-        y: centerY + Math.sin(angle) * distance,
-        signal: Math.random(),
-      })
-      const parent = Math.floor(Math.random() * i)
-      edgesRef.current.push({ source: parent, target: i })
-    }
-    setNodeCount(nodesRef.current.length)
-    drawNetwork()
-  }
-
-  const updateNetwork = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    
-    if (Math.random() < 0.05 && nodesRef.current.length < 100) {
-      const parentIdx = Math.floor(Math.random() * nodesRef.current.length)
-      const parent = nodesRef.current[parentIdx]
-      const angle = Math.random() * Math.PI * 2
-      const distance = 20 + Math.random() * 30
-      nodesRef.current.push({
-        x: Math.max(20, Math.min(canvas.width - 20, parent.x + Math.cos(angle) * distance)),
-        y: Math.max(20, Math.min(canvas.height - 20, parent.y + Math.sin(angle) * distance)),
-        signal: Math.random() * 0.5,
-      })
-      edgesRef.current.push({ source: parentIdx, target: nodesRef.current.length - 1 })
-      setNodeCount(nodesRef.current.length)
-    }
-    
-    nodesRef.current.forEach((node) => {
-      node.signal = Math.max(0, Math.min(1, node.signal + (Math.random() - 0.5) * 0.1))
-    })
-  }
-
-  const drawNetwork = () => {
+  const drawNetwork = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -111,7 +41,77 @@ export function MyceliumNetworkViz() {
       ctx.arc(node.x, node.y, 4 + node.signal * 4, 0, Math.PI * 2)
       ctx.fill()
     })
-  }
+  }, [])
+
+  const initializeNetwork = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const width = canvas.width
+    const height = canvas.height
+    const centerX = width / 2
+    const centerY = height / 2
+
+    nodesRef.current = [{ x: centerX, y: centerY, signal: 1 }]
+    edgesRef.current = []
+
+    for (let i = 1; i <= 20; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const distance = 50 + Math.random() * 150
+      nodesRef.current.push({
+        x: centerX + Math.cos(angle) * distance,
+        y: centerY + Math.sin(angle) * distance,
+        signal: Math.random(),
+      })
+      const parent = Math.floor(Math.random() * i)
+      edgesRef.current.push({ source: parent, target: i })
+    }
+    setNodeCount(nodesRef.current.length)
+    drawNetwork()
+  }, [drawNetwork])
+
+  const updateNetwork = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    if (Math.random() < 0.05 && nodesRef.current.length < 100) {
+      const parentIdx = Math.floor(Math.random() * nodesRef.current.length)
+      const parent = nodesRef.current[parentIdx]
+      const angle = Math.random() * Math.PI * 2
+      const distance = 20 + Math.random() * 30
+      nodesRef.current.push({
+        x: Math.max(20, Math.min(canvas.width - 20, parent.x + Math.cos(angle) * distance)),
+        y: Math.max(20, Math.min(canvas.height - 20, parent.y + Math.sin(angle) * distance)),
+        signal: Math.random() * 0.5,
+      })
+      edgesRef.current.push({ source: parentIdx, target: nodesRef.current.length - 1 })
+      setNodeCount(nodesRef.current.length)
+    }
+    
+    nodesRef.current.forEach((node) => {
+      node.signal = Math.max(0, Math.min(1, node.signal + (Math.random() - 0.5) * 0.1))
+    })
+  }, [])
+
+  useEffect(() => {
+    initializeNetwork()
+    return () => { 
+      if (animationRef.current) cancelAnimationFrame(animationRef.current) 
+    }
+  }, [initializeNetwork])
+
+  useEffect(() => {
+    if (isSimulating) {
+      const animate = () => {
+        updateNetwork()
+        drawNetwork()
+        animationRef.current = requestAnimationFrame(animate)
+      }
+      animate()
+    } else {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+      drawNetwork()
+    }
+  }, [drawNetwork, isSimulating, updateNetwork])
 
   return (
     <Card>

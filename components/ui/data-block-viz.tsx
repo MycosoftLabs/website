@@ -260,10 +260,10 @@ export function MiniBlockRow({
   const scheme = colors[colorScheme]
 
   // Use seeded random for deterministic heights (SSR-safe)
-  const random = seededRandom(123)
+  const random = useMemo(() => seededRandom(123), [])
   const heights = useMemo(() => 
     Array.from({ length: count }, () => 12 + random() * 20), 
-    [count]
+    [count, random]
   )
   
   return (

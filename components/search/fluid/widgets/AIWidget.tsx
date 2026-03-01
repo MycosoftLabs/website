@@ -205,7 +205,7 @@ export function AIWidget({
 
       onFollowUp?.(q)
     },
-    [followUpQuestion, onFollowUp, searchContext]
+    [followUpQuestion, onFollowUp, searchContext, updateFollowUpAnswer]
   )
 
   const handleFeedback = (positive: boolean) => {

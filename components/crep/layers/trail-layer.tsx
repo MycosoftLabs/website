@@ -109,7 +109,7 @@ function TrailPath({
   // Smooth trail for cleaner rendering at lower LOD
   const smoothedPoints = useMemo(
     () => smoothTrail(trail.points, 3),
-    [trail.points]
+    [trail]
   )
 
   const segments = useMemo(
@@ -118,7 +118,7 @@ function TrailPath({
         { ...trail, points: smoothedPoints },
         currentTime
       ),
-    [trail.id, smoothedPoints, currentTime, style]
+    [trail, smoothedPoints, currentTime]
   )
 
   const pathData = useMemo(() => {

@@ -77,6 +77,9 @@ export function PerspectiveViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLElement | null>(null)
   const tableRef = useRef<PerspectiveTable | null>(null)
+  const dataRef = useRef<typeof data>(data)
+  const configRef = useRef<typeof config>(config)
+  const onConfigChangeRef = useRef<typeof onConfigChange>(onConfigChange)
   const [isClient, setIsClient] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -85,6 +88,18 @@ export function PerspectiveViewer({
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  useEffect(() => {
+    dataRef.current = data
+  }, [data])
+
+  useEffect(() => {
+    configRef.current = config
+  }, [config])
+
+  useEffect(() => {
+    onConfigChangeRef.current = onConfigChange
+  }, [onConfigChange])
 
   // Load Perspective and initialize
   useEffect(() => {
@@ -121,7 +136,7 @@ export function PerspectiveViewer({
         
         // Determine data format and create table
         // Perspective worker.table() accepts string | ArrayBuffer | Record[]
-        const tableData: string | ArrayBuffer | Record<string, unknown>[] = data
+        const tableData: string | ArrayBuffer | Record<string, unknown>[] = dataRef.current
 
         const table = await worker.table(tableData, { name: "data" })
         tableRef.current = table
@@ -132,14 +147,14 @@ export function PerspectiveViewer({
         await viewerEl.load(table)
 
         // Apply configuration
-        if (config) {
-          await viewerEl.restore(config)
+        if (configRef.current) {
+          await viewerEl.restore(configRef.current)
         }
 
         // Listen for config changes
         viewer.addEventListener("perspective-config-update", () => {
-          if (onConfigChange) {
-            viewerEl.save().then(onConfigChange)
+          if (onConfigChangeRef.current) {
+            viewerEl.save().then(onConfigChangeRef.current)
           }
         })
 
@@ -153,14 +168,16 @@ export function PerspectiveViewer({
 
     initPerspective()
 
+    const containerEl = containerRef.current
+
     return () => {
       isMounted = false
       if (tableRef.current) {
         tableRef.current.delete()
         tableRef.current = null
       }
-      if (viewerRef.current && containerRef.current) {
-        containerRef.current.removeChild(viewerRef.current)
+      if (viewerRef.current && containerEl) {
+        containerEl.removeChild(viewerRef.current)
         viewerRef.current = null
       }
     }

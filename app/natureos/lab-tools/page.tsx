@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,7 +44,7 @@ export default function LabToolsPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState("")
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const base = typeof window !== "undefined" ? window.location.origin : ""
@@ -66,11 +66,11 @@ export default function LabToolsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter])
 
   useEffect(() => {
     fetchData()
-  }, [filter])
+  }, [fetchData])
 
   const formatDate = (s: string) => new Date(s).toLocaleDateString()
 

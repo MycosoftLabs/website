@@ -188,7 +188,7 @@ export default function VoiceTestPage() {
     } catch (error) {
       addLog("warn", "Consciousness polling error", String(error))
     }
-  }, [isPollingConsciousness])
+  }, [isPollingConsciousness, addLog])
   
   useEffect(() => {
     if (isPollingConsciousness) {
@@ -406,7 +406,7 @@ export default function VoiceTestPage() {
     
     // Reset status after a moment
     setTimeout(() => setTextCloneStatus("idle"), 2000)
-  }, [addLog, recordLatency, protocolMode])
+  }, [addInjection, addLog, recordLatency, protocolMode])
   
   // Add item to injection queue
   const addInjection = useCallback((type: InjectionItem["type"], content: string) => {
@@ -433,7 +433,7 @@ export default function VoiceTestPage() {
   }, [addLog])
   
   // Check services
-  const checkServices = async () => {
+  const checkServices = useCallback(async () => {
     setTestPhase("checking")
     addLog("info", "Running diagnostics...")
     setJarvisMessage("Running full diagnostics on voice systems...")
@@ -502,7 +502,7 @@ export default function VoiceTestPage() {
       setTestPhase("idle")
       setJarvisMessage("PersonaPlex Bridge offline. Bring the bridge online, then re-run diagnostics.")
     }
-  }
+  }, [addLog, services])
   
   // Start voice session with MAS Event Engine
   const startMycaVoice = async () => {
@@ -1292,7 +1292,7 @@ export default function VoiceTestPage() {
     addLog("info", "February 12, 2026")
     addLog("info", "CUDA graphs warmup support + Consciousness modules + Memory bridge")
     checkServices()
-  }, [])
+  }, [addLog, checkServices])
   
   // Waveform component
   const Waveform = ({ data, color, label }: { data: number[], color: string, label: string }) => (

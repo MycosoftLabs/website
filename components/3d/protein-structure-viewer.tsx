@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useRef, useState, useEffect, Suspense } from 'react'
+import { useRef, useState, useEffect, useMemo, Suspense } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera, Html, Environment } from '@react-three/drei'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -72,11 +72,11 @@ function AtomSphere({ atom, scale = 1 }: { atom: Atom; scale?: number }) {
 
 // Bond cylinder component
 function BondCylinder({ from, to }: { from: Atom; to: Atom }) {
-  const start = new THREE.Vector3(from.x, from.y, from.z)
-  const end = new THREE.Vector3(to.x, to.y, to.z)
-  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5)
-  const length = start.distanceTo(end)
-  const direction = new THREE.Vector3().subVectors(end, start).normalize()
+  const start = useMemo(() => new THREE.Vector3(from.x, from.y, from.z), [from.x, from.y, from.z])
+  const end = useMemo(() => new THREE.Vector3(to.x, to.y, to.z), [to.x, to.y, to.z])
+  const mid = useMemo(() => new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5), [start, end])
+  const length = useMemo(() => start.distanceTo(end), [start, end])
+  const direction = useMemo(() => new THREE.Vector3().subVectors(end, start).normalize(), [start, end])
 
   const ref = useRef<THREE.Mesh>(null)
 

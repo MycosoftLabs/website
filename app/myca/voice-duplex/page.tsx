@@ -75,29 +75,7 @@ export default function VoiceDuplexPage() {
   const [isRecognizing, setIsRecognizing] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState("")
 
-  // Check PersonaPlex and native Moshi availability on mount
-  useEffect(() => {
-    checkAvailability()
-    checkNativeMoshi()
-  }, [])
-
-  const checkNativeMoshi = async () => {
-    // Check native Moshi (port 8998) - full-duplex, not MYCA-connected
-    try {
-      const res = await fetch("http://localhost:8998", { 
-        method: "HEAD",
-        mode: "no-cors" 
-      })
-      setNativeMoshiAvailable(true)
-    } catch {
-      setNativeMoshiAvailable(false)
-    }
-    
-    // Check MYCA-connected server (port 8997) - MYCA-connected, not full-duplex
-    checkMycaServer()
-  }
-  
-  const checkMycaServer = async (): Promise<boolean> => {
+  const checkMycaServer = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("http://localhost:8999/health", { 
         method: "GET",
@@ -113,7 +91,29 @@ export default function VoiceDuplexPage() {
     }
     setMycaServerAvailable(false)
     return false
-  }
+  }, [])
+
+  const checkNativeMoshi = useCallback(async () => {
+    // Check native Moshi (port 8998) - full-duplex, not MYCA-connected
+    try {
+      const res = await fetch("http://localhost:8998", { 
+        method: "HEAD",
+        mode: "no-cors" 
+      })
+      setNativeMoshiAvailable(true)
+    } catch {
+      setNativeMoshiAvailable(false)
+    }
+    
+    // Check MYCA-connected server (port 8997) - MYCA-connected, not full-duplex
+    checkMycaServer()
+  }, [checkMycaServer])
+
+  // Check PersonaPlex and native Moshi availability on mount
+  useEffect(() => {
+    checkAvailability()
+    checkNativeMoshi()
+  }, [checkAvailability, checkNativeMoshi])
 
   const openNativeMoshi = () => {
     window.open("http://localhost:8998", "_blank", "noopener,noreferrer")
@@ -126,7 +126,7 @@ export default function VoiceDuplexPage() {
     }
   }, [turns])
 
-  const checkAvailability = async () => {
+  const checkAvailability = useCallback(async () => {
     try {
       const res = await fetch("/api/mas/voice/duplex/session", {
         method: "POST",
@@ -140,7 +140,7 @@ export default function VoiceDuplexPage() {
     } catch (e) {
       console.error("Failed to check availability:", e)
     }
-  }
+  }, [])
 
   const startSession = async () => {
     try {
