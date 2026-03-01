@@ -3536,12 +3536,13 @@ export default function CREPDashboardPage() {
               });
             }}
           >
-            <MapControls 
-              position="bottom-left" 
+            <MapControls
+              position="bottom-left"
               showZoom={true}
               showCompass={true}
               showLocate={true}
               showFullscreen={false}
+              onLocate={(coords) => setUserLocation({ lat: coords.latitude, lng: coords.longitude })}
               className={cn(
                 "mb-4 transition-all duration-300",
                 // Move controls to the right of left panel when it's open

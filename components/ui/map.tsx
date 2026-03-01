@@ -17,7 +17,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
+import { X, Minus, Plus, Locate, Navigation2, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -651,6 +651,156 @@ function MapControls({
 }: MapControlsProps) {
   const { map, isLoaded } = useMap();
   const [waitingForLocation, setWaitingForLocation] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [userCoords, setUserCoords] = useState<{ longitude: number; latitude: number } | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const userMarkerRef = useRef<MapLibreGL.Marker | null>(null);
+  const hasFirstFixRef = useRef(false);
+
+  // Clean up watchPosition and marker on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Disable follow mode when the user manually pans or zooms
+  useEffect(() => {
+    if (!map || !isFollowing) return;
+
+    const disableFollow = () => {
+      setIsFollowing(false);
+    };
+    // dragstart fires when user drags the map; wheel fires on pinch/scroll zoom
+    map.on("dragstart", disableFollow);
+    map.on("wheel", disableFollow);
+    // touchmove covers iPad gestures
+    map.getCanvas().addEventListener("touchmove", disableFollow, { passive: true });
+
+    return () => {
+      map.off("dragstart", disableFollow);
+      map.off("wheel", disableFollow);
+      map.getCanvas().removeEventListener("touchmove", disableFollow);
+    };
+  }, [map, isFollowing]);
+
+  // Create / update the user location marker (pulsing blue dot)
+  useEffect(() => {
+    if (!map || !userCoords) return;
+
+    if (!userMarkerRef.current) {
+      const el = document.createElement("div");
+      el.className = "user-location-marker";
+      el.innerHTML = `
+        <div style="position:relative;width:20px;height:20px;">
+          <div style="position:absolute;inset:-6px;border-radius:50%;background:rgba(59,130,246,0.15);animation:gps-pulse 2s ease-out infinite;"></div>
+          <div style="width:20px;height:20px;border-radius:50%;background:rgb(59,130,246);border:3px solid white;box-shadow:0 0 6px rgba(0,0,0,0.3);"></div>
+        </div>
+      `;
+      // Inject the keyframes once
+      if (!document.getElementById("gps-pulse-style")) {
+        const style = document.createElement("style");
+        style.id = "gps-pulse-style";
+        style.textContent = `@keyframes gps-pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }`;
+        document.head.appendChild(style);
+      }
+      userMarkerRef.current = new MapLibreGL.Marker({ element: el, anchor: "center" })
+        .setLngLat([userCoords.longitude, userCoords.latitude])
+        .addTo(map);
+    } else {
+      userMarkerRef.current.setLngLat([userCoords.longitude, userCoords.latitude]);
+    }
+  }, [map, userCoords]);
+
+  const startTracking = useCallback(() => {
+    if (!("geolocation" in navigator) || !map) return;
+
+    setWaitingForLocation(true);
+    hasFirstFixRef.current = false;
+
+    const onPosition = (pos: GeolocationPosition) => {
+      const coords = {
+        longitude: pos.coords.longitude,
+        latitude: pos.coords.latitude,
+      };
+      setUserCoords(coords);
+      onLocate?.(coords);
+
+      // On first fix, fly to location
+      if (!hasFirstFixRef.current) {
+        hasFirstFixRef.current = true;
+        setWaitingForLocation(false);
+        setIsTracking(true);
+        setIsFollowing(true);
+        map.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: Math.max(map.getZoom(), 14),
+          duration: 1500,
+        });
+      }
+    };
+
+    const onError = (error: GeolocationPositionError) => {
+      console.error("Geolocation error:", error);
+      setWaitingForLocation(false);
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      onPosition,
+      onError,
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }, [map, onLocate]);
+
+  // When following + coords update, smoothly pan to keep user centered
+  useEffect(() => {
+    if (!map || !isFollowing || !userCoords) return;
+
+    map.easeTo({
+      center: [userCoords.longitude, userCoords.latitude],
+      duration: 500,
+    });
+  }, [map, isFollowing, userCoords]);
+
+  const handleLocate = useCallback(() => {
+    if (!isTracking) {
+      // Start live tracking
+      startTracking();
+    } else if (!isFollowing && userCoords) {
+      // Re-enable follow mode and fly back to user
+      setIsFollowing(true);
+      map?.flyTo({
+        center: [userCoords.longitude, userCoords.latitude],
+        zoom: Math.max(map?.getZoom() ?? 14, 14),
+        duration: 1000,
+      });
+    } else if (isFollowing) {
+      // Tapping while already following: stop tracking entirely
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      setIsTracking(false);
+      setIsFollowing(false);
+      setUserCoords(null);
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+    }
+  }, [isTracking, isFollowing, userCoords, map, startTracking]);
 
   const handleZoomIn = useCallback(() => {
     map?.zoomTo(map.getZoom() + 1, { duration: 300 });
@@ -663,31 +813,6 @@ function MapControls({
   const handleResetBearing = useCallback(() => {
     map?.resetNorthPitch({ duration: 300 });
   }, [map]);
-
-  const handleLocate = useCallback(() => {
-    setWaitingForLocation(true);
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            longitude: pos.coords.longitude,
-            latitude: pos.coords.latitude,
-          };
-          map?.flyTo({
-            center: [coords.longitude, coords.latitude],
-            zoom: 14,
-            duration: 1500,
-          });
-          onLocate?.(coords);
-          setWaitingForLocation(false);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          setWaitingForLocation(false);
-        }
-      );
-    }
-  }, [map, onLocate]);
 
   const handleFullscreen = useCallback(() => {
     const container = map?.getContainer();
@@ -726,17 +851,29 @@ function MapControls({
       )}
       {showLocate && (
         <ControlGroup>
-          <ControlButton
+          <button
             onClick={handleLocate}
-            label="Find my location"
+            aria-label={isFollowing ? "Stop tracking location" : isTracking ? "Re-center on my location" : "Find my location"}
+            type="button"
+            className={cn(
+              "flex items-center justify-center size-8 transition-colors",
+              waitingForLocation && "opacity-50 pointer-events-none cursor-not-allowed",
+              isFollowing
+                ? "bg-blue-500 text-white hover:bg-blue-600"
+                : isTracking
+                  ? "text-blue-500 hover:bg-accent dark:hover:bg-accent/40"
+                  : "hover:bg-accent dark:hover:bg-accent/40"
+            )}
             disabled={waitingForLocation}
           >
             {waitingForLocation ? (
               <Loader2 className="size-4 animate-spin" />
+            ) : isFollowing ? (
+              <Navigation2 className="size-4" />
             ) : (
               <Locate className="size-4" />
             )}
-          </ControlButton>
+          </button>
         </ControlGroup>
       )}
       {showFullscreen && (
