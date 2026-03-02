@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useCallback } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js"
 
@@ -27,7 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => {
+    try {
+      return createClient()
+    } catch {
+      return null
+    }
+  }, [])
 
   // Transform Supabase user to our User interface
   const transformUser = useCallback((supabaseUser: SupabaseUser | null): User | null => {
@@ -48,6 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state - non-blocking
   useEffect(() => {
+    if (!supabase) {
+      setIsLoading(false)
+      return
+    }
+
     // Use setTimeout to not block initial render
     const timeoutId = setTimeout(async () => {
       try {
@@ -74,9 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [supabase.auth, transformUser])
+  }, [supabase, transformUser])
 
   const login = async (email: string, password: string): Promise<{ error?: string }> => {
+    if (!supabase) return { error: "Authentication is not configured on this environment." }
     setIsLoading(true)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -97,6 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const doSignOut = async () => {
+    if (!supabase) {
+      setUser(null)
+      setSession(null)
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
     try {
       await supabase.auth.signOut()
