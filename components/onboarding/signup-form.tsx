@@ -33,14 +33,14 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     password: '',
   })
   
-  const supabase = createClient()
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
     
     try {
+      const supabase = createClient()
+
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({
           email: formData.email,
@@ -73,6 +73,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
   const handleOAuth = async (provider: 'google' | 'github') => {
     setIsLoading(true)
     try {
+      const supabase = createClient()
       await supabase.auth.signInWithOAuth({
         provider,
         options: {
