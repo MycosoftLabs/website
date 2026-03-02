@@ -204,7 +204,7 @@ jobs:
           script: |
             cd /opt/mycosoft-staging
             docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose up -d --build --remove-orphans
             docker compose exec -T website npm run db:migrate --if-present
             echo "Deployed ${{ github.sha }} to staging at $(date)"
 
@@ -333,8 +333,8 @@ jobs:
             "Pull new images"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose up -d --remove-orphans" \
-            "Rolling update containers"
+            "cd /opt/mycosoft && docker compose up -d --build --remove-orphans" \
+            "Rebuild and update containers"
 
           run_on_vm \
             "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present" \
