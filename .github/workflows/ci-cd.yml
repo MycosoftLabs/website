@@ -246,13 +246,28 @@ jobs:
           PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
         run: |
           set -euo pipefail
-          AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
-          BASE_URL="${PROXMOX_URL%/}"
-          if [[ "${BASE_URL}" != */api2/json ]]; then
-            BASE_URL="${BASE_URL}/api2/json"
+          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
+            AUTH_HEADER="${PROXMOX_API_TOKEN}"
+          else
+            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
           fi
 
-          NODES_JSON=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes")
+          BASE_ROOT="${PROXMOX_URL%/}"
+          BASE_ROOT="${BASE_ROOT%%/api2/json*}"
+          BASE_URL="${BASE_ROOT}/api2/json"
+
+          TMP_BODY="$(mktemp)"
+          HTTP_CODE=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" -o "${TMP_BODY}" -w "%{http_code}" "${BASE_URL}/nodes")
+          if [ "${HTTP_CODE}" -ge 400 ]; then
+            echo "::error::Proxmox /nodes failed with HTTP ${HTTP_CODE} at ${BASE_URL}/nodes"
+            echo "Response body:"
+            cat "${TMP_BODY}" || true
+            rm -f "${TMP_BODY}"
+            exit 1
+          fi
+
+          NODES_JSON="$(cat "${TMP_BODY}")"
+          rm -f "${TMP_BODY}"
           NODES=$(echo "${NODES_JSON}" | jq -r '.data[]?.node')
           if [ -z "${NODES}" ]; then
             echo "::error::No Proxmox nodes returned from ${BASE_URL}/nodes"
@@ -263,12 +278,14 @@ jobs:
           NODE=""
           VMID=""
           for N in ${NODES}; do
-            QEMU_JSON=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes/${N}/qemu")
+            QEMU_JSON=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes/${N}/qemu")
             CANDIDATE=$(echo "${QEMU_JSON}" | jq -r '
               .data[]
               | select(
                   .name == "mycosoft-sandbox"
                   or .name == "mycosoft-website"
+                  or .name == "sandbox"
+                  or .name == "website"
                   or ((.name // "") | test("sandbox"; "i"))
                 )
               | .vmid
