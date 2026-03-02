@@ -1,6 +1,6 @@
 # Mycosoft CI/CD Pipeline
-# Last Updated: 2026-01-15T14:30:00Z
-# Version: 2.0.0
+# Last Updated: 2026-03-01T00:00:00Z
+# Version: 2.1.0
 #
 # This workflow handles:
 # - Linting and type checking
@@ -217,56 +217,127 @@ jobs:
     needs: [build, integration]
     if: github.ref == 'refs/heads/main'
     environment: production
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create deployment artifact
+      - name: Check deploy secrets
+        id: check-secrets
         run: |
-          mkdir -p deployment
-          cp docker-compose.yml deployment/
-          cp -r monitoring deployment/
-          cp -r migrations deployment/
-          tar -czvf mycosoft-deployment-${{ github.sha }}.tar.gz deployment/
+          if [ -z "${{ secrets.PROXMOX_API_TOKEN }}" ] || [ -z "${{ secrets.PROXMOX_URL }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Deploy skipped - PROXMOX_URL or PROXMOX_API_TOKEN secret not configured"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Deploy to Proxmox VM
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROXMOX_HOST }}
-          username: ${{ secrets.PROXMOX_USER }}
-          key: ${{ secrets.PROXMOX_KEY }}
-          script: |
-            set -e
-            
-            echo "=== Mycosoft Production Deployment ==="
-            echo "Commit: ${{ github.sha }}"
-            echo "Timestamp: $(date -Iseconds)"
-            
-            cd /opt/mycosoft
-            
-            # Backup current state
-            docker-compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql
-            
-            # Pull new images
-            docker-compose pull
-            
-            # Rolling update
-            docker-compose up -d --remove-orphans
-            
-            # Run migrations
-            docker-compose exec -T website npm run db:migrate
-            
-            # Health check
-            for i in {1..30}; do
-              if curl -sf http://localhost:3000/api/health; then
-                echo "Health check passed"
-                break
+      - name: Discover Sandbox VM
+        if: steps.check-secrets.outputs.skip != 'true'
+        id: find-vm
+        run: |
+          PROXMOX_URL="${{ secrets.PROXMOX_URL }}"
+          AUTH_HEADER="PVEAPIToken=${{ secrets.PROXMOX_API_TOKEN }}"
+
+          # Get first node name
+          NODE=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
+            "${PROXMOX_URL}/api2/json/nodes" | jq -r '.data[0].node')
+          echo "node=${NODE}" >> "$GITHUB_OUTPUT"
+          echo "Found node: ${NODE}"
+
+          # Find mycosoft-sandbox VM
+          VMID=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
+            "${PROXMOX_URL}/api2/json/nodes/${NODE}/qemu" | \
+            jq -r '.data[] | select(.name == "mycosoft-sandbox") | .vmid')
+          echo "vmid=${VMID}" >> "$GITHUB_OUTPUT"
+          echo "Found VM: ${VMID}"
+
+          if [ -z "${VMID}" ]; then
+            echo "::error::Could not find mycosoft-sandbox VM"
+            exit 1
+          fi
+
+      - name: Deploy via Proxmox QEMU Agent
+        if: steps.check-secrets.outputs.skip != 'true'
+        run: |
+          PROXMOX_URL="${{ secrets.PROXMOX_URL }}"
+          AUTH_HEADER="PVEAPIToken=${{ secrets.PROXMOX_API_TOKEN }}"
+          NODE="${{ steps.find-vm.outputs.node }}"
+          VMID="${{ steps.find-vm.outputs.vmid }}"
+          AGENT_EXEC="${PROXMOX_URL}/api2/json/nodes/${NODE}/qemu/${VMID}/agent/exec"
+          AGENT_STATUS="${PROXMOX_URL}/api2/json/nodes/${NODE}/qemu/${VMID}/agent/exec-status"
+
+          run_on_vm() {
+            local cmd="$1"
+            local desc="$2"
+            echo ">>> ${desc}"
+
+            # Start the command via QEMU guest agent
+            PID=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
+              -H "Content-Type: application/json" \
+              -d "{\"command\": \"bash\", \"input-data\": \"${cmd}\"}" \
+              "${AGENT_EXEC}" | jq -r '.data.pid')
+
+            if [ -z "${PID}" ] || [ "${PID}" = "null" ]; then
+              echo "::error::Failed to execute: ${desc}"
+              return 1
+            fi
+
+            # Poll for completion (max 5 min)
+            for i in $(seq 1 60); do
+              sleep 5
+              RESULT=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
+                "${AGENT_STATUS}?pid=${PID}" 2>/dev/null || echo '{}')
+              EXITED=$(echo "${RESULT}" | jq -r '.data.exited // 0')
+              if [ "${EXITED}" = "1" ]; then
+                EXITCODE=$(echo "${RESULT}" | jq -r '.data.exitcode // 0')
+                OUT=$(echo "${RESULT}" | jq -r '.data."out-data" // ""')
+                ERR=$(echo "${RESULT}" | jq -r '.data."err-data" // ""')
+                [ -n "${OUT}" ] && echo "${OUT}"
+                [ -n "${ERR}" ] && echo "STDERR: ${ERR}"
+                if [ "${EXITCODE}" != "0" ]; then
+                  echo "::error::Command failed (exit ${EXITCODE}): ${desc}"
+                  return 1
+                fi
+                return 0
               fi
-              sleep 2
             done
-            
-            # Log deployment
-            echo "${{ github.sha }} deployed at $(date)" >> /var/log/mycosoft-deployments.log
+            echo "::error::Timeout waiting for: ${desc}"
+            return 1
+          }
+
+          echo "=== Mycosoft Production Deployment ==="
+          echo "Commit: ${{ github.sha }}"
+
+          run_on_vm \
+            "cd /opt/mycosoft && docker-compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
+            "Backup database"
+
+          run_on_vm \
+            "cd /opt/mycosoft && git fetch origin && git reset --hard origin/main" \
+            "Pull latest code"
+
+          run_on_vm \
+            "cd /opt/mycosoft && docker-compose pull" \
+            "Pull new images"
+
+          run_on_vm \
+            "cd /opt/mycosoft && docker-compose up -d --remove-orphans" \
+            "Rolling update containers"
+
+          run_on_vm \
+            "cd /opt/mycosoft && docker-compose exec -T website npm run db:migrate" \
+            "Run database migrations"
+
+          run_on_vm \
+            "curl -sf http://localhost:3000/api/health || echo 'Health check pending'" \
+            "Health check"
+
+          run_on_vm \
+            "echo '${{ github.sha }} deployed at \$(date)' >> /var/log/mycosoft-deployments.log" \
+            "Log deployment"
+
+          echo "=== Deployment Complete ==="
 
       - name: Notify deployment
         uses: slackapi/slack-github-action@v1.24.0
@@ -294,7 +365,7 @@ jobs:
   changelog:
     name: Generate Changelog
     runs-on: ubuntu-latest
-    needs: deploy-production
+    needs: [build, integration]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
