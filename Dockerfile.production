@@ -1,8 +1,8 @@
 # Mycosoft.com Production Dockerfile
 # This is the main Mycosoft website with NatureOS, MIndex, MYCA integrations
-# Uses Node.js 18 for compatibility with older CPUs (Xeon X5670 Westmere)
+# Uses Node.js 20 to satisfy modern dependency native bindings (Tailwind oxide, Vitest ecosystem)
 
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies
 FROM base AS deps
