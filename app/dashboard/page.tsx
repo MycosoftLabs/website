@@ -25,7 +25,6 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useSupabaseUser()
   const { profile, loading: profileLoading } = useProfile()
   const router = useRouter()
-  const supabase = createClient()
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -35,8 +34,12 @@ export default function DashboardPage() {
   }, [authLoading, user, router])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } finally {
+      router.push("/")
+    }
   }
 
   // Loading state
