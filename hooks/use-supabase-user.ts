@@ -4,7 +4,7 @@
  */
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User, Session } from "@supabase/supabase-js"
 
@@ -22,9 +22,16 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => {
+    try {
+      return createClient()
+    } catch {
+      return null
+    }
+  }, [])
 
   const refreshSession = useCallback(async () => {
+    if (!supabase) return
     try {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error) throw error
@@ -33,9 +40,10 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to get session"))
     }
-  }, [supabase.auth])
+  }, [supabase])
 
   const signOut = useCallback(async () => {
+    if (!supabase) return
     try {
       setLoading(true)
       const { error } = await supabase.auth.signOut()
@@ -47,9 +55,14 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
     } finally {
       setLoading(false)
     }
-  }, [supabase.auth])
+  }, [supabase])
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     // Single call to getSession - it contains the user
     const getInitialSession = async () => {
       try {
@@ -85,7 +98,7 @@ export function useSupabaseUser(): UseSupabaseUserReturn {
       clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase])
 
   return { user, session, loading, error, signOut, refreshSession }
 }
@@ -117,11 +130,17 @@ export function useProfile(): UseProfileReturn {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => {
+    try {
+      return createClient()
+    } catch {
+      return null
+    }
+  }, [])
 
   useEffect(() => {
     const getProfile = async () => {
-      if (!user) {
+      if (!supabase || !user) {
         setProfile(null)
         setLoading(false)
         return
@@ -151,6 +170,9 @@ export function useProfile(): UseProfileReturn {
   }, [user, userLoading, supabase])
 
   const updateProfile = useCallback(async (updates: Partial<Profile>) => {
+    if (!supabase) {
+      throw new Error("Supabase is not configured")
+    }
     if (!user) {
       throw new Error("No user logged in")
     }
