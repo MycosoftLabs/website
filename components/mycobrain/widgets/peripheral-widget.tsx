@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -376,7 +376,7 @@ export function PeripheralGrid({
   // Use merged sensor data (current + cached) to prevent blinking
   const effectiveSensorData = { ...lastSensorDataRef.current, ...sensorData }
   
-  const scanPeripherals = async (isInitial = false) => {
+  const scanPeripherals = useCallback(async (isInitial = false) => {
     if (isInitial) setInitialLoading(true)
     setError(null)
     try {
@@ -400,14 +400,14 @@ export function PeripheralGrid({
     } finally {
       setInitialLoading(false)
     }
-  }
+  }, [deviceId])
   
   useEffect(() => {
     scanPeripherals(true)
     // Auto-rescan every 60 seconds (reduced to prevent blinking)
     const interval = setInterval(() => scanPeripherals(false), 60000)
     return () => clearInterval(interval)
-  }, [deviceId])
+  }, [scanPeripherals])
   
   // Map sensor data to peripheral addresses
   // Handle both new format (by address) and legacy format (bme688_1, bme688_2)

@@ -6,7 +6,7 @@
  * Timeline view of significant events from MYCA's episodic memory.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ export function EpisodicMemoryViewer({ agentId = 'myca_brain', limit = 20 }: Epi
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
 
-  const fetchEpisodes = async () => {
+  const fetchEpisodes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -60,11 +60,11 @@ export function EpisodicMemoryViewer({ agentId = 'myca_brain', limit = 20 }: Epi
     } finally {
       setLoading(false);
     }
-  };
+  }, [agentId, filterType, limit]);
 
   useEffect(() => {
     fetchEpisodes();
-  }, [agentId, filterType]);
+  }, [fetchEpisodes]);
 
   const getEventIcon = (eventType: string) => {
     switch (eventType) {

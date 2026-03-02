@@ -57,7 +57,10 @@ export function FleetManagement() {
     { refreshInterval: 20000 }
   )
 
-  const devices = Array.isArray(networkData?.devices) ? networkData.devices : []
+  const devices = useMemo(
+    () => (Array.isArray(networkData?.devices) ? networkData.devices : []),
+    [networkData?.devices]
+  )
 
   const deviceOptions = useMemo(
     () =>

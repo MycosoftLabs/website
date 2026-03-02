@@ -23,9 +23,9 @@ interface CommandRequest {
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
-  const { deviceId } = params
+  const { deviceId } = await params
 
   try {
     const body: CommandRequest = await request.json()

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useSupabaseUser, useProfile } from "@/hooks/use-supabase-user"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -336,7 +337,7 @@ export default function ProfilePage() {
                         <p className="text-sm text-muted-foreground">Last active: 2 hours ago</p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href="/natureos/devices">Configure</a>
+                        <Link href="/natureos/devices">Configure</Link>
                       </Button>
                     </li>
                   ))}
@@ -587,28 +588,28 @@ export default function ProfilePage() {
                   {/* Quick Access */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
                     <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                      <a href="/natureos">
+                      <Link href="/natureos">
                         <Server className="h-5 w-5" />
                         <span className="text-xs">NatureOS</span>
-                      </a>
+                      </Link>
                     </Button>
                     <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                      <a href="/natureos/containers">
+                      <Link href="/natureos/containers">
                         <Database className="h-5 w-5" />
                         <span className="text-xs">Containers</span>
-                      </a>
+                      </Link>
                     </Button>
                     <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                      <a href="/natureos/devices">
+                      <Link href="/natureos/devices">
                         <Zap className="h-5 w-5" />
                         <span className="text-xs">Devices</span>
-                      </a>
+                      </Link>
                     </Button>
                     <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                      <a href="/natureos/settings">
+                      <Link href="/natureos/settings">
                         <Settings className="h-5 w-5" />
                         <span className="text-xs">Settings</span>
-                      </a>
+                      </Link>
                     </Button>
                   </div>
 
@@ -618,16 +619,16 @@ export default function ProfilePage() {
                         <Label className="text-sm font-medium text-yellow-500">Owner-Only Actions</Label>
                         <div className="grid grid-cols-2 gap-3 mt-3">
                           <Button variant="outline" className="border-yellow-500/50" asChild>
-                            <a href="/natureos/workflows">Manage Workflows</a>
+                            <Link href="/natureos/workflows">Manage Workflows</Link>
                           </Button>
                           <Button variant="outline" className="border-yellow-500/50" asChild>
-                            <a href="/natureos/ai-studio">AI Studio</a>
+                            <Link href="/natureos/ai-studio">AI Studio</Link>
                           </Button>
                           <Button variant="outline" className="border-yellow-500/50" asChild>
-                            <a href="/natureos/storage">Storage</a>
+                            <Link href="/natureos/storage">Storage</Link>
                           </Button>
                           <Button variant="outline" className="border-yellow-500/50" asChild>
-                            <a href="/natureos/monitoring">Monitoring</a>
+                            <Link href="/natureos/monitoring">Monitoring</Link>
                           </Button>
                         </div>
                       </div>

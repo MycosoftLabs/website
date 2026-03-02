@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,18 +30,7 @@ export function MINDEXIntegrationWidget({ deviceId }: MINDEXIntegrationWidgetPro
   const [loading, setLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
 
-  useEffect(() => {
-    loadRegistrationStatus()
-    loadTelemetryStats()
-    // Refresh every 30 seconds
-    const interval = setInterval(() => {
-      loadRegistrationStatus()
-      loadTelemetryStats()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [deviceId])
-
-  const loadRegistrationStatus = async () => {
+  const loadRegistrationStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/natureos/devices/mycobrain`)
       if (res.ok) {
@@ -60,9 +49,9 @@ export function MINDEXIntegrationWidget({ deviceId }: MINDEXIntegrationWidgetPro
     } catch (error) {
       console.error("Failed to load registration status:", error)
     }
-  }
+  }, [deviceId])
 
-  const loadTelemetryStats = async () => {
+  const loadTelemetryStats = useCallback(async () => {
     try {
       const res = await fetch(`/api/mindex/telemetry?device_id=${encodeURIComponent(deviceId)}&limit=1`)
       if (res.ok) {
@@ -76,7 +65,18 @@ export function MINDEXIntegrationWidget({ deviceId }: MINDEXIntegrationWidgetPro
       // MINDEX endpoint might not exist yet
       console.debug("Telemetry stats not available:", error)
     }
-  }
+  }, [deviceId])
+
+  useEffect(() => {
+    loadRegistrationStatus()
+    loadTelemetryStats()
+    // Refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadRegistrationStatus()
+      loadTelemetryStats()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [loadRegistrationStatus, loadTelemetryStats])
 
   const handleRegister = async () => {
     setRegistering(true)

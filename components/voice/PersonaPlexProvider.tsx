@@ -421,7 +421,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       setLastResult({ error: String(error) })
       throw error
     }
-  }, [])
+  }, [personaplex])
   
   const runWorkflow = useCallback(async (name: string, data?: Record<string, unknown>) => {
     try {
@@ -462,7 +462,7 @@ export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
       setLastResult({ error: String(error) })
       throw error
     }
-  }, [personaplex])
+  }, [])
   
   const contextValue: PersonaPlexContextValue = {
     isConnected: personaplex.isConnected,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
+import { chatLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
 /**
  * MYCA Chat API - Real AI Integration
@@ -21,7 +22,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
 const XAI_API_KEY = process.env.XAI_API_KEY
 const N8N_USERNAME = process.env.N8N_USERNAME || "admin"
-const N8N_PASSWORD = process.env.N8N_PASSWORD || "Mushroom1!"
+const N8N_PASSWORD = process.env.N8N_PASSWORD || ""
 
 // MYCA System Context - This defines who MYCA is
 const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), the central AI orchestrator for Mycosoft - a mycology research and technology company.
@@ -246,6 +247,42 @@ async function callGemini(message: string, systemContext: string): Promise<strin
   return null
 }
 
+// Call local Ollama/Llama
+async function callOllama(message: string, systemContext: string): Promise<string | null> {
+  const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
+  const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
+
+  try {
+    const healthCheck = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+      signal: AbortSignal.timeout(2000),
+    }).catch(() => null)
+    if (!healthCheck?.ok) return null
+
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: "system", content: systemContext },
+          { role: "user", content: message },
+        ],
+        stream: false,
+        options: { num_predict: 1024, temperature: 0.7 },
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return data.message?.content || null
+    }
+  } catch (error) {
+    console.error("Ollama API error:", error)
+  }
+  return null
+}
+
 // Call xAI Grok
 async function callGrok(message: string, systemContext: string): Promise<string | null> {
   if (!XAI_API_KEY) return null
@@ -258,7 +295,7 @@ async function callGrok(message: string, systemContext: string): Promise<string 
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "grok-2-latest",
+        model: "grok-3",
         messages: [
           { role: "system", content: systemContext },
           { role: "user", content: message }
@@ -282,6 +319,11 @@ async function callGrok(message: string, systemContext: string): Promise<string 
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 10 requests/min per IP, 100/hour global
+  const ip = getClientIP(request)
+  const rl = chatLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   try {
     const body = await request.json()
     const { message, context, session_id } = body
@@ -354,8 +396,14 @@ export async function POST(request: NextRequest) {
       responseText = await callGrok(message, dynamicContext)
       if (responseText) provider = "grok"
     }
-    
-    // 6. Ultimate fallback
+
+    // 6. Local Ollama/Llama (runs on RTX 5090)
+    if (!responseText) {
+      responseText = await callOllama(message, dynamicContext)
+      if (responseText) provider = "ollama"
+    }
+
+    // 7. Ultimate fallback
     if (!responseText) {
       responseText = `I apologize, but I'm experiencing connectivity issues with my AI backends. 
 

@@ -96,9 +96,11 @@ function ActivityNodeMesh({
 }
 
 function ConnectionLineSeg({ conn, nodeMap }: { conn: ActivityConnection; nodeMap: Map<string, ActivityNode> }) {
-  const src = nodeMap.get(conn.sourceId)?.position ?? [0, 0, 0]
-  const tgt = nodeMap.get(conn.targetId)?.position ?? [0, 0, 0]
-  const array = useMemo(() => new Float32Array([...src, ...tgt]), [src, tgt])
+  const array = useMemo(() => {
+    const src = nodeMap.get(conn.sourceId)?.position ?? [0, 0, 0]
+    const tgt = nodeMap.get(conn.targetId)?.position ?? [0, 0, 0]
+    return new Float32Array([...src, ...tgt])
+  }, [conn.sourceId, conn.targetId, nodeMap])
   return (
     <line>
       <bufferGeometry>

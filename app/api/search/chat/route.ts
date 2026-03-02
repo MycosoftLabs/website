@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
@@ -24,6 +25,11 @@ interface DataCard {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit
+  const ip = getClientIP(request)
+  const rl = searchLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   try {
     const body = (await request.json()) as ChatRequest
 
@@ -70,53 +76,130 @@ export async function POST(request: NextRequest) {
       .filter((r): r is PromiseFulfilledResult<DataCard | null> => r.status === "fulfilled" && r.value !== null)
       .map(r => r.value!)
 
-    // Call MAS Brain/Orchestrator for the AI response
-    const masResponse = await fetch(`${MAS_API_URL}/api/mas/voice/orchestrator`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: body.message,
-        conversation_id: body.conversation_id,
-        session_id: body.session_id,
-        want_audio: false,
-        actor: "user",
-        source: "web",
-        context: {
-          ...(body.context || {}),
-          user_id: body.user_id || "anonymous",
-          platform: "mobile-search",
-          enriched_entities: detectedEntities,
-        },
-      }),
-    })
+    // Call local orchestrator route (NOT MAS VM directly — let Next.js handle fallbacks)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3010}`
+    let masData: Record<string, unknown> | null = null
 
-    if (!masResponse.ok) {
-      const errorText = await masResponse.text()
-      console.error("MAS API error:", errorText)
-      
-      // Return a fallback response with any data cards we found
-      return NextResponse.json({
-        response_text: dataCards.length > 0
-          ? `I found some results for your query. Here's what I discovered:`
-          : `I'm having trouble processing your request right now. Please try again in a moment.`,
-        data_cards: dataCards,
-        conversation_id: body.conversation_id,
-        error: "MAS API unavailable",
+    try {
+      const masResponse = await fetch(`${baseUrl}/api/mas/voice/orchestrator`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: body.message,
+          conversation_id: body.conversation_id,
+          session_id: body.session_id,
+          want_audio: false,
+          actor: "user",
+          source: "web",
+          context: {
+            ...(body.context || {}),
+            user_id: body.user_id || "anonymous",
+            platform: "mobile-search",
+            enriched_entities: detectedEntities,
+          },
+        }),
+        signal: AbortSignal.timeout(20000),
       })
+
+      if (masResponse.ok) {
+        masData = await masResponse.json()
+      }
+    } catch {
+      // Orchestrator unreachable, try Groq fallback below
     }
 
-    const masData = await masResponse.json()
+    // Groq fallback if orchestrator failed
+    if (!masData?.response_text) {
+      const GROQ_API_KEY = process.env.GROQ_API_KEY
+      if (GROQ_API_KEY) {
+        try {
+          const enrichContext = dataCards.length > 0
+            ? `\n\n[Search context - found ${dataCards.length} data cards: ${dataCards.map(c => `${c.type}: ${JSON.stringify(c.data).slice(0, 200)}`).join("; ")}]`
+            : ""
+          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${GROQ_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              max_tokens: 1500,
+              messages: [
+                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI.` },
+                { role: "user", content: body.message + enrichContext },
+              ],
+            }),
+            signal: AbortSignal.timeout(12000),
+          })
+          if (groqRes.ok) {
+            const groqData = await groqRes.json()
+            masData = { response_text: groqData.choices?.[0]?.message?.content || "" }
+          }
+        } catch {
+          // Groq also failed
+        }
+      }
+    }
 
-    // Combine MAS response with enrichment data
+    // Ollama/Llama fallback if Groq also failed
+    if (!masData?.response_text) {
+      const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
+      const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
+      try {
+        const healthCheck = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+          signal: AbortSignal.timeout(2000),
+        }).catch(() => null)
+        if (healthCheck?.ok) {
+          const enrichContext = dataCards.length > 0
+            ? `\n\n[Search context - found ${dataCards.length} data cards: ${dataCards.map(c => `${c.type}: ${JSON.stringify(c.data).slice(0, 200)}`).join("; ")}]`
+            : ""
+          const ollamaRes = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: OLLAMA_MODEL,
+              messages: [
+                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI.` },
+                { role: "user", content: body.message + enrichContext },
+              ],
+              stream: false,
+              options: { num_predict: 1500, temperature: 0.7 },
+            }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (ollamaRes.ok) {
+            const ollamaData = await ollamaRes.json()
+            const content = ollamaData.message?.content
+            if (content && content.length > 10) {
+              masData = { response_text: content }
+            }
+          }
+        }
+      } catch {
+        // Ollama also failed
+      }
+    }
+
+    // Final fallback
+    if (!masData?.response_text) {
+      masData = {
+        response_text: dataCards.length > 0
+          ? `I found some results for "${body.message}". Here's what I discovered from the MINDEX database:`
+          : `I'm MYCA, Mycosoft's AI assistant. I'm reconnecting to my intelligence services. Please try your question again in a moment.`,
+      }
+    }
+
+    // Combine response with enrichment data
     return NextResponse.json({
       response_text: masData.response_text,
       data_cards: [
-        ...(masData.nlq_data || []).map(nlqToDataCard).filter(Boolean),
+        ...((masData.nlq_data as unknown[] || []) as Array<{ id: string; type: string; title: string; subtitle?: string }>).map(nlqToDataCard).filter(Boolean),
         ...dataCards,
       ],
-      suggestions: extractSuggestions(masData.response_text),
-      conversation_id: masData.conversation_id,
-      agent: masData.agent,
+      suggestions: extractSuggestions(masData.response_text as string),
+      conversation_id: (masData.conversation_id as string) || body.conversation_id,
+      agent: (masData.agent as string) || "myca",
       requires_confirmation: masData.requires_confirmation,
       nlq_actions: masData.nlq_actions,
       nlq_sources: masData.nlq_sources,

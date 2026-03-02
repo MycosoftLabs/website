@@ -13,7 +13,7 @@ import {
   Cloud, 
   Folder, 
   FileText, 
-  Image, 
+  Image as ImageIcon, 
   Film, 
   Music, 
   Archive, 
@@ -217,7 +217,7 @@ export default function StoragePage() {
     const ext = file.name.split(".").pop()?.toLowerCase()
     switch (ext) {
       case "pdf": return <FileText className="h-5 w-5 text-red-500" />
-      case "jpg": case "jpeg": case "png": case "gif": case "webp": return <Image className="h-5 w-5 text-green-500" />
+      case "jpg": case "jpeg": case "png": case "gif": case "webp": return <ImageIcon className="h-5 w-5 text-green-500" />
       case "mp4": case "mov": case "avi": return <Film className="h-5 w-5 text-purple-500" />
       case "mp3": case "wav": case "flac": return <Music className="h-5 w-5 text-pink-500" />
       case "zip": case "tar": case "gz": case "rar": return <Archive className="h-5 w-5 text-orange-500" />
@@ -455,7 +455,7 @@ export default function StoragePage() {
                 {[
                   { name: "Mycosoft Shared", icon: Share2 },
                   { name: "Research Documents", icon: FileText },
-                  { name: "Species Photos", icon: Image },
+                  { name: "Species Photos", icon: ImageIcon },
                   { name: "Team Presentations", icon: Film },
                 ].map((folder) => (
                   <div key={folder.name} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer">

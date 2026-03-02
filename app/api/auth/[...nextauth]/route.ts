@@ -84,8 +84,8 @@ const MYCOSOFT_USERS: MycosoftUser[] = [
   },
 ]
 
-// Default password for credential login
-const DEFAULT_PASSWORD = "Mushroom1!"
+// Default password for credential login — must be set via MYCOSOFT_DEFAULT_PASSWORD env var
+const DEFAULT_PASSWORD = process.env.MYCOSOFT_DEFAULT_PASSWORD || ""
 
 // Find user by email (case-insensitive, supports @mycosoft.org domain)
 function findMycosoftUser(email: string): MycosoftUser | null {

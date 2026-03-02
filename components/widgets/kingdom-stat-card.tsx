@@ -16,7 +16,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Leaf, Bird, Bug, PawPrint, Fish, Cat, Cloud, Flame, Droplets,
-  Eye, Image, Database, Microscope, CircleDot
+  Eye, Image as ImageIcon, Database, Microscope, CircleDot
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -361,7 +361,7 @@ export function KingdomStatCard({
             <span className="text-muted-foreground">obs</span>
           </div>
           <div className="flex items-center gap-1">
-            <Image className="h-3 w-3 text-amber-400" />
+            <ImageIcon className="h-3 w-3 text-amber-400" />
             <span className="font-bold text-foreground">{formatCompact(images)}</span>
             <span className="text-muted-foreground">img</span>
           </div>

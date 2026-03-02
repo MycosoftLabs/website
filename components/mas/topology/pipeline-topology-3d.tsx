@@ -69,7 +69,7 @@ function PipelineScene({
       }
       return true
     })
-  }, [data.nodes])
+  }, [data.nodes, viewState.selectedNodeId])
 
   const filteredConnections = useMemo(() => {
     if (!DEFAULT_FILTER.showConnections) return []

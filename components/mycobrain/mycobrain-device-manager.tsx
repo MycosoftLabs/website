@@ -136,6 +136,11 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     sendControl,
   } = useMycoBrain(15000)
 
+  const refreshRef = useRef(refresh)
+  useEffect(() => {
+    refreshRef.current = refresh
+  }, [refresh])
+
   const [selectedPort, setSelectedPort] = useState<string | null>(initialPort || null)
   const [neopixelColor, setNeopixelColor] = useState({ r: 0, g: 255, b: 0 })
   const [neopixelBrightness, setNeopixelBrightness] = useState(128)
@@ -205,30 +210,32 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
       clearTimeout(initialDelay)
       clearInterval(interval)
     }
-  }, [device?.port, device?.connected, fetchSensors])
+  }, [device?.port, device?.connected, fetchSensors, portForControl])
 
   // Track sensor history
-  useEffect(() => {
-    if (device?.sensor_data?.bme688_1) {
-      const newPoint: SensorHistoryPoint = {
-        timestamp: new Date(),
-        bme1_temp: device.sensor_data.bme688_1.temperature || 0,
-        bme1_humidity: device.sensor_data.bme688_1.humidity || 0,
-        bme1_iaq: device.sensor_data.bme688_1.iaq || 0,
-        bme2_temp: device.sensor_data.bme688_2?.temperature || 0,
-        bme2_humidity: device.sensor_data.bme688_2?.humidity || 0,
-        bme2_iaq: device.sensor_data.bme688_2?.iaq || 0,
-      }
-      setSensorHistory((prev) => [...prev.slice(-59), newPoint])
-    }
-  }, [device?.sensor_data?.bme688_1?.temperature])
+  const bme1 = device?.sensor_data?.bme688_1
+  const bme2 = device?.sensor_data?.bme688_2
 
-  const logToConsole = (message: string) => {
+  useEffect(() => {
+    if (!bme1) return
+    const newPoint: SensorHistoryPoint = {
+      timestamp: new Date(),
+      bme1_temp: bme1.temperature || 0,
+      bme1_humidity: bme1.humidity || 0,
+      bme1_iaq: bme1.iaq || 0,
+      bme2_temp: bme2?.temperature || 0,
+      bme2_humidity: bme2?.humidity || 0,
+      bme2_iaq: bme2?.iaq || 0,
+    }
+    setSensorHistory((prev) => [...prev.slice(-59), newPoint])
+  }, [bme1, bme2])
+
+  const logToConsole = useCallback((message: string) => {
     setConsoleOutput((prev) => [
       ...prev.slice(-49),
       `[${new Date().toLocaleTimeString()}] ${message}`,
     ])
-  }
+  }, [])
 
   const [scanning, setScanning] = useState(false)
   const [scanResult, setScanResult] = useState<string | null>(null)
@@ -331,7 +338,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     // Small delay to let device settle after connection
     const timer = setTimeout(initMachineMode, 1000)
     return () => clearTimeout(timer)
-  }, [device?.port, device?.connected, machineModeActive])
+  }, [device?.port, device?.connected, logToConsole, machineModeActive, portForControl])
 
   const handleCommand = async (name: string, action: () => Promise<unknown>) => {
     setCommandLoading(name)
@@ -521,7 +528,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
               if (result.success || result.status === "connected" || result.status === "already_connected") {
                 // Successfully connected - refresh device list
                 connectedPortsRef.current.add(portKey)
-                await refresh()
+                await refreshRef.current()
                 logToConsole(`✓ Auto-connected to MycoBoard on ${portKey}`)
                 
                 // Also trigger auto-registration
@@ -561,7 +568,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     return () => {
       clearInterval(interval)
     }
-  }, [serviceStatus, scanning]) // Removed refresh from deps to prevent interval spam
+  }, [logToConsole, serviceStatus, scanning]) // Removed refresh from deps to prevent interval spam
 
   // Stream serial data when device is connected and monitoring is enabled
   useEffect(() => {
@@ -585,7 +592,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
     
     const interval = setInterval(fetchSerialData, 1000)
     return () => clearInterval(interval)
-  }, [device, serialMonitoring])
+  }, [device, portForControl, serialMonitoring])
 
   if (loading && devices.length === 0) {
     return (

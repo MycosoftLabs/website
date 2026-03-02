@@ -65,7 +65,7 @@ export function DeviceRegistryTable() {
   const [isBusy, setIsBusy] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
-  const devices = data?.devices ?? []
+  const devices = useMemo(() => data?.devices ?? [], [data?.devices])
   const deviceTypes = useMemo(() => {
     const types = new Set<string>()
     devices.forEach((device) => {

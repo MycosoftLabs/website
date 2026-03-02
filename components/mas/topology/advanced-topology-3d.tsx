@@ -725,6 +725,7 @@ function BottomControlBar({
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const handleMycaSubmitRef = useRef<(queryOverride?: string) => void>(() => {})
   
   // Initialize speech recognition
   useEffect(() => {
@@ -740,7 +741,7 @@ function BottomControlBar({
         setMycaQuery(transcript)
         setIsListening(false)
         // Auto-submit after voice input
-        setTimeout(() => handleMycaSubmit(transcript), 100)
+        setTimeout(() => handleMycaSubmitRef.current(transcript), 100)
       }
       
       recognitionRef.current.onerror = () => {
@@ -846,6 +847,10 @@ function BottomControlBar({
     setMycaQuery("")
     setIsProcessing(false)
   }, [mycaQuery, onSpawnAgent, onPathTrace, onTimeline, onCommandCenter, voiceEnabled, speakResponse])
+
+  useEffect(() => {
+    handleMycaSubmitRef.current = handleMycaSubmit
+  }, [handleMycaSubmit])
   
   return (
     <div className="absolute bottom-0 left-0 right-0 h-14 bg-black/90 backdrop-blur-md border-t border-white/10 z-30">

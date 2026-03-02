@@ -177,7 +177,7 @@ export function WeatherVolumeLayer({
         viewer.scene.primitives.remove(pointsRef.current);
       }
     };
-  }, [createCloudVisualization]);
+  }, [createCloudVisualization, viewer]);
 
   // Update opacity
   useEffect(() => {

@@ -109,6 +109,22 @@ export default function VoiceDuplexPage() {
     checkMycaServer()
   }, [checkMycaServer])
 
+  const checkAvailability = useCallback(async () => {
+    try {
+      const res = await fetch("/api/mas/voice/duplex/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ check_only: true }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSession(data)
+      }
+    } catch (e) {
+      console.error("Failed to check availability:", e)
+    }
+  }, [])
+
   // Check PersonaPlex and native Moshi availability on mount
   useEffect(() => {
     checkAvailability()
@@ -125,22 +141,6 @@ export default function VoiceDuplexPage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [turns])
-
-  const checkAvailability = useCallback(async () => {
-    try {
-      const res = await fetch("/api/mas/voice/duplex/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ check_only: true }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setSession(data)
-      }
-    } catch (e) {
-      console.error("Failed to check availability:", e)
-    }
-  }, [])
 
   const startSession = async () => {
     try {

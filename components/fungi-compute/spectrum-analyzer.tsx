@@ -7,7 +7,7 @@
 
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { SignalBuffer } from "@/lib/fungi-compute"
@@ -84,7 +84,7 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
     }
   }, [])
 
-  const computeSpectrum = (samples: number[], sampleRate: number) => {
+  const computeSpectrum = useCallback((samples: number[], sampleRate: number) => {
     const windowSamples = samples.slice(-256)
     const n = windowSamples.length
     if (n < 16) return { frequencies: [], magnitudes: [], detectedPeaks: [] as { freq: number; mag: number }[] }
@@ -131,7 +131,7 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
     }
 
     return { frequencies, magnitudes, detectedPeaks: detectedPeaks.slice(0, 5) }
-  }
+  }, [freqRange.max])
 
   // Main animation loop
   useEffect(() => {
@@ -186,13 +186,13 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       } else {
         drawWaterfallSpectrum(ctx, waterfallRef.current, frequencies, w, h)
       }
-      
+
       drawBandMarkers(ctx, frequencies, w, h)
-      
+
       if (showPeaks && mode === "bars") {
         drawPeakMarkers(ctx, frequencies, magnitudes, detectedPeaks, w, h)
       }
-      
+
       drawFrequencyAxis(ctx, w, h)
       
       animationRef.current = requestAnimationFrame(draw)
@@ -203,10 +203,22 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, mode, freqRange, showPeaks, useLogScale, signalBuffer])
+  }, [
+    computeSpectrum,
+    dimensions,
+    drawBandMarkers,
+    drawBarSpectrum,
+    drawFrequencyAxis,
+    drawPeakMarkers,
+    drawWaterfallSpectrum,
+    isPaused,
+    mode,
+    showPeaks,
+    signalBuffer,
+  ])
 
   // Drawing functions
-  const drawBarSpectrum = (ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], w: number, h: number) => {
+  const drawBarSpectrum = useCallback((ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], w: number, h: number) => {
     const barWidth = w / magnitudes.length
     const maxMag = Math.max(...magnitudes, 0.1)
     const plotHeight = h - 30
@@ -232,9 +244,9 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       ctx.fillRect(x, h - 25 - barHeight, barWidth - 1, 3)
       ctx.shadowBlur = 0
     })
-  }
+  }, [useLogScale])
   
-  const drawWaterfallSpectrum = (ctx: CanvasRenderingContext2D, history: number[][], frequencies: number[], w: number, h: number) => {
+  const drawWaterfallSpectrum = useCallback((ctx: CanvasRenderingContext2D, history: number[][], frequencies: number[], w: number, h: number) => {
     const plotHeight = h - 30
     const rowHeight = Math.max(1, plotHeight / history.length)
     
@@ -259,9 +271,9 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
         ctx.fillRect(x, y, binWidth, rowHeight + 1)
       })
     })
-  }
+  }, [useLogScale])
   
-  const drawBandMarkers = (ctx: CanvasRenderingContext2D, frequencies: number[], w: number, h: number) => {
+  const drawBandMarkers = useCallback((ctx: CanvasRenderingContext2D, frequencies: number[], w: number, h: number) => {
     const maxFreq = Math.max(...frequencies, freqRange.max)
     const plotHeight = h - 30
     
@@ -281,9 +293,9 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
         ctx.fillText(band.name, (x1 + x2) / 2, 10)
       }
     })
-  }
+  }, [freqRange.max])
   
-  const drawPeakMarkers = (ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], detectedPeaks: { freq: number; mag: number }[], w: number, h: number) => {
+  const drawPeakMarkers = useCallback((ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], detectedPeaks: { freq: number; mag: number }[], w: number, h: number) => {
     const maxFreq = Math.max(...frequencies, freqRange.max)
     const maxMag = Math.max(...magnitudes, 0.1)
     const plotHeight = h - 30
@@ -304,9 +316,9 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       ctx.textAlign = "center"
       ctx.fillText(`${peak.freq.toFixed(2)}Hz`, x, y - 12)
     })
-  }
+  }, [freqRange.max])
   
-  const drawFrequencyAxis = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+  const drawFrequencyAxis = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
     ctx.fillStyle = "#06b6d4"
     ctx.font = "10px monospace"
     ctx.textAlign = "center"
@@ -319,7 +331,7 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       const x = (i / numLabels) * w
       ctx.fillText(`${freq.toFixed(0)}Hz`, x, h - 5)
     }
-  }
+  }, [freqRange.max])
 
   const handleReset = () => {
     setIsPaused(false)

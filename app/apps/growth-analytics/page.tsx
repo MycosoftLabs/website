@@ -94,38 +94,40 @@ export function GrowthAnalyticsContent() {
   const [mindexConnected, setMindexConnected] = useState(false)
   const [mindexSpeciesCount, setMindexSpeciesCount] = useState(0)
 
+  const fetchSpecies = useCallback(async () => {
+    try {
+      const response = await fetch("/api/growth/predict")
+      if (response.ok) {
+        const data = await response.json()
+        setSpeciesList(data.species || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch species:", error)
+    }
+  }, [])
+
   // Fetch available species from API
   useEffect(() => {
-    async function fetchSpecies() {
-      try {
-        const response = await fetch("/api/growth/predict")
-        if (response.ok) {
-          const data = await response.json()
-          setSpeciesList(data.species || [])
-        }
-      } catch (error) {
-        console.error("Failed to fetch species:", error)
-      }
-    }
     fetchSpecies()
+  }, [fetchSpecies])
+
+  const checkMINDEX = useCallback(async () => {
+    try {
+      const response = await fetch("/api/natureos/mindex/stats")
+      if (response.ok) {
+        const data = await response.json()
+        setMindexConnected(true)
+        setMindexSpeciesCount(data.total_taxa || 0)
+      }
+    } catch {
+      setMindexConnected(false)
+    }
   }, [])
 
   // Check MINDEX connection
   useEffect(() => {
-    async function checkMINDEX() {
-      try {
-        const response = await fetch("/api/natureos/mindex/stats")
-        if (response.ok) {
-          const data = await response.json()
-          setMindexConnected(true)
-          setMindexSpeciesCount(data.total_taxa || 0)
-        }
-      } catch {
-        setMindexConnected(false)
-      }
-    }
     checkMINDEX()
-  }, [])
+  }, [checkMINDEX])
 
   // Run prediction
   const runPrediction = useCallback(async () => {

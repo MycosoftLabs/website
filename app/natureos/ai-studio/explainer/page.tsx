@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -385,10 +386,10 @@ export default function TransformerExplainerPage() {
 
                 <div className="flex justify-center gap-4">
                   <Button asChild>
-                    <a href="/natureos/ai-studio">
+                    <Link href="/natureos/ai-studio">
                       <Brain className="h-4 w-4 mr-2" />
                       Open MYCA AI Studio
-                    </a>
+                    </Link>
                   </Button>
                   <Button variant="outline" asChild>
                     <a 

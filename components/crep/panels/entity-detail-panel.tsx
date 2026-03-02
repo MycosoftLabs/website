@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import Image from "next/image";
 import {
   Leaf, Clock, MapPin, Camera, User, ExternalLink, Award,
   Database, Globe, TreePine, CheckCircle2, AlertCircle, X,
@@ -219,11 +220,14 @@ function FungalDetail({ observation, onClose }: { observation: FungalObservation
       {/* Compact Photo - smaller height */}
       {photoUrl && (
         <div className="relative">
-          <img
+          <Image
             src={photoUrl}
             alt={speciesName}
             className="w-full h-28 object-cover"
-            loading="lazy"
+            width={560}
+            height={224}
+            sizes="(max-width: 768px) 100vw, 560px"
+            unoptimized
           />
           {observation.photos && observation.photos.length > 1 && (
             <Badge className="absolute bottom-1 right-1 bg-black/60 text-white backdrop-blur text-[10px] px-1 py-0.5">

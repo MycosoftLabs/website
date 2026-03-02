@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
+import Image from "next/image"
 import { DEVICES } from "@/lib/devices"
 
 export function DeviceGrid() {
@@ -23,14 +24,17 @@ export function DeviceGrid() {
           </CardHeader>
           <CardContent className="flex-1">
             <div className="aspect-video relative mb-6 rounded-lg overflow-hidden">
-              <img
+              <Image
                 src={
                   device.id === "alarm"
                     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Apr%208%2C%202025%2C%2004_02_35%20PM-uHEgjg8uigqYIix0Z34wxYEW1n4guo.png"
                     : device.image || "/placeholder.svg"
                 }
                 alt={device.name}
-                className="object-contain w-full h-full"
+                className="object-contain"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                unoptimized
               />
             </div>
             <Tabs defaultValue="overview" className="h-[200px]">

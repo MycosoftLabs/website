@@ -340,7 +340,7 @@ export function NatureOSDashboard() {
   const metrics = metricsResult?.metrics ?? null
   const network = networkResult?.network ?? null
   const activities = activitiesResult?.activities ?? []
-  const realDevices = devicesResult?.devices ?? []
+  const realDevices = useMemo(() => devicesResult?.devices ?? [], [devicesResult?.devices])
   const devicesLoading = devicesResult?.loading ?? false
   const mycoBrainDevices = mycoBrainResult?.devices ?? []
   const mycoBrainConnected = mycoBrainResult?.isConnected ?? false

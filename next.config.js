@@ -1,3 +1,41 @@
+/**
+ * Fix: Claude Code / Anthropic CLI sets ANTHROPIC_API_KEY="" in the system
+ * environment, which prevents Next.js from loading the real key from .env.local.
+ * We manually read .env.local and override any empty LLM API keys at startup.
+ */
+const fs = require('fs')
+const path = require('path')
+
+try {
+  const envPath = path.join(__dirname, '.env.local')
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8')
+    const LLM_KEYS = [
+      'ANTHROPIC_API_KEY',
+      'OPENAI_API_KEY',
+      'GROQ_API_KEY',
+      'GOOGLE_AI_API_KEY',
+      'GEMINI_API_KEY',
+      'XAI_API_KEY',
+      'ELEVENLABS_API_KEY',
+    ]
+    for (const line of envContent.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const eqIdx = trimmed.indexOf('=')
+      if (eqIdx === -1) continue
+      const key = trimmed.slice(0, eqIdx)
+      const value = trimmed.slice(eqIdx + 1)
+      // Override if: the key is an LLM key AND the current env is empty/missing
+      if (LLM_KEYS.includes(key) && (!process.env[key] || process.env[key].trim() === '')) {
+        process.env[key] = value
+      }
+    }
+  }
+} catch (e) {
+  // Silently continue — env override is best-effort
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable standalone output for Docker deployment
@@ -78,6 +116,9 @@ const nextConfig = {
   async redirects() {
     return [
       { source: "/myca-ai", destination: "/myca", permanent: false },
+      { source: "/myocode", destination: "/devices/myconode", permanent: false },
+      { source: "/myo-code", destination: "/devices/myconode", permanent: false },
+      { source: "/sporebase", destination: "/devices/sporebase", permanent: false },
     ]
   },
 }

@@ -7,7 +7,7 @@
 
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -133,7 +133,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
     }
   }, [])
 
-  const ingestSignalBuffer = () => {
+  const ingestSignalBuffer = useCallback(() => {
     const primaryBuffer = signalBuffer[0]
     if (!primaryBuffer || primaryBuffer.samples.length === 0 || primaryBuffer.timestamps.length === 0) return
 
@@ -167,10 +167,10 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
     if (dataBufferRef.current.length > 0) {
       timeRef.current = dataBufferRef.current[dataBufferRef.current.length - 1].time
     }
-  }
+  }, [channels, signalBuffer])
 
   // Detect patterns in data (pure function)
-  const detectPatterns = (currentTime: number) => {
+  const detectPatterns = useCallback((currentTime: number) => {
     const recentSpikes = spikesRef.current.slice(-100)
     if (recentSpikes.length < 5) return
     
@@ -225,7 +225,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
       avgAmplitude: avgAmp,
       detectedWords: patternsRef.current.filter(p => p.type === "word").length,
     }
-  }
+  }, [patterns])
 
   // Main animation loop
   useEffect(() => {
@@ -296,10 +296,26 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, isLive, showPatterns, showWordOverlay, channels, view, signalBuffer, patterns])
+  }, [
+    detectPatterns,
+    dimensions,
+    drawGrid,
+    drawPatternOverlay,
+    drawScaleLabels,
+    drawSignals,
+    drawSpikeMarkers,
+    drawTimeIndicator,
+    ingestSignalBuffer,
+    isLive,
+    isPaused,
+    showPatterns,
+    showWordOverlay,
+    channels,
+    view,
+  ])
 
   // Drawing functions
-  const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+  const drawGrid = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
     const divisions = 10
     
     ctx.strokeStyle = "rgba(0, 200, 255, 0.05)"
@@ -325,9 +341,9 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
     ctx.moveTo(0, h / 2)
     ctx.lineTo(w, h / 2)
     ctx.stroke()
-  }
+  }, [])
   
-  const drawPatternOverlay = (ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, t: number) => {
+  const drawPatternOverlay = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, t: number) => {
     patternsRef.current.forEach(pattern => {
       const startX = ((pattern.startTime - currentView.timeOffset) / currentView.timeScale) * w
       const endX = ((pattern.endTime - currentView.timeOffset) / currentView.timeScale) * w
@@ -356,9 +372,9 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         ctx.fillText(`${(pattern.confidence * 100).toFixed(0)}%`, (startX + endX) / 2, 26)
       }
     })
-  }
+  }, [])
   
-  const drawSignals = (ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, currentChannels: typeof CHANNELS) => {
+  const drawSignals = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, currentChannels: typeof CHANNELS) => {
     const data = dataBufferRef.current
     if (data.length < 2) return
     
@@ -398,9 +414,9 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
       ctx.stroke()
       ctx.shadowBlur = 0
     })
-  }
+  }, [])
   
-  const drawSpikeMarkers = (ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, currentChannels: typeof CHANNELS) => {
+  const drawSpikeMarkers = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, currentChannels: typeof CHANNELS) => {
     if (!showPatterns) return
     
     spikesRef.current.forEach(spike => {
@@ -426,9 +442,9 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         ctx.fillText(spike.label, x, 20)
       }
     })
-  }
+  }, [showPatterns])
   
-  const drawTimeIndicator = (ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, t: number, live: boolean) => {
+  const drawTimeIndicator = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState, t: number, live: boolean) => {
     if (live) {
       const liveX = ((t - currentView.timeOffset) / currentView.timeScale) * w
       if (liveX > 0 && liveX < w) {
@@ -447,9 +463,16 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
         ctx.fillText("LIVE", liveX - 5, h - 5)
       }
     }
-  }
+  }, [])
   
-  const drawScaleLabels = (ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState) => {
+  const formatTime = useCallback((seconds: number): string => {
+    if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`
+    if (seconds < 60) return `${seconds.toFixed(1)}s`
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m${Math.floor(seconds % 60)}s`
+    return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
+  }, [])
+
+  const drawScaleLabels = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, currentView: ViewState) => {
     ctx.fillStyle = "#06b6d4"
     ctx.font = "10px monospace"
     ctx.textAlign = "center"
@@ -468,14 +491,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
       const y = (i / 4) * h
       ctx.fillText(`${voltage.toFixed(0)}µV`, w - 5, y + 4)
     }
-  }
-  
-  const formatTime = (seconds: number): string => {
-    if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`
-    if (seconds < 60) return `${seconds.toFixed(1)}s`
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m${Math.floor(seconds % 60)}s`
-    return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
-  }
+  }, [formatTime])
 
   // Control handlers
   const handleZoomTime = (direction: number) => {

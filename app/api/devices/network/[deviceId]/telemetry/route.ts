@@ -17,9 +17,9 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
-  const { deviceId } = params
+  const { deviceId } = await params
 
   try {
     const response = await fetch(`${MAS_API_URL}/api/devices/${deviceId}/telemetry`, {

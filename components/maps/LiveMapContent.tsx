@@ -150,6 +150,7 @@ export function LiveMapContent() {
 
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
+  const filteredPointsRef = useRef<DevicePoint[]>([])
 
   const devicePoints = useMemo(() => buildDevicePoints(devices), [devices])
   const geofenceFeatures = useMemo(() => buildGeofenceFeatures(devices), [devices])
@@ -160,6 +161,10 @@ export function LiveMapContent() {
       return matchesStatus && matchesType
     })
   }, [devicePoints, statusFilter, typeFilter])
+
+  useEffect(() => {
+    filteredPointsRef.current = filteredPoints
+  }, [filteredPoints])
 
   const deviceTypes = useMemo(() => {
     const types = new Set<string>()
@@ -318,7 +323,7 @@ export function LiveMapContent() {
           const feature = event.features?.[0]
           if (!feature) return
           const properties = feature.properties
-          const selected = filteredPoints.find((point) => point.id === properties?.id)
+          const selected = filteredPointsRef.current.find((point) => point.id === properties?.id)
           if (selected) setSelectedDevice(selected)
         })
 

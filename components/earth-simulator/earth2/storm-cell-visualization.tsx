@@ -238,7 +238,7 @@ export function StormCellVisualization({
     } finally {
       setIsLoading(false);
     }
-  }, [viewer, visible, forecastMinutes, opacity, showLightning, showTornadoWarnings, onStormClick, onDataLoaded]);
+  }, [viewer, visible, opacity, showLightning, showTornadoWarnings, onStormClick, onDataLoaded]);
 
   useEffect(() => {
     createStormCells();

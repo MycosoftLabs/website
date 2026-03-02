@@ -24,7 +24,7 @@ import {
   Fish,
   Database,
   Eye,
-  Image,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export interface KingdomData {
@@ -201,7 +201,7 @@ export function KingdomStatsRow({ kingdom, data, className }: KingdomStatsRowPro
           <CardTitle className="text-[10px] font-medium truncate">
             {config.label} Images
           </CardTitle>
-          <Image className={cn("h-3 w-3", config.colorClass)} />
+          <ImageIcon className={cn("h-3 w-3", config.colorClass)} />
         </CardHeader>
         <CardContent className="p-2 pt-0 space-y-1">
           <RollingNumber

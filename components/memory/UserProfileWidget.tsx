@@ -6,7 +6,7 @@
  * Displays and allows editing of user preferences from memory.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export function UserProfileWidget({ userId = 'morgan' }: UserProfileWidgetProps)
   const [editing, setEditing] = useState(false);
   const [newPreference, setNewPreference] = useState({ key: '', value: '' });
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -64,11 +64,11 @@ export function UserProfileWidget({ userId = 'morgan' }: UserProfileWidgetProps)
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchProfile();
-  }, [userId]);
+  }, [fetchProfile]);
 
   const handleAddPreference = async () => {
     if (!newPreference.key.trim()) return;

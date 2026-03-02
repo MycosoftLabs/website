@@ -16,6 +16,7 @@
  */
 
 import type { ReactNode } from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -87,18 +88,18 @@ export function RequiresTablet({
           </p>
         </div>
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          <a
+          <Link
             href="/"
             className="flex items-center justify-center gap-2 w-full h-12 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
           >
             ← Back to Home
-          </a>
-          <a
+          </Link>
+          <Link
             href="/devices"
             className="flex items-center justify-center gap-2 w-full h-12 rounded-xl border text-sm font-medium"
           >
             Browse Devices
-          </a>
+          </Link>
         </div>
       </div>
       {/* Tablet and above: show full app */}

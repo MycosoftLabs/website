@@ -10,7 +10,7 @@
 
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -121,7 +121,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
     }
   }, [])
   
-  const computeSTFTColumn = (samples: number[], sampleRate: number): number[] => {
+  const computeSTFTColumn = useCallback((samples: number[], sampleRate: number): number[] => {
     const windowSamples = samples.slice(-128)
     const n = windowSamples.length
     const numBins = 64
@@ -156,7 +156,7 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
     powerStatsRef.current = { lowBand: lowPower, bioBand: bioPower, highBand: highPower }
 
     return column
-  }
+  }, [freqRange.max, freqRange.min])
   
   // Main animation loop
   useEffect(() => {
@@ -297,7 +297,18 @@ export function STFTSpectrogram({ className, signalBuffer = [] }: STFTSpectrogra
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
     }
-  }, [dimensions, isPaused, timeScale, freqRange, colormap, showBioMarker, showColonization, colonizationDetected, signalBuffer])
+  }, [
+    colormap,
+    colonizationDetected,
+    computeSTFTColumn,
+    dimensions,
+    freqRange,
+    isPaused,
+    showBioMarker,
+    showColonization,
+    signalBuffer,
+    timeScale,
+  ])
   
   const handleReset = () => {
     setIsPaused(false)

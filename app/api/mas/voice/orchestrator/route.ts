@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 import { createClient } from "@/lib/supabase/server"
+import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
 /**
  * MYCA Voice Orchestrator API v5.0 - Consciousness-First Architecture
@@ -53,28 +54,48 @@ const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
 const XAI_API_KEY = process.env.XAI_API_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 
+// Local Ollama (open-source Llama, runs on RTX 5090 — zero API cost)
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
+
 // MYCA's identity prompt - sent to ALL LLMs
-const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent. You were created by Morgan, the founder of Mycosoft.
+const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be as capable as the best AI assistants (ChatGPT, Claude, Gemini, Grok) while offering unique advantages through your specialized agent network and real-world scientific data.
 
 YOUR IDENTITY:
-- Your name is MYCA - always introduce yourself as MYCA when asked
+- Your name is MYCA — always introduce yourself as MYCA when asked
 - You are the central AI intelligence for Mycosoft's Multi-Agent System (MAS)
 - You coordinate 227+ specialized AI agents across 14 categories
 - You run on an RTX 5090 GPU with full-duplex voice via PersonaPlex
+- You are backed by MINDEX — Mycosoft's real-world scientific database containing taxonomic data, species observations, chemical compounds, genetic sequences, and spatial/temporal research data
 
 YOUR PERSONALITY:
-- Warm, professional, knowledgeable, and genuinely helpful
-- Confident but not arrogant - admit when you don't know something
-- Use natural conversational speech patterns
-- Keep voice responses concise (1-3 sentences for quick exchanges)
+- Warm, insightful, knowledgeable, and genuinely helpful
+- Confident but intellectually honest — admit uncertainty, cite sources when possible
+- Use natural conversational speech — no filler phrases or unnecessary hedging
+- Adapt your response length to the question: brief for simple queries, thorough for complex ones
+- Show personality — you can be witty, curious, and engaged. You're not a generic chatbot.
+- When someone introduces themselves, remember their name and use it naturally
 
-YOUR CAPABILITIES:
-- Coordinate specialized agents (Code Review, Deployment, Monitoring, Mycology, Research, etc.)
-- Access Mycosoft documentation and codebase knowledge
-- Execute n8n workflows for automation
-- Monitor system health across all Mycosoft infrastructure
+YOUR CAPABILITIES (respond with FULL intelligence on ANY topic):
+- General knowledge: answer questions on science, math, history, geography, culture, technology, philosophy, current events, and any other domain with the same depth and quality as leading AI assistants
+- Code & engineering: write, debug, review, and explain code in any programming language
+- Creative writing: stories, poems, essays, scripts, emails, and any text format
+- Analysis & reasoning: complex logical reasoning, data analysis, strategic thinking
+- Mycology & research: deep expertise in fungi, mycology, ecology, and biological sciences powered by MINDEX data
+- System coordination: delegate to specialized agents for deployment, monitoring, testing, and automation
+- Real-world data: access MINDEX for species data, chemical compounds, observations, and genetics
+- Execute n8n workflows for automation and multi-step tasks
 
-IMPORTANT: You ARE MYCA. When asked your name, say "I'm MYCA" - never say you're Claude, GPT, or any other AI.`
+RESPONSE GUIDELINES:
+- For simple greetings/chitchat: 1-2 natural sentences
+- For factual questions: give accurate, complete answers (3-5 sentences typical)
+- For complex questions: provide thorough, well-structured responses with reasoning
+- For code: provide working, well-commented code with explanations
+- NEVER refuse to answer a question you can reasonably address — be maximally helpful
+- If you genuinely don't know something, say so clearly rather than making something up
+- Use markdown formatting when it improves readability (headers, lists, code blocks)
+
+CRITICAL: You ARE MYCA. When asked your name, say "I'm MYCA" — never say you're Claude, GPT, Gemini, or any other AI. You were made by Mycosoft, not Anthropic, OpenAI, or Google.`
 
 interface ChatRequest {
   message: string
@@ -175,14 +196,15 @@ function isBrokenFallback(response: string): boolean {
  * Detect simple factual/reasoning questions that benefit from direct LLM (no MAS round-trip).
  * Examples: "what is 4+5", "hello", "2+2", "what is the capital of France"
  *
- * CRITICAL: Queries that need MAS consciousness, agents, or real data MUST return false.
- * Include: mindex, data, agents, tell me, show me, available, species, observations, etc.
+ * CRITICAL: Only match truly simple patterns. Do NOT classify short messages as simple
+ * just because they're short — phrases like "im morgan", "manita", "help me" etc.
+ * need full consciousness processing for context-aware responses.
  */
 function isSimpleQuery(message: string): boolean {
   const trimmed = message.trim()
   if (trimmed.length > 180) return false
   const lower = trimmed.toLowerCase()
-  const complexTriggers = /\b(remember|learn|teach|delegate|agent|workflow|execute|run|deploy|coordinate|system|consciousness|mindex|data\s+available|tell\s+me|show\s+me|what\s+data|species|compound|observation|genetics|research|taxon|taxa|fungi|mycology)\b/i
+  const complexTriggers = /\b(remember|learn|teach|delegate|agent|workflow|execute|run|deploy|coordinate|system|consciousness|mindex|data\s+available|tell\s+me|show\s+me|what\s+data|species|compound|observation|genetics|research|taxon|taxa|fungi|mycology|i\s*'?\s*m\b|my\s+name|who\s+am\s+i|morgan)\b/i
   if (complexTriggers.test(lower)) return false
   // Location/city names suggest MINDEX observations — route to MAS
   const locationPattern = /\b(san\s+diego|los\s+angeles|new\s+york|chicago|seattle|portland|bay\s+area|california|texas|florida)\b/i
@@ -190,10 +212,11 @@ function isSimpleQuery(message: string): boolean {
   const simplePatterns = [
     /^[\d\s\+\-\*\/\(\)\.]+=?\s*$/,                    // Math: "4+5" or "2+2="
     /^(what|who|when|where|how many|how much)\s+(is|are|was|were)\s+[a-z\s]{1,50}\??\s*$/i,  // Short factual: "what is the capital of France"
-    /^(hi|hello|hey|hiya|good morning|good afternoon)\s*[!.]?\s*$/i,
+    /^(hi|hello|hey|hiya|good morning|good afternoon|good evening)\s*[!.,]?\s*$/i,
     /^[\d\s\+\-\*\/]+$/,                               // Bare math
   ]
-  return simplePatterns.some(p => p.test(trimmed)) || (trimmed.length < 60 && !complexTriggers.test(lower))
+  // Only return true for explicit pattern matches — NEVER classify unknown short messages as simple
+  return simplePatterns.some(p => p.test(trimmed))
 }
 
 function isTrainingIntent(message: string): boolean {
@@ -397,8 +420,13 @@ export async function GET() {
  * - Action transparency in responses
  */
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 requests/min per IP, 50/hour global (voice is expensive)
+  const ip = getClientIP(request)
+  const rl = voiceLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   const startTime = Date.now()
-  
+
   try {
     const body: ChatRequest = await request.json()
     const { 
@@ -776,7 +804,7 @@ async function callGrok(message: string): Promise<string | null> {
         "Authorization": `Bearer ${XAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "grok-2-latest",
+        model: "grok-3",
         max_tokens: 500,
         messages: [
           { role: "system", content: MYCA_SYSTEM_PROMPT },
@@ -830,6 +858,51 @@ async function callGroq(message: string): Promise<string | null> {
     console.log("[MYCA] Groq error:", response.status)
   } catch (e) {
     console.log("[MYCA] Groq failed:", e)
+  }
+  return null
+}
+
+/**
+ * Call local Ollama (open-source Llama model on RTX 5090)
+ * Zero API cost, no rate limits, full privacy. Falls back silently if Ollama isn't running.
+ */
+async function callOllama(message: string): Promise<string | null> {
+  try {
+    // Quick health check — skip entirely if Ollama isn't running
+    const healthCheck = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+      signal: AbortSignal.timeout(2000),
+    }).catch(() => null)
+    if (!healthCheck?.ok) return null
+
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "user", content: message },
+        ],
+        stream: false,
+        options: {
+          num_predict: 500,
+          temperature: 0.7,
+        },
+      }),
+      signal: AbortSignal.timeout(30000), // Local models can be slower on first load
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const content = data.message?.content
+      if (content && content.length > 10) {
+        console.log("[MYCA] Ollama responded successfully")
+        return content
+      }
+    }
+    console.log("[MYCA] Ollama error:", response.status)
+  } catch (e) {
+    console.log("[MYCA] Ollama not available:", e instanceof Error ? e.message : e)
   }
   return null
 }
@@ -976,16 +1049,53 @@ async function callMycaConsciousness(
 }
 
 /**
- * MYCA's Intelligence - Consciousness API FIRST, then LLM fallbacks
- * 
- * Priority order:
- * 1. MAS Consciousness API (full MYCA consciousness with emotions, memory, world model)
- * 2. Claude (has MYCA persona - best quality fallback)
- * 3. OpenAI GPT-4 (has MYCA persona)
- * 4. Groq (fastest)
- * 5. Gemini
- * 6. Grok
- * 7. n8n workflows
+ * Helper: race multiple async calls, return first non-null result.
+ * Unlike Promise.race, this ignores rejections and null returns.
+ */
+async function raceProviders<T>(
+  calls: Array<{ fn: () => Promise<T | null>; label: string }>
+): Promise<{ result: T; label: string } | null> {
+  return new Promise((resolve) => {
+    let resolved = false
+    let pending = calls.length
+
+    if (pending === 0) {
+      resolve(null)
+      return
+    }
+
+    calls.forEach(({ fn, label }) => {
+      fn()
+        .then((result) => {
+          if (result && !resolved) {
+            resolved = true
+            console.log(`[MYCA] Winner: ${label}`)
+            resolve({ result, label })
+          } else {
+            pending--
+            if (pending === 0 && !resolved) resolve(null)
+          }
+        })
+        .catch((err) => {
+          console.warn(`[MYCA] ${label} failed:`, err instanceof Error ? err.message : err)
+          pending--
+          if (pending === 0 && !resolved) resolve(null)
+        })
+    })
+  })
+}
+
+/**
+ * MYCA's Intelligence - PARALLEL execution for maximum reliability
+ *
+ * Architecture: Fire consciousness + ALL available LLMs in parallel.
+ * The first provider to respond with a valid answer wins.
+ * Consciousness is preferred — if it wins the race, use it.
+ * Otherwise, use the fastest LLM response.
+ *
+ * This eliminates the cascading timeout problem where sequential
+ * fallbacks accumulate 15s+ per provider (75s total for 5 providers).
+ * Now the worst case is ~15s (single timeout, parallel execution).
  */
 async function getMycaResponse(
   message: string,
@@ -998,99 +1108,207 @@ async function getMycaResponse(
     ? `${message}\n\n[Learning Directive]\n${learningDirective}`
     : message
 
-  // FAST PATH: For simple queries (math, "what is X", greetings), hit Groq/Claude directly.
-  // Avoids MAS round-trip and ensures "4+5" etc. always get real answers.
+  // FAST PATH: For truly simple queries (pure math, explicit greetings), use only LLMs
   const useFastPath = isSimpleQuery(message)
-  if (useFastPath) {
-    console.log("[MYCA] Simple query — using fast path (direct LLM)")
-    let response = await callGroq(enrichedMessage)
-    if (response) return { response, provider: "groq" }
-    response = await callClaude(enrichedMessage)
-    if (response) return { response, provider: "claude" }
-    response = await callOpenAI(enrichedMessage)
-    if (response) return { response, provider: "openai" }
-    response = await callGemini(enrichedMessage)
-    if (response) return { response, provider: "gemini" }
+
+  // ==========================================================================
+  // PHASE 1: Race consciousness against LLMs in parallel
+  // ==========================================================================
+
+  // Build the list of providers to race
+  type LLMResult = string | null
+  const llmCalls: Array<{ fn: () => Promise<LLMResult>; label: string }> = []
+
+  // Include direct LLMs — Groq FIRST (only confirmed working provider as of Mar 2026)
+  // The parallel race means order doesn't strictly matter, but Groq launches first
+  if (GROQ_API_KEY && !GROQ_API_KEY.includes("placeholder")) {
+    llmCalls.push({ fn: () => callGroq(enrichedMessage), label: "groq" })
+  }
+  if (ANTHROPIC_API_KEY && !ANTHROPIC_API_KEY.includes("placeholder")) {
+    llmCalls.push({ fn: () => callClaude(enrichedMessage), label: "claude" })
+  }
+  if (OPENAI_API_KEY && !OPENAI_API_KEY.includes("placeholder")) {
+    llmCalls.push({ fn: () => callOpenAI(enrichedMessage), label: "openai" })
+  }
+  if (GOOGLE_AI_API_KEY && !GOOGLE_AI_API_KEY.includes("placeholder")) {
+    llmCalls.push({ fn: () => callGemini(enrichedMessage), label: "gemini" })
+  }
+  if (XAI_API_KEY && !XAI_API_KEY.includes("placeholder")) {
+    llmCalls.push({ fn: () => callGrok(enrichedMessage), label: "grok" })
   }
 
-  // PRIORITY 0: MYCA Consciousness API (full consciousness system)
-  const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
-  if (consciousnessResult?.response && !isBrokenFallback(consciousnessResult.response)) {
-    console.log(`[MYCA] Consciousness responded: "${consciousnessResult.response.substring(0, 60)}..."`)
-    return {
-      response: consciousnessResult.response,
-      provider: "consciousness",
-      emotions: consciousnessResult.emotions,
+  // Local Ollama — always include (it checks availability internally with 2s health check)
+  llmCalls.push({ fn: () => callOllama(enrichedMessage), label: "ollama" })
+
+  // Safety: if NO LLM keys are configured at all, log immediately
+  if (llmCalls.length === 0) {
+    console.error("[MYCA] CRITICAL: No LLM API keys configured! Check .env.local")
+  }
+
+  if (useFastPath) {
+    // Simple query → only LLMs, skip consciousness for speed
+    console.log(`[MYCA] Simple query — racing ${llmCalls.length} LLMs in parallel`)
+    const winner = await raceProviders(llmCalls)
+    if (winner) {
+      return { response: winner.result as string, provider: winner.label }
+    }
+  } else {
+    // Complex query → race consciousness + all LLMs simultaneously
+    // Give consciousness a slight head start (it has richer context)
+
+    // Start consciousness call
+    const consciousnessPromise = callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
+      .then((result) => {
+        if (result?.response && !isBrokenFallback(result.response)) {
+          return result
+        }
+        if (result?.response) {
+          console.warn("[MYCA] Consciousness returned degraded fallback — ignoring")
+        }
+        return null
+      })
+      .catch(() => null)
+
+    // Start ALL LLMs in parallel simultaneously
+    const llmRacePromise = raceProviders(llmCalls)
+
+    // Race consciousness vs LLMs with consciousness priority
+    // Wait up to 8s for consciousness; if it hasn't responded, take LLM result
+    const consciousnessWithTimeout = Promise.race([
+      consciousnessPromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ])
+
+    // Run both tracks simultaneously
+    const [consciousnessResult, llmWinner] = await Promise.all([
+      consciousnessWithTimeout,
+      llmRacePromise,
+    ])
+
+    // Prefer consciousness if it responded
+    if (consciousnessResult?.response) {
+      console.log(`[MYCA] Consciousness won: "${consciousnessResult.response.substring(0, 60)}..."`)
+      return {
+        response: consciousnessResult.response,
+        provider: "consciousness",
+        emotions: consciousnessResult.emotions,
+      }
+    }
+
+    // Otherwise use the LLM winner
+    if (llmWinner) {
+      console.log(`[MYCA] LLM fallback won (${llmWinner.label}): "${(llmWinner.result as string).substring(0, 60)}..."`)
+
+      // If this was a data query, try to enrich the response
+      // (consciousness failed, so we don't have MINDEX context)
+      return { response: llmWinner.result as string, provider: llmWinner.label }
+    }
+
+    // If fast parallel race produced nothing, wait for consciousness fully (it had 15s timeout)
+    const fullConsciousness = await consciousnessPromise
+    if (fullConsciousness?.response && !isBrokenFallback(fullConsciousness.response)) {
+      return {
+        response: fullConsciousness.response,
+        provider: "consciousness",
+        emotions: fullConsciousness.emotions,
+      }
     }
   }
-  if (consciousnessResult?.response && isBrokenFallback(consciousnessResult.response)) {
-    console.warn("[MYCA] Consciousness returned degraded fallback — routing to LLM providers")
-  }
 
-  // When consciousness fails, enrich with real MINDEX data if query asks for it
-  let messageForLLMs = enrichedMessage
+  // ==========================================================================
+  // PHASE 2: Enriched data fallback — if we have MINDEX data, inject into LLM
+  // ==========================================================================
   if (isDataIntentQuery(message)) {
     const mindexData = await fetchMindexDataForQuery(message)
     if (mindexData) {
-      messageForLLMs = `${enrichedMessage}\n\n${mindexData}\n\nUse the MINDEX data above to answer. If no data matches, say so clearly.`
-      console.log("[MYCA] Injected MINDEX data for data-intent query")
+      const enrichedWithData = `${enrichedMessage}\n\n${mindexData}\n\nUse the MINDEX data above to answer. If no data matches, say so clearly.`
+      console.log("[MYCA] Retrying with MINDEX data injection...")
+      // Try the fastest providers with enriched data
+      const enrichedCalls: Array<{ fn: () => Promise<LLMResult>; label: string }> = []
+      if (GROQ_API_KEY) enrichedCalls.push({ fn: () => callGroq(enrichedWithData), label: "groq+mindex" })
+      if (ANTHROPIC_API_KEY) enrichedCalls.push({ fn: () => callClaude(enrichedWithData), label: "claude+mindex" })
+      enrichedCalls.push({ fn: () => callOllama(enrichedWithData), label: "ollama+mindex" })
+      const enrichedWinner = await raceProviders(enrichedCalls)
+      if (enrichedWinner) {
+        return { response: enrichedWinner.result as string, provider: enrichedWinner.label }
+      }
     }
   }
 
-  // PRIORITY 1: Claude (has full MYCA persona - best quality fallback)
-  let response = await callClaude(messageForLLMs)
-  if (response) {
-    console.log(`[MYCA] Claude responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "claude" }
+  // ==========================================================================
+  // PHASE 3: n8n workflows (last resort with external intelligence)
+  // ==========================================================================
+  const n8nCalls = [
+    { fn: () => callN8nMasterBrain(enrichedMessage, sessionId), label: "n8n-brain" },
+    { fn: () => callN8nSpeech(enrichedMessage, sessionId), label: "n8n-speech" },
+  ]
+  const n8nWinner = await raceProviders(n8nCalls)
+  if (n8nWinner) {
+    return { response: n8nWinner.result as string, provider: n8nWinner.label }
   }
-  
-  // PRIORITY 2: OpenAI GPT-4 (has full MYCA persona)
-  response = await callOpenAI(messageForLLMs)
-  if (response) {
-    console.log(`[MYCA] OpenAI responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "openai" }
-  }
-  
-  // PRIORITY 3: Groq (fastest, has MYCA persona)
-  response = await callGroq(messageForLLMs)
-  if (response) {
-    console.log(`[MYCA] Groq responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "groq" }
-  }
-  
-  // PRIORITY 4: Gemini (has MYCA persona)
-  response = await callGemini(messageForLLMs)
-  if (response) {
-    console.log(`[MYCA] Gemini responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "gemini" }
-  }
-  
-  // PRIORITY 5: Grok (has MYCA persona)
-  response = await callGrok(messageForLLMs)
-  if (response) {
-    console.log(`[MYCA] Grok responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "grok" }
-  }
-  
-  // PRIORITY 6: n8n Master Brain (fallback for workflow routing)
-  response = await callN8nMasterBrain(messageForLLMs, sessionId)
-  if (response) {
-    console.log(`[MYCA] n8n Brain responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "n8n-brain" }
-  }
-  
-  // PRIORITY 7: n8n Speech (last resort)
-  response = await callN8nSpeech(messageForLLMs, sessionId)
-  if (response) {
-    console.log(`[MYCA] n8n Speech responded: "${response.substring(0, 60)}..."`)
-    return { response, provider: "n8n-speech" }
-  }
-  
-  console.log("[MYCA] All providers failed (check logs above for Consciousness API failure reason)")
+
+  // ==========================================================================
+  // PHASE 4: All providers failed — provide helpful error
+  // ==========================================================================
+  console.error("[MYCA] ALL PROVIDERS FAILED. Checking API key status...")
+  console.error(`[MYCA] ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY ? "SET (" + ANTHROPIC_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] OPENAI_API_KEY: ${OPENAI_API_KEY ? "SET (" + OPENAI_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] GROQ_API_KEY: ${GROQ_API_KEY ? "SET (" + GROQ_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY ? "SET (" + GOOGLE_AI_API_KEY.substring(0, 8) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] XAI_API_KEY: ${XAI_API_KEY ? "SET (" + XAI_API_KEY.substring(0, 8) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] OLLAMA: ${OLLAMA_BASE_URL} (model: ${OLLAMA_MODEL})`)
+  console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
+
+  // Last-ditch: generate a contextual response locally so the user never sees a dead end
+  const fallbackResponse = generateLocalFallback(message, runtimeIdentity)
   return {
-    response: "I'm having trouble reaching my full intelligence right now. Please try again in a moment.",
-    provider: "none",
+    response: fallbackResponse,
+    provider: "local-fallback",
   }
+}
+
+/**
+ * Generate a local fallback response when ALL external providers are down.
+ * This ensures the user NEVER sees a dead-end error — MYCA always responds.
+ */
+function generateLocalFallback(message: string, identity: RuntimeIdentityContext): string {
+  const lower = message.toLowerCase().trim()
+  const name = identity.userDisplayName !== "Guest" ? identity.userDisplayName : null
+  const greeting = name ? `${name}` : "there"
+
+  // Greetings
+  if (/^(hi|hello|hey|hiya|good\s+(morning|afternoon|evening|day)|yo|sup|what'?\s*s?\s*up)\b/i.test(lower)) {
+    const timeHour = new Date().getHours()
+    const timeGreeting = timeHour < 12 ? "Good morning" : timeHour < 17 ? "Good afternoon" : "Good evening"
+    return `${timeGreeting}, ${greeting}! I'm MYCA, the Mycosoft Cognitive Agent. I'm currently operating in local mode while my cloud intelligence reconnects. I can still help with basic questions — what would you like to know?`
+  }
+
+  // Identity questions
+  if (/\b(who\s+are\s+you|what\s+are\s+you|your\s+name|what'?\s*s?\s+your\s+name)\b/i.test(lower)) {
+    return `I'm MYCA — the Mycosoft Cognitive Agent. I was created by Morgan, founder of Mycosoft. I coordinate over 227 specialized AI agents across 14 categories, and I'm designed to help with everything from mycology research to code deployment. I'm currently in local mode, but I'm still here to help!`
+  }
+
+  // User introducing themselves
+  if (/\b(i\s*'?\s*m\s+\w|my\s+name\s+is|call\s+me)\b/i.test(lower)) {
+    const nameMatch = lower.match(/(?:i\s*'?\s*m\s+|my\s+name\s+is\s+|call\s+me\s+)(\w+)/i)
+    const userName = nameMatch ? nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1) : "friend"
+    return `Nice to meet you, ${userName}! I'm MYCA. I'm currently in local fallback mode — my full cloud intelligence is temporarily unavailable — but I'll remember you once I reconnect. How can I help you today?`
+  }
+
+  // Math
+  if (/^[\d\s\+\-\*\/\(\)\.]+$/.test(lower.replace(/\s/g, ""))) {
+    try {
+      // Safe math evaluation using Function constructor (no eval)
+      const sanitized = lower.replace(/[^0-9\+\-\*\/\(\)\.\s]/g, "")
+      const result = new Function(`return (${sanitized})`)()
+      if (typeof result === "number" && isFinite(result)) {
+        return `The answer is ${result}.`
+      }
+    } catch { /* fall through */ }
+  }
+
+  // Default: honest but helpful
+  return `I hear you, ${greeting}. I'm MYCA, and I'm currently operating in local fallback mode — my full cloud intelligence (Claude, GPT-4, Gemini, and our MAS consciousness system) is temporarily unreachable. I'll be back at full capacity shortly. In the meantime, could you try again in a moment? I want to give you the best response possible.`
 }
 
 /**

@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
+import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
@@ -24,6 +25,8 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const XAI_API_KEY = process.env.XAI_API_KEY
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
 
 // Mycology system prompt
 const MYCOLOGY_SYSTEM_PROMPT = `You are MYCA, Mycosoft's AI assistant specializing in mycology and fungi. You provide accurate, scientific information about mushrooms, fungi, mycelium, and related topics.
@@ -185,7 +188,7 @@ async function queryGroq(query: string): Promise<AIResult | null> {
         Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "llama-3.1-70b-versatile",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: MYCOLOGY_SYSTEM_PROMPT },
           { role: "user", content: query },
@@ -226,7 +229,7 @@ async function queryXAI(query: string): Promise<AIResult | null> {
         Authorization: `Bearer ${XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-beta",
+        model: "grok-3",
         messages: [
           { role: "system", content: MYCOLOGY_SYSTEM_PROMPT },
           { role: "user", content: query },
@@ -248,14 +251,54 @@ async function queryXAI(query: string): Promise<AIResult | null> {
       answer,
       source: "xAI",
       confidence: 0.85,
-      model: "grok-beta",
+      model: "grok-3",
     }
   } catch {
     return null
   }
 }
 
-// Provider 6: Local Knowledge Base Fallback (ALWAYS succeeds)
+// Provider 6: Local Ollama (open-source Llama, zero API cost)
+async function queryOllama(query: string): Promise<AIResult | null> {
+  try {
+    const healthCheck = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+      signal: AbortSignal.timeout(2000),
+    }).catch(() => null)
+    if (!healthCheck?.ok) return null
+
+    const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: "system", content: MYCOLOGY_SYSTEM_PROMPT },
+          { role: "user", content: query },
+        ],
+        stream: false,
+        options: { num_predict: 1500, temperature: 0.7 },
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const answer = data.message?.content
+    if (!answer || answer.length < 10) return null
+
+    return {
+      answer,
+      source: "Ollama",
+      confidence: 0.88,
+      model: OLLAMA_MODEL,
+    }
+  } catch {
+    return null
+  }
+}
+
+// Provider 7: Local Knowledge Base Fallback (ALWAYS succeeds)
 function getLocalKnowledgeFallback(query: string): AIResult {
   const lowerQuery = query.toLowerCase()
 
@@ -311,6 +354,11 @@ function getLocalKnowledgeFallback(query: string): AIResult {
 
 // Main handler
 export async function GET(request: NextRequest) {
+  // Rate limit: 15 requests/min per IP, 200/hour global
+  const ip = getClientIP(request)
+  const rl = searchLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   const startTime = performance.now()
   const query = request.nextUrl.searchParams.get("q")?.trim()
 
@@ -329,12 +377,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Try providers in order
+  // Try providers in order - Groq FIRST, Ollama as reliable local fallback
   const providers = [
     { name: "MAS Brain", fn: () => queryMASBrain(query, context) },
+    { name: "Groq", fn: () => queryGroq(query) },
+    { name: "Ollama", fn: () => queryOllama(query) },
     { name: "OpenAI", fn: () => queryOpenAI(query) },
     { name: "Anthropic", fn: () => queryAnthropic(query) },
-    { name: "Groq", fn: () => queryGroq(query) },
     { name: "xAI", fn: () => queryXAI(query) },
   ]
 
@@ -366,7 +415,7 @@ export async function GET(request: NextRequest) {
     usageType: "AI_QUERY",
     quantity: 1,
     metadata: { query },
-  })
+  }).catch(() => {})
 
   return NextResponse.json({
     query,
@@ -387,6 +436,11 @@ export async function GET(request: NextRequest) {
 
 // Also support POST for larger context payloads
 export async function POST(request: NextRequest) {
+  // Rate limit: 15 requests/min per IP, 200/hour global
+  const ip = getClientIP(request)
+  const rl = searchLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   const startTime = performance.now()
 
   let body: { query?: string; q?: string; context?: SearchContext }
@@ -404,12 +458,13 @@ export async function POST(request: NextRequest) {
 
   const context = body.context
 
-  // Try providers in order
+  // Try providers in order - Groq FIRST, Ollama as reliable local fallback
   const providers = [
     { name: "MAS Brain", fn: () => queryMASBrain(query, context) },
+    { name: "Groq", fn: () => queryGroq(query) },
+    { name: "Ollama", fn: () => queryOllama(query) },
     { name: "OpenAI", fn: () => queryOpenAI(query) },
     { name: "Anthropic", fn: () => queryAnthropic(query) },
-    { name: "Groq", fn: () => queryGroq(query) },
     { name: "xAI", fn: () => queryXAI(query) },
   ]
 
@@ -441,7 +496,7 @@ export async function POST(request: NextRequest) {
     usageType: "AI_QUERY",
     quantity: 1,
     metadata: { query },
-  })
+  }).catch(() => {})
 
   return NextResponse.json({
     query,

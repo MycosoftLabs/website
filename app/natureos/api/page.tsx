@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -434,16 +435,16 @@ export default function APIPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <a href="/natureos/sdk">
+            <Link href="/natureos/sdk">
               <FileJson className="h-4 w-4 mr-2" />
               SDK Docs
-            </a>
+            </Link>
           </Button>
           <Button variant="outline" asChild>
-            <a href="/natureos/shell">
+            <Link href="/natureos/shell">
               <Terminal className="h-4 w-4 mr-2" />
               Shell
-            </a>
+            </Link>
           </Button>
         </div>
       </div>
@@ -705,10 +706,10 @@ export default function APIPage() {
               </p>
             </div>
             <Button variant="outline" asChild>
-              <a href="/natureos/model-training">
+              <Link href="/natureos/model-training">
                 Learn More
                 <ExternalLink className="h-4 w-4 ml-2" />
-              </a>
+              </Link>
             </Button>
           </div>
         </CardContent>

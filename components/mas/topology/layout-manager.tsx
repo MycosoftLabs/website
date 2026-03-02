@@ -140,7 +140,7 @@ export function LayoutManager({
         onLoadLayout(defaultLayout.viewState, defaultLayout.filter, defaultLayout.nodePositions)
       }
     }
-  }, [defaultLayoutId, layouts.length]) // Only run once when layouts are loaded
+  }, [defaultLayoutId, layouts, onLoadLayout]) // Only run once when layouts are loaded
   
   // Save current layout
   const handleSaveLayout = useCallback(() => {

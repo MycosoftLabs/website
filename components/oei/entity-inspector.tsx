@@ -163,7 +163,7 @@ export function EntityInspector({
     }
 
     fetchRelatedEvents()
-  }, [entity?.id])
+  }, [entity])
 
   // Get entity-specific properties
   const entityProperties = useMemo(() => {

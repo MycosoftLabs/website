@@ -52,8 +52,8 @@ interface MetricDataPoint {
 }
 
 // Generate historical data based on current metrics
-function generateHistoricalData(node: TopologyNode, duration: "1h" | "6h" | "24h" | "7d"): MetricDataPoint[] {
-  const now = Date.now()
+function generateHistoricalData(node: TopologyNode, duration: "1h" | "6h" | "24h" | "7d", refreshKey: number): MetricDataPoint[] {
+  const now = Date.now() + refreshKey
   const intervals = {
     "1h": { points: 60, intervalMs: 60 * 1000 },      // 1 minute intervals
     "6h": { points: 72, intervalMs: 5 * 60 * 1000 },  // 5 minute intervals
@@ -184,8 +184,8 @@ export function MetricsChart({ node, className = "" }: MetricsChartProps) {
   
   // Generate historical data
   const data = useMemo(() => 
-    generateHistoricalData(node, duration),
-    [node.id, node.metrics, duration, refreshKey]
+    generateHistoricalData(node, duration, refreshKey),
+    [node, duration, refreshKey]
   )
   
   // Calculate trends

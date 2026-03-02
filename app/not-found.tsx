@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 export default function NotFound() {
   return (
     <div className="min-h-dvh w-full px-4 py-10 sm:px-6 lg:px-8">
@@ -13,18 +15,18 @@ export default function NotFound() {
           <li>The species or compound might not be in our database yet</li>
         </ul>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <a
+          <Link
             href="/"
             className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-transparent bg-muted px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted/80"
           >
             Go Home
-          </a>
-          <a
+          </Link>
+          <Link
             href="/species/submit"
             className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-border/70 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted/60"
           >
             Submit New Species
-          </a>
+          </Link>
         </div>
       </div>
     </div>

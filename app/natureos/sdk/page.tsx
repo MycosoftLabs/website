@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -645,7 +646,7 @@ export default function SDKPage() {
                 Access 500k+ fungal species, observations, research papers, and bioactive compounds
               </p>
               <Button variant="link" className="px-0 mt-2" asChild>
-                <a href="/natureos/api">Explore Endpoints →</a>
+                <Link href="/natureos/api">Explore Endpoints →</Link>
               </Button>
             </div>
             <div className="p-4 border rounded-lg">
@@ -655,7 +656,7 @@ export default function SDKPage() {
                 Natural language AI for fungal knowledge, code generation, and research assistance
               </p>
               <Button variant="link" className="px-0 mt-2" asChild>
-                <a href="/natureos/shell">Try Shell →</a>
+                <Link href="/natureos/shell">Try Shell →</Link>
               </Button>
             </div>
             <div className="p-4 border rounded-lg">
@@ -665,7 +666,7 @@ export default function SDKPage() {
                 WebSocket streams for sensor data, observations, and network status
               </p>
               <Button variant="link" className="px-0 mt-2" asChild>
-                <a href="/natureos/devices">View Devices →</a>
+                <Link href="/natureos/devices">View Devices →</Link>
               </Button>
             </div>
           </div>
@@ -707,10 +708,10 @@ export default function SDKPage() {
           </div>
           <div className="flex gap-4">
             <Button variant="outline" asChild>
-              <a href="/natureos/model-training">
+              <Link href="/natureos/model-training">
                 <Bot className="h-4 w-4 mr-2" />
                 Learn About NLM
-              </a>
+              </Link>
             </Button>
             <Button variant="outline" asChild>
               <a href={`https://github.com/${GITHUB_ORG}`} target="_blank" rel="noopener noreferrer">

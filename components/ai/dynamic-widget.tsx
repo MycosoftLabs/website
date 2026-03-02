@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -492,12 +493,14 @@ function TabsRenderer({
 function ImageRenderer({ component }: { component: ImageComponent }) {
   return (
     <figure>
-      <img
+      <Image
         src={component.src}
         alt={component.alt}
         width={component.width}
         height={component.height}
-        className="rounded-lg"
+        className="rounded-lg h-auto"
+        sizes="100vw"
+        unoptimized
       />
       {component.caption && (
         <figcaption className="text-sm text-muted-foreground text-center mt-2">

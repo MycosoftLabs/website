@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,54 +37,55 @@ export function CompoundSimContent() {
   const [searchingChemSpider, setSearchingChemSpider] = useState(false)
   const [enriching, setEnriching] = useState(false)
 
-  // Fetch compounds from MINDEX API directly
-  useEffect(() => {
-    const fetchMINDEXCompounds = async () => {
-      setLoadingMindex(true)
-      try {
-        // Try direct MINDEX API first
-        const result = await fetchCompounds({ limit: 100 })
-        
-        if (result.data && result.data.length > 0) {
-          const compounds = result.data.map(c => ({
-            id: c.id,
-            name: c.name,
-            formula: c.formula || "",
-            weight: c.molecular_weight || 0,
-            source: c.source || "MINDEX",
-            activity: c.activities?.map(a => a.activity_name) || [],
-            smiles: c.smiles,
-            inchi: c.inchi,
-            inchikey: c.inchikey,
-            chemspiderId: c.chemspider_id,
-            pubchemId: c.pubchem_id?.toString(),
-          }))
-          setMindexCompounds(compounds)
+  const fetchMINDEXCompounds = useCallback(async () => {
+    setLoadingMindex(true)
+    try {
+      // Try direct MINDEX API first
+      const result = await fetchCompounds({ limit: 100 })
+      
+      if (result.data && result.data.length > 0) {
+        const compounds = result.data.map(c => ({
+          id: c.id,
+          name: c.name,
+          formula: c.formula || "",
+          weight: c.molecular_weight || 0,
+          source: c.source || "MINDEX",
+          activity: c.activities?.map(a => a.activity_name) || [],
+          smiles: c.smiles,
+          inchi: c.inchi,
+          inchikey: c.inchikey,
+          chemspiderId: c.chemspider_id,
+          pubchemId: c.pubchem_id?.toString(),
+        }))
+        setMindexCompounds(compounds)
+        setMindexConnected(true)
+        if (compounds.length) {
+          setSelected((prev) => prev ?? compounds[0])
+        }
+      } else {
+        // Fallback to existing API
+        const response = await fetch("/api/natureos/mindex/compounds")
+        if (response.ok) {
+          const data = await response.json()
+          setMindexCompounds(data.compounds || [])
           setMindexConnected(true)
-          if (compounds.length) {
-            setSelected((prev) => prev ?? compounds[0])
-          }
-        } else {
-          // Fallback to existing API
-          const response = await fetch("/api/natureos/mindex/compounds")
-          if (response.ok) {
-            const data = await response.json()
-            setMindexCompounds(data.compounds || [])
-            setMindexConnected(true)
-            if (Array.isArray(data.compounds) && data.compounds.length) {
-              setSelected((prev) => prev ?? data.compounds[0])
-            }
+          if (Array.isArray(data.compounds) && data.compounds.length) {
+            setSelected((prev) => prev ?? data.compounds[0])
           }
         }
-      } catch (error) {
-        console.error("Failed to fetch MINDEX compounds:", error)
-        setMindexConnected(false)
-      } finally {
-        setLoadingMindex(false)
       }
+    } catch (error) {
+      console.error("Failed to fetch MINDEX compounds:", error)
+      setMindexConnected(false)
+    } finally {
+      setLoadingMindex(false)
     }
-    fetchMINDEXCompounds()
   }, [])
+
+  // Fetch compounds from MINDEX API directly
+  useEffect(() => {
+    fetchMINDEXCompounds()
+  }, [fetchMINDEXCompounds])
 
   // Search ChemSpider when search query changes
   const handleChemSpiderSearch = async () => {

@@ -376,41 +376,8 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
   }, [initializeMap])
 
 
-  // Fetch all devices (MycoBrain + MINDEX)
-  const fetchDevices = async () => {
-    try {
-      // Fetch from telemetry API which includes MycoBrain + MINDEX devices
-      const res = await fetch("/api/natureos/devices/telemetry")
-      const data = await res.json()
-      const allDevices = Array.isArray(data) ? data : []
-      
-      const deviceLocations: DeviceLocation[] = allDevices
-        .filter((d: any) => d.deviceType === "mycobrain" && (d.status === "active" || d.connected))
-        .map((d: { deviceId: string; port?: string; deviceType: string; location?: { latitude: number; longitude: number }; metrics?: { temperature?: number; humidity?: number; iaq?: number } }) => ({
-        id: d.deviceId || d.port || "unknown",
-        name: d.deviceType === "mycobrain" ? `MycoBrain ${d.port || "Unknown"}` : d.deviceId,
-        type: "mycobrain" as const,
-        location: d.location ? { lat: d.location.latitude, lng: d.location.longitude } : { lat: 40.7128, lng: -74.006 },
-        status: (d.status === "active" || d.connected) ? "online" as const : "offline" as const,
-        sensors: {
-          temperature: d.metrics?.temperature,
-          humidity: d.metrics?.humidity,
-          iaq: d.metrics?.iaq,
-        },
-      }))
-      setDevices(deviceLocations)
-      
-      // Update device markers on map
-      if (mapRef.current && window.google && showDevices) {
-        updateDeviceMarkers(deviceLocations)
-      }
-    } catch (err) {
-      console.error("Failed to fetch devices:", err)
-    }
-  }
-
   // Update device markers on map
-  const updateDeviceMarkers = (deviceList: DeviceLocation[]) => {
+  const updateDeviceMarkers = useCallback((deviceList: DeviceLocation[]) => {
     // Ensure map is fully initialized and valid
     if (!mapRef.current || !window.google?.maps || !mapLoaded) {
       return
@@ -476,7 +443,40 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
         console.warn("Error creating device marker:", e)
       }
     })
-  }
+  }, [mapLoaded])
+
+  // Fetch all devices (MycoBrain + MINDEX)
+  const fetchDevices = useCallback(async () => {
+    try {
+      // Fetch from telemetry API which includes MycoBrain + MINDEX devices
+      const res = await fetch("/api/natureos/devices/telemetry")
+      const data = await res.json()
+      const allDevices = Array.isArray(data) ? data : []
+      
+      const deviceLocations: DeviceLocation[] = allDevices
+        .filter((d: any) => d.deviceType === "mycobrain" && (d.status === "active" || d.connected) && d.location)
+        .map((d: { deviceId: string; port?: string; deviceType: string; location?: { latitude: number; longitude: number }; metrics?: { temperature?: number; humidity?: number; iaq?: number } }) => ({
+        id: d.deviceId || d.port || "unknown",
+        name: d.deviceType === "mycobrain" ? `MycoBrain ${d.port || "Unknown"}` : d.deviceId,
+        type: "mycobrain" as const,
+        location: { lat: d.location.latitude, lng: d.location.longitude },
+        status: (d.status === "active" || d.connected) ? "online" as const : "offline" as const,
+        sensors: {
+          temperature: d.metrics?.temperature,
+          humidity: d.metrics?.humidity,
+          iaq: d.metrics?.iaq,
+        },
+      }))
+      setDevices(deviceLocations)
+      
+      // Update device markers on map
+      if (mapRef.current && window.google && showDevices) {
+        updateDeviceMarkers(deviceLocations)
+      }
+    } catch (err) {
+      console.error("Failed to fetch devices:", err)
+    }
+  }, [showDevices, updateDeviceMarkers])
 
   // Fetch devices periodically
   useEffect(() => {
@@ -485,7 +485,7 @@ export function MyceliumMap({ className, deviceLocations, showDevices = true, gl
       const interval = setInterval(fetchDevices, 10000)
       return () => clearInterval(interval)
     }
-  }, [mapLoaded, showDevices])
+  }, [fetchDevices, mapLoaded, showDevices])
 
   // Update overlays when toggles change
   useEffect(() => {

@@ -123,7 +123,7 @@ export function SporeTrackerMap() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [fetchData])
 
   const initializeMap = useCallback(() => {
     if (!mapContainerRef.current || mapRef.current) return
@@ -143,9 +143,9 @@ export function SporeTrackerMap() {
 
     mapRef.current = map
     fetchData()
-  }, [])
+  }, [fetchData])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
       // Fetch from multiple sources: spore detections, MINDEX observations, weather
@@ -169,15 +169,15 @@ export function SporeTrackerMap() {
         .map((obs: any) => ({
           id: `mindex-${obs.id}`,
           species: obs.scientificName || obs.species || "Unknown",
-          concentration: 10 + Math.random() * 90, // Simulated concentration until we have real sensors
+          concentration: Number(obs.concentration ?? obs.abundance ?? 0),
           lat: obs.lat,
           lng: obs.lng,
           allergenLevel: obs.verified ? "low" : "moderate" as const,
           timestamp: obs.timestamp || new Date().toISOString(),
-          windSpeed: 5 + Math.random() * 15,
-          windDirection: Math.random() * 360,
-          humidity: 40 + Math.random() * 40,
-          temperature: 15 + Math.random() * 20,
+          windSpeed: Number(obs.windSpeed ?? 0),
+          windDirection: Number(obs.windDirection ?? 0),
+          humidity: Number(obs.humidity ?? 0),
+          temperature: Number(obs.temperature ?? 0),
         }))
       
       // Combine both sources
@@ -211,9 +211,9 @@ export function SporeTrackerMap() {
       console.error("Failed to fetch data:", err)
     }
     setIsLoading(false)
-  }
+  }, [timeRange, updateMapOverlays])
 
-  const updateMapOverlays = (dets: SporeDetection[], stations: WeatherStation[]) => {
+  const updateMapOverlays = useCallback((dets: SporeDetection[], stations: WeatherStation[]) => {
     if (!mapRef.current || !window.google) return
 
     // Clear existing
@@ -287,13 +287,13 @@ export function SporeTrackerMap() {
         windArrowsRef.current.push(arrow)
       })
     }
-  }
+  }, [showDetectors, showHeatmap, showWindOverlay])
 
   useEffect(() => {
     if (mapRef.current && window.google) {
       updateMapOverlays(detections, weatherStations)
     }
-  }, [showHeatmap, showDetectors, showWindOverlay])
+  }, [detections, updateMapOverlays, weatherStations])
 
   useEffect(() => {
     if (mapRef.current) {
@@ -306,7 +306,7 @@ export function SporeTrackerMap() {
 
   useEffect(() => {
     fetchData()
-  }, [timeRange])
+  }, [fetchData, timeRange])
 
   const renderFallbackMap = () => (
     <div className="h-full w-full rounded-lg bg-gradient-to-br from-amber-900/20 via-orange-900/20 to-red-900/20 relative overflow-hidden">

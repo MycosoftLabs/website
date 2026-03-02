@@ -8,6 +8,7 @@
  */
 
 import React from "react"
+import Image from "next/image"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { cn } from "@/lib/utils"
@@ -58,16 +59,22 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
       {children}
     </blockquote>
   ),
-  img: ({ src, alt }) => (
-    <span className="block my-2">
-      <img
-        src={src}
-        alt={alt || ""}
-        className="max-w-full rounded-lg border border-white/10"
-        loading="lazy"
-      />
-    </span>
-  ),
+  img: ({ src, alt }) => {
+    if (!src) return null
+    return (
+      <span className="block my-2">
+        <Image
+          src={src}
+          alt={alt || ""}
+          className="max-w-full rounded-lg border border-white/10 h-auto"
+          width={1200}
+          height={675}
+          sizes="(max-width: 768px) 100vw, 768px"
+          unoptimized
+        />
+      </span>
+    )
+  },
 }
 
 function inferEmbedsFromContent(content: string): AnswerEmbedPayload[] {

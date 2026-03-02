@@ -12,6 +12,7 @@
  */
 
 import { memo } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapMarker, MarkerContent, MarkerPopup } from "@/components/ui/map";
 import { Badge } from "@/components/ui/badge";
@@ -218,11 +219,14 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
         {/* Photo (if available) */}
         {photoUrl && (
           <div className="relative">
-            <img
+            <Image
               src={photoUrl}
               alt={speciesName}
               className="w-full h-24 object-cover"
-              loading="lazy"
+              width={480}
+              height={192}
+              sizes="(max-width: 768px) 100vw, 480px"
+              unoptimized
             />
             {observation.photos && observation.photos.length > 1 && (
               <Badge className="absolute bottom-1 right-1 bg-black/70 text-white backdrop-blur text-[9px] px-1.5 py-0.5 border-0">

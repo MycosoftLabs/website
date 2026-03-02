@@ -156,7 +156,7 @@ export function PerspectiveTable({
     } else {
       setSelectedRows(new Set(sortedData.map((_, i) => i)))
     }
-  }, [selectedRows.size, sortedData.length])
+  }, [selectedRows.size, sortedData])
 
   // CSV export
   const exportCSV = useCallback(() => {

@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 // Shared Redis cache for CREP and Search (Feb 12, 2026)
 import { cacheSearchUnified, cacheSearchTaxa, cacheSearchObservations } from "@/lib/crep/redis-cache"
@@ -930,6 +931,11 @@ async function queueDataForGrafting(observations: LiveObservation[]): Promise<nu
 // =============================================================================
 
 export async function GET(request: NextRequest) {
+  // Rate limit
+  const ip = getClientIP(request)
+  const rl = searchLimiter.check(ip)
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs!, rl.reason)
+
   const startTime = Date.now()
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get("q") || ""
@@ -1024,6 +1030,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit
+  const ip2 = getClientIP(request)
+  const rl2 = searchLimiter.check(ip2)
+  if (!rl2.allowed) return rateLimitResponse(rl2.retryAfterMs!, rl2.reason)
+
   // POST allows passing more context including user interests
   let body: { query: string; context?: string; interests?: string[]; location?: { lat: number; lng: number } }
   try {
