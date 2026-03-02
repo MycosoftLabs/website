@@ -1,4 +1,5 @@
 "use client"
+export const dynamic = "force-dynamic"
 
 /**
  * MYCA Voice Test Suite v8.0.0 - Full Consciousness Integration
@@ -188,7 +189,7 @@ export default function VoiceTestPage() {
     } catch (error) {
       addLog("warn", "Consciousness polling error", String(error))
     }
-  }, [isPollingConsciousness, addLog])
+  }, [isPollingConsciousness])
   
   useEffect(() => {
     if (isPollingConsciousness) {
@@ -406,7 +407,7 @@ export default function VoiceTestPage() {
     
     // Reset status after a moment
     setTimeout(() => setTextCloneStatus("idle"), 2000)
-  }, [addInjection, addLog, recordLatency, protocolMode])
+  }, [addLog, recordLatency, protocolMode])
   
   // Add item to injection queue
   const addInjection = useCallback((type: InjectionItem["type"], content: string) => {
