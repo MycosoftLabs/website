@@ -81,7 +81,7 @@ jobs:
         run: npm run test -- tests/webmcp --passWithNoTests
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         if: always()
         with:
           files: ./coverage/lcov.info
@@ -203,9 +203,9 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /opt/mycosoft-staging
-            docker-compose pull
-            docker-compose up -d --remove-orphans
-            docker-compose exec -T website npm run db:migrate
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose exec -T website npm run db:migrate --if-present
             echo "Deployed ${{ github.sha }} to staging at $(date)"
 
   # ===========================================================================
@@ -217,15 +217,18 @@ jobs:
     needs: [build, integration]
     if: github.ref == 'refs/heads/main'
     environment: production
-    continue-on-error: true
+    continue-on-error: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Check deploy secrets
         id: check-secrets
+        env:
+          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
         run: |
-          if [ -z "${{ secrets.PROXMOX_API_TOKEN }}" ] || [ -z "${{ secrets.PROXMOX_URL }}" ]; then
+          if [ -z "${PROXMOX_API_TOKEN}" ] || [ -z "${PROXMOX_URL}" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Deploy skipped - PROXMOX_URL or PROXMOX_API_TOKEN secret not configured"
           else
@@ -235,9 +238,11 @@ jobs:
       - name: Discover Sandbox VM
         if: steps.check-secrets.outputs.skip != 'true'
         id: find-vm
+        env:
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
         run: |
-          PROXMOX_URL="${{ secrets.PROXMOX_URL }}"
-          AUTH_HEADER="PVEAPIToken=${{ secrets.PROXMOX_API_TOKEN }}"
+          AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
 
           # Get first node name
           NODE=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
@@ -259,23 +264,29 @@ jobs:
 
       - name: Deploy via Proxmox QEMU Agent
         if: steps.check-secrets.outputs.skip != 'true'
+        env:
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
+          VM_NODE: ${{ steps.find-vm.outputs.node }}
+          VM_ID: ${{ steps.find-vm.outputs.vmid }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
-          PROXMOX_URL="${{ secrets.PROXMOX_URL }}"
-          AUTH_HEADER="PVEAPIToken=${{ secrets.PROXMOX_API_TOKEN }}"
-          NODE="${{ steps.find-vm.outputs.node }}"
-          VMID="${{ steps.find-vm.outputs.vmid }}"
-          AGENT_EXEC="${PROXMOX_URL}/api2/json/nodes/${NODE}/qemu/${VMID}/agent/exec"
-          AGENT_STATUS="${PROXMOX_URL}/api2/json/nodes/${NODE}/qemu/${VMID}/agent/exec-status"
+          AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          AGENT_EXEC="${PROXMOX_URL}/api2/json/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec"
+          AGENT_STATUS="${PROXMOX_URL}/api2/json/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec-status"
 
           run_on_vm() {
             local cmd="$1"
             local desc="$2"
             echo ">>> ${desc}"
 
+            # Build JSON payload safely with jq to avoid injection
+            PAYLOAD=$(jq -n --arg cmd "$cmd" '{"command":"bash","input-data":$cmd}')
+
             # Start the command via QEMU guest agent
             PID=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
               -H "Content-Type: application/json" \
-              -d "{\"command\": \"bash\", \"input-data\": \"${cmd}\"}" \
+              -d "${PAYLOAD}" \
               "${AGENT_EXEC}" | jq -r '.data.pid')
 
             if [ -z "${PID}" ] || [ "${PID}" = "null" ]; then
@@ -307,10 +318,10 @@ jobs:
           }
 
           echo "=== Mycosoft Production Deployment ==="
-          echo "Commit: ${{ github.sha }}"
+          echo "Commit: ${DEPLOY_SHA}"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker-compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
+            "cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
             "Backup database"
 
           run_on_vm \
@@ -318,15 +329,15 @@ jobs:
             "Pull latest code"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker-compose pull" \
+            "cd /opt/mycosoft && docker compose pull" \
             "Pull new images"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker-compose up -d --remove-orphans" \
+            "cd /opt/mycosoft && docker compose up -d --remove-orphans" \
             "Rolling update containers"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker-compose exec -T website npm run db:migrate" \
+            "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present" \
             "Run database migrations"
 
           run_on_vm \
@@ -334,14 +345,14 @@ jobs:
             "Health check"
 
           run_on_vm \
-            "echo '${{ github.sha }} deployed at \$(date)' >> /var/log/mycosoft-deployments.log" \
+            "echo '${DEPLOY_SHA} deployed at \$(date)' >> /var/log/mycosoft-deployments.log" \
             "Log deployment"
 
           echo "=== Deployment Complete ==="
 
       - name: Notify deployment
         uses: slackapi/slack-github-action@v1.24.0
-        if: always()
+        if: always() && env.SLACK_WEBHOOK_URL != ''
         with:
           payload: |
             {
@@ -367,6 +378,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, integration]
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
