@@ -138,10 +138,11 @@ jobs:
 
       - name: Build and push Collectors
         run: |
+          IMAGE_NAME_LC="${IMAGE_NAME,,}"
           for service in aviation maritime satellite; do
-            docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${service}:${{ github.sha }} \
+            docker build -t ${{ env.REGISTRY }}/${IMAGE_NAME_LC}-${service}:${{ github.sha }} \
               -f ./services/collectors/Dockerfile.${service} ./services/collectors
-            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${service}:${{ github.sha }}
+            docker push ${{ env.REGISTRY }}/${IMAGE_NAME_LC}-${service}:${{ github.sha }}
           done
 
   # ===========================================================================
