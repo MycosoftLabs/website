@@ -67,11 +67,18 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSaveAttemptRef = useRef<number>(0)
   const mountedRef = useRef(true)
-  const supabaseRef = useRef(createClient())
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  if (supabaseRef.current === null) {
+    try {
+      supabaseRef.current = createClient()
+    } catch {
+      supabaseRef.current = null
+    }
+  }
 
   // Load state from Supabase on user login - NON-BLOCKING
   useEffect(() => {
-    if (!user?.id) {
+    if (!user?.id || !supabaseRef.current) {
       return
     }
 
@@ -141,7 +148,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   // Save dirty state to Supabase (debounced) - NON-BLOCKING
   const syncToServer = useCallback(async (force = false) => {
-    if (!user?.id) return
+    if (!user?.id || !supabaseRef.current) return
     if (!store.tableAvailable) return // Don't try if table doesn't exist
     if (store.syncInProgress && !force) return
 
