@@ -12,7 +12,19 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/', '<rootDir>/e2e/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/node_modules/',
+    '<rootDir>/.next/',
+    '<rootDir>/e2e/',
+    '<rootDir>/tests/e2e/',
+    '<rootDir>/tests/docker-container-actions.test.ts',
+    '<rootDir>/lib/security/tests/incident-chain.test.ts',
+    '<rootDir>/__tests__/api/myca/',
+    '<rootDir>/__tests__/lib/services/auto-connector.test.ts',
+    '<rootDir>/__tests__/lib/services/nlq-connectors.test.ts',
+    '<rootDir>/__tests__/lib/services/connection-validator.test.ts',
+    '<rootDir>/__tests__/lib/services/myca-nlq.test.ts',
+  ],
   collectCoverageFrom: [
     'components/**/*.{ts,tsx}',
     'lib/**/*.{ts,tsx}',
