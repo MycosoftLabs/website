@@ -17,7 +17,6 @@ export default function SignUpPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -44,6 +43,7 @@ export default function SignUpPage() {
     }
 
     try {
+      const supabase = createClient()
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -70,16 +70,22 @@ export default function SignUpPage() {
   const handleGoogleSignUp = async () => {
     setIsLoading(true)
     setError("")
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    
-    if (error) {
-      setError(error.message)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+        setIsLoading(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign up failed")
       setIsLoading(false)
     }
   }
@@ -87,16 +93,22 @@ export default function SignUpPage() {
   const handleGitHubSignUp = async () => {
     setIsLoading(true)
     setError("")
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    
-    if (error) {
-      setError(error.message)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+        setIsLoading(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "GitHub sign up failed")
       setIsLoading(false)
     }
   }
