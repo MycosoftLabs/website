@@ -16,7 +16,10 @@
     "postinstall": "patch-package",
     "start": "next start --port 3000",
     "services:start": "python services/service_manager.py",
-    "services:mycobrain": "python -m uvicorn services.mycobrain.mycobrain_service:app --host 0.0.0.0 --port 8765"
+    "services:mycobrain": "python -m uvicorn services.mycobrain.mycobrain_service:app --host 0.0.0.0 --port 8765",
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:push": "npx drizzle-kit push",
+    "db:studio": "npx drizzle-kit studio"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.10",

@@ -1,0 +1,29 @@
+# Space Weather Data Collector Service
+# Last Updated: 2026-03-02T00:00:00Z
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir aiohttp redis tenacity
+
+# Copy application
+COPY spaceweather_collector.py .
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Environment variables
+ENV REDIS_URL=redis://redis:6379
+ENV MINDEX_API_URL=http://mindex:8001
+ENV SPACEWEATHER_CACHE_PATH=/app/data/spaceweather_cache.db
+ENV COLLECT_INTERVAL=300
+
+# Expose port for health checks and API
+EXPOSE 8104
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import sqlite3; conn=sqlite3.connect('/app/data/spaceweather_cache.db'); conn.close()" || exit 1
+
+CMD ["python", "spaceweather_collector.py"]
