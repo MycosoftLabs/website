@@ -304,6 +304,7 @@ services:
   # ==========================================================================
 
   moshi-server:
+    profiles: ["gpu"]
     build:
       context: ../MAS/mycosoft-mas/services/personaplex-local
       dockerfile: Dockerfile.personaplex
@@ -336,6 +337,7 @@ services:
       - "com.mycosoft.requires=gpu"
 
   personaplex-bridge:
+    profiles: ["gpu"]
     build:
       context: ../MAS/mycosoft-mas/services/personaplex-local
       dockerfile: Dockerfile.personaplex
