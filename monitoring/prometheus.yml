@@ -10,6 +10,18 @@ scrape_configs:
     metrics_path: /api/health
     scrape_interval: 30s
 
+  - job_name: 'mycosoft-llm-providers'
+    static_configs:
+      - targets: ['website:3000']
+    metrics_path: /api/health/providers
+    scrape_interval: 120s
+
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']
+    metrics_path: /api/tags
+    scrape_interval: 30s
+
   - job_name: 'mycobrain'
     static_configs:
       - targets: ['mycobrain:8765']
