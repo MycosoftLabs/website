@@ -39,22 +39,22 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
 
         const WebSocketClient = (await import('ws')).default;
 
-        // Connection timeout to prevent hanging on tunnel drops
+        // Connection timeout to prevent hanging on tunnel drops (increased to 20s for post-restart recovery)
         const connectTimeout = setTimeout(() => {
           if (ws && ws.readyState === WebSocketClient.CONNECTING) {
-            console.error(`[${options.logLabel}] WebSocket connection timeout after 15s`);
+            console.error(`[${options.logLabel}] WebSocket connection timeout after 20s`);
             ws.close();
             controller.enqueue(
               encodeMessage(encoder, {
                 type: 'error',
                 error: 'Connection timeout',
-                message: 'WebSocket connection timed out — tunnel may be unavailable',
+                message: 'Real-time connection timed out. Retrying automatically.',
                 timestamp: new Date().toISOString(),
               })
             );
             controller.close();
           }
-        }, 15000);
+        }, 20000);
 
         ws = new WebSocketClient(wsUrl);
 

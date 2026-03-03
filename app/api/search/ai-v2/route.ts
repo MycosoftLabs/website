@@ -19,12 +19,12 @@ import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limite
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
-// Provider configuration
+// Provider configuration — read keys at call time so they survive container restarts
 const MAS_BRAIN_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-const GROQ_API_KEY = process.env.GROQ_API_KEY
-const XAI_API_KEY = process.env.XAI_API_KEY
+const getOpenAIKey = () => process.env.OPENAI_API_KEY?.trim() || undefined
+const getAnthropicKey = () => process.env.ANTHROPIC_API_KEY?.trim() || undefined
+const getGroqKey = () => process.env.GROQ_API_KEY?.trim() || undefined
+const getXAIKey = () => process.env.XAI_API_KEY?.trim() || undefined
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
 
@@ -98,14 +98,15 @@ async function queryMASBrain(query: string, context?: SearchContext): Promise<AI
 
 // Provider 2: OpenAI
 async function queryOpenAI(query: string): Promise<AIResult | null> {
-  if (!OPENAI_API_KEY) return null
+  const apiKey = getOpenAIKey()
+  if (!apiKey) return null
 
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -139,14 +140,15 @@ async function queryOpenAI(query: string): Promise<AIResult | null> {
 
 // Provider 3: Anthropic Claude
 async function queryAnthropic(query: string): Promise<AIResult | null> {
-  if (!ANTHROPIC_API_KEY) return null
+  const apiKey = getAnthropicKey()
+  if (!apiKey) return null
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -178,14 +180,15 @@ async function queryAnthropic(query: string): Promise<AIResult | null> {
 
 // Provider 4: Groq
 async function queryGroq(query: string): Promise<AIResult | null> {
-  if (!GROQ_API_KEY) return null
+  const apiKey = getGroqKey()
+  if (!apiKey) return null
 
   try {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
@@ -219,14 +222,15 @@ async function queryGroq(query: string): Promise<AIResult | null> {
 
 // Provider 5: XAI Grok
 async function queryXAI(query: string): Promise<AIResult | null> {
-  if (!XAI_API_KEY) return null
+  const apiKey = getXAIKey()
+  if (!apiKey) return null
 
   try {
     const res = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${XAI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "grok-3",

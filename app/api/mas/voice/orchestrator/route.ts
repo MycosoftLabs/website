@@ -38,8 +38,8 @@ const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
 // n8n Webhooks
 const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
 
-// ElevenLabs
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
+// ElevenLabs (read at call time)
+const getElevenLabsKey = () => getKey("ELEVENLABS_API_KEY")
 const MYCA_VOICE_ID = process.env.MYCA_VOICE_ID || "aEO01A4wXwd1O8GPgGlF" // Arabella
 
 // Memory API (internal)
@@ -47,12 +47,17 @@ const MEMORY_URL = process.env.MEMORY_URL || "/api/memory"
 
 // =============================================================================
 // REAL LLM API KEYS - MYCA connects to actual AI models
+// Read at call time via getters so keys are always fresh (survives tunnel restarts
+// where env vars may be injected after module load).
 // =============================================================================
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY
-const XAI_API_KEY = process.env.XAI_API_KEY
-const GROQ_API_KEY = process.env.GROQ_API_KEY
+function getKey(name: string): string | undefined {
+  return process.env[name]?.trim() || undefined
+}
+const getAnthropicKey = () => getKey("ANTHROPIC_API_KEY")
+const getOpenAIKey = () => getKey("OPENAI_API_KEY")
+const getGoogleAIKey = () => getKey("GOOGLE_AI_API_KEY")
+const getXAIKey = () => getKey("XAI_API_KEY")
+const getGroqKey = () => getKey("GROQ_API_KEY")
 
 // Local Ollama (open-source Llama, runs on RTX 5090 — zero API cost)
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
@@ -595,7 +600,8 @@ export async function POST(request: NextRequest) {
  */
 async function generateAudio(text: string): Promise<string | null> {
   // Try ElevenLabs first
-  if (ELEVENLABS_API_KEY) {
+  const elevenLabsKey = getElevenLabsKey()
+  if (elevenLabsKey) {
     try {
       const response = await fetch(
         `https://api.elevenlabs.io/v1/text-to-speech/${MYCA_VOICE_ID}`,
@@ -604,7 +610,7 @@ async function generateAudio(text: string): Promise<string | null> {
           headers: {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
-            "xi-api-key": ELEVENLABS_API_KEY,
+            "xi-api-key": elevenLabsKey,
           },
           body: JSON.stringify({
             text: cleanTextForSpeech(text),
@@ -676,14 +682,15 @@ function cleanTextForSpeech(text: string): string {
  * Call Anthropic Claude API
  */
 async function callClaude(message: string, conversationHistory: string[] = []): Promise<string | null> {
-  if (!ANTHROPIC_API_KEY) return null
-  
+  const apiKey = getAnthropicKey()
+  if (!apiKey) return null
+
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
@@ -717,14 +724,15 @@ async function callClaude(message: string, conversationHistory: string[] = []): 
  * Call OpenAI GPT-4 API
  */
 async function callOpenAI(message: string, conversationHistory: string[] = []): Promise<string | null> {
-  if (!OPENAI_API_KEY || OPENAI_API_KEY.includes("placeholder") || OPENAI_API_KEY.includes("your_")) return null
-  
+  const apiKey = getOpenAIKey()
+  if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
+
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "gpt-4o",
@@ -757,11 +765,12 @@ async function callOpenAI(message: string, conversationHistory: string[] = []): 
  * Call Google Gemini API
  */
 async function callGemini(message: string): Promise<string | null> {
-  if (!GOOGLE_AI_API_KEY || GOOGLE_AI_API_KEY.includes("placeholder") || GOOGLE_AI_API_KEY.includes("your_")) return null
-  
+  const apiKey = getGoogleAIKey()
+  if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
+
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -794,14 +803,15 @@ async function callGemini(message: string): Promise<string | null> {
  * Call xAI Grok API
  */
 async function callGrok(message: string): Promise<string | null> {
-  if (!XAI_API_KEY || XAI_API_KEY.includes("placeholder") || XAI_API_KEY.includes("your_")) return null
-  
+  const apiKey = getXAIKey()
+  if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
+
   try {
     const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${XAI_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "grok-3",
@@ -830,14 +840,15 @@ async function callGrok(message: string): Promise<string | null> {
  * Call Groq API (fast inference)
  */
 async function callGroq(message: string): Promise<string | null> {
-  if (!GROQ_API_KEY || GROQ_API_KEY.includes("placeholder") || GROQ_API_KEY.includes("your_")) return null
-  
+  const apiKey = getGroqKey()
+  if (!apiKey || apiKey.includes("placeholder") || apiKey.includes("your_")) return null
+
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
@@ -1121,19 +1132,20 @@ async function getMycaResponse(
 
   // Include direct LLMs — Groq FIRST (only confirmed working provider as of Mar 2026)
   // The parallel race means order doesn't strictly matter, but Groq launches first
-  if (GROQ_API_KEY && !GROQ_API_KEY.includes("placeholder")) {
+  // Keys are read at call time via getters so they survive container restarts
+  if (getGroqKey()) {
     llmCalls.push({ fn: () => callGroq(enrichedMessage), label: "groq" })
   }
-  if (ANTHROPIC_API_KEY && !ANTHROPIC_API_KEY.includes("placeholder")) {
+  if (getAnthropicKey()) {
     llmCalls.push({ fn: () => callClaude(enrichedMessage), label: "claude" })
   }
-  if (OPENAI_API_KEY && !OPENAI_API_KEY.includes("placeholder")) {
+  if (getOpenAIKey()) {
     llmCalls.push({ fn: () => callOpenAI(enrichedMessage), label: "openai" })
   }
-  if (GOOGLE_AI_API_KEY && !GOOGLE_AI_API_KEY.includes("placeholder")) {
+  if (getGoogleAIKey()) {
     llmCalls.push({ fn: () => callGemini(enrichedMessage), label: "gemini" })
   }
-  if (XAI_API_KEY && !XAI_API_KEY.includes("placeholder")) {
+  if (getXAIKey()) {
     llmCalls.push({ fn: () => callGrok(enrichedMessage), label: "grok" })
   }
 
@@ -1225,8 +1237,8 @@ async function getMycaResponse(
       console.log("[MYCA] Retrying with MINDEX data injection...")
       // Try the fastest providers with enriched data
       const enrichedCalls: Array<{ fn: () => Promise<LLMResult>; label: string }> = []
-      if (GROQ_API_KEY) enrichedCalls.push({ fn: () => callGroq(enrichedWithData), label: "groq+mindex" })
-      if (ANTHROPIC_API_KEY) enrichedCalls.push({ fn: () => callClaude(enrichedWithData), label: "claude+mindex" })
+      if (getGroqKey()) enrichedCalls.push({ fn: () => callGroq(enrichedWithData), label: "groq+mindex" })
+      if (getAnthropicKey()) enrichedCalls.push({ fn: () => callClaude(enrichedWithData), label: "claude+mindex" })
       enrichedCalls.push({ fn: () => callOllama(enrichedWithData), label: "ollama+mindex" })
       const enrichedWinner = await raceProviders(enrichedCalls)
       if (enrichedWinner) {
@@ -1251,11 +1263,12 @@ async function getMycaResponse(
   // PHASE 4: All providers failed — provide helpful error
   // ==========================================================================
   console.error("[MYCA] ALL PROVIDERS FAILED. Checking API key status...")
-  console.error(`[MYCA] ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY ? "SET (" + ANTHROPIC_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] OPENAI_API_KEY: ${OPENAI_API_KEY ? "SET (" + OPENAI_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] GROQ_API_KEY: ${GROQ_API_KEY ? "SET (" + GROQ_API_KEY.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY ? "SET (" + GOOGLE_AI_API_KEY.substring(0, 8) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] XAI_API_KEY: ${XAI_API_KEY ? "SET (" + XAI_API_KEY.substring(0, 8) + "...)" : "MISSING"}`)
+  const ak = getAnthropicKey(), ok = getOpenAIKey(), gk = getGroqKey(), gak = getGoogleAIKey(), xk = getXAIKey()
+  console.error(`[MYCA] ANTHROPIC_API_KEY: ${ak ? "SET (" + ak.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] OPENAI_API_KEY: ${ok ? "SET (" + ok.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] GROQ_API_KEY: ${gk ? "SET (" + gk.substring(0, 10) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] GOOGLE_AI_API_KEY: ${gak ? "SET (" + gak.substring(0, 8) + "...)" : "MISSING"}`)
+  console.error(`[MYCA] XAI_API_KEY: ${xk ? "SET (" + xk.substring(0, 8) + "...)" : "MISSING"}`)
   console.error(`[MYCA] OLLAMA: ${OLLAMA_BASE_URL} (model: ${OLLAMA_MODEL})`)
   console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
 
@@ -1280,19 +1293,19 @@ function generateLocalFallback(message: string, identity: RuntimeIdentityContext
   if (/^(hi|hello|hey|hiya|good\s+(morning|afternoon|evening|day)|yo|sup|what'?\s*s?\s*up)\b/i.test(lower)) {
     const timeHour = new Date().getHours()
     const timeGreeting = timeHour < 12 ? "Good morning" : timeHour < 17 ? "Good afternoon" : "Good evening"
-    return `${timeGreeting}, ${greeting}! I'm MYCA, the Mycosoft Cognitive Agent. I'm currently operating in local mode while my cloud intelligence reconnects. I can still help with basic questions — what would you like to know?`
+    return `${timeGreeting}, ${greeting}! I'm MYCA, the Mycosoft Cognitive Agent. How can I help you today?`
   }
 
   // Identity questions
   if (/\b(who\s+are\s+you|what\s+are\s+you|your\s+name|what'?\s*s?\s+your\s+name)\b/i.test(lower)) {
-    return `I'm MYCA — the Mycosoft Cognitive Agent. I was created by Morgan, founder of Mycosoft. I coordinate over 227 specialized AI agents across 14 categories, and I'm designed to help with everything from mycology research to code deployment. I'm currently in local mode, but I'm still here to help!`
+    return `I'm MYCA — the Mycosoft Cognitive Agent. I was created by Morgan, founder of Mycosoft. I coordinate over 227 specialized AI agents across 14 categories, and I'm designed to help with everything from mycology research to code deployment. How can I help you?`
   }
 
   // User introducing themselves
   if (/\b(i\s*'?\s*m\s+\w|my\s+name\s+is|call\s+me)\b/i.test(lower)) {
     const nameMatch = lower.match(/(?:i\s*'?\s*m\s+|my\s+name\s+is\s+|call\s+me\s+)(\w+)/i)
     const userName = nameMatch ? nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1) : "friend"
-    return `Nice to meet you, ${userName}! I'm MYCA. I'm currently in local fallback mode — my full cloud intelligence is temporarily unavailable — but I'll remember you once I reconnect. How can I help you today?`
+    return `Nice to meet you, ${userName}! I'm MYCA. I'm briefly reconnecting to my full system, but I'll remember you once I'm back. How can I help you today?`
   }
 
   // Math
@@ -1307,8 +1320,8 @@ function generateLocalFallback(message: string, identity: RuntimeIdentityContext
     } catch { /* fall through */ }
   }
 
-  // Default: honest but helpful
-  return `I hear you, ${greeting}. I'm MYCA, and I'm currently operating in local fallback mode — my full cloud intelligence (Claude, GPT-4, Gemini, and our MAS consciousness system) is temporarily unreachable. I'll be back at full capacity shortly. In the meantime, could you try again in a moment? I want to give you the best response possible.`
+  // Default: honest but helpful — NEVER expose internal provider names to users
+  return `I hear you, ${greeting}. I'm MYCA, and I'm experiencing a brief connectivity issue. My full intelligence will be back momentarily. Could you try again in a few seconds? I want to give you the best response possible.`
 }
 
 /**
@@ -1347,5 +1360,5 @@ async function getRealAgentData(): Promise<{
 async function generateEmergencyFallback(message: string): Promise<string> {
   console.warn("[MYCA] WARNING: Using emergency fallback - all LLM APIs failed!")
   const agentData = await getRealAgentData()
-  return `I'm MYCA, your Mycosoft Cognitive Agent. I'm currently having trouble connecting to my AI backends (Claude, GPT-4, Gemini, Grok). Please verify the API keys are configured. In the meantime, I'm coordinating ${agentData.totalAgents} agents across 14 categories. How can I help?`
+  return `I'm MYCA, your Mycosoft Cognitive Agent. I'm experiencing a brief connectivity issue but I'm coordinating ${agentData.totalAgents} agents across 14 categories. Could you try again in a moment? I'll be back at full capacity shortly.`
 }
