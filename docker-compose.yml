@@ -12,8 +12,6 @@
 #   docker-compose down               # Stop all services
 #   docker-compose pull && docker-compose up -d  # Update services
 
-version: '3.8'
-
 services:
   # ==========================================================================
   # CORE SERVICES
@@ -30,22 +28,39 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - MINDEX_API_URL=http://mindex:8001
+      - MINDEX_API_URL=${MINDEX_API_URL:-http://192.168.0.189:8000}
+      # Ollama runs in-stack — always reachable as LLM fallback
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
+      # LLM API keys — at least one should be set
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      # MAS Orchestrator
+      - MAS_API_URL=${MAS_API_URL:-http://192.168.0.188:8001}
+      - N8N_URL=${N8N_URL:-http://n8n:5678}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
     networks:
       - mycosoft-network
     labels:
       - "com.mycosoft.service=website"
-      - "com.mycosoft.version=2.0.0"
+      - "com.mycosoft.version=2.1.0"
 
   # ==========================================================================
   # DATA LAYER
@@ -277,6 +292,36 @@ services:
       - mycosoft-network
 
   # ==========================================================================
+  # OLLAMA — Local LLM (zero API cost, zero network dependency)
+  # ==========================================================================
+  # Ensures MYCA always has at least one LLM available even when all cloud
+  # APIs are down. On first start: docker exec mycosoft-ollama ollama pull llama3.3
+  # ==========================================================================
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mycosoft-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=ollama"
+
+  # ==========================================================================
   # WORKFLOW AUTOMATION
   # ==========================================================================
 
@@ -376,6 +421,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  ollama_data:
     driver: local
   mycobrain_data:
     driver: local

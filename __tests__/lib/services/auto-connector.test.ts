@@ -16,6 +16,9 @@ import {
 } from "../../../lib/services/auto-connector"
 import type { TopologyNode, TopologyConnection, NodeCategory, DetectedGap } from "../../../components/mas/topology/types"
 
+type CreateConnectionFn = (connection: TopologyConnection) => Promise<void>
+type NotifyFn = (message: string, type: "success" | "info" | "warning") => void
+
 // Helper to create test nodes
 function createNode(
   id: string,
@@ -76,7 +79,7 @@ function createConnection(
 describe("Auto-Connector Service", () => {
   let nodes: TopologyNode[]
   let connections: TopologyConnection[]
-  let mockCreateConnection: ReturnType<typeof vi.fn>
+  let mockCreateConnection: ReturnType<typeof vi.fn> & CreateConnectionFn
 
   beforeEach(() => {
     nodes = [
@@ -196,7 +199,7 @@ describe("Auto-Connector Service", () => {
 
     it("should handle connection creation errors", async () => {
       const newAgent = createNode("new-agent", "agent", "mycology")
-      const failingCreate = vi.fn().mockRejectedValue(new Error("Connection failed"))
+      const failingCreate = vi.fn().mockRejectedValue(new Error("Connection failed")) as ReturnType<typeof vi.fn> & CreateConnectionFn
       
       const result = await autoConnectAgent(
         newAgent,
@@ -380,30 +383,30 @@ describe("Auto-Connector Service", () => {
         () => nodes,
         () => connections,
         mockCreateConnection,
-        vi.fn()
+        vi.fn() as unknown as NotifyFn
       )
-      
+
       expect(typeof handlers.onAgentSpawned).toBe("function")
       expect(typeof handlers.onGapDetected).toBe("function")
     })
 
     it("should call onAgentSpawned handler", async () => {
-      const mockNotify = vi.fn()
+      const mockNotify = vi.fn() as unknown as NotifyFn & ReturnType<typeof vi.fn>
       const handlers = createAutoConnectorHandlers(
         () => nodes,
         () => connections,
         mockCreateConnection,
         mockNotify
       )
-      
+
       const newAgent = createNode("new-agent", "agent", "mycology")
       await handlers.onAgentSpawned(newAgent)
-      
+
       expect(mockCreateConnection).toHaveBeenCalled()
     })
 
     it("should notify on successful connection", async () => {
-      const mockNotify = vi.fn()
+      const mockNotify = vi.fn() as unknown as NotifyFn & ReturnType<typeof vi.fn>
       const handlers = createAutoConnectorHandlers(
         () => nodes,
         () => connections,

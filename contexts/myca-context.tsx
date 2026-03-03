@@ -307,12 +307,10 @@ export function MYCAProvider({
           id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           role: "assistant",
           content: isTimeout
-            ? "Request timed out. The orchestrator or LLM may be slow. Check MAS (192.168.0.188:8001) and API keys in .env.local."
+            ? "MYCA is taking longer than expected to respond. Please try again in a moment."
             : isNetwork
-            ? "MYCA can't reach the API backend. Ensure MAS (192.168.0.188) is reachable and LLM keys (ANTHROPIC_API_KEY, etc.) are in .env.local."
-            : errMsg.includes("API keys")
-            ? "MYCA's AI backends need API keys. Add ANTHROPIC_API_KEY or other LLM keys to .env.local."
-            : `MYCA is unavailable: ${errMsg.slice(0, 120)}`,
+            ? "MYCA is temporarily unable to connect. Please try again shortly."
+            : `MYCA is briefly unavailable. Please try again in a moment.`,
           timestamp: new Date().toISOString(),
           agent: "myca-orchestrator",
         })

@@ -1,0 +1,281 @@
+# =============================================================================
+# Mycosoft Production Stack — mycosoft.com
+# =============================================================================
+# This is the PRODUCTION compose file for the live mycosoft.com site.
+# It includes everything needed for a self-contained, auto-healing deployment:
+#
+#   - Website (Next.js)
+#   - Ollama (local LLM fallback — MYCA never goes silent)
+#   - Cloudflare Tunnel (auto-reconnecting ingress)
+#   - PostgreSQL + Redis (data layer)
+#   - N8N (workflow automation)
+#   - Prometheus + Grafana (monitoring)
+#
+# Usage:
+#   cp env.production.example .env          # fill in secrets
+#   docker compose -f docker-compose.production.yml up -d
+#   docker compose -f docker-compose.production.yml logs -f website
+#
+# Differences from docker-compose.yml (sandbox/dev):
+#   - Cloudflare tunnel container for public ingress
+#   - Ollama container for zero-downtime local LLM
+#   - Website container gets ALL LLM API keys injected
+#   - Tighter health checks and restart policies
+#   - No data collectors (they run on separate VMs)
+# =============================================================================
+
+services:
+  # ==========================================================================
+  # CLOUDFLARE TUNNEL — Public ingress for mycosoft.com
+  # ==========================================================================
+  # The tunnel auto-reconnects on drops. If the container dies, Docker restarts
+  # it. This eliminates the "site down for hours" scenario.
+  # ==========================================================================
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mycosoft-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: always
+    depends_on:
+      website:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info", "--output", "json"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=cloudflare-tunnel"
+      - "com.mycosoft.critical=true"
+
+  # ==========================================================================
+  # WEBSITE — Next.js production app
+  # ==========================================================================
+  # All LLM keys are injected here so the orchestrator can always reach at
+  # least one AI provider even when MAS VM (192.168.0.188) is unreachable.
+  # ==========================================================================
+
+  website:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: mycosoft-website
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Data layer (in-stack)
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      # Ollama runs in-stack — always reachable
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
+      # MAS Orchestrator (cross-VM, may be unreachable through tunnel)
+      - MAS_API_URL=${MAS_API_URL:-http://192.168.0.188:8001}
+      - MINDEX_API_URL=${MINDEX_API_URL:-http://192.168.0.189:8000}
+      - N8N_URL=${N8N_URL:-http://n8n:5678}
+      # LLM API keys — CRITICAL: at least one must be valid
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      # Auth & Payments
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mycosoft.com}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      # Public URLs
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}
+      - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-http://192.168.0.188:8001}
+      - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=website"
+      - "com.mycosoft.critical=true"
+
+  # ==========================================================================
+  # OLLAMA — Local LLM (zero API cost, zero network dependency)
+  # ==========================================================================
+  # This is the safety net that ensures MYCA NEVER returns "fallback mode"
+  # to any user. Even if every cloud API key expires and MAS VM is offline,
+  # Ollama responds locally in ~2-5s with a real answer.
+  #
+  # On first start: docker exec mycosoft-ollama ollama pull llama3.3
+  # ==========================================================================
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mycosoft-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      # CPU-only by default. For GPU: add deploy.resources.reservations.devices
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=ollama"
+      - "com.mycosoft.critical=true"
+
+  # ==========================================================================
+  # DATA LAYER
+  # ==========================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mycosoft-postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mycosoft}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-mycosoft}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mycosoft}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mycosoft-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mycosoft-redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru --save 60 1000
+    volumes:
+      - redis_data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # WORKFLOW AUTOMATION
+  # ==========================================================================
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: mycosoft-n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - WEBHOOK_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}/api/webhooks
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+  # ==========================================================================
+  # MONITORING
+  # ==========================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mycosoft-prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mycosoft-grafana
+    ports:
+      - "127.0.0.1:3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - mycosoft-network
+
+networks:
+  mycosoft-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  ollama_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  n8n_data:
+    driver: local

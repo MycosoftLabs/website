@@ -318,7 +318,11 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
+            AUTH_HEADER="${PROXMOX_API_TOKEN}"
+          else
+            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          fi
           AGENT_EXEC="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec"
           AGENT_STATUS="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec-status"
 
@@ -388,8 +392,12 @@ jobs:
             "Run database migrations"
 
           run_on_vm \
-            "curl -sf http://localhost:3000/api/health || echo 'Health check pending'" \
-            "Health check"
+            "for i in 1 2 3 4 5; do curl -sf http://localhost:3000/api/health && break || sleep 10; done" \
+            "Health check (with retry)"
+
+          run_on_vm \
+            "curl -sf http://localhost:3000/api/health/providers 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get(\"summary\",{}).get(\"working\",0); print(f\"LLM providers working: {w}\")' 2>/dev/null || echo 'LLM provider check skipped'" \
+            "Verify LLM providers"
 
           run_on_vm \
             "echo '${DEPLOY_SHA} deployed at \$(date)' >> /var/log/mycosoft-deployments.log" \

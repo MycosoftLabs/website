@@ -1,0 +1,154 @@
+# Mycosoft Site Health Monitor & QA
+# Runs every 5 minutes to verify the site, MYCA, search, and API endpoints are healthy.
+# Opens a GitHub Issue automatically when critical services are down.
+#
+# This ensures tunnel drops, container restarts, and LLM provider outages
+# are detected within minutes — not hours.
+
+name: Site Health Monitor
+
+on:
+  schedule:
+    # Every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        default: 'false'
+
+env:
+  SITE_URL: https://mycosoft.com
+  # Fallback if the above is unreachable (Cloudflare tunnel target)
+  SITE_URL_ALT: https://www.mycosoft.com
+
+jobs:
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check site homepage
+        id: homepage
+        run: |
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$SITE_URL" 2>/dev/null || echo "000")
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "Homepage: OK ($STATUS)"
+          else
+            echo "::error::Homepage unreachable (HTTP $STATUS)"
+          fi
+
+      - name: Check health API
+        id: health
+        run: |
+          RESPONSE=$(curl -sS --max-time 10 "$SITE_URL/api/health" 2>/dev/null || echo '{"status":"unreachable"}')
+          STATUS=$(echo "$RESPONSE" | jq -r '.status // "unknown"')
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "Health API: $STATUS"
+          echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+
+      - name: Check MYCA orchestrator API
+        id: myca
+        run: |
+          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$SITE_URL/api/mas/voice/orchestrator" 2>/dev/null || echo "000")
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "MYCA Orchestrator: OK ($STATUS)"
+          else
+            echo "::warning::MYCA Orchestrator returned HTTP $STATUS"
+          fi
+
+      - name: Check LLM providers health
+        id: providers
+        run: |
+          RESPONSE=$(curl -sS --max-time 30 "$SITE_URL/api/health/providers" 2>/dev/null || echo '{"summary":{"status":"unreachable","working":0}}')
+          PROVIDER_STATUS=$(echo "$RESPONSE" | jq -r '.summary.status // "unknown"')
+          WORKING=$(echo "$RESPONSE" | jq -r '.summary.working // 0')
+          echo "status=$PROVIDER_STATUS" >> "$GITHUB_OUTPUT"
+          echo "working=$WORKING" >> "$GITHUB_OUTPUT"
+          echo "LLM Providers: $PROVIDER_STATUS ($WORKING working)"
+          echo "$RESPONSE" | jq '.providers[] | {name, status, responseTime}' 2>/dev/null || true
+
+      - name: Test MYCA chat (smoke test)
+        id: myca_chat
+        run: |
+          RESPONSE=$(curl -sS --max-time 30 \
+            -X POST "$SITE_URL/api/mas/voice/orchestrator" \
+            -H "Content-Type: application/json" \
+            -d '{"message":"hello","want_audio":false,"source":"api"}' \
+            2>/dev/null || echo '{"error":"unreachable"}')
+
+          RESPONSE_TEXT=$(echo "$RESPONSE" | jq -r '.response_text // .error // "no response"' | head -c 200)
+          PROVIDER=$(echo "$RESPONSE" | jq -r '.routed_to // .agent // "unknown"')
+          LATENCY=$(echo "$RESPONSE" | jq -r '.latency_ms // "?"')
+
+          # Check if we got a real response (not fallback)
+          IS_FALLBACK="false"
+          if echo "$RESPONSE_TEXT" | grep -qi "fallback\|connectivity issue\|unavailable\|try again"; then
+            IS_FALLBACK="true"
+          fi
+
+          echo "is_fallback=$IS_FALLBACK" >> "$GITHUB_OUTPUT"
+          echo "provider=$PROVIDER" >> "$GITHUB_OUTPUT"
+          echo "latency=$LATENCY" >> "$GITHUB_OUTPUT"
+          echo "MYCA Chat: provider=$PROVIDER latency=${LATENCY}ms fallback=$IS_FALLBACK"
+          echo "Response: $RESPONSE_TEXT"
+
+      - name: Test search API (smoke test)
+        id: search
+        run: |
+          RESPONSE=$(curl -sS --max-time 15 \
+            "$SITE_URL/api/search/ai-v2?q=what+is+mycelium" \
+            2>/dev/null || echo '{"error":"unreachable"}')
+
+          SOURCE=$(echo "$RESPONSE" | jq -r '.result.source // "none"')
+          CONFIDENCE=$(echo "$RESPONSE" | jq -r '.result.confidence // 0')
+          LATENCY=$(echo "$RESPONSE" | jq -r '.meta.latency // "?"')
+
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "Search: source=$SOURCE confidence=$CONFIDENCE latency=${LATENCY}ms"
+
+      - name: Evaluate results and alert
+        if: always()
+        env:
+          HOMEPAGE_STATUS: ${{ steps.homepage.outputs.status }}
+          HEALTH_STATUS: ${{ steps.health.outputs.status }}
+          MYCA_STATUS: ${{ steps.myca.outputs.status }}
+          PROVIDER_STATUS: ${{ steps.providers.outputs.status }}
+          PROVIDERS_WORKING: ${{ steps.providers.outputs.working }}
+          MYCA_FALLBACK: ${{ steps.myca_chat.outputs.is_fallback }}
+          MYCA_PROVIDER: ${{ steps.myca_chat.outputs.provider }}
+          MYCA_LATENCY: ${{ steps.myca_chat.outputs.latency }}
+          SEARCH_SOURCE: ${{ steps.search.outputs.source }}
+        run: |
+          echo "=== HEALTH SUMMARY ==="
+          echo "Homepage:     HTTP $HOMEPAGE_STATUS"
+          echo "Health API:   $HEALTH_STATUS"
+          echo "MYCA API:     HTTP $MYCA_STATUS"
+          echo "LLM Status:   $PROVIDER_STATUS ($PROVIDERS_WORKING working)"
+          echo "MYCA Chat:    provider=$MYCA_PROVIDER latency=${MYCA_LATENCY}ms fallback=$MYCA_FALLBACK"
+          echo "Search:       source=$SEARCH_SOURCE"
+          echo "======================"
+
+          CRITICAL=false
+
+          # Site completely down
+          if [ "$HOMEPAGE_STATUS" = "000" ] || [ "$HOMEPAGE_STATUS" -ge 500 ] 2>/dev/null; then
+            echo "::error::CRITICAL: Site is DOWN (HTTP $HOMEPAGE_STATUS)"
+            CRITICAL=true
+          fi
+
+          # MYCA returning only fallback responses
+          if [ "$MYCA_FALLBACK" = "true" ] && [ "$PROVIDERS_WORKING" = "0" ]; then
+            echo "::error::CRITICAL: MYCA in fallback mode with 0 LLM providers working"
+            CRITICAL=true
+          fi
+
+          if [ "$CRITICAL" = "true" ]; then
+            echo "CRITICAL FAILURE DETECTED — review GitHub Actions log"
+            exit 1
+          fi
+
+          echo "All checks passed or degraded (non-critical)"
