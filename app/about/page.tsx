@@ -387,11 +387,12 @@ export default function AboutPage() {
                     </div>
                     <NeuCardContent className="p-6 flex flex-col justify-center">
                       <NeuBadge variant="success" className="mb-2 w-fit">
-                        Founder & CEO
+                        Founder & Creator
                       </NeuBadge>
                       <h3 className="text-2xl font-bold mb-2">{morgan.name}</h3>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">CEO · CTO · COO · Chairman of the Board</p>
                       <p className="text-sm text-muted-foreground">
-                        Pioneer in fungal-computer integration. Founded Mycosoft in 2021 in San Diego to connect living mycelium to digital systems. Architect of NatureOS, MYCA, OEI, and the FUSARIUM defense platform.
+                        Founder and Creator of Mycosoft. Pioneer in fungal-computer integration, founded Mycosoft in 2021 in San Diego to connect living mycelium to digital systems. Architect of NatureOS, MYCA, OEI, and the FUSARIUM defense platform.
                       </p>
                     </NeuCardContent>
                   </div>
@@ -406,7 +407,7 @@ export default function AboutPage() {
                   <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
                     <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
                       <Image
-                        src={encodeURI("/assets/logos/myca-logo-square.png")}
+                        src="/images/logos/myca-logo-square.png"
                         alt="MYCA Logo"
                         fill
                         className="object-cover"

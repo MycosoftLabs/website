@@ -55,7 +55,7 @@ const CORPORATE_ROLES = [
   {
     id: "myca",
     title: "MYCA Coordination",
-    role: "CEO / CTO / CFO / COO bridge",
+    role: "Executive AI coordination bridge",
     detail:
       "MYCA coordinates all corporate agents, routing tasks, decisions, and approvals across the autonomous stack.",
     icon: Radio,
@@ -77,9 +77,9 @@ export default function CorporateTeamPage() {
               Corporate Team
             </h1>
             <p className="text-base sm:text-lg text-muted-foreground max-w-3xl">
-              Mycosoft’s board, C-suite, and director functions are executed by autonomous frontier
-              services coordinated by MYCA. Each corporate agent fills critical leadership roles and
-              interfaces through MYCA for unified decision making.
+              Morgan Rockwell serves as Founder, CEO, CTO, COO, and Chairman of the Board. RJ Ricasata
+              serves as the second Board Director. Autonomous frontier AI services, coordinated by MYCA,
+              augment and assist all corporate functions — enabling 24/7 autonomous execution, planning, and governance.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -117,8 +117,7 @@ export default function CorporateTeamPage() {
                 How the Autonomous Corporation Operates
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mt-2">
-                Each corporate agent fills a leadership function and routes decisions through MYCA
-                for governance, accountability, and execution.
+                Morgan Rockwell leads as CEO, CTO, COO, and Chairman. Each AI agent fills an augmenting function and routes decisions through MYCA for governance, accountability, and execution.
               </p>
             </div>
 
@@ -163,8 +162,8 @@ export default function CorporateTeamPage() {
                 <NeuCardContent className="p-6 md:p-8 space-y-4">
                   <h3 className="text-2xl font-bold">Autonomous Leadership Stack</h3>
                   <p className="text-sm text-muted-foreground">
-                    MYCA orchestrates every executive and director function with autonomous frontier
-                    services. Each model contributes real-time reports, strategic plans, audits, and
+                    Morgan Rockwell holds all executive titles (CEO, CTO, COO, Chairman). MYCA and autonomous frontier
+                    AI services augment every executive and director function. Each model contributes real-time reports, strategic plans, audits, and
                     operational directives—kept synchronized through MYCA’s governance loop.
                   </p>
                   <p className="text-sm text-muted-foreground">
