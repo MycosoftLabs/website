@@ -38,6 +38,24 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
         const wsUrl = buildWsUrl(options);
 
         const WebSocketClient = (await import('ws')).default;
+
+        // Connection timeout to prevent hanging on tunnel drops
+        const connectTimeout = setTimeout(() => {
+          if (ws && ws.readyState === WebSocketClient.CONNECTING) {
+            console.error(`[${options.logLabel}] WebSocket connection timeout after 15s`);
+            ws.close();
+            controller.enqueue(
+              encodeMessage(encoder, {
+                type: 'error',
+                error: 'Connection timeout',
+                message: 'WebSocket connection timed out — tunnel may be unavailable',
+                timestamp: new Date().toISOString(),
+              })
+            );
+            controller.close();
+          }
+        }, 15000);
+
         ws = new WebSocketClient(wsUrl);
 
         controller.enqueue(
@@ -49,17 +67,24 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
         );
 
         ws.on('open', () => {
+          clearTimeout(connectTimeout);
           console.log(`[${options.logLabel}] WebSocket connected`);
 
           if (options.initialMessage) {
             ws?.send(JSON.stringify(options.initialMessage));
           }
 
+          // Heartbeat every 15s to detect tunnel drops faster
           heartbeatInterval = setInterval(() => {
             if (ws && ws.readyState === WebSocketClient.OPEN) {
               ws.send(JSON.stringify({ type: 'ping' }));
+            } else if (ws && ws.readyState !== WebSocketClient.CONNECTING) {
+              // Connection lost — clean up
+              console.error(`[${options.logLabel}] WebSocket not open (state: ${ws.readyState}), closing`);
+              if (heartbeatInterval) clearInterval(heartbeatInterval);
+              try { ws.close(); } catch { /* already closing */ }
             }
-          }, 30000);
+          }, 15000);
         });
 
         ws.on('message', (data: Buffer) => {
@@ -72,6 +97,7 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
         });
 
         ws.on('error', (error: { message?: string }) => {
+          clearTimeout(connectTimeout);
           console.error(`[${options.logLabel}] WebSocket error:`, error);
           controller.enqueue(
             encodeMessage(encoder, {
@@ -83,8 +109,9 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
           );
         });
 
-        ws.on('close', () => {
-          console.log(`[${options.logLabel}] WebSocket closed`);
+        ws.on('close', (code: number, reason: Buffer) => {
+          clearTimeout(connectTimeout);
+          console.log(`[${options.logLabel}] WebSocket closed (code: ${code}, reason: ${reason?.toString() || 'none'})`);
 
           if (heartbeatInterval) clearInterval(heartbeatInterval);
 
@@ -92,6 +119,7 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
             encodeMessage(encoder, {
               type: 'disconnected',
               message: options.disconnectedMessage,
+              code,
               timestamp: new Date().toISOString(),
             })
           );
@@ -99,6 +127,7 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
         });
 
         request.signal.addEventListener('abort', () => {
+          clearTimeout(connectTimeout);
           console.log(`[${options.logLabel}] Client disconnected`);
 
           if (heartbeatInterval) clearInterval(heartbeatInterval);

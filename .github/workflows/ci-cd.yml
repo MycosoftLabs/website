@@ -318,7 +318,11 @@ jobs:
           DEPLOY_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
+            AUTH_HEADER="${PROXMOX_API_TOKEN}"
+          else
+            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          fi
           AGENT_EXEC="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec"
           AGENT_STATUS="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec-status"
 
