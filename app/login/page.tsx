@@ -53,7 +53,7 @@ export default function LoginPage() {
         setError(error.message)
       } else {
         // Get redirect URL from query params or default to /dashboard
-        const redirectTo = searchParams.get("redirectTo") || "/dashboard"
+        const redirectTo = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
         router.push(redirectTo)
         router.refresh()
       }
@@ -97,13 +97,13 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
-    // Store the intended redirect in sessionStorage before OAuth
-    const redirectTo = searchParams.get("redirectTo") || "/dashboard"
+    // Support both redirectTo (our) and callbackUrl (NextAuth convention)
+    const redirectTo = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
     sessionStorage.setItem("authRedirectTo", redirectTo)
     
-    // Use current origin for callback URL - must match Supabase whitelist exactly
+    // Pass next param so auth callback knows where to redirect after OAuth
     const currentOrigin = window.location.origin
-    const callbackUrl = `${currentOrigin}/auth/callback`
+    const callbackUrl = `${currentOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
     
     console.log('[OAuth] Google login initiated')
     console.log('[OAuth] Current origin:', currentOrigin)
@@ -129,13 +129,13 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
     
-    // Store the intended redirect in sessionStorage before OAuth
-    const redirectTo = searchParams.get("redirectTo") || "/dashboard"
+    // Support both redirectTo (our) and callbackUrl (NextAuth convention)
+    const redirectTo = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
     sessionStorage.setItem("authRedirectTo", redirectTo)
     
-    // Use current origin for callback URL - must match Supabase whitelist exactly
+    // Pass next param so auth callback knows where to redirect after OAuth
     const currentOrigin = window.location.origin
-    const callbackUrl = `${currentOrigin}/auth/callback`
+    const callbackUrl = `${currentOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
     
     console.log('[OAuth] GitHub login initiated')
     console.log('[OAuth] Current origin:', currentOrigin)

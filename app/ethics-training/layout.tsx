@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { createClient } from "@/lib/supabase/server"
 import { ETHICS_TRAINING_ALLOWED_EMAILS } from "@/lib/access/routes"
 import { ETSidebar } from "@/components/ethics-training/ETSidebar"
 
@@ -9,11 +8,12 @@ export default async function EthicsTrainingLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions)
-  const email = session?.user?.email?.toLowerCase() ?? ""
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const email = user?.email?.toLowerCase() ?? ""
 
-  if (!session?.user) {
-    redirect("/login?callbackUrl=/ethics-training")
+  if (!user) {
+    redirect("/login?redirectTo=/ethics-training")
   }
 
   if (!ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)) {
