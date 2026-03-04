@@ -266,6 +266,7 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET || "mycosoft-secret-key-2024",
   debug: process.env.NODE_ENV === "development",
+  trustHost: true, // Required behind Cloudflare/proxy so session is recognized
 }
 
 const handler = NextAuth(authOptions)
