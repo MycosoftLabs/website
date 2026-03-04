@@ -52,10 +52,14 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
-        // Get redirect URL from query params or default to /dashboard
-        const redirectTo = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
-        router.push(redirectTo)
-        router.refresh()
+        // Full page redirect so cookies are sent on next request.
+        // Delay 200ms so Supabase client can persist session to cookies before next request.
+        const raw = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
+        const path = raw.includes("://") ? "/dashboard" : raw.startsWith("/") ? raw : `/${raw}`
+        const target = `${window.location.origin}${path}`
+        await new Promise((r) => setTimeout(r, 200))
+        window.location.href = target
+        return // avoid setIsLoading(false) - we're navigating away
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign in")
@@ -74,10 +78,11 @@ export default function LoginPage() {
     const email = formData.get("email") as string
 
     try {
+      const redirectTo = searchParams.get("redirectTo") || searchParams.get("callbackUrl") || "/dashboard"
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
       })
       
