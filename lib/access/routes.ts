@@ -181,6 +181,16 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
   },
 ]
 
+// Ethics Training routes (Morgan + Michelle only; checked in layout)
+export const ETHICS_TRAINING_ROUTES: RouteAccess[] = [
+  { path: '/ethics-training', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Ethics Training Dashboard' },
+  { path: '/ethics-training/sandbox/new', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Create Sandbox' },
+  { path: '/ethics-training/sandbox/[id]', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Training Session' },
+  { path: '/ethics-training/scenarios', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Scenario Library' },
+  { path: '/ethics-training/analytics', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Analytics' },
+  { path: '/ethics-training/observations', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Observer Notes' },
+]
+
 // Admin routes
 export const ADMIN_ROUTES: RouteAccess[] = [
   { path: '/devices', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Device Manager' },
@@ -216,8 +226,15 @@ export const ALL_ROUTES: RouteAccess[] = [
   ...FREEMIUM_ROUTES,
   ...AUTHENTICATED_ROUTES,
   ...PREMIUM_ROUTES,
+  ...ETHICS_TRAINING_ROUTES,
   ...ADMIN_ROUTES,
   ...SUPER_ADMIN_ROUTES,
+]
+
+// Ethics training: Morgan + Michelle only (emails allowed)
+export const ETHICS_TRAINING_ALLOWED_EMAILS = [
+  'morgan@mycosoft.org',
+  'michelle@mycosoft.org',
 ]
 
 // Get route access config

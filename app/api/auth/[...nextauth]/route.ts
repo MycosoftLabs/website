@@ -82,6 +82,14 @@ const MYCOSOFT_USERS: MycosoftUser[] = [
     title: "AI Agent",
     permissions: ["ai", "dev", "data", "infra"],
   },
+  {
+    id: "8",
+    email: "michelle@mycosoft.org",
+    name: "Michelle",
+    role: "admin",
+    title: "Ethics Training",
+    permissions: ["admin", "ethics-training"],
+  },
 ]
 
 // Default password for credential login — must be set via MYCOSOFT_DEFAULT_PASSWORD env var

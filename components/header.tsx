@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users, Brain } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -32,6 +32,13 @@ const defenseItems = [
   { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Enviornment Platform" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
+]
+
+const mycaItems = [
+  { title: "MYCA Overview", href: "/myca", icon: Bot, description: "Environmental Superintelligence" },
+  { title: "Nature Learning Model", href: "/myca/nlm", icon: Brain, description: "Foundation model for biological intelligence" },
+  { title: "Voice (PersonaPlex)", href: "/myca/voice-duplex", icon: Radio, description: "Full-duplex voice interaction" },
+  { title: "AI Studio", href: "/natureos/ai-studio", icon: Cpu, description: "MYCA command center and agent topology" },
 ]
 
 const natureOSItems = [
@@ -417,15 +424,18 @@ export function Header() {
             <span>About Us</span>
           </Link>
 
-          {/* MYCA - Direct Link */}
-          <Link
-            href="/myca"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
-            onMouseEnter={() => setOpenDropdown(null)}
-          >
-            <Bot className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
-            <span>MYCA</span>
-          </Link>
+          {/* MYCA Dropdown */}
+          <NavDropdown
+            label="MYCA"
+            icon={Bot}
+            items={mycaItems}
+            isOpen={openDropdown === "myca"}
+            onOpen={() => setOpenDropdown("myca")}
+            onClose={() => setOpenDropdown(null)}
+            accentColor="orange"
+            mainHref="/myca"
+            globalTimeoutRef={globalDropdownTimeoutRef}
+          />
 
           {/* Defense Dropdown */}
           <NavDropdown
