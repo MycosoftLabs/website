@@ -22,11 +22,9 @@ export function createClient() {
   }
   return createBrowserClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      // Use implicit flow for OAuth to avoid PKCE code verifier issues with localhost
-      flowType: 'implicit',
       detectSessionInUrl: true,
       persistSession: true,
-    }
+    },
   })
 }
 
