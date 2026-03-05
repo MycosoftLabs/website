@@ -32,10 +32,10 @@ def main() -> None:
     client.connect("192.168.0.187", username=user, password=password, timeout=30)
 
     commands = [
-        "docker ps --format '{{.Names}} {{.Status}}'",
-        "docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedSince}}' | head -n 5",
+        "timeout 20 docker ps --format '{{.Names}} {{.Status}}' || echo 'docker_ps_timeout'",
+        "timeout 20 sh -lc \"docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedSince}}' | head -n 5\" || echo 'docker_images_timeout'",
         "ps -ef | grep 'docker build' | grep -v grep || true",
-        "test -f /tmp/mycosoft_website_build.log && tail -n 40 /tmp/mycosoft_website_build.log || true",
+        "test -f /tmp/mycosoft_website_build.log && tail -n 140 /tmp/mycosoft_website_build.log || true",
     ]
     for command in commands:
         stdin, stdout, stderr = client.exec_command(command, timeout=30)

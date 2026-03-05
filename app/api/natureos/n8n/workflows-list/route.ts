@@ -47,6 +47,14 @@ const KNOWN_WORKFLOWS: WorkflowInfo[] = [
   // Defense Workflows
   { id: "30", name: "Defense Connector", description: "Defense and OEI integrations", category: "defense", file: "30_defense_connector.json" },
   
+  // MYCA Platform Integration Workflows (OpenClaw / n8n)
+  { id: "myca-discord", name: "MYCA Discord to MAS", description: "Discord → MAS message routing", category: "myca", file: "myca-discord-to-mas.json" },
+  { id: "myca-slack", name: "MYCA Slack to MAS", description: "Slack → MAS message routing", category: "myca", file: "myca-slack-to-mas.json" },
+  { id: "myca-signal", name: "MYCA Signal to MAS", description: "Signal → MAS message routing", category: "myca", file: "myca-signal-to-mas.json" },
+  { id: "myca-whatsapp", name: "MYCA WhatsApp to MAS", description: "WhatsApp → MAS message routing", category: "myca", file: "myca-whatsapp-to-mas.json" },
+  { id: "myca-gmail", name: "MYCA Gmail to MAS", description: "Gmail → MAS email routing", category: "myca", file: "myca-gmail-to-mas.json" },
+  { id: "myca-asana", name: "MYCA Asana to MAS", description: "Asana → MAS task sync", category: "myca", file: "myca-asana-to-mas.json" },
+  { id: "myca-notion", name: "MYCA Notion to MAS", description: "Notion → MAS doc sync", category: "myca", file: "myca-notion-to-mas.json" },
   // MYCA Agent Workflows
   { id: "myca-brain", name: "MYCA Master Brain", description: "Core MYCA intelligence", category: "myca", file: "myca-master-brain.json" },
   { id: "myca-router", name: "MYCA Agent Router", description: "Routes MYCA agent requests", category: "myca", file: "myca-agent-router.json" },

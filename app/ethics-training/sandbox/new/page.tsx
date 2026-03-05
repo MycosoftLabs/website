@@ -43,6 +43,7 @@ export default function NewSandboxPage() {
     try {
       const res = await fetch("/api/ethics-training/sandbox", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vessel_stage: vesselStage,

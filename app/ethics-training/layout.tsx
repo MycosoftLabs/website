@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { ETHICS_TRAINING_ALLOWED_EMAILS } from "@/lib/access/routes"
 import { ETSidebar } from "@/components/ethics-training/ETSidebar"
 
@@ -8,15 +9,17 @@ export default async function EthicsTrainingLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const email = user?.email?.toLowerCase() ?? ""
+  const session = await getServerSession(authOptions)
+  const email = session?.user?.email?.toLowerCase() ?? ""
+  const user = session?.user as { role?: string; isAdmin?: boolean } | undefined
 
-  if (!user) {
+  if (!session?.user) {
     redirect("/login?redirectTo=/ethics-training")
   }
 
-  if (!ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)) {
+  const allowedByEmail = ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)
+  const allowedByRole = user?.role === "owner" || user?.isAdmin === true
+  if (!allowedByEmail && !allowedByRole) {
     redirect("/?error=access_denied&message=Ethics+training+is+restricted+to+authorized+users")
   }
 

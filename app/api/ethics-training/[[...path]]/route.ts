@@ -1,6 +1,7 @@
 /**
  * Ethics Training API Proxy
  * Forwards requests to MAS ethics training API at /api/ethics/training
+ * Uses NextAuth session (site auth) - not Supabase
  * Created: March 4, 2026
  */
 
@@ -19,7 +20,10 @@ async function proxy(
 ) {
   const session = await getServerSession(authOptions)
   const email = session?.user?.email?.toLowerCase() ?? ""
-  if (!session?.user || !ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)) {
+  const user = session?.user as { role?: string; isAdmin?: boolean } | undefined
+  const allowedByEmail = ETHICS_TRAINING_ALLOWED_EMAILS.includes(email)
+  const allowedByRole = user?.role === "owner" || user?.isAdmin === true
+  if (!session?.user || (!allowedByEmail && !allowedByRole)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }
 

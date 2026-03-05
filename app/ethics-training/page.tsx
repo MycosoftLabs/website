@@ -29,8 +29,8 @@ export default function EthicsTrainingDashboard() {
     async function load() {
       try {
         const [sessRes, scenRes] = await Promise.all([
-          fetch("/api/ethics-training/sandbox"),
-          fetch("/api/ethics-training/scenarios"),
+          fetch("/api/ethics-training/sandbox", { credentials: "include" }),
+          fetch("/api/ethics-training/scenarios", { credentials: "include" }),
         ])
         if (sessRes.ok) {
           const data = await sessRes.json()

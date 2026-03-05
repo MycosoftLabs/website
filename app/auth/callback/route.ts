@@ -55,10 +55,17 @@ export async function GET(request: Request) {
     
     console.error('Code exchange error:', exchangeError)
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(exchangeError.message)}`
+      `${origin}/login?error=${encodeURIComponent(exchangeError.message)}&redirectTo=${encodeURIComponent(next)}`
     )
   }
 
-  // No code provided
-  return NextResponse.redirect(`${origin}/login?error=No authentication code provided`)
+  // No code: password login flow - session is in cookies from redirect
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    return NextResponse.redirect(`${origin}${next}`)
+  }
+  return NextResponse.redirect(
+    `${origin}/login?error=${encodeURIComponent('Session not found')}&redirectTo=${encodeURIComponent(next)}`
+  )
 }

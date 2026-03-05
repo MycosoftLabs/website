@@ -29,7 +29,7 @@ export default function SandboxSessionPage() {
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/ethics-training/sandbox/${id}`)
+    fetch(`/api/ethics-training/sandbox/${id}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSession)
       .finally(() => setLoading(false))
@@ -39,7 +39,7 @@ export default function SandboxSessionPage() {
     if (!id || !confirm("Destroy this sandbox session? This cannot be undone.")) return
     setDestroying(true)
     try {
-      const res = await fetch(`/api/ethics-training/sandbox/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/ethics-training/sandbox/${id}`, { method: "DELETE", credentials: "include" })
       if (res.ok) router.push("/ethics-training")
       else setDestroying(false)
     } catch {

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RefreshCw, Play, Pause, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle, Brain, Zap, Shield, Mic, Settings, FileCode } from "lucide-react"
+import { RefreshCw, Play, Pause, ExternalLink, Clock, CheckCircle, XCircle, AlertCircle, Brain, Zap, Shield, Mic, Settings, FileCode, Router, MessageSquare, Box, Activity } from "lucide-react"
 
 interface Workflow {
   id: string
@@ -58,6 +58,24 @@ interface WorkflowsList {
   workflows: KnownWorkflow[]
 }
 
+interface GatewayStatus {
+  tool_routes?: { builtin: number; sandbox: number; workflow: number; agent: number }
+  sandbox_connections?: number
+  active_sandboxes?: string[]
+  source?: string
+  mas_available?: boolean
+}
+
+const PLATFORM_INTEGRATIONS = [
+  { id: "discord", name: "Discord", icon: MessageSquare, status: "available" as const },
+  { id: "slack", name: "Slack", icon: MessageSquare, status: "available" as const },
+  { id: "signal", name: "Signal", icon: MessageSquare, status: "available" as const },
+  { id: "whatsapp", name: "WhatsApp", icon: MessageSquare, status: "available" as const },
+  { id: "gmail", name: "Gmail", icon: MessageSquare, status: "available" as const },
+  { id: "asana", name: "Asana", icon: Box, status: "available" as const },
+  { id: "notion", name: "Notion", icon: FileCode, status: "available" as const },
+]
+
 export default function WorkflowsPage() {
   const [status, setStatus] = useState<N8NStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,6 +83,7 @@ export default function WorkflowsPage() {
   const [importing, setImporting] = useState(false)
   const [importMessage, setImportMessage] = useState<string>("")
   const [knownWorkflows, setKnownWorkflows] = useState<WorkflowsList | null>(null)
+  const [gatewayStatus, setGatewayStatus] = useState<GatewayStatus | null>(null)
 
   const fetchStatus = async () => {
     setLoading(true)
@@ -93,9 +112,22 @@ export default function WorkflowsPage() {
     }
   }
 
+  const fetchGateway = async () => {
+    try {
+      const res = await fetch("/api/natureos/gateway")
+      if (res.ok) {
+        const data = await res.json()
+        setGatewayStatus(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch gateway status:", error)
+    }
+  }
+
   useEffect(() => {
     fetchStatus()
     fetchKnownWorkflows()
+    fetchGateway()
     const interval = setInterval(fetchStatus, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -225,6 +257,92 @@ export default function WorkflowsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Gateway Control Plane */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Router className="h-5 w-5" />
+              Gateway Control Plane
+            </CardTitle>
+            <CardDescription>
+              MYCA tool routing stats across builtin, sandbox, workflow, and agent routes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                <p className="text-2xl font-bold">{gatewayStatus?.tool_routes?.builtin ?? 9}</p>
+                <p className="text-xs text-muted-foreground">Built-in tools</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                <p className="text-2xl font-bold">{gatewayStatus?.tool_routes?.sandbox ?? 3}</p>
+                <p className="text-xs text-muted-foreground">Sandbox tools</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                <p className="text-2xl font-bold">{gatewayStatus?.tool_routes?.workflow ?? 2}</p>
+                <p className="text-xs text-muted-foreground">Workflow tools</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                <p className="text-2xl font-bold">{gatewayStatus?.tool_routes?.agent ?? 1}</p>
+                <p className="text-xs text-muted-foreground">Agent tools</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Platform Integrations */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Platform Integrations
+            </CardTitle>
+            <CardDescription>
+              Connected platforms for MYCA workflows
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+              {PLATFORM_INTEGRATIONS.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex flex-col items-center gap-2 p-3 rounded-lg border bg-card/50"
+                >
+                  <p.icon className="h-6 w-6 text-muted-foreground" />
+                  <span className="text-sm font-medium">{p.name}</span>
+                  <span className={`w-2 h-2 rounded-full ${p.status === "available" ? "bg-green-500" : "bg-yellow-500"}`} title={p.status} />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sandbox Execution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Box className="h-5 w-5" />
+              Sandbox Execution
+            </CardTitle>
+            <CardDescription>
+              Active sandboxes and tool execution stats
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="rounded-lg border bg-muted/30 px-4 py-2">
+                <span className="text-sm text-muted-foreground">Active sandboxes: </span>
+                <span className="font-bold">{gatewayStatus?.active_sandboxes?.length ?? 0}</span>
+              </div>
+              <div className="rounded-lg border bg-muted/30 px-4 py-2">
+                <Activity className="h-4 w-4 inline mr-2" />
+                <span className="text-sm text-muted-foreground">Connections: </span>
+                <span className="font-bold">{gatewayStatus?.sandbox_connections ?? 0}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {importMessage && (
           <Card>

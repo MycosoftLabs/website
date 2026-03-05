@@ -13,6 +13,8 @@ export interface TeamMember {
   bio: string
   description?: string
   image: string
+  /** Optional tagline/headline shown on bio page (e.g. "Turning fungal networks into the next generation of computers.") */
+  headline?: string
   // Social & contact
   linkedin?: string
   xUrl?: string
@@ -21,6 +23,8 @@ export interface TeamMember {
   portfolio?: string
   email?: string
   website?: string
+  /** Extra links (e.g. personal site, project site) — label + url */
+  links?: Array<{ label: string; url: string }>
   location?: string
   // Career
   experience?: Array<{
@@ -93,62 +97,45 @@ export const teamMembers: TeamMember[] = [
   },
   {
     name: "Garret Baquet",
-    role: "Business Development Lead",
+    role: "Founder · Systems Engineer",
     slug: "garret-baquet",
-    bio: "Contracted Business Development Lead driving partnerships, market strategy, and growth for Mycosoft's biological computing and environmental intelligence platforms.",
-    description: `Garret Baquet serves as Mycosoft's contracted Business Development Lead, driving strategic partnerships, market development, and commercial growth across the company's biological computing and environmental intelligence platforms. He brings deep expertise in technology commercialization and works to connect Mycosoft's hardware, software, and AI capabilities with defense, research, and enterprise customers.`,
+    bio: "Garret Baquet is a founder and systems engineer working at the intersection of IoT sensing, secure telemetry, and real-world deployments. At Mycosoft Inc., he focuses on turning messy physical environments into reliable, auditable data products—bridging field hardware, networking, and operational workflows so teams can measure conditions, detect change, and generate evidence-grade reporting.",
+    description: `Garret Baquet is a founder and systems engineer working at the intersection of IoT sensing, secure telemetry, and real-world deployments. At Mycosoft Inc., he focuses on turning messy physical environments into reliable, auditable data products—bridging field hardware, networking, and operational workflows so teams can measure conditions, detect change, and generate evidence-grade reporting.
+
+Garret brings 30 years of experience across IT consulting, embedded/IoT development, and mission-critical technical operations. He spent 12 years as a NASA/JPL live-broadcast technical engineer, delivering dependable results under high stakes and tight timelines. He is also a co-founder of 7ensor, LLC, and is affiliated with InfraGard, supporting security-minded collaboration across critical infrastructure and public-private partners.`,
     image: "/assets/team/garret-baquet.png",
-    linkedin: "https://www.linkedin.com/in/garret-baquet",
-    xUrl: "https://x.com/garretbaquet",
-    github: "https://github.com/garretbaquet",
+    email: "garret@mycosoft.org",
+    linkedin: "https://www.linkedin.com/in/garretbaquet",
     location: "San Francisco, CA",
     achievements: [
-      "Contracted Business Development Lead at Mycosoft",
-      "Driving partnerships across defense, research, and enterprise sectors",
-      "Developing commercial strategy for biological computing platforms",
-      "Connecting Mycosoft hardware and AI capabilities to market",
-      "Supporting OEI and NatureOS commercial deployments",
-    ],
-    interviews: [
-      {
-        title: "Building the MycoBrain: Edge AI for Biological Sensing",
-        publication: "Embedded Computing Design",
-        date: "2025-10-15",
-        url: "#",
-        type: "article",
-      },
-      {
-        title: "LoRa Mesh Networks in Environmental Defense Applications",
-        publication: "IEEE Spectrum",
-        date: "2025-11-20",
-        url: "#",
-        type: "article",
-      },
-      {
-        title: "From Mycelium to Machine: Hardware at the Bio-Digital Edge",
-        publication: "Hackaday Podcast",
-        date: "2025-09-28",
-        url: "#",
-        type: "podcast",
-      },
+      "30 years across IT consulting, systems engineering, and field-deployed technology programs",
+      "12 years supporting NASA/JPL live broadcast operations in mission-critical environments",
+      "Co-founder of 7ensor, LLC; builds IoT and sensor devices spanning hardware, firmware, and integration",
+      "InfraGard affiliation; engaged in critical infrastructure security community and liaison work",
+      "Experience advising on security/compliance infrastructure aligned with NIST/CMMC practices",
+      "Leads deployment-focused work: rapid prototyping, instrumentation, telemetry integrity, and operational reporting",
     ],
   },
   {
     name: "RJ Ricasata",
-    role: "Founder & Board Director",
+    role: "Co-Founder · Board Member & MYCA 2nd Key",
     slug: "rj-ricasata",
-    bio: "Co-Founder and second member of Mycosoft's Board of Directors, with deep expertise in blockchain QA, distributed systems, and enterprise operations.",
-    description: `RJ Ricasata is a Co-Founder of Mycosoft and serves as the second member of the company's Board of Directors, providing board-level governance, strategic oversight, and accountability. With deep experience in blockchain QA, distributed systems, and enterprise operations, RJ brings a systems-thinking perspective to Mycosoft's direction and ensures disciplined long-term execution across the company's hardware, cloud, and AI platforms.`,
+    bio: "Co-Founder, Board Member of Mycosoft Inc., and MYCA 2nd Key — secondary authorized keyholder for MYCA systems. Brings governance, strategic insight, and multidisciplinary expertise from technology, finance, and quality assurance.",
+    description: `Raljoseph "RJ" Ricasata is a Co-Founder of Mycosoft Inc., Board Member, and serves as MYCA 2nd Key — the secondary authorized keyholder for MYCA systems. He brings governance, strategic insight, and a multidisciplinary background spanning technology, finance, quality assurance, and entrepreneurship.
+
+With over a decade of experience in the cryptocurrency and fintech space, RJ has played a pivotal leadership role at Edge, a leading non-custodial digital asset wallet platform. As Head of Quality Assurance, he has overseen the reliability, security, and performance of mission-critical financial software used by customers worldwide.
+
+RJ holds a Master of Science in Accounting and a Master of Science in Management (MBA), combining deep financial expertise with strategic leadership. He is also a certified Project Management Professional (PMP), reflecting his strong foundation in execution, systems thinking, and organizational efficiency.`,
     image: "/assets/team/rj-ricasata.png",
-    linkedin: "https://www.linkedin.com/in/rj-ricasata",
-    xUrl: "https://x.com/rjricasata",
+    linkedin: "https://www.linkedin.com/in/rjricasata/",
+    xUrl: "https://x.com/rjrs2k",
     location: "San Francisco, CA",
     achievements: [
-      "Co-Founder of Mycosoft — Board of Directors (second member)",
-      "Deep expertise in blockchain QA and distributed systems",
-      "Board-level governance and strategic oversight",
-      "Systems integration across device networks and cloud infrastructure",
-      "Enterprise operations and disciplined execution across hardware and AI platforms",
+      "14+ years in cryptocurrency & fintech leadership, spanning QA, operations, and product reliability",
+      "Raised $500,000+ in ecosystem grant funding supporting innovation and growth initiatives",
+      "Dual Master's Degrees — Master of Science in Accounting & Master of Science in Management (MBA)",
+      "Certified Project Management Professional (PMP) with deep expertise in execution and systems delivery",
+      "Operational leadership across hardware, firmware, and cloud infrastructure",
     ],
   },
   {
@@ -187,38 +174,28 @@ export const teamMembers: TeamMember[] = [
   },
   {
     name: "Alberto Septien",
-    role: "Software Engineer",
+    role: "Biocomputation Systems Architect",
     slug: "alberto-septien",
-    bio: "Contracted Software Engineer architecting MINDEX, Mycosoft's global fungal intelligence database, and the data pipelines that power species-scale biological research.",
-    description: `Alberto Septien is a contracted Software Engineer who builds the data infrastructure that powers Mycosoft's research and intelligence platforms. He architects MINDEX — the world's largest fungal species database — and creates the ingestion, processing, and API systems that deliver species-scale biological data to researchers, defense systems, and NatureOS. Alberto's work underpins every system that depends on accurate, real-time mycological intelligence.`,
+    bio: "Alberto Septien is a systems engineer and lifelong technologist focused on biological computing. At Mycosoft he helps design the hardware, software, and experimental infrastructure used to explore computing with living mycelium networks, building everything from sensor interfaces and embedded systems to data pipelines and laboratory robotics.",
+    description: `Alberto Septien is a lifelong technologist, experimental systems builder, and engineer working at the frontier where biology and computation meet.
+
+At Mycosoft, Alberto designs and builds the hardware, software, and experimental infrastructure required to explore biological computing using living mycelium networks. His work focuses on developing sensor interfaces, biological signal processing systems, and data collection platforms that allow fungal networks to be observed, measured, and ultimately integrated into computational architectures.
+
+His role blends engineering disciplines rarely found in one place. Alberto designs embedded systems and firmware, builds custom hardware and robotic devices, develops software infrastructure, assembles laboratory and compute systems, and architects the data pipelines that make biological signal research possible. From CAD and robotics to networking, automation, and agentic AI workflows, he operates as a systems engineer responsible for turning ambitious experimental ideas into functioning technology.
+
+Alberto has pursued the concept of merging biological systems with computing since the early days of his career, long before the field began attracting broader attention. His belief that living organisms can become part of computational systems has guided his work for over a decade.
+
+Outside the lab he continues to build and experiment across multiple domains including artificial intelligence, robotics, distributed systems, hardware design, and emerging computational architectures. His work is driven by a simple idea: the next generation of computers may not be made purely from silicon, but from living systems capable of sensing, adapting, and processing information in entirely new ways.
+
+He lives and builds in San Diego, California.`,
+    headline: "Turning fungal networks into the next generation of computers.",
     image: "/assets/team/alberto-septien.png",
-    linkedin: "https://www.linkedin.com/in/alberto-septien",
-    github: "https://github.com/albertoseptien",
-    medium: "https://medium.com/@albertoseptien",
-    location: "San Francisco, CA",
-    achievements: [
-      "Architected MINDEX — 1M+ species database",
-      "Built ETL pipelines from GBIF, iNaturalist, and field sensors",
-      "Developed unified species API for NatureOS and OEI",
-      "Created data systems supporting defense and scientific platforms",
-      "Scaled mycological intelligence infrastructure globally",
-    ],
-    interviews: [
-      {
-        title: "Building the World's Largest Fungal Intelligence Database",
-        publication: "Towards Data Science",
-        date: "2025-10-28",
-        url: "#",
-        type: "article",
-      },
-      {
-        title: "ETL Pipelines for Biological Data at Scale",
-        publication: "Medium — Data Engineering Weekly",
-        date: "2025-09-14",
-        url: "#",
-        type: "article",
-      },
-    ],
+    linkedin: "https://www.linkedin.com/in/alberto-septien/",
+    github: "https://github.com/c9obvi",
+    xUrl: "https://x.com/0xberto",
+    website: "https://0xBerto.com",
+    links: [{ label: "Pay in Bitcoin", url: "https://payinbitcoin.net/" }],
+    location: "San Diego, California",
   },
   {
     name: "Michelle Seven",

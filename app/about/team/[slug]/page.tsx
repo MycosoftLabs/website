@@ -76,7 +76,7 @@ export default function TeamMemberPage() {
             <h1 className="text-2xl font-bold mb-4">Team Member Not Found</h1>
             <p className="text-muted-foreground mb-6">The team member you&apos;re looking for doesn&apos;t exist.</p>
             <Button asChild>
-              <Link href="/about">Back to About</Link>
+              <Link href="/about/human-team">Back to Human Team</Link>
             </Button>
           </CardContent>
         </Card>
@@ -122,6 +122,12 @@ export default function TeamMemberPage() {
       icon: Globe,
       color: "hover:border-green-500/50 hover:text-green-400",
     },
+    ...(member.links ?? []).map((l) => ({
+      href: l.url,
+      label: l.label,
+      icon: ExternalLink,
+      color: "hover:border-green-500/50 hover:text-green-400",
+    })),
     member.email && {
       href: `mailto:${member.email}`,
       label: "Email",
@@ -141,9 +147,9 @@ export default function TeamMemberPage() {
       <section className="relative py-12 md:py-20 border-b bg-muted/20">
         <div className="container max-w-6xl mx-auto px-4 md:px-6">
           <Button variant="ghost" size="sm" className="mb-8 gap-2 min-h-[44px]" asChild>
-            <Link href="/about">
+            <Link href="/about/human-team">
               <ArrowLeft className="h-4 w-4" />
-              Back to About
+              Back to Human Team
             </Link>
           </Button>
 
@@ -165,6 +171,11 @@ export default function TeamMemberPage() {
                 {member.role}
               </Badge>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3">{member.name}</h1>
+              {member.headline && (
+                <p className="text-lg md:text-xl text-muted-foreground italic mb-3 max-w-2xl">
+                  &ldquo;{member.headline}&rdquo;
+                </p>
+              )}
               {member.location && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
                   <MapPin className="h-3.5 w-3.5" />
@@ -218,7 +229,14 @@ export default function TeamMemberPage() {
                     <CardTitle className="text-lg">About</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground leading-relaxed">{member.description}</p>
+                    <div className="space-y-4 text-muted-foreground leading-relaxed">
+                      {(member.description ?? "")
+                        .split(/\n\n+/)
+                        .filter(Boolean)
+                        .map((para, i) => (
+                          <p key={i}>{para.trim()}</p>
+                        ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}

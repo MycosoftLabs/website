@@ -38,6 +38,7 @@ export function TrainingChat({
     try {
       const res = await fetch(`/api/ethics-training/sandbox/${sessionId}/chat`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       })
