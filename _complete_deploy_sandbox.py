@@ -50,6 +50,21 @@ try:
     sandbox_client.connect(sandbox_vm, username=username, password=password, sock=channel, timeout=10)
     print(f">> Connected to Sandbox VM")
     
+    # Step 2b: Pull latest code from GitHub
+    print(f"\n>> Pulling latest code from GitHub...")
+    stdin, stdout, stderr = sandbox_client.exec_command(
+        "cd /opt/mycosoft/website && git fetch origin && git reset --hard origin/main"
+    )
+    exit_status = stdout.channel.recv_exit_status()
+    pull_output = stdout.read().decode().strip()
+    pull_err = stderr.read().decode().strip()
+    if exit_status != 0:
+        print(f"WARNING: Git pull failed (exit {exit_status}). Proceeding with existing code.")
+        if pull_err:
+            print(f"    {pull_err}")
+    else:
+        print(f"    {pull_output or 'Code updated'}")
+    
     # Step 3: Stop and remove existing container (force)
     print(f"\n>> Stopping and removing existing container (forced)...")
     stdin, stdout, stderr = sandbox_client.exec_command(
@@ -83,12 +98,16 @@ try:
         get_pty=True
     )
     
-    # Stream output
+    # Stream output (safe for Windows cp1252 - replace Unicode)
+    def safe_print(s: str) -> None:
+        out = s.encode("ascii", errors="replace").decode("ascii")
+        print(out)
+
     while True:
         line = stdout.readline()
         if not line:
             break
-        print(f"    {line.rstrip()}")
+        safe_print(f"    {line.rstrip()}")
     
     exit_status = stdout.channel.recv_exit_status()
     if exit_status != 0:
