@@ -59,8 +59,8 @@ const getGoogleAIKey = () => getKey("GOOGLE_AI_API_KEY")
 const getXAIKey = () => getKey("XAI_API_KEY")
 const getGroqKey = () => getKey("GROQ_API_KEY")
 
-// Local Ollama (open-source Llama, runs on RTX 5090 — zero API cost)
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
+// Local Ollama — runs on MAS VM (188) in production; use localhost for local dev with Ollama on same machine
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://192.168.0.188:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
 
 // MYCA's identity prompt - sent to ALL LLMs
