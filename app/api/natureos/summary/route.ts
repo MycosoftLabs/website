@@ -1,67 +1,61 @@
 /**
  * NatureOS Summary API — March 7, 2026
  *
- * MYCA-friendly machine-readable summary: device count, workflow status,
- * last telemetry. For MYCA context injection.
+ * High-level NatureOS state summary for MYCA context injection.
+ * Proxies to NatureOS backend health; returns digest for MYCA.
+ * NO MOCK DATA — uses real NatureOS API or MAS device registry.
  */
 
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { env } from "@/lib/env"
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
-  const masUrl = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const NATUREOS_URL =
+  process.env.NATUREOS_API_BASE_URL || env.natureosApiBaseUrl
+const MAS_API_URL = process.env.MAS_API_URL
 
+export async function GET(_request: NextRequest) {
   const summary: {
-    device_count: number
-    workflow_status: string
-    last_telemetry_at: string | null
-    ecosystem_species: number
-    mas_connected: boolean
-    timestamp: string
+    available: boolean
+    source: string
+    message?: string
+    natureos_health?: Record<string, unknown>
+    devices_count?: number
   } = {
-    device_count: 0,
-    workflow_status: "unknown",
-    last_telemetry_at: null,
-    ecosystem_species: 0,
-    mas_connected: false,
-    timestamp: new Date().toISOString(),
+    available: false,
+    source: "unavailable",
   }
 
-  const mindexUrl = env.mindexApiBaseUrl
-  const apiKey = env.mindexApiKey || "local-dev-key"
-
-  try {
-    const [devicesRes, masRes, mindexRes] = await Promise.allSettled([
-      fetch(`${masUrl}/api/devices/network`, {
+  if (NATUREOS_URL) {
+    try {
+      const res = await fetch(`${NATUREOS_URL}/api/health`, {
         signal: AbortSignal.timeout(5000),
-      }),
-      fetch(`${masUrl}/health`, { signal: AbortSignal.timeout(3000) }),
-      fetch(`${mindexUrl}/api/mindex/stats`, {
-        headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
+      })
+      const data = await res.json().catch(() => ({}))
+      summary.available = res.ok
+      summary.source = "natureos"
+      summary.natureos_health = data
+    } catch {
+      summary.message = "NatureOS backend unreachable"
+    }
+  }
+
+  if (!summary.available && MAS_API_URL) {
+    try {
+      const res = await fetch(`${MAS_API_URL}/api/devices`, {
         signal: AbortSignal.timeout(5000),
-      }),
-    ])
-
-    if (devicesRes.status === "fulfilled" && devicesRes.value.ok) {
-      const data = await devicesRes.value.json()
-      const devices = Array.isArray(data) ? data : data?.devices ?? data?.items ?? []
-      summary.device_count = devices.length
+      })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const devices = Array.isArray(data) ? data : data?.devices ?? []
+        summary.available = true
+        summary.source = "mas"
+        summary.devices_count = devices.length
+      }
+    } catch {
+      if (!summary.message) summary.message = "MAS device registry unreachable"
     }
-
-    if (masRes.status === "fulfilled" && masRes.value.ok) {
-      summary.mas_connected = true
-    }
-
-    if (mindexRes.status === "fulfilled" && mindexRes.value.ok) {
-      const stats = await mindexRes.value.json()
-      summary.ecosystem_species = stats?.total_taxa ?? stats?.taxa_with_observations ?? 0
-    }
-
-    summary.workflow_status = summary.mas_connected ? "available" : "unreachable"
-  } catch (error) {
-    console.error("NatureOS summary fetch error:", error)
   }
 
   return NextResponse.json(summary)
