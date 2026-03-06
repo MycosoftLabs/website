@@ -49,6 +49,7 @@ function getPageContextForMYCA(pathname: string): string {
   const p = pathname || ""
   if (p.startsWith("/dashboard/morgan")) return "User is on Morgan Oversight (MYCA control, grounding, tasks)."
   if (p.startsWith("/dashboard/crep")) return "User is viewing the CREP dashboard (global situational awareness)."
+  if (p.startsWith("/dashboard/devices")) return "User is viewing the Device Dashboard (network devices, MycoBrain)."
   if (p.startsWith("/dashboard/grounding")) return "User is viewing the Grounding dashboard (EP stream, ThoughtObjects)."
   if (p.startsWith("/dashboard/soc")) return "User is viewing the SOC (Security Operations) dashboard."
   if (p.startsWith("/dashboard")) return "User is on the main dashboard."
