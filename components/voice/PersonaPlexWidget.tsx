@@ -13,6 +13,8 @@ interface PersonaPlexWidgetProps {
   position?: "bottom-right" | "bottom-left" | "top-right" | "top-left"
   defaultExpanded?: boolean
   showMonitor?: boolean
+  /** When true, omit fixed positioning for use inside UnifiedMYCAFAB */
+  embedded?: boolean
   
   // Customization
   voicePrompt?: string
@@ -22,6 +24,7 @@ interface PersonaPlexWidgetProps {
   // Callbacks
   onTranscript?: (text: string) => void
   onResponse?: (response: string) => void
+  onCommand?: (cmd: string, result: unknown) => void
 }
 
 const positionClasses = {
@@ -36,6 +39,7 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
   position = "bottom-right",
   defaultExpanded = false,
   showMonitor = true,
+  embedded = false,
   voicePrompt = "NATURAL_F2.pt",
   textPrompt = MYCA_PERSONAPLEX_PROMPT,
   // Default to PersonaPlex Bridge (8999) for MAS Event Engine integration
@@ -78,14 +82,16 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
     }
   }
   
+  const positionWrapper = embedded ? "relative z-0" : cn("fixed z-[9998]", positionClasses[position])
+
   // Collapsed view - just a floating button
   if (!isExpanded) {
     return (
-      <div className={cn("fixed z-50", positionClasses[position], className)} suppressHydrationWarning>
+      <div className={cn(positionWrapper, className)} suppressHydrationWarning>
         <Button
           onClick={() => setIsExpanded(true)}
           className={cn(
-            "h-14 w-14 rounded-full shadow-lg transition-all duration-200",
+            "h-12 w-12 rounded-full shadow-lg transition-all duration-200",
             personaplex.isConnected
               ? "bg-green-600 hover:bg-green-700"
               : "bg-zinc-800 hover:bg-zinc-700"
@@ -121,11 +127,11 @@ export const PersonaPlexWidget: FC<PersonaPlexWidgetProps> = ({
     )
   }
   
-  // Expanded view
+  // Expanded view - when embedded, use fixed overlay so it appears above content
   return (
     <div className={cn(
-      "fixed z-50 w-96 bg-zinc-900 rounded-xl border border-zinc-700 shadow-2xl overflow-hidden",
-      positionClasses[position],
+      "w-96 bg-zinc-900 rounded-xl border border-zinc-700 shadow-2xl overflow-hidden",
+      embedded ? "fixed bottom-24 right-4 z-[9999]" : cn("fixed z-[9998]", positionClasses[position]),
       className
     )} suppressHydrationWarning>
       {/* Header */}

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { MemoryHealthWidget } from "@/components/memory"
 import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
+import { MYCAStateWidget } from "@/components/myca/MYCAStateWidget"
 
 function MRRWidget() {
   const [data, setData] = useState<{ mrr: number; active_users: number; api_calls: number } | null>(null)
@@ -161,13 +162,21 @@ export default function DashboardPage() {
             {/* Right: User Menu */}
             <div className="flex items-center gap-4">
               {isSuperAdmin && (
-                <Link 
-                  href="/admin"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg transition-colors"
-                >
-                  <Crown className="w-4 h-4" />
-                  <span className="hidden sm:inline">Admin</span>
-                </Link>
+                <>
+                  <Link 
+                    href="/dashboard/morgan"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg transition-colors"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span className="hidden sm:inline">Morgan Oversight</span>
+                  </Link>
+                  <Link 
+                    href="/admin"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg transition-colors"
+                  >
+                    <span className="hidden sm:inline">Admin</span>
+                  </Link>
+                </>
               )}
               <Link 
                 href="/billing"
@@ -238,6 +247,9 @@ export default function DashboardPage() {
         {isSuperAdmin && (
           <MRRWidget />
         )}
+
+        {/* MYCA State Widget — consciousness, grounding, pending confirmations */}
+        <MYCAStateWidget />
 
         {/* Purpose Explanation Card - What is this dashboard? */}
         <div className="bg-gradient-to-r from-emerald-500/10 via-transparent to-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
@@ -326,6 +338,19 @@ export default function DashboardPage() {
 
         {/* Additional Quick Links */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {isSuperAdmin && (
+            <Link href="/dashboard/morgan" className="block">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-amber-500/50 transition-colors">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <Crown className="w-10 h-10 text-amber-400" />
+                  <div>
+                    <CardTitle className="text-white">Morgan Oversight</CardTitle>
+                    <CardDescription className="text-slate-400">MYCA control & visibility</CardDescription>
+                  </div>
+                </CardHeader>
+              </Card>
+            </Link>
+          )}
           <Link href="/dashboard/grounding" className="block">
             <Card className="bg-slate-800/50 border-slate-700 hover:border-emerald-500/50 transition-colors">
               <CardHeader className="flex flex-row items-center gap-4">

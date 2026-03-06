@@ -557,3 +557,8 @@ export function useMYCA() {
   }
   return context
 }
+
+/** Optional MYCA context — returns null if not within MYCAProvider. Use for conditional widgets. */
+export function useOptionalMYCA(): MYCAContextValue | null {
+  return useContext(MYCAContext)
+}

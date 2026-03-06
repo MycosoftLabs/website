@@ -16,12 +16,15 @@ interface MYCAFloatingButtonProps {
   className?: string
   title?: string
   getContextText?: () => string
+  /** When true, omit fixed positioning for use inside UnifiedMYCAFAB */
+  embedded?: boolean
 }
 
 export function MYCAFloatingButton({
   className,
   title = "MYCA",
   getContextText,
+  embedded = false,
 }: MYCAFloatingButtonProps) {
   const [open, setOpen] = useState(false)
   const { setIsActive } = useMYCA()
@@ -47,8 +50,9 @@ export function MYCAFloatingButton({
         type="button"
         variant="default"
         className={cn(
-          "fixed bottom-4 right-4 z-[9999] h-12 w-12 rounded-full shadow-lg",
+          "h-12 w-12 rounded-full shadow-lg",
           "min-h-[44px] min-w-[44px] pointer-events-auto",
+          embedded ? "relative" : "fixed bottom-4 right-4 z-[9998]",
           className
         )}
         aria-label="Open MYCA chat"
@@ -58,7 +62,7 @@ export function MYCAFloatingButton({
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-[80] flex justify-end bg-black/50" onClick={handleClose}>
+        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/50" onClick={handleClose}>
           <div
             className="h-full w-full max-w-full sm:max-w-md bg-background shadow-xl"
             onClick={(event) => event.stopPropagation()}

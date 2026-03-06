@@ -188,15 +188,18 @@ export function usePersonaPlexContextRequired(): PersonaPlexContextValue {
 interface PersonaPlexProviderProps {
   children: ReactNode
   enabled?: boolean
+  /** When false, do not render the floating widget (UnifiedMYCAFAB renders it instead) */
+  renderFloatingWidget?: boolean
 }
 
 export const PersonaPlexProvider: FC<PersonaPlexProviderProps> = ({
   children,
   enabled = true,
+  renderFloatingWidget = true,
 }) => {
   const router = useRouter()
   const pathname = usePathname()
-  const showWidget = enabled && !PAGES_WITH_OWN_MIC.some((p) => pathname?.startsWith(p))
+  const showWidget = enabled && renderFloatingWidget && !PAGES_WITH_OWN_MIC.some((p) => pathname?.startsWith(p))
   const [lastCommand, setLastCommand] = useState("")
   const [lastResult, setLastResult] = useState<unknown>(null)
   const [isListening, setIsListening] = useState(false)
