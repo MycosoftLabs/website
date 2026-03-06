@@ -113,15 +113,7 @@ def main():
         print(f"   {out.split(chr(10))[-1]}")
     
     # Rebuild image (no cache so route/API changes are included)
-    print("\n2. Preflight: checking base image cache + Docker Hub reachability...")
-    _, has_node, _ = _run("docker image inspect node:18-alpine >/dev/null 2>&1 && echo HAS_NODE=1 || echo HAS_NODE=0", timeout=30)
-    print(f"   node:18-alpine cached: {has_node.replace('HAS_NODE=', '') if has_node else 'unknown'}")
-    _, dns_auth, _ = _run("getent hosts auth.docker.io 2>/dev/null | head -1 || true", timeout=10)
-    if dns_auth:
-        print(f"   DNS auth.docker.io: {dns_auth}")
-    _, curl_probe, _ = _run("curl -I --max-time 8 https://auth.docker.io/ 2>/dev/null | head -1 || true", timeout=15)
-    if curl_probe:
-        print(f"   HTTPS auth.docker.io: {curl_probe}")
+    print("\n2. Preflight skipped (proceed to build)")
 
     print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
     image_tag = "mycosoft-always-on-mycosoft-website:latest"
