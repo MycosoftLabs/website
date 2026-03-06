@@ -208,15 +208,15 @@ export default function DeviceNetworkPage() {
     }
   }
 
-  // Check MycoBrain service status
+  // Check MycoBrain service status (use serviceHealthy when available; 5s timeout for slow service)
   useEffect(() => {
     const checkService = async () => {
       try {
         const res = await fetch("/api/mycobrain", {
-          signal: AbortSignal.timeout(2000),
+          signal: AbortSignal.timeout(5000),
         })
         const data = await res.json()
-        const isOnline = !data.error || data.error !== "MycoBrain service not running"
+        const isOnline = data.serviceHealthy === true || (data.devices?.length > 0 && !data.error)
         setServiceStatus(isOnline ? "online" : "offline")
       } catch {
         setServiceStatus("offline")

@@ -1285,10 +1285,27 @@ function LayerControlPanel({
   );
 }
 
-// Right Panel - Services Integration Component
+// Right Panel - Services Integration Component (MycoBrain status from real API)
 function ServicesPanel() {
+  const [mycoStatus, setMycoStatus] = useState<{ connected: boolean; devices: number }>({ connected: false, devices: 0 });
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(5000) });
+        const data = await res.json();
+        const connected = data.serviceHealthy === true || (data.devices?.length > 0 && !data.error);
+        setMycoStatus({ connected, devices: data.devices?.length ?? 0 });
+      } catch {
+        setMycoStatus({ connected: false, devices: 0 });
+      }
+    };
+    check();
+    const interval = setInterval(check, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const services = [
-    { id: "mycobrain", name: "MycoBrain", status: "connected", icon: <Brain className="w-3.5 h-3.5" />, color: "text-green-400", devices: 47 },
+    { id: "mycobrain", name: "MycoBrain", status: mycoStatus.connected ? "connected" : "offline", icon: <Brain className="w-3.5 h-3.5" />, color: "text-green-400", devices: mycoStatus.devices },
     { id: "mindex", name: "MINDEX", status: "synced", icon: <Database className="w-3.5 h-3.5" />, color: "text-cyan-400", records: "2.4M" },
     { id: "myca", name: "MYCA Agent", status: "active", icon: <Bot className="w-3.5 h-3.5" />, color: "text-purple-400", tasks: 3 },
     { id: "natureos", name: "NatureOS", status: "online", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
@@ -1854,38 +1871,31 @@ export default function CREPDashboardPage() {
           console.warn("[CREP] Failed to fetch global events:", e);
         }
 
-        // Fetch MycoBrain devices - wrapped in try/catch
+        // Fetch MycoBrain devices - use /api/mycobrain (merges local + MAS registry, fallback when service down)
         try {
-          const devicesRes = await fetch("/api/mycobrain/devices");
+          const devicesRes = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(8000) });
           if (devicesRes.ok) {
             const data = await devicesRes.json();
-            // MycoBrain devices - ALWAYS default to San Diego 91910 (Chula Vista) for the primary device
-            // The primary device is on the user's desk in Chula Vista, San Diego, CA 91910
-            const formattedDevices = (data.devices || []).map((d: any, index: number) => {
-              // Chula Vista 91910 coordinates: 32.6189, -117.0769
-              // ALL devices without explicit GPS should default to San Diego HQ
-              const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
-              
-              // Only use device location if explicitly provided AND valid (not 0,0 or null)
-              const hasValidLocation = d.location?.lat && d.location?.lng && 
+            const rawDevices = data.devices || [];
+            // MycoBrain devices - default to San Diego 91910 when no GPS
+            const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 };
+            const formattedDevices = rawDevices.map((d: any, index: number) => {
+              const hasValidLocation = d.location?.lat && d.location?.lng &&
                 Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
-                // Reject Vancouver default (49, -123) as it's not correct
                 !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1);
-              
-              // Extract sensor data from the device response
-              const sensorData = d.sensor_data || {};
-              
+              const sensorData = d.sensor_data || d.device_info?.sensor_data || {};
+              const info = d.device_info || d.info || {};
+              const connected = d.connected ?? (d.status === "online");
               return {
                 id: d.device_id || d.id || `device-${index}`,
-                name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
-                // ALWAYS use San Diego unless there's a valid explicit location
+                name: d.display_name || d.device_display_name || info.board_type || info.board || d.device_name || `MycoBrain ${index + 1}`,
                 lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
                 lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
-                status: d.connected ? "online" : "offline",
+                status: connected ? "online" : "offline",
+                type: d.device_role || "mushroom1",
                 port: d.port,
-                firmware: sensorData.firmware_version || d.info?.firmware,
+                firmware: info.firmware_version || info.firmware,
                 protocol: d.protocol || "MDP",
-                // Include sensor data for display
                 sensorData: {
                   temperature: sensorData.temperature,
                   humidity: sensorData.humidity,
@@ -1900,7 +1910,7 @@ export default function CREPDashboardPage() {
                 lastUpdate: sensorData.last_update || new Date().toISOString(),
               };
             });
-            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (Chula Vista 91910)`);
+            console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (source: ${data.source || "mycobrain"})`);
             setDevices(formattedDevices);
           }
         } catch (e) {

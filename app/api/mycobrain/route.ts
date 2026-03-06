@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
   try {
     // First check if local service is running
     const healthRes = await fetch(`${MYCOBRAIN_SERVICE_URL}/health`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     }).catch(() => null)
     
     if (!healthRes?.ok) {
@@ -220,6 +220,7 @@ export async function GET(request: NextRequest) {
         source: "network-registry-fallback",
         message: "Devices loaded from MAS network registry",
         timestamp: new Date().toISOString(),
+        serviceHealthy: false,
         networkHealthy: true,
       })
     }
@@ -231,6 +232,7 @@ export async function GET(request: NextRequest) {
       message: "Start the MycoBrain service to connect devices",
       timestamp: new Date().toISOString(),
       serviceUrl: MYCOBRAIN_SERVICE_URL,
+      serviceHealthy: false,
     })
   }
 }

@@ -502,10 +502,16 @@ export function LiveMapContent() {
       ) : null}
 
       {!isLoading && !devicePoints.length ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-center px-4">
-          <div className="max-w-md text-sm text-gray-200">
-            No device locations available yet. Add a location value in the MAS device registry
-            (lat,lng) to render device points on the map.
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-center px-4 pointer-events-none">
+          <div className="max-w-md text-sm text-gray-200 space-y-2">
+            <p>No device locations available yet.</p>
+            <p className="text-xs text-gray-400">
+              Devices need a location (lat,lng) in the MAS registry to appear on the map.
+              MycoBrain boards without GPS won&apos;t show — add a fixed lab location
+              (e.g. <code className="text-cyan-400">32.72,-117.16</code>) via{" "}
+              <code className="text-cyan-400">MYCOBRAIN_DEVICE_LOCATION</code> or the
+              device extra field.
+            </p>
           </div>
         </div>
       ) : null}
