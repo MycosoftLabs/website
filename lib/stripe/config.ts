@@ -193,6 +193,14 @@ export const PREMIUM_FEATURES = {
     price: 199,
     stripePriceId: 'price_feature_drone',
   },
+  /** PersonaPlex Voice API - $29/mo subscription for voice API access (MYCA Loop Closure Mar 2026) */
+  PERSONAPLEX_VOICE: {
+    id: 'personaplex-voice',
+    name: 'PersonaPlex Voice API',
+    description: 'Voice API access for MYCA — TTS/STT, full-duplex, GPU-accelerated',
+    price: 29,
+    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_PERSONAPLEX_PRICE_ID || 'price_personaplex_voice_placeholder',
+  },
 } as const;
 
 export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;

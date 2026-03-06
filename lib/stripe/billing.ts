@@ -10,6 +10,7 @@ import {
   SUBSCRIPTION_PLANS, 
   HARDWARE_PRODUCTS, 
   API_USAGE_PRICING,
+  PREMIUM_FEATURES,
   type SubscriptionPlanId 
 } from './config';
 import type Stripe from 'stripe';
@@ -189,6 +190,57 @@ export async function createProductCheckout({
     sessionId: session.id,
     url: session.url!,
   };
+}
+
+// ============================================
+// PERSONAPLEX ADD-ON CHECKOUT
+// ============================================
+
+interface CreatePersonaPlexCheckoutParams {
+  userId: string;
+  email: string;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+/**
+ * Create Stripe Checkout for PersonaPlex Voice API ($29/mo subscription).
+ * MYCA Loop Closure - revenue validation.
+ */
+export async function createPersonaPlexCheckout({
+  userId,
+  email,
+  successUrl,
+  cancelUrl,
+}: CreatePersonaPlexCheckoutParams): Promise<{ sessionId: string; url: string }> {
+  const stripe = getStripe();
+  const feature = PREMIUM_FEATURES.PERSONAPLEX_VOICE;
+  const priceId = feature.stripePriceId;
+  if (!priceId || priceId === 'price_personaplex_voice_placeholder') {
+    throw new Error('PersonaPlex price not configured. Set NEXT_PUBLIC_STRIPE_PERSONAPLEX_PRICE_ID.');
+  }
+
+  const customerId = await getOrCreateCustomer(userId, email);
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: 'subscription',
+    payment_method_types: ['card'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: cancelUrl,
+    subscription_data: {
+      metadata: { supabase_user_id: userId, addon: 'personaplex_voice' },
+    },
+    metadata: {
+      supabase_user_id: userId,
+      type: 'addon',
+      addon_id: 'personaplex_voice',
+    },
+    allow_promotion_codes: true,
+  });
+
+  return { sessionId: session.id, url: session.url! };
 }
 
 // ============================================

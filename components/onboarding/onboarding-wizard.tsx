@@ -22,6 +22,8 @@ import {
 import { cn } from '@/lib/utils'
 import { SignupForm } from './signup-form'
 import { PlanSelector } from './plan-selector'
+import { ApiKeyStep } from './api-key-step'
+import { SubscriptionTier } from '@/lib/access/types'
 
 interface OnboardingWizardProps {
   onComplete?: () => void
@@ -407,8 +409,14 @@ function ParticleBackground() {
 
 // Signup slide component
 function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplete: () => void }) {
-  const [step, setStep] = useState<'form' | 'plan'>('form')
+  const [step, setStep] = useState<'form' | 'plan' | 'apikey'>('form')
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionTier>(SubscriptionTier.FREE)
   const IconComponent = slide.icon
+
+  const handlePlanComplete = (plan: SubscriptionTier) => {
+    setSelectedPlan(plan)
+    setStep('apikey')
+  }
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -473,8 +481,10 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
       >
         {step === 'form' ? (
           <SignupForm onSuccess={() => setStep('plan')} />
+        ) : step === 'plan' ? (
+          <PlanSelector onComplete={handlePlanComplete} />
         ) : (
-          <PlanSelector onComplete={onComplete} />
+          <ApiKeyStep plan={selectedPlan} onComplete={onComplete} />
         )}
       </motion.div>
     </div>

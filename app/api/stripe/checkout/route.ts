@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { 
   createSubscriptionCheckout, 
   createProductCheckout,
+  createPersonaPlexCheckout,
   SUBSCRIPTION_PLANS,
   type SubscriptionPlanId 
 } from '@/lib/stripe';
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json();
-    const { type, planId, productId, quantity, billingPeriod } = body;
+    const { type, planId, productId, quantity, billingPeriod, addonId } = body;
     
     const origin = request.headers.get('origin') || 'http://localhost:3001';
     const successUrl = `${origin}/billing/success`;
@@ -67,6 +68,22 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ sessionId, url });
       
+    } else if (type === 'addon') {
+      // Add-on subscription (e.g. PersonaPlex Voice $29/mo)
+      if (addonId !== 'personaplex_voice') {
+        return NextResponse.json(
+          { error: 'Unknown addon. Supported: personaplex_voice' },
+          { status: 400 }
+        );
+      }
+      const { sessionId, url } = await createPersonaPlexCheckout({
+        userId: user.id,
+        email: user.email!,
+        successUrl: `${origin}/billing/success`,
+        cancelUrl: `${origin}/pricing`,
+      });
+      return NextResponse.json({ sessionId, url });
+      
     } else if (type === 'product') {
       // Product checkout (hardware purchase)
       if (!productId) {
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
       
     } else {
       return NextResponse.json(
-        { error: 'Invalid checkout type. Must be "subscription" or "product"' },
+        { error: 'Invalid checkout type. Must be "subscription", "product", or "addon"' },
         { status: 400 }
       );
     }

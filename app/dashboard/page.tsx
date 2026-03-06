@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSupabaseUser, useProfile } from "@/hooks/use-supabase-user"
@@ -14,12 +14,83 @@ import {
   Loader2, User, Settings, Leaf, Cpu, Database, 
   Activity, TrendingUp, Zap, ExternalLink, Home, 
   Crown, Shield, ArrowLeft, ChevronRight, Bell,
-  CreditCard, LogOut, Brain, Globe, Menu
+  CreditCard, LogOut, Brain, Globe, Menu, DollarSign
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { MemoryHealthWidget } from "@/components/memory"
 import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
+
+function MRRWidget() {
+  const [data, setData] = useState<{ mrr: number; active_users: number; api_calls: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/billing/mrr')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { setData(d); setError(d ? null : 'Failed to load') })
+      .catch(() => setError('Failed to load'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className="bg-amber-500/10 border-amber-500/30">
+        <CardHeader className="flex flex-row items-center gap-4">
+          <DollarSign className="w-8 h-8 text-amber-400" />
+          <div>
+            <CardTitle className="text-white">MRR & Beta Stats</CardTitle>
+            <CardDescription className="text-slate-400">Loading...</CardDescription>
+          </div>
+          <Loader2 className="w-5 h-5 animate-spin text-amber-400 ml-auto" />
+        </CardHeader>
+      </Card>
+    )
+  }
+  if (error || !data) {
+    return (
+      <Card className="bg-amber-500/10 border-amber-500/30">
+        <CardHeader className="flex flex-row items-center gap-4">
+          <DollarSign className="w-8 h-8 text-amber-400" />
+          <div>
+            <CardTitle className="text-white">MRR & Beta Stats</CardTitle>
+            <CardDescription className="text-slate-400">{error || 'No data'}</CardDescription>
+          </div>
+        </CardHeader>
+      </Card>
+    )
+  }
+  return (
+    <Card className="bg-amber-500/10 border-amber-500/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-white">
+          <DollarSign className="w-5 h-5 text-amber-400" />
+          MRR & Beta Stats
+        </CardTitle>
+        <CardDescription className="text-slate-400">
+          From MINDEX beta_users and usage — March 5, 2026
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <div className="text-2xl font-bold text-amber-400">${data.mrr}</div>
+            <div className="text-sm text-slate-500">MRR</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-white">{data.active_users}</div>
+            <div className="text-sm text-slate-500">Active Users</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-white">{data.api_calls}</div>
+            <div className="text-sm text-slate-500">API Calls</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useSupabaseUser()
@@ -163,6 +234,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* MRR Widget — Super Admin only */}
+        {isSuperAdmin && (
+          <MRRWidget />
+        )}
+
         {/* Purpose Explanation Card - What is this dashboard? */}
         <div className="bg-gradient-to-r from-emerald-500/10 via-transparent to-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
           <p className="text-slate-300 text-sm">
@@ -249,7 +325,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Additional Quick Links */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Link href="/dashboard/grounding" className="block">
+            <Card className="bg-slate-800/50 border-slate-700 hover:border-emerald-500/50 transition-colors">
+              <CardHeader className="flex flex-row items-center gap-4">
+                <Brain className="w-10 h-10 text-emerald-400" />
+                <div>
+                  <CardTitle className="text-white">Grounding Dashboard</CardTitle>
+                  <CardDescription className="text-slate-400">EP stream & ThoughtObjects</CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
+
           <Link href="/dashboard/crep" className="block">
             <Card className="bg-slate-800/50 border-slate-700 hover:border-red-500/50 transition-colors">
               <CardHeader className="flex flex-row items-center gap-4">

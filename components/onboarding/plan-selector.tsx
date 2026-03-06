@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 import { SubscriptionTier, SUBSCRIPTION_PRICING } from '@/lib/access/types'
 
 interface PlanSelectorProps {
-  onComplete: () => void
+  onComplete: (plan: SubscriptionTier) => void
 }
 
 const PLANS = [
@@ -86,18 +86,12 @@ export function PlanSelector({ onComplete }: PlanSelectorProps) {
   
   const handleContinue = async () => {
     setIsLoading(true)
-    
-    // If free plan, just continue
-    if (selectedPlan === SubscriptionTier.FREE) {
-      onComplete()
-      return
+    try {
+      // All plans proceed to API key step (onboard happens there)
+      onComplete(selectedPlan)
+    } finally {
+      setIsLoading(false)
     }
-    
-    // For paid plans, redirect to Stripe checkout
-    // TODO: Implement Stripe checkout
-    setTimeout(() => {
-      onComplete()
-    }, 1500)
   }
   
   return (

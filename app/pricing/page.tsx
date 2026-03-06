@@ -15,7 +15,8 @@ import {
   Microscope,
   Globe2,
   Cpu,
-  Loader2
+  Loader2,
+  Mic
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -348,6 +349,76 @@ export default function PricingPage() {
               </motion.div>
             )
           })}
+        </div>
+
+        {/* PersonaPlex Voice Add-on — March 5, 2026 MYCA Loop Closure */}
+        <div className="max-w-2xl mx-auto mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="rounded-3xl border border-violet-500/30 bg-gradient-to-b from-violet-500/5 to-background p-8"
+          >
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                <Mic className="w-6 h-6 text-violet-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">PersonaPlex Voice API</h3>
+                <p className="text-sm text-muted-foreground">
+                  Voice API access for MYCA — TTS/STT, full-duplex, GPU-accelerated
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-2xl font-bold">$29</span>
+                <span className="text-muted-foreground">/month</span>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!user) {
+                    window.location.href = '/login?redirect=/pricing'
+                    return
+                  }
+                  setCheckingOut('personaplex')
+                  try {
+                    const res = await fetch('/api/stripe/checkout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ type: 'addon', addonId: 'personaplex_voice' }),
+                    })
+                    if (res.ok) {
+                      const { url } = await res.json()
+                      window.location.href = url
+                    } else {
+                      const err = await res.json()
+                      alert(err.error || 'Checkout failed')
+                    }
+                  } catch (e) {
+                    console.error(e)
+                    alert('Checkout failed. Please try again.')
+                  } finally {
+                    setCheckingOut(null)
+                  }
+                }}
+                disabled={checkingOut === 'personaplex'}
+                className="flex items-center gap-2 px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
+              >
+                {checkingOut === 'personaplex' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Add PersonaPlex Voice
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
         </div>
       </section>
       
