@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { Search, Cloud, ShoppingBag, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -114,6 +115,7 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
 }
 
 export function MobileNav() {
+  const router = useRouter()
   const { theme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -220,11 +222,19 @@ export function MobileNav() {
 
             <div className="container flex flex-col gap-4 pt-6 pl-4 pb-8">
               <motion.div variants={itemVariants} className="flex flex-col gap-3">
-                {/* Search - Direct Link */}
-                <Link href="/search" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                {/* Search - Explicit router.push to fix navigation from pages with hash */}
+                <a
+                  href="/search"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    closeMenu()
+                    router.push("/search")
+                  }}
+                  className="flex items-center gap-2 text-lg font-medium py-1 cursor-pointer"
+                >
                   <Search className="h-5 w-5" />
                   Search
-                </Link>
+                </a>
                 
                 {/* About Us - Direct Link */}
                 <Link href="/about" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>

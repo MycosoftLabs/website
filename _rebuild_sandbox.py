@@ -40,31 +40,6 @@ if not VM_PASS:
     sys.exit(1)
 
 
-def _default_unit(mas_root: str) -> str:
-    return f"""[Unit]
-Description=MycoBrain serial gateway and ingestion service (port 8003)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=mycosoft
-Group=mycosoft
-WorkingDirectory={mas_root}
-ExecStart=/usr/bin/python3 {mas_root}/services/mycobrain/mycobrain_service_standalone.py
-Restart=always
-RestartSec=5
-TimeoutStartSec=30
-Environment=MYCOBRAIN_SERVICE_PORT=8003
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=mycobrain-service
-
-[Install]
-WantedBy=multi-user.target
-"""
-
-
 def main():
     def _connect_ssh() -> paramiko.SSHClient:
         print(f"Connecting to {VM_HOST}...")
@@ -152,12 +127,15 @@ def main():
     _run("docker rm mycosoft-website >/dev/null 2>&1 || true", timeout=60)
     print("   Old container removed.")
     
-    # Start new container with NAS mount, MAS URL, and MycoBrain gateway URL (host:8003 so container can reach service on host for COM7)
+    # Start new container with NAS mount, MAS URL, and MycoBrain gateway URL.
+    # host.docker.internal lets container reach MycoBrain on host (port 8003).
     print("\n5. Starting new container with NAS mount...")
-    mycobrain_url = f"http://{VM_HOST}:8003"
+    mycobrain_url = "http://host.docker.internal:8003"
     start_cmd = f"""docker run -d --name mycosoft-website -p 3000:3000 \
+        --add-host=host.docker.internal:host-gateway \
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
         -e MAS_API_URL=http://192.168.0.188:8001 \
+        -e MINDEX_API_URL=http://192.168.0.189:8000 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url} \
         --restart unless-stopped {image_tag}"""
@@ -182,56 +160,20 @@ def main():
     http_code = stdout.read().decode().strip()
     print(f"   HTTP status: {http_code}")
     
-    # 7. MycoBrain service: always-on systemd + watchdog (vital: continuous board ingestion)
-    print("\n8. MycoBrain service (always-on, systemd + watchdog)...")
-    repo_root = Path(__file__).resolve().parent
-    unit_path = repo_root / "scripts" / "sandbox" / "mycobrain-service.service"
-    watchdog_path = repo_root / "scripts" / "sandbox" / "mycobrain-watchdog.sh"
-    mas_roots = ["/opt/mycosoft/mas/mycosoft-mas", "/opt/mycosoft/mycosoft-mas", "/home/mycosoft/mas/mycosoft-mas", "/home/mycosoft/mycosoft-mas"]
-    mas_root = None
-    for r in mas_roots:
-        stdin, stdout, stderr = ssh.exec_command(f"test -f {r}/services/mycobrain/mycobrain_service_standalone.py && echo OK", timeout=5)
-        if stdout.read().decode().strip() == "OK":
-            mas_root = r
-            break
-    if not mas_root:
-        print("   MAS repo not found on sandbox. Clone MAS to /opt/mycosoft/mas/mycosoft-mas for MycoBrain ingestion.")
-    else:
-        unit_content = unit_path.read_text(encoding="utf-8").replace("/opt/mycosoft/mas/mycosoft-mas", mas_root) if unit_path.exists() else _default_unit(mas_root)
-        try:
-            sftp = ssh.open_sftp()
-            with sftp.open("/tmp/mycobrain-service.service", "wb") as f:
-                f.write(unit_content.encode("utf-8"))
-            sftp.close()
-        except Exception:
-            buf = io.BytesIO(unit_content.encode("utf-8"))
-            sftp = ssh.open_sftp()
-            sftp.putfo(buf, "/tmp/mycobrain-service.service")
-            sftp.close()
-        # Install systemd unit
-        stdin, stdout, stderr = ssh.exec_command(
-            "sudo mv /tmp/mycobrain-service.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable mycobrain-service && sudo systemctl start mycobrain-service",
-            timeout=15,
+    # 8. MycoBrain service: always-on (CRITICAL - never let it stay down)
+    print("\n8. MycoBrain service (ensure always-on)...")
+    ensure_script = Path(__file__).resolve().parent / "_ensure_mycobrain_sandbox.py"
+    if ensure_script.exists():
+        import subprocess
+        code = subprocess.call(
+            [sys.executable, str(ensure_script)],
+            cwd=str(ensure_script.parent),
+            timeout=90,
         )
-        stdout.channel.recv_exit_status()
-        time.sleep(3)
-        stdin, stdout, stderr = ssh.exec_command("curl -s -o /dev/null -w '%{http_code}' http://localhost:8003/health 2>/dev/null || true", timeout=5)
-        mc_code = stdout.read().decode().strip() or "000"
-        if mc_code == "200":
-            print("   MycoBrain service running (systemd); enabled for boot.")
-        else:
-            print("   MycoBrain unit installed; check: ssh sandbox 'sudo journalctl -u mycobrain-service -n 30'")
-        # Watchdog: write script and add to root crontab (every 2 min)
-        watchdog_content = watchdog_path.read_text(encoding="utf-8") if watchdog_path.exists() else "#!/bin/bash\nHTTP=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8003/health 2>/dev/null || echo '000')\n[ \"$HTTP\" != \"200\" ] && systemctl restart mycobrain-service 2>/dev/null || true\n"
-        try:
-            sftp = ssh.open_sftp()
-            sftp.putfo(io.BytesIO(watchdog_content.encode("utf-8")), "/tmp/mycobrain-watchdog.sh")
-            sftp.close()
-        except Exception:
-            pass
-        ssh.exec_command("sudo mkdir -p /opt/mycosoft/scripts && sudo mv /tmp/mycobrain-watchdog.sh /opt/mycosoft/scripts/ && sudo chmod +x /opt/mycosoft/scripts/mycobrain-watchdog.sh", timeout=10)
-        ssh.exec_command("""(sudo crontab -l 2>/dev/null | grep -v mycobrain-watchdog; echo '*/2 * * * * /opt/mycosoft/scripts/mycobrain-watchdog.sh') | sudo crontab -""", timeout=10)
-        print("   Watchdog installed (cron every 2 min).")
+        if code != 0:
+            print("   MycoBrain ensure had issues; check output above.")
+    else:
+        print("   _ensure_mycobrain_sandbox.py not found; MycoBrain may need manual setup.")
     
     ssh.close()
     

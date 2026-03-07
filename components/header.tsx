@@ -404,15 +404,19 @@ export function Header() {
 
         {/* Desktop Navigation with Individual Dropdowns */}
         <nav ref={navRef} className="hidden md:flex items-center gap-1">
-          {/* Search - Direct Link */}
-          <Link
+          {/* Search - Explicit router.push to fix navigation from pages with hash (e.g. /myca#live-demo) */}
+          <a
             href="/search"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
+            onClick={(e) => {
+              e.preventDefault()
+              router.push("/search")
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group cursor-pointer"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Search className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors duration-300" />
             <span>Search</span>
-          </Link>
+          </a>
 
           {/* About Us - Direct Link */}
           <Link
