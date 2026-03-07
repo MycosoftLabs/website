@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
         
         // Use Node.js WebSocket (ws package)
         const WebSocket = (await import('ws')).default;
-        ws = new WebSocket(wsUrl);
+        const wsInstance = new WebSocket(wsUrl) as any;
+        ws = wsInstance;
 
         // Send initial connection message
         controller.enqueue(
@@ -61,19 +62,19 @@ export async function GET(request: NextRequest) {
         );
 
         // WebSocket open handler
-        ws.on('open', () => {
+        wsInstance.on('open', () => {
           console.log('[CREP Stream] WebSocket connected', category ? `(filter: ${category})` : '');
 
           // Start heartbeat
           heartbeatInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'ping' }));
+            if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+              wsInstance.send(JSON.stringify({ type: 'ping' }));
             }
           }, 30000); // 30 seconds
         });
 
         // WebSocket message handler
-        ws.on('message', (data: Buffer) => {
+        wsInstance.on('message', (data: Buffer) => {
           try {
             const message = JSON.parse(data.toString());
             
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
         });
 
         // WebSocket error handler
-        ws.on('error', (error) => {
+        wsInstance.on('error', (error: any) => {
           console.error('[CREP Stream] WebSocket error:', error);
           
           controller.enqueue(
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
         });
 
         // WebSocket close handler
-        ws.on('close', () => {
+        wsInstance.on('close', () => {
           console.log('[CREP Stream] WebSocket closed');
           
           if (heartbeatInterval) {
@@ -128,8 +129,8 @@ export async function GET(request: NextRequest) {
             clearInterval(heartbeatInterval);
           }
           
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.close();
+          if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+            wsInstance.close();
           }
           
           controller.close();

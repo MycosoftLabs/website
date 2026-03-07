@@ -108,7 +108,7 @@ export function PrecipitationLayer({
   const dataRef = useRef<{
     precipGrid: number[][];
     tempGrid: number[][];
-    windData: any[];
+    windData: any;
     bounds: GeoBounds;
   } | null>(null);
   const clientRef = useRef(getEarth2Client());
@@ -326,7 +326,7 @@ function createAnimatedLayers(
   map: any,
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   opacity: number,
   precipType: string
@@ -390,7 +390,7 @@ function updateAnimatedLayers(
   map: any,
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number,
   precipType: string
@@ -465,7 +465,7 @@ function generatePrecipGeoJSON(
 function generateRainDrops(
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number
 ): GeoJSON.FeatureCollection {
@@ -593,7 +593,7 @@ function generateSnowflakes(
 function generateRainStreaks(
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number
 ): GeoJSON.FeatureCollection {

@@ -2892,7 +2892,7 @@ export default function CREPDashboardPage() {
       if (altitude < aircraftFilter.minAltitude || altitude > aircraftFilter.maxAltitude) return false;
       
       // Filter by aircraft category (commercial, cargo, military, private)
-      const category = ac.tags?.find(t => 
+      const category = (ac as any).tags?.find((t: string) =>
         ["Wide-body", "Narrow-body", "Regional", "Cargo", "Helicopter", "Aircraft"].includes(t)
       ) || "Aircraft";
       const isCargo = category === "Cargo" || ac.aircraftType?.includes("F");
@@ -2927,7 +2927,7 @@ export default function CREPDashboardPage() {
     return vessels.filter(v => {
       // Get ship type
       const shipType = typeof v.shipType === "number" ? v.shipType : 0;
-      const shipTypeStr = (v.properties?.shipType || v.description || "").toLowerCase();
+      const shipTypeStr = ((v as any).properties?.shipType || (v as any).description || "").toLowerCase();
       
       const isCargo = (shipType >= 70 && shipType <= 79) || shipTypeStr.includes("cargo");
       const isTanker = (shipType >= 80 && shipType <= 89) || shipTypeStr.includes("tanker");
@@ -2944,7 +2944,7 @@ export default function CREPDashboardPage() {
       if (!vesselFilter.showMilitary && isMilitary) return false;
       
       // Filter by minimum speed
-      const speed = v.sog ?? v.properties?.sog ?? 0;
+      const speed = v.sog ?? (v as any).properties?.sog ?? 0;
       if (speed < vesselFilter.minSpeed) return false;
       
       return true;
@@ -2995,11 +2995,11 @@ export default function CREPDashboardPage() {
     const next: Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }> = {};
     const now = Date.now();
     for (const a of filteredAircraft) {
-      const lng = a.location?.longitude ?? 0;
-      const lat = a.location?.latitude ?? 0;
-      const headingDeg = typeof a.heading === "number" ? a.heading : (a.properties?.heading ?? 0);
+      const lng = (a.location as any)?.longitude ?? a.location?.coordinates?.[0] ?? 0;
+      const lat = (a.location as any)?.latitude ?? a.location?.coordinates?.[1] ?? 0;
+      const headingDeg = typeof a.heading === "number" ? a.heading : ((a as any).properties?.heading ?? 0);
       const h = (headingDeg * Math.PI) / 180;
-      const knots = typeof a.velocity === "number" ? a.velocity : (a.properties?.velocity ?? a.properties?.groundSpeed ?? 0) ?? 0;
+      const knots = typeof a.velocity === "number" ? a.velocity : ((a as any).properties?.velocity ?? (a as any).properties?.groundSpeed ?? 0) ?? 0;
       if (Number.isFinite(lng) && Number.isFinite(lat) && knots >= 0) {
         next[a.id] = {
           lng,
@@ -3014,8 +3014,8 @@ export default function CREPDashboardPage() {
       const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
       const lng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
       const lat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
-      const sog = v.sog ?? v.properties?.sog;
-      const cog = v.cog ?? v.properties?.cog ?? 0;
+      const sog = v.sog ?? (v as any).properties?.sog;
+      const cog = v.cog ?? (v as any).properties?.cog ?? 0;
       if (Number.isFinite(lng) && Number.isFinite(lat) && typeof sog === "number" && sog >= 0) {
         const h = (cog * Math.PI) / 180;
         next[v.id] = {
@@ -3030,10 +3030,10 @@ export default function CREPDashboardPage() {
     for (const s of filteredSatellites) {
       const loc = s.location as { longitude?: number; latitude?: number } | undefined;
       const est = s.estimatedPosition;
-      const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
-      const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
-      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? s.properties?.velocity ?? 0;
-      const heading = s.heading ?? 90; // 90 = east (prograde) for LEO
+      const apiLng = loc?.longitude ?? (loc as any)?.coordinates?.[0] ?? est?.longitude ?? 0;
+      const apiLat = loc?.latitude ?? (loc as any)?.coordinates?.[1] ?? est?.latitude ?? 0;
+      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? (s as any).properties?.velocity ?? 0;
+      const heading = (s as any).heading ?? 90; // 90 = east (prograde) for LEO
       if (Number.isFinite(apiLng) && Number.isFinite(apiLat) && typeof velKmS === "number" && velKmS > 0) {
         const h = (heading * Math.PI) / 180;
         const degPerSec = velKmS / 111; // ~111 km per degree at equator
