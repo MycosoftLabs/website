@@ -50,7 +50,7 @@ const BEHAVIORAL_STATES = [
 export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(undefined)
   const timeRef = useRef(0)
   
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })

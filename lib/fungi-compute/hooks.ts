@@ -366,13 +366,16 @@ export function usePatternHistory(deviceId: string | null, hours: number = 24) {
 
 // Static demo fingerprint to prevent re-renders
 const DEMO_FINGERPRINT: SignalFingerprint = {
+  id: "demo-fingerprint-001",
+  deviceId: "demo-fci-001",
+  generatedAt: new Date().toISOString(),
   hash: "a3f2c8d9e1b4",
   features: {
     avgAmplitude: 1.5,
     peakFrequency: 2.8,
     spikeRate: 0.65,
-    snr: 20,
-    impedance: 3000,
+    spectralEntropy: 0.72,
+    crossCorrelation: [[1, 0.6], [0.6, 1]],
     bandPowers: {
       delta: 0.75,
       theta: 0.8,
@@ -382,7 +385,7 @@ const DEMO_FINGERPRINT: SignalFingerprint = {
     },
   },
   similarity: 0.85,
-  matchedPatterns: ["growth", "baseline"],
+  matchedPatterns: ["active_growth", "baseline"],
 }
 
 export function useSignalFingerprint(deviceId: string | null) {

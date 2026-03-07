@@ -1,16 +1,10 @@
 import type React from "react"
 import type { Viewport } from "next"
-import { Geist } from "next/font/google"
+import { GeistSans } from "geist/font/sans"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AppShellProviders } from "@/components/providers/AppShellProviders"
 import "./globals.css"
-
-const geistSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-  display: "swap",
-})
 
 export const metadata = {
   title: "Mycosoft - Building The Earth Intelligence",
@@ -37,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={geistSans.className} suppressHydrationWarning>
+      <body className={GeistSans.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <AppShellProviders>{children}</AppShellProviders>

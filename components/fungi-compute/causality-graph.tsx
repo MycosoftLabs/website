@@ -37,7 +37,7 @@ const TIME_DELAYS = [1, 6, 12, 24, 48, 72, 168]
 export function CausalityGraph({ className }: CausalityGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(undefined)
   const timeRef = useRef(0)
   const causalityRef = useRef<{ matrix: number[][]; flows: { from: string; to: string; strength: number }[]; pacemaker: string }>({
     matrix: [],

@@ -40,7 +40,7 @@ const FREQ_RANGES = [
 export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnalyzerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(undefined)
   const waterfallRef = useRef<number[][]>([])
   const timeRef = useRef(0)
   const statsRef = useRef({ dominantFreq: 0, totalPower: 0, snr: 0 })
@@ -73,11 +73,11 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
 
     const timer = setTimeout(updateDimensions, 50)
     const resizeObserver = new ResizeObserver(() => setTimeout(updateDimensions, 50))
-    
+
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current)
     }
-    
+
     return () => {
       clearTimeout(timer)
       resizeObserver.disconnect()
@@ -133,91 +133,7 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
     return { frequencies, magnitudes, detectedPeaks: detectedPeaks.slice(0, 5) }
   }, [freqRange.max])
 
-  // Main animation loop
-  useEffect(() => {
-    if (dimensions.width === 0 || dimensions.height === 0) return
-    
-    const canvas = canvasRef.current
-    if (!canvas) return
-    
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    
-    let lastTime = performance.now()
-    let lastStatsUpdate = 0
-    
-    const draw = (now: number) => {
-      const dt = (now - lastTime) / 1000
-      lastTime = now
-      
-      const w = canvas.width
-      const h = canvas.height
-      
-      if (!isPaused) {
-        timeRef.current += dt
-      }
-      
-      // Clear
-      ctx.fillStyle = "#050810"
-      ctx.fillRect(0, 0, w, h)
-      
-      const primaryBuffer = signalBuffer[0]
-      const sampleRate = primaryBuffer?.sampleRate || 100
-      const samples = primaryBuffer?.samples || []
-      const { frequencies, magnitudes, detectedPeaks } = computeSpectrum(samples, sampleRate)
-      
-      // Update stats and peaks periodically
-      if (now - lastStatsUpdate > 300) {
-        lastStatsUpdate = now
-        setStats({ ...statsRef.current })
-        setPeaks(detectedPeaks)
-      }
-      
-      // Add to waterfall history
-      if (!isPaused && mode === "waterfall" && magnitudes.length > 0) {
-        waterfallRef.current.unshift([...magnitudes])
-        if (waterfallRef.current.length > h) {
-          waterfallRef.current = waterfallRef.current.slice(0, h)
-        }
-      }
-      
-      if (mode === "bars") {
-        drawBarSpectrum(ctx, frequencies, magnitudes, w, h)
-      } else {
-        drawWaterfallSpectrum(ctx, waterfallRef.current, frequencies, w, h)
-      }
-
-      drawBandMarkers(ctx, frequencies, w, h)
-
-      if (showPeaks && mode === "bars") {
-        drawPeakMarkers(ctx, frequencies, magnitudes, detectedPeaks, w, h)
-      }
-
-      drawFrequencyAxis(ctx, w, h)
-      
-      animationRef.current = requestAnimationFrame(draw)
-    }
-    
-    animationRef.current = requestAnimationFrame(draw)
-    
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
-    }
-  }, [
-    computeSpectrum,
-    dimensions,
-    drawBandMarkers,
-    drawBarSpectrum,
-    drawFrequencyAxis,
-    drawPeakMarkers,
-    drawWaterfallSpectrum,
-    isPaused,
-    mode,
-    showPeaks,
-    signalBuffer,
-  ])
-
-  // Drawing functions
+  // Drawing functions (defined before the animation useEffect that uses them)
   const drawBarSpectrum = useCallback((ctx: CanvasRenderingContext2D, frequencies: number[], magnitudes: number[], w: number, h: number) => {
     const barWidth = w / magnitudes.length
     const maxMag = Math.max(...magnitudes, 0.1)
@@ -332,6 +248,90 @@ export function SpectrumAnalyzer({ className, signalBuffer = [] }: SpectrumAnaly
       ctx.fillText(`${freq.toFixed(0)}Hz`, x, h - 5)
     }
   }, [freqRange.max])
+
+  // Main animation loop
+  useEffect(() => {
+    if (dimensions.width === 0 || dimensions.height === 0) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let lastTime = performance.now()
+    let lastStatsUpdate = 0
+
+    const draw = (now: number) => {
+      const dt = (now - lastTime) / 1000
+      lastTime = now
+
+      const w = canvas.width
+      const h = canvas.height
+
+      if (!isPaused) {
+        timeRef.current += dt
+      }
+
+      // Clear
+      ctx.fillStyle = "#050810"
+      ctx.fillRect(0, 0, w, h)
+
+      const primaryBuffer = signalBuffer[0]
+      const sampleRate = primaryBuffer?.sampleRate || 100
+      const samples = primaryBuffer?.samples || []
+      const { frequencies, magnitudes, detectedPeaks } = computeSpectrum(samples, sampleRate)
+
+      // Update stats and peaks periodically
+      if (now - lastStatsUpdate > 300) {
+        lastStatsUpdate = now
+        setStats({ ...statsRef.current })
+        setPeaks(detectedPeaks)
+      }
+
+      // Add to waterfall history
+      if (!isPaused && mode === "waterfall" && magnitudes.length > 0) {
+        waterfallRef.current.unshift([...magnitudes])
+        if (waterfallRef.current.length > h) {
+          waterfallRef.current = waterfallRef.current.slice(0, h)
+        }
+      }
+
+      if (mode === "bars") {
+        drawBarSpectrum(ctx, frequencies, magnitudes, w, h)
+      } else {
+        drawWaterfallSpectrum(ctx, waterfallRef.current, frequencies, w, h)
+      }
+
+      drawBandMarkers(ctx, frequencies, w, h)
+
+      if (showPeaks && mode === "bars") {
+        drawPeakMarkers(ctx, frequencies, magnitudes, detectedPeaks, w, h)
+      }
+
+      drawFrequencyAxis(ctx, w, h)
+
+      animationRef.current = requestAnimationFrame(draw)
+    }
+
+    animationRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [
+    computeSpectrum,
+    dimensions,
+    drawBandMarkers,
+    drawBarSpectrum,
+    drawFrequencyAxis,
+    drawPeakMarkers,
+    drawWaterfallSpectrum,
+    isPaused,
+    mode,
+    showPeaks,
+    signalBuffer,
+  ])
 
   const handleReset = () => {
     setIsPaused(false)

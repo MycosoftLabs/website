@@ -85,7 +85,7 @@ const FREQUENCY_BANDS = [
 export function SignalFingerprint({ fingerprint = null, deviceId = null, className }: SignalFingerprintProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(undefined)
   const timeRef = useRef(0)
   const signatureRef = useRef<number[]>([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
   
