@@ -12,7 +12,7 @@ export function computeStateDelta(
   const delta: Partial<UnifiedEntityState> = {};
   for (const key of Object.keys(current) as (keyof UnifiedEntityState)[]) {
     if (JSON.stringify(previous[key]) !== JSON.stringify(current[key])) {
-      delta[key] = current[key];
+      (delta as any)[key] = current[key];
     }
   }
   return Object.keys(delta).length > 0 ? delta : null;

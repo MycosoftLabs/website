@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 /**
@@ -117,23 +116,23 @@ export function TrajectoryLines({
         if (!origin || !dest) return null;
         
         // Get current position
-        const currentLng = a.location?.longitude ?? (a.location?.coordinates?.[0]);
-        const currentLat = a.location?.latitude ?? (a.location?.coordinates?.[1]);
-        
+        const currentLng = (a.location as any)?.longitude ?? (a.location?.coordinates?.[0]);
+        const currentLat = (a.location as any)?.latitude ?? (a.location?.coordinates?.[1]);
+
         if (typeof currentLng !== "number" || typeof currentLat !== "number") return null;
-        
+
         // Create path from current position to destination (remaining route)
         const pathPoints = getGreatCirclePoints(
           { lat: currentLat, lng: currentLng },
           { lat: dest.lat, lng: dest.lng },
           30
         );
-        
+
         return {
           type: "Feature" as const,
           properties: {
             flightId: a.id,
-            callsign: a.callsign || a.name,
+            callsign: a.callsign || (a as any).name,
             origin: a.origin,
             destination: a.destination,
             altitude: a.altitude,
@@ -163,8 +162,9 @@ export function TrajectoryLines({
         if (!dest) return null;
         
         // Get current position
-        const currentLng = v.location?.longitude ?? (v.location?.coordinates?.[0]);
-        const currentLat = v.location?.latitude ?? (v.location?.coordinates?.[1]);
+        const loc = v.location as any;
+        const currentLng = loc?.longitude ?? loc?.coordinates?.[0];
+        const currentLat = loc?.latitude ?? loc?.coordinates?.[1];
         
         if (typeof currentLng !== "number" || typeof currentLat !== "number") return null;
         

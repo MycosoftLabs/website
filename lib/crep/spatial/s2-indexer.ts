@@ -1,5 +1,5 @@
-// @ts-nocheck
 // s2-geometry exports { S2 } with S2.L.LatLng(lat,lng) and S2.S2Cell.FromLatLng(latLng, level)
+// @ts-ignore - no declaration file for s2-geometry
 import s2Geometry from "s2-geometry";
 
 const S2 = (s2Geometry as { S2?: typeof s2Geometry }).S2 ?? s2Geometry;

@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-"use client"
+﻿"use client"
 
 /**
  * Voice Map Controls for CREP
@@ -66,15 +65,15 @@ export function VoiceMapControls({
   
   // PersonaPlex context (from app-level provider)
   const personaplex = usePersonaPlexContext()
-  const { 
-    isListening, 
-    lastTranscript, 
-    startListening, 
-    stopListening, 
-    isConnected: voiceConnected, 
-    connectionState, 
-    isSpeaking 
-  } = personaplex || {
+  const {
+    isListening,
+    lastTranscript,
+    startListening,
+    stopListening,
+    isConnected: voiceConnected,
+    connectionState,
+    isSpeaking
+  } = (personaplex as any) || {
     isListening: false,
     lastTranscript: "",
     startListening: () => {},
@@ -188,14 +187,15 @@ export function VoiceMapControls({
       setLastCommand(cmd.rawText)
     },
     onUnknownCommand: (text) => {
-      setCommandLog(prev => [{
+      const log: CommandLog = {
         text,
         type: "unknown",
         action: "unknown",
         timestamp: new Date(),
         success: false,
         source: "voice",
-      }, ...prev].slice(0, 10))
+      }
+      setCommandLog(prev => [log, ...prev].slice(0, 10))
     },
     geocodeLocation: onGeocodeAndFlyTo ? async (query) => {
       // Trigger geocode - the actual result will come through WebSocket
@@ -225,14 +225,15 @@ export function VoiceMapControls({
     // Also process locally
     mapVoice.processVoiceCommand(typedCommand)
     
-    setCommandLog(prev => [{
+    const log: CommandLog = {
       text: typedCommand,
       type: "typed",
       action: "typed",
       timestamp: new Date(),
       success: true,
       source: "typed",
-    }, ...prev].slice(0, 10))
+    }
+    setCommandLog(prev => [log, ...prev].slice(0, 10))
     
     setTypedCommand("")
   }, [typedCommand, wsConnected, wsSendCommand, mapVoice])

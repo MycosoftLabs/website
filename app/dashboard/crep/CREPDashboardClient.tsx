@@ -3098,7 +3098,7 @@ export default function CREPDashboardPage() {
         geometry: { type: "Point" as const, coordinates: coords },
         state: {
           heading: headingDeg,
-          altitude: aircraftEntity.altitude,
+          altitude: aircraftEntity.altitude ?? undefined,
           velocity: typeof speedKnots === "number" && speedKnots > 0
             ? { x: Math.sin(hRad) * speedKnots, y: Math.cos(hRad) * speedKnots }
             : undefined,
@@ -3209,13 +3209,13 @@ export default function CREPDashboardPage() {
         },
         confidence: 0.95,
         source: "mindex",
-        properties: observation,
+        properties: observation as unknown as Record<string, unknown>,
         s2_cell: "",
       })),
     ];
 
     const byId = new Map<string, UnifiedEntity>();
-    for (const entity of sourceEntities) byId.set(entity.id, entity);
+    for (const entity of sourceEntities) byId.set(entity.id, entity as UnifiedEntity);
     for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
     return [...byId.values()];
   }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords]);

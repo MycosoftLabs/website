@@ -64,11 +64,12 @@ export async function getCachedData<T>(
   fetcher: () => Promise<T>,
   config?: Partial<CacheConfig>
 ): Promise<T> {
-  const cacheConfig = { ...CACHE_CONFIGS[key], ...config } || {
+  const baseConfig = CACHE_CONFIGS[key] ?? {
     ttlMs: 60_000,
     staleWhileRevalidate: true,
     maxAge: 300_000,
   }
+  const cacheConfig = { ...baseConfig, ...config }
 
   const now = Date.now()
   const cached = cache.get(key) as CacheEntry<T> | undefined

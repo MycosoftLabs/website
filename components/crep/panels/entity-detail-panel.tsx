@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 /**
@@ -594,13 +593,13 @@ function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; o
   const latitude = sat.estimatedPosition?.latitude ?? sat.location?.latitude ?? (satellite as { latitude?: number }).latitude;
   const longitude = sat.estimatedPosition?.longitude ?? sat.location?.longitude ?? (satellite as { longitude?: number }).longitude;
   const inclination = sat.orbitalParams?.inclination;
-  const noradId = satellite.norad_id ?? sat.properties?.noradId;
-  const launchDate = satellite.launch_date ?? sat.properties?.launchDate;
-  const orbitType = (satellite as { orbitType?: string }).orbitType ?? sat.properties?.orbitType;
-  const objectType = (satellite as { objectType?: string }).objectType ?? sat.properties?.objectType;
-  const apogee = sat.orbitalParams?.apogee ?? sat.properties?.apogee;
-  const perigee = sat.orbitalParams?.perigee ?? sat.properties?.perigee;
-  const intlDesignator = (satellite as { intlDesignator?: string }).intlDesignator ?? sat.properties?.intlDesignator;
+  const noradId = satellite.norad_id ?? (sat.properties?.noradId as string | undefined);
+  const launchDate = satellite.launch_date ?? (sat.properties?.launchDate as string | undefined);
+  const orbitType = (satellite as { orbitType?: string }).orbitType ?? (sat.properties?.orbitType as string | undefined);
+  const objectType = (satellite as { objectType?: string }).objectType ?? (sat.properties?.objectType as string | undefined);
+  const apogee = sat.orbitalParams?.apogee ?? (sat.properties?.apogee as number | undefined);
+  const perigee = sat.orbitalParams?.perigee ?? (sat.properties?.perigee as number | undefined);
+  const intlDesignator = (satellite as { intlDesignator?: string }).intlDesignator ?? (sat.properties?.intlDesignator as string | undefined);
   
   return (
     <div className="bg-[#0a1628] border border-purple-500/30 rounded-lg overflow-hidden">
