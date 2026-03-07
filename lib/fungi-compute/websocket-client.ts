@@ -169,16 +169,16 @@ export class FCIWebSocketClient {
     switch (message.type as WSMessageType | string) {
       case "sample":
         // Server sends: {"type": "sample", "timestamp": ..., "channels": [...]}
-        this.config.onSample?.(message.payload || message as unknown as WSSamplePayload)
+        this.config.onSample?.((message.payload || message) as WSSamplePayload)
         break
       case "spectrum":
-        this.config.onSpectrum?.(message.payload || message as unknown as WSSpectrumPayload)
+        this.config.onSpectrum?.((message.payload || message) as WSSpectrumPayload)
         break
       case "pattern":
-        this.config.onPattern?.(message.payload || message as unknown as WSPatternPayload)
+        this.config.onPattern?.((message.payload || message) as WSPatternPayload)
         break
       case "event":
-        this.config.onEvent?.(message.payload || message as unknown as WSEventPayload)
+        this.config.onEvent?.((message.payload || message) as WSEventPayload)
         break
       case "device_connected":
       case "device_disconnected":

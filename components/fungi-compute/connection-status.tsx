@@ -15,7 +15,7 @@ interface ConnectionStatusProps {
   className?: string
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { icon: typeof Wifi; label: string; color: string; bgColor: string; glowColor: string; animate?: boolean }> = {
   disconnected: {
     icon: WifiOff,
     label: "Disconnected",

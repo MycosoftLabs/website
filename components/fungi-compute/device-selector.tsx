@@ -51,7 +51,7 @@ const PROBE_TYPE_LABELS: Record<string, string> = {
 
 function safeLabel(value: unknown, labels: Record<string, string>, fallback = "-"): string {
   if (value == null) return fallback
-  const key = typeof value === "string" ? value : (typeof value === "object" && value !== null && "id" in value ? (value as { id?: string }).id : String(value))
+  const key = typeof value === "string" ? value : (typeof value === "object" && value !== null && "id" in value ? (value as { id?: string }).id ?? "" : String(value))
   return labels[key] ?? fallback
 }
 

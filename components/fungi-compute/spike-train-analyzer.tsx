@@ -83,7 +83,7 @@ interface SpikeTrainAnalyzerProps {
 export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTrainAnalyzerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(undefined)
   const dataBufferRef = useRef<{ time: number; values: number[] }[]>([])
   const spikesRef = useRef<SpikeEvent[]>([])
   const patternsRef = useRef<DetectedPattern[]>([])
@@ -227,94 +227,7 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
     }
   }, [patterns])
 
-  // Main animation loop
-  useEffect(() => {
-    if (dimensions.width === 0 || dimensions.height === 0) return
-    
-    const canvas = canvasRef.current
-    if (!canvas) return
-    
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    
-    let lastTime = performance.now()
-    let lastStatsUpdate = 0
-    
-    const draw = (now: number) => {
-      const dt = (now - lastTime) / 1000
-      lastTime = now
-      
-      const w = canvas.width
-      const h = canvas.height
-      
-      if (!isPaused) {
-        timeRef.current += dt
-      }
-      
-      const t = timeRef.current
-      
-      // Ingest live stream data
-      if (!isPaused) {
-        ingestSignalBuffer()
-        detectPatterns(t)
-      }
-      
-      // Update stats periodically
-      if (now - lastStatsUpdate > 500) {
-        lastStatsUpdate = now
-        setStats({ ...statsRef.current })
-      }
-      
-      // Auto-scroll if live
-      if (isLive && !isPaused) {
-        setView(prev => ({
-          ...prev,
-          timeOffset: Math.max(0, t - prev.timeScale)
-        }))
-      }
-      
-      // Clear
-      ctx.fillStyle = "#050810"
-      ctx.fillRect(0, 0, w, h)
-      
-      drawGrid(ctx, w, h)
-      
-      if (showPatterns && showWordOverlay) {
-        drawPatternOverlay(ctx, w, h, view, t)
-      }
-      
-      drawSignals(ctx, w, h, view, channels)
-      drawSpikeMarkers(ctx, w, h, view, channels)
-      drawTimeIndicator(ctx, w, h, view, t, isLive)
-      drawScaleLabels(ctx, w, h, view)
-      
-      animationRef.current = requestAnimationFrame(draw)
-    }
-    
-    animationRef.current = requestAnimationFrame(draw)
-    
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
-    }
-  }, [
-    detectPatterns,
-    dimensions,
-    drawGrid,
-    drawPatternOverlay,
-    drawScaleLabels,
-    drawSignals,
-    drawSpikeMarkers,
-    drawTimeIndicator,
-    ingestSignalBuffer,
-    isLive,
-    isPaused,
-    showPatterns,
-    showWordOverlay,
-    channels,
-    view,
-  ])
-
-  // Drawing functions
+  // Drawing functions (defined before the animation useEffect that uses them)
   const drawGrid = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
     const divisions = 10
     
@@ -492,6 +405,93 @@ export function SpikeTrainAnalyzer({ signalBuffer = [], patterns = [] }: SpikeTr
       ctx.fillText(`${voltage.toFixed(0)}µV`, w - 5, y + 4)
     }
   }, [formatTime])
+
+  // Main animation loop
+  useEffect(() => {
+    if (dimensions.width === 0 || dimensions.height === 0) return
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let lastTime = performance.now()
+    let lastStatsUpdate = 0
+
+    const draw = (now: number) => {
+      const dt = (now - lastTime) / 1000
+      lastTime = now
+
+      const w = canvas.width
+      const h = canvas.height
+
+      if (!isPaused) {
+        timeRef.current += dt
+      }
+
+      const t = timeRef.current
+
+      // Ingest live stream data
+      if (!isPaused) {
+        ingestSignalBuffer()
+        detectPatterns(t)
+      }
+
+      // Update stats periodically
+      if (now - lastStatsUpdate > 500) {
+        lastStatsUpdate = now
+        setStats({ ...statsRef.current })
+      }
+
+      // Auto-scroll if live
+      if (isLive && !isPaused) {
+        setView(prev => ({
+          ...prev,
+          timeOffset: Math.max(0, t - prev.timeScale)
+        }))
+      }
+
+      // Clear
+      ctx.fillStyle = "#050810"
+      ctx.fillRect(0, 0, w, h)
+
+      drawGrid(ctx, w, h)
+
+      if (showPatterns && showWordOverlay) {
+        drawPatternOverlay(ctx, w, h, view, t)
+      }
+
+      drawSignals(ctx, w, h, view, channels)
+      drawSpikeMarkers(ctx, w, h, view, channels)
+      drawTimeIndicator(ctx, w, h, view, t, isLive)
+      drawScaleLabels(ctx, w, h, view)
+
+      animationRef.current = requestAnimationFrame(draw)
+    }
+
+    animationRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [
+    detectPatterns,
+    dimensions,
+    drawGrid,
+    drawPatternOverlay,
+    drawScaleLabels,
+    drawSignals,
+    drawSpikeMarkers,
+    drawTimeIndicator,
+    ingestSignalBuffer,
+    isLive,
+    isPaused,
+    showPatterns,
+    showWordOverlay,
+    channels,
+    view,
+  ])
 
   // Control handlers
   const handleZoomTime = (direction: number) => {
