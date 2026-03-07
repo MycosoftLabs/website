@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Shared Redis Cache for CREP and Search
  * Created: Feb 12, 2026

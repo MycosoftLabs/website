@@ -423,8 +423,8 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
         title: e.title,
         description: e.description,
         severity: e.severity,
-        lat: e.location.latitude,
-        lng: e.location.longitude,
+        lat: e.location!.latitude!,
+        lng: e.location!.longitude!,
         timestamp: e.timestamp,
         link: e.link,
         source: e.source,
@@ -433,8 +433,8 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
         locationName: e.location?.name,
         depth: e.location?.depth,
         windSpeed: e.type === "storm" ? e.magnitude : undefined,
-        containment: e.description?.match(/Containment: (\d+)%/)?.[1] 
-          ? parseInt(e.description.match(/Containment: (\d+)%/)[1]) 
+        containment: e.description?.match(/Containment: (\d+)%/)?.[1]
+          ? parseInt(e.description!.match(/Containment: (\d+)%/)![1])
           : undefined,
         affectedArea: e.affected?.area_km2,
         affectedPopulation: e.affected?.population,
@@ -445,15 +445,16 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
     const SAN_DIEGO_91910 = { lat: 32.6189, lng: -117.0769 }
 
     return devices.map((d, index: number) => {
-      const hasValidLocation = d.location?.lat && d.location?.lng && 
-        Math.abs(d.location.lat) > 0.1 && Math.abs(d.location.lng) > 0.1 &&
-        !(Math.abs(d.location.lat - 49) < 1 && Math.abs(d.location.lng + 123) < 1)
-      
+      const loc = d.location
+      const hasValidLocation = loc?.lat && loc?.lng &&
+        Math.abs(loc.lat) > 0.1 && Math.abs(loc.lng) > 0.1 &&
+        !(Math.abs(loc.lat - 49) < 1 && Math.abs(loc.lng + 123) < 1)
+
       return {
         id: d.device_id || d.id || `device-${index}`,
         name: d.info?.board || d.name || `MycoBrain Device ${index + 1}`,
-        lat: hasValidLocation ? d.location.lat : SAN_DIEGO_91910.lat,
-        lng: hasValidLocation ? d.location.lng : SAN_DIEGO_91910.lng,
+        lat: hasValidLocation ? loc!.lat! : SAN_DIEGO_91910.lat,
+        lng: hasValidLocation ? loc!.lng! : SAN_DIEGO_91910.lng,
         status: d.connected ? "online" : "offline",
         port: d.port,
         firmware: d.sensor_data?.firmware_version || d.info?.firmware,
@@ -478,8 +479,8 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
     return observations.map((obs) => ({
       id: obs.id,
       observed_on: obs.timestamp || obs.observed_on,
-      latitude: obs.latitude || obs.lat,
-      longitude: obs.longitude || obs.lng,
+      latitude: obs.latitude ?? obs.lat ?? 0,
+      longitude: obs.longitude ?? obs.lng ?? 0,
       species: obs.commonName || obs.species || obs.scientificName || "Unknown",
       taxon_id: obs.taxon_id,
       taxon: {
@@ -488,9 +489,9 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
         preferred_common_name: obs.commonName || obs.species,
         rank: "species",
       },
-      photos: obs.imageUrl || obs.thumbnailUrl ? [{ 
-        id: 1, 
-        url: obs.imageUrl || obs.thumbnailUrl,
+      photos: obs.imageUrl || obs.thumbnailUrl ? [{
+        id: 1,
+        url: (obs.imageUrl || obs.thumbnailUrl)!,
         license: "CC-BY-NC"
       }] : [],
       quality_grade: obs.verified ? "research" : "needs_id",

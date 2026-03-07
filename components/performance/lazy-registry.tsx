@@ -130,9 +130,9 @@ export const LazyAzureMap = dynamic(
 )
 
 export const LazyCREPDashboard = dynamic(
-  () => import("@/components/dashboard/crep-dashboard"),
-  { 
-    ssr: false, 
+  () => import("@/app/dashboard/crep/CREPDashboardLoader"),
+  {
+    ssr: false,
     loading: () => <FullPageSkeleton title="CREP Dashboard" />
   }
 )
