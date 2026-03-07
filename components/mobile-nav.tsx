@@ -221,7 +221,7 @@ export function MobileNav() {
             <div className="container flex flex-col gap-4 pt-6 pl-4 pb-8">
               <motion.div variants={itemVariants} className="flex flex-col gap-3">
                 {/* Search - Direct Link */}
-                <Link href="/" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
+                <Link href="/search" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
                   <Search className="h-5 w-5" />
                   Search
                 </Link>
