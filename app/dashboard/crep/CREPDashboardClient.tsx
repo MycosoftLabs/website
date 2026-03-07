@@ -3083,14 +3083,14 @@ export default function CREPDashboardPage() {
     const lastKnown = lastKnownRef.current;
     const sourceEntities: UnifiedEntity[] = [
       ...filteredAircraft.map((aircraftEntity) => {
-        const apiLng = aircraftEntity.location?.longitude ?? 0;
-        const apiLat = aircraftEntity.location?.latitude ?? 0;
+        const apiLng = (aircraftEntity.location as any)?.longitude ?? aircraftEntity.location?.coordinates?.[0] ?? 0;
+        const apiLat = (aircraftEntity.location as any)?.latitude ?? aircraftEntity.location?.coordinates?.[1] ?? 0;
         const extrap = extrapolatedCoords[aircraftEntity.id];
         const coords: [number, number] = extrap ?? [apiLng, apiLat];
         const anchor = lastKnown[aircraftEntity.id];
         const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
-        const headingDeg = aircraftEntity.heading ?? aircraftEntity.properties?.heading ?? 0;
-        const speedKnots = typeof aircraftEntity.velocity === "number" ? aircraftEntity.velocity : aircraftEntity.properties?.velocity ?? aircraftEntity.properties?.groundSpeed ?? 0;
+        const headingDeg = aircraftEntity.heading ?? (aircraftEntity as any).properties?.heading ?? 0;
+        const speedKnots = typeof aircraftEntity.velocity === "number" ? aircraftEntity.velocity : (aircraftEntity as any).properties?.velocity ?? (aircraftEntity as any).properties?.groundSpeed ?? 0;
         const hRad = (headingDeg * Math.PI) / 180;
         return {
         id: aircraftEntity.id,
@@ -3110,7 +3110,7 @@ export default function CREPDashboardPage() {
         },
         confidence: 1,
         source: "opensky",
-        properties: aircraftEntity.properties || {},
+        properties: (aircraftEntity as any).properties || {},
         s2_cell: "",
       };
       }),
