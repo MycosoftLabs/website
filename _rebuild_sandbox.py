@@ -136,6 +136,8 @@ def main():
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
         -e MAS_API_URL=http://192.168.0.188:8001 \
         -e MINDEX_API_URL=http://192.168.0.189:8000 \
+        -e OLLAMA_BASE_URL=http://192.168.0.188:11434 \
+        -e N8N_URL=http://192.168.0.188:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url} \
         --restart unless-stopped {image_tag}"""

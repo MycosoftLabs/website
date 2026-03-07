@@ -161,7 +161,13 @@ export function MYCAChatWidget({
               </div>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
-                {message.agent && <span className="uppercase">{message.agent}</span>}
+                {message.agent && (
+                  <span className="uppercase">
+                    {message.agent === "myca-local-fallback"
+                      ? "MYCA"
+                      : message.agent}
+                  </span>
+                )}
                 {message.audio_base64 && (
                   <Button
                     variant="ghost"
