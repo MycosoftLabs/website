@@ -196,6 +196,7 @@ import { VoiceMapControls } from "@/components/crep/voice-map-controls";
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, GroundFilter, NOAAScales } from "@/components/crep/map-controls";
+import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget";
 
 // OEI Types
 import type { AircraftEntity, VesselEntity } from "@/types/oei"
@@ -276,11 +277,150 @@ interface MissionContext {
   startTime: Date;
 }
 
-interface MYCAMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp: Date;
+// =============================================================================
+// MISSION PROMPT MODAL - shown on first CREP use
+// =============================================================================
+const MISSION_TYPES = [
+  { value: "monitoring" as const, label: "Monitoring", icon: <Radar className="w-4 h-4" />, description: "Track environmental activity and sensor networks" },
+  { value: "research" as const, label: "Research", icon: <Microscope className="w-4 h-4" />, description: "Investigate biodiversity patterns and ecosystems" },
+  { value: "tracking" as const, label: "Tracking", icon: <Navigation className="w-4 h-4" />, description: "Follow species, events, or transport movements" },
+  { value: "analysis" as const, label: "Analysis", icon: <BarChart3 className="w-4 h-4" />, description: "Analyze correlations across data layers" },
+  { value: "alert" as const, label: "Alert Response", icon: <AlertTriangle className="w-4 h-4" />, description: "Respond to critical environmental events" },
+];
+
+function MissionPromptModal({
+  onCreateMission
+}: {
+  onCreateMission: (mission: MissionContext) => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [missionName, setMissionName] = useState("");
+  const [missionType, setMissionType] = useState<MissionContext["type"]>("monitoring");
+  const [missionObjective, setMissionObjective] = useState("");
+
+  const handleCreate = () => {
+    onCreateMission({
+      id: `mission-${Date.now()}`,
+      name: missionName || "Untitled Mission",
+      type: missionType,
+      status: "active",
+      objective: missionObjective || `${MISSION_TYPES.find(t => t.value === missionType)?.description || "Environmental monitoring mission"}`,
+      progress: 0,
+      targets: 0,
+      alerts: 0,
+      startTime: new Date(),
+    });
+  };
+
+  const handleSkip = () => {
+    onCreateMission({
+      id: `mission-${Date.now()}`,
+      name: "Global Environmental Monitoring",
+      type: "monitoring",
+      status: "active",
+      objective: "Real-time tracking of environmental activity and biodiversity across all connected sensors and data feeds",
+      progress: 0,
+      targets: 0,
+      alerts: 0,
+      startTime: new Date(),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="w-full max-w-lg mx-4 bg-[#0a0f1e] border border-cyan-500/30 rounded-xl overflow-hidden shadow-2xl shadow-cyan-500/10">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-cyan-500/20">
+              <Target className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Initialize CREP Mission</h2>
+              <p className="text-[10px] text-gray-400">Define your operational objectives</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {step === 1 && (
+            <>
+              <div className="space-y-2">
+                <label className="text-[10px] text-cyan-400/70 uppercase font-medium">Mission Type</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {MISSION_TYPES.map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => setMissionType(type.value)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left",
+                        missionType === type.value
+                          ? "border-cyan-500/50 bg-cyan-500/10 text-white"
+                          : "border-gray-700/50 bg-black/20 text-gray-400 hover:border-gray-600"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-1.5 rounded",
+                        missionType === type.value ? "bg-cyan-500/20 text-cyan-400" : "bg-gray-700/30 text-gray-500"
+                      )}>
+                        {type.icon}
+                      </div>
+                      <div>
+                        <div className="text-xs font-medium">{type.label}</div>
+                        <div className="text-[9px] text-gray-500">{type.description}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between pt-2">
+                <Button variant="ghost" size="sm" onClick={handleSkip} className="text-[10px] text-gray-500 hover:text-gray-300">
+                  Skip — use defaults
+                </Button>
+                <Button size="sm" onClick={() => setStep(2)} className="text-[10px] bg-cyan-600 hover:bg-cyan-700">
+                  Next
+                </Button>
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-cyan-400/70 uppercase font-medium">Mission Name</label>
+                  <Input
+                    value={missionName}
+                    onChange={(e) => setMissionName(e.target.value)}
+                    placeholder="e.g. Pacific Rim Fungal Survey"
+                    className="h-9 text-xs bg-black/40 border-gray-700/50 focus:border-cyan-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] text-cyan-400/70 uppercase font-medium">Objective</label>
+                  <textarea
+                    value={missionObjective}
+                    onChange={(e) => setMissionObjective(e.target.value)}
+                    placeholder="Describe what you want to accomplish..."
+                    rows={3}
+                    className="w-full px-3 py-2 text-xs bg-black/40 border border-gray-700/50 rounded-md focus:border-cyan-500/50 focus:outline-none text-white placeholder:text-gray-600 resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-[10px] text-gray-500">
+                  Back
+                </Button>
+                <Button size="sm" onClick={handleCreate} className="text-[10px] bg-cyan-600 hover:bg-cyan-700">
+                  Launch Mission
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Event type configurations
@@ -1349,76 +1489,84 @@ function ServicesPanel() {
   );
 }
 
-// Right Panel - MYCA Chat Component
-function MYCAChatPanel({ 
-  messages, 
-  onSendMessage 
-}: { 
-  messages: MYCAMessage[]; 
-  onSendMessage: (message: string) => void;
+// Right Panel - CREP MYCA Integration (full real MYCA with map context)
+function CREPMycaPanel({
+  mapRef,
+  layers,
+  toggleLayer,
+  groundFilter,
+  onGroundFilterChange,
+  fungalObservations,
+  globalEvents,
+  onSelectFungal,
+  mission,
+}: {
+  mapRef: React.RefObject<any>;
+  layers: LayerConfig[];
+  toggleLayer: (id: string) => void;
+  groundFilter: GroundFilter;
+  onGroundFilterChange: (filter: Partial<GroundFilter>) => void;
+  fungalObservations: any[];
+  globalEvents: any[];
+  onSelectFungal: (obs: any) => void;
+  mission: MissionContext | null;
 }) {
-  const [inputValue, setInputValue] = useState("");
+  // Build CREP context text that MYCA can use to understand the current state
+  const getContextText = useCallback(() => {
+    const enabledLayers = layers.filter(l => l.enabled).map(l => l.name).join(", ");
+    const obsCount = fungalObservations.length;
+    const eventCount = globalEvents.length;
+    const missionInfo = mission
+      ? `Active Mission: "${mission.name}" (${mission.type}) - ${mission.objective}`
+      : "No active mission";
 
-  const handleSend = () => {
-    if (inputValue.trim()) {
-      onSendMessage(inputValue.trim());
-      setInputValue("");
-    }
-  };
+    return [
+      `[CREP Dashboard Context]`,
+      missionInfo,
+      `Observations: ${obsCount} biodiversity records visible`,
+      `Events: ${eventCount} environmental events active`,
+      `Enabled layers: ${enabledLayers || "none"}`,
+      ``,
+      `You are MYCA, the AI agent integrated into the CREP (Common Relevant Environmental Picture) dashboard.`,
+      `You can help the user navigate the map, toggle data layers, search for species or locations,`,
+      `filter observations by kingdom, and analyze environmental patterns.`,
+      `When the user asks to go to a location, fly to coordinates, or navigate - respond with the location name and coordinates.`,
+      `When the user asks about species, provide information from MINDEX biodiversity data.`,
+      `When the user asks to enable/disable layers or filters, describe what to change.`,
+    ].join("\n");
+  }, [layers, fungalObservations.length, globalEvents.length, mission]);
+
+  // Listen for MYCA search actions and execute them on the map
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const action = (e as CustomEvent).detail;
+      if (!action) return;
+
+      if (action.type === "search" && action.query) {
+        // Try to find matching observation
+        const query = action.query.toLowerCase();
+        const match = fungalObservations.find(obs =>
+          obs.species_guess?.toLowerCase().includes(query) ||
+          obs.taxon_name?.toLowerCase().includes(query)
+        );
+        if (match) {
+          onSelectFungal(match);
+        }
+      }
+    };
+
+    window.addEventListener("myca-search-action", handler);
+    return () => window.removeEventListener("myca-search-action", handler);
+  }, [fungalObservations, onSelectFungal]);
 
   return (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 pr-2">
-        <div className="space-y-2 p-1">
-          {messages.map(msg => (
-            <div 
-              key={msg.id}
-              className={cn(
-                "p-2 rounded-lg text-[10px]",
-                msg.role === "user" 
-                  ? "bg-cyan-500/20 border border-cyan-500/30 ml-4" 
-                  : msg.role === "assistant"
-                    ? "bg-purple-500/20 border border-purple-500/30 mr-4"
-                    : "bg-gray-500/20 border border-gray-500/30 text-center text-[9px]"
-              )}
-            >
-              {msg.role !== "system" && (
-                <div className="flex items-center gap-1 mb-1">
-                  {msg.role === "assistant" ? (
-                    <Bot className="w-3 h-3 text-purple-400" />
-                  ) : (
-                    <Users className="w-3 h-3 text-cyan-400" />
-                  )}
-                  <span className={msg.role === "assistant" ? "text-purple-400" : "text-cyan-400"}>
-                    {msg.role === "assistant" ? "MYCA" : "You"}
-                  </span>
-                  <span className="text-gray-600 text-[8px] ml-auto">
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              )}
-              <p className="text-gray-300">{msg.content}</p>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700/50">
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Ask MYCA..."
-          className="h-8 text-[10px] bg-black/40 border-gray-700/50 focus:border-cyan-500/50"
-        />
-        <Button 
-          size="icon" 
-          variant="ghost" 
-          onClick={handleSend}
-          className="h-8 w-8 shrink-0 bg-cyan-500/20 hover:bg-cyan-500/30"
-        >
-          <Send className="w-3.5 h-3.5 text-cyan-400" />
-        </Button>
-      </div>
+      <MYCAChatWidget
+        className="h-full border-0 bg-transparent shadow-none"
+        title="MYCA"
+        showHeader={true}
+        getContextText={getContextText}
+      />
     </div>
   );
 }
@@ -1590,34 +1738,38 @@ export default function CREPDashboardPage() {
     showPartnerNetworks: false,
   });
 
-  // Mission context
-  const [currentMission] = useState<MissionContext>({
-    id: "mission-001",
-    name: "Global Fungal Network Monitoring",
-    type: "monitoring",
-    status: "active",
-    objective: "Real-time tracking of fungal activity and environmental events across all connected MycoBrain devices",
-    progress: 67,
-    targets: 47,
-    alerts: 3,
-    startTime: new Date(),
-  });
+  // Mission context - prompt-based creation on first use
+  const [currentMission, setCurrentMission] = useState<MissionContext | null>(null);
+  const [showMissionPrompt, setShowMissionPrompt] = useState(false);
+
+  // Check for existing mission in localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("crep_active_mission");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        parsed.startTime = new Date(parsed.startTime);
+        setCurrentMission(parsed);
+      } catch {
+        setShowMissionPrompt(true);
+      }
+    } else {
+      // First time using CREP - show mission prompt
+      setShowMissionPrompt(true);
+    }
+  }, []);
+
+  const handleCreateMission = useCallback((mission: MissionContext) => {
+    setCurrentMission(mission);
+    setShowMissionPrompt(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("crep_active_mission", JSON.stringify(mission));
+    }
+  }, []);
   
-  // MYCA chat messages
-  const [mycaMessages, setMycaMessages] = useState<MYCAMessage[]>([
-    {
-      id: "1",
-      role: "system",
-      content: "MYCA Agent connected to CREP",
-      timestamp: new Date(),
-    },
-    {
-      id: "2",
-      role: "assistant",
-      content: "I'm monitoring 47 active devices across the global network. Currently tracking 76 environmental events, including 2 critical alerts in the Pacific region. Would you like me to focus on any specific area?",
-      timestamp: new Date(),
-    },
-  ]);
+  // Map ref for MYCA map control
+  const mapControlRef = useRef<any>(null);
   
   const layerMetadataById: Record<string, { status: LayerDataStatus; source: string }> = {
     fungi: { status: "real", source: "MINDEX" },
@@ -2616,31 +2768,7 @@ export default function CREPDashboardPage() {
   }, [selectedEvent, selectedFungal]);
 
   // MYCA message handler
-  const handleMycaMessage = useCallback((content: string) => {
-    const userMessage: MYCAMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    };
-    setMycaMessages(prev => [...prev, userMessage]);
-    
-    // Simulate MYCA response
-    setTimeout(() => {
-      const responses = [
-        "I've analyzed the current event distribution. There are clusters of seismic activity along the Pacific Ring of Fire, and I'm detecting increased fungal activity near 3 of our monitoring stations.",
-        "Based on current data patterns, I recommend focusing on the Southeast Asian region where we have 12 devices detecting unusual spore concentrations.",
-        "I've cross-referenced the event data with MINDEX records. The fungal bloom events correlate with the recent storm systems in that region.",
-      ];
-      const assistantMessage: MYCAMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: new Date(),
-      };
-      setMycaMessages(prev => [...prev, assistantMessage]);
-    }, 1500);
-  }, []);
+  // (MYCA chat is now handled by real MYCAProvider + CREPMycaPanel)
 
   // Filter events by type
   const typeFilteredEvents = globalEvents.filter(event => {
@@ -2733,6 +2861,19 @@ export default function CREPDashboardPage() {
       marine: 245000,
     },
   };
+
+  // Update mission progress based on real data
+  useEffect(() => {
+    if (!currentMission) return;
+    const totalDataPoints = fungalObservations.length + globalEvents.length + aircraft.length + vessels.length + satellites.length;
+    const progress = Math.min(100, Math.round((totalDataPoints / Math.max(totalDataPoints, 100)) * 100));
+    setCurrentMission(prev => prev ? {
+      ...prev,
+      targets: fungalObservations.length + globalEvents.length,
+      alerts: criticalCount,
+      progress,
+    } : null);
+  }, [fungalObservations.length, globalEvents.length, aircraft.length, vessels.length, satellites.length, criticalCount]);
 
   // ===========================================================================
   // FILTER AIRCRAFT based on aircraftFilter state
@@ -4280,10 +4421,17 @@ export default function CREPDashboardPage() {
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="myca" className="h-full m-0 p-3 flex flex-col">
-                  <MYCAChatPanel 
-                    messages={mycaMessages}
-                    onSendMessage={handleMycaMessage}
+                <TabsContent value="myca" className="h-full m-0 p-0 flex flex-col">
+                  <CREPMycaPanel
+                    mapRef={mapControlRef}
+                    layers={layers}
+                    toggleLayer={toggleLayer}
+                    groundFilter={groundFilter}
+                    onGroundFilterChange={(f) => setGroundFilter({ ...groundFilter, ...f })}
+                    fungalObservations={fungalObservations}
+                    globalEvents={globalEvents}
+                    onSelectFungal={handleSelectFungal}
+                    mission={currentMission}
                   />
                 </TabsContent>
             </div>
@@ -4324,6 +4472,11 @@ export default function CREPDashboardPage() {
         vessel={selectedVessel}
         satellite={selectedSatellite}
       />
+
+      {/* Mission Prompt Modal - shown on first CREP use */}
+      {showMissionPrompt && (
+        <MissionPromptModal onCreateMission={handleCreateMission} />
+      )}
     </div>
   );
 }

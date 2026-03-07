@@ -11,6 +11,7 @@
 import nextDynamic from "next/dynamic"
 import { RefreshCw, Map, Monitor, Tablet } from "lucide-react"
 import Link from "next/link"
+import { MYCAProvider } from "@/contexts/myca-context"
 
 const CREPDashboardClient = nextDynamic(
   () => import("./CREPDashboardClient"),
@@ -72,7 +73,9 @@ export default function CREPDashboardLoader() {
       </div>
       {/* Tablet+: full WebGL dashboard */}
       <div className="hidden md:block">
-        <CREPDashboardClient />
+        <MYCAProvider>
+          <CREPDashboardClient />
+        </MYCAProvider>
       </div>
     </>
   )
