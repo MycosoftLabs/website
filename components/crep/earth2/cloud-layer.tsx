@@ -51,7 +51,7 @@ export function CloudLayer({
   const layerAddedRef = useRef(false);
   const fetchingRef = useRef(false);
   const animationRef = useRef<number | null>(null);
-  const cloudDataRef = useRef<{ grid: number[][]; bounds: GeoBounds; min: number; max: number; windData: any[] } | null>(null);
+  const cloudDataRef = useRef<{ grid: number[][]; bounds: GeoBounds; min: number; max: number; windData: any } | null>(null);
   const phaseRef = useRef(0);
   const clientRef = useRef(getEarth2Client());
   
@@ -270,7 +270,7 @@ function generateCloudGeoJSON(
   bounds: GeoBounds,
   min: number,
   max: number,
-  windData: any[],
+  windData: any,
   phase: number
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
@@ -285,7 +285,7 @@ function generateCloudGeoJSON(
   // Calculate average wind for cloud drift
   let avgWindU = 0, avgWindV = 0;
   if (windData.length > 0) {
-    windData.forEach(w => {
+    windData.forEach((w: any) => {
       const rad = (w.direction || 0) * Math.PI / 180;
       avgWindU += Math.sin(rad) * (w.speed || 0);
       avgWindV += Math.cos(rad) * (w.speed || 0);

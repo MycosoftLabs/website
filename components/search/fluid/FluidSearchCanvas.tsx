@@ -1480,7 +1480,7 @@ function WidgetContent({
       return <NewsWidget data={news} isFocused={isFocused} queryUsed={newsQueryUsed} onAddToNotepad={onAddToNotepad} openArticle={openArticle} />
     case "crep":
       if (crep.length === 0) return <EmptyWidgetState type="crep" label="CREP Observations" />
-      return <CrepWidget data={crep} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap} />
+      return <CrepWidget data={crep as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "earth2":
       if (!earth2) return <EmptyWidgetState type="earth2" label="Earth2 Weather" />
       return <Earth2Widget data={earth2} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />

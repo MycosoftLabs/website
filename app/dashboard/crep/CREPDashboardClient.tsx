@@ -2892,7 +2892,7 @@ export default function CREPDashboardPage() {
       if (altitude < aircraftFilter.minAltitude || altitude > aircraftFilter.maxAltitude) return false;
       
       // Filter by aircraft category (commercial, cargo, military, private)
-      const category = ac.tags?.find(t => 
+      const category = (ac as any).tags?.find((t: string) =>
         ["Wide-body", "Narrow-body", "Regional", "Cargo", "Helicopter", "Aircraft"].includes(t)
       ) || "Aircraft";
       const isCargo = category === "Cargo" || ac.aircraftType?.includes("F");
@@ -2927,7 +2927,7 @@ export default function CREPDashboardPage() {
     return vessels.filter(v => {
       // Get ship type
       const shipType = typeof v.shipType === "number" ? v.shipType : 0;
-      const shipTypeStr = (v.properties?.shipType || v.description || "").toLowerCase();
+      const shipTypeStr = ((v as any).properties?.shipType || (v as any).description || "").toLowerCase();
       
       const isCargo = (shipType >= 70 && shipType <= 79) || shipTypeStr.includes("cargo");
       const isTanker = (shipType >= 80 && shipType <= 89) || shipTypeStr.includes("tanker");
@@ -2944,7 +2944,7 @@ export default function CREPDashboardPage() {
       if (!vesselFilter.showMilitary && isMilitary) return false;
       
       // Filter by minimum speed
-      const speed = v.sog ?? v.properties?.sog ?? 0;
+      const speed = v.sog ?? (v as any).properties?.sog ?? 0;
       if (speed < vesselFilter.minSpeed) return false;
       
       return true;
@@ -2995,11 +2995,11 @@ export default function CREPDashboardPage() {
     const next: Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }> = {};
     const now = Date.now();
     for (const a of filteredAircraft) {
-      const lng = a.location?.longitude ?? 0;
-      const lat = a.location?.latitude ?? 0;
-      const headingDeg = typeof a.heading === "number" ? a.heading : (a.properties?.heading ?? 0);
+      const lng = (a.location as any)?.longitude ?? a.location?.coordinates?.[0] ?? 0;
+      const lat = (a.location as any)?.latitude ?? a.location?.coordinates?.[1] ?? 0;
+      const headingDeg = typeof a.heading === "number" ? a.heading : ((a as any).properties?.heading ?? 0);
       const h = (headingDeg * Math.PI) / 180;
-      const knots = typeof a.velocity === "number" ? a.velocity : (a.properties?.velocity ?? a.properties?.groundSpeed ?? 0) ?? 0;
+      const knots = typeof a.velocity === "number" ? a.velocity : ((a as any).properties?.velocity ?? (a as any).properties?.groundSpeed ?? 0) ?? 0;
       if (Number.isFinite(lng) && Number.isFinite(lat) && knots >= 0) {
         next[a.id] = {
           lng,
@@ -3014,8 +3014,8 @@ export default function CREPDashboardPage() {
       const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
       const lng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
       const lat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
-      const sog = v.sog ?? v.properties?.sog;
-      const cog = v.cog ?? v.properties?.cog ?? 0;
+      const sog = v.sog ?? (v as any).properties?.sog;
+      const cog = v.cog ?? (v as any).properties?.cog ?? 0;
       if (Number.isFinite(lng) && Number.isFinite(lat) && typeof sog === "number" && sog >= 0) {
         const h = (cog * Math.PI) / 180;
         next[v.id] = {
@@ -3028,12 +3028,12 @@ export default function CREPDashboardPage() {
       }
     }
     for (const s of filteredSatellites) {
-      const loc = s.location as { longitude?: number; latitude?: number } | undefined;
+      const loc = (s as any).location as { longitude?: number; latitude?: number } | undefined;
       const est = s.estimatedPosition;
-      const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
-      const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
-      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? s.properties?.velocity ?? 0;
-      const heading = s.heading ?? 90; // 90 = east (prograde) for LEO
+      const apiLng = loc?.longitude ?? (loc as any)?.coordinates?.[0] ?? est?.longitude ?? 0;
+      const apiLat = loc?.latitude ?? (loc as any)?.coordinates?.[1] ?? est?.latitude ?? 0;
+      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? (s as any).properties?.velocity ?? 0;
+      const heading = (s as any).heading ?? 90; // 90 = east (prograde) for LEO
       if (Number.isFinite(apiLng) && Number.isFinite(apiLat) && typeof velKmS === "number" && velKmS > 0) {
         const h = (heading * Math.PI) / 180;
         const degPerSec = velKmS / 111; // ~111 km per degree at equator
@@ -3081,16 +3081,16 @@ export default function CREPDashboardPage() {
 
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
     const lastKnown = lastKnownRef.current;
-    const sourceEntities: UnifiedEntity[] = [
+    const sourceEntities = [
       ...filteredAircraft.map((aircraftEntity) => {
-        const apiLng = aircraftEntity.location?.longitude ?? 0;
-        const apiLat = aircraftEntity.location?.latitude ?? 0;
+        const apiLng = (aircraftEntity.location as any)?.longitude ?? aircraftEntity.location?.coordinates?.[0] ?? 0;
+        const apiLat = (aircraftEntity.location as any)?.latitude ?? aircraftEntity.location?.coordinates?.[1] ?? 0;
         const extrap = extrapolatedCoords[aircraftEntity.id];
         const coords: [number, number] = extrap ?? [apiLng, apiLat];
         const anchor = lastKnown[aircraftEntity.id];
         const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
-        const headingDeg = aircraftEntity.heading ?? aircraftEntity.properties?.heading ?? 0;
-        const speedKnots = typeof aircraftEntity.velocity === "number" ? aircraftEntity.velocity : aircraftEntity.properties?.velocity ?? aircraftEntity.properties?.groundSpeed ?? 0;
+        const headingDeg = aircraftEntity.heading ?? (aircraftEntity as any).properties?.heading ?? 0;
+        const speedKnots = typeof aircraftEntity.velocity === "number" ? aircraftEntity.velocity : (aircraftEntity as any).properties?.velocity ?? (aircraftEntity as any).properties?.groundSpeed ?? 0;
         const hRad = (headingDeg * Math.PI) / 180;
         return {
         id: aircraftEntity.id,
@@ -3098,7 +3098,7 @@ export default function CREPDashboardPage() {
         geometry: { type: "Point" as const, coordinates: coords },
         state: {
           heading: headingDeg,
-          altitude: aircraftEntity.altitude,
+          altitude: aircraftEntity.altitude ?? undefined,
           velocity: typeof speedKnots === "number" && speedKnots > 0
             ? { x: Math.sin(hRad) * speedKnots, y: Math.cos(hRad) * speedKnots }
             : undefined,
@@ -3110,7 +3110,7 @@ export default function CREPDashboardPage() {
         },
         confidence: 1,
         source: "opensky",
-        properties: aircraftEntity.properties || {},
+        properties: (aircraftEntity as any).properties || {},
         s2_cell: "",
       };
       }),
@@ -3127,10 +3127,10 @@ export default function CREPDashboardPage() {
         type: "vessel" as const,
         geometry: { type: "Point" as const, coordinates: coords },
         state: {
-          heading: vesselEntity.cog ?? vesselEntity.properties?.cog,
+          heading: vesselEntity.cog ?? (vesselEntity as any).properties?.cog,
           velocity: (() => {
-            const sog = vesselEntity.sog ?? vesselEntity.properties?.sog;
-            const cog = vesselEntity.cog ?? vesselEntity.properties?.cog ?? 0;
+            const sog = vesselEntity.sog ?? (vesselEntity as any).properties?.sog;
+            const cog = vesselEntity.cog ?? (vesselEntity as any).properties?.cog ?? 0;
             if (sog === undefined || sog === null) return undefined;
             const hRad = (cog * Math.PI) / 180;
             return { x: Math.sin(hRad) * sog, y: Math.cos(hRad) * sog };
@@ -3138,17 +3138,17 @@ export default function CREPDashboardPage() {
           trailAnchor,
         },
         time: {
-          observed_at: vesselEntity.timestamp ?? vesselEntity.lastSeenAt ?? vesselEntity.properties?.timestamp,
-          valid_from: vesselEntity.timestamp ?? vesselEntity.lastSeenAt ?? vesselEntity.properties?.timestamp,
+          observed_at: (vesselEntity as any).timestamp ?? vesselEntity.lastSeen ?? (vesselEntity as any).properties?.timestamp,
+          valid_from: (vesselEntity as any).timestamp ?? vesselEntity.lastSeen ?? (vesselEntity as any).properties?.timestamp,
         },
         confidence: 1,
         source: "ais",
-        properties: vesselEntity.properties || {},
+        properties: (vesselEntity as any).properties || {},
         s2_cell: "",
       };
       }),
       ...filteredSatellites.map((satelliteEntity) => {
-        const loc = satelliteEntity.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+        const loc = (satelliteEntity as any).location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
         const est = satelliteEntity.estimatedPosition;
         const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
         const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
@@ -3157,10 +3157,10 @@ export default function CREPDashboardPage() {
         const anchor = lastKnown[satelliteEntity.id];
         const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
         const orbitalParams = (satelliteEntity as { orbitalParams?: { velocity?: number; period?: number; inclination?: number } }).orbitalParams;
-        const velKmS = orbitalParams?.velocity ?? satelliteEntity.properties?.velocity ?? 0;
+        const velKmS = orbitalParams?.velocity ?? (satelliteEntity as any).properties?.velocity ?? 0;
         const periodMin = orbitalParams?.period;
-        const inclinationDeg = orbitalParams?.inclination ?? (satelliteEntity.properties?.inclination as number | undefined);
-        const heading = satelliteEntity.heading ?? 90;
+        const inclinationDeg = orbitalParams?.inclination ?? ((satelliteEntity as any).properties?.inclination as number | undefined);
+        const heading = (satelliteEntity as any).heading ?? 90;
         const hRad = (heading * Math.PI) / 180;
         const degPerSec = typeof velKmS === "number" && velKmS > 0 ? velKmS / 111 : 0;
         const satVelocity = degPerSec > 0
@@ -3179,19 +3179,19 @@ export default function CREPDashboardPage() {
         type: "satellite" as const,
         geometry: { type: "Point" as const, coordinates: coords },
         state: {
-          altitude: satelliteEntity.altitude,
-          heading: satelliteEntity.heading,
+          altitude: (satelliteEntity as any).altitude ?? satelliteEntity.estimatedPosition?.altitude,
+          heading: (satelliteEntity as any).heading,
           velocity: satVelocity,
           trailAnchor,
           orbitPath: orbitPath ?? undefined,
         },
         time: {
-          observed_at: satelliteEntity.lastUpdate,
-          valid_from: satelliteEntity.lastUpdate,
+          observed_at: (satelliteEntity as any).lastUpdate ?? satelliteEntity.lastSeen,
+          valid_from: (satelliteEntity as any).lastUpdate ?? satelliteEntity.lastSeen,
         },
         confidence: 1,
         source: "norad",
-        properties: satelliteEntity.properties || {},
+        properties: (satelliteEntity as any).properties || {},
         s2_cell: "",
       };
       }),
@@ -3209,13 +3209,13 @@ export default function CREPDashboardPage() {
         },
         confidence: 0.95,
         source: "mindex",
-        properties: observation,
+        properties: observation as unknown as Record<string, unknown>,
         s2_cell: "",
       })),
     ];
 
     const byId = new Map<string, UnifiedEntity>();
-    for (const entity of sourceEntities) byId.set(entity.id, entity);
+    for (const entity of sourceEntities) byId.set(entity.id, entity as UnifiedEntity);
     for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
     return [...byId.values()];
   }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords]);
@@ -4468,9 +4468,9 @@ export default function CREPDashboardPage() {
           setSelectedVessel(null);
           setSelectedSatellite(null);
         }}
-        aircraft={selectedAircraft}
-        vessel={selectedVessel}
-        satellite={selectedSatellite}
+        aircraft={selectedAircraft as any}
+        vessel={selectedVessel as any}
+        satellite={selectedSatellite as any}
       />
 
       {/* Mission Prompt Modal - shown on first CREP use */}

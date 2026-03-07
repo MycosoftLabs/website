@@ -300,7 +300,7 @@ function getSmokeSaturation(intensity: number, distanceFactor: number): string {
 }
 
 // Fetch smoke sources from API - NO MOCK DATA (per Mycosoft policy)
-async function fetchSmokeSources(bounds: GeoBounds, windData: any[]): Promise<SmokeSource[]> {
+async function fetchSmokeSources(bounds: GeoBounds, windData: any): Promise<SmokeSource[]> {
   try {
     // Try to fetch from global events API
     const response = await fetch("/api/natureos/global-events");
@@ -333,7 +333,7 @@ async function fetchSmokeSources(bounds: GeoBounds, windData: any[]): Promise<Sm
   return [];
 }
 
-function findNearestWind(lat: number, lon: number, windData: any[]): { direction: number; speed: number } {
+function findNearestWind(lat: number, lon: number, windData: any): { direction: number; speed: number } {
   if (!windData || windData.length === 0) {
     // Default wind direction (random) and speed
     return { direction: Math.random() * 360, speed: 5 + Math.random() * 15 };

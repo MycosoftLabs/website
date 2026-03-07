@@ -108,7 +108,7 @@ export function PrecipitationLayer({
   const dataRef = useRef<{
     precipGrid: number[][];
     tempGrid: number[][];
-    windData: any[];
+    windData: any;
     bounds: GeoBounds;
   } | null>(null);
   const clientRef = useRef(getEarth2Client());
@@ -326,7 +326,7 @@ function createAnimatedLayers(
   map: any,
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   opacity: number,
   precipType: string
@@ -390,7 +390,7 @@ function updateAnimatedLayers(
   map: any,
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number,
   precipType: string
@@ -465,7 +465,7 @@ function generatePrecipGeoJSON(
 function generateRainDrops(
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number
 ): GeoJSON.FeatureCollection {
@@ -479,8 +479,8 @@ function generateRainDrops(
   let avgWindDir = 180;
   let avgWindSpeed = 5;
   if (windData.length > 0) {
-    avgWindDir = windData.reduce((sum, w) => sum + (w.direction || 0), 0) / windData.length;
-    avgWindSpeed = windData.reduce((sum, w) => sum + (w.speed || 0), 0) / windData.length;
+    avgWindDir = windData.reduce((sum: any, w: any) => sum + (w.direction || 0), 0) / windData.length;
+    avgWindSpeed = windData.reduce((sum: any, w: any) => sum + (w.speed || 0), 0) / windData.length;
   }
 
   for (let i = 0; i < latSteps; i += 2) {
@@ -593,7 +593,7 @@ function generateSnowflakes(
 function generateRainStreaks(
   precipGrid: number[][],
   tempGrid: number[][],
-  windData: any[],
+  windData: any,
   bounds: GeoBounds,
   phase: number
 ): GeoJSON.FeatureCollection {
@@ -607,8 +607,8 @@ function generateRainStreaks(
   let avgWindDir = 180;
   let avgWindSpeed = 10;
   if (windData.length > 0) {
-    avgWindDir = windData.reduce((sum, w) => sum + (w.direction || 0), 0) / windData.length;
-    avgWindSpeed = windData.reduce((sum, w) => sum + (w.speed || 0), 0) / windData.length;
+    avgWindDir = windData.reduce((sum: any, w: any) => sum + (w.direction || 0), 0) / windData.length;
+    avgWindSpeed = windData.reduce((sum: any, w: any) => sum + (w.speed || 0), 0) / windData.length;
   }
 
   for (let i = 0; i < latSteps; i += 3) {

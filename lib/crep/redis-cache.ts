@@ -71,7 +71,7 @@ async function checkRedisConnection(): Promise<boolean> {
   
   try {
     // Use MAS Redis proxy endpoint
-    const response = await fetch(`${env.masApiUrl}/api/redis/ping`, {
+    const response = await fetch(`${env.mycaMasApiBaseUrl}/api/redis/ping`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(2000),
@@ -91,7 +91,7 @@ async function checkRedisConnection(): Promise<boolean> {
  */
 async function redisGet<T>(key: string): Promise<T | null> {
   try {
-    const response = await fetch(`${env.masApiUrl}/api/redis/get`, {
+    const response = await fetch(`${env.mycaMasApiBaseUrl}/api/redis/get`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),
@@ -114,7 +114,7 @@ async function redisGet<T>(key: string): Promise<T | null> {
  */
 async function redisSet<T>(key: string, value: T, ttl: number): Promise<boolean> {
   try {
-    const response = await fetch(`${env.masApiUrl}/api/redis/set`, {
+    const response = await fetch(`${env.mycaMasApiBaseUrl}/api/redis/set`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -137,7 +137,7 @@ async function redisSet<T>(key: string, value: T, ttl: number): Promise<boolean>
  */
 async function redisDel(key: string): Promise<boolean> {
   try {
-    const response = await fetch(`${env.masApiUrl}/api/redis/del`, {
+    const response = await fetch(`${env.mycaMasApiBaseUrl}/api/redis/del`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),

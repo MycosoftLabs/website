@@ -256,12 +256,8 @@ export function EntityDeckLayer({
       .filter((x): x is TrailItem => x.path !== null && x.path.length > 0);
 
     // Shared click handler – fires onEntityClick with the entity object
-    const handleClick = ({
-      object,
-    }: {
-      object: UnifiedEntity | undefined;
-    }) => {
-      if (object && onEntityClick) onEntityClick(object);
+    const handleClick = (info: any) => {
+      if (info?.object && onEntityClick) onEntityClick(info.object);
     };
 
     const getPos = (e: UnifiedEntity) =>
@@ -280,9 +276,9 @@ export function EntityDeckLayer({
           getWidth: 1,
           opacity: 0.4,
           pickable: false,
-          getDashArray: () => [4, 3],
           dashJustified: true,
           extensions: [new PathStyleExtension({ dash: true })],
+          ...({ getDashArray: () => [4, 3] } as any),
         }),
 
         // ── Fungal observations: distinct mushroom icon, larger and more visible ──
