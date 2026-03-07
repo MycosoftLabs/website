@@ -264,18 +264,18 @@ async function fetchTaxaLookup(_observations: Record<string, unknown>[]): Promis
  */
 function transformMINDEXData(observations: Record<string, unknown>[], taxaLookup: Map<string, { canonical_name: string; common_name?: string }>): FungalObservation[] {
   return observations
-    .filter((obs) => {
+    .filter((obs: any) => {
       // Parse coordinates from MINDEX format ("lng lat" string)
       const coords = parseCoordinates(obs)
       if (!coords || coords.lat === 0 || coords.lng === 0) return false
-      
+
       // Must have timestamp
       const timestamp = obs.observed_at || obs.created_at || obs.eventDate
       if (!timestamp) return false
-      
+
       return true
     })
-    .map((obs) => {
+    .map((obs: any) => {
       // Parse coordinates
       const coords = parseCoordinates(obs)!
       
@@ -371,7 +371,7 @@ function transformMINDEXData(observations: Record<string, unknown>[], taxaLookup
  * Parse coordinates from MINDEX location format
  * MINDEX stores coordinates as: location.coordinates = "lng lat" (space-separated string)
  */
-function parseCoordinates(obs: Record<string, unknown>): { lat: number; lng: number } | null {
+function parseCoordinates(obs: any): { lat: number; lng: number } | null {
   // Try direct lat/lng fields first
   if (typeof obs.latitude === "number" && typeof obs.longitude === "number") {
     return { lat: obs.latitude, lng: obs.longitude }
@@ -492,8 +492,8 @@ async function fetchINaturalistObservations(
           }
 
           const regionObs = (data.results || [])
-            .filter((obs: Record<string, unknown>) => (obs.geojson as Record<string, unknown>)?.coordinates || obs.location)
-            .map((obs: Record<string, unknown>) => ({
+            .filter((obs: any) => obs.geojson?.coordinates || obs.location)
+            .map((obs: any) => ({
               id: `inat-${obs.id}`,
               species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
               scientificName: obs.taxon?.name || "Unknown",
@@ -561,8 +561,8 @@ async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<F
 
         const data = await response.json()
         const obs = (data.results || [])
-          .filter((o: Record<string, unknown>) => o.decimalLatitude && o.decimalLongitude)
-          .map((o: Record<string, unknown>) => ({
+          .filter((o: any) => o.decimalLatitude && o.decimalLongitude)
+          .map((o: any) => ({
             id: `gbif-${o.key}`,
             species: o.vernacularName || o.species || "Unknown",
             scientificName: o.scientificName || "Unknown",
