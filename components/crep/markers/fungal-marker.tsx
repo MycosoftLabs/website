@@ -51,6 +51,9 @@ export interface FungalObservation {
   // Source URL for "View on iNaturalist" / "View on GBIF" links
   sourceUrl?: string;
   externalId?: string;
+  // Kingdom/taxa classification for all-life support
+  kingdom?: string;
+  iconicTaxon?: string;
 }
 
 interface FungalMarkerProps {
@@ -105,24 +108,45 @@ function getExternalUrl(observation: FungalObservation): string {
   }
 }
 
+// Kingdom-specific styling for all-life support
+const KINGDOM_STYLES: Record<string, { emoji: string; bgColor: string; glowColor: string; borderColor: string; label: string }> = {
+  Fungi:            { emoji: "🍄", bgColor: "bg-amber-700",    glowColor: "#b45309", borderColor: "border-amber-600/40", label: "Fungus" },
+  Plantae:          { emoji: "🌿", bgColor: "bg-emerald-700",  glowColor: "#047857", borderColor: "border-emerald-600/40", label: "Plant" },
+  Aves:             { emoji: "🐦", bgColor: "bg-sky-700",      glowColor: "#0369a1", borderColor: "border-sky-600/40", label: "Bird" },
+  Mammalia:         { emoji: "🦊", bgColor: "bg-orange-700",   glowColor: "#c2410c", borderColor: "border-orange-600/40", label: "Mammal" },
+  Reptilia:         { emoji: "🦎", bgColor: "bg-lime-700",     glowColor: "#4d7c0f", borderColor: "border-lime-600/40", label: "Reptile" },
+  Amphibia:         { emoji: "🐸", bgColor: "bg-green-700",    glowColor: "#15803d", borderColor: "border-green-600/40", label: "Amphibian" },
+  Actinopterygii:   { emoji: "🐟", bgColor: "bg-cyan-700",     glowColor: "#0e7490", borderColor: "border-cyan-600/40", label: "Fish" },
+  Mollusca:         { emoji: "🐚", bgColor: "bg-rose-700",     glowColor: "#be123c", borderColor: "border-rose-600/40", label: "Mollusk" },
+  Arachnida:        { emoji: "🕷️", bgColor: "bg-red-800",      glowColor: "#991b1b", borderColor: "border-red-600/40", label: "Arachnid" },
+  Insecta:          { emoji: "🦋", bgColor: "bg-yellow-700",   glowColor: "#a16207", borderColor: "border-yellow-600/40", label: "Insect" },
+  Animalia:         { emoji: "🦌", bgColor: "bg-orange-700",   glowColor: "#c2410c", borderColor: "border-orange-600/40", label: "Animal" },
+};
+
+function getKingdomStyle(kingdom?: string, iconicTaxon?: string) {
+  const key = iconicTaxon || kingdom || "Fungi";
+  return KINGDOM_STYLES[key] || KINGDOM_STYLES.Fungi;
+}
+
 // Memoized component to prevent unnecessary re-renders when parent updates
 export const FungalMarker = memo(function FungalMarkerInner({ observation, isSelected = false, onClick, onClose }: FungalMarkerProps) {
   // Guard: Ensure coordinates are valid
   if (
-    typeof observation.latitude !== 'number' || 
-    typeof observation.longitude !== 'number' || 
-    isNaN(observation.latitude) || 
+    typeof observation.latitude !== 'number' ||
+    typeof observation.longitude !== 'number' ||
+    isNaN(observation.latitude) ||
     isNaN(observation.longitude) ||
     (observation.latitude === 0 && observation.longitude === 0)
   ) {
     return null;
   }
 
-  const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Fungus";
+  const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Species";
   const scientificName = observation.taxon?.name || observation.species || "";
   const isResearchGrade = observation.quality_grade === "research";
   const photoUrl = observation.photos?.[0]?.url;
   const sourceInfo = getSourceInfo(observation.source);
+  const kingdomStyle = getKingdomStyle(observation.kingdom, observation.iconicTaxon);
 
   return (
     <MapMarker 
@@ -135,35 +159,27 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
       <MarkerContent data-marker="fungal">
         <button
           onClick={(e) => {
-            e.stopPropagation(); // Prevent event from bubbling (backup for any edge cases)
+            e.stopPropagation();
           }}
           className={cn(
             "relative flex items-center justify-center transition-all duration-200 ease-in-out",
-            // Standard marker size - matches other event markers (w-6 h-6 = 24px)
             "w-6 h-6 rounded-full",
-            // BROWN/EARTHY styling to differentiate from red Amanita device markers
-            // Research grade = darker brown, needs ID = lighter tan
-            isResearchGrade 
-              ? "bg-amber-700 shadow-[0_0_4px_rgba(180,83,9,0.5)]" 
-              : "bg-amber-600/90 shadow-[0_0_3px_rgba(217,119,6,0.4)]",
-            isSelected 
-              ? "scale-150 ring-2 ring-white z-50" 
+            isResearchGrade
+              ? `${kingdomStyle.bgColor} shadow-[0_0_4px_rgba(180,83,9,0.5)]`
+              : `${kingdomStyle.bgColor}/90 shadow-[0_0_3px_rgba(217,119,6,0.4)]`,
+            isSelected
+              ? "scale-150 ring-2 ring-white z-50"
               : "hover:scale-125 z-10",
           )}
-          title={`🍄 ${speciesName}`}
+          title={`${kingdomStyle.emoji} ${speciesName} (${kingdomStyle.label})`}
         >
-          {/* Inner glow effect - brown/amber tones */}
-          <div 
+          <div
             className="absolute w-3 h-3 rounded-full blur-[2px] opacity-30"
-            style={{ backgroundColor: isResearchGrade ? "#b45309" : "#d97706" }}
+            style={{ backgroundColor: kingdomStyle.glowColor }}
           />
-          
-          {/* Icon - brown mushroom emoji with sepia filter for earthy look */}
-          <span className="relative text-xs" style={{ filter: "sepia(0.4) saturate(1.2)" }}>🍄</span>
-          
-          {/* Pulsing ring for research grade - amber/brown, only when selected */}
+          <span className="relative text-xs">{kingdomStyle.emoji}</span>
           {isResearchGrade && isSelected && (
-            <div className="absolute w-6 h-6 rounded-full animate-ping opacity-15 bg-amber-600 pointer-events-none" />
+            <div className={cn("absolute w-6 h-6 rounded-full animate-ping opacity-15 pointer-events-none", kingdomStyle.bgColor)} />
           )}
         </button>
       </MarkerContent>
@@ -173,23 +189,22 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
           Appears next to the marker when selected, rich data display
           ═══════════════════════════════════════════════════════════════════════════ */}
       {isSelected && (
-        <MarkerPopup 
-          className="min-w-[280px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md border-amber-600/40 shadow-2xl shadow-amber-600/10 p-0 overflow-hidden"
+        <MarkerPopup
+          className={cn("min-w-[280px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden", kingdomStyle.borderColor)}
           closeButton
           closeOnClick={false}
           anchor="bottom"
           offset={[0, -8]}
           onClose={onClose}
         >
-          {/* Compact Header with Species Name - BROWN/AMBER theme */}
+          {/* Compact Header with Species Name - Kingdom-themed */}
           <div className={cn(
-            "px-3 py-2 border-b border-amber-600/30",
-            isResearchGrade 
-              ? "bg-gradient-to-r from-amber-700/40 to-orange-700/20" 
-              : "bg-gradient-to-r from-amber-600/30 to-orange-600/10"
+            "px-3 py-2 border-b",
+            kingdomStyle.borderColor,
+            `${kingdomStyle.bgColor}/40`
           )}>
             <div className="flex items-start gap-2">
-              <span className="text-lg shrink-0" style={{ filter: "sepia(0.4) saturate(1.2)" }}>🍄</span>
+              <span className="text-lg shrink-0">{kingdomStyle.emoji}</span>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white leading-tight truncate">
                   {speciesName}

@@ -45,6 +45,20 @@ import {
   Pause,
   Circle,
   Info,
+  TreePine,
+  Bug,
+  Bird,
+  PawPrint,
+  Mountain,
+  Flame,
+  Droplets,
+  Radar,
+  Cpu,
+  Thermometer,
+  Droplet,
+  Wrench,
+  Power,
+  Fuel,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -105,6 +119,36 @@ export interface SpaceWeatherFilter {
   showSolarWind: boolean
 }
 
+export interface GroundFilter {
+  // Biodiversity & Wildlife
+  showFungi: boolean
+  showPlants: boolean
+  showBirds: boolean
+  showMammals: boolean
+  showReptiles: boolean
+  showInsects: boolean
+  showMarineLife: boolean
+  // Natural Events
+  showEarthquakes: boolean
+  showVolcanoes: boolean
+  showWildfires: boolean
+  showStorms: boolean
+  showLightning: boolean
+  showTornadoes: boolean
+  showFloods: boolean
+  // Infrastructure & Pollution
+  showFactories: boolean
+  showPowerPlants: boolean
+  showMining: boolean
+  showOilGas: boolean
+  showWaterPollution: boolean
+  // Sensors & Devices
+  showMycoBrain: boolean
+  showSporeBase: boolean
+  showSmartFence: boolean
+  showPartnerNetworks: boolean
+}
+
 export interface NOAAScales {
   radio: number    // R0-R5
   solar: number    // S0-S5
@@ -124,6 +168,7 @@ interface MapControlsProps {
   vesselFilter: VesselFilter
   satelliteFilter: SatelliteFilter
   spaceWeatherFilter: SpaceWeatherFilter
+  groundFilter: GroundFilter
   streamStatuses: StreamStatus[]
   isStreaming: boolean
   noaaScales?: NOAAScales  // Real-time NOAA space weather scales
@@ -131,6 +176,7 @@ interface MapControlsProps {
   onVesselFilterChange: (filter: Partial<VesselFilter>) => void
   onSatelliteFilterChange: (filter: Partial<SatelliteFilter>) => void
   onSpaceWeatherFilterChange: (filter: Partial<SpaceWeatherFilter>) => void
+  onGroundFilterChange: (filter: Partial<GroundFilter>) => void
   onToggleStreaming: () => void
   onRefresh: () => void
 }
@@ -144,6 +190,7 @@ export function MapControls({
   vesselFilter,
   satelliteFilter,
   spaceWeatherFilter,
+  groundFilter,
   streamStatuses,
   isStreaming,
   noaaScales,
@@ -151,10 +198,11 @@ export function MapControls({
   onVesselFilterChange,
   onSatelliteFilterChange,
   onSpaceWeatherFilterChange,
+  onGroundFilterChange,
   onToggleStreaming,
   onRefresh,
 }: MapControlsProps) {
-  const [activeTab, setActiveTab] = useState("aircraft")
+  const [activeTab, setActiveTab] = useState("ground")
   const [expanded, setExpanded] = useState(true)
 
   // Calculate active filter counts
@@ -253,7 +301,14 @@ export function MapControls({
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full h-8 rounded-none bg-black/50 border-b border-cyan-500/20 grid grid-cols-4 gap-0">
+            <TabsList className="w-full h-8 rounded-none bg-black/50 border-b border-cyan-500/20 grid grid-cols-5 gap-0">
+              <TabsTrigger
+                value="ground"
+                className="h-7 rounded-none text-[10px] data-[state=active]:bg-green-500/20 data-[state=active]:text-green-400"
+              >
+                <TreePine className="w-3 h-3 mr-1" />
+                GND
+              </TabsTrigger>
               <TabsTrigger
                 value="aircraft"
                 className="h-7 rounded-none text-[10px] data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400"
@@ -285,6 +340,199 @@ export function MapControls({
             </TabsList>
 
             <ScrollArea className="h-[200px]">
+              {/* Ground Filters */}
+              <TabsContent value="ground" className="m-0 p-2 space-y-2">
+                {/* Biodiversity & Wildlife */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] text-green-400/70 uppercase font-medium">Biodiversity & Wildlife</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FilterToggle
+                      label="Fungi"
+                      icon={<TreePine className="w-3 h-3" />}
+                      checked={groundFilter.showFungi}
+                      onChange={(v) => onGroundFilterChange({ showFungi: v })}
+                      color="orange"
+                      hint="Mushrooms"
+                    />
+                    <FilterToggle
+                      label="Plants"
+                      icon={<TreePine className="w-3 h-3" />}
+                      checked={groundFilter.showPlants}
+                      onChange={(v) => onGroundFilterChange({ showPlants: v })}
+                      color="green"
+                    />
+                    <FilterToggle
+                      label="Birds"
+                      icon={<Bird className="w-3 h-3" />}
+                      checked={groundFilter.showBirds}
+                      onChange={(v) => onGroundFilterChange({ showBirds: v })}
+                      color="blue"
+                    />
+                    <FilterToggle
+                      label="Mammals"
+                      icon={<PawPrint className="w-3 h-3" />}
+                      checked={groundFilter.showMammals}
+                      onChange={(v) => onGroundFilterChange({ showMammals: v })}
+                      color="orange"
+                    />
+                    <FilterToggle
+                      label="Reptiles"
+                      icon={<Bug className="w-3 h-3" />}
+                      checked={groundFilter.showReptiles}
+                      onChange={(v) => onGroundFilterChange({ showReptiles: v })}
+                      color="green"
+                    />
+                    <FilterToggle
+                      label="Insects"
+                      icon={<Bug className="w-3 h-3" />}
+                      checked={groundFilter.showInsects}
+                      onChange={(v) => onGroundFilterChange({ showInsects: v })}
+                      color="yellow"
+                    />
+                    <FilterToggle
+                      label="Marine Life"
+                      icon={<Fish className="w-3 h-3" />}
+                      checked={groundFilter.showMarineLife}
+                      onChange={(v) => onGroundFilterChange({ showMarineLife: v })}
+                      color="cyan"
+                    />
+                  </div>
+                </div>
+
+                {/* Natural Events */}
+                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
+                  <span className="text-[10px] text-green-400/70 uppercase font-medium">Natural Events</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FilterToggle
+                      label="Earthquakes"
+                      icon={<Activity className="w-3 h-3" />}
+                      checked={groundFilter.showEarthquakes}
+                      onChange={(v) => onGroundFilterChange({ showEarthquakes: v })}
+                      color="orange"
+                    />
+                    <FilterToggle
+                      label="Volcanoes"
+                      icon={<Mountain className="w-3 h-3" />}
+                      checked={groundFilter.showVolcanoes}
+                      onChange={(v) => onGroundFilterChange({ showVolcanoes: v })}
+                      color="red"
+                    />
+                    <FilterToggle
+                      label="Wildfires"
+                      icon={<Flame className="w-3 h-3" />}
+                      checked={groundFilter.showWildfires}
+                      onChange={(v) => onGroundFilterChange({ showWildfires: v })}
+                      color="red"
+                    />
+                    <FilterToggle
+                      label="Storms"
+                      icon={<Cloud className="w-3 h-3" />}
+                      checked={groundFilter.showStorms}
+                      onChange={(v) => onGroundFilterChange({ showStorms: v })}
+                      color="purple"
+                    />
+                    <FilterToggle
+                      label="Lightning"
+                      icon={<Zap className="w-3 h-3" />}
+                      checked={groundFilter.showLightning}
+                      onChange={(v) => onGroundFilterChange({ showLightning: v })}
+                      color="yellow"
+                    />
+                    <FilterToggle
+                      label="Tornadoes"
+                      icon={<Wind className="w-3 h-3" />}
+                      checked={groundFilter.showTornadoes}
+                      onChange={(v) => onGroundFilterChange({ showTornadoes: v })}
+                      color="purple"
+                    />
+                    <FilterToggle
+                      label="Floods"
+                      icon={<Droplets className="w-3 h-3" />}
+                      checked={groundFilter.showFloods}
+                      onChange={(v) => onGroundFilterChange({ showFloods: v })}
+                      color="blue"
+                    />
+                  </div>
+                </div>
+
+                {/* Infrastructure & Pollution */}
+                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
+                  <span className="text-[10px] text-green-400/70 uppercase font-medium">Infrastructure & Pollution</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FilterToggle
+                      label="Factories"
+                      icon={<Factory className="w-3 h-3" />}
+                      checked={groundFilter.showFactories}
+                      onChange={(v) => onGroundFilterChange({ showFactories: v })}
+                      color="orange"
+                    />
+                    <FilterToggle
+                      label="Power Plants"
+                      icon={<Power className="w-3 h-3" />}
+                      checked={groundFilter.showPowerPlants}
+                      onChange={(v) => onGroundFilterChange({ showPowerPlants: v })}
+                      color="yellow"
+                    />
+                    <FilterToggle
+                      label="Mining"
+                      icon={<Wrench className="w-3 h-3" />}
+                      checked={groundFilter.showMining}
+                      onChange={(v) => onGroundFilterChange({ showMining: v })}
+                      color="gray"
+                    />
+                    <FilterToggle
+                      label="Oil & Gas"
+                      icon={<Fuel className="w-3 h-3" />}
+                      checked={groundFilter.showOilGas}
+                      onChange={(v) => onGroundFilterChange({ showOilGas: v })}
+                      color="red"
+                    />
+                    <FilterToggle
+                      label="Water"
+                      icon={<Droplet className="w-3 h-3" />}
+                      checked={groundFilter.showWaterPollution}
+                      onChange={(v) => onGroundFilterChange({ showWaterPollution: v })}
+                      color="blue"
+                    />
+                  </div>
+                </div>
+
+                {/* Sensor Networks */}
+                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
+                  <span className="text-[10px] text-green-400/70 uppercase font-medium">Sensor Networks</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FilterToggle
+                      label="MycoBrain"
+                      icon={<Radar className="w-3 h-3" />}
+                      checked={groundFilter.showMycoBrain}
+                      onChange={(v) => onGroundFilterChange({ showMycoBrain: v })}
+                      color="green"
+                    />
+                    <FilterToggle
+                      label="SporeBase"
+                      icon={<Cpu className="w-3 h-3" />}
+                      checked={groundFilter.showSporeBase}
+                      onChange={(v) => onGroundFilterChange({ showSporeBase: v })}
+                      color="green"
+                    />
+                    <FilterToggle
+                      label="Smart Fence"
+                      icon={<Shield className="w-3 h-3" />}
+                      checked={groundFilter.showSmartFence}
+                      onChange={(v) => onGroundFilterChange({ showSmartFence: v })}
+                      color="cyan"
+                    />
+                    <FilterToggle
+                      label="Partners"
+                      icon={<Wifi className="w-3 h-3" />}
+                      checked={groundFilter.showPartnerNetworks}
+                      onChange={(v) => onGroundFilterChange({ showPartnerNetworks: v })}
+                      color="teal"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
               {/* Aircraft Filters */}
               <TabsContent value="aircraft" className="m-0 p-2 space-y-2">
                 <div className="grid grid-cols-2 gap-2">

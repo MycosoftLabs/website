@@ -1,23 +1,24 @@
 /**
- * CREP Fungal Data API - PRIMARY DATA ENDPOINT
- * 
- * This is the main data source for the CREP dashboard's fungal layer.
- * 
+ * CREP Observation Data API - PRIMARY DATA ENDPOINT
+ *
+ * This is the main data source for the CREP dashboard's biodiversity layers.
+ * Serves ALL life data (fungi, plants, animals, birds, insects, marine) through MINDEX.
+ *
  * DATA PRIORITY:
- * 1. MINDEX (local fungal database) - PRIMARY, NO LIMIT
+ * 1. MINDEX (local biodiversity database) - PRIMARY, NO LIMIT
  * 2. Fallback to iNaturalist/GBIF only if MINDEX is unavailable
- * 
+ *
  * MINDEX contains all iNaturalist/GBIF data already imported via ETL.
  * This provides instant access to THOUSANDS of observations without
  * external API rate limits.
- * 
- * Required observation fields:
- * - Photo/image URL
- * - GPS coordinates (lat/lng)
- * - Species name
- * - Timestamp
- * - Source link (e.g., View on iNaturalist)
- * 
+ *
+ * Supports kingdom filtering via ?kingdom= parameter:
+ * - "all" (default) - All life
+ * - "Fungi" - Fungal observations only
+ * - "Plantae" - Plants only
+ * - "Animalia" - Animals only
+ * - etc.
+ *
  * @route GET /api/crep/fungal
  */
 
@@ -86,6 +87,10 @@ export interface FungalObservation {
   // Source links for "View on iNaturalist" etc.
   sourceUrl?: string
   externalId?: string
+  // Kingdom/taxa classification for all-life support
+  kingdom?: string
+  iconicTaxon?: string
+  taxonId?: number
 }
 
 /**
@@ -355,6 +360,9 @@ function transformMINDEXData(observations: Record<string, unknown>[], taxaLookup
         geocodeStatus: "complete" as const,
         sourceUrl,
         externalId: externalId?.toString(),
+        kingdom: obs.kingdom || obs.iconic_taxon_name || obs.taxon?.kingdom || "Fungi",
+        iconicTaxon: obs.iconic_taxon_name || obs.taxon?.iconic_taxon_name || "Fungi",
+        taxonId: obs.taxon_id,
       }
     })
 }
@@ -421,128 +429,166 @@ const FUNGAL_HOTSPOT_REGIONS = [
   { name: "East Coast USA", north: 45.0, south: 35.0, east: -70.0, west: -85.0 },
 ]
 
+// All iNaturalist iconic taxa for comprehensive all-life coverage
+const ALL_ICONIC_TAXA = [
+  "Fungi", "Plantae", "Aves", "Mammalia", "Reptilia",
+  "Amphibia", "Actinopterygii", "Mollusca", "Arachnida", "Insecta",
+]
+
 /**
- * Fetch observations from iNaturalist - MULTI-REGION for comprehensive coverage
+ * Fetch observations from iNaturalist - ALL LIFE, MULTI-REGION
+ * Fetches all iconic taxa for comprehensive biodiversity coverage
  */
 async function fetchINaturalistObservations(
-  limit: number, 
-  bounds?: { north: number; south: number; east: number; west: number }
+  limit: number,
+  bounds?: { north: number; south: number; east: number; west: number },
+  kingdom?: string,
 ): Promise<FungalObservation[]> {
   const allObservations: FungalObservation[] = []
-  const perRegionLimit = Math.ceil(limit / (bounds ? 1 : FUNGAL_HOTSPOT_REGIONS.length))
-  
+
+  // Determine which taxa to fetch
+  const taxaToFetch = kingdom && kingdom !== "all"
+    ? [kingdom]
+    : ALL_ICONIC_TAXA
+
+  const perRegionLimit = Math.ceil(limit / (bounds ? taxaToFetch.length : FUNGAL_HOTSPOT_REGIONS.length * taxaToFetch.length))
+
   // If specific bounds provided, use those; otherwise fetch from all hotspots
-  const regionsToFetch = bounds 
+  const regionsToFetch = bounds
     ? [{ name: "Custom", ...bounds }]
     : FUNGAL_HOTSPOT_REGIONS
-  
+
   await Promise.all(
-    regionsToFetch.map(async (region) => {
+    regionsToFetch.flatMap((region) =>
+      taxaToFetch.map(async (taxon) => {
+        try {
+          const params = new URLSearchParams({
+            iconic_taxa: taxon,
+            quality_grade: "research,needs_id",
+            per_page: String(Math.min(perRegionLimit, 200)),
+            order: "desc",
+            order_by: "observed_on",
+            geo: "true",
+            photos: "true",
+            nelat: String(region.north),
+            nelng: String(region.east),
+            swlat: String(region.south),
+            swlng: String(region.west),
+          })
+
+          const response = await fetch(`${INATURALIST_API}/observations?${params}`, {
+            headers: { "Accept": "application/json" },
+            next: { revalidate: 300 },
+          })
+
+          if (!response.ok) {
+            console.warn(`[CREP/Life] iNaturalist API error for ${region.name}/${taxon}:`, response.status)
+            return
+          }
+
+          const data = await response.json()
+          if (data.results?.length > 0) {
+            console.log(`[CREP/Life] Fetched ${data.results.length} ${taxon} from ${region.name}`)
+          }
+
+          const regionObs = (data.results || [])
+            .filter((obs: Record<string, unknown>) => (obs.geojson as Record<string, unknown>)?.coordinates || obs.location)
+            .map((obs: Record<string, unknown>) => ({
+              id: `inat-${obs.id}`,
+              species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
+              scientificName: obs.taxon?.name || "Unknown",
+              commonName: obs.taxon?.preferred_common_name,
+              latitude: obs.geojson?.coordinates?.[1] || parseFloat(obs.location?.split(",")[0]) || 0,
+              longitude: obs.geojson?.coordinates?.[0] || parseFloat(obs.location?.split(",")[1]) || 0,
+              timestamp: obs.observed_on || obs.created_at,
+              source: "iNaturalist" as const,
+              verified: obs.quality_grade === "research",
+              observer: obs.user?.login || "Anonymous",
+              imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
+              thumbnailUrl: obs.photos?.[0]?.url,
+              location: obs.place_guess || region.name,
+              notes: obs.description,
+              hasGps: true,
+              geocodeStatus: "complete" as const,
+              kingdom: obs.taxon?.iconic_taxon_name || taxon,
+              iconicTaxon: obs.taxon?.iconic_taxon_name || taxon,
+              taxonId: obs.taxon?.id,
+            }))
+
+          allObservations.push(...regionObs)
+        } catch (error) {
+          console.error(`[CREP/Life] Failed to fetch ${taxon} data for ${region.name}:`, error)
+        }
+      })
+    )
+  )
+
+  console.log(`[CREP/Life] Total iNaturalist observations fetched: ${allObservations.length}`)
+  return allObservations
+}
+
+// GBIF kingdom keys for all-life coverage
+const GBIF_KINGDOMS: Record<string, string> = {
+  Fungi: "5", Plantae: "6", Animalia: "1", Chromista: "4", Protozoa: "7", Bacteria: "3",
+}
+
+/**
+ * Fetch observations from GBIF - ALL LIFE
+ */
+async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<FungalObservation[]> {
+  const allObs: FungalObservation[] = []
+  const kingdomsToFetch = kingdom && kingdom !== "all" && GBIF_KINGDOMS[kingdom]
+    ? [[kingdom, GBIF_KINGDOMS[kingdom]]]
+    : Object.entries(GBIF_KINGDOMS)
+  const perKingdom = Math.ceil(limit / kingdomsToFetch.length)
+
+  await Promise.all(
+    kingdomsToFetch.map(async ([kName, kKey]) => {
       try {
         const params = new URLSearchParams({
-          iconic_taxa: "Fungi",
-          quality_grade: "research,needs_id",
-          per_page: String(Math.min(perRegionLimit, 200)),
-          order: "desc",
-          order_by: "observed_on",
-          geo: "true",
-          photos: "true",
-          nelat: String(region.north),
-          nelng: String(region.east),
-          swlat: String(region.south),
-          swlng: String(region.west),
+          kingdomKey: kKey,
+          limit: String(Math.min(perKingdom, 100)),
+          hasCoordinate: "true",
+          hasGeospatialIssue: "false",
         })
 
-        const response = await fetch(`${INATURALIST_API}/observations?${params}`, {
+        const response = await fetch(`${GBIF_API}/occurrence/search?${params}`, {
           headers: { "Accept": "application/json" },
           next: { revalidate: 300 },
         })
 
-        if (!response.ok) {
-          console.warn(`[CREP/Fungal] iNaturalist API error for ${region.name}:`, response.status)
-          return
-        }
+        if (!response.ok) return
 
         const data = await response.json()
-        console.log(`[CREP/Fungal] Fetched ${data.results?.length || 0} observations from ${region.name}`)
-
-        const regionObs = (data.results || [])
-          .filter((obs: Record<string, unknown>) => (obs.geojson as Record<string, unknown>)?.coordinates || obs.location)
-          .map((obs: Record<string, unknown>) => ({
-            id: `inat-${obs.id}`,
-            species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
-            scientificName: obs.taxon?.name || "Unknown",
-            commonName: obs.taxon?.preferred_common_name,
-            latitude: obs.geojson?.coordinates?.[1] || parseFloat(obs.location?.split(",")[0]) || 0,
-            longitude: obs.geojson?.coordinates?.[0] || parseFloat(obs.location?.split(",")[1]) || 0,
-            timestamp: obs.observed_on || obs.created_at,
-            source: "iNaturalist" as const,
-            verified: obs.quality_grade === "research",
-            observer: obs.user?.login || "Anonymous",
-            imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
-            thumbnailUrl: obs.photos?.[0]?.url,
-            location: obs.place_guess || region.name,
-            notes: obs.description,
+        const obs = (data.results || [])
+          .filter((o: Record<string, unknown>) => o.decimalLatitude && o.decimalLongitude)
+          .map((o: Record<string, unknown>) => ({
+            id: `gbif-${o.key}`,
+            species: o.vernacularName || o.species || "Unknown",
+            scientificName: o.scientificName || "Unknown",
+            commonName: o.vernacularName,
+            latitude: o.decimalLatitude,
+            longitude: o.decimalLongitude,
+            timestamp: o.eventDate || o.dateIdentified || new Date().toISOString(),
+            source: "GBIF" as const,
+            verified: !o.issues?.length,
+            observer: o.recordedBy || "Unknown",
+            imageUrl: undefined,
+            thumbnailUrl: undefined,
+            location: o.locality || o.country,
+            habitat: o.habitat,
             hasGps: true,
             geocodeStatus: "complete" as const,
+            kingdom: o.kingdom || kName,
+            iconicTaxon: o.kingdom || kName,
           }))
-        
-        allObservations.push(...regionObs)
+        allObs.push(...obs)
       } catch (error) {
-        console.error(`[CREP/Fungal] Failed to fetch iNaturalist data for ${region.name}:`, error)
+        console.error(`[CREP/Life] Failed to fetch GBIF ${kName} data:`, error)
       }
     })
   )
-  
-  console.log(`[CREP/Fungal] Total iNaturalist observations fetched: ${allObservations.length}`)
-  return allObservations
-}
-
-/**
- * Fetch observations from GBIF
- */
-async function fetchGBIFObservations(limit: number): Promise<FungalObservation[]> {
-  try {
-    const params = new URLSearchParams({
-      kingdomKey: "5", // Fungi kingdom
-      limit: String(Math.min(limit, 100)),
-      hasCoordinate: "true",
-      hasGeospatialIssue: "false",
-    })
-
-    const response = await fetch(`${GBIF_API}/occurrence/search?${params}`, {
-      headers: { "Accept": "application/json" },
-      next: { revalidate: 300 },
-    })
-
-    if (!response.ok) return []
-
-    const data = await response.json()
-
-    return (data.results || [])
-      .filter((obs: Record<string, unknown>) => obs.decimalLatitude && obs.decimalLongitude)
-      .map((obs: Record<string, unknown>) => ({
-        id: `gbif-${obs.key}`,
-        species: obs.vernacularName || obs.species || "Unknown",
-        scientificName: obs.scientificName || "Unknown",
-        commonName: obs.vernacularName,
-        latitude: obs.decimalLatitude,
-        longitude: obs.decimalLongitude,
-        timestamp: obs.eventDate || obs.dateIdentified || new Date().toISOString(),
-        source: "GBIF" as const,
-        verified: !obs.issues?.length,
-        observer: obs.recordedBy || "Unknown",
-        imageUrl: undefined,
-        thumbnailUrl: undefined,
-        location: obs.locality || obs.country,
-        habitat: obs.habitat,
-        hasGps: true,
-        geocodeStatus: "complete" as const,
-      }))
-  } catch (error) {
-    console.error("[CREP/Fungal] Failed to fetch GBIF data:", error)
-    return []
-  }
+  return allObs
 }
 
 /**
@@ -585,13 +631,15 @@ export async function GET(request: NextRequest) {
   const source = searchParams.get("source") // "mindex" | "inat" | "gbif" | "all"
   const fallbackOnly = searchParams.get("fallback") === "true" // Force external API fallback
   const noCache = searchParams.get("nocache") === "true" // Force cache bypass
-  
+  // Kingdom filter: "Fungi", "Plantae", "Animalia", "all" (default: "all")
+  const kingdom = searchParams.get("kingdom") || "all"
+
   // Bounds for geographic filtering
   const north = searchParams.get("north") ? parseFloat(searchParams.get("north")!) : undefined
   const south = searchParams.get("south") ? parseFloat(searchParams.get("south")!) : undefined
   const east = searchParams.get("east") ? parseFloat(searchParams.get("east")!) : undefined
   const west = searchParams.get("west") ? parseFloat(searchParams.get("west")!) : undefined
-  
+
   const bounds = north && south && east && west ? { north, south, east, west } : undefined
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -655,20 +703,28 @@ export async function GET(request: NextRequest) {
   
   // Fallback to external APIs only if MINDEX failed or was explicitly disabled
   if (allObservations.length === 0 || fallbackOnly) {
-    console.log("[CREP/Fungal] Using external API fallback (iNaturalist + GBIF)...")
-    
+    console.log("[CREP/Life] Using external API fallback (iNaturalist + GBIF) for ALL LIFE...")
+
     const fetchPromises: Promise<FungalObservation[]>[] = []
-    
+
     if (!source || source === "all" || source === "inat") {
-      fetchPromises.push(fetchINaturalistObservations(limit || 2000, bounds))
+      fetchPromises.push(fetchINaturalistObservations(limit || 2000, bounds, kingdom))
     }
     if (!source || source === "all" || source === "gbif") {
-      fetchPromises.push(fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500))
+      fetchPromises.push(fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom))
     }
 
     const results = await Promise.all(fetchPromises)
     allObservations = results.flat()
-    console.log(`[CREP/Fungal] External APIs returned ${allObservations.length} observations`)
+    console.log(`[CREP/Life] External APIs returned ${allObservations.length} observations across all kingdoms`)
+  }
+
+  // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
+  if (kingdom !== "all") {
+    allObservations = allObservations.filter(obs =>
+      (obs.kingdom || "").toLowerCase() === kingdom.toLowerCase() ||
+      (obs.iconicTaxon || "").toLowerCase() === kingdom.toLowerCase()
+    )
   }
 
   // Deduplicate by species name + coordinates (close proximity = same observation)
@@ -713,6 +769,13 @@ export async function GET(request: NextRequest) {
     gbif: finalObservations.filter(o => o.source === "GBIF").length,
   }
 
+  // Build kingdom breakdown
+  const kingdoms: Record<string, number> = {}
+  for (const obs of finalObservations) {
+    const k = obs.kingdom || obs.iconicTaxon || "Unknown"
+    kingdoms[k] = (kingdoms[k] || 0) + 1
+  }
+
   // Cache the data for near-instant subsequent requests
   setCachedData(finalObservations, sources)
 
@@ -721,18 +784,19 @@ export async function GET(request: NextRequest) {
   const primarySource = sources.mindex > 0 ? "mindex" : sources.iNaturalist > 0 ? "inaturalist" : "gbif"
   logDataCollection("fungal", primarySource, finalObservations.length, latency, false)
 
-  console.log(`[CREP/Fungal] 🍄 Returning ${finalObservations.length} fungal observations`)
+  console.log(`[CREP/Life] Returning ${finalObservations.length} observations across ${Object.keys(kingdoms).length} kingdoms`)
 
   return NextResponse.json({
     observations: finalObservations,
     meta: {
       total: finalObservations.length,
       sources,
+      kingdoms,
       pendingGeocode,
       cached: false,
       timestamp: new Date().toISOString(),
-      dataSource: allObservations.length > 0 && finalObservations[0]?.source !== "MINDEX" 
-        ? "external_fallback" 
+      dataSource: allObservations.length > 0 && finalObservations[0]?.source !== "MINDEX"
+        ? "external_fallback"
         : "mindex_primary",
     },
   })

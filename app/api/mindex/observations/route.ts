@@ -18,13 +18,42 @@ interface Observation {
   verified: boolean
   observer: string
   imageUrl: string
+  kingdom?: string
+  iconicTaxon?: string
 }
 
-// Fetch real observations from iNaturalist
-async function fetchINaturalistObservations(limit: number, species?: string): Promise<Observation[]> {
+// iNaturalist iconic taxa for ALL life - used to categorize observations
+const ALL_ICONIC_TAXA = [
+  "Fungi",
+  "Plantae",
+  "Aves",
+  "Mammalia",
+  "Reptilia",
+  "Amphibia",
+  "Actinopterygii",
+  "Mollusca",
+  "Arachnida",
+  "Insecta",
+] as const
+
+// GBIF kingdom keys for ALL life
+const GBIF_KINGDOMS: Record<string, string> = {
+  "Fungi": "5",
+  "Plantae": "6",
+  "Animalia": "1",
+  "Chromista": "4",
+  "Protozoa": "7",
+  "Bacteria": "3",
+}
+
+// Fetch real observations from iNaturalist for a specific iconic taxon (or all)
+async function fetchINaturalistObservations(
+  limit: number,
+  species?: string,
+  iconicTaxon?: string,
+): Promise<Observation[]> {
   try {
     const params = new URLSearchParams({
-      iconic_taxa: "Fungi",
       quality_grade: "research,needs_id",
       per_page: String(Math.min(limit, 200)),
       order: "desc",
@@ -32,6 +61,11 @@ async function fetchINaturalistObservations(limit: number, species?: string): Pr
       geo: "true",
       photos: "true",
     })
+
+    // If specific iconic taxon requested, filter to it; otherwise fetch all life
+    if (iconicTaxon) {
+      params.set("iconic_taxa", iconicTaxon)
+    }
 
     if (species) {
       params.set("taxon_name", species)
@@ -58,6 +92,8 @@ async function fetchINaturalistObservations(limit: number, species?: string): Pr
       verified: obs.quality_grade === "research",
       observer: obs.user?.login || "Anonymous",
       imageUrl: obs.photos?.[0]?.url?.replace("square", "medium") || "",
+      kingdom: obs.taxon?.iconic_taxon_name || "Unknown",
+      iconicTaxon: obs.taxon?.iconic_taxon_name || "Unknown",
     }))
   } catch (error) {
     if (!isTimeoutError(error)) {
@@ -67,15 +103,23 @@ async function fetchINaturalistObservations(limit: number, species?: string): Pr
   }
 }
 
-// Fetch real observations from GBIF
-async function fetchGBIFObservations(limit: number, species?: string): Promise<Observation[]> {
+// Fetch real observations from GBIF for a specific kingdom (or all)
+async function fetchGBIFObservations(
+  limit: number,
+  species?: string,
+  kingdomKey?: string,
+): Promise<Observation[]> {
   try {
     const params = new URLSearchParams({
-      kingdomKey: "5", // Fungi kingdom
       limit: String(Math.min(limit, 100)),
       hasCoordinate: "true",
       hasGeospatialIssue: "false",
     })
+
+    // Filter to specific kingdom if provided
+    if (kingdomKey) {
+      params.set("kingdomKey", kingdomKey)
+    }
 
     if (species) {
       params.set("scientificName", species)
@@ -102,6 +146,8 @@ async function fetchGBIFObservations(limit: number, species?: string): Promise<O
       verified: obs.issues?.length === 0,
       observer: obs.recordedBy || "Unknown",
       imageUrl: "",
+      kingdom: obs.kingdom || "Unknown",
+      iconicTaxon: obs.kingdom || "Unknown",
     }))
   } catch (error) {
     if (!isTimeoutError(error)) {
@@ -138,17 +184,45 @@ async function fetchLocalMINDEX(limit: number): Promise<Observation[]> {
 export async function GET(request: NextRequest) {
   const limit = parseInt(request.nextUrl.searchParams.get("limit") || "200")
   const species = request.nextUrl.searchParams.get("species") || undefined
+  // kingdom filter: "Fungi", "Plantae", "Animalia", "all" (default: "all" for all life)
+  const kingdom = request.nextUrl.searchParams.get("kingdom") || "all"
+  // iconic_taxa filter for iNaturalist-specific filtering
+  const iconicTaxon = request.nextUrl.searchParams.get("iconic_taxa") || undefined
 
-  // Fetch from multiple sources in parallel
-  const [iNatObs, gbifObs, localObs] = await Promise.all([
-    fetchINaturalistObservations(Math.ceil(limit * 0.6), species),
-    fetchGBIFObservations(Math.ceil(limit * 0.3), species),
-    fetchLocalMINDEX(Math.ceil(limit * 0.1)),
-  ])
+  // Determine which iconic taxa and GBIF kingdoms to fetch
+  const inatTaxa = kingdom === "all"
+    ? ALL_ICONIC_TAXA
+    : [kingdom === "Animalia" ? "Mammalia" : kingdom]
+  const gbifKeys = kingdom === "all"
+    ? Object.values(GBIF_KINGDOMS)
+    : [GBIF_KINGDOMS[kingdom] || "5"]
 
-  // Combine and deduplicate
-  const allObservations = [...localObs, ...iNatObs, ...gbifObs]
-  
+  // Fetch from ALL iconic taxa in parallel for comprehensive coverage
+  const iNatPerTaxon = Math.ceil((limit * 0.6) / inatTaxa.length)
+  const gbifPerKingdom = Math.ceil((limit * 0.3) / gbifKeys.length)
+
+  const fetchPromises: Promise<Observation[]>[] = []
+
+  // iNaturalist: fetch each iconic taxon
+  for (const taxon of inatTaxa) {
+    fetchPromises.push(
+      fetchINaturalistObservations(iNatPerTaxon, species, iconicTaxon || taxon)
+    )
+  }
+
+  // GBIF: fetch each kingdom
+  for (const key of gbifKeys) {
+    fetchPromises.push(
+      fetchGBIFObservations(gbifPerKingdom, species, key)
+    )
+  }
+
+  // Local MINDEX
+  fetchPromises.push(fetchLocalMINDEX(Math.ceil(limit * 0.1)))
+
+  const results = await Promise.all(fetchPromises)
+  const allObservations = results.flat()
+
   // Filter out observations without valid coordinates
   const validObservations = allObservations.filter(
     (obs) => obs.lat !== 0 && obs.lng !== 0 && !isNaN(obs.lat) && !isNaN(obs.lng)
@@ -157,10 +231,18 @@ export async function GET(request: NextRequest) {
   // Limit to requested count
   const observations = validObservations.slice(0, limit)
 
+  // Count by kingdom for metadata
+  const kingdomCounts: Record<string, number> = {}
+  for (const obs of observations) {
+    const k = obs.kingdom || obs.iconicTaxon || "Unknown"
+    kingdomCounts[k] = (kingdomCounts[k] || 0) + 1
+  }
+
   return NextResponse.json({
     observations,
     total: observations.length,
     sources: ["iNaturalist", "GBIF", "MINDEX"],
+    kingdoms: kingdomCounts,
     realData: true,
     cached: false,
   })

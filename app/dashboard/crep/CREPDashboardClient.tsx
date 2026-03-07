@@ -149,7 +149,7 @@ import type { FenceSegment } from "@/components/crep/smart-fence-widget";
 import type { PresenceReading } from "@/components/crep/presence-detection-widget";
 
 // Map Markers for OEI Data
-import { type FungalObservation } from "@/components/crep/markers";
+import { FungalMarker, type FungalObservation } from "@/components/crep/markers";
 
 // Centered Detail Panel for entity popups
 import { EntityDetailPanel } from "@/components/crep/panels/entity-detail-panel";
@@ -195,7 +195,7 @@ import { VoiceMapControls } from "@/components/crep/voice-map-controls";
 
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
-import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, NOAAScales } from "@/components/crep/map-controls";
+import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, GroundFilter, NOAAScales } from "@/components/crep/map-controls";
 
 // OEI Types
 import type { AircraftEntity, VesselEntity } from "@/types/oei"
@@ -1559,7 +1559,37 @@ export default function CREPDashboardPage() {
     showAuroraOval: false,
     showSolarWind: false,
   });
-  
+
+  const [groundFilter, setGroundFilter] = useState<GroundFilter>({
+    // Biodiversity – all on by default
+    showFungi: true,
+    showPlants: true,
+    showBirds: true,
+    showMammals: true,
+    showReptiles: true,
+    showInsects: true,
+    showMarineLife: true,
+    // Natural Events – on by default
+    showEarthquakes: true,
+    showVolcanoes: true,
+    showWildfires: true,
+    showStorms: true,
+    showLightning: true,
+    showTornadoes: true,
+    showFloods: true,
+    // Infrastructure – off by default
+    showFactories: false,
+    showPowerPlants: false,
+    showMining: false,
+    showOilGas: false,
+    showWaterPollution: false,
+    // Sensors – on by default
+    showMycoBrain: true,
+    showSporeBase: true,
+    showSmartFence: true,
+    showPartnerNetworks: false,
+  });
+
   // Mission context
   const [currentMission] = useState<MissionContext>({
     id: "mission-001",
@@ -2034,27 +2064,30 @@ export default function CREPDashboardPage() {
                   preferred_common_name: obs.commonName || obs.species,
                   rank: "species",
                 },
-                photos: obs.imageUrl || obs.thumbnailUrl ? [{ 
-                  id: 1, 
+                photos: obs.imageUrl || obs.thumbnailUrl ? [{
+                  id: 1,
                   url: obs.imageUrl || obs.thumbnailUrl,
                   license: "CC-BY-NC"
                 }] : [],
                 quality_grade: obs.verified ? "research" : "needs_id",
                 user: obs.observer,
-                // Source information for rich display
                 source: obs.source,
                 location: obs.location,
                 habitat: obs.habitat,
                 notes: obs.notes,
-                // Source URL for "View on iNaturalist" / "View on GBIF" links
                 sourceUrl: obs.sourceUrl,
                 externalId: obs.externalId,
+                // All-life kingdom data
+                kingdom: obs.kingdom || obs.iconicTaxon || "Fungi",
+                iconicTaxon: obs.iconicTaxon || obs.kingdom || "Fungi",
               }));
-              
+
               const sourceInfo = fungalData.meta?.sources || {};
+              const kingdomInfo = fungalData.meta?.kingdoms || {};
               const dataSource = fungalData.meta?.dataSource || "unknown";
-              console.log(`[CREP] Loaded ${formattedObs.length} fungal observations (${dataSource})`);
-              console.log(`[CREP] Sources breakdown: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
+              console.log(`[CREP] Loaded ${formattedObs.length} observations (${dataSource})`);
+              console.log(`[CREP] Sources: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
+              console.log(`[CREP] Kingdoms:`, kingdomInfo);
               
               setFungalObservations(formattedObs);
               setFungalLoading(false);
@@ -2210,10 +2243,34 @@ export default function CREPDashboardPage() {
   }, []);
 
   const setLayerOpacity = useCallback((layerId: string, opacity: number) => {
-    setLayers(prev => prev.map(l => 
+    setLayers(prev => prev.map(l =>
       l.id === layerId ? { ...l, opacity } : l
     ));
   }, []);
+
+  // Sync ground filter toggles with layer visibility
+  useEffect(() => {
+    const layerMap: Record<string, boolean> = {
+      earthquakes: groundFilter.showEarthquakes,
+      volcanoes: groundFilter.showVolcanoes,
+      wildfires: groundFilter.showWildfires,
+      storms: groundFilter.showStorms,
+      lightning: groundFilter.showLightning,
+      tornadoes: groundFilter.showTornadoes,
+      mycobrain: groundFilter.showMycoBrain,
+      sporebase: groundFilter.showSporeBase,
+      smartfence: groundFilter.showSmartFence,
+      partners: groundFilter.showPartnerNetworks,
+      factories: groundFilter.showFactories,
+      powerPlants: groundFilter.showPowerPlants,
+      metalOutput: groundFilter.showMining,
+      oilGas: groundFilter.showOilGas,
+      waterPollution: groundFilter.showWaterPollution,
+    };
+    setLayers(prev => prev.map(l =>
+      l.id in layerMap ? { ...l, enabled: layerMap[l.id] } : l
+    ));
+  }, [groundFilter]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
@@ -2251,10 +2308,29 @@ export default function CREPDashboardPage() {
       return fungalObservations.slice(0, 100);
     }
     
+    // Step 0: Filter by ground kingdom toggles
+    const kingdomFiltered = fungalObservations.filter(obs => {
+      const kingdom = obs.iconicTaxon || obs.kingdom || "Fungi";
+      switch (kingdom) {
+        case "Fungi": return groundFilter.showFungi;
+        case "Plantae": return groundFilter.showPlants;
+        case "Aves": return groundFilter.showBirds;
+        case "Mammalia": return groundFilter.showMammals;
+        case "Reptilia": return groundFilter.showReptiles;
+        case "Amphibia": return groundFilter.showReptiles; // grouped with reptiles
+        case "Insecta": return groundFilter.showInsects;
+        case "Arachnida": return groundFilter.showInsects; // grouped with insects
+        case "Actinopterygii":
+        case "Mollusca": return groundFilter.showMarineLife;
+        case "Animalia": return groundFilter.showMammals; // generic animal
+        default: return true;
+      }
+    });
+
     // Step 1: Filter to viewport bounds FIRST (fast culling)
     // Add small padding to prevent markers at exact edges from disappearing (Feb 12, 2026)
     const padding = 0.001; // ~100m at equator
-    const inViewport = fungalObservations.filter(obs => {
+    const inViewport = kingdomFiltered.filter(obs => {
       const lat = obs.latitude;
       const lng = obs.longitude;
       
@@ -2349,7 +2425,7 @@ export default function CREPDashboardPage() {
     }
     
     return sampled;
-  }, [fungalObservations, mapZoom, mapBounds]);
+  }, [fungalObservations, mapZoom, mapBounds, groundFilter]);
   
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
@@ -3598,14 +3674,9 @@ export default function CREPDashboardPage() {
                   const obsId = entity.id?.replace?.("fungal-", "");
                   const obs = visibleFungalObservations.find((o) => String(o.id) === String(obsId));
                   if (obs) {
-                    setSelectedFungal(obs);
+                    handleSelectFungal(obs);
                     setLeftPanelOpen(true);
                     setLeftPanelTab("fungal");
-                    mapRef?.flyTo({
-                      center: [obs.longitude, obs.latitude],
-                      zoom: Math.max(mapRef.getZoom(), 12),
-                      duration: 1000,
-                    });
                   }
                 }
               }}
@@ -3789,7 +3860,20 @@ export default function CREPDashboardPage() {
               ));
             })()}
 
-            {/* Aircraft / Vessel / Satellite / Fungal rendering moved to deck.gl EntityDeckLayer */}
+            {/* Aircraft / Vessel / Satellite rendering via deck.gl EntityDeckLayer */}
+
+            {/* Fungal Observation Markers - Rendered as MapMarker components for interactive popups
+                deck.gl renders the green dots for ALL visible observations (performance)
+                MapMarker components render ONLY for the selected observation to show the popup widget */}
+            {layers.find(l => l.id === "fungi")?.enabled && selectedFungal && (
+              <FungalMarker
+                key={`fungal-popup-${selectedFungal.id}`}
+                observation={selectedFungal}
+                isSelected={true}
+                onClick={() => handleSelectFungal(null)}
+                onClose={() => handleSelectFungal(null)}
+              />
+            )}
           </MapComponent>
 
           {/* Map Overlay - Corner Decorations */}
@@ -3928,6 +4012,7 @@ export default function CREPDashboardPage() {
                         vesselFilter={vesselFilter}
                         satelliteFilter={satelliteFilter}
                         spaceWeatherFilter={spaceWeatherFilter}
+                        groundFilter={groundFilter}
                         streamStatuses={[
                           { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
                           { type: "vessels", connected: isStreaming, messageCount: vessels.length },
@@ -3939,6 +4024,7 @@ export default function CREPDashboardPage() {
                         onVesselFilterChange={(f) => setVesselFilter({ ...vesselFilter, ...f })}
                         onSatelliteFilterChange={(f) => setSatelliteFilter({ ...satelliteFilter, ...f })}
                         onSpaceWeatherFilterChange={(f) => setSpaceWeatherFilter({ ...spaceWeatherFilter, ...f })}
+                        onGroundFilterChange={(f) => setGroundFilter({ ...groundFilter, ...f })}
                         onToggleStreaming={() => setIsStreaming(!isStreaming)}
                         onRefresh={() => {
                           // Trigger a refresh by re-fetching data
