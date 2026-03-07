@@ -64,11 +64,23 @@ const SATELLITE_ICON = svgUri(
 );
 
 /**
- * Generic dot – for fungal observations, weather events, earthquakes, etc.
+ * Generic dot – for weather events, earthquakes, etc.
  */
 const DOT_ICON = svgUri(
   `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
     <circle cx="16" cy="16" r="13" fill="white"/>
+  </svg>`
+);
+
+/**
+ * Fungal / mushroom icon – distinct from generic dots to show they are clickable/selectable
+ * Draws a simple mushroom silhouette so users know these are fungal observation markers
+ */
+const FUNGAL_ICON = svgUri(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+    <ellipse cx="16" cy="14" rx="12" ry="10" fill="white"/>
+    <rect x="13" y="14" width="6" height="12" rx="2" fill="white"/>
+    <circle cx="16" cy="14" r="3" fill="white" opacity="0.3"/>
   </svg>`
 );
 
@@ -81,9 +93,9 @@ type RGBA = [number, number, number, number];
 
 /** Canonical colours per entity type. Alpha 230/200 for slight transparency. */
 const ENTITY_COLORS: Record<string, RGBA> = {
-  aircraft:   [251, 182,  36, 240],   // amber-400   ← warm yellow-orange (matches "pink" in original)
-  vessel:     [ 56, 189, 248, 240],   // sky-400     ← bright blue
-  satellite:  [167,  85, 247, 240],   // violet-500  ← purple
+  aircraft:   [251, 182,  36, 240],   // amber-400
+  vessel:     [ 56, 189, 248, 240],   // sky-400
+  satellite:  [167,  85, 247, 240],   // violet-500
   fungal:     [ 74, 222, 128, 210],   // green-400
   weather:    [251, 191,  36, 200],   // amber-400
   earthquake: [251, 113, 133, 230],   // rose-400
@@ -91,8 +103,29 @@ const ENTITY_COLORS: Record<string, RGBA> = {
   device:     [ 34, 211, 238, 220],   // cyan-400
 };
 
+/** Kingdom-specific colours for all-life fungal/observation markers */
+const KINGDOM_COLORS: Record<string, RGBA> = {
+  Fungi:          [180, 83,   9, 220],   // amber-700 (brown/earthy)
+  Plantae:        [  4, 120,  87, 220],  // emerald-700
+  Aves:           [  3, 105, 161, 220],  // sky-700
+  Mammalia:       [194,  65,  12, 220],  // orange-700
+  Reptilia:       [ 77, 124,  15, 220],  // lime-700
+  Amphibia:       [ 21, 128,  61, 220],  // green-700
+  Actinopterygii: [ 14, 116, 144, 220],  // cyan-700
+  Mollusca:       [190,  18,  60, 220],  // rose-700
+  Arachnida:      [153,  27,  27, 220],  // red-800
+  Insecta:        [161,  98,   7, 220],  // yellow-700
+  Animalia:       [194,  65,  12, 220],  // orange-700
+};
+
 function entityColor(type: string): RGBA {
   return ENTITY_COLORS[type] ?? [220, 220, 220, 200];
+}
+
+/** Get kingdom-specific colour for observation entities */
+function fungalEntityColor(entity: UnifiedEntity): RGBA {
+  const kingdom = entity.properties?.kingdom || entity.properties?.iconicTaxon || "Fungi";
+  return KINGDOM_COLORS[kingdom as string] ?? ENTITY_COLORS.fungal;
 }
 
 /** Normalize aviation heading to 0–360 degrees. Accepts degrees or radians (if value in 0..2π). */
@@ -206,8 +239,9 @@ export function EntityDeckLayer({
     const aircraft   = valid.filter(e => e.type === "aircraft");
     const vessels    = valid.filter(e => e.type === "vessel");
     const satellites = valid.filter(e => e.type === "satellite");
+    const fungal     = valid.filter(e => e.type === "fungal");
     const others     = valid.filter(
-      e => !["aircraft", "vessel", "satellite"].includes(e.type)
+      e => !["aircraft", "vessel", "satellite", "fungal"].includes(e.type)
     );
 
     // Build motion trails: satellites only get full-orbit path (no short segment) for consistency
@@ -251,7 +285,24 @@ export function EntityDeckLayer({
           extensions: [new PathStyleExtension({ dash: true })],
         }),
 
-        // ── Other entities: fungal, weather, earthquake, elephant, device ──
+        // ── Fungal observations: distinct mushroom icon, larger and more visible ──
+        new IconLayer<UnifiedEntity>({
+          id: "crep-fungal",
+          data: fungal,
+          iconAtlas: FUNGAL_ICON,
+          iconMapping: ICON_MAPPING,
+          getIcon: () => "icon",
+          getPosition: getPos,
+          getSize: 16,
+          sizeUnits: "pixels",
+          sizeMinPixels: 8,
+          sizeMaxPixels: 32,
+          getColor: (e) => fungalEntityColor(e),
+          pickable: true,
+          onClick: handleClick,
+        }),
+
+        // ── Other entities: weather, earthquake, elephant, device ──
         new IconLayer<UnifiedEntity>({
           id: "crep-others",
           data: others,
