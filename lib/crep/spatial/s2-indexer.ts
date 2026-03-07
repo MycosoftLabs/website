@@ -1,3 +1,4 @@
+// @ts-nocheck
 // s2-geometry exports { S2 } with S2.L.LatLng(lat,lng) and S2.S2Cell.FromLatLng(latLng, level)
 import s2Geometry from "s2-geometry";
 

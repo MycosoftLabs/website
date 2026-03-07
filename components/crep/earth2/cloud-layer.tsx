@@ -285,7 +285,7 @@ function generateCloudGeoJSON(
   // Calculate average wind for cloud drift
   let avgWindU = 0, avgWindV = 0;
   if (windData.length > 0) {
-    windData.forEach(w => {
+    windData.forEach((w: any) => {
       const rad = (w.direction || 0) * Math.PI / 180;
       avgWindU += Math.sin(rad) * (w.speed || 0);
       avgWindV += Math.cos(rad) * (w.speed || 0);

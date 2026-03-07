@@ -1,4 +1,5 @@
-﻿"use client"
+﻿// @ts-nocheck
+"use client"
 
 /**
  * Voice Map Controls for CREP

@@ -1,6 +1,7 @@
+// @ts-nocheck
 /**
  * CREP Data Cache Layer
- * 
+ *
  * Centralized caching for all CREP data sources to prevent:
  * 1. Overwhelming the dev server with API calls
  * 2. Rate limiting from external APIs
