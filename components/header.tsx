@@ -29,7 +29,7 @@ import { motion, AnimatePresence } from "framer-motion"
 
 // Navigation dropdown items configuration
 const defenseItems = [
-  { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Enviornment Platform" },
+  { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Environment Platform" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
 ]
@@ -51,9 +51,9 @@ const natureOSItems = [
 ]
 
 const devicesItems = [
-  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Quadrupedal Enviornment Droid" },
+  { title: "Mushroom 1", href: "/devices/mushroom-1", icon: Antenna, description: "Quadrupedal Environment Droid" },
   { title: "SporeBase", href: "/devices/sporebase", icon: Wind, description: "Biological collection system" },
-  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular sensor paltform" },
+  { title: "Hyphae 1", href: "/devices/hyphae-1", icon: Box, description: "Modular sensor platform" },
   { title: "MycoNode", href: "/devices/myconode", icon: Radio, description: "Subsurface bioelectric probe" },
   { title: "ALARM", href: "/devices/alarm", icon: AlertTriangle, description: "Indoor environmental monitor" },
 ]
@@ -406,7 +406,7 @@ export function Header() {
         <nav ref={navRef} className="hidden md:flex items-center gap-1">
           {/* Search - Direct Link */}
           <Link
-            href="/"
+            href="/search"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
