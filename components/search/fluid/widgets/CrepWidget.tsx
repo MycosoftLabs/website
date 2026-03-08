@@ -34,7 +34,7 @@ export interface CrepObservation {
   latitude: number
   longitude: number
   timestamp: string
-  source: "MINDEX" | "iNaturalist" | "GBIF"
+  source: "MINDEX" | "iNaturalist" | "GBIF" | "FlightRadar24" | "AISstream" | "MycoBrain" | "USGS/NASA" | "CREP" | string
   verified: boolean
   observer?: string
   imageUrl?: string
@@ -42,6 +42,8 @@ export interface CrepObservation {
   location?: string
   sourceUrl?: string
   isToxic?: boolean
+  /** Entity type for CREP search results (aircraft, vessel, event, device, fungal) */
+  type?: string
 }
 
 interface CrepWidgetProps {
@@ -126,13 +128,24 @@ export function CrepWidget({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Radar className="h-4 w-4 text-cyan-400" />
-          <span className="text-sm font-medium">{data.length} observations</span>
+          <span className="text-sm font-medium">{data.length} results</span>
           {recentCount > 0 && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">
               {recentCount} recent
             </span>
           )}
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+          asChild
+        >
+          <a href="/dashboard/crep" target="_blank" rel="noopener noreferrer">
+            Open CREP Map
+            <ExternalLink className="h-3 w-3 ml-1" />
+          </a>
+        </Button>
       </div>
 
       {/* Source filters */}

@@ -8,7 +8,7 @@
  * - Query type (factual, comparison, list, etc.)
  */
 
-export type EntityType = "species" | "compound" | "media" | "research" | "location" | "general"
+export type EntityType = "species" | "compound" | "media" | "research" | "location" | "crep" | "general"
 
 export type ToxicityFilter = "poisonous" | "toxic" | "deadly" | "edible" | "medicinal" | "psychedelic" | "hallucinogenic"
 
@@ -112,6 +112,18 @@ const COMPOUND_KEYWORDS = [
   "chitin", "melanin", "antioxidant", "formula", "structure",
 ]
 
+// CREP/environmental monitoring keywords
+const CREP_KEYWORDS = [
+  "aircraft", "airplane", "flight", "aviation", "plane", "planes",
+  "vessel", "ship", "maritime", "boat", "tanker", "cargo",
+  "satellite", "orbit", "space station", "iss", "starlink",
+  "earthquake", "seismic", "wildfire", "storm", "tsunami", "volcano",
+  "environmental", "radar", "tracking", "crep", "monitor",
+  "sensor", "device", "mycobrain", "spore", "dispersal",
+  "weather", "wind", "precipitation", "pressure",
+  "observation", "sighting", "observation map",
+]
+
 // Research keywords
 const RESEARCH_KEYWORDS = [
   "research", "study", "studies", "paper", "papers", "journal",
@@ -202,6 +214,9 @@ export function parseSearchIntent(query: string): SearchIntent {
   if (filters.mediaType) {
     type = "media"
     confidence = 0.85
+  } else if (CREP_KEYWORDS.some(kw => normalizedQuery.includes(kw))) {
+    type = "crep"
+    confidence = 0.85
   } else if (RESEARCH_KEYWORDS.some(kw => normalizedQuery.includes(kw))) {
     type = "research"
     confidence = 0.8
@@ -272,8 +287,12 @@ export function getSearchParamsFromIntent(intent: SearchIntent): {
       types.push("media")
       includeAI = true // AI can provide media info
       break
+    case "crep":
+      types.push("crep", "species", "observations")
+      locationBased = true
+      break
     case "location":
-      types.push("species", "observations")
+      types.push("species", "observations", "crep")
       locationBased = true
       break
     default:

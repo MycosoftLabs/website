@@ -548,9 +548,9 @@ export function FluidSearchCanvas({
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
   
-  // CREP fungal observations data fetcher
+  // CREP data fetcher - uses both fungal endpoint and new CREP search API
   const { data: crepData } = useSWR(
-    debouncedQuery && debouncedQuery.length >= 2 ? `/api/crep/fungal?species=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
     async (url) => { const res = await fetch(url); return res.json() },
     { revalidateOnFocus: false, dedupingInterval: 15000 }
   )
@@ -570,7 +570,27 @@ export function FluidSearchCanvas({
   const newsResults = newsData?.results || []
   const newsError = newsData?.error
   const newsQueryUsed = newsData?.queryUsed as string | undefined
-  const crepResults = useMemo(() => crepData?.observations || [], [crepData])
+  const crepResults = useMemo(() => {
+    // Support both old format (observations) and new CREP search format (results)
+    const results = crepData?.results || crepData?.observations || []
+    return results.map((r: Record<string, unknown>) => ({
+      id: r.id,
+      species: r.title || r.species,
+      scientificName: r.properties?.scientificName || r.scientificName || r.title,
+      commonName: r.properties?.commonName || r.commonName,
+      latitude: r.latitude || r.lat || 0,
+      longitude: r.longitude || r.lng || 0,
+      timestamp: r.timestamp || r.observed_on,
+      source: r.source || "CREP",
+      verified: r.properties?.qualityGrade === "research",
+      imageUrl: r.properties?.imageUrl || r.imageUrl || r.image_url,
+      thumbnailUrl: r.properties?.thumbnailUrl || r.thumbnailUrl || r.thumbnail_url,
+      location: r.description || r.location,
+      sourceUrl: r.properties?.sourceUrl || r.sourceUrl || r.crepMapUrl,
+      isToxic: r.properties?.isToxic || r.isToxic,
+      type: r.type || "fungal",
+    }))
+  }, [crepData])
   const earth2Data = earth2RawData?.available ? earth2RawData : null
   
   // Map observations from location and CREP data

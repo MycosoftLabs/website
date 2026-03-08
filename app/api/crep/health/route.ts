@@ -1,36 +1,35 @@
 /**
- * CREP Health API – Feb 11, 2026
+ * CREP Health API
  *
  * Health check for CREP dashboard dependencies:
- * - MINDEX (fungal observations, primary data)
  * - MAS (entity stream WebSocket, global events)
+ * - MINDEX (fungal observations, primary data)
  *
- * Used by Fungi Compute control panel and CREP status widgets.
- * NO MOCK DATA – returns real connectivity status.
+ * Uses centralized API_URLS config — no hard-coded development IPs.
  */
 
 import { NextResponse } from "next/server"
+import { API_URLS } from "@/lib/config/api-urls"
 
 export const dynamic = "force-dynamic"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+interface ServiceHealth {
+  name: string
+  status: "online" | "offline" | "degraded"
+  latency_ms?: number
+  details?: string
+  url?: string
+}
 
 export async function GET() {
-  const services: {
-    name: string
-    status: "online" | "offline" | "degraded"
-    latency_ms?: number
-    details?: string
-  }[] = []
-
+  const services: ServiceHealth[] = []
   let status: "healthy" | "degraded" | "unhealthy" = "unhealthy"
 
   try {
     // 1. MAS health (entity stream, global events)
     const masStart = Date.now()
     try {
-      const masRes = await fetch(`${MAS_API_URL}/health`, {
+      const masRes = await fetch(`${API_URLS.MAS}/health`, {
         cache: "no-store",
         signal: AbortSignal.timeout(5000),
       })
@@ -40,6 +39,7 @@ export async function GET() {
         status: masRes.ok ? "online" : "degraded",
         latency_ms: masLatency,
         details: masRes.ok ? "Orchestrator reachable" : `HTTP ${masRes.status}`,
+        url: API_URLS.MAS,
       })
     } catch (e) {
       services.push({
@@ -47,13 +47,14 @@ export async function GET() {
         status: "offline",
         latency_ms: Date.now() - masStart,
         details: e instanceof Error ? e.message : "Connection failed",
+        url: API_URLS.MAS,
       })
     }
 
     // 2. MINDEX health (fungal observations)
     const mindexStart = Date.now()
     try {
-      const mindexRes = await fetch(`${MINDEX_API_URL}/health`, {
+      const mindexRes = await fetch(`${API_URLS.MINDEX}/health`, {
         cache: "no-store",
         signal: AbortSignal.timeout(5000),
       })
@@ -63,6 +64,7 @@ export async function GET() {
         status: mindexRes.ok ? "online" : "degraded",
         latency_ms: mindexLatency,
         details: mindexRes.ok ? "API reachable" : `HTTP ${mindexRes.status}`,
+        url: API_URLS.MINDEX,
       })
     } catch (e) {
       services.push({
@@ -70,6 +72,7 @@ export async function GET() {
         status: "offline",
         latency_ms: Date.now() - mindexStart,
         details: e instanceof Error ? e.message : "Connection failed",
+        url: API_URLS.MINDEX,
       })
     }
 
@@ -81,7 +84,7 @@ export async function GET() {
       status,
       services,
       timestamp: new Date().toISOString(),
-      crep_version: "2.0",
+      crep_version: "3.0",
     })
   } catch (error) {
     return NextResponse.json(

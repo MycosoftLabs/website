@@ -64,24 +64,16 @@ export function VoiceMapControls({
   const inputRef = useRef<HTMLInputElement>(null)
   
   // PersonaPlex context (from app-level provider)
+  // Type-safe access with fallback defaults when PersonaPlex is not available
   const personaplex = usePersonaPlexContext()
-  const {
-    isListening,
-    lastTranscript,
-    startListening,
-    stopListening,
-    isConnected: voiceConnected,
-    connectionState,
-    isSpeaking
-  } = (personaplex as any) || {
-    isListening: false,
-    lastTranscript: "",
-    startListening: () => {},
-    stopListening: () => {},
-    isConnected: false,
-    connectionState: "disconnected",
-    isSpeaking: false,
-  }
+  const ppCtx = personaplex as Record<string, unknown> | null
+  const isListening = (ppCtx?.isListening as boolean) ?? false
+  const lastTranscript = (ppCtx?.lastTranscript as string) ?? ""
+  const startListening = (ppCtx?.startListening as () => void) ?? (() => {})
+  const stopListening = (ppCtx?.stopListening as () => void) ?? (() => {})
+  const voiceConnected = (ppCtx?.isConnected as boolean) ?? false
+  const connectionState = (ppCtx?.connectionState as string) ?? "disconnected"
+  const isSpeaking = (ppCtx?.isSpeaking as boolean) ?? false
   
   // Adapter functions to convert old API to new MapCommandHandlers format
   const handleZoom = useCallback((direction: "in" | "out") => {

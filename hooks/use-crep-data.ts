@@ -15,6 +15,17 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useOptionalCREPEntities } from "@/contexts/crep-context"
+import {
+  convertBatch,
+  convertSimpleAircraft,
+  convertSimpleVessel,
+  convertSimpleSatellite,
+  convertGlobalEvent as convertGlobalEventToUnified,
+  convertFungalObservation as convertFungalObservationToUnified,
+  convertDevice as convertDeviceToUnified,
+} from "@/lib/crep/entities/entity-converters"
+import { validateBatch } from "@/lib/crep/entities/entity-validators"
 
 // Data interfaces
 export interface CREPDataState {
@@ -310,6 +321,9 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
     initialFetch = true,
   } = options
 
+  // Connect to CREP entity context if available (bidirectional sync)
+  const crepEntities = useOptionalCREPEntities()
+
   // Initialize from global cache if available
   const [data, setData] = useState<CREPDataState>(globalCache || DEFAULT_STATE)
   const [isLoading, setIsLoading] = useState(!globalCache)
@@ -376,6 +390,46 @@ export function useCREPData(options: UseCREPDataOptions = {}) {
         setData(newData)
         setLastUpdated(result.timestamp)
         console.log(`[useCREPData] Loaded data - Aircraft: ${newData.aircraft.length}, Vessels: ${newData.vessels.length}, Satellites: ${newData.satellites.length}`)
+      }
+
+      // Sync to CREP entity context (if available) for bidirectional integration
+      if (crepEntities) {
+        try {
+          const aircraftEntities = validateBatch(
+            convertBatch(newData.aircraft as Parameters<typeof convertSimpleAircraft>[0][], convertSimpleAircraft)
+          )
+          const vesselEntities = validateBatch(
+            convertBatch(newData.vessels as Parameters<typeof convertSimpleVessel>[0][], convertSimpleVessel)
+          )
+          const satelliteEntities = validateBatch(
+            convertBatch(newData.satellites as Parameters<typeof convertSimpleSatellite>[0][], convertSimpleSatellite)
+          )
+          const eventEntities = validateBatch(
+            convertBatch(newData.globalEvents as Parameters<typeof convertGlobalEventToUnified>[0][], convertGlobalEventToUnified)
+          )
+          const fungalEntities = validateBatch(
+            convertBatch(newData.fungalObservations.map(f => ({
+              id: f.id,
+              species: f.species,
+              lat: f.latitude,
+              lng: f.longitude,
+              observedOn: f.observed_on,
+              location: f.location,
+            })), convertFungalObservationToUnified)
+          )
+          const deviceEntities = validateBatch(
+            convertBatch(newData.devices as Parameters<typeof convertDeviceToUnified>[0][], convertDeviceToUnified)
+          )
+
+          crepEntities.setEntities("aircraft", aircraftEntities)
+          crepEntities.setEntities("vessels", vesselEntities)
+          crepEntities.setEntities("satellites", satelliteEntities)
+          crepEntities.setEntities("globalEvents", eventEntities)
+          crepEntities.setEntities("fungalObservations", fungalEntities)
+          crepEntities.setEntities("devices", deviceEntities)
+        } catch (syncError) {
+          console.warn("[useCREPData] Context sync error:", syncError)
+        }
       }
 
       // Fetch additional data sources that aren't in unified endpoint
