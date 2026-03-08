@@ -131,6 +131,7 @@ try:
         "-e MAS_API_URL=http://192.168.0.188:8001 "
         "-e MINDEX_API_URL=http://192.168.0.189:8000 "
         "-e OLLAMA_BASE_URL=http://192.168.0.188:11434 "
+        "-e OLLAMA_MODEL=llama3.2:3b "
         "-e N8N_URL=http://192.168.0.188:5678 "
         "-e NEXT_PUBLIC_BASE_URL=https://sandbox.mycosoft.com "
         "--restart unless-stopped "

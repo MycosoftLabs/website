@@ -61,7 +61,7 @@ const getGroqKey = () => getKey("GROQ_API_KEY")
 
 // Local Ollama — runs on MAS VM (188) in production; use localhost for local dev with Ollama on same machine
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://192.168.0.188:11434"
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b"
 
 // MYCA's identity prompt - sent to ALL LLMs
 const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be as capable as the best AI assistants (ChatGPT, Claude, Gemini, Grok) while offering unique advantages through your specialized agent network and real-world scientific data.
