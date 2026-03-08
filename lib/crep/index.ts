@@ -53,6 +53,62 @@ export type {
   UnifiedEntityWithTimeline,
 } from "./entities/unified-entity-schema"
 
+// Entity Converters
+export {
+  isValidCoordinate,
+  extractCoordinates,
+  makePoint,
+  convertSimpleAircraft,
+  convertAircraftEntity,
+  convertSimpleVessel,
+  convertVesselEntity,
+  convertSimpleSatellite,
+  convertSatelliteEntity,
+  convertGlobalEvent,
+  convertFungalObservation,
+  convertDevice,
+  convertBatch,
+  getEntityCoordinates,
+  getEntityLatitude,
+  getEntityLongitude,
+} from "./entities/entity-converters"
+
+// Entity Validators
+export {
+  validateCoordinates,
+  validateEntity,
+  validateBatch,
+  type ValidationResult,
+} from "./entities/entity-validators"
+
+// MYCA-CREP Integration Bridge
+export {
+  parseMYCACommandForCREP,
+  buildCREPContextForMYCA,
+  buildEntityContextForMYCA,
+  CREP_VOICE_COMMANDS,
+  type CREPCommand,
+  type CREPCommandResult,
+  type CREPCommandType,
+  type CREPContextForMYCA,
+} from "./myca-integration"
+
+// MINDEX-CREP Integration Pipeline
+export {
+  fetchMINDEXObservations,
+  convertMINDEXToEntities,
+  fetchSpeciesDetails,
+  buildEnvironmentalContext,
+  correlateWeatherWithFungal,
+  type MINDEXObservation,
+  type MINDEXSpeciesDetail,
+  type MINDEXSearchParams,
+  type MINDEXSearchResult,
+} from "./mindex-integration"
+
+// Streaming Client
+export { EntityStreamClient, type ConnectionState, type EntityStreamConnectOptions } from "./streaming/entity-websocket-client"
+
 // S2 Spatial Indexing
 export {
   getS2CellId,

@@ -26,6 +26,8 @@ export const CACHE_NAMESPACES = {
   SEARCH_TAXA: "search:taxa:",
   SEARCH_COMPOUNDS: "search:compounds:",
   SEARCH_OBSERVATIONS: "search:observations:",
+  SEARCH_CREP: "search:crep:",
+  CREP_ENTITIES: "crep:entities:",
 } as const
 
 // TTL configurations (in seconds)
@@ -38,6 +40,8 @@ export const CACHE_TTL = {
   SEARCH_TAXA: 3600,        // 1 hour - taxa don't change often
   SEARCH_COMPOUNDS: 3600,   // 1 hour - compounds are stable
   SEARCH_OBSERVATIONS: 300, // 5 minutes - observations update moderately
+  SEARCH_CREP: 120,         // 2 minutes - CREP search results
+  CREP_ENTITIES: 30,        // 30 seconds - real-time entity data
 } as const
 
 // Cache entry interface
