@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """
 Complete website deployment to Sandbox VM via MAS jump host.
+Includes automatic Cloudflare cache purge after successful deploy.
 """
+import os
 import paramiko
-import time
 import sys
+import time
 from pathlib import Path
+
+from _cloudflare_cache import purge_everything
 
 # Load credentials
 creds_file = Path(__file__).parent.parent.parent / "MAS" / "mycosoft-mas" / ".credentials.local"
 if not creds_file.exists():
     creds_file = Path(__file__).parent / ".credentials.local"
 
-password = "REDACTED_VM_SSH_PASSWORD"
+password = os.environ.get("VM_PASSWORD") or os.environ.get("VM_SSH_PASSWORD") or ""
 if creds_file.exists():
     for line in creds_file.read_text().splitlines():
         if line and not line.startswith("#") and "=" in line:
@@ -125,6 +129,10 @@ try:
         "docker run -d --name mycosoft-website -p 3000:3000 "
         "-v /opt/mycosoft/media/website/assets:/app/public/assets:ro "
         "-e MAS_API_URL=http://192.168.0.188:8001 "
+        "-e MINDEX_API_URL=http://192.168.0.189:8000 "
+        "-e OLLAMA_BASE_URL=http://192.168.0.188:11434 "
+        "-e N8N_URL=http://192.168.0.188:5678 "
+        "-e NEXT_PUBLIC_BASE_URL=https://sandbox.mycosoft.com "
         "--restart unless-stopped "
         "mycosoft-always-on-mycosoft-website:latest"
     )
@@ -171,12 +179,15 @@ try:
     sandbox_client.close()
     mas_client.close()
     
+    # Step 7: Purge Cloudflare cache (automatic - never ask user to do this)
+    print(f"\n>> Purging Cloudflare cache...")
+    purge_everything()
+
     print(f"\n" + "=" * 80)
     print(f">> Deployment complete!")
     print(f"\n>> Next steps:")
     print(f"    1. Verify website: http://192.168.0.187:3000")
-    print(f"    2. Test a page or feature")
-    print(f"    3. Purge Cloudflare cache if everything works")
+    print(f"    2. Test a page or feature at https://sandbox.mycosoft.com")
     
 except paramiko.AuthenticationException:
     print(f"ERROR: Authentication failed. Check credentials in .credentials.local")

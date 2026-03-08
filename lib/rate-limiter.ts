@@ -120,11 +120,11 @@ export const searchLimiter = new RateLimiter({
   globalMaxPerHour: 200,
 })
 
-/** Voice Orchestrator: 5 requests/minute (voice is expensive), 50/hour global */
+/** Voice Orchestrator: 15 req/min (chat + voice), 150/hour global — relaxed for MYCA chat reliability */
 export const voiceLimiter = new RateLimiter({
-  maxPerWindow: 5,
+  maxPerWindow: 15,
   windowMs: 60_000,
-  globalMaxPerHour: 50,
+  globalMaxPerHour: 150,
 })
 
 /** Health Check: 3 requests/minute (each call hits ALL providers), 30/hour global */
