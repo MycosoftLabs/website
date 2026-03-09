@@ -153,7 +153,31 @@ docker pull n8nio/n8n:latest
 ok "Docker images pre-pulled"
 
 # ============================================================
-# 8. SETUP DOCKER CLEANUP CRON
+# 8. INSTALL SYSTEMD SERVICE (auto-start on boot)
+# ============================================================
+
+log "Installing systemd service for auto-start on boot..."
+cp "$INSTALL_DIR/scripts/mycosoft-stack.service" /etc/systemd/system/mycosoft-stack.service
+systemctl daemon-reload
+systemctl enable mycosoft-stack
+ok "Systemd service installed — stack will auto-start on VM reboot"
+
+# ============================================================
+# 9. INSTALL WATCHDOG CRON (auto-recovery every 2 min)
+# ============================================================
+
+log "Installing watchdog cron..."
+chmod +x "$INSTALL_DIR/scripts/watchdog.sh"
+cat > /etc/cron.d/mycosoft-watchdog << CRON
+# Auto-recover Mycosoft production services every 2 minutes
+*/2 * * * * $DEPLOY_USER $INSTALL_DIR/scripts/watchdog.sh >> /var/log/mycosoft-watchdog.log 2>&1
+CRON
+touch /var/log/mycosoft-watchdog.log
+chown "$DEPLOY_USER:$DEPLOY_USER" /var/log/mycosoft-watchdog.log
+ok "Watchdog cron installed (every 2 minutes)"
+
+# ============================================================
+# 10. SETUP DOCKER CLEANUP CRON
 # ============================================================
 
 log "Setting up Docker cleanup cron..."
@@ -166,7 +190,7 @@ chmod +x /etc/cron.weekly/docker-cleanup
 ok "Docker cleanup cron installed (weekly)"
 
 # ============================================================
-# 9. CONFIGURE UNATTENDED SECURITY UPDATES
+# 11. CONFIGURE UNATTENDED SECURITY UPDATES
 # ============================================================
 
 log "Configuring automatic security updates..."
@@ -182,7 +206,7 @@ APT_CONF
 ok "Unattended security updates configured"
 
 # ============================================================
-# 10. FIREWALL (UFW)
+# 12. FIREWALL (UFW)
 # ============================================================
 
 log "Configuring firewall..."

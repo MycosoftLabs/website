@@ -1,0 +1,35 @@
+# =============================================================================
+# Mycosoft Docker Compose — systemd service
+# =============================================================================
+# Ensures the production stack starts automatically on VM boot and restarts
+# if containers die unexpectedly.
+#
+# Install:
+#   sudo cp /opt/mycosoft/scripts/mycosoft-stack.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable mycosoft-stack
+#   sudo systemctl start mycosoft-stack
+#
+# Logs:
+#   journalctl -u mycosoft-stack -f
+# =============================================================================
+
+[Unit]
+Description=Mycosoft Production Stack (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/mycosoft
+ExecStart=/usr/bin/docker compose -f docker-compose.production.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f docker-compose.production.yml down
+ExecReload=/usr/bin/docker compose -f docker-compose.production.yml up -d --remove-orphans
+TimeoutStartSec=120
+User=mycosoft
+Group=docker
+
+[Install]
+WantedBy=multi-user.target

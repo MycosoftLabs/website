@@ -123,6 +123,7 @@ jobs:
           echo "Search: source=$SOURCE confidence=$CONFIDENCE latency=${LATENCY}ms"
 
       - name: Evaluate results and alert
+        id: evaluate
         if: always()
         env:
           HOMEPAGE_STATUS: ${{ steps.homepage.outputs.status }}
@@ -160,9 +161,131 @@ jobs:
             CRITICAL=true
           fi
 
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+
           if [ "$CRITICAL" = "true" ]; then
-            echo "CRITICAL FAILURE DETECTED — review GitHub Actions log"
+            echo "CRITICAL FAILURE DETECTED — attempting auto-recovery"
+          else
+            echo "All checks passed or degraded (non-critical)"
+          fi
+
+      # ================================================================
+      # AUTO-RECOVERY: Restart stack via Proxmox when site is down
+      # ================================================================
+      - name: Auto-recover via Proxmox
+        if: always() && steps.evaluate.outputs.critical == 'true'
+        env:
+          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+        run: |
+          if [ -z "${PROXMOX_API_TOKEN:-}" ] || [ -z "${PROXMOX_URL:-}" ]; then
+            echo "::warning::Cannot auto-recover — PROXMOX secrets not configured"
+            exit 0
+          fi
+
+          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
+            AUTH_HEADER="${PROXMOX_API_TOKEN}"
+          else
+            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
+          fi
+
+          BASE_ROOT="${PROXMOX_URL%/}"
+          BASE_ROOT="${BASE_ROOT%%/api2/json*}"
+          BASE_URL="${BASE_ROOT}/api2/json"
+
+          # Find the VM
+          NODES=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes" | jq -r '.data[]?.node')
+          NODE="" VMID=""
+          for N in ${NODES}; do
+            CANDIDATE=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes/${N}/qemu" \
+              | jq -r '.data[] | select(.name == "mycosoft-sandbox" or .name == "mycosoft-website" or .name == "sandbox" or .name == "website" or ((.name // "") | test("sandbox"; "i"))) | .vmid' | head -n1)
+            if [ -n "${CANDIDATE}" ]; then NODE="${N}"; VMID="${CANDIDATE}"; break; fi
+          done
+
+          if [ -z "${VMID}" ]; then
+            echo "::error::Could not find VM for auto-recovery"
             exit 1
           fi
 
-          echo "All checks passed or degraded (non-critical)"
+          echo "Found VM ${VMID} on node ${NODE} — sending recovery command"
+          AGENT_EXEC="${BASE_URL}/nodes/${NODE}/qemu/${VMID}/agent/exec"
+
+          # Restart the production stack
+          PAYLOAD=$(jq -n '{"command":"bash","input-data":"cd /opt/mycosoft && docker compose -f docker-compose.production.yml up -d --remove-orphans 2>&1 && echo RECOVERY_OK"}')
+          PID=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" \
+            "${AGENT_EXEC}" | jq -r '.data.pid // empty')
+
+          if [ -z "${PID}" ]; then
+            echo "::error::Failed to send recovery command"
+            exit 1
+          fi
+
+          # Wait for recovery (max 2 min)
+          AGENT_STATUS="${BASE_URL}/nodes/${NODE}/qemu/${VMID}/agent/exec-status"
+          for i in $(seq 1 24); do
+            sleep 5
+            RESULT=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" "${AGENT_STATUS}?pid=${PID}" 2>/dev/null || echo '{}')
+            EXITED=$(echo "${RESULT}" | jq -r '.data.exited // 0')
+            if [ "${EXITED}" = "1" ]; then
+              OUT=$(echo "${RESULT}" | jq -r '.data."out-data" // ""')
+              echo "$OUT"
+              if echo "$OUT" | grep -q "RECOVERY_OK"; then
+                echo "Auto-recovery successful"
+              else
+                echo "::warning::Recovery command completed but may not have succeeded"
+              fi
+              break
+            fi
+          done
+
+      - name: Open issue on critical failure
+        if: always() && steps.evaluate.outputs.critical == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Site Health Alert: Critical failure detected (${new Date().toISOString()})`;
+            const body = [
+              `## Critical Health Alert`,
+              ``,
+              `**Time:** ${new Date().toISOString()}`,
+              `**Homepage:** HTTP ${{ steps.homepage.outputs.status }}`,
+              `**Sandbox:** HTTP ${{ steps.sandbox.outputs.status }}`,
+              `**Health API:** ${{ steps.health.outputs.status }}`,
+              `**LLM Providers:** ${{ steps.providers.outputs.working }} working`,
+              `**MYCA Fallback:** ${{ steps.myca_chat.outputs.is_fallback }}`,
+              ``,
+              `Auto-recovery was attempted via Proxmox QEMU agent.`,
+              ``,
+              `Check the [workflow run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}) for details.`,
+            ].join('\n');
+
+            // Check for existing open alert issues to avoid spam
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'site-health-alert',
+              per_page: 1
+            });
+
+            if (issues.length > 0) {
+              // Comment on existing issue instead of creating a new one
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: body
+              });
+              console.log(`Updated existing issue #${issues[0].number}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['site-health-alert']
+              });
+              console.log('Created new health alert issue');
+            }

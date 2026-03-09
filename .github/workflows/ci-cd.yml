@@ -374,7 +374,7 @@ jobs:
           echo "Commit: ${DEPLOY_SHA}"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
+            "cd /opt/mycosoft && docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
             "Backup database"
 
           run_on_vm \
@@ -382,15 +382,15 @@ jobs:
             "Pull latest code"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose pull" \
+            "cd /opt/mycosoft && docker compose -f docker-compose.production.yml pull" \
             "Pull new images"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose up -d --remove-orphans" \
+            "cd /opt/mycosoft && docker compose -f docker-compose.production.yml up -d --remove-orphans" \
             "Rolling update containers"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present" \
+            "cd /opt/mycosoft && docker compose -f docker-compose.production.yml exec -T website npm run db:migrate --if-present" \
             "Run database migrations"
 
           run_on_vm \
