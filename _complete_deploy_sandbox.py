@@ -29,29 +29,30 @@ mas_vm = "192.168.0.188"
 sandbox_vm = "192.168.0.187"
 username = "mycosoft"
 
-print(f">> Deploying website to Sandbox VM ({sandbox_vm}) via MAS VM ({mas_vm})")
+print(f">> Deploying website to Sandbox VM ({sandbox_vm})")
 print("=" * 80)
 
-# Step 1: Connect to MAS VM
-print(f"\n>> Connecting to MAS VM ({mas_vm})...")
-mas_client = paramiko.SSHClient()
-mas_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-try:
+def connect_sandbox():
+    """Try direct SSH to Sandbox first, then jump via MAS."""
+    sandbox_client = paramiko.SSHClient()
+    sandbox_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        sandbox_client.connect(sandbox_vm, username=username, password=password, timeout=10)
+        return sandbox_client, None
+    except Exception:
+        sandbox_client.close()
+    mas_client = paramiko.SSHClient()
+    mas_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     mas_client.connect(mas_vm, username=username, password=password, timeout=10)
-    print(f">> Connected to MAS VM")
-    
-    # Step 2: Setup SSH jump to Sandbox
-    print(f"\n>> Opening SSH channel to Sandbox VM ({sandbox_vm})...")
-    transport = mas_client.get_transport()
-    dest_addr = (sandbox_vm, 22)
-    local_addr = (mas_vm, 22)
-    channel = transport.open_channel("direct-tcpip", dest_addr, local_addr)
-    
-    # Connect through the channel
+    channel = mas_client.get_transport().open_channel("direct-tcpip", (sandbox_vm, 22), (mas_vm, 22))
     sandbox_client = paramiko.SSHClient()
     sandbox_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     sandbox_client.connect(sandbox_vm, username=username, password=password, sock=channel, timeout=10)
+    return sandbox_client, mas_client
+
+try:
+    print(f"\n>> Connecting to Sandbox VM ({sandbox_vm})...")
+    sandbox_client, mas_client = connect_sandbox()
     print(f">> Connected to Sandbox VM")
     
     # Step 2b: Pull latest code from GitHub
@@ -178,7 +179,8 @@ try:
     
     # Cleanup
     sandbox_client.close()
-    mas_client.close()
+    if mas_client:
+        mas_client.close()
     
     # Step 7: Purge Cloudflare cache (automatic - never ask user to do this)
     print(f"\n>> Purging Cloudflare cache...")
