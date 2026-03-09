@@ -223,13 +223,31 @@ fi
 log "Checking Cloudflare tunnel..."
 if docker ps --format '{{.Names}}' | grep -q mycosoft-tunnel; then
   TUNNEL_STATUS=$(docker inspect mycosoft-tunnel --format='{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
-  if [ "$TUNNEL_STATUS" = "healthy" ]; then
-    ok "Cloudflare tunnel: healthy"
+  # Also check the tunnel ready endpoint directly
+  TUNNEL_READY=$(curl -sf http://localhost:2000/ready 2>/dev/null && echo "ready" || echo "not ready")
+  if [ "$TUNNEL_STATUS" = "healthy" ] || [ "$TUNNEL_READY" = "ready" ]; then
+    ok "Cloudflare tunnel: healthy (${TUNNEL_READY})"
   else
-    warn "Cloudflare tunnel status: $TUNNEL_STATUS"
+    warn "Cloudflare tunnel status: $TUNNEL_STATUS ($TUNNEL_READY)"
+    log "Attempting tunnel restart..."
+    docker compose -f "$COMPOSE_FILE" restart cloudflared
+    sleep 10
+    TUNNEL_READY=$(curl -sf http://localhost:2000/ready 2>/dev/null && echo "ready" || echo "not ready")
+    if [ "$TUNNEL_READY" = "ready" ]; then
+      ok "Cloudflare tunnel recovered after restart"
+    else
+      warn "Cloudflare tunnel still not ready after restart"
+    fi
   fi
 else
-  warn "Cloudflare tunnel container not running"
+  warn "Cloudflare tunnel container not running — starting it..."
+  docker compose -f "$COMPOSE_FILE" up -d cloudflared
+  sleep 15
+  if docker ps --format '{{.Names}}' | grep -q mycosoft-tunnel; then
+    ok "Cloudflare tunnel container started"
+  else
+    err "Failed to start Cloudflare tunnel container"
+  fi
 fi
 
 # ============================================================

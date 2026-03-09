@@ -56,6 +56,7 @@ for c in cmds:
     print()
 
 # Restart cloudflared (try common service names)
+restarted = False
 for svc in ["cloudflared", "cloudflare-tunnel"]:
     stdin, out, err = sb.exec_command(f"sudo -S systemctl restart {svc} 2>&1", get_pty=True)
     stdin.write(password + "\n")
@@ -64,9 +65,30 @@ for svc in ["cloudflared", "cloudflare-tunnel"]:
     txt = (out.read() + err.read()).decode().strip()
     if code == 0:
         print(f">> Restarted {svc} successfully")
+        restarted = True
         break
     if "not found" not in txt.lower() and "failed" in txt.lower() and "no such" not in txt.lower():
         print(f">> {svc}: {txt[:200]}")
+
+# Fallback: try restarting Docker tunnel container
+if not restarted:
+    print(">> No systemd service found, trying Docker container...")
+    _, out, _ = sb.exec_command("docker restart mycosoft-tunnel 2>&1")
+    code = out.channel.recv_exit_status()
+    txt = out.read().decode().strip()
+    if code == 0:
+        print(f">> Restarted Docker tunnel container: {txt}")
+    else:
+        print(f">> Docker restart failed: {txt}")
+        # Last resort: start tunnel via docker-compose if available
+        _, out, _ = sb.exec_command(
+            "cd /opt/mycosoft && docker compose -f docker-compose.production.yml up -d cloudflared 2>&1 || "
+            "cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml up -d cloudflared 2>&1"
+        )
+        code = out.channel.recv_exit_status()
+        txt = out.read().decode().strip()
+        print(f">> docker-compose up cloudflared: {txt}")
+
 sb.close()
 if mas:
     mas.close()
