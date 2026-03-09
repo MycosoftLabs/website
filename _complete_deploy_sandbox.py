@@ -177,6 +177,33 @@ try:
         print(f"\n>> Container logs:")
         print(logs)
     
+    # Step 6b: Restart Cloudflare tunnel (systemd service on sandbox VM)
+    print(f"\n>> Restarting Cloudflare tunnel...")
+    for svc_name in ["cloudflared", "cloudflare-tunnel"]:
+        stdin, stdout, stderr = sandbox_client.exec_command(
+            f"sudo -S systemctl restart {svc_name} 2>&1", get_pty=True
+        )
+        stdin.write(password + "\n")
+        stdin.flush()
+        exit_status = stdout.channel.recv_exit_status()
+        svc_output = (stdout.read() + stderr.read()).decode().strip()
+        if exit_status == 0:
+            print(f"    Restarted {svc_name} successfully")
+            break
+        elif "could not be found" not in svc_output.lower() and "no such" not in svc_output.lower():
+            print(f"    {svc_name}: {svc_output[:200]}")
+    else:
+        # Also try restarting a cloudflared docker container if present
+        stdin, stdout, stderr = sandbox_client.exec_command(
+            "docker restart mycosoft-tunnel 2>&1 || true"
+        )
+        stdout.channel.recv_exit_status()
+        tunnel_output = stdout.read().decode().strip()
+        if tunnel_output and "No such" not in tunnel_output:
+            print(f"    Restarted Docker tunnel container: {tunnel_output}")
+        else:
+            print(f"    No cloudflare tunnel service or container found (tunnel may be external)")
+
     # Cleanup
     sandbox_client.close()
     if mas_client:
