@@ -127,6 +127,14 @@ import {
   Droplet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -135,6 +143,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // OEI Real-time Data Widgets (lazy-loaded per tab)
 const SpaceWeatherWidget = dynamic(() => import("@/components/crep/space-weather-widget").then((m) => ({ default: m.SpaceWeatherWidget })), { ssr: false });
@@ -201,6 +210,35 @@ import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget";
 // OEI Types
 import type { AircraftEntity, VesselEntity } from "@/types/oei"
 import type { SatelliteEntity } from "@/lib/oei/connectors/satellite-tracking";
+
+/** Map kingdom/iconicTaxon from iNaturalist to display keys for biodiversity counts */
+function kingdomToDisplayKey(kingdom: string, iconicTaxon: string): string | null {
+  const k = kingdom.toLowerCase();
+  const i = iconicTaxon.toLowerCase();
+  if (k === "fungi" || i === "fungi") return "fungi";
+  if (k === "plantae" || i === "plantae" || i === "magnoliophyta") return "plants";
+  if (k === "aves" || i === "aves") return "birds";
+  if (k === "insecta" || k === "arachnida" || i === "insecta" || i === "arachnida") return "insects";
+  if (["mammalia", "reptilia", "amphibia", "animalia"].includes(k) || ["mammalia", "reptilia", "amphibia"].includes(i)) return "animals";
+  if (["actinopterygii", "mollusca", "chromista"].includes(k) || i === "actinopterygii" || i === "mollusca") return "marine";
+  return null;
+}
+
+const KINGDOM_LIST_ICONS: Record<string, { Icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  fungi: { Icon: TreePine, color: "text-green-400" },
+  plants: { Icon: Leaf, color: "text-emerald-400" },
+  birds: { Icon: Bird, color: "text-sky-400" },
+  insects: { Icon: Bug, color: "text-amber-400" },
+  animals: { Icon: PawPrint, color: "text-orange-400" },
+  marine: { Icon: Waves, color: "text-cyan-400" },
+};
+
+function getObservationListIcon(obs: { kingdom?: string; iconicTaxon?: string; taxon?: { kingdom?: string; iconic_taxon_name?: string } }) {
+  const kingdom = obs.kingdom || obs.taxon?.kingdom || "";
+  const iconic = obs.iconicTaxon || obs.taxon?.iconic_taxon_name || "";
+  const key = kingdomToDisplayKey(kingdom, iconic) || "fungi";
+  return KINGDOM_LIST_ICONS[key] || KINGDOM_LIST_ICONS.fungi;
+}
 
 // Types
 interface GlobalEvent {
@@ -466,10 +504,10 @@ const severityColors: Record<string, string> = {
   extreme: "bg-red-600/20 text-red-300 border-red-600/30",
 };
 
-// Layer categories with icons - ORDERED: Fungal/Devices FIRST, Transport/Military LAST
+// Layer categories with icons - ORDERED: Biodiversity/Devices FIRST, Transport/Military LAST
 const layerCategories = {
-  // PRIMARY - Fungal data and devices (shown first)
-  environment: { label: "Fungal & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
+  // PRIMARY - Biodiversity and devices (shown first)
+  environment: { label: "Biodiversity & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
   // CONTEXT - Natural events for correlation
   events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
@@ -803,12 +841,12 @@ function DeviceMarker({ device, isSelected, onClick }: {
         body: JSON.stringify({ peripheral, ...params }),
       });
       const result = await response.json();
-      console.log(`[MycoBrain] ${peripheral} command result:`, result);
       if (!result.success) {
-        console.error(`[MycoBrain] ${peripheral} command failed:`, result.error || result.message);
+        // Short message only - avoid description; Next.js dev overlay intercepts console.error
+        toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
       }
-    } catch (e) {
-      console.error("Control error:", e);
+    } catch {
+      toast("Device may be offline. Check MycoBrain connection.", { duration: 5000 });
     } finally {
       setControlLoading(null);
     }
@@ -1146,29 +1184,33 @@ function MissionContextPanel({
         </div>
       </div>
 
-      {/* Kingdom Data */}
+      {/* Kingdom Data - Nature Observations */}
       <div className="p-2 rounded-lg bg-black/40 border border-gray-700/50 flex-1 min-h-0">
         <div className="flex items-center gap-1.5 mb-1.5">
-          <Microscope className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[10px] font-bold text-white">MINDEX KINGDOMS</span>
+          <Leaf className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-[10px] font-bold text-white">NATURE OBSERVATIONS</span>
         </div>
         <div className="grid grid-cols-3 gap-1">
           {[
-            { key: "fungi", icon: <TreePine className="w-2.5 h-2.5" />, color: "text-green-400", label: "Fungi" },
-            { key: "plants", icon: <Leaf className="w-2.5 h-2.5" />, color: "text-emerald-400", label: "Plants" },
-            { key: "birds", icon: <Bird className="w-2.5 h-2.5" />, color: "text-sky-400", label: "Birds" },
-            { key: "insects", icon: <Bug className="w-2.5 h-2.5" />, color: "text-amber-400", label: "Insects" },
-            { key: "animals", icon: <PawPrint className="w-2.5 h-2.5" />, color: "text-orange-400", label: "Animals" },
-            { key: "marine", icon: <Waves className="w-2.5 h-2.5" />, color: "text-cyan-400", label: "Marine" },
-          ].map(({ key, icon, color, label }) => (
-            <div key={key} className="text-center p-1 rounded bg-black/30 hover:bg-black/50 transition-colors cursor-pointer">
-              <div className={cn("mx-auto", color)}>{icon}</div>
-              <div className={cn("text-[9px] font-bold tabular-nums", color)}>
-                {((stats.kingdoms[key] || 0) / 1000).toFixed(0)}K
+            { key: "fungi", icon: <TreePine className="w-3.5 h-3.5" />, color: "text-green-400", label: "Fungi" },
+            { key: "plants", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400", label: "Plants" },
+            { key: "birds", icon: <Bird className="w-3.5 h-3.5" />, color: "text-sky-400", label: "Birds" },
+            { key: "insects", icon: <Bug className="w-3.5 h-3.5" />, color: "text-amber-400", label: "Insects" },
+            { key: "animals", icon: <PawPrint className="w-3.5 h-3.5" />, color: "text-orange-400", label: "Animals" },
+            { key: "marine", icon: <Waves className="w-3.5 h-3.5" />, color: "text-cyan-400", label: "Marine" },
+          ].map(({ key, icon, color, label }) => {
+            const n = stats.kingdoms[key] || 0;
+            const displayCount = n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n);
+            return (
+              <div key={key} className="text-center p-1 rounded bg-black/30 hover:bg-black/50 transition-colors cursor-pointer">
+                <div className={cn("mx-auto flex items-center justify-center", color)}>{icon}</div>
+                <div className={cn("text-[9px] font-bold tabular-nums", color)}>
+                  {displayCount}
+                </div>
+                <div className="text-[6px] text-gray-500">{label}</div>
               </div>
-              <div className="text-[6px] text-gray-500">{label}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1631,6 +1673,8 @@ export default function CREPDashboardPage() {
   // Live events: IDs that appeared after initial load (show blinking indicator; pop-up)
   const initialEventIdsRef = useRef<Set<string> | null>(null);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
+  // Timestamp when deck.gl entity was clicked - used to avoid map click-away dismissing the popup
+  const lastEntityPickTimeRef = useRef(0);
 
   // Streaming state
   const [isStreaming, setIsStreaming] = useState(true);
@@ -1738,6 +1782,11 @@ export default function CREPDashboardPage() {
     showPartnerNetworks: false,
   });
 
+  // Species filter for fungal observations (map overlay dropdown)
+  const [fungalSpeciesFilter, setFungalSpeciesFilter] = useState<string | null>(null);
+  const [fungalDropdownOpen, setFungalDropdownOpen] = useState(false);
+  const fungalDropdownCloseTimeout = useRef<NodeJS.Timeout | null>(null);
+
   // Mission context - prompt-based creation on first use
   const [currentMission, setCurrentMission] = useState<MissionContext | null>(null);
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
@@ -1818,15 +1867,15 @@ export default function CREPDashboardPage() {
     earth2Precip: { status: "planned_real", source: "Earth-2" },
   };
 
-  // Layer states - FUNGAL DATA FIRST, transport/military OFF by default
+  // Layer states - NATURE DATA FIRST, transport/military OFF by default
   // Primary layers: Fungal observations and MycoBrain devices
   // Secondary layers: Transport, military - toggleable demos for correlation analysis
   const [layers, setLayers] = useState<LayerConfig[]>([
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    // Fungal Observations - THE PRIMARY DATA SOURCE
-    { id: "fungi", name: "Fungal Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX fungal data - iNaturalist/GBIF observations with GPS" },
+    // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
+    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
@@ -2201,9 +2250,49 @@ export default function CREPDashboardPage() {
           const fungalRes = await fetch("/api/crep/fungal");
           if (fungalRes.ok) {
             const fungalData = await fungalRes.json();
-            if (fungalData.observations && Array.isArray(fungalData.observations)) {
+            // If MINDEX returned 200 but empty observations, try fallback (e.g. MINDEX unreachable from VM)
+            const rawObs = fungalData.observations && Array.isArray(fungalData.observations) ? fungalData.observations : [];
+            if (rawObs.length === 0) {
+              console.log("[CREP] Primary fungal response empty, trying fallback...");
+              const fallbackRes = await fetch("/api/crep/fungal?fallback=true");
+              if (fallbackRes.ok) {
+                const fallbackData = await fallbackRes.json();
+                const fbObs = fallbackData.observations || [];
+                if (fbObs.length > 0) {
+                  console.log(`[CREP] Fallback loaded ${fbObs.length} observations`);
+                  const formattedObs: FungalObservation[] = fbObs.map((obs: any) => ({
+                    id: obs.id,
+                    observed_on: obs.timestamp || obs.observed_on,
+                    latitude: obs.latitude || obs.lat,
+                    longitude: obs.longitude || obs.lng,
+                    species: obs.commonName || obs.species || obs.scientificName || "Unknown",
+                    taxon_id: obs.taxon_id,
+                    taxon: {
+                      id: obs.taxon_id || 0,
+                      name: obs.scientificName || obs.species || "Unknown",
+                      preferred_common_name: obs.commonName || obs.species,
+                      rank: "species",
+                    },
+                    photos: obs.imageUrl || obs.thumbnailUrl ? [{ id: 1, url: obs.imageUrl || obs.thumbnailUrl, license: "CC-BY-NC" }] : [],
+                    quality_grade: obs.verified ? "research" : "needs_id",
+                    user: obs.observer,
+                    source: obs.source,
+                    location: obs.location,
+                    habitat: obs.habitat,
+                    notes: obs.notes,
+                    sourceUrl: obs.sourceUrl,
+                    externalId: obs.externalId,
+                    kingdom: obs.kingdom || obs.iconicTaxon || "Fungi",
+                    iconicTaxon: obs.iconicTaxon || obs.kingdom || "Fungi",
+                  }));
+                  setFungalObservations(formattedObs);
+                  setFungalLoading(false);
+                }
+              }
+              setFungalLoading(false);
+            } else if (rawObs.length > 0) {
               // Map to FungalObservation format expected by FungalMarker
-              const formattedObs: FungalObservation[] = fungalData.observations.map((obs: any) => ({
+              const formattedObs: FungalObservation[] = rawObs.map((obs: any) => ({
                 id: obs.id,
                 observed_on: obs.timestamp || obs.observed_on,
                 latitude: obs.latitude || obs.lat,
@@ -2245,7 +2334,7 @@ export default function CREPDashboardPage() {
               setFungalLoading(false);
             }
           } else {
-            console.error("[CREP] Failed to fetch from /api/crep/fungal:", fungalRes.status);
+            console.warn("[CREP] Failed to fetch from /api/crep/fungal:", fungalRes.status);
             // Fallback: try iNaturalist directly for San Diego area at minimum
             console.log("[CREP] Using iNaturalist fallback...");
             const fallbackRes = await fetch("/api/crep/fungal?fallback=true");
@@ -2259,11 +2348,11 @@ export default function CREPDashboardPage() {
             }
           }
         } catch (e) {
-          console.error("[CREP] Failed to fetch fungal observations:", e);
+          console.warn("[CREP] Failed to fetch fungal observations:", e);
           setFungalLoading(false);
         }
       } catch (error) {
-        console.error("Failed to fetch CREP data:", error);
+        console.warn("Failed to fetch CREP data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -2442,6 +2531,18 @@ export default function CREPDashboardPage() {
   //   6-7  (state/province)   â†’ 6000 markers
   //   7+   (local view)       â†’ ALL in viewport (up to 15000 cap)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // Species stats for Fungi dropdown (per-species counts)
+  const fungalSpeciesStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const obs of fungalObservations) {
+      const species = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
+      counts.set(species, (counts.get(species) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [fungalObservations]);
+
   const visibleFungalObservations = useMemo(() => {
     // Early return with minimal markers if no bounds yet (Feb 12, 2026 - added debug logging)
     if (!mapBounds || fungalObservations.length === 0) {
@@ -2479,10 +2580,18 @@ export default function CREPDashboardPage() {
       }
     });
 
+    // Step 0b: Filter by species (Fungi badge dropdown)
+    const speciesFiltered = fungalSpeciesFilter
+      ? kingdomFiltered.filter(obs => {
+          const species = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
+          return species === fungalSpeciesFilter;
+        })
+      : kingdomFiltered;
+
     // Step 1: Filter to viewport bounds FIRST (fast culling)
     // Add small padding to prevent markers at exact edges from disappearing (Feb 12, 2026)
     const padding = 0.001; // ~100m at equator
-    const inViewport = kingdomFiltered.filter(obs => {
+    const inViewport = speciesFiltered.filter(obs => {
       const lat = obs.latitude;
       const lng = obs.longitude;
       
@@ -2577,7 +2686,7 @@ export default function CREPDashboardPage() {
     }
     
     return sampled;
-  }, [fungalObservations, mapZoom, mapBounds, groundFilter]);
+  }, [fungalObservations, mapZoom, mapBounds, groundFilter, fungalSpeciesFilter]);
   
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SMART MAP AUTO-PAN: Fungal Marker Selection Handler
@@ -2848,18 +2957,24 @@ export default function CREPDashboardPage() {
   const highCount = globalEvents.filter(e => e.severity === "high").length;
   const onlineDevices = devices.filter(d => d.status === "online").length;
   
+  // Map kingdom/iconicTaxon from observations to display keys for all-life support
+  const kingdomCounts = useMemo(() => {
+    const keys = ["fungi", "plants", "birds", "insects", "animals", "marine"] as const;
+    const counts: Record<string, number> = Object.fromEntries(keys.map(k => [k, 0]));
+    for (const obs of fungalObservations) {
+      const kingdom = (obs.kingdom || "").trim();
+      const iconic = (obs.iconicTaxon || "").trim();
+      const key = kingdomToDisplayKey(kingdom, iconic);
+      if (key && key in counts) counts[key]++;
+    }
+    return counts;
+  }, [fungalObservations]);
+
   const stats = {
     events: globalEvents.length,
     devices: onlineDevices,
     critical: criticalCount,
-    kingdoms: {
-      fungi: 1247000,
-      plants: 380000,
-      birds: 10000,
-      insects: 950000,
-      animals: 68000,
-      marine: 245000,
-    },
+    kingdoms: kingdomCounts,
   };
 
   // Update mission progress based on real data
@@ -3375,7 +3490,7 @@ export default function CREPDashboardPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Floating Left Sidebar - Intel Feed - FUNGAL DATA PRIMARY */}
+        {/* Floating Left Sidebar - Intel Feed - NATURE DATA PRIMARY */}
         <div 
           data-panel="left"
           className={cn(
@@ -3414,7 +3529,7 @@ export default function CREPDashboardPage() {
                   )}
                 >
                   <TreePine className="w-3 h-3" />
-                  FUNGAL DATA
+                  NATURE DATA
                 </button>
                 <button
                   onClick={() => setLeftPanelTab("events")}
@@ -3435,7 +3550,7 @@ export default function CREPDashboardPage() {
             <div className="grid grid-cols-3 gap-1 p-2 border-b border-cyan-500/10">
               <div className="text-center p-2 rounded bg-black/30 border border-green-500/20">
                 <div className="text-lg font-bold text-green-400">{fungalObservations.length}</div>
-                <div className="text-[8px] text-gray-500 uppercase">Fungi</div>
+                <div className="text-[8px] text-gray-500 uppercase">Observations</div>
               </div>
               <div className="text-center p-2 rounded bg-black/30">
                 <div className="text-lg font-bold text-cyan-400">{onlineDevices}</div>
@@ -3447,24 +3562,24 @@ export default function CREPDashboardPage() {
               </div>
             </div>
 
-            {/* FUNGAL TAB CONTENT - PRIMARY */}
+            {/* NATURE TAB CONTENT - PRIMARY */}
             {leftPanelTab === "fungal" && (
               <>
-                {/* What the green dots are — clear explanation for San Diego and everywhere */}
+                {/* What the map dots are — clear explanation for all life forms */}
                 <div className="p-2 border-b border-green-500/20 bg-green-950/20 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <TreePine className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                    <span className="text-[10px] font-semibold text-green-300">What are the green dots?</span>
+                    <Leaf className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                    <span className="text-[10px] font-semibold text-green-300">What are the colored dots?</span>
                   </div>
                   <p className="text-[9px] text-gray-400 leading-snug">
-                    Each dot is a <strong className="text-gray-300">fungal observation</strong> with GPS: species sightings from <strong className="text-purple-400">MINDEX</strong>, enriched by <strong className="text-cyan-400">MYCA</strong> and the <strong className="text-amber-400">Nature Learning Model (NLM)</strong>. Click a dot or a list item to see details and source links. Bloom events (e.g. San Diego) also use MycoBrain Network data.
+                    Each dot is a <strong className="text-gray-300">nature observation</strong> with GPS: species sightings (fungi, plants, birds, insects, animals, marine) from <strong className="text-purple-400">MINDEX</strong> and <strong className="text-green-400">iNaturalist</strong>/<strong className="text-blue-400">GBIF</strong>, enriched by <strong className="text-cyan-400">MYCA</strong> and the <strong className="text-amber-400">Nature Learning Model (NLM)</strong>. Click a dot or list item to see details and source links.
                   </p>
                 </div>
-                {/* Fungal Filters */}
+                {/* Nature Observation Filters */}
                 <div className="p-2 border-b border-cyan-500/10 space-y-2">
                   <div className="flex items-center gap-2">
                     <Leaf className="w-3 h-3 text-green-500" />
-                    <span className="text-[10px] text-green-400 font-semibold">Fungal Observations</span>
+                    <span className="text-[10px] text-green-400 font-semibold">Nature Observations</span>
                   </div>
                   <div className="flex items-center gap-2 text-[9px]">
                     <Badge variant="outline" className="border-green-500/30 text-green-400 px-1.5 py-0">
@@ -3483,19 +3598,20 @@ export default function CREPDashboardPage() {
                   <div className="p-2 space-y-1">
                     {fungalLoading ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <TreePine className="w-8 h-8 mx-auto mb-2 animate-pulse text-green-500" />
+                        <Leaf className="w-8 h-8 mx-auto mb-2 animate-pulse text-emerald-500" />
                         <span className="animate-pulse">Loading from MINDEX...</span>
                       </div>
                     ) : visibleFungalObservations.length === 0 ? (
                       <div className="text-center py-8 text-gray-500 text-[10px]">
-                        <TreePine className="w-8 h-8 mx-auto mb-2 text-green-500/50" />
+                        <Leaf className="w-8 h-8 mx-auto mb-2 text-emerald-500/50" />
                         Zoom in to see observations
                       </div>
                     ) : (
                       visibleFungalObservations.slice(0, 50).map((obs) => {
-                        const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Fungus";
+                        const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
                         const isResearchGrade = obs.quality_grade === "research";
                         const isSelected = selectedFungal?.id === obs.id;
+                        const { Icon, color } = getObservationListIcon(obs);
                         
                         return (
                           <div
@@ -3513,7 +3629,7 @@ export default function CREPDashboardPage() {
                                 "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
                                 isResearchGrade ? "bg-green-500/30" : "bg-green-400/20"
                               )}>
-                                <TreePine className="w-3 h-3 text-green-400" />
+                                <Icon className={cn("w-3 h-3", color)} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-[10px] text-white font-medium truncate">
@@ -3736,25 +3852,21 @@ export default function CREPDashboardPage() {
               
               // MAP CLICK-AWAY HANDLER: Direct MapLibre click event for reliable popup dismissal
               // This fires when clicking directly on the map canvas, not on markers/popups
+              // NOTE: deck.gl draws on the canvas - clicking a fungal/entity icon still fires
+              // map "click" with target=canvas. We use lastEntityPickTimeRef to avoid
+              // dismissing immediately after an entity pick (deck.gl onClick fires first).
               map.on("click", (e: any) => {
-                // Use a longer delay to allow React state updates and popup rendering
                 setTimeout(() => {
-                  // Check if any popup is open - if so, we might want to close
+                  // If we just picked a deck.gl entity (<200ms ago), do NOT dismiss
+                  if (Date.now() - lastEntityPickTimeRef.current < 200) return;
                   const openPopups = document.querySelectorAll('.maplibregl-popup');
                   if (openPopups.length > 0) {
-                    // Use the original event target to check if click was on a marker
-                    // This is more reliable than elementFromPoint for overlay markers
                     const target = e.originalEvent?.target as HTMLElement | null;
                     const isOnMarker = target?.closest('[data-marker]') !== null ||
                                        target?.closest('.maplibregl-marker') !== null;
                     const isOnPopup = target?.closest('.maplibregl-popup') !== null;
-                    
-                    // Also check if click was on canvas (empty map area)
                     const isOnCanvas = target?.tagName === 'CANVAS' || target?.classList?.contains('maplibregl-canvas');
-                    
-                    // Only dismiss if click was on canvas AND not on a marker or popup
                     if (isOnCanvas && !isOnMarker && !isOnPopup) {
-                      console.log("[CREP] Click-away (map): dismissing popups");
                       setSelectedEvent(null);
                       setSelectedFungal(null);
                     }
@@ -3805,6 +3917,7 @@ export default function CREPDashboardPage() {
               entities={deckEntities}
               visible={deckEntities.length > 0}
               onEntityClick={(entity) => {
+                lastEntityPickTimeRef.current = Date.now();
                 if (entity.type === "aircraft") {
                   setSelectedAircraft(filteredAircraft.find((aircraftEntity) => aircraftEntity.id === entity.id) ?? null);
                 } else if (entity.type === "vessel") {
@@ -3812,12 +3925,16 @@ export default function CREPDashboardPage() {
                 } else if (entity.type === "satellite") {
                   setSelectedSatellite(filteredSatellites.find((satelliteEntity) => satelliteEntity.id === entity.id) ?? null);
                 } else if (entity.type === "fungal") {
-                  const obsId = entity.id?.replace?.("fungal-", "");
-                  const obs = visibleFungalObservations.find((o) => String(o.id) === String(obsId));
+                  // Use entity.properties (full observation) - more robust than lookup
+                  const fromProps = entity.properties as FungalObservation | undefined;
+                  const obs =
+                    fromProps && typeof fromProps.id !== "undefined" && typeof fromProps.latitude === "number" && typeof fromProps.longitude === "number"
+                      ? fromProps
+                      : visibleFungalObservations.find((o) => String(o.id) === String(entity.id?.replace?.("fungal-", "")));
                   if (obs) {
                     handleSelectFungal(obs);
-                    setLeftPanelOpen(true);
-                    setLeftPanelTab("fungal");
+                    // Species widget (FungalMarker popup) shows at icon - same UX as planes/boats/satellites.
+                    // Do NOT open the Intel feed left panel; that is for list-item clicks, not map icon clicks.
                   }
                 }
               }}
@@ -4029,12 +4146,68 @@ export default function CREPDashboardPage() {
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-green-400">LIVE</span>
             </div>
-            {/* FUNGAL DATA FIRST - PRIMARY */}
+            {/* FUNGAL DATA FIRST - PRIMARY - Species dropdown on hover */}
             {fungalObservations.length > 0 && (
-              <div className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30" title={`${fungalObservations.length} fungal observations - PRIMARY DATA`}>
-                <TreePine className="w-3 h-3 inline-block mr-1" />
-                {fungalObservations.length} FUNGI
-              </div>
+              <DropdownMenu open={fungalDropdownOpen} onOpenChange={setFungalDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <div
+                    className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30 cursor-pointer hover:bg-green-500/30 transition-colors pointer-events-auto"
+                    title={fungalSpeciesFilter ? `${visibleFungalObservations.length} ${fungalSpeciesFilter} - click for species` : `${fungalObservations.length} fungal observations - hover for species filter`}
+                    onMouseEnter={() => {
+                      if (fungalDropdownCloseTimeout.current) {
+                        clearTimeout(fungalDropdownCloseTimeout.current);
+                        fungalDropdownCloseTimeout.current = null;
+                      }
+                      setFungalDropdownOpen(true);
+                    }}
+                    onMouseLeave={() => {
+                      fungalDropdownCloseTimeout.current = setTimeout(() => setFungalDropdownOpen(false), 200);
+                    }}
+                  >
+                    <TreePine className="w-3 h-3 inline-block mr-1" />
+                    {fungalSpeciesFilter ? visibleFungalObservations.length : fungalObservations.length} FUNGI
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="center"
+                  sideOffset={4}
+                  className="min-w-[180px] p-2 bg-black/95 border border-green-500/30 rounded-lg"
+                  onMouseEnter={() => {
+                    if (fungalDropdownCloseTimeout.current) {
+                      clearTimeout(fungalDropdownCloseTimeout.current);
+                      fungalDropdownCloseTimeout.current = null;
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    fungalDropdownCloseTimeout.current = setTimeout(() => setFungalDropdownOpen(false), 200);
+                  }}
+                >
+                  <DropdownMenuLabel className="text-[9px] font-bold text-green-400 px-0 pb-1">Species filter</DropdownMenuLabel>
+                  <div
+                    className="cursor-pointer text-center p-1 rounded bg-black/30 hover:bg-green-500/20 mb-1"
+                    onClick={() => { setFungalSpeciesFilter(null); setFungalDropdownOpen(false); }}
+                  >
+                    <span className="text-[9px] font-bold text-green-400">All Species</span>
+                    <div className="text-[6px] text-gray-500">{fungalObservations.length} total</div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto">
+                    {fungalSpeciesStats.map(({ name, count }) => (
+                      <div
+                        key={name}
+                        className={cn(
+                          "text-center p-1 rounded cursor-pointer transition-colors",
+                          fungalSpeciesFilter === name ? "bg-green-500/30 border border-green-500/50" : "bg-black/30 hover:bg-green-500/20"
+                        )}
+                        onClick={() => { setFungalSpeciesFilter(name); setFungalDropdownOpen(false); }}
+                        title={`${name}: ${count}`}
+                      >
+                        <div className="text-[9px] font-bold text-green-400 truncate" title={name}>{name}</div>
+                        <div className="text-[6px] text-gray-500">{count}</div>
+                      </div>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-orange-400">
               {filteredEvents.length} EVENTS
