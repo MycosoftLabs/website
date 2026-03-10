@@ -441,8 +441,8 @@ export function AppsPortal() {
               </span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 portal-hero-subtitle">
-              Purpose-built software for environmental intelligence research operations. 
-              Dual-use applications for science and beyond.
+              Applications powered by MYCA and AVANI. Environmental intelligence, research, 
+              and defense operations—where governed AI meets real-world data.
             </p>
 
             {/* Quick Stats */}

@@ -269,8 +269,8 @@ export function DevicesPortal() {
               </span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              Purpose-built sensors and platforms for persistent environmental intelligence. 
-              Defense-grade reliability with research-quality precision.
+              Hardware that feeds MYCA and AVANI. Purpose-built sensors and platforms for 
+              environmental intelligence—defense-grade reliability with research-quality precision.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

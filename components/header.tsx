@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users, Brain } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -21,8 +21,7 @@ import { useRouter } from "next/navigation"
 import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState, useRef, useCallback, memo } from "react"
 import { cn } from "@/lib/utils"
-
-// Chat component removed - MYCA bot icon removed from header
+import { AI_NAV_ITEMS } from "@/lib/nav-ai"
 
 // Import motion only what we need (tree-shaken by bundler)
 import { motion, AnimatePresence } from "framer-motion"
@@ -32,13 +31,6 @@ const defenseItems = [
   { title: "Fusarium", href: "/defense/fusarium", icon: Bug, description: "Operational Environment Platform" },
   { title: "OEI Capabilities", href: "/defense/oei", icon: Target, description: "Doctrine Capabilities" },
   { title: "Technical Documentation", href: "/defense/technical-docs", icon: FileText, description: "Defense systems documentation" },
-]
-
-const mycaItems = [
-  { title: "MYCA Overview", href: "/myca", icon: Bot, description: "Environmental Superintelligence" },
-  { title: "Nature Learning Model", href: "/myca/nlm", icon: Brain, description: "Foundation model for biological intelligence" },
-  { title: "Voice (PersonaPlex)", href: "/myca/voice-duplex", icon: Radio, description: "Full-duplex voice interaction" },
-  { title: "AI Studio", href: "/natureos/ai-studio", icon: Cpu, description: "MYCA command center and agent topology" },
 ]
 
 const natureOSItems = [
@@ -428,16 +420,16 @@ export function Header() {
             <span>About Us</span>
           </Link>
 
-          {/* MYCA Dropdown */}
+          {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}
           <NavDropdown
-            label="MYCA"
+            label="AI"
             icon={Bot}
-            items={mycaItems}
-            isOpen={openDropdown === "myca"}
-            onOpen={() => setOpenDropdown("myca")}
+            items={AI_NAV_ITEMS}
+            isOpen={openDropdown === "ai"}
+            onOpen={() => setOpenDropdown("ai")}
             onClose={() => setOpenDropdown(null)}
             accentColor="orange"
-            mainHref="/myca"
+            mainHref="/ai"
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 

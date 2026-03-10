@@ -35,8 +35,23 @@ export function Footer() {
 
           {/* Resources */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Resources</h3>
+            <h3 className="text-lg font-semibold mb-4">AI</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
+              <li>
+                <Link href="/ai" className="hover:text-foreground transition-colors">
+                  AI Overview
+                </Link>
+              </li>
+              <li>
+                <Link href="/myca" className="hover:text-foreground transition-colors">
+                  MYCA
+                </Link>
+              </li>
+              <li>
+                <Link href="/ai/avani" className="hover:text-foreground transition-colors">
+                  AVANI
+                </Link>
+              </li>
               <li>
                 <Link href="/docs" className="hover:text-foreground transition-colors">
                   Documentation
@@ -45,11 +60,6 @@ export function Footer() {
               <li>
                 <Link href="/natureos" className="hover:text-foreground transition-colors">
                   NatureOS
-                </Link>
-              </li>
-              <li>
-                <Link href="/myca-ai" className="hover:text-foreground transition-colors">
-                  Myca AI
                 </Link>
               </li>
             </ul>

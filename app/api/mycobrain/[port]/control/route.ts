@@ -76,7 +76,7 @@ export async function POST(
         // Dual-mode firmware supports: beep [freq] [ms], plus sound presets
         endpoint = `/devices/${encodeURIComponent(deviceId)}/command`
         const freq = data.frequency || 1000
-        const duration = data.duration_ms || 200
+        const duration = data.duration_ms ?? data.duration ?? 200
         if (action === "melody") {
           // Play morgio melody (custom jingle from firmware)
           payload = { command: { cmd: "morgio" } }

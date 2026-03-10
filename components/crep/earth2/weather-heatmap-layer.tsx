@@ -142,8 +142,16 @@ export function WeatherHeatmapLayer({
 
       const weatherData = generateWeatherGeoJSON(grid, bounds, variable, min, max);
 
-      // Check if source exists - UPDATE it, don't recreate
-      const source = map.getSource(SOURCE_ID);
+      // Check if source exists - UPDATE it, don't recreate (guard: style must be loaded)
+      let source: { setData: (data: GeoJSON.FeatureCollection) => void } | null = null;
+      try {
+        if (map?.isStyleLoaded?.() && typeof map.getSource === "function") {
+          const s = map.getSource(SOURCE_ID);
+          source = s && typeof s.setData === "function" ? s : null;
+        }
+      } catch {
+        source = null;
+      }
       if (source) {
         source.setData(weatherData);
       } else {

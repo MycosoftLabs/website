@@ -619,7 +619,7 @@ export default function NLMPage() {
 
           {/* CTA */}
           <section className="py-12 border-t">
-            <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col md:flex-row gap-4 justify-center items-center flex-wrap">
               <Link href="/natureos/model-training">
                 <Button size="lg" className="gap-2 min-h-[44px] min-w-[200px] w-full md:w-auto">
                   NLM Training Dashboard
@@ -630,6 +630,11 @@ export default function NLMPage() {
                 <Button variant="outline" size="lg" className="gap-2 min-h-[44px] min-w-[160px] w-full md:w-auto">
                   <FileText className="h-4 w-4" />
                   White Paper
+                </Button>
+              </Link>
+              <Link href="/contact">
+                <Button variant="secondary" size="lg" className="gap-2 min-h-[44px] min-w-[160px] w-full md:w-auto">
+                  Request access
                 </Button>
               </Link>
             </div>

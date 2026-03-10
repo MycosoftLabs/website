@@ -41,12 +41,13 @@ const technologyPillars = [
   {
     id: "ai",
     icon: Brain,
-    title: "Enviornmental Intelligence",
-    subtitle: "MYCA & NLM",
-    description: "MYCA is our multi-agent cognitive system — 117+ specialized agents managing research, analysis, infrastructure, and scientific discovery. The Nature Learning Model (NLM) processes environmental and ecological data to predict biological events with machine precision.",
+    title: "Governed AI",
+    subtitle: "MYCA & AVANI",
+    description: "MYCA is our operating intelligence — 150+ agents, skills, and integrations. AVANI is our stewardship and governance layer — policy, restraint, auditability, and reversibility. Together they create a system that moves quickly without becoming reckless. NLM is the ecological learning substrate.",
     links: [
-      { label: "AI Studio", href: "/natureos/ai-studio" },
+      { label: "AI Overview", href: "/ai" },
       { label: "MYCA", href: "/myca" },
+      { label: "AVANI", href: "/ai/avani" },
     ],
   },
   {
@@ -273,7 +274,8 @@ export default function AboutPage() {
                   { icon: Zap, label: "Edge AI & mesh networks", desc: "MycoBrain compute module, Mycorrhizae Protocol, LoRa mesh" },
                   { icon: Globe, label: "NatureOS", desc: "Cloud environmental intelligence platform with AI orchestration" },
                   { icon: CircuitBoard, label: "Fungal Computer Interface (FCI)", desc: "Translates mycelial bioelectric signals into digital data streams" },
-                  { icon: Brain, label: "MYCA", desc: "Autonomous multi-agent AI system — 117+ agents, 200+ API endpoints" },
+                  { icon: Brain, label: "MYCA", desc: "Operating intelligence — 150+ agents, skills, APIs, integrations" },
+                  { icon: Shield, label: "AVANI", desc: "Stewardship and governance — policy, restraint, auditability, reversibility" },
                 ].map(({ icon: Icon, label, desc }) => (
                   <div
                     key={label}
@@ -376,13 +378,14 @@ export default function AboutPage() {
             {morgan && (
               <Link href={`/about/team/${morgan.slug}`}>
                 <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
-                  <div className="grid md:grid-cols-2 h-full">
-                    <div className="relative aspect-square md:aspect-auto min-h-[250px] bg-slate-100 overflow-hidden">
+                  <div className="grid md:grid-cols-2 h-full items-start">
+                    <div className="relative aspect-square w-full bg-slate-100 overflow-hidden shrink-0">
                       <Image
                         src={morgan.image.startsWith("/") ? encodeURI(morgan.image) : morgan.image}
                         alt={morgan.name}
                         fill
                         className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                        sizes="(max-width: 768px) 100vw, 50vw"
                       />
                     </div>
                     <NeuCardContent className="p-6 flex flex-col justify-center">
@@ -400,27 +403,26 @@ export default function AboutPage() {
               </Link>
             )}
 
-            {/* MYCA AI */}
-            <Link href="/natureos/ai-studio">
+            {/* MYCA & AVANI — flagship AI pair */}
+            <Link href="/ai">
               <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full bg-gradient-to-br from-purple-950/20 to-background">
-                <div className="grid md:grid-cols-2 h-full">
-                  <div className="relative aspect-square md:aspect-auto min-h-[250px] flex items-center justify-center bg-black overflow-hidden">
-                    <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                      <Image
-                        src="/images/logos/myca-logo-square.png"
-                        alt="MYCA Logo"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+                <div className="grid md:grid-cols-2 h-full items-start">
+                  <div className="relative aspect-square w-full flex items-center justify-center bg-black overflow-hidden shrink-0">
+                    <Image
+                      src="/images/logos/myca-logo-square.png"
+                      alt="MYCA & AVANI"
+                      fill
+                      className="object-contain group-hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
                   </div>
                   <NeuCardContent className="p-6 flex flex-col justify-center">
                     <NeuBadge variant="primary" className="mb-2 w-fit">
                       AI System
                     </NeuBadge>
-                    <h3 className="text-2xl font-bold mb-2">MYCA</h3>
+                    <h3 className="text-2xl font-bold mb-2">MYCA & AVANI</h3>
                     <p className="text-sm text-muted-foreground">
-                      MYCA is Mycosoft’s environmental superintelligence—an autonomous cognitive system grounded in real biospheric signals. It coordinates agents, models, and infrastructure to turn live environmental data into action.
+                      MYCA expands capability. AVANI protects integrity. Together they form a governed AI operating system for humans and agents—grounded in real biospheric signals, deployable where accountability matters.
                     </p>
                   </NeuCardContent>
                 </div>

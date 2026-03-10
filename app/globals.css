@@ -137,7 +137,12 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-feature-settings: "rlig" 1, "calt" 1;
-  font-family: var(--font-sans);
+  /* Geist Sans via --font-geist-sans (layout) + emoji fallbacks; Geist has no emoji glyphs */
+  font-family: var(--font-geist-sans, var(--font-sans)),
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
 }
 
 /* ─── Search widget global overflow guard ─────────────────────────────────

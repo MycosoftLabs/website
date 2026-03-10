@@ -196,7 +196,7 @@ export function HeroSearch() {
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-                <span>Building The Earth Intelligence</span>
+                <span>Governed AI for humans and agents</span>
               </motion.p>
             </div>
 

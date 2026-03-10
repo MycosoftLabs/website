@@ -27,6 +27,17 @@ import {
 import Link from "next/link";
 import { FungalObservation } from "../markers/fungal-marker";
 
+// Kingdom-based emoji for all-life observation display
+function getObservationEmoji(obs: FungalObservation): string {
+  const key = obs.iconicTaxon || obs.kingdom || "Fungi";
+  const map: Record<string, string> = {
+    Fungi: "🍄", Plantae: "🌿", Aves: "🐦", Mammalia: "🦊", Reptilia: "🦎",
+    Amphibia: "🐸", Actinopterygii: "🐟", Mollusca: "🐚", Arachnida: "🕷️",
+    Insecta: "🦋", Animalia: "🦌",
+  };
+  return map[key] ?? "🌿";
+}
+
 // Types for different entities
 // Note: Some code uses lat/lng, others use latitude/longitude - support both
 export interface GlobalEvent {
@@ -179,7 +190,7 @@ function getSeverityColor(severity: string) {
 
 // Fungal Observation Detail Content - COMPACT VERSION (no scrolling, fits on screen)
 function FungalDetail({ observation, onClose }: { observation: FungalObservation; onClose: () => void }) {
-  const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Fungus";
+  const speciesName = observation.taxon?.preferred_common_name || observation.species || observation.taxon?.name || "Unknown Species";
   const scientificName = observation.taxon?.name || observation.species || "Unknown";
   const photoUrl = observation.photos?.[0]?.url;
   const sourceInfo = getSourceInfo(observation.source);
@@ -190,7 +201,7 @@ function FungalDetail({ observation, onClose }: { observation: FungalObservation
       {/* Compact Header */}
       <div className="bg-gradient-to-r from-green-600/40 to-emerald-600/20 px-3 py-2 border-b border-green-500/30 flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg">🍄</span>
+          <span className="text-lg">{getObservationEmoji(observation)}</span>
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-white truncate">{speciesName}</h2>
             <p className="text-xs text-gray-400 italic truncate">{scientificName}</p>
@@ -707,7 +718,7 @@ export function EntityDetailPanel({ onClose, fungal, event, aircraft, vessel, sa
   if (!isOpen) return null;
 
   const getTitle = () => {
-    if (fungal) return "Fungal Observation Details";
+    if (fungal) return "Observation Details";
     if (event) return "Event Details";
     if (aircraft) return "Aircraft Details";
     if (vessel) return "Vessel Details";

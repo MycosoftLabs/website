@@ -62,6 +62,11 @@ export default function MYCAPage() {
                 White Paper
               </Button>
             </Link>
+            <Link href="/contact">
+              <Button variant="secondary" size="lg" className="gap-2 min-h-[44px] min-w-[120px] px-6 py-3 touch-manipulation portal-cta-over-video">
+                Request access
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -177,6 +182,15 @@ export default function MYCAPage() {
                 <FileText className="h-4 w-4" />
                 White Paper
                 <ExternalLink className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/contact">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="gap-2 min-h-[44px] min-w-[140px] px-6 py-3 touch-manipulation portal-cta-over-video"
+              >
+                Request access
               </Button>
             </Link>
           </div>

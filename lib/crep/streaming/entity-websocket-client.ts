@@ -185,8 +185,8 @@ export class EntityStreamClient {
       }
     }
 
-    this.ws.onerror = (event) => {
-      console.error("[EntityStream] WebSocket error:", event)
+    this.ws.onerror = () => {
+      // WebSocket error events have limited info (often {}); avoid noisy logs
       this.onError?.(new Error("WebSocket connection error"))
     }
 
