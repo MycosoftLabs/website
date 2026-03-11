@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
+import { requireAdmin } from "@/lib/auth/api-auth"
+import {
   sendEmail, 
   sendWelcomeEmail, 
   sendPasswordResetEmail, 
@@ -29,6 +30,8 @@ interface SendEmailRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body: SendEmailRequest = await request.json()
     const { type, to, data, subject, html, text } = body
@@ -141,6 +144,8 @@ export async function POST(request: NextRequest) {
 
 // Verify email configuration
 export async function GET() {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const result = await verifyEmailConfig()
     

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 // Docker configuration - supports Windows named pipe, Unix socket, or TCP
 // Windows Docker Desktop: npipe:////./pipe/docker_engine or http://localhost:2375
@@ -193,6 +194,8 @@ async function fetchDockerContainers(): Promise<{
 }
 
 export async function GET() {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const data = await fetchDockerContainers()
     return NextResponse.json(data)
@@ -210,6 +213,8 @@ export async function GET() {
 
 // Handle container actions
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body = await request.json()
     const { action, containerId, options } = body as {

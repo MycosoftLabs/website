@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server"
 import { find, findOne } from "@/lib/mongodb"
 
+// SECURITY: Escape regex special characters to prevent ReDoS and NoSQL injection
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const MAX_RESULTS = 100;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -22,9 +29,10 @@ export async function GET(request: Request) {
       // Add any search filters from query params
       const name = searchParams.get("name")
       if (name) {
+        const safeName = escapeRegex(name)
         filter.$or = [
-          { commonName: { $regex: name, $options: "i" } },
-          { scientificName: { $regex: name, $options: "i" } },
+          { commonName: { $regex: safeName, $options: "i" } },
+          { scientificName: { $regex: safeName, $options: "i" } },
         ]
       }
 
@@ -33,7 +41,8 @@ export async function GET(request: Request) {
         filter.type = type
       }
 
-      const species = await find("species", filter)
+      const limit = Math.min(Number(searchParams.get("limit")) || MAX_RESULTS, MAX_RESULTS)
+      const species = await find("species", filter, { limit })
       return NextResponse.json(species)
     }
   } catch (error) {
@@ -54,13 +63,14 @@ export async function POST(request: Request) {
     switch (action) {
       case "search":
         const { query } = await request.json()
+        const safeQuery = escapeRegex(query || '')
         const results = await find("species", {
           $or: [
-            { commonName: { $regex: query, $options: "i" } },
-            { scientificName: { $regex: query, $options: "i" } },
-            { description: { $regex: query, $options: "i" } },
+            { commonName: { $regex: safeQuery, $options: "i" } },
+            { scientificName: { $regex: safeQuery, $options: "i" } },
+            { description: { $regex: safeQuery, $options: "i" } },
           ],
-        })
+        }, { limit: MAX_RESULTS })
         return NextResponse.json(results)
 
       default:

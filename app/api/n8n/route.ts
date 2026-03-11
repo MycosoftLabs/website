@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 /**
  * n8n Workflow API Integration for MYCA
@@ -80,6 +81,8 @@ async function executeWorkflow(workflowId: string, data: Record<string, unknown>
 
 // GET - Health check and workflow list
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   const { searchParams } = new URL(request.url)
   const action = searchParams.get("action")
   
@@ -113,6 +116,8 @@ export async function GET(request: NextRequest) {
 
 // POST - Execute workflows and webhooks
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body = await request.json()
     const { action, webhookPath, workflowId, data } = body

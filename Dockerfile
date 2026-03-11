@@ -41,7 +41,7 @@ RUN npm install --no-save --ignore-scripts "@tailwindcss/oxide-linux-x64-musl" 2
 ARG NEXT_PUBLIC_MINDEX_API_BASE_URL=/api/mindex
 ARG NEXT_PUBLIC_NATUREOS_API_BASE_URL=/api/natureos
 ARG NEXT_PUBLIC_MYCA_MAS_API_BASE_URL=/api/mas
-ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyA9wzTz5MiDhYBdY1vHJQtOnw9uikwauBk
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 ENV NEXT_PUBLIC_MINDEX_API_BASE_URL=$NEXT_PUBLIC_MINDEX_API_BASE_URL
 ENV NEXT_PUBLIC_NATUREOS_API_BASE_URL=$NEXT_PUBLIC_NATUREOS_API_BASE_URL
@@ -53,12 +53,15 @@ ENV MONGODB_ENDPOINT_URL=mongodb://placeholder:27017
 ENV MONGODB_API_KEY=placeholder
 ENV NEON_DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 ENV DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
-# Supabase - REAL values for Mycosoft.com Production project (hnevnsxnhfibhbsipqvz)
-# NEXT_PUBLIC_* are baked into client code at build time
-ENV SUPABASE_URL=https://hnevnsxnhfibhbsipqvz.supabase.co
-ENV SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZXZuc3huaGZpYmhic2lwcXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NzQ1NzEsImV4cCI6MjA4NDI1MDU3MX0.ooL4ZtASkUR4aQqpN4KfUPNcEwpbPLoGfGUkEoc4g7w
-ENV NEXT_PUBLIC_SUPABASE_URL=https://hnevnsxnhfibhbsipqvz.supabase.co
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZXZuc3huaGZpYmhic2lwcXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NzQ1NzEsImV4cCI6MjA4NDI1MDU3MX0.ooL4ZtASkUR4aQqpN4KfUPNcEwpbPLoGfGUkEoc4g7w
+# Supabase — pass via CI/CD build args, never hardcode
+ARG SUPABASE_URL
+ARG SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV SUPABASE_URL=${SUPABASE_URL}
+ENV SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 # Site URL for OAuth callbacks - MUST match production domain
 ENV NEXT_PUBLIC_SITE_URL=https://sandbox.mycosoft.com
 ENV SUPABASE_SERVICE_ROLE_KEY=placeholder

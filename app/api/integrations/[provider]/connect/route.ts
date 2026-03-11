@@ -74,10 +74,9 @@ const PROVIDERS: Record<string, {
   },
 }
 
-// Generate state token for OAuth flow
+// Generate cryptographically secure state token for OAuth flow
 function generateState(): string {
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15)
+  return require('crypto').randomBytes(32).toString('hex')
 }
 
 export async function GET(

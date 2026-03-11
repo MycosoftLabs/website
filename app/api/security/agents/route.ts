@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from "@/lib/auth/api-auth";
 import { createClient } from '@supabase/supabase-js';
 import { resolveIncident, resolvePendingIncidents } from '@/lib/security/agents/resolution-agent';
 import { generatePredictionsForIncident, savePredictions, logAgentRun } from '@/lib/security/agents/prediction-agent';
@@ -41,6 +42,8 @@ function getSupabaseClient() {
 // ═══════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'status';
   const limit = parseInt(searchParams.get('limit') || '50', 10);
@@ -284,6 +287,8 @@ export async function GET(request: NextRequest) {
 // ═══════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body = await request.json();
     const { action } = body;

@@ -107,13 +107,34 @@ const nextConfig = {
         hostname: "hebbkx1anhila5yf.public.blob.vercel-storage.com",
         pathname: "/**",
       },
+      // SECURITY: Restrict CloudFront to specific distribution(s)
+      // Replace with your actual CloudFront distribution domain(s)
       {
         protocol: "https",
-        hostname: "*.cloudfront.net",
+        hostname: "d*.cloudfront.net",
         pathname: "/**",
       },
     ],
     unoptimized: true,
+  },
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+        ],
+      },
+    ];
   },
   // Redirect: /myca-ai -> /myca (legacy chat page removed)
   // Note: /MYCA redirect removed - caused redirect loop on some systems; use /myca directly

@@ -74,19 +74,18 @@ export async function updateSession(request: NextRequest) {
                           request.nextUrl.pathname.startsWith('/natureos')
 
   if (!user && isProtectedRoute) {
-    // Development bypass: Allow localhost access for testing
-    const isLocalDev = request.nextUrl.hostname === 'localhost' || 
-                       request.nextUrl.hostname === '127.0.0.1'
-    const devBypass = process.env.NODE_ENV === 'development' && isLocalDev
-    
+    // SECURITY: Dev bypass requires explicit opt-in env var (not just NODE_ENV)
+    const devBypass = process.env.UNSAFE_BYPASS_AUTH === 'true' &&
+                      process.env.NODE_ENV === 'development' &&
+                      (request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1')
+
     if (!devBypass) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirectTo', request.nextUrl.pathname)
       return NextResponse.redirect(url)
     }
-    // In dev mode on localhost, continue without auth
-    console.log('[Auth] Development bypass enabled for:', request.nextUrl.pathname)
+    console.log('[Auth] UNSAFE development bypass enabled for:', request.nextUrl.pathname)
   }
 
   // Redirect authenticated users away from auth pages

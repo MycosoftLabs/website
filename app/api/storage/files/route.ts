@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 interface FileItem {
   id: string
@@ -80,6 +81,9 @@ const FILE_STRUCTURE: Record<string, FileItem[]> = {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const searchParams = request.nextUrl.searchParams
   const path = searchParams.get("path") || "/"
   const source = searchParams.get("source") || "all"
@@ -123,6 +127,9 @@ export async function GET(request: NextRequest) {
 
 // Handle file operations
 export async function POST(request: Request) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { action, path, name, source } = body

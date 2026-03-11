@@ -12,7 +12,12 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
   // Support both 'next' and 'redirectTo' query params
   // Redirect to home page by default, not dashboard
-  const next = searchParams.get('next') || searchParams.get('redirectTo') || '/'
+  // SECURITY: Validate redirect target to prevent open redirect attacks
+  const rawNext = searchParams.get('next') || searchParams.get('redirectTo') || '/'
+  // Only allow relative paths starting with / and not containing //
+  const next = (rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.includes('://'))
+    ? rawNext
+    : '/'
   const error = searchParams.get('error')
   const error_description = searchParams.get('error_description')
 

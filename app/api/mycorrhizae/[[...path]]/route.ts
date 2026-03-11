@@ -101,7 +101,7 @@ function createStreamResponse(request: NextRequest): Response {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_SITE_URL || "https://mycosoft.com",
     },
   });
 }

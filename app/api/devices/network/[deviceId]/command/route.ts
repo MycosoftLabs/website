@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
@@ -25,6 +26,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ deviceId: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const { deviceId } = await params
 
   try {

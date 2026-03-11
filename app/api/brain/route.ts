@@ -5,12 +5,27 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/api-auth';
 
 const MAS_ORCHESTRATOR_URL = process.env.MAS_ORCHESTRATOR_URL || 'http://192.168.0.188:8001';
 
+// SECURITY: Allowlist of valid brain API endpoints to prevent path traversal
+const ALLOWED_ENDPOINTS = ['status', 'chat', 'chat/stream', 'event', 'memories', 'providers'];
+
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult.error) return authResult.error;
+
   const { searchParams } = new URL(request.url);
   const endpoint = searchParams.get('endpoint') || 'status';
+
+  // SECURITY: Validate endpoint against allowlist to prevent path traversal
+  if (!ALLOWED_ENDPOINTS.includes(endpoint)) {
+    return NextResponse.json(
+      { success: false, error: `Invalid endpoint. Allowed: ${ALLOWED_ENDPOINTS.join(', ')}` },
+      { status: 400 }
+    );
+  }
   
   try {
     const response = await fetch(`${MAS_ORCHESTRATOR_URL}/voice/brain/${endpoint}`, {
@@ -66,6 +81,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult.error) return authResult.error;
+
   try {
     const body = await request.json();
     const { action, ...params } = body;

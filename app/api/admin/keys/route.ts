@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 import { env } from "@/lib/env"
 
 export const dynamic = "force-dynamic"
@@ -34,6 +35,8 @@ async function proxyToMycorrhizae(path: string, options: RequestInit = {}) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   const { searchParams } = new URL(request.url)
   const service = searchParams.get("service")
   const includeInactive = searchParams.get("include_inactive") === "true"
@@ -57,6 +60,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body = await request.json()
 

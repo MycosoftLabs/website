@@ -1,8 +1,11 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type') || 'experiments'
   
@@ -49,6 +52,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
   try {
     const body = await request.json()
     const { action, ...data } = body

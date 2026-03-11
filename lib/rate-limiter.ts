@@ -139,15 +139,15 @@ export const healthCheckLimiter = new RateLimiter({
  * Returns "unknown" as fallback (still rate-limited under that bucket).
  */
 export function getClientIP(request: Request): string {
-  // Next.js / Vercel / Cloudflare headers
-  const forwarded = request.headers.get("x-forwarded-for")
-  if (forwarded) return forwarded.split(",")[0].trim()
-
-  const realIp = request.headers.get("x-real-ip")
-  if (realIp) return realIp
-
+  // SECURITY: Trust Cloudflare's header first (set by their edge, not spoofable).
+  // Only fall back to x-forwarded-for if cf-connecting-ip is absent.
+  // x-real-ip is excluded as it's easily spoofed without a trusted reverse proxy.
   const cfIp = request.headers.get("cf-connecting-ip")
   if (cfIp) return cfIp
+
+  // Fallback: first IP in x-forwarded-for (from reverse proxy)
+  const forwarded = request.headers.get("x-forwarded-for")
+  if (forwarded) return forwarded.split(",")[0].trim()
 
   return "unknown"
 }
