@@ -23,6 +23,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import bboxPolygon from "@turf/bbox-polygon"
+import area from "@turf/area"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 
 const INATURALIST_API = "https://api.inaturalist.org/v1"
@@ -634,13 +636,46 @@ export async function GET(request: NextRequest) {
   // Kingdom filter: "Fungi", "Plantae", "Animalia", "all" (default: "all")
   const kingdom = searchParams.get("kingdom") || "all"
 
-  // Bounds for geographic filtering
+  // Bounds for geographic filtering (optional bbox validation via Turf)
   const north = searchParams.get("north") ? parseFloat(searchParams.get("north")!) : undefined
   const south = searchParams.get("south") ? parseFloat(searchParams.get("south")!) : undefined
   const east = searchParams.get("east") ? parseFloat(searchParams.get("east")!) : undefined
   const west = searchParams.get("west") ? parseFloat(searchParams.get("west")!) : undefined
 
-  const bounds = north && south && east && west ? { north, south, east, west } : undefined
+  let bounds: { north: number; south: number; east: number; west: number } | undefined =
+    north != null && south != null && east != null && west != null ? { north, south, east, west } : undefined
+
+  const hadBoundsParams = north != null || south != null || east != null || west != null
+  if (bounds) {
+    try {
+      const bbox = [bounds.west, bounds.south, bounds.east, bounds.north] as [number, number, number, number]
+      const poly = bboxPolygon(bbox)
+      const a = area(poly)
+      if (
+        !Number.isFinite(a) ||
+        a <= 0 ||
+        bounds.south >= bounds.north ||
+        bounds.west >= bounds.east ||
+        bounds.south < -90 ||
+        bounds.north > 90 ||
+        bounds.west < -180 ||
+        bounds.east > 180
+      ) {
+        if (hadBoundsParams) {
+          return NextResponse.json(
+            { error: "Invalid bounds", detail: "Bounds must be valid: -90<=lat<=90, -180<=lng<=180, south<north, west<east" },
+            { status: 400 }
+          )
+        }
+        bounds = undefined
+      }
+    } catch {
+      if (hadBoundsParams) {
+        return NextResponse.json({ error: "Invalid bounds", detail: "Bounds could not be parsed" }, { status: 400 })
+      }
+      bounds = undefined
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CACHE CHECK - Return cached data if valid (for near-instant response)

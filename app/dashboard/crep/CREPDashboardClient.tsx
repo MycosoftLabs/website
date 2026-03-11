@@ -205,6 +205,7 @@ import { VoiceMapControls } from "@/components/crep/voice-map-controls";
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, GroundFilter, NOAAScales } from "@/components/crep/map-controls";
+import { CrepMapPreferencesPanel, type CrepMapPreferences } from "@/components/crep/CrepMapPreferencesPanel";
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget";
 
 // OEI Types
@@ -512,7 +513,7 @@ const layerCategories = {
   // CONTEXT - Natural events for correlation
   events: { label: "Natural Events", icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-red-400" },
   // SECONDARY - Transport & Human (demo layers, off by default)
-  infrastructure: { label: "[DEMO] Transport & Vehicles", icon: <Plane className="w-3.5 h-3.5" />, color: "text-sky-400" },
+  infrastructure: { label: "Transport & Vehicles", icon: <Plane className="w-3.5 h-3.5" />, color: "text-sky-400" },
   human: { label: "Human Activity", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-400" },
   military: { label: "[DEMO] Military & Defense", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
   pollution: { label: "Pollution & Industry", icon: <Factory className="w-3.5 h-3.5" />, color: "text-orange-400" },
@@ -2489,6 +2490,35 @@ export default function CREPDashboardPage() {
     ));
   }, []);
 
+  const handleApplyMapPreferences = useCallback((prefs: CrepMapPreferences) => {
+    if (mapRef) {
+      const b = prefs.bounds;
+      if (b && b.north != null && b.south != null && b.east != null && b.west != null && mapRef.fitBounds) {
+        mapRef.fitBounds([[b.west, b.south], [b.east, b.north]], { duration: 1000 });
+      } else if (prefs.center_lat != null && prefs.center_lng != null && prefs.zoom != null && mapRef.flyTo) {
+        mapRef.flyTo({
+          center: [prefs.center_lng, prefs.center_lat],
+          zoom: prefs.zoom,
+          duration: 1000,
+        });
+      }
+    }
+    if (prefs.layers?.length) {
+      const enabledIds = new Set(prefs.layers);
+      setLayers(prev => prev.map(l => ({ ...l, enabled: enabledIds.has(l.id) })));
+    }
+    if (prefs.kingdom_filter) {
+      try {
+        const parsed = JSON.parse(prefs.kingdom_filter) as Partial<GroundFilter>;
+        if (parsed && typeof parsed === "object") {
+          setGroundFilter(prev => ({ ...prev, ...parsed }));
+        }
+      } catch {
+        /* ignore invalid JSON */
+      }
+    }
+  }, [mapRef]);
+
   // Sync ground filter toggles with layer visibility
   useEffect(() => {
     const layerMap: Record<string, boolean> = {
@@ -4344,6 +4374,15 @@ export default function CREPDashboardPage() {
                           // Trigger a refresh by re-fetching data
                           window.location.reload();
                         }}
+                      />
+                      <CrepMapPreferencesPanel
+                        mapRef={mapRef}
+                        mapBounds={mapBounds}
+                        mapZoom={mapZoom}
+                        layers={layers.map(l => ({ id: l.id, enabled: l.enabled }))}
+                        groundFilter={groundFilter}
+                        onApply={handleApplyMapPreferences}
+                        className="mt-2"
                       />
                       
                       {rightPanelTab === "data" && (
