@@ -14,6 +14,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { requireAuth } from "@/lib/auth/api-auth";
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://192.168.0.188:8001';
 const MAS_WS_URL = MAS_API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
@@ -28,6 +29,9 @@ export const dynamic = 'force-dynamic';
  * Connects to MAS WebSocket and converts to SSE for browser.
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   const encoder = new TextEncoder();
 
   const customReadable = new ReadableStream({

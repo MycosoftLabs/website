@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -11,6 +12,9 @@ function buildMasUrl(path: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const target = buildMasUrl("/api/iot/fleet/bulk/commands")
   if (!target) {
     return NextResponse.json(

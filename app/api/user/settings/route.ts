@@ -76,9 +76,17 @@ async function ensureStorageDir() {
   }
 }
 
-// Get user settings file path
+// Get user settings file path — with path traversal protection
 function getUserSettingsPath(userId: string): string {
-  return path.join(SETTINGS_DIR, `${userId}.json`)
+  // SECURITY: Sanitize userId to prevent path traversal via crafted email/id
+  const safeId = userId.replace(/[^a-zA-Z0-9@._-]/g, '_')
+  const filePath = path.join(SETTINGS_DIR, `${safeId}.json`)
+  // Verify resolved path stays within SETTINGS_DIR
+  const resolved = path.resolve(filePath)
+  if (!resolved.startsWith(path.resolve(SETTINGS_DIR))) {
+    throw new Error('Invalid user ID: path traversal detected')
+  }
+  return filePath
 }
 
 // Load user settings

@@ -13,7 +13,7 @@ const FIRMWARE_MANAGER_PATH = process.env.FIRMWARE_MANAGER_PATH ||
   join(cwd(), "services", "firmware_manager.py");
 
 // Strict allowlist for input validation — prevents command injection
-const SAFE_INPUT_PATTERN = /^[a-zA-Z0-9_.\-\/]+$/;
+const SAFE_INPUT_PATTERN = /^[a-zA-Z0-9_.\-]+$/;
 
 function validateInput(value: string, fieldName: string): string | null {
   if (!SAFE_INPUT_PATTERN.test(value)) {

@@ -25,7 +25,16 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File
     const bucket = formData.get('bucket') as string
     const path = formData.get('path') as string
-    
+
+    // SECURITY: Enforce file size limit (50MB)
+    const MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+    if (file && file.size > MAX_UPLOAD_SIZE) {
+      return NextResponse.json(
+        { error: `File too large. Maximum size is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB` },
+        { status: 400 }
+      )
+    }
+
     if (!file) {
       return NextResponse.json(
         { error: 'File is required' },

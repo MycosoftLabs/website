@@ -28,18 +28,26 @@ export async function GET(request: Request) {
   // Detect if this is a localhost request - ALWAYS use localhost origin for local dev
   const isLocalDev = requestOrigin.includes('localhost') || requestOrigin.includes('127.0.0.1')
 
-  // For production/sandbox, check for forwarded headers from Cloudflare/proxy
+  // SECURITY: Validate X-Forwarded-Host against allowlist to prevent origin hijacking
+  const ALLOWED_HOSTS = [
+    'mycosoft.com',
+    'www.mycosoft.com',
+    'sandbox.mycosoft.com',
+    process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL).hostname : '',
+  ].filter(Boolean)
+
   const forwardedHost = request.headers.get('x-forwarded-host')
   const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+  const isValidForwardedHost = forwardedHost && ALLOWED_HOSTS.includes(forwardedHost)
 
   // Origin priority:
   // 1. Localhost always uses request origin (prevents sandbox redirect)
-  // 2. Forwarded host for production behind proxy/tunnel
+  // 2. Validated forwarded host for production behind proxy/tunnel
   // 3. NEXT_PUBLIC_SITE_URL as fallback
   // 4. Request origin as final fallback
   const origin = isLocalDev
     ? requestOrigin
-    : forwardedHost
+    : isValidForwardedHost
       ? `${forwardedProto}://${forwardedHost}`
       : process.env.NEXT_PUBLIC_SITE_URL || requestOrigin
 

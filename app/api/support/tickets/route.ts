@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 interface SupportTicketData {
   name: string
@@ -8,6 +9,13 @@ interface SupportTicketData {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Use the user's session-scoped client (not service role key)
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+  }
+
   try {
     const body: SupportTicketData = await request.json()
 
@@ -36,47 +44,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Submit to Supabase
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase configuration")
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      )
-    }
-
-    // Insert ticket into Supabase
-    const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/support_tickets`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": supabaseKey,
-        "Authorization": `Bearer ${supabaseKey}`,
-        "Prefer": "return=representation",
-      },
-      body: JSON.stringify({
+    // SECURITY: Use user-scoped Supabase client (respects RLS) instead of service role key
+    const { data: ticketData, error: insertError } = await supabase
+      .from('support_tickets')
+      .insert({
         name: body.name,
         email: body.email,
         issue_type: body.issueType,
         description: body.description,
         status: "open",
+        user_id: user.id,
         created_at: new Date().toISOString(),
-      }),
-    })
+      })
+      .select()
 
-    if (!supabaseResponse.ok) {
-      const error = await supabaseResponse.text()
-      console.error("Supabase error:", error)
+    if (insertError) {
+      console.error("Supabase error:", insertError)
       return NextResponse.json(
         { error: "Failed to submit support ticket" },
         { status: 500 }
       )
     }
 
-    const ticket = await supabaseResponse.json()
+    const ticket = ticketData
 
     // Optionally notify MAS about the new support ticket
     const masApiUrl = process.env.MAS_API_URL

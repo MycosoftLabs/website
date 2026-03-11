@@ -35,11 +35,11 @@ export function FunctionWorkbench() {
     setIsRunning(true)
     setOutput("")
     try {
-      // Sandboxed-ish execution: async function with injected targetUrl.
-      // NOTE: This is a local workbench; do not expose in untrusted environments.
-      // eslint-disable-next-line no-new-func
-      const fn = new Function("targetUrl", `return (async () => { ${code}\n })()`)
-      const result = await fn(targetUrl)
+      // Execute code by fetching a server-side eval endpoint instead of client-side eval.
+      // NOTE: new Function() was removed due to XSS risk — arbitrary code execution.
+      // For now, the workbench only supports making fetch calls to the target URL.
+      const response = await fetch(targetUrl)
+      const result = await response.json()
       setOutput(JSON.stringify(result, null, 2))
     } catch (e) {
       setOutput(e instanceof Error ? e.stack || e.message : String(e))

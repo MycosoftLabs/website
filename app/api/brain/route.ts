@@ -87,10 +87,18 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, ...params } = body;
-    
+
     let endpoint = 'chat';
     if (action === 'stream') endpoint = 'chat/stream';
     if (action === 'event') endpoint = 'event';
+
+    // SECURITY: Validate POST endpoint against allowlist (matches GET handler)
+    if (!ALLOWED_ENDPOINTS.includes(endpoint)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid endpoint. Allowed: ${ALLOWED_ENDPOINTS.join(', ')}` },
+        { status: 400 }
+      );
+    }
     
     const response = await fetch(`${MAS_ORCHESTRATOR_URL}/voice/brain/${endpoint}`, {
       method: 'POST',

@@ -5,11 +5,15 @@
 
 import { NextRequest } from 'next/server';
 import { createAlertStream } from '@/lib/security/websocket-alerts';
+import { requireAuth } from "@/lib/auth/api-auth";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   const { searchParams } = new URL(request.url);
   
   // Parse filters from query params

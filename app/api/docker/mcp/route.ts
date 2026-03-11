@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 // Docker API URL
 const DOCKER_API_URL = process.env.DOCKER_API_URL || "http://localhost:2375"
@@ -40,6 +41,9 @@ function detectMCPType(image: string): string | null {
 
 // Get list of MCP server containers
 export async function GET() {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     // Get all containers
     const containersRes = await fetch(`${DOCKER_API_URL}/containers/json?all=true`, {
@@ -120,6 +124,9 @@ export async function GET() {
 
 // Manage MCP servers
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { action, serverId, image, config } = body

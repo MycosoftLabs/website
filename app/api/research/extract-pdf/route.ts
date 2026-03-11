@@ -14,33 +14,78 @@ import {
 import { requireAuth } from '@/lib/auth/api-auth';
 import { URL } from 'url';
 
-// SECURITY: Block SSRF by validating URLs against private IP ranges
-function isPrivateUrl(urlStr: string): boolean {
+// SECURITY: Block SSRF — validates URL and resolved IPs against private ranges
+// Handles DNS rebinding, IPv6, redirect following, and hostname tricks
+import dns from 'dns/promises';
+import { isIP } from 'net';
+
+const PRIVATE_IP_RANGES = [
+  /^127\./,              // Loopback
+  /^10\./,               // RFC 1918
+  /^172\.(1[6-9]|2\d|3[01])\./,  // RFC 1918
+  /^192\.168\./,         // RFC 1918
+  /^169\.254\./,         // Link-local
+  /^0\./,                // Current network
+  /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./,  // CGNAT
+  /^::1$/,               // IPv6 Loopback
+  /^fe80:/i,             // IPv6 Link-local
+  /^fc00:/i,             // IPv6 Unique local
+  /^fd/i,                // IPv6 Unique local
+  /^::ffff:(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.)/i,  // IPv4-mapped IPv6
+];
+
+function isPrivateIP(ip: string): boolean {
+  const cleaned = ip.replace(/^\[|\]$/g, '');
+  return PRIVATE_IP_RANGES.some(r => r.test(cleaned));
+}
+
+async function validateExternalUrl(urlStr: string): Promise<{ safe: boolean; error?: string }> {
   try {
     const parsed = new URL(urlStr);
-    const hostname = parsed.hostname;
-    // Block private IPs, localhost, link-local, metadata endpoints
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '::1' ||
-      hostname === '0.0.0.0' ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('172.') ||
-      hostname.startsWith('169.254.') ||
-      hostname.endsWith('.internal') ||
-      hostname.endsWith('.local')
-    ) {
-      return true;
+
+    if (parsed.protocol !== 'https:') {
+      return { safe: false, error: 'Only HTTPS URLs are allowed' };
     }
-    // Block non-HTTPS
-    if (parsed.protocol !== 'https:') return true;
-    return false;
+
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
+    if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+      return { safe: false, error: 'Private/internal hostnames are not allowed' };
+    }
+
+    // If hostname is a raw IP, check directly
+    if (isIP(hostname)) {
+      if (isPrivateIP(hostname)) {
+        return { safe: false, error: 'Private IP addresses are not allowed' };
+      }
+      return { safe: true };
+    }
+
+    // Resolve DNS and check ALL resolved addresses against private ranges
+    try {
+      const addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+      const addresses6 = await dns.resolve6(hostname).catch(() => [] as string[]);
+      const allAddresses = [...addresses, ...addresses6];
+
+      if (allAddresses.length === 0) {
+        return { safe: false, error: 'Could not resolve hostname' };
+      }
+
+      for (const addr of allAddresses) {
+        if (isPrivateIP(addr)) {
+          return { safe: false, error: 'URL resolves to a private IP address' };
+        }
+      }
+    } catch {
+      return { safe: false, error: 'DNS resolution failed' };
+    }
+
+    return { safe: true };
   } catch {
-    return true;
+    return { safe: false, error: 'Invalid URL' };
   }
 }
+
+const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth();
@@ -62,6 +107,14 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      // Validate file size
+      if (file.size > MAX_PDF_SIZE) {
+        return NextResponse.json(
+          { error: `File too large. Maximum size is ${MAX_PDF_SIZE / 1024 / 1024}MB` },
+          { status: 400 }
+        );
+      }
+
       // Validate file type
       if (!file.name.toLowerCase().endsWith('.pdf')) {
         return NextResponse.json(
@@ -118,16 +171,17 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // SECURITY: Validate URL to prevent SSRF (Server-Side Request Forgery)
-      if (isPrivateUrl(url)) {
+      // SECURITY: Validate URL — resolves DNS and checks all IPs against private ranges
+      const validation = await validateExternalUrl(url);
+      if (!validation.safe) {
         return NextResponse.json(
-          { error: 'URL must be a public HTTPS URL. Private/internal URLs are not allowed.' },
+          { error: validation.error || 'URL not allowed' },
           { status: 400 }
         );
       }
 
-      // Fetch PDF from URL
-      const pdfResponse = await fetch(url);
+      // Fetch PDF from URL — disable redirect following to prevent SSRF via 302
+      const pdfResponse = await fetch(url, { redirect: 'error' });
       if (!pdfResponse.ok) {
         return NextResponse.json(
           { error: `Failed to fetch PDF: ${pdfResponse.status}` },

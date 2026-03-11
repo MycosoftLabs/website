@@ -22,7 +22,7 @@ const ADMIN_EMAILS = [
   'morgan@mycosoft.org',
   'garret@mycosoft.org',
   'rj@mycosoft.org',
-  'admin@mycosoft.org',
+  'michelle@mycosoft.org',
 ]
 
 /**

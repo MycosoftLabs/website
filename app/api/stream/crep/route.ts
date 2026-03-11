@@ -9,6 +9,7 @@
 
 import { NextRequest } from "next/server"
 import { API_URLS } from "@/lib/config/api-urls"
+import { requireAuth } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = API_URLS.MAS
 const MAS_WS_URL = MAS_API_URL.replace("http://", "ws://").replace("https://", "wss://")
@@ -26,6 +27,9 @@ export const dynamic = "force-dynamic"
  * - category: Optional filter (aircraft, vessel, satellite, weather)
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   const encoder = new TextEncoder()
   const { searchParams } = new URL(request.url)
   const category = searchParams.get("category")

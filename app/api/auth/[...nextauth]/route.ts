@@ -147,8 +147,11 @@ const providers: NextAuthOptions["providers"] = [
       const user = findMycosoftUser(credentials.email)
       if (!user) return null
 
-      // Check password — reject empty passwords
-      if (!credentials.password || credentials.password !== DEFAULT_PASSWORD) return null
+      // Check password — timing-safe comparison to prevent timing attacks
+      const crypto = require('crypto')
+      const inputBuf = Buffer.from(credentials.password)
+      const expectedBuf = Buffer.from(DEFAULT_PASSWORD)
+      if (inputBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(inputBuf, expectedBuf)) return null
       
       return { 
         id: user.id, 

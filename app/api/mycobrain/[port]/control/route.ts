@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 // MycoBrain service runs on port 8003
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
@@ -9,6 +10,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ port: string }> }
 ) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const { port } = await params
   const body = await request.json()
   const { peripheral, action, ...data } = body
