@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic"
 
 /**
- * MYCA Voice Test Suite v8.0.0 - Full Consciousness Integration
+ * MYCA Voice Test Suite v9.0.0 - Full Consciousness Integration
  * Updated: February 12, 2026
  * 
  * NEW in v8.0.0:
@@ -30,9 +30,22 @@ export const dynamic = "force-dynamic"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useWebMCPProvider } from "@/hooks/useWebMCPProvider"
+import { useVoiceV9Session } from "@/lib/voice-v9/useVoiceV9Session"
+import {
+  SessionHeader,
+  AudioControls,
+  LiveTranscriptPane,
+  EventPane,
+  MASPane,
+  LatencyPane,
+  PersonaPane,
+  SyncPane,
+} from "./components"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { 
   Mic, 
@@ -78,6 +91,14 @@ interface ServiceStatus {
   version?: string
   features?: Record<string, boolean>
 }
+
+/** Stable defs for diagnostics — do not depend on state to avoid re-run loops */
+const SERVICE_DEFS: { name: string; url: string }[] = [
+  { name: "Moshi (via Bridge)", url: "/api/test-voice/diagnostics" },
+  { name: "PersonaPlex Bridge (8999)", url: "/api/test-voice/bridge/health" },
+  { name: "MAS Consciousness", url: "/api/test-voice/mas/myca-status" },
+  { name: "Memory Bridge", url: "/api/test-voice/mas/memory-health" },
+]
 
 interface TestLog {
   timestamp: Date
@@ -137,23 +158,23 @@ export default function VoiceTestPage() {
   useWebMCPProvider({ onNavigate: (path) => router.push(path) })
 
   // WebSocket base must be reachable from the *browser* (client-side).
-  // For the split-architecture (5090 inference + gpu01 bridge), set:
-  // - NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL=ws://192.168.0.190:8999
-  const bridgeWsBaseUrl = (
-    process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL ||
-    (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
-      ? process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws")
-      : null) ||
-    "ws://localhost:8999"
-  ).replace(/\/$/, "")
+  // When NEXT_PUBLIC_USE_LOCAL_GPU is true, use localhost (Moshi + Bridge run locally).
+  const useLocalVoice = process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true"
 
-  // Service statuses
-  const [services, setServices] = useState<ServiceStatus[]>([
-    { name: "Moshi (via Bridge)", url: "/api/test-voice/diagnostics", status: "checking" },
-    { name: "PersonaPlex Bridge (8999)", url: "/api/test-voice/bridge/health", status: "checking" },
-    { name: "MAS Consciousness", url: "/api/test-voice/mas/myca-status", status: "checking" },
-    { name: "Memory Bridge", url: "/api/test-voice/mas/memory-health", status: "checking" },
-  ])
+  const bridgeWsBaseUrl = useLocalVoice
+    ? "ws://localhost:8999"
+    : (
+        process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_WS_URL ||
+        (process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL
+          ? process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL.replace(/^http/i, "ws")
+          : null) ||
+        "ws://localhost:8999"
+      ).replace(/\/$/, "")
+
+  // Service statuses — names match /api/test-voice/diagnostics response order
+  const [services, setServices] = useState<ServiceStatus[]>(() =>
+    SERVICE_DEFS.map((d) => ({ ...d, status: "checking" as const }))
+  )
   
   // MYCA Consciousness State
   const [consciousnessState, setConsciousnessState] = useState<{
@@ -172,7 +193,7 @@ export default function VoiceTestPage() {
   const logsEndRef = useRef<HTMLDivElement>(null)
   
   const [testPhase, setTestPhase] = useState<"idle" | "checking" | "ready" | "listening" | "complete">("idle")
-  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v8.0.0 - Consciousness Active...")
+  const [jarvisMessage, setJarvisMessage] = useState("Initializing MYCA Voice Suite v9.0.0 - Consciousness Active...")
   const [micPermission, setMicPermission] = useState<"unknown" | "granted" | "denied">("unknown")
   
   // Poll consciousness state
@@ -227,6 +248,11 @@ export default function VoiceTestPage() {
   const [protocolMode, setProtocolMode] = useState<"legacy" | "a2a">("legacy")
   const [lastProtocolMode, setLastProtocolMode] = useState<string | null>(null)
   
+  // v9 Diagnostics - unified session rail for voice v9 architecture
+  const [useV9Diagnostics, setUseV9Diagnostics] = useState(false)
+  const useV9DiagnosticsRef = useRef(false)
+  useV9DiagnosticsRef.current = useV9Diagnostics
+  
   // Memory Session
   const [memorySession, setMemorySession] = useState<MemorySession | null>(null)
   
@@ -280,6 +306,13 @@ export default function VoiceTestPage() {
       details,
     }])
   }, [])
+  
+  const v9 = useVoiceV9Session({
+    userId: "morgan",
+    onError: (err) => addLog("error", `V9: ${err}`),
+  })
+  const v9SendTranscriptRef = useRef(v9.sendTranscript)
+  v9SendTranscriptRef.current = v9.sendTranscript
   
   // DISABLED: Auto-scroll was causing annoying UX - user can scroll manually
   // useEffect(() => {
@@ -433,13 +466,14 @@ export default function VoiceTestPage() {
     }
   }, [addLog])
   
-  // Check services
+  // Check services — uses SERVICE_DEFS (not services state) to avoid dependency loop
   const checkServices = useCallback(async () => {
     setTestPhase("checking")
     addLog("info", "Running diagnostics...")
     setJarvisMessage("Running full diagnostics on voice systems...")
 
-    const updatedServices = [...services]
+    const fallbackOffline: ServiceStatus[] = SERVICE_DEFS.map((d) => ({ ...d, status: "offline" as const }))
+    let finalServices = fallbackOffline
 
     try {
       const diagRes = await fetch("/api/test-voice/diagnostics", {
@@ -451,47 +485,47 @@ export default function VoiceTestPage() {
       if (!diagRes.ok) throw new Error(`Diagnostics failed: ${diagRes.status}`)
 
       const diag = await diagRes.json()
-      const serviceResults = (diag?.services || []) as any[]
+      const serviceResults = (diag?.services || []) as { ok?: boolean; latencyMs?: number; data?: { version?: string; features?: Record<string, boolean> } }[]
 
-      for (let i = 0; i < updatedServices.length; i++) {
-        const service = updatedServices[i]
+      const updatedServices: ServiceStatus[] = SERVICE_DEFS.map((def, i) => {
         const result = serviceResults[i]
         const latency = typeof result?.latencyMs === "number" ? result.latencyMs : undefined
         const isOnline = Boolean(result?.ok)
-
-        updatedServices[i] = {
-          ...service,
+        return {
+          ...def,
           status: isOnline ? "online" : "offline",
           latency,
           version: result?.data?.version,
           features: result?.data?.features,
         }
+      })
 
+      for (let i = 0; i < updatedServices.length; i++) {
+        const s = updatedServices[i]
         addLog(
-          isOnline ? "success" : "error",
-          `${service.name}: ${isOnline ? "ONLINE" : "OFFLINE"}${latency ? ` (${latency}ms)` : ""}`
+          s.status === "online" ? "success" : "error",
+          `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms)` : ""}`
         )
-
-        // Store bridge features for the UI.
-        if (i === 1 && result?.data?.features) setBridgeFeatures(result.data.features)
+        if (i === 1 && serviceResults[i]?.data?.features) setBridgeFeatures(serviceResults[i].data!.features)
       }
 
+      finalServices = updatedServices
       setServices(updatedServices)
     } catch (error) {
       addLog("error", `Diagnostics error: ${error}`)
-      setServices(updatedServices.map(s => ({ ...s, status: "offline" })))
+      setServices(fallbackOffline)
     }
-    
+
     // Check microphone
     try {
       const permission = await navigator.permissions.query({ name: "microphone" as PermissionName })
       setMicPermission(permission.state === "granted" ? "granted" : permission.state === "denied" ? "denied" : "unknown")
     } catch {}
-    
-    const bridgeOnline = updatedServices[1].status === "online"
-    const moshiOnline = updatedServices[0].status === "online"
-    const masOnline = updatedServices[2].status === "online"
-    
+
+    const bridgeOnline = finalServices[1].status === "online"
+    const moshiOnline = finalServices[0].status === "online"
+    const masOnline = finalServices[2].status === "online"
+
     if (bridgeOnline && moshiOnline && masOnline) {
       setTestPhase("ready")
       setJarvisMessage("All systems ready. MYCA Consciousness active. Click Start to talk!")
@@ -503,11 +537,11 @@ export default function VoiceTestPage() {
       setTestPhase("idle")
       setJarvisMessage("PersonaPlex Bridge offline. Bring the bridge online, then re-run diagnostics.")
     }
-  }, [addLog, services])
+  }, [addLog])
   
   // Start voice session with MAS Event Engine
   const startMycaVoice = async () => {
-    addLog("info", "Starting MYCA Voice v7.0.0 with MAS Event Engine...")
+    addLog("info", "Starting MYCA Voice v9.0.0 with MAS Event Engine...")
     setJarvisMessage("Initializing audio decoder...")
     setAudioStats({ bytesIn: 0, bytesOut: 0, chunksIn: 0, chunksOut: 0 })
     audioChunksInRef.current = 0  // Reset packet counter
@@ -582,6 +616,10 @@ export default function VoiceTestPage() {
       const session = await bridgeRes.json()
       sessionIdRef.current = session.session_id
       addLog("success", `Session: ${session.session_id.slice(0, 8)}...`)
+      
+      if (useV9DiagnosticsRef.current) {
+        v9.createSession(session.session_id)
+      }
       
       // Initialize memory session
       setMemorySession({
@@ -975,6 +1013,10 @@ export default function VoiceTestPage() {
                 }
                 // Clone text to MAS for memory/tools (non-blocking)
                 cloneTextToMAS(text, sessionIdRef.current)
+                // v9 diagnostics: send transcript to unified session rail
+                if (useV9DiagnosticsRef.current) {
+                  v9SendTranscriptRef.current?.(text, true)
+                }
               }
             }, 800)
           }
@@ -1242,6 +1284,10 @@ export default function VoiceTestPage() {
       
       // Also clone to MAS
       cloneTextToMAS(textInput.trim(), sessionIdRef.current)
+      // v9 diagnostics: send transcript to unified session rail
+      if (useV9DiagnosticsRef.current) {
+        v9SendTranscriptRef.current?.(textInput.trim(), true)
+      }
       
       setTextInput("")
       llmStartRef.current = Date.now()
@@ -1250,6 +1296,10 @@ export default function VoiceTestPage() {
   
   // Stop voice
   const stopVoice = async () => {
+    // v9 diagnostics: end unified session
+    if (useV9DiagnosticsRef.current) {
+      v9.endSession()
+    }
     // End memory session
     if (sessionIdRef.current) {
       try {
@@ -1289,7 +1339,7 @@ export default function VoiceTestPage() {
   }, [])
   
   useEffect(() => {
-    addLog("info", "MYCA Voice Suite v8.0.0 - Full Consciousness Integration")
+    addLog("info", "MYCA Voice Suite v9.0.0 - Full Consciousness Integration")
     addLog("info", "February 12, 2026")
     addLog("info", "CUDA graphs warmup support + Consciousness modules + Memory bridge")
     checkServices()
@@ -1320,7 +1370,7 @@ export default function VoiceTestPage() {
         {/* Header */}
         <div className="mb-4 text-center">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
-            MYCA Voice Suite v8.0.0 🧠
+            MYCA Voice Suite v9.0.0 🧠
           </h1>
           <p className="text-zinc-500 text-sm">Full Consciousness | Memory Bridge | Emotional Intelligence | Intent Classifier</p>
           <p className="text-zinc-600 text-xs mt-1">
@@ -1420,6 +1470,25 @@ export default function VoiceTestPage() {
               </p>
               <p className="text-[10px] text-zinc-600 mt-1">
                 Text clone uses orchestrator-chat. A2A routes via MAS A2A gateway; Legacy uses voice/orchestrator/chat.
+              </p>
+            </div>
+
+            {/* v9 Diagnostics Toggle */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="v9-diagnostics" className="font-semibold text-sm flex items-center gap-2 cursor-pointer">
+                  <span className="text-cyan-400">v9</span>
+                  Diagnostics
+                </Label>
+                <Switch
+                  id="v9-diagnostics"
+                  checked={useV9Diagnostics}
+                  onCheckedChange={setUseV9Diagnostics}
+                  aria-label="Enable v9 unified diagnostics"
+                />
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-2">
+                Unified session rail: transcript, events, latency, persona, sync.
               </p>
             </div>
             
@@ -1570,14 +1639,64 @@ export default function VoiceTestPage() {
             )}
           </div>
           
-          {/* Center Column: MYCA Consciousness + MAS Event Engine */}
+          {/* Center Column: MYCA Consciousness + MAS Event Engine (or v9 Diagnostics) */}
           <div className="lg:col-span-5 space-y-4">
-            {/* MYCA Consciousness Status */}
-            {consciousnessState && (
+            {/* v9 Diagnostics Console - when useV9Diagnostics is on */}
+            {useV9Diagnostics && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <SessionHeader
+                    connected={v9.connected}
+                    sessionId={v9.sessionId}
+                    mode="v9"
+                  />
+                  <AudioControls
+                    micActive={isRecognizing}
+                    outputActive={isSpeaking}
+                    onMicToggle={() => {
+                      if (isRecognizing) stopAudioCapture()
+                      else if (testPhase === "voice" && wsRef.current) startAudioCapture(wsRef.current)
+                    }}
+                    onOutputToggle={() => {}}
+                    disabled={testPhase !== "voice"}
+                  />
+                </div>
+                <LiveTranscriptPane
+                  transcripts={v9.transcripts}
+                  interimText={interimTranscript}
+                  maxHeight="180px"
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <EventPane events={v9.events} maxHeight="160px" />
+                  <MASPane
+                    updates={v9.events.map((e) => ({
+                      id: e.event_id,
+                      type: (e.source === "tool_completion" ? "tool" : e.source === "mas_task" ? "task" : "agent") as "tool" | "agent" | "task",
+                      message: e.summary ?? "",
+                      timestamp: e.created_at,
+                      status: e.speech_worthy ? "spoken" : "pending",
+                    }))}
+                    maxHeight="160px"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <LatencyPane traces={v9.latencyTraces} maxHeight="120px" />
+                  <PersonaPane state={v9.personaState} onRefresh={v9.refreshPersona} />
+                  <SyncPane
+                    interruptState={v9.interruptState}
+                    lastSyncAt={v9.transcripts.length > 0 ? v9.transcripts[v9.transcripts.length - 1]?.created_at ?? null : null}
+                    inSync={v9.connected}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* MYCA Consciousness Status - hidden when v9 diagnostics on */}
+            {!useV9Diagnostics && consciousnessState && (
               <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-800/30 rounded-xl p-4">
                 <h2 className="font-semibold flex items-center gap-2 mb-3">
                   <Brain className="w-5 h-5 text-purple-400 animate-pulse" />
-                  MYCA Consciousness - v8.0.0
+                  MYCA Consciousness - v9.0.0
                   <Badge className="ml-auto">{consciousnessState.state.toUpperCase()}</Badge>
                 </h2>
                 
@@ -1627,7 +1746,10 @@ export default function VoiceTestPage() {
                 )}
               </div>
             )}
-            
+
+            {/* Legacy center content - hidden when v9 diagnostics on */}
+            {!useV9Diagnostics && (
+            <>
             {/* MAS Event Engine Header */}
             <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-800/30 rounded-xl p-3">
               <div className="flex items-center justify-between">
@@ -1772,6 +1894,8 @@ export default function VoiceTestPage() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
           
           {/* Right Column: Metrics + Logs */}
@@ -1922,7 +2046,7 @@ export default function VoiceTestPage() {
         
         {/* Footer */}
         <div className="mt-4 text-center text-zinc-600 text-xs">
-          MYCA Voice Suite v7.0.0 | February 3, 2026 | PersonaPlex Full-Duplex + MAS Event Engine
+          MYCA Voice Suite v9.0.0 | March 11, 2026 | PersonaPlex Full-Duplex + MAS Event Engine + v9 Session Rail
         </div>
       </div>
     </div>

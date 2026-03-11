@@ -39,6 +39,14 @@ const LIGHT_PUBLIC_PREFIXES = ["/devices/", "/about/", "/research/", "/science/"
 const MYCA_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/scientific", "/admin"]
 const VOICE_PREFIXES = ["/search", "/myca", "/natureos", "/test-voice", "/apps"]
 const APP_STATE_PREFIXES = ["/search", "/myca", "/natureos", "/dashboard", "/defense", "/test-voice", "/apps", "/protocols", "/scientific", "/admin"]
+const NATIVE_MYCA_INTERFACE_PREFIXES = [
+  "/test-voice",
+  "/search",
+  "/dashboard/crep",
+  "/dashboard/morgan",
+  "/myca",
+  "/natureos/ai-studio",
+]
 
 function startsWithAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
@@ -68,6 +76,10 @@ function isLightPublicRoute(pathname: string): boolean {
   return LIGHT_PUBLIC_ROUTES.has(pathname) || startsWithAny(pathname, LIGHT_PUBLIC_PREFIXES)
 }
 
+function hasNativeMycaInterface(pathname: string): boolean {
+  return startsWithAny(pathname, NATIVE_MYCA_INTERFACE_PREFIXES)
+}
+
 export function AppShellProviders({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/"
   const [hasUsedMyca, setHasUsedMyca] = useState(false)
@@ -87,10 +99,11 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     const routeNeedsAppState = startsWithAny(pathname, APP_STATE_PREFIXES)
 
     const mycaEnabled = routeWantsMyca || (!lightPublic && hasUsedMyca)
+    const nativeMycaInterface = hasNativeMycaInterface(pathname)
     return {
       enableMyca: mycaEnabled,
       enableVoice: mycaEnabled && routeWantsVoice,
-      showFloating: mycaEnabled,
+      showFloating: mycaEnabled && !nativeMycaInterface,
       enableAppState: routeNeedsAppState,
       mycaAlwaysActive: pathname.startsWith("/search") || pathname.startsWith("/myca") || pathname.startsWith("/test-voice"),
     }
