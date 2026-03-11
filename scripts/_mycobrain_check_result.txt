@@ -1,0 +1,38 @@
+﻿--- systemctl status ---
+ΓùÅ mycobrain-service.service - MycoBrain serial gateway and ingestion service (port 8003)
+     Loaded: loaded (/etc/systemd/system/mycobrain-service.service; enabled; preset: enabled)
+     Active: activating (auto-restart) (Result: exit-code) since Fri 2026-03-06 23:39:39 UTC; 1s ago
+    Process: 322391 ExecStart=/usr/bin/python3 /opt/mycosoft/mas/services/mycobrain/mycobrain_service_standalone.py (code=exited, status=1/FAILURE)
+   Main PID: 322391 (code=exited, status=1/FAILURE)
+        CPU: 285ms
+
+--- curl health ---
+HTTP000
+
+--- unit file ---
+# MycoBrain ingestion service - always-on on sandbox for continuous board ingestion
+# CRITICAL: Never stop. Infinite restarts; watchdog backup every 1 min.
+# Mar 07, 2026
+[Unit]
+Description=MycoBrain serial gateway and ingestion service (port 8003)
+After=network-online.target
+Wants=network-online.target
+# Vital company function: board ingestion must run continuously
+[Service]
+Type=simple
+User=mycosoft
+Group=mycosoft
+WorkingDirectory=/opt/mycosoft/mas
+ExecStart=/usr/bin/python3 /opt/mycosoft/mas/services/mycobrain/mycobrain_service_standalone.py
+Restart=always
+RestartSec=3
+# No restart limit - keep trying forever
+StartLimitIntervalSec=0
+# If the process hangs (e.g. serial lock), watchdog will restart via cron
+TimeoutStartSec=30
+Environment=MYCOBRAIN_SERVICE_PORT=8003
+Environment=MAS_REGISTRY_URL=http://192.168.0.188:8001
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mycobrain-service
+

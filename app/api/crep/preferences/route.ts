@@ -24,6 +24,8 @@ export interface CrepMapPreferences {
   zoom?: number | null
   layers?: string[] | null
   kingdom_filter?: string | null
+  eo_imagery?: { showModis?: boolean; showViirs?: boolean; showAirs?: boolean; showLandsat?: boolean; showEonet?: boolean } | null
+  basemap?: "dark" | "satellite" | string | null
   created_at?: string
   updated_at?: string
 }
@@ -83,6 +85,8 @@ export async function POST(request: NextRequest) {
       zoom: body.zoom ?? 8,
       layers: body.layers ?? [],
       kingdom_filter: body.kingdom_filter ?? "all",
+      eo_imagery: body.eo_imagery ?? null,
+      basemap: body.basemap ?? null,
       updated_at: new Date().toISOString(),
     }
 

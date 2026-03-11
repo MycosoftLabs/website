@@ -32,6 +32,32 @@ const GBIF_API = "https://api.gbif.org/v1"
 // MINDEX runs on port 8000 (Docker container)
 const MINDEX_API = process.env.MINDEX_API_URL || "http://localhost:8000"
 
+const EXTERNAL_API_TIMEOUT_MS = 10000 // 10s per request
+const EXTERNAL_API_MAX_RETRIES = 2
+
+/** Fetch with timeout and retry for external APIs (iNaturalist, GBIF) to reduce ConnectTimeoutError */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  retries = EXTERNAL_API_MAX_RETRIES,
+): Promise<Response> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const signal = AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, { ...options, signal })
+      return res
+    } catch (err) {
+      lastErr = err
+      if (attempt < retries) {
+        const delay = 500 * Math.pow(2, attempt)
+        await new Promise((r) => setTimeout(r, delay))
+      }
+    }
+  }
+  throw lastErr
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CACHING SYSTEM - Reduces MINDEX latency to near-instant for repeat loads
 // Cache expires after 5 minutes to balance freshness with performance
@@ -44,6 +70,8 @@ interface CachedData {
 
 let dataCache: CachedData | null = null
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+// Next.js response payload limit ~2MB - skip cache for large payloads
+const MAX_CACHE_PAYLOAD_BYTES = 1.5 * 1024 * 1024 // 1.5 MB
 
 function isCacheValid(): boolean {
   if (!dataCache) return false
@@ -59,12 +87,17 @@ function getCachedData(): CachedData | null {
 }
 
 function setCachedData(observations: FungalObservation[], sources: { mindex: number; iNaturalist: number; gbif: number }): void {
+  const payloadSize = new Blob([JSON.stringify(observations)]).size
+  if (payloadSize > MAX_CACHE_PAYLOAD_BYTES) {
+    console.log(`[CREP/Fungal] ⚠️ Skipping cache: payload ${(payloadSize / 1024 / 1024).toFixed(2)}MB exceeds ${(MAX_CACHE_PAYLOAD_BYTES / 1024 / 1024).toFixed(1)}MB limit`)
+    return
+  }
   dataCache = {
     observations,
     timestamp: Date.now(),
     sources,
   }
-  console.log(`[CREP/Fungal] 💾 Cached ${observations.length} observations`)
+  console.log(`[CREP/Fungal] 💾 Cached ${observations.length} observations (${(payloadSize / 1024).toFixed(0)}KB)`)
 }
 
 export interface FungalObservation {
@@ -96,28 +129,28 @@ export interface FungalObservation {
 }
 
 /**
- * Fetch ALL observations from local MINDEX database
+ * Fetch observations from local MINDEX database
  * 
  * MINDEX is the PRIMARY source - contains pre-imported iNaturalist/GBIF data.
- * No artificial limits. Filters for quality data:
- * - Must have GPS coordinates
- * - Must have photo/image
- * - Must have species name
- * - Must have timestamp
- * - From last 10 years preferred
+ * Supports bbox for viewport-based fetching (iNaturalist-style).
  */
-async function fetchMINDEXObservations(limit?: number): Promise<FungalObservation[]> {
+async function fetchMINDEXObservations(
+  limit?: number,
+  bounds?: { north: number; south: number; east: number; west: number },
+): Promise<FungalObservation[]> {
   try {
-    // MINDEX API has a server-side limit of 1000 per request
-    // We need to paginate to get all data
     const BATCH_SIZE = 1000
-    const MAX_OBSERVATIONS = limit || 25000 // Cap at 25k for performance
+    const MAX_OBSERVATIONS = limit || 25000
     
     const allObservations: Record<string, unknown>[] = []
     let offset = 0
     let hasMore = true
     
-    console.log(`[CREP/Fungal] Fetching from MINDEX with pagination (max ${MAX_OBSERVATIONS})...`)
+    const bboxStr = bounds
+      ? `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`
+      : undefined
+    
+    console.log(`[CREP/Fungal] Fetching from MINDEX (bbox=${bboxStr ? "yes" : "no"}, max ${MAX_OBSERVATIONS})...`)
     
     while (hasMore && allObservations.length < MAX_OBSERVATIONS) {
       const params = new URLSearchParams({
@@ -126,6 +159,9 @@ async function fetchMINDEXObservations(limit?: number): Promise<FungalObservatio
         order_by: "observed_at",
         order: "desc",
       })
+      if (bboxStr) {
+        params.set("bbox", bboxStr)
+      }
       
       const response = await fetch(`${MINDEX_API}/api/mindex/observations?${params}`, {
         signal: AbortSignal.timeout(15000), // 15 second timeout per batch
@@ -478,7 +514,7 @@ async function fetchINaturalistObservations(
             swlng: String(region.west),
           })
 
-          const response = await fetch(`${INATURALIST_API}/observations?${params}`, {
+          const response = await fetchWithRetry(`${INATURALIST_API}/observations?${params}`, {
             headers: { "Accept": "application/json" },
             next: { revalidate: 300 },
           })
@@ -495,13 +531,24 @@ async function fetchINaturalistObservations(
 
           const regionObs = (data.results || [])
             .filter((obs: any) => obs.geojson?.coordinates || obs.location)
-            .map((obs: any) => ({
+            .map((obs: any) => {
+              // iNaturalist: geojson.coordinates is [lng, lat]; location is "lat,lng" string
+              let lat = obs.geojson?.coordinates?.[1]
+              let lng = obs.geojson?.coordinates?.[0]
+              if (lat == null || lng == null) {
+                const parts = obs.location?.split(",")
+                if (parts?.length >= 2) {
+                  lat = parseFloat(parts[0])
+                  lng = parseFloat(parts[1])
+                }
+              }
+              return {
               id: `inat-${obs.id}`,
               species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
               scientificName: obs.taxon?.name || "Unknown",
               commonName: obs.taxon?.preferred_common_name,
-              latitude: obs.geojson?.coordinates?.[1] || parseFloat(obs.location?.split(",")[0]) || 0,
-              longitude: obs.geojson?.coordinates?.[0] || parseFloat(obs.location?.split(",")[1]) || 0,
+              latitude: Number(lat) || 0,
+              longitude: Number(lng) || 0,
               timestamp: obs.observed_on || obs.created_at,
               source: "iNaturalist" as const,
               verified: obs.quality_grade === "research",
@@ -515,7 +562,8 @@ async function fetchINaturalistObservations(
               kingdom: obs.taxon?.iconic_taxon_name || taxon,
               iconicTaxon: obs.taxon?.iconic_taxon_name || taxon,
               taxonId: obs.taxon?.id,
-            }))
+              sourceUrl: `https://www.inaturalist.org/observations/${obs.id}`,
+            }})
 
           allObservations.push(...regionObs)
         } catch (error) {
@@ -554,7 +602,7 @@ async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<F
           hasGeospatialIssue: "false",
         })
 
-        const response = await fetch(`${GBIF_API}/occurrence/search?${params}`, {
+        const response = await fetchWithRetry(`${GBIF_API}/occurrence/search?${params}`, {
           headers: { "Accept": "application/json" },
           next: { revalidate: 300 },
         })
@@ -716,125 +764,145 @@ export async function GET(request: NextRequest) {
 
   let allObservations: FungalObservation[] = []
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MINDEX IS PRIMARY - Get all data from local database first
-  // Only fall back to external APIs if MINDEX fails or is empty
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  if (!fallbackOnly && (!source || source === "all" || source === "mindex")) {
-    console.log("[CREP/Fungal] Fetching PRIMARY data from MINDEX (no limit)...")
-    const mindexObs = await fetchMINDEXObservations(limit)
-    
-    if (mindexObs.length > 0) {
-      console.log(`[CREP/Fungal] ✅ MINDEX returned ${mindexObs.length} observations - using as primary source`)
-      allObservations = mindexObs
-      
-      // If we got good data from MINDEX, we don't need external APIs
-      // MINDEX already contains iNaturalist/GBIF data from ETL
-    } else {
-      console.log("[CREP/Fungal] ⚠️ MINDEX returned 0 observations, falling back to external APIs")
-    }
-  }
-  
-  // Fallback to external APIs only if MINDEX failed or was explicitly disabled
-  if (allObservations.length === 0 || fallbackOnly) {
-    console.log("[CREP/Life] Using external API fallback (iNaturalist + GBIF) for ALL LIFE...")
+  try {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MINDEX IS PRIMARY - Get all data from local database first
+    // Only fall back to external APIs if MINDEX fails or is empty
+    // ═══════════════════════════════════════════════════════════════════════════
 
-    const fetchPromises: Promise<FungalObservation[]>[] = []
+    if (!fallbackOnly && (!source || source === "all" || source === "mindex")) {
+      console.log("[CREP/Fungal] Fetching PRIMARY data from MINDEX...")
+      const mindexObs = await fetchMINDEXObservations(limit, bounds)
 
-    if (!source || source === "all" || source === "inat") {
-      fetchPromises.push(fetchINaturalistObservations(limit || 2000, bounds, kingdom))
-    }
-    if (!source || source === "all" || source === "gbif") {
-      fetchPromises.push(fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom))
+      if (mindexObs.length > 0) {
+        console.log(`[CREP/Fungal] ✅ MINDEX returned ${mindexObs.length} observations - using as primary source`)
+        allObservations = mindexObs
+
+        // If we got good data from MINDEX, we don't need external APIs
+        // MINDEX already contains iNaturalist/GBIF data from ETL
+      } else {
+        console.log("[CREP/Fungal] ⚠️ MINDEX returned 0 observations, falling back to external APIs")
+      }
     }
 
-    const results = await Promise.all(fetchPromises)
-    allObservations = results.flat()
-    console.log(`[CREP/Life] External APIs returned ${allObservations.length} observations across all kingdoms`)
-  }
+    // Fallback to external APIs only if MINDEX failed or was explicitly disabled
+    if (allObservations.length === 0 || fallbackOnly) {
+      console.log("[CREP/Life] Using external API fallback (iNaturalist + GBIF) for ALL LIFE...")
 
-  // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
-  if (kingdom !== "all") {
-    allObservations = allObservations.filter(obs =>
-      (obs.kingdom || "").toLowerCase() === kingdom.toLowerCase() ||
-      (obs.iconicTaxon || "").toLowerCase() === kingdom.toLowerCase()
-    )
-  }
+      const fetchPromises: Promise<FungalObservation[]>[] = []
 
-  // Deduplicate by species name + coordinates (close proximity = same observation)
-  const uniqueObservations = deduplicateObservations(allObservations)
+      if (!source || source === "all" || source === "inat") {
+        fetchPromises.push(fetchINaturalistObservations(limit || 2000, bounds, kingdom))
+      }
+      if (!source || source === "all" || source === "gbif") {
+        fetchPromises.push(fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom))
+      }
 
-  // Filter to valid coordinates only
-  const validObservations = uniqueObservations.filter(
-    (obs) => 
-      obs.latitude !== 0 && 
-      obs.longitude !== 0 && 
-      !isNaN(obs.latitude) && 
-      !isNaN(obs.longitude)
-  )
+      const results = await Promise.all(fetchPromises)
+      allObservations = results.flat()
+      console.log(`[CREP/Life] External APIs returned ${allObservations.length} observations across all kingdoms`)
+    }
 
-  // Apply geographic filter if bounds provided
-  const filteredObservations = bounds
-    ? validObservations.filter(
-        (obs) =>
-          obs.latitude >= bounds.south &&
-          obs.latitude <= bounds.north &&
-          obs.longitude >= bounds.west &&
-          obs.longitude <= bounds.east
+    // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
+    if (kingdom !== "all") {
+      allObservations = allObservations.filter(obs =>
+        (obs.kingdom || "").toLowerCase() === kingdom.toLowerCase() ||
+        (obs.iconicTaxon || "").toLowerCase() === kingdom.toLowerCase()
       )
-    : validObservations
+    }
 
-  // Sort by timestamp (most recent first)
-  const sortedObservations = filteredObservations
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    // Deduplicate by species name + coordinates (close proximity = same observation)
+    const uniqueObservations = deduplicateObservations(allObservations)
 
-  // Only apply limit if explicitly requested
-  const finalObservations = limit && limit > 0 
-    ? sortedObservations.slice(0, limit) 
-    : sortedObservations
+    // Filter to valid coordinates only
+    const validObservations = uniqueObservations.filter(
+      (obs) =>
+        obs.latitude !== 0 &&
+        obs.longitude !== 0 &&
+        !isNaN(obs.latitude) &&
+        !isNaN(obs.longitude)
+    )
 
-  // Queue background geocoding for MINDEX observations without GPS
-  const pendingGeocode = await queuePendingGeocoding()
+    // Apply geographic filter if bounds provided
+    const filteredObservations = bounds
+      ? validObservations.filter(
+          (obs) =>
+            obs.latitude >= bounds.south &&
+            obs.latitude <= bounds.north &&
+            obs.longitude >= bounds.west &&
+            obs.longitude <= bounds.east
+        )
+      : validObservations
 
-  // Build sources object
-  const sources = {
-    mindex: finalObservations.filter(o => o.source === "MINDEX").length,
-    iNaturalist: finalObservations.filter(o => o.source === "iNaturalist").length,
-    gbif: finalObservations.filter(o => o.source === "GBIF").length,
+    // Sort by timestamp (most recent first)
+    const sortedObservations = filteredObservations
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    // Only apply limit if explicitly requested
+    const finalObservations = limit && limit > 0
+      ? sortedObservations.slice(0, limit)
+      : sortedObservations
+
+    // Queue background geocoding for MINDEX observations without GPS
+    const pendingGeocode = await queuePendingGeocoding()
+
+    // Build sources object
+    const sources = {
+      mindex: finalObservations.filter(o => o.source === "MINDEX").length,
+      iNaturalist: finalObservations.filter(o => o.source === "iNaturalist").length,
+      gbif: finalObservations.filter(o => o.source === "GBIF").length,
+    }
+
+    // Build kingdom breakdown
+    const kingdoms: Record<string, number> = {}
+    for (const obs of finalObservations) {
+      const k = obs.kingdom || obs.iconicTaxon || "Unknown"
+      kingdoms[k] = (kingdoms[k] || 0) + 1
+    }
+
+    // Cache the data for near-instant subsequent requests
+    setCachedData(finalObservations, sources)
+
+    // Log to MINDEX
+    const latency = Date.now() - startTime
+    const primarySource = sources.mindex > 0 ? "mindex" : sources.iNaturalist > 0 ? "inaturalist" : "gbif"
+    logDataCollection("fungal", primarySource, finalObservations.length, latency, false)
+
+    console.log(`[CREP/Life] Returning ${finalObservations.length} observations across ${Object.keys(kingdoms).length} kingdoms`)
+
+    return NextResponse.json({
+      observations: finalObservations,
+      meta: {
+        total: finalObservations.length,
+        sources,
+        kingdoms,
+        pendingGeocode,
+        cached: false,
+        timestamp: new Date().toISOString(),
+        dataSource: allObservations.length > 0 && finalObservations[0]?.source !== "MINDEX"
+          ? "external_fallback"
+          : "mindex_primary",
+      },
+    })
+  } catch (error) {
+    console.error("[CREP/Fungal] Unhandled error fetching observations:", error)
+    // Return 200 with empty data when all sources fail - never 500
+    const latency = Date.now() - startTime
+    logAPIError("fungal", "crep-fungal-route", String(error), latency)
+    return NextResponse.json({
+      observations: [],
+      meta: {
+        total: 0,
+        sources: { mindex: 0, iNaturalist: 0, gbif: 0 },
+        kingdoms: {},
+        pendingGeocode: 0,
+        cached: false,
+        timestamp: new Date().toISOString(),
+        dataSource: "error_fallback",
+        error: "Data sources temporarily unavailable",
+      },
+    })
   }
-
-  // Build kingdom breakdown
-  const kingdoms: Record<string, number> = {}
-  for (const obs of finalObservations) {
-    const k = obs.kingdom || obs.iconicTaxon || "Unknown"
-    kingdoms[k] = (kingdoms[k] || 0) + 1
-  }
-
-  // Cache the data for near-instant subsequent requests
-  setCachedData(finalObservations, sources)
-
-  // Log to MINDEX
-  const latency = Date.now() - startTime
-  const primarySource = sources.mindex > 0 ? "mindex" : sources.iNaturalist > 0 ? "inaturalist" : "gbif"
-  logDataCollection("fungal", primarySource, finalObservations.length, latency, false)
-
-  console.log(`[CREP/Life] Returning ${finalObservations.length} observations across ${Object.keys(kingdoms).length} kingdoms`)
-
-  return NextResponse.json({
-    observations: finalObservations,
-    meta: {
-      total: finalObservations.length,
-      sources,
-      kingdoms,
-      pendingGeocode,
-      cached: false,
-      timestamp: new Date().toISOString(),
-      dataSource: allObservations.length > 0 && finalObservations[0]?.source !== "MINDEX"
-        ? "external_fallback"
-        : "mindex_primary",
-    },
-  })
 }
 
 /**

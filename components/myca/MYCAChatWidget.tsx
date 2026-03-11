@@ -97,7 +97,7 @@ export function MYCAChatWidget({
             </div>
             <span className="text-sm font-semibold">{title}</span>
             {consciousness?.is_conscious && (
-              <Badge variant="outline" className="text-[9px] h-4 px-1 bg-green-500/10 text-green-500 border-green-500/20">
+              <Badge variant="outline" className="text-xs h-4 px-1 bg-green-500/10 text-green-500 border-green-500/20">
                 conscious
               </Badge>
             )}
@@ -111,7 +111,7 @@ export function MYCAChatWidget({
             <Button
               variant={memoryEnabled ? "default" : "outline"}
               size="sm"
-              className="h-7 px-2 text-[10px]"
+              className="h-7 px-2 text-xs"
               onClick={() => setMemoryEnabled(!memoryEnabled)}
             >
               Memory
@@ -137,7 +137,7 @@ export function MYCAChatWidget({
       >
         <div className="space-y-3">
           {visibleMessages.length === 0 && (
-            <div className="text-xs text-muted-foreground text-center py-8">
+            <div className="text-sm text-muted-foreground text-center py-8">
               Start a conversation with MYCA.
             </div>
           )}
@@ -151,7 +151,7 @@ export function MYCAChatWidget({
             >
               <div
                 className={cn(
-                  "max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed",
+                  "max-w-[85%] rounded-xl px-4 py-2.5 text-base leading-relaxed",
                   message.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -159,7 +159,7 @@ export function MYCAChatWidget({
               >
                 {message.content}
               </div>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                 {message.agent && (
                   <span className="uppercase">

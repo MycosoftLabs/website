@@ -7,10 +7,16 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
-  const bridgeBaseUrl =
-    process.env.PERSONAPLEX_BRIDGE_URL ||
-    process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
-    "http://localhost:8999"
+  const useLocalVoice =
+    process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true" ||
+    process.env.USE_LOCAL_VOICE === "true" ||
+    process.env.USE_LOCAL_VOICE === "1"
+
+  const bridgeBaseUrl = useLocalVoice
+    ? "http://localhost:8999"
+    : process.env.PERSONAPLEX_BRIDGE_URL ||
+      process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
+      "http://localhost:8999"
 
   let body: unknown = null
   try {

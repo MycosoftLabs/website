@@ -19,7 +19,7 @@ const MYCALiveDemoBackground = dynamic(
 import { Brain, Globe2, MessageSquare, Users, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const CHAT_PANEL_HEIGHT = 340
+const CHAT_PANEL_HEIGHT = 680
 
 interface AgentInfo {
   agent_id: string
@@ -123,7 +123,7 @@ function LiveDemoAgentsTab() {
               className="px-3 py-2 rounded-lg bg-muted/50 border border-border/50 text-sm"
             >
               <div className="font-medium truncate">{a.name}</div>
-              <div className="text-[10px] text-muted-foreground uppercase mt-0.5">
+              <div className="text-xs text-muted-foreground uppercase mt-0.5">
                 {a.category}
               </div>
               {a.description && (
@@ -133,7 +133,7 @@ function LiveDemoAgentsTab() {
               )}
               <Badge
                 variant={a.status === "active" ? "default" : "secondary"}
-                className="mt-1.5 text-[9px] h-4"
+                className="mt-1.5 text-xs h-4"
               >
                 {a.status}
               </Badge>
@@ -255,7 +255,7 @@ export function LiveDemo({ className }: { className?: string }) {
               <div className="w-full lg:w-[320px] xl:w-[360px] shrink-0 flex flex-col">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">User</span>
-                  <span className="text-[10px] text-muted-foreground">— single stream</span>
+                  <span className="text-xs text-muted-foreground">— single stream</span>
                 </div>
                 <div
                   className="overflow-hidden shrink-0 border border-border rounded-xl flex flex-col"
@@ -277,7 +277,7 @@ export function LiveDemo({ className }: { className?: string }) {
               <div className="flex-1 min-w-0 flex flex-col">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-medium uppercase tracking-wider text-green-500">MYCA</span>
-                  <span className="text-[10px] text-muted-foreground">— multiple streams, all interactions</span>
+                  <span className="text-xs text-muted-foreground">— multiple streams, all interactions</span>
                 </div>
                 <div className="hidden lg:block min-h-0 overflow-hidden shrink-0" style={{ height: CHAT_PANEL_HEIGHT }}>
                   <MYCALiveActivityPanel className="h-full min-h-0" />
@@ -288,8 +288,8 @@ export function LiveDemo({ className }: { className?: string }) {
                     {activityOpen ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="mt-3" style={{ minHeight: 280 }}>
-                      <MYCALiveActivityPanel className="h-full min-h-[200px]" />
+                    <div className="mt-3" style={{ minHeight: 360 }}>
+                      <MYCALiveActivityPanel className="h-full min-h-[320px]" />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

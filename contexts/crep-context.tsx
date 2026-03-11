@@ -162,6 +162,8 @@ function getEntityTypeKey(type: string): string | null {
     earthquake: "globalEvents",
     device: "devices",
     elephant: "devices",
+    fire: "globalEvents",
+    crisis: "globalEvents",
   }
   return map[type] || null
 }
@@ -525,7 +527,8 @@ export function CREPProvider({ children }: { children: React.ReactNode }) {
       {
         onConnectionStateChange: setConnectionState,
         onError: (error) => {
-          console.error("[CREP Stream] Error:", error.message)
+          // Non-fatal: CREP works via REST; stream is for live updates only
+          console.warn("[CREP Stream] Live stream unavailable:", error.message)
         },
       }
     )

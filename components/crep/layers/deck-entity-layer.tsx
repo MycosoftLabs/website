@@ -80,21 +80,59 @@ const DOT_ICON = svgUri(
 const speciesSvg = (content: string) =>
   svgUri(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">${content}</svg>`);
 
-const SPECIES_ICON_URLS: Record<string, string> = {
-  fungi:          speciesSvg(`<g><ellipse cx="16" cy="14" rx="12" ry="10" fill="white"/><rect x="13" y="14" width="6" height="12" rx="2" fill="white"/><circle cx="16" cy="14" r="3" fill="white" opacity="0.3"/></g>`),
-  plantae:        speciesSvg(`<g><path fill="white" d="M16 4c-2 4-8 12-8 20 0 4 3 8 8 8s8-4 8-8c0-8-6-16-8-20z"/></g>`),
-  aves:           speciesSvg(`<g><path fill="white" d="M8 18c0-4 4-8 8-8s8 4 8 8c0 2-1 4-3 5l2 5h-4l-3-4-3 4H7l2-5c-2-1-3-3-3-5z"/><ellipse cx="16" cy="14" rx="4" ry="3" fill="white"/></g>`),
-  mammalia:       speciesSvg(`<g><ellipse cx="16" cy="18" rx="6" ry="8" fill="white"/><ellipse cx="10" cy="10" rx="3" ry="4" fill="white"/><ellipse cx="16" cy="8" rx="3" ry="4" fill="white"/><ellipse cx="22" cy="10" rx="3" ry="4" fill="white"/><ellipse cx="13" cy="6" rx="2" ry="3" fill="white"/><ellipse cx="19" cy="6" rx="2" ry="3" fill="white"/></g>`),
-  reptilia:       speciesSvg(`<g><path fill="white" d="M8 16h4l2-4 2 8 2-6 2 2h4l-2-4 2-6h-4l-2 4-2-6-2 4-4 2z"/></g>`),
-  amphibia:       speciesSvg(`<g><ellipse cx="16" cy="16" rx="10" ry="8" fill="white"/><circle cx="12" cy="14" r="2" fill="white" opacity="0.5"/><circle cx="20" cy="14" r="2" fill="white" opacity="0.5"/><path fill="white" d="M10 22 Q16 26 22 22"/></g>`),
-  actinopterygii: speciesSvg(`<g><ellipse cx="16" cy="16" rx="12" ry="6" fill="white"/><path fill="white" d="M4 16 L8 12 L8 20 Z"/><path fill="white" d="M28 16 L24 12 L24 20 Z"/></g>`),
-  mollusca:       speciesSvg(`<g><path fill="white" d="M16 4 Q24 8 24 16 Q24 24 16 28 Q8 24 8 16 Q8 8 16 4 Z M16 10 Q12 14 12 16 Q12 18 16 22 Q20 18 20 16 Q20 14 16 10 Z"/></g>`),
-  arachnida:      speciesSvg(`<g><circle cx="16" cy="14" r="5" fill="white"/><rect x="15" y="4" width="2" height="12" fill="white"/><rect x="7" y="13" width="18" height="2" fill="white"/><rect x="10" y="10" width="4" height="4" fill="white" transform="rotate(-45 12 12)"/><rect x="18" y="10" width="4" height="4" fill="white" transform="rotate(45 20 12)"/><rect x="10" y="16" width="4" height="4" fill="white" transform="rotate(45 12 18)"/><rect x="18" y="16" width="4" height="4" fill="white" transform="rotate(-45 20 18)"/></g>`),
-  insecta:        speciesSvg(`<g><ellipse cx="16" cy="16" rx="2" ry="8" fill="white"/><ellipse cx="10" cy="12" rx="6" ry="6" fill="white"/><ellipse cx="22" cy="12" rx="6" ry="6" fill="white"/><ellipse cx="10" cy="20" rx="6" ry="6" fill="white"/><ellipse cx="22" cy="20" rx="6" ry="6" fill="white"/></g>`),
-  animalia:       speciesSvg(`<g><ellipse cx="16" cy="18" rx="8" ry="6" fill="white"/><path fill="white" d="M14 10 L16 4 L18 10"/><ellipse cx="12" cy="16" rx="2" ry="2" fill="white" opacity="0.5"/><ellipse cx="20" cy="16" rx="2" ry="2" fill="white" opacity="0.5"/></g>`),
+/** Per-kingdom SVG content (32×32) – used to build combined atlas */
+const SPECIES_ICON_CONTENT: Record<string, string> = {
+  fungi:          `<g><ellipse cx="16" cy="14" rx="12" ry="10" fill="white"/><rect x="13" y="14" width="6" height="12" rx="2" fill="white"/><circle cx="16" cy="14" r="3" fill="white" opacity="0.3"/></g>`,
+  plantae:        `<g><path fill="white" d="M16 4c-2 4-8 12-8 20 0 4 3 8 8 8s8-4 8-8c0-8-6-16-8-20z"/></g>`,
+  aves:           `<g><path fill="white" d="M8 18c0-4 4-8 8-8s8 4 8 8c0 2-1 4-3 5l2 5h-4l-3-4-3 4H7l2-5c-2-1-3-3-3-5z"/><ellipse cx="16" cy="14" rx="4" ry="3" fill="white"/></g>`,
+  mammalia:       `<g><ellipse cx="16" cy="18" rx="6" ry="8" fill="white"/><ellipse cx="10" cy="10" rx="3" ry="4" fill="white"/><ellipse cx="16" cy="8" rx="3" ry="4" fill="white"/><ellipse cx="22" cy="10" rx="3" ry="4" fill="white"/><ellipse cx="13" cy="6" rx="2" ry="3" fill="white"/><ellipse cx="19" cy="6" rx="2" ry="3" fill="white"/></g>`,
+  reptilia:       `<g><path fill="white" d="M8 16h4l2-4 2 8 2-6 2 2h4l-2-4 2-6h-4l-2 4-2-6-2 4-4 2z"/></g>`,
+  amphibia:       `<g><ellipse cx="16" cy="16" rx="10" ry="8" fill="white"/><circle cx="12" cy="14" r="2" fill="white" opacity="0.5"/><circle cx="20" cy="14" r="2" fill="white" opacity="0.5"/><path fill="white" d="M10 22 Q16 26 22 22"/></g>`,
+  actinopterygii: `<g><ellipse cx="16" cy="16" rx="12" ry="6" fill="white"/><path fill="white" d="M4 16 L8 12 L8 20 Z"/><path fill="white" d="M28 16 L24 12 L24 20 Z"/></g>`,
+  mollusca:       `<g><path fill="white" d="M16 4 Q24 8 24 16 Q24 24 16 28 Q8 24 8 16 Q8 8 16 4 Z M16 10 Q12 14 12 16 Q12 18 16 22 Q20 18 20 16 Q20 14 16 10 Z"/></g>`,
+  arachnida:      `<g><circle cx="16" cy="14" r="5" fill="white"/><rect x="15" y="4" width="2" height="12" fill="white"/><rect x="7" y="13" width="18" height="2" fill="white"/><rect x="10" y="10" width="4" height="4" fill="white" transform="rotate(-45 12 12)"/><rect x="18" y="10" width="4" height="4" fill="white" transform="rotate(45 20 12)"/><rect x="10" y="16" width="4" height="4" fill="white" transform="rotate(45 12 18)"/><rect x="18" y="16" width="4" height="4" fill="white" transform="rotate(-45 20 18)"/></g>`,
+  insecta:        `<g><ellipse cx="16" cy="16" rx="2" ry="8" fill="white"/><ellipse cx="10" cy="12" rx="6" ry="6" fill="white"/><ellipse cx="22" cy="12" rx="6" ry="6" fill="white"/><ellipse cx="10" cy="20" rx="6" ry="6" fill="white"/><ellipse cx="22" cy="20" rx="6" ry="6" fill="white"/></g>`,
+  animalia:       `<g><ellipse cx="16" cy="18" rx="8" ry="6" fill="white"/><path fill="white" d="M14 10 L16 4 L18 10"/><ellipse cx="12" cy="16" rx="2" ry="2" fill="white" opacity="0.5"/><ellipse cx="20" cy="16" rx="2" ry="2" fill="white" opacity="0.5"/></g>`,
 };
 
-/** Kingdom → icon key (used to look up SPECIES_ICON_URLS) */
+/** Combined 128×96 atlas: 4×3 grid of 32×32 kingdom icons (fungi, plantae, aves, ...). mask:true so getColor tints. */
+const SPECIES_ATLAS_ORDER = ["fungi", "plantae", "aves", "mammalia", "reptilia", "amphibia", "actinopterygii", "mollusca", "arachnida", "insecta", "animalia"] as const;
+const SPECIES_ATLAS = svgUri(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96" viewBox="0 0 128 96">` +
+  SPECIES_ATLAS_ORDER.map((key, i) => {
+    const x = (i % 4) * 32;
+    const y = Math.floor(i / 4) * 32;
+    return `<g transform="translate(${x},${y})">${SPECIES_ICON_CONTENT[key]}</g>`;
+  }).join("") +
+  `</svg>`
+);
+const SPECIES_ICON_MAPPING: Record<string, { x: number; y: number; width: number; height: number; mask: boolean }> = {};
+SPECIES_ATLAS_ORDER.forEach((key, i) => {
+  SPECIES_ICON_MAPPING[key] = {
+    x: (i % 4) * 32,
+    y: Math.floor(i / 4) * 32,
+    width: 32,
+    height: 32,
+    mask: true,
+  };
+});
+
+/** @deprecated – TextLayer emoji does not render in deck.gl (SDF fonts). Use IconLayer + SPECIES_ATLAS. */
+const KINGDOM_EMOJI: Record<string, string> = {
+  fungi: "🍄",
+  plantae: "🌿",
+  aves: "🐦",
+  mammalia: "🦌",
+  reptilia: "🦎",
+  amphibia: "🐸",
+  actinopterygii: "🐟",
+  mollusca: "🐌",
+  arachnida: "🕷",
+  insecta: "🐛",
+  animalia: "🐾",
+};
+
+/** Kingdom → icon key (used to look up SPECIES_ICON_URLS / KINGDOM_EMOJI) */
 const KINGDOM_ICON_KEYS: Record<string, string> = {
   Fungi: "fungi",
   Plantae: "plantae",
@@ -146,6 +184,8 @@ const ENTITY_COLORS: Record<string, RGBA> = {
   earthquake: [251, 113, 133, 230],   // rose-400
   elephant:   [251, 146,  60, 220],   // orange-400
   device:     [ 34, 211, 238, 220],   // cyan-400
+  fire:       [249, 115,  22, 230],   // orange-500 (wildfires, EONET)
+  crisis:     [239,  68,  68, 230],   // red-500 (crisis events)
 };
 
 /** Kingdom-specific colours for all-life fungal/observation markers */
@@ -335,25 +375,6 @@ export function EntityDeckLayer({
           ...({ getDashArray: () => [4, 3] } as any),
         }),
 
-        // ── Biodiversity observations (fungal + all species) ──
-        // Use DOT_ICON (simple circle) - SPECIES_ICON_URLS.fungi SVG can fail to rasterize
-        // as atlas in some browsers (complex paths, opacity). DOT_ICON is proven to work.
-        new IconLayer<UnifiedEntity>({
-          id: "crep-fungal",
-          data: fungal,
-          iconAtlas: DOT_ICON,
-          iconMapping: ICON_MAPPING,
-          getIcon: () => "icon",
-          getPosition: getPos,
-          getSize: 16,
-          sizeUnits: "pixels",
-          sizeMinPixels: 8,
-          sizeMaxPixels: 32,
-          getColor: (e) => fungalEntityColor(e),
-          pickable: true,
-          onClick: handleClick,
-        }),
-
         // ── Other entities: weather, earthquake, elephant, device ──
         new IconLayer<UnifiedEntity>({
           id: "crep-others",
@@ -362,10 +383,10 @@ export function EntityDeckLayer({
           iconMapping: ICON_MAPPING,
           getIcon: () => "icon",
           getPosition: getPos,
-          getSize: 10,
+          getSize: 14,
           sizeUnits: "pixels",
-          sizeMinPixels: 6,
-          sizeMaxPixels: 24,
+          sizeMinPixels: 12,
+          sizeMaxPixels: 28,
           getColor: (e) => entityColor(e.type),
           pickable: true,
           onClick: handleClick,
@@ -425,6 +446,31 @@ export function EntityDeckLayer({
           pickable: true,
           onClick: handleClick,
         }),
+
+        // ── Biodiversity observations (fungal + all species) – LAST so on top & pickable ──
+        // IconLayer with SVG kingdom icons (🍄 fungi, 🌿 plantae, 🐦 aves, etc.). TextLayer emojis don't render in deck.gl.
+        ...(fungal.length > 0
+          ? [
+              new IconLayer<UnifiedEntity>({
+                id: "crep-fungal",
+                data: fungal,
+                iconAtlas: SPECIES_ATLAS,
+                iconMapping: SPECIES_ICON_MAPPING,
+                getIcon: (e) => {
+                  const key = getSpeciesIconKey(e);
+                  return key in SPECIES_ICON_MAPPING ? key : "fungi";
+                },
+                getPosition: getPos,
+                getSize: 20,
+                sizeUnits: "pixels",
+                sizeMinPixels: 14,
+                sizeMaxPixels: 36,
+                getColor: (e) => fungalEntityColor(e),
+                pickable: true,
+                onClick: handleClick,
+              }),
+            ]
+          : []),
       ],
     });
   }, [overlay, entities, visible, onEntityClick]);

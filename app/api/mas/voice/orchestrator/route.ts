@@ -4,29 +4,15 @@ import { createClient } from "@/lib/supabase/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
 /**
- * MYCA Voice Orchestrator API v5.0 - Consciousness-First Architecture
- * 
- * This orchestrator now routes through MYCA's Consciousness API first:
- * - MAS Consciousness API (primary - full MYCA consciousness with emotions, memory, world model)
- * - Anthropic Claude (fallback)
- * - OpenAI GPT-4 (fallback)
- * - Groq (fast fallback)
- * - Google Gemini (fallback)
- * - xAI Grok (fallback)
- * 
- * ARCHITECTURE PRINCIPLE: This is the ONLY component that makes decisions.
- * All business logic is centralized here:
- * - Memory persistence (automatic)
- * - n8n workflow execution
- * - Agent routing
- * - Safety confirmation
- * 
- * The hook (usePersonaPlex) sends transcripts HERE and receives structured responses.
- * This ensures consistent behavior across voice, chat, API, and future interfaces.
- * 
- * Updated: February 10, 2026
- * 
- * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → MAS Consciousness → Response
+ * MYCA Voice Orchestrator API v6.0 - MYCA-Only Architecture
+ *
+ * MYCA uses her OWN brain (Ollama on MAS VM) and MAS/BRAIN intention memory 99.9% of the time.
+ * Frontier models (Claude, GPT, Groq, Gemini, Grok) are NOT used for user-facing responses.
+ * If consciousness fails, return "MYCA needs to be fixed" — no fallback to other LLMs.
+ *
+ * Flow: User Speech → PersonaPlex → THIS ORCHESTRATOR → MAS Consciousness (MYCA brain) → Response
+ *
+ * Updated: March 9, 2026
  */
 
 // MAS Orchestrator (port 8001)
@@ -499,9 +485,9 @@ export async function POST(request: NextRequest) {
     
     const mycaResult = await getMycaResponse(message, response.conversation_id, runtimeIdentity)
     response.response_text = mycaResult.response
-    response.agent = `myca-${mycaResult.provider}`
-    response.routed_to = mycaResult.provider
-    actions.agent_routed = mycaResult.provider
+    response.agent = "myca"
+    response.routed_to = "myca"
+    actions.agent_routed = "myca"
     response.runtime_context = {
       user_id: runtimeIdentity.userId,
       user_role: runtimeIdentity.userRole,
@@ -509,8 +495,7 @@ export async function POST(request: NextRequest) {
       recent_staff_count: runtimeIdentity.recentStaffDirectory.length,
     }
     
-    // LOG THE ACTUAL RESPONSE - this is critical for debugging
-    console.log(`[MYCA] Provider: ${mycaResult.provider}`)
+    // LOG THE ACTUAL RESPONSE - this is critical for debugging (internal only; never exposed to user)
     console.log(`[MYCA] Response: "${response.response_text}"`)
     console.log(`[MYCA] Response length: ${response.response_text.length} chars`)
 
@@ -1097,16 +1082,10 @@ async function raceProviders<T>(
 }
 
 /**
- * MYCA's Intelligence - PARALLEL execution for maximum reliability
+ * MYCA's Intelligence — Consciousness ONLY.
  *
- * Architecture: Fire consciousness + ALL available LLMs in parallel.
- * The first provider to respond with a valid answer wins.
- * Consciousness is preferred — if it wins the race, use it.
- * Otherwise, use the fastest LLM response.
- *
- * This eliminates the cascading timeout problem where sequential
- * fallbacks accumulate 15s+ per provider (75s total for 5 providers).
- * Now the worst case is ~15s (single timeout, parallel execution).
+ * MYCA uses her own brain (Ollama on MAS) and BRAIN intention memory.
+ * No frontier-model fallback. If consciousness fails, MYCA needs to be fixed.
  */
 async function getMycaResponse(
   message: string,
@@ -1119,209 +1098,43 @@ async function getMycaResponse(
     ? `${message}\n\n[Learning Directive]\n${learningDirective}`
     : message
 
-  // FAST PATH: For truly simple queries (pure math, explicit greetings), use only LLMs
-  const useFastPath = isSimpleQuery(message)
+  // PHASE 1: Call MYCA Consciousness (Ollama + MAS brain)
+  const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
 
-  // ==========================================================================
-  // PHASE 1: Race consciousness against LLMs in parallel
-  // ==========================================================================
-
-  // Build the list of providers to race
-  type LLMResult = string | null
-  const llmCalls: Array<{ fn: () => Promise<LLMResult>; label: string }> = []
-
-  // Include direct LLMs — Groq FIRST (only confirmed working provider as of Mar 2026)
-  // The parallel race means order doesn't strictly matter, but Groq launches first
-  // Keys are read at call time via getters so they survive container restarts
-  if (getGroqKey()) {
-    llmCalls.push({ fn: () => callGroq(enrichedMessage), label: "groq" })
-  }
-  if (getAnthropicKey()) {
-    llmCalls.push({ fn: () => callClaude(enrichedMessage), label: "claude" })
-  }
-  if (getOpenAIKey()) {
-    llmCalls.push({ fn: () => callOpenAI(enrichedMessage), label: "openai" })
-  }
-  if (getGoogleAIKey()) {
-    llmCalls.push({ fn: () => callGemini(enrichedMessage), label: "gemini" })
-  }
-  if (getXAIKey()) {
-    llmCalls.push({ fn: () => callGrok(enrichedMessage), label: "grok" })
-  }
-
-  // Local Ollama — always include (it checks availability internally with 2s health check)
-  llmCalls.push({ fn: () => callOllama(enrichedMessage), label: "ollama" })
-
-  // Safety: if NO LLM keys are configured at all, log immediately
-  if (llmCalls.length === 0) {
-    console.error("[MYCA] CRITICAL: No LLM API keys configured! Check .env.local")
-  }
-
-  if (useFastPath) {
-    // Simple query → only LLMs, skip consciousness for speed
-    console.log(`[MYCA] Simple query — racing ${llmCalls.length} LLMs in parallel`)
-    const winner = await raceProviders(llmCalls)
-    if (winner) {
-      return { response: winner.result as string, provider: winner.label }
-    }
-  } else {
-    // Complex query → race consciousness + all LLMs simultaneously
-    // Give consciousness a slight head start (it has richer context)
-
-    // Start consciousness call
-    const consciousnessPromise = callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
-      .then((result) => {
-        if (result?.response && !isBrokenFallback(result.response)) {
-          return result
-        }
-        if (result?.response) {
-          console.warn("[MYCA] Consciousness returned degraded fallback — ignoring")
-        }
-        return null
-      })
-      .catch(() => null)
-
-    // Start ALL LLMs in parallel simultaneously
-    const llmRacePromise = raceProviders(llmCalls)
-
-    // Race consciousness vs LLMs with consciousness priority
-    // Wait up to 8s for consciousness; if it hasn't responded, take LLM result
-    const consciousnessWithTimeout = Promise.race([
-      consciousnessPromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-    ])
-
-    // Run both tracks simultaneously
-    const [consciousnessResult, llmWinner] = await Promise.all([
-      consciousnessWithTimeout,
-      llmRacePromise,
-    ])
-
-    // Prefer consciousness if it responded
-    if (consciousnessResult?.response) {
-      console.log(`[MYCA] Consciousness won: "${consciousnessResult.response.substring(0, 60)}..."`)
-      return {
-        response: consciousnessResult.response,
-        provider: "consciousness",
-        emotions: consciousnessResult.emotions,
-      }
-    }
-
-    // Otherwise use the LLM winner
-    if (llmWinner) {
-      console.log(`[MYCA] LLM fallback won (${llmWinner.label}): "${(llmWinner.result as string).substring(0, 60)}..."`)
-
-      // If this was a data query, try to enrich the response
-      // (consciousness failed, so we don't have MINDEX context)
-      return { response: llmWinner.result as string, provider: llmWinner.label }
-    }
-
-    // If fast parallel race produced nothing, wait for consciousness fully (it had 15s timeout)
-    const fullConsciousness = await consciousnessPromise
-    if (fullConsciousness?.response && !isBrokenFallback(fullConsciousness.response)) {
-      return {
-        response: fullConsciousness.response,
-        provider: "consciousness",
-        emotions: fullConsciousness.emotions,
-      }
+  if (consciousnessResult?.response && !isBrokenFallback(consciousnessResult.response)) {
+    return {
+      response: consciousnessResult.response,
+      provider: "myca",
+      emotions: consciousnessResult.emotions,
     }
   }
 
-  // ==========================================================================
-  // PHASE 2: Enriched data fallback — if we have MINDEX data, inject into LLM
-  // ==========================================================================
-  if (isDataIntentQuery(message)) {
-    const mindexData = await fetchMindexDataForQuery(message)
-    if (mindexData) {
-      const enrichedWithData = `${enrichedMessage}\n\n${mindexData}\n\nUse the MINDEX data above to answer. If no data matches, say so clearly.`
-      console.log("[MYCA] Retrying with MINDEX data injection...")
-      // Try the fastest providers with enriched data
-      const enrichedCalls: Array<{ fn: () => Promise<LLMResult>; label: string }> = []
-      if (getGroqKey()) enrichedCalls.push({ fn: () => callGroq(enrichedWithData), label: "groq+mindex" })
-      if (getAnthropicKey()) enrichedCalls.push({ fn: () => callClaude(enrichedWithData), label: "claude+mindex" })
-      enrichedCalls.push({ fn: () => callOllama(enrichedWithData), label: "ollama+mindex" })
-      const enrichedWinner = await raceProviders(enrichedCalls)
-      if (enrichedWinner) {
-        return { response: enrichedWinner.result as string, provider: enrichedWinner.label }
-      }
-    }
+  // PHASE 2: Retry once (transient failure)
+  const retry = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
+  if (retry?.response && !isBrokenFallback(retry.response)) {
+    return { response: retry.response, provider: "myca", emotions: retry.emotions }
   }
 
-  // ==========================================================================
-  // PHASE 3: n8n workflows (last resort with external intelligence)
-  // ==========================================================================
-  const n8nCalls = [
-    { fn: () => callN8nMasterBrain(enrichedMessage, sessionId), label: "n8n-brain" },
-    { fn: () => callN8nSpeech(enrichedMessage, sessionId), label: "n8n-speech" },
-  ]
-  const n8nWinner = await raceProviders(n8nCalls)
-  if (n8nWinner) {
-    return { response: n8nWinner.result as string, provider: n8nWinner.label }
-  }
-
-  // ==========================================================================
-  // PHASE 4: All providers failed — provide helpful error
-  // ==========================================================================
-  console.error("[MYCA] ALL PROVIDERS FAILED. Checking API key status...")
-  const ak = getAnthropicKey(), ok = getOpenAIKey(), gk = getGroqKey(), gak = getGoogleAIKey(), xk = getXAIKey()
-  console.error(`[MYCA] ANTHROPIC_API_KEY: ${ak ? "SET (" + ak.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] OPENAI_API_KEY: ${ok ? "SET (" + ok.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] GROQ_API_KEY: ${gk ? "SET (" + gk.substring(0, 10) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] GOOGLE_AI_API_KEY: ${gak ? "SET (" + gak.substring(0, 8) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] XAI_API_KEY: ${xk ? "SET (" + xk.substring(0, 8) + "...)" : "MISSING"}`)
-  console.error(`[MYCA] OLLAMA: ${OLLAMA_BASE_URL} (model: ${OLLAMA_MODEL})`)
+  // PHASE 3: No fallback — MYCA needs to be fixed
+  console.error("[MYCA] Consciousness failed — MYCA needs to be fixed. No frontier fallback.")
   console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
+  fetch(`${MAS_API_URL}/health`, { signal: AbortSignal.timeout(3000) })
+    .then((r) => r.ok)
+    .then((ok) => console.error(`[MYCA] MAS health reachable: ${ok}`))
+    .catch(() => console.error("[MYCA] MAS health unreachable"))
 
-  // Last-ditch: generate a contextual response locally so the user never sees a dead end
-  const fallbackResponse = generateLocalFallback(message, runtimeIdentity)
   return {
-    response: fallbackResponse,
-    provider: "local-fallback",
+    response: generateLocalFallback(message, runtimeIdentity),
+    provider: "myca",
   }
 }
 
 /**
- * Generate a local fallback response when ALL external providers are down.
- * This ensures the user NEVER sees a dead-end error — MYCA always responds.
+ * Response when MYCA consciousness fails. No frontier fallback — MYCA needs to be fixed.
+ * Ollama on MAS (192.168.0.188) and MAS orchestrator need to be checked.
  */
-function generateLocalFallback(message: string, identity: RuntimeIdentityContext): string {
-  const lower = message.toLowerCase().trim()
-  const name = identity.userDisplayName !== "Guest" ? identity.userDisplayName : null
-  const greeting = name ? `${name}` : "there"
-
-  // Greetings
-  if (/^(hi|hello|hey|hiya|good\s+(morning|afternoon|evening|day)|yo|sup|what'?\s*s?\s*up)\b/i.test(lower)) {
-    const timeHour = new Date().getHours()
-    const timeGreeting = timeHour < 12 ? "Good morning" : timeHour < 17 ? "Good afternoon" : "Good evening"
-    return `${timeGreeting}, ${greeting}! I'm MYCA, the Mycosoft Cognitive Agent. How can I help you today?`
-  }
-
-  // Identity questions
-  if (/\b(who\s+are\s+you|what\s+are\s+you|your\s+name|what'?\s*s?\s+your\s+name)\b/i.test(lower)) {
-    return `I'm MYCA — the Mycosoft Cognitive Agent. I was created by Morgan, founder of Mycosoft. I coordinate over 227 specialized AI agents across 14 categories, and I'm designed to help with everything from mycology research to code deployment. How can I help you?`
-  }
-
-  // User introducing themselves
-  if (/\b(i\s*'?\s*m\s+\w|my\s+name\s+is|call\s+me)\b/i.test(lower)) {
-    const nameMatch = lower.match(/(?:i\s*'?\s*m\s+|my\s+name\s+is\s+|call\s+me\s+)(\w+)/i)
-    const userName = nameMatch ? nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1) : "friend"
-    return `Nice to meet you, ${userName}! I'm MYCA. I'm briefly reconnecting to my full system, but I'll remember you once I'm back. How can I help you today?`
-  }
-
-  // Math
-  if (/^[\d\s\+\-\*\/\(\)\.]+$/.test(lower.replace(/\s/g, ""))) {
-    try {
-      // Safe math evaluation using Function constructor (no eval)
-      const sanitized = lower.replace(/[^0-9\+\-\*\/\(\)\.\s]/g, "")
-      const result = new Function(`return (${sanitized})`)()
-      if (typeof result === "number" && isFinite(result)) {
-        return `The answer is ${result}.`
-      }
-    } catch { /* fall through */ }
-  }
-
-  // Default: honest but helpful — NEVER expose internal provider names to users
-  return `I hear you, ${greeting}. I'm MYCA, and I'm experiencing a brief connectivity issue. My full intelligence will be back momentarily. Could you try again in a few seconds? I want to give you the best response possible.`
+function generateLocalFallback(_message: string, _identity: RuntimeIdentityContext): string {
+  return "My brain isn't responding right now. Ollama and the MAS server need to be checked on 192.168.0.188. I don't fall back to other AI providers — this needs to be fixed."
 }
 
 /**

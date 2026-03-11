@@ -179,11 +179,13 @@ import {
   PressureLayer,
   StormCellsLayer,
   HumidityLayer,
+  CrepGibsEoOverlays,
   ForecastTimeline,
   AlertPanel,
   useEarth2Alerts,
   DEFAULT_EARTH2_FILTER,
   type Earth2Filter,
+  type EoImageryFilter,
 } from "@/components/crep/earth2";
 
 // Device Type to Widget Mapper (Feb 12, 2026)
@@ -1670,6 +1672,7 @@ export default function CREPDashboardPage() {
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
   const [selectedFungal, setSelectedFungal] = useState<FungalObservation | null>(null);
+  const [selectedOther, setSelectedOther] = useState<UnifiedEntity | null>(null);
   
   // Live events: IDs that appeared after initial load (show blinking indicator; pop-up)
   const initialEventIdsRef = useRef<Set<string> | null>(null);
@@ -1782,6 +1785,18 @@ export default function CREPDashboardPage() {
     showSmartFence: true,
     showPartnerNetworks: false,
   });
+
+  // Earth Observation imagery (NASA GIBS layers) – all off by default
+  const [eoImageryFilter, setEoImageryFilter] = useState<EoImageryFilter>({
+    showModis: false,
+    showViirs: false,
+    showAirs: false,
+    showLandsat: false,
+    showEonet: false,
+  });
+
+  // Basemap preference (dark | satellite) – stored in preferences
+  const [basemap, setBasemap] = useState<"dark" | "satellite" | null>(null);
 
   // Species filter for fungal observations (map overlay dropdown)
   const [fungalSpeciesFilter, setFungalSpeciesFilter] = useState<string | null>(null);
@@ -1943,8 +1958,7 @@ export default function CREPDashboardPage() {
     { id: "earth2Precip", name: "âš¡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
   ]);
   
-  // Filter states
-  const [eventFilter, setEventFilter] = useState<string>("all");
+  // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
   
   // Earth-2 AI Weather state - use complete default filter with temperature enabled
   const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
@@ -2244,114 +2258,8 @@ export default function CREPDashboardPage() {
         // MINDEX contains THOUSANDS of pre-imported iNaturalist/GBIF observations
         // with photos, coordinates, names, timestamps, and source links
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        try {
-          // Fetch ALL fungal data from MINDEX - no artificial limit!
-          // MINDEX is the primary source with pre-imported iNaturalist/GBIF data
-          console.log("[CREP] Fetching fungal observations from MINDEX (no limit)...");
-          const fungalRes = await fetch("/api/crep/fungal");
-          if (fungalRes.ok) {
-            const fungalData = await fungalRes.json();
-            // If MINDEX returned 200 but empty observations, try fallback (e.g. MINDEX unreachable from VM)
-            const rawObs = fungalData.observations && Array.isArray(fungalData.observations) ? fungalData.observations : [];
-            if (rawObs.length === 0) {
-              console.log("[CREP] Primary fungal response empty, trying fallback...");
-              const fallbackRes = await fetch("/api/crep/fungal?fallback=true");
-              if (fallbackRes.ok) {
-                const fallbackData = await fallbackRes.json();
-                const fbObs = fallbackData.observations || [];
-                if (fbObs.length > 0) {
-                  console.log(`[CREP] Fallback loaded ${fbObs.length} observations`);
-                  const formattedObs: FungalObservation[] = fbObs.map((obs: any) => ({
-                    id: obs.id,
-                    observed_on: obs.timestamp || obs.observed_on,
-                    latitude: obs.latitude || obs.lat,
-                    longitude: obs.longitude || obs.lng,
-                    species: obs.commonName || obs.species || obs.scientificName || "Unknown",
-                    taxon_id: obs.taxon_id,
-                    taxon: {
-                      id: obs.taxon_id || 0,
-                      name: obs.scientificName || obs.species || "Unknown",
-                      preferred_common_name: obs.commonName || obs.species,
-                      rank: "species",
-                    },
-                    photos: obs.imageUrl || obs.thumbnailUrl ? [{ id: 1, url: obs.imageUrl || obs.thumbnailUrl, license: "CC-BY-NC" }] : [],
-                    quality_grade: obs.verified ? "research" : "needs_id",
-                    user: obs.observer,
-                    source: obs.source,
-                    location: obs.location,
-                    habitat: obs.habitat,
-                    notes: obs.notes,
-                    sourceUrl: obs.sourceUrl,
-                    externalId: obs.externalId,
-                    kingdom: obs.kingdom || obs.iconicTaxon || "Fungi",
-                    iconicTaxon: obs.iconicTaxon || obs.kingdom || "Fungi",
-                  }));
-                  setFungalObservations(formattedObs);
-                  setFungalLoading(false);
-                }
-              }
-              setFungalLoading(false);
-            } else if (rawObs.length > 0) {
-              // Map to FungalObservation format expected by FungalMarker
-              const formattedObs: FungalObservation[] = rawObs.map((obs: any) => ({
-                id: obs.id,
-                observed_on: obs.timestamp || obs.observed_on,
-                latitude: obs.latitude || obs.lat,
-                longitude: obs.longitude || obs.lng,
-                species: obs.commonName || obs.species || obs.scientificName || "Unknown",
-                taxon_id: obs.taxon_id,
-                taxon: {
-                  id: obs.taxon_id || 0,
-                  name: obs.scientificName || obs.species || "Unknown",
-                  preferred_common_name: obs.commonName || obs.species,
-                  rank: "species",
-                },
-                photos: obs.imageUrl || obs.thumbnailUrl ? [{
-                  id: 1,
-                  url: obs.imageUrl || obs.thumbnailUrl,
-                  license: "CC-BY-NC"
-                }] : [],
-                quality_grade: obs.verified ? "research" : "needs_id",
-                user: obs.observer,
-                source: obs.source,
-                location: obs.location,
-                habitat: obs.habitat,
-                notes: obs.notes,
-                sourceUrl: obs.sourceUrl,
-                externalId: obs.externalId,
-                // All-life kingdom data
-                kingdom: obs.kingdom || obs.iconicTaxon || "Fungi",
-                iconicTaxon: obs.iconicTaxon || obs.kingdom || "Fungi",
-              }));
-
-              const sourceInfo = fungalData.meta?.sources || {};
-              const kingdomInfo = fungalData.meta?.kingdoms || {};
-              const dataSource = fungalData.meta?.dataSource || "unknown";
-              console.log(`[CREP] Loaded ${formattedObs.length} observations (${dataSource})`);
-              console.log(`[CREP] Sources: MINDEX=${sourceInfo.mindex || 0}, iNaturalist=${sourceInfo.iNaturalist || 0}, GBIF=${sourceInfo.gbif || 0}`);
-              console.log(`[CREP] Kingdoms:`, kingdomInfo);
-              
-              setFungalObservations(formattedObs);
-              setFungalLoading(false);
-            }
-          } else {
-            console.warn("[CREP] Failed to fetch from /api/crep/fungal:", fungalRes.status);
-            // Fallback: try iNaturalist directly for San Diego area at minimum
-            console.log("[CREP] Using iNaturalist fallback...");
-            const fallbackRes = await fetch("/api/crep/fungal?fallback=true");
-            if (fallbackRes.ok) {
-              const data = await fallbackRes.json();
-              if (data.observations) {
-                console.log(`[CREP] Fallback: Loaded ${data.observations.length} fungal observations`);
-                setFungalObservations(data.observations);
-                setFungalLoading(false);
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("[CREP] Failed to fetch fungal observations:", e);
-          setFungalLoading(false);
-        }
+        // FUNGAL: Fetched ONLY by bounds effect below – viewport-based like iNaturalist.
+        // Removed unbounded fetch to prevent overwriting bounds-based data every 15s.
       } catch (error) {
         console.warn("Failed to fetch CREP data:", error);
       } finally {
@@ -2363,6 +2271,68 @@ export default function CREPDashboardPage() {
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
+  useEffect(() => {
+    if (!mapBounds) return;
+    const { north, south, east, west } = mapBounds;
+    if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
+
+    const ctrl = new AbortController();
+    const formatObs = (obs: Record<string, unknown>): FungalObservation => ({
+      id: String(obs.id ?? obs.externalId ?? ""),
+      observed_on: (obs.timestamp || obs.observed_on) as string,
+      latitude: Number(obs.latitude ?? obs.lat ?? 0),
+      longitude: Number(obs.longitude ?? obs.lng ?? 0),
+      species: (obs.commonName || obs.species || obs.scientificName || "Unknown") as string,
+      taxon_id: Number(obs.taxon_id ?? 0),
+      taxon: {
+        id: Number(obs.taxon_id ?? 0),
+        name: (obs.scientificName || obs.species || "Unknown") as string,
+        preferred_common_name: (obs.commonName || obs.species) as string,
+        rank: "species",
+      },
+      photos: (obs.imageUrl || obs.thumbnailUrl) ? [{ id: 1, url: String(obs.imageUrl || obs.thumbnailUrl), license: "CC-BY-NC" }] : [],
+      quality_grade: obs.verified ? "research" : "needs_id",
+      user: obs.observer as string | undefined,
+      source: obs.source as string | undefined,
+      location: obs.location as string | undefined,
+      habitat: obs.habitat as string | undefined,
+      notes: obs.notes as string | undefined,
+      sourceUrl: obs.sourceUrl as string | undefined,
+      externalId: obs.externalId as string | undefined,
+      kingdom: (obs.kingdom || obs.iconicTaxon || "Fungi") as string,
+      iconicTaxon: (obs.iconicTaxon || obs.kingdom || "Fungi") as string,
+    });
+
+    const t = setTimeout(async () => {
+      try {
+        setFungalLoading(true);
+        const q = new URLSearchParams({
+          north: String(north),
+          south: String(south),
+          east: String(east),
+          west: String(west),
+          nocache: "true",
+        });
+        const res = await fetch(`/api/crep/fungal?${q}`, { signal: ctrl.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        const raw = data.observations && Array.isArray(data.observations) ? data.observations : [];
+        const formatted = raw.map((o: Record<string, unknown>) => formatObs(o));
+        setFungalObservations(formatted);
+        console.log(`[CREP] Viewport fungal: ${formatted.length} observations`);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") console.warn("[CREP] Bounds fungal fetch failed:", e);
+      } finally {
+        setFungalLoading(false);
+      }
+    }, 400);
+    return () => {
+      ctrl.abort();
+      clearTimeout(t);
+    };
+  }, [mapBounds]);
 
   // Periodic refresh of live events (earthquakes, lightning, fire, etc.) – new events pop up and blink
   const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
@@ -2450,6 +2420,15 @@ export default function CREPDashboardPage() {
         return;
       }
       
+      // If we just picked a deck.gl entity (<200ms ago), do NOT dismiss - deck.gl onClick
+      // may run after this; clicking species/plane/vessel icons was being cleared immediately.
+      if (Date.now() - lastEntityPickTimeRef.current < 200) return;
+      
+      // Check if click is on the map (MapLibre canvas, deck.gl overlay, etc.) - never dismiss
+      // when clicking map area; map's own click handler handles empty-map dismiss with delay.
+      const isOnMap = target.closest('[data-crep-map]') !== null;
+      if (isOnMap) return;
+      
       // Check if click is inside any popup (content + close button + tip)
       const isInsidePopup = target.closest(".maplibregl-popup") !== null;
       
@@ -2516,6 +2495,12 @@ export default function CREPDashboardPage() {
       } catch {
         /* ignore invalid JSON */
       }
+    }
+    if (prefs.eo_imagery && typeof prefs.eo_imagery === "object") {
+      setEoImageryFilter(prev => ({ ...prev, ...prefs.eo_imagery }));
+    }
+    if (prefs.basemap === "dark" || prefs.basemap === "satellite") {
+      setBasemap(prefs.basemap);
     }
   }, [mapRef]);
 
@@ -2909,11 +2894,41 @@ export default function CREPDashboardPage() {
   // MYCA message handler
   // (MYCA chat is now handled by real MYCAProvider + CREPMycaPanel)
 
-  // Filter events by type
-  const typeFilteredEvents = globalEvents.filter(event => {
-    if (eventFilter !== "all" && event.type !== eventFilter) return false;
-    return true;
-  });
+  // Filter events by groundFilter (earthquakes, volcanoes, etc.) and spaceWeatherFilter (solar_flare, geomagnetic_storm)
+  const typeFilteredEvents = useMemo(() => {
+    return globalEvents.filter(event => {
+      const t = (event.type || "").toLowerCase();
+      const sub = ((event as any).subtype || "").toLowerCase();
+      // Space weather events - filter by spaceWeatherFilter
+      if (t === "solar_flare" || sub === "radio_blackout") {
+        return spaceWeatherFilter.showSolarFlares;
+      }
+      if (t === "geomagnetic_storm" || sub === "geomagnetic_storm") {
+        return spaceWeatherFilter.showGeomagneticStorms;
+      }
+      if (sub === "solar_radiation") {
+        return spaceWeatherFilter.showRadiationBelts;
+      }
+      if (t === "aurora" || sub.includes("aurora")) {
+        return spaceWeatherFilter.showAuroraOval;
+      }
+      // Ground / natural events - filter by groundFilter
+      if (t === "earthquake") return groundFilter.showEarthquakes;
+      if (t === "volcano") return groundFilter.showVolcanoes;
+      if (t === "wildfire" || t === "fire") return groundFilter.showWildfires;
+      if (t === "storm" || t === "hurricane") return groundFilter.showStorms;
+      if (t === "lightning") return groundFilter.showLightning;
+      if (t === "tornado") return groundFilter.showTornadoes;
+      if (t === "flood") return groundFilter.showFloods;
+      if (t === "fungal_bloom" || t === "fungi") return groundFilter.showFungi;
+      if (t === "landslide" || t === "tsunami") return groundFilter.showStorms; // severe weather
+      // MycoBrain device events
+      if (t === "device" || t === "mycobrain" || (event.source || "").toLowerCase().includes("mycobrain")) {
+        return groundFilter.showMycoBrain;
+      }
+      return true; // show unknown types by default
+    });
+  }, [globalEvents, groundFilter, spaceWeatherFilter]);
 
   // LOD (Level of Detail) filtering for events - same system as fungal data
   const visibleEvents = useMemo(() => {
@@ -3041,10 +3056,13 @@ export default function CREPDashboardPage() {
         ["Wide-body", "Narrow-body", "Regional", "Cargo", "Helicopter", "Aircraft"].includes(t)
       ) || "Aircraft";
       const isCargo = category === "Cargo" || ac.aircraftType?.includes("F");
-      const isMilitary = ac.callsign?.startsWith("RCH") || ac.callsign?.startsWith("DUKE") || 
-                         ac.registration?.startsWith("N/A") || false;
-      const isPrivate = !ac.airline && !isCargo && !isMilitary;
-      const isCommercial = !!ac.airline && !isCargo && !isMilitary;
+      const callsign = (ac.callsign || "").toUpperCase();
+      const militaryPrefixes = ["RCH", "DUKE", "EVAC", "HURLB", "SPAR", "REACH", "AWACS", "GAF", "IAM", "NAF", "NAVY", "AIRFORCE", "HAF", "BAF", "RAAF"];
+      const isMilitary = militaryPrefixes.some(p => callsign.startsWith(p)) || ac.registration?.startsWith("N/A") || false;
+      // Commercial: has origin+destination or flightNumber (FR24 sets airline="" so use schedule instead)
+      const hasSchedule = !!(ac.origin && ac.destination) || !!(ac as any).flightNumber;
+      const isCommercial = hasSchedule && !isCargo && !isMilitary;
+      const isPrivate = !isCargo && !isMilitary && !isCommercial;
       
       if (!aircraftFilter.showCargo && isCargo) return false;
       if (!aircraftFilter.showMilitary && isMilitary) return false;
@@ -3070,15 +3088,16 @@ export default function CREPDashboardPage() {
   // ===========================================================================
   const filteredVessels = useMemo(() => {
     return vessels.filter(v => {
-      // Get ship type
       const shipType = typeof v.shipType === "number" ? v.shipType : 0;
-      const shipTypeStr = ((v as any).properties?.shipType || (v as any).description || "").toLowerCase();
+      const shipTypeStr = (
+        (v as any).properties?.shipType ?? (v as any).tags?.[0] ?? (v as any).description ?? ""
+      ).toString().toLowerCase();
       
       const isCargo = (shipType >= 70 && shipType <= 79) || shipTypeStr.includes("cargo");
       const isTanker = (shipType >= 80 && shipType <= 89) || shipTypeStr.includes("tanker");
       const isPassenger = (shipType >= 60 && shipType <= 69) || shipTypeStr.includes("passenger");
       const isFishing = shipType === 30 || shipTypeStr.includes("fishing");
-      const isTug = shipType === 52 || shipTypeStr.includes("tug");
+      const isTug = shipType === 52 || (shipType >= 31 && shipType <= 32) || shipTypeStr.includes("tug") || shipTypeStr.includes("towing");
       const isMilitary = shipType === 35 || shipTypeStr.includes("military");
       
       if (!vesselFilter.showCargo && isCargo) return false;
@@ -3340,7 +3359,7 @@ export default function CREPDashboardPage() {
         s2_cell: "",
       };
       }),
-      ...visibleFungalObservations.map((observation) => ({
+      ...(layers.find((l) => l.id === "fungi")?.enabled !== false ? visibleFungalObservations : []).map((observation) => ({
         id: `fungal-${observation.id}`,
         type: "fungal" as const,
         geometry: {
@@ -3363,7 +3382,7 @@ export default function CREPDashboardPage() {
     for (const entity of sourceEntities) byId.set(entity.id, entity as UnifiedEntity);
     for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
     return [...byId.values()];
-  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords]);
+  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords, layers]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -3705,33 +3724,7 @@ export default function CREPDashboardPage() {
             {/* EVENTS TAB CONTENT - SECONDARY */}
             {leftPanelTab === "events" && (
               <>
-                {/* Event Filters */}
-            <div className="p-2 border-b border-cyan-500/10 space-y-2">
-              <div className="flex items-center gap-2">
-                <Filter className="w-3 h-3 text-gray-500" />
-                    <span className="text-[10px] text-gray-400">Event Filters</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {["all", "earthquake", "volcano", "wildfire", "storm"].map((type) => (
-                  <Button
-                    key={type}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEventFilter(type)}
-                    className={cn(
-                      "h-6 px-2 text-[9px]",
-                      eventFilter === type 
-                        ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/50" 
-                        : "bg-black/30 text-gray-400 border border-transparent hover:border-gray-600"
-                    )}
-                  >
-                    {type === "all" ? "ALL" : type.toUpperCase()}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-                {/* Event List - FIXED OVERFLOW with proper padding */}
+                {/* Event List - Filtered by Ground/Space Weather toggles in Data Filters panel */}
             <ScrollArea className="flex-1">
                   <div className="px-2 py-1.5 space-y-1.5">
                     {filteredEvents.slice(0, 50).map((event) => {
@@ -3821,8 +3814,8 @@ export default function CREPDashboardPage() {
           </div>
         </div>
 
-        {/* Map Container - Full size, panels overlay it */}
-        <div className="absolute inset-0 crep-map-container">
+        {/* Map Container - Full size, panels overlay it. data-crep-map used by click-away to avoid dismissing when clicking deck.gl icons. */}
+        <div className="absolute inset-0 crep-map-container" data-crep-map>
           {/* Custom CSS to hide map attribution for military/scientific use */}
           <style jsx global>{`
             .crep-map-container .maplibregl-ctrl-attrib,
@@ -3899,6 +3892,7 @@ export default function CREPDashboardPage() {
                     if (isOnCanvas && !isOnMarker && !isOnPopup) {
                       setSelectedEvent(null);
                       setSelectedFungal(null);
+                      setSelectedOther(null);
                     }
                   }
                 }, 100);
@@ -3949,12 +3943,16 @@ export default function CREPDashboardPage() {
               onEntityClick={(entity) => {
                 lastEntityPickTimeRef.current = Date.now();
                 if (entity.type === "aircraft") {
+                  setSelectedOther(null);
                   setSelectedAircraft(filteredAircraft.find((aircraftEntity) => aircraftEntity.id === entity.id) ?? null);
                 } else if (entity.type === "vessel") {
+                  setSelectedOther(null);
                   setSelectedVessel(filteredVessels.find((vesselEntity) => vesselEntity.id === entity.id) ?? null);
                 } else if (entity.type === "satellite") {
+                  setSelectedOther(null);
                   setSelectedSatellite(filteredSatellites.find((satelliteEntity) => satelliteEntity.id === entity.id) ?? null);
                 } else if (entity.type === "fungal") {
+                  setSelectedOther(null);
                   // Use entity.properties (full observation) - more robust than lookup
                   const fromProps = entity.properties as FungalObservation | undefined;
                   const obs =
@@ -3966,6 +3964,12 @@ export default function CREPDashboardPage() {
                     // Species widget (FungalMarker popup) shows at icon - same UX as planes/boats/satellites.
                     // Do NOT open the Intel feed left panel; that is for list-item clicks, not map icon clicks.
                   }
+                } else if (["weather", "earthquake", "elephant", "device", "fire", "crisis"].includes(entity.type)) {
+                  setSelectedAircraft(null);
+                  setSelectedVessel(null);
+                  setSelectedSatellite(null);
+                  handleSelectFungal(null);
+                  setSelectedOther(entity);
                 }
               }}
             />
@@ -4073,6 +4077,14 @@ export default function CREPDashboardPage() {
               />
             )}
 
+            {/* NASA GIBS Earth Observation Overlays (MODIS, VIIRS, AIRS, Landsat, EONET) */}
+            {mapRef && (
+              <CrepGibsEoOverlays
+                map={mapRef}
+                eoImageryFilter={eoImageryFilter}
+              />
+            )}
+
             {/* Event Markers - Only render if corresponding layer is enabled */}
             {filteredEvents.map(event => {
               // Check if the specific event type layer is enabled
@@ -4151,9 +4163,9 @@ export default function CREPDashboardPage() {
             {/* Aircraft / Vessel / Satellite rendering via deck.gl EntityDeckLayer */}
 
             {/* Fungal Observation Markers - Rendered as MapMarker components for interactive popups
-                deck.gl renders the green dots for ALL visible observations (performance)
-                MapMarker components render ONLY for the selected observation to show the popup widget */}
-            {layers.find(l => l.id === "fungi")?.enabled && selectedFungal && (
+                deck.gl renders the species icons for visible observations; Fungi layer controls icon visibility.
+                MapMarker shows the popup whenever user selects an observation (click or list) - layer-agnostic. */}
+            {selectedFungal && (
               <FungalMarker
                 key={`fungal-popup-${selectedFungal.id}`}
                 observation={selectedFungal}
@@ -4161,6 +4173,73 @@ export default function CREPDashboardPage() {
                 onClick={() => handleSelectFungal(null)}
                 onClose={() => handleSelectFungal(null)}
               />
+            )}
+
+            {/* Other entity popup (weather, earthquake, elephant, device, fire, crisis) - P0 biodiversity/wildlife bubble selection */}
+            {selectedOther && selectedOther.geometry.type === "Point" && selectedOther.geometry.coordinates.length >= 2 && (
+              <MapMarker
+                key={`other-popup-${selectedOther.id}`}
+                longitude={selectedOther.geometry.coordinates[0]}
+                latitude={selectedOther.geometry.coordinates[1]}
+                offset={[0, -12]}
+                onClick={() => setSelectedOther(null)}
+              >
+                <MarkerContent data-marker="other">
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-center w-6 h-6 rounded-full bg-cyan-600/90 shadow-[0_0_3px_rgba(6,182,212,0.5)] hover:scale-125 transition-transform ring-2 ring-white z-50"
+                    title={`${selectedOther.type}: ${selectedOther.id}`}
+                  >
+                    <span className="text-xs">
+                      {selectedOther.type === "weather" && <Cloud className="w-3 h-3" />}
+                      {selectedOther.type === "earthquake" && <AlertTriangle className="w-3 h-3" />}
+                      {selectedOther.type === "elephant" && <PawPrint className="w-3 h-3" />}
+                      {selectedOther.type === "device" && <Radio className="w-3 h-3" />}
+                      {selectedOther.type === "fire" && <Flame className="w-3 h-3" />}
+                      {selectedOther.type === "crisis" && <Siren className="w-3 h-3" />}
+                      {!["weather", "earthquake", "elephant", "device", "fire", "crisis"].includes(selectedOther.type) && <CircleDot className="w-3 h-3" />}
+                    </span>
+                  </button>
+                </MarkerContent>
+                <MarkerPopup
+                  className="min-w-[240px] max-w-[320px] bg-[#0a1628]/98 backdrop-blur-md shadow-2xl p-0 overflow-hidden border border-cyan-500/40"
+                  closeButton
+                  closeOnClick={false}
+                  anchor="bottom"
+                  offset={[0, -8]}
+                  onClose={() => setSelectedOther(null)}
+                >
+                  <div className="px-3 py-2 border-b border-cyan-500/40 bg-cyan-900/40">
+                    <h3 className="text-sm font-bold text-white capitalize">{selectedOther.type}</h3>
+                    <p className="text-[10px] text-gray-400 font-mono">{selectedOther.id}</p>
+                  </div>
+                  <div className="p-2 space-y-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                        <div className="text-[8px] text-gray-500 uppercase mb-0.5">Source</div>
+                        <div className="text-[10px] text-cyan-400">{selectedOther.source}</div>
+                      </div>
+                      <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50">
+                        <div className="text-[8px] text-gray-500 uppercase mb-0.5">Coordinates</div>
+                        <div className="text-[10px] text-cyan-400 font-mono">
+                          {selectedOther.geometry.coordinates[1].toFixed(4)}°, {selectedOther.geometry.coordinates[0].toFixed(4)}°
+                        </div>
+                      </div>
+                    </div>
+                    {Object.keys(selectedOther.properties || {}).length > 0 && (
+                      <div className="bg-black/40 rounded px-2 py-1.5 border border-gray-700/50 space-y-1">
+                        <div className="text-[8px] text-gray-500 uppercase mb-1">Properties</div>
+                        {Object.entries(selectedOther.properties!).slice(0, 6).map(([k, v]) => (
+                          <div key={k} className="flex justify-between gap-2 text-[10px]">
+                            <span className="text-gray-500 truncate">{k}</span>
+                            <span className="text-white truncate">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </MarkerPopup>
+              </MapMarker>
             )}
           </MapComponent>
 
@@ -4369,6 +4448,8 @@ export default function CREPDashboardPage() {
                         onSatelliteFilterChange={(f) => setSatelliteFilter({ ...satelliteFilter, ...f })}
                         onSpaceWeatherFilterChange={(f) => setSpaceWeatherFilter({ ...spaceWeatherFilter, ...f })}
                         onGroundFilterChange={(f) => setGroundFilter({ ...groundFilter, ...f })}
+                        eoImageryFilter={eoImageryFilter}
+                        onEoImageryFilterChange={(f) => setEoImageryFilter(prev => ({ ...prev, ...f }))}
                         onToggleStreaming={() => setIsStreaming(!isStreaming)}
                         onRefresh={() => {
                           // Trigger a refresh by re-fetching data
@@ -4381,6 +4462,8 @@ export default function CREPDashboardPage() {
                         mapZoom={mapZoom}
                         layers={layers.map(l => ({ id: l.id, enabled: l.enabled }))}
                         groundFilter={groundFilter}
+                        eoImageryFilter={eoImageryFilter}
+                        basemap={basemap}
                         onApply={handleApplyMapPreferences}
                         className="mt-2"
                       />

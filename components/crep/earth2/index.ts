@@ -39,3 +39,6 @@ export { useWeatherFallback, useWindFallback } from "./use-weather-fallback";
 export { ForecastTimeline } from "./forecast-timeline";
 export { AlertPanel, useEarth2Alerts } from "./alert-panel";
 export type { Earth2Alert } from "./alert-panel";
+
+// NASA GIBS EO Overlays (Mar 10, 2026)
+export { CrepGibsEoOverlays, type EoImageryFilter } from "./gibs-eo-overlays";

@@ -186,8 +186,8 @@ export class EntityStreamClient {
     }
 
     this.ws.onerror = () => {
-      // WebSocket error events have limited info (often {}); avoid noisy logs
-      this.onError?.(new Error("WebSocket connection error"))
+      // WebSocket error events have limited info (often {}); include URL for debugging
+      this.onError?.(new Error(`WebSocket connection error (${url.toString()})`))
     }
 
     this.ws.onclose = (event) => {

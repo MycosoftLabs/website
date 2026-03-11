@@ -63,7 +63,9 @@ export interface UnifiedEntity {
     | "weather"
     | "earthquake"
     | "elephant"
-    | "device";
+    | "device"
+    | "fire"
+    | "crisis";
   geometry: UnifiedPointGeometry | UnifiedLineStringGeometry | UnifiedPolygonGeometry;
   state: UnifiedEntityState;
   time: UnifiedEntityTime;

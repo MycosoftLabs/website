@@ -94,10 +94,18 @@ export async function GET() {
     process.env.NEXT_PUBLIC_MAS_API_URL ||
     "http://192.168.0.188:8001"
 
-  const bridgeBaseUrl =
-    process.env.PERSONAPLEX_BRIDGE_URL ||
-    process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
-    "http://localhost:8999"
+  // When USE_LOCAL_GPU or USE_LOCAL_VOICE is true, always use localhost for Bridge
+  // (Moshi + Bridge run locally; env may still point to GPU node for remote use)
+  const useLocalVoice =
+    process.env.NEXT_PUBLIC_USE_LOCAL_GPU === "true" ||
+    process.env.USE_LOCAL_VOICE === "true" ||
+    process.env.USE_LOCAL_VOICE === "1"
+
+  const bridgeBaseUrl = useLocalVoice
+    ? "http://localhost:8999"
+    : process.env.PERSONAPLEX_BRIDGE_URL ||
+      process.env.NEXT_PUBLIC_PERSONAPLEX_BRIDGE_URL ||
+      "http://localhost:8999"
 
   const bridgeHealthUrl = `${bridgeBaseUrl.replace(/\/$/, "")}/health`
   const masMycaPingUrl = `${masBaseUrl.replace(/\/$/, "")}/api/myca/ping`
@@ -107,13 +115,22 @@ export async function GET() {
   // Short timeouts (5s) for fast diagnostics; services should respond in <500ms on same LAN.
   const HEALTH_TIMEOUT_MS = 5000
   const [bridge, myca, memory] = await Promise.all([
-    checkUrl(bridgeHealthUrl, false, HEALTH_TIMEOUT_MS),
+    checkUrl(bridgeHealthUrl, true, HEALTH_TIMEOUT_MS), // tcpFallback=true: if HTTP times out, try TCP
     checkUrl(masMycaPingUrl, false, HEALTH_TIMEOUT_MS),
     checkUrl(masMemoryHealthUrl, false, HEALTH_TIMEOUT_MS),
   ])
 
   const bridgeData = bridge.data as { moshi_available?: boolean } | undefined
-  const moshiOk = bridge.ok && bridgeData?.moshi_available === true
+  // Moshi: prefer bridge JSON; fallback to direct TCP when Bridge says false (Bridge may have stale check)
+  const bridgeOk = bridge.ok
+  let moshiOk = bridge.ok && bridgeData?.moshi_available === true
+  if (bridgeOk && !moshiOk) {
+    // Bridge healthy but moshi_available false (or no data) — verify Moshi port directly
+    const moshiHost = useLocalVoice ? "localhost" : (process.env.MOSHI_HOST || "localhost")
+    const moshiPort = parseInt(process.env.MOSHI_PORT || "8998", 10)
+    const moshiPortOpen = await tcpPing(moshiHost, moshiPort, 2000)
+    if (moshiPortOpen) moshiOk = true
+  }
 
   return NextResponse.json(
     {

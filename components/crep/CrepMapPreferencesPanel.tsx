@@ -13,6 +13,7 @@ import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Save, Download, Loader2 } from "lucide-react"
 import type { GroundFilter } from "@/components/crep/map-controls"
+import type { EoImageryFilter } from "@/components/crep/earth2"
 
 export interface CrepMapPreferences {
   bounds?: { north: number; south: number; east: number; west: number } | null
@@ -21,6 +22,8 @@ export interface CrepMapPreferences {
   zoom?: number | null
   layers?: string[] | null
   kingdom_filter?: string | null
+  eo_imagery?: EoImageryFilter | null
+  basemap?: "dark" | "satellite" | string | null
 }
 
 interface LayerConfig {
@@ -34,6 +37,8 @@ interface CrepMapPreferencesPanelProps {
   mapZoom: number
   layers: LayerConfig[]
   groundFilter: GroundFilter
+  eoImageryFilter?: EoImageryFilter
+  basemap?: "dark" | "satellite" | string | null
   onApply: (prefs: CrepMapPreferences) => void
   className?: string
 }
@@ -44,6 +49,8 @@ export function CrepMapPreferencesPanel({
   mapZoom,
   layers,
   groundFilter,
+  eoImageryFilter,
+  basemap,
   onApply,
   className,
 }: CrepMapPreferencesPanelProps) {
@@ -112,6 +119,8 @@ export function CrepMapPreferencesPanel({
           zoom: zoom ?? 8,
           layers: enabledLayerIds,
           kingdom_filter,
+          eo_imagery: eoImageryFilter ?? null,
+          basemap: basemap ?? null,
         }),
       })
       const data = await res.json()
@@ -129,7 +138,7 @@ export function CrepMapPreferencesPanel({
     } finally {
       setLoading(null)
     }
-  }, [mapRef, mapBounds, mapZoom, layers, groundFilter, clearMessage])
+  }, [mapRef, mapBounds, mapZoom, layers, groundFilter, eoImageryFilter, basemap, clearMessage])
 
   return (
     <div

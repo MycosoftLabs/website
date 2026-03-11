@@ -17,8 +17,8 @@ export const dynamic = "force-dynamic"
  * - Intent classifier with 14 categories
  * - Consciousness polling every 15 seconds
  * 
- * FIXES in v7.1.0:
- * - Extended handshake timeout to 120s for CUDA graphs compilation
+ * FIXES in v7.1.0 / v9:
+ * - Bridge handshake timeout 240s for CUDA graphs (60-180s on first run)
  * - Added CUDA warmup progress indicator
  * - Better error messages for timeout conditions
  * 
@@ -658,14 +658,14 @@ export default function VoiceTestPage() {
       ws.onopen = () => {
         addLog("success", "WebSocket connected to bridge!")
         addLog("info", "Waiting for Moshi handshake (CUDA graphs may compile on first run)...")
-        setJarvisMessage("CUDA graphs compiling... This can take 60-90 seconds on first connection.")
+        setJarvisMessage("CUDA graphs compiling... This can take 60–180 seconds on first connection.")
         
-        // Start CUDA warmup timeout counter
+        // Start CUDA warmup counter (Bridge timeout is 240s by default)
         let warmupSeconds = 0
         const warmupInterval = setInterval(() => {
           warmupSeconds++
-          if (warmupSeconds <= 90 && !wsConnectedRef.current) {
-            setJarvisMessage(`CUDA graphs compiling... ${warmupSeconds}s (can take 60-90s on first run)`)
+          if (warmupSeconds <= 240 && !wsConnectedRef.current) {
+            setJarvisMessage(`CUDA graphs compiling... ${warmupSeconds}s (can take 60–180s on first run)`)
           } else {
             clearInterval(warmupInterval)
           }
@@ -722,6 +722,11 @@ export default function VoiceTestPage() {
               const masEvent = msg.event as MASEvent
               setMasEvents(prev => [...prev.slice(-20), masEvent])
               addLog("event", `MAS: [${masEvent.type}] ${masEvent.message}`)
+              // TTS: injection events contain MYCA response — send to Bridge for Moshi TTS (PersonaPlex)
+              const injContent = (masEvent.data as { content?: string })?.content
+              if (masEvent.type === "injection" && injContent && typeof injContent === "string") {
+                addInjection((masEvent.data as { type?: string })?.type || "brain_response", injContent)
+              }
             } else if (msg.type === "injection_ack") {
               // Injection acknowledged by Moshi
               setInjectionQueue(prev => prev.map(i => 
@@ -751,6 +756,8 @@ export default function VoiceTestPage() {
               }
             } else if (msg.type === "error") {
               addLog("error", `Error: ${msg.message}`)
+              setTestPhase("ready")
+              setJarvisMessage("Handshake failed. Run python START_VOICE_SYSTEM.py, wait for warmup, then click Start again.")
             }
             return
           }
@@ -856,7 +863,9 @@ export default function VoiceTestPage() {
         // Check for timeout-related closes
         if (!wsConnectedRef.current && event.code !== 1000) {
           addLog("warn", "Connection closed before handshake - CUDA graphs may still be compiling")
-          addLog("info", "Run START_VOICE_SYSTEM.py to warm up Moshi, then try again")
+          addLog("info", "Run python START_VOICE_SYSTEM.py from MAS repo to warm up Moshi, then click Start again.")
+          setTestPhase("ready")
+          setJarvisMessage("Handshake failed. Warm up with START_VOICE_SYSTEM.py, then try again.")
         } else {
           addLog("info", "Disconnected from bridge")
         }
@@ -1489,6 +1498,14 @@ export default function VoiceTestPage() {
               </div>
               <p className="text-[10px] text-zinc-500 mt-2">
                 Unified session rail: transcript, events, latency, persona, sync.
+              </p>
+            </div>
+            
+            {/* Prerequisites - visible before first use */}
+            <div className="bg-amber-950/40 border border-amber-700/50 rounded-xl p-3 text-xs">
+              <h3 className="font-semibold text-amber-400 mb-1">Before first use</h3>
+              <p className="text-amber-200/90">
+                Run <code className="px-1 py-0.5 bg-zinc-800 rounded">python START_VOICE_SYSTEM.py</code> from the <strong>MAS repo</strong> and wait for &quot;VOICE SYSTEM READY&quot;. First run can take 2–3 minutes (CUDA graph compilation).
               </p>
             </div>
             

@@ -403,19 +403,9 @@ export async function POST(request: NextRequest) {
       if (responseText) provider = "ollama"
     }
 
-    // 7. Ultimate fallback
+    // 7. Ultimate fallback — user-friendly, no exposure of internal config
     if (!responseText) {
-      responseText = `I apologize, but I'm experiencing connectivity issues with my AI backends. 
-
-Please check that the following API keys are configured:
-- ANTHROPIC_API_KEY
-- OPENAI_API_KEY
-- GROQ_API_KEY
-- GOOGLE_AI_API_KEY
-
-In the meantime, I can confirm that the MAS orchestrator has ${masStatus.agents} agents active.
-
-What would you like me to help you with once connectivity is restored?`
+      responseText = `I'm MYCA, and I'm experiencing a brief connectivity issue with my AI backends. My full intelligence will be back momentarily — please try again in a few seconds. The MAS orchestrator has ${masStatus.agents} agents active. What would you like me to help with once I'm reconnected?`
       provider = "fallback"
     }
 

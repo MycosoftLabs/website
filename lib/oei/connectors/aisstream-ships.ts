@@ -172,11 +172,14 @@ function aisToVesselEntity(
     eta = `${year}-${String(staticData.EtaMonth).padStart(2, "0")}-${String(staticData.EtaDay).padStart(2, "0")}T${String(staticData.EtaHour).padStart(2, "0")}:${String(staticData.EtaMinute).padStart(2, "0")}:00Z`
   }
 
+  const shipTypeNum = staticData?.ShipType ?? null;
+
   return {
     id: `ais_${mmsi}`,
     type: "vessel",
     name: staticData?.ShipName?.trim() || metaData.ShipName?.trim() || `MMSI ${mmsi}`,
     description: staticData ? getShipTypeName(staticData.ShipType) : "Vessel",
+    shipType: shipTypeNum,
     location,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

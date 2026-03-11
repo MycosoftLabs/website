@@ -59,6 +59,7 @@ import {
   Wrench,
   Power,
   Fuel,
+  Image,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -155,6 +156,10 @@ export interface NOAAScales {
   geomag: number   // G0-G5
 }
 
+/** Earth Observation imagery toggles (NASA GIBS layers) - re-export from earth2 */
+import type { EoImageryFilter } from "@/components/crep/earth2"
+export type { EoImageryFilter }
+
 export interface StreamStatus {
   type: string
   connected: boolean
@@ -179,11 +184,22 @@ interface MapControlsProps {
   onGroundFilterChange: (filter: Partial<GroundFilter>) => void
   onToggleStreaming: () => void
   onRefresh: () => void
+  /** Optional: Earth Observation imagery toggles (NASA GIBS) */
+  eoImageryFilter?: EoImageryFilter
+  onEoImageryFilterChange?: (filter: Partial<EoImageryFilter>) => void
 }
 
 // =============================================================================
 // COMPONENT
 // =============================================================================
+
+const DEFAULT_EO_FILTER: EoImageryFilter = {
+  showModis: false,
+  showViirs: false,
+  showAirs: false,
+  showLandsat: false,
+  showEonet: false,
+}
 
 export function MapControls({
   aircraftFilter,
@@ -201,6 +217,8 @@ export function MapControls({
   onGroundFilterChange,
   onToggleStreaming,
   onRefresh,
+  eoImageryFilter = DEFAULT_EO_FILTER,
+  onEoImageryFilterChange,
 }: MapControlsProps) {
   const [activeTab, setActiveTab] = useState("ground")
   const [expanded, setExpanded] = useState(true)
@@ -217,8 +235,13 @@ export function MapControls({
     if (satelliteFilter.showStations) count++
     if (satelliteFilter.showStarlink) count++
     if (spaceWeatherFilter.showSolarFlares) count++
+    if (eoImageryFilter?.showModis) count++
+    if (eoImageryFilter?.showViirs) count++
+    if (eoImageryFilter?.showAirs) count++
+    if (eoImageryFilter?.showLandsat) count++
+    if (eoImageryFilter?.showEonet) count++
     return count
-  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter])
+  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter, eoImageryFilter])
 
   return (
     <div className="bg-black/90 border border-cyan-500/30 rounded-lg overflow-hidden backdrop-blur-sm">
@@ -339,7 +362,7 @@ export function MapControls({
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="h-[200px]">
+            <ScrollArea className="h-[340px] max-h-[50vh] overflow-y-auto shrink-0">
               {/* Ground Filters */}
               <TabsContent value="ground" className="m-0 p-2 space-y-2">
                 {/* Biodiversity & Wildlife */}
@@ -495,6 +518,22 @@ export function MapControls({
                       color="blue"
                     />
                   </div>
+                </div>
+
+                {/* Earth Observation (NASA GIBS) - inside Ground tab */}
+                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
+                  <span className="text-[10px] text-amber-400/70 uppercase font-medium">EO Imagery (NASA)</span>
+                  {onEoImageryFilterChange ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      <FilterToggle label="MODIS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showModis ?? false} onChange={(v) => onEoImageryFilterChange({ showModis: v })} color="amber" compact />
+                      <FilterToggle label="VIIRS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showViirs ?? false} onChange={(v) => onEoImageryFilterChange({ showViirs: v })} color="amber" compact />
+                      <FilterToggle label="AIRS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showAirs ?? false} onChange={(v) => onEoImageryFilterChange({ showAirs: v })} color="amber" compact />
+                      <FilterToggle label="Landsat" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showLandsat ?? false} onChange={(v) => onEoImageryFilterChange({ showLandsat: v })} color="amber" compact />
+                      <FilterToggle label="EONET" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showEonet ?? false} onChange={(v) => onEoImageryFilterChange({ showEonet: v })} color="amber" compact />
+                    </div>
+                  ) : (
+                    <p className="text-[9px] text-gray-500">EO filters not connected</p>
+                  )}
                 </div>
 
                 {/* Sensor Networks */}
@@ -880,6 +919,7 @@ function FilterToggle({
     red: "border-red-500/50 bg-red-500/20 text-red-400",
     yellow: "border-yellow-500/50 bg-yellow-500/20 text-yellow-400",
     orange: "border-orange-500/50 bg-orange-500/20 text-orange-400",
+    amber: "border-amber-500/50 bg-amber-500/20 text-amber-400",
     purple: "border-purple-500/50 bg-purple-500/20 text-purple-400",
     gray: "border-gray-500/50 bg-gray-500/20 text-gray-400",
     teal: "border-teal-500/50 bg-teal-500/20 text-teal-400",
@@ -887,9 +927,13 @@ function FilterToggle({
 
   return (
     <button
-      onClick={() => onChange(!checked)}
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
       className={cn(
-        "flex items-center gap-1.5 rounded border transition-all",
+        "flex items-center gap-1.5 rounded border transition-colors min-h-[28px] min-w-[72px] shrink-0 overflow-hidden [contain:layout]",
         compact ? "px-1.5 py-0.5" : "px-2 py-1.5",
         checked
           ? colorClasses[color] || colorClasses.cyan
@@ -903,7 +947,7 @@ function FilterToggle({
         {icon}
       </div>
       <span className={cn(
-        "font-medium",
+        "font-medium min-w-0 truncate",
         compact ? "text-[8px]" : "text-[10px]"
       )}>
         {label}

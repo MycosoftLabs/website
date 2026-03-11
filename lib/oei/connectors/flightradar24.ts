@@ -140,7 +140,8 @@ function fr24FlightToEntity(flight: FR24FlightData): AircraftEntity {
       getAircraftCategory(flight.aircraftType),
       flight.isGround ? "ground" : "airborne",
       flight.aircraftType,
-    ].filter(Boolean),
+      flight.aircraftType?.includes("F") ? "Cargo" : null,
+    ].filter(Boolean) as string[],
     // Top-level flight properties for marker rendering
     icao24: flight.icao24,
     callsign: flight.callsign,

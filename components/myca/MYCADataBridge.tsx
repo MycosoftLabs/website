@@ -72,7 +72,7 @@ export function MYCADataBridge({
                 }}
                 className="flex items-center gap-1 rounded-full bg-primary/25 px-2.5 py-1 border border-primary/50"
               >
-                <span className="text-[9px] font-mono text-primary">request</span>
+                <span className="text-xs font-mono text-primary">request</span>
                 <ArrowRight className="h-3 w-3 text-primary" />
               </motion.div>
             </motion.div>
@@ -100,7 +100,7 @@ export function MYCADataBridge({
                 className="flex items-center gap-1 rounded-full bg-green-500/25 px-2.5 py-1 border border-green-500/50"
               >
                 <ArrowLeft className="h-3 w-3 text-green-500" />
-                <span className="text-[9px] font-mono text-green-500">response</span>
+                <span className="text-xs font-mono text-green-500">response</span>
               </motion.div>
             </motion.div>
           )}
