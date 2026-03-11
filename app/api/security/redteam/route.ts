@@ -15,6 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from "@/lib/auth/api-auth";
 
 const MAS_API_URL = process.env.MAS_API_URL || 'http://192.168.0.188:8001';
 const MAS_API_KEY = process.env.MAS_API_KEY;
@@ -29,6 +30,9 @@ const MAS_API_KEY = process.env.MAS_API_KEY;
  * - type: filter by simulation type
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action') || 'health';
 
@@ -109,6 +113,9 @@ export async function GET(request: NextRequest) {
  * - ... action-specific parameters
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const { action, ...data } = body;

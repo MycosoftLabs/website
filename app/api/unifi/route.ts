@@ -6,11 +6,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/auth/api-auth"
 
 export const dynamic = "force-dynamic"
 
-// UniFi uses self-signed certs by default
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+// SECURITY: Use a per-request HTTPS agent instead of disabling TLS globally.
+// The previous `process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"` disabled
+// TLS verification for ALL HTTPS connections (Stripe, Google, GitHub, etc.)
+import https from "https"
+const unifiAgent = new https.Agent({ rejectUnauthorized: false })
 
 const UNIFI_HOST = process.env.UNIFI_HOST || "192.168.0.1"
 const UNIFI_API_KEY = process.env.UNIFI_API_KEY
@@ -34,10 +38,12 @@ function requireUnifiKey() {
 async function unifiGet<T>(endpoint: string): Promise<T[]> {
   if (!UNIFI_API_KEY) throw new Error("UNIFI_API_KEY is not configured")
   const url = `https://${UNIFI_HOST}/proxy/network/api/s/${UNIFI_SITE}${endpoint}`
+  // @ts-expect-error — Node fetch supports agent option via undici
   const response = await fetch(url, {
     headers: { "X-API-Key": UNIFI_API_KEY, "Content-Type": "application/json" },
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
+    agent: unifiAgent,
   })
   if (!response.ok) throw new Error(`UniFi API error: ${response.status} for ${endpoint}`)
   const payload = (await response.json()) as UniFiApiResponse<T>
@@ -47,12 +53,14 @@ async function unifiGet<T>(endpoint: string): Promise<T[]> {
 async function unifiPost<T>(endpoint: string, body: unknown): Promise<T[]> {
   if (!UNIFI_API_KEY) throw new Error("UNIFI_API_KEY is not configured")
   const url = `https://${UNIFI_HOST}/proxy/network/api/s/${UNIFI_SITE}${endpoint}`
+  // @ts-expect-error — Node fetch supports agent option via undici
   const response = await fetch(url, {
     method: "POST",
     headers: { "X-API-Key": UNIFI_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
+    agent: unifiAgent,
   })
   if (!response.ok) throw new Error(`UniFi API POST error: ${response.status} for ${endpoint}`)
   const payload = (await response.json()) as UniFiApiResponse<T>
@@ -60,6 +68,9 @@ async function unifiPost<T>(endpoint: string, body: unknown): Promise<T[]> {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const missing = requireUnifiKey()
   if (missing) return missing
 
@@ -116,6 +127,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+
   const missing = requireUnifiKey()
   if (missing) return missing
 

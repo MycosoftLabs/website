@@ -92,8 +92,12 @@ const MYCOSOFT_USERS: MycosoftUser[] = [
   },
 ]
 
-// Default password for credential login — must be set via MYCOSOFT_DEFAULT_PASSWORD env var
-const DEFAULT_PASSWORD = process.env.MYCOSOFT_DEFAULT_PASSWORD || ""
+// Default password for credential login — MUST be set via MYCOSOFT_DEFAULT_PASSWORD env var
+// SECURITY: No fallback — empty/missing password disables credential login
+const DEFAULT_PASSWORD = process.env.MYCOSOFT_DEFAULT_PASSWORD
+if (!DEFAULT_PASSWORD && typeof window === 'undefined') {
+  console.error('[SECURITY] WARNING: MYCOSOFT_DEFAULT_PASSWORD is not set. Credential login is disabled.')
+}
 
 // Find user by email (case-insensitive, supports @mycosoft.org domain)
 function findMycosoftUser(email: string): MycosoftUser | null {
@@ -109,14 +113,9 @@ function findMycosoftUser(email: string): MycosoftUser | null {
     return user || null
   }
   
-  // For Google OAuth, also check by matching the name part of email
-  const emailName = normalizedEmail.split("@")[0]
-  user = MYCOSOFT_USERS.find(u => {
-    const userName = u.email.split("@")[0]
-    return userName === emailName
-  })
-  
-  return user || null
+  // SECURITY: Only match by exact email — prefix matching is disabled to prevent
+  // privilege escalation (e.g., morgan@gmail.com matching morgan@mycosoft.org)
+  return null
 }
 
 // Check if email is allowed to access the system
@@ -141,12 +140,15 @@ const providers: NextAuthOptions["providers"] = [
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials?.password) return null
-      
+
+      // SECURITY: Reject login if password is not configured
+      if (!DEFAULT_PASSWORD) return null
+
       const user = findMycosoftUser(credentials.email)
       if (!user) return null
-      
-      // Check password
-      if (credentials.password !== DEFAULT_PASSWORD) return null
+
+      // Check password — reject empty passwords
+      if (!credentials.password || credentials.password !== DEFAULT_PASSWORD) return null
       
       return { 
         id: user.id, 
@@ -262,9 +264,16 @@ export const authOptions: NextAuthOptions = {
   },
   session: { 
     strategy: "jwt", 
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 7 * 24 * 60 * 60, // 7 days (reduced from 30 for security)
   },
-  secret: process.env.NEXTAUTH_SECRET || "mycosoft-secret-key-2024",
+  // SECURITY: No hardcoded fallback — NEXTAUTH_SECRET must be set in environment
+  secret: process.env.NEXTAUTH_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: NEXTAUTH_SECRET environment variable is required in production')
+    }
+    console.error('[SECURITY] WARNING: NEXTAUTH_SECRET is not set. Using random secret (sessions will not persist across restarts)')
+    return require('crypto').randomBytes(32).toString('hex')
+  })(),
   debug: process.env.NODE_ENV === "development",
   trustHost: true, // Required behind Cloudflare/proxy so session is recognized
 }

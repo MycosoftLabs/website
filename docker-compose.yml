@@ -73,7 +73,7 @@ services:
       - "5432:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-mycosoft}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mycosoft_secure_2026}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       - POSTGRES_DB=${POSTGRES_DB:-mycosoft}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -92,7 +92,7 @@ services:
     container_name: mycosoft-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -279,8 +279,8 @@ services:
     ports:
       - "3030:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:?GRAFANA_USER must be set in .env}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set in .env}
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-worldmap-panel
     volumes:
       - grafana_data:/var/lib/grafana
@@ -332,8 +332,8 @@ services:
       - "5678:5678"
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - N8N_BASIC_AUTH_USER=${N8N_USER:?N8N_USER must be set in .env}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:?N8N_PASSWORD must be set in .env}
       - WEBHOOK_URL=https://api.mycosoft.com/webhooks
     volumes:
       - n8n_data:/home/node/.n8n

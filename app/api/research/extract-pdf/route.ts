@@ -11,8 +11,41 @@ import {
   convertToMarkdown,
   processResearchPaper
 } from '@/lib/research/pdf-extractor';
+import { requireAuth } from '@/lib/auth/api-auth';
+import { URL } from 'url';
+
+// SECURITY: Block SSRF by validating URLs against private IP ranges
+function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const hostname = parsed.hostname;
+    // Block private IPs, localhost, link-local, metadata endpoints
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('172.') ||
+      hostname.startsWith('169.254.') ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.local')
+    ) {
+      return true;
+    }
+    // Block non-HTTPS
+    if (parsed.protocol !== 'https:') return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult.error) return authResult.error;
+
   try {
     const contentType = request.headers.get('content-type') || '';
     
@@ -84,7 +117,15 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
+      // SECURITY: Validate URL to prevent SSRF (Server-Side Request Forgery)
+      if (isPrivateUrl(url)) {
+        return NextResponse.json(
+          { error: 'URL must be a public HTTPS URL. Private/internal URLs are not allowed.' },
+          { status: 400 }
+        );
+      }
+
       // Fetch PDF from URL
       const pdfResponse = await fetch(url);
       if (!pdfResponse.ok) {

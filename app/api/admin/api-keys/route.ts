@@ -51,18 +51,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Super Admin only' }, { status: 403 });
     }
     
-    const { searchParams } = new URL(request.url);
-    const reveal = searchParams.get('reveal'); // The specific key to reveal
-    
-    const keyData: Record<string, { masked: string; configured: boolean; revealed?: string }> = {};
-    
+    // SECURITY: reveal parameter removed — API keys must never be returned in full
+    // Use a secrets manager (e.g., Vault, AWS Secrets Manager) to access keys directly
+    const keyData: Record<string, { masked: string; configured: boolean }> = {};
+
     for (const config of API_KEYS_CONFIG) {
       const value = process.env[config.key];
       keyData[config.key] = {
         masked: maskApiKey(value),
         configured: !!value && value.length > 0,
-        // Only include revealed value if specifically requested for this key
-        ...(reveal === config.key && value ? { revealed: value } : {}),
       };
     }
     
