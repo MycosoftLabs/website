@@ -283,4 +283,61 @@ After completing the steps above, verify:
 
 ---
 
-*Generated alongside the automated security fixes in commit `fix: comprehensive security remediation across 30 files`*
+## SECOND-PASS FINDINGS — Additional Manual Items
+
+### 21. Remove `_secret_replacements.txt` from Git
+
+This file reveals your secrets naming scheme:
+```bash
+echo "_secret_replacements.txt" >> .gitignore
+git rm --cached _secret_replacements.txt
+git commit -m "chore: remove secret replacements file from tracking"
+```
+
+### 22. Fix Remaining Service Role Key Usage
+
+These routes use `SUPABASE_SERVICE_ROLE_KEY` (bypasses all RLS). Replace with user-scoped clients:
+- `app/api/security/fcl/route.ts`
+- `app/api/security/tests/route.ts`
+- `app/api/security/chain-repair/route.ts`
+- `app/api/security/incidents/causality/route.ts`
+- `app/api/security/incidents/test/route.ts`
+
+Pattern to fix:
+```typescript
+// Replace:
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// With:
+const supabase = await createClient()  // user-scoped
+```
+
+### 23. Fix dangerouslySetInnerHTML XSS (from first + second pass)
+
+Install DOMPurify:
+```bash
+npm install dompurify @types/dompurify
+```
+
+Files still needing sanitization:
+- `components/ui/virtual-table.tsx:161,268`
+- `components/mindex/query-monitor.tsx:348,371`
+- `components/templates/species-template.tsx:207-213`
+
+### 24. Add RLS Policy for support_tickets Table
+
+The support tickets route now uses user-scoped client. Ensure proper RLS:
+```sql
+CREATE POLICY "users_insert_own_tickets" ON support_tickets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "users_read_own_tickets" ON support_tickets
+  FOR SELECT USING (auth.uid() = user_id);
+```
+
+### 25. Revoke Former Employees' @mycosoft.org Google Accounts
+
+Any `@mycosoft.org` Google account gets automatic developer access via OAuth. Ensure Google Workspace admin has disabled accounts for departed team members.
+
+---
+
+*Updated with second-pass audit findings (19 additional files fixed in code).*
