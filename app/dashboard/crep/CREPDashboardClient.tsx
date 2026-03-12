@@ -2280,11 +2280,21 @@ export default function CREPDashboardPage() {
     if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
 
     const ctrl = new AbortController();
-    const formatObs = (obs: Record<string, unknown>): FungalObservation => ({
+    const formatObs = (obs: Record<string, unknown>): FungalObservation => {
+      let lat = obs.latitude ?? obs.lat;
+      let lng = obs.longitude ?? obs.lng;
+      if (lat == null || lng == null) {
+        const geom = obs.geometry as { coordinates?: [number, number] } | undefined;
+        if (Array.isArray(geom?.coordinates) && geom.coordinates.length >= 2) {
+          lng = geom.coordinates[0];
+          lat = geom.coordinates[1];
+        }
+      }
+      return {
       id: String(obs.id ?? obs.externalId ?? ""),
       observed_on: (obs.timestamp || obs.observed_on) as string,
-      latitude: Number(obs.latitude ?? obs.lat ?? 0),
-      longitude: Number(obs.longitude ?? obs.lng ?? 0),
+      latitude: Number(lat ?? 0),
+      longitude: Number(lng ?? 0),
       species: (obs.commonName || obs.species || obs.scientificName || "Unknown") as string,
       taxon_id: Number(obs.taxon_id ?? 0),
       taxon: {
@@ -2304,7 +2314,8 @@ export default function CREPDashboardPage() {
       externalId: obs.externalId as string | undefined,
       kingdom: (obs.kingdom || obs.iconicTaxon || "Fungi") as string,
       iconicTaxon: (obs.iconicTaxon || obs.kingdom || "Fungi") as string,
-    });
+    };
+    };
 
     const t = setTimeout(async () => {
       try {
@@ -3837,6 +3848,14 @@ export default function CREPDashboardPage() {
               display: none !important;
               visibility: hidden !important;
               opacity: 0 !important;
+            }
+            /* Ensure species/fungal markers receive clicks above deck.gl overlay canvas */
+            .crep-map-container .maplibregl-marker-container {
+              z-index: 1000 !important;
+              pointer-events: auto !important;
+            }
+            .crep-map-container .maplibregl-marker {
+              pointer-events: auto !important;
             }
           `}</style>
           <MapComponent 
