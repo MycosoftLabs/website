@@ -196,6 +196,7 @@ function aisToVesselEntity(
       callsign: staticData?.CallSign?.trim(),
       shipName: staticData?.ShipName?.trim() || metaData.ShipName?.trim(),
       shipType: staticData ? getShipTypeName(staticData.ShipType) : undefined,
+      shipTypeNum: staticData?.ShipType ?? null,
       destination: staticData?.Destination?.trim(),
       eta,
       length,
@@ -205,6 +206,7 @@ function aisToVesselEntity(
       cog: position?.Cog,
       sog: position?.Sog,
       navStatus: position ? getNavStatusName(position.NavigationStatus) : undefined,
+      navStatusNum: position?.NavigationStatus ?? null,
     },
   }
 }

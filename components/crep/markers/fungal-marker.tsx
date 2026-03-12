@@ -160,6 +160,7 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
         <button
           onClick={(e) => {
             e.stopPropagation();
+            onClick?.();
           }}
           className={cn(
             "relative flex items-center justify-center transition-all duration-200 ease-in-out",

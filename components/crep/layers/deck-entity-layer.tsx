@@ -301,8 +301,9 @@ export function EntityDeckLayer({
   // interleaved: true → deck.gl layers are inserted INTO the MapLibre render pipeline
   // so they render correctly with the map. Required by @deck.gl/mapbox in this setup.
   // (The @deck.gl/mapbox patch fixes the deck.viewManager API for v9 compatibility.)
+  // pickingRadius: 28 → fungal icons are 14–36px; 12 was too small for reliable clicks.
   const overlay = useMemo(
-    () => new MapboxOverlay({ interleaved: true }),
+    () => new MapboxOverlay({ interleaved: true, pickingRadius: 28 }),
     []
   );
 

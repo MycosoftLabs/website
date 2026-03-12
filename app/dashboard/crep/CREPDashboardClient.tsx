@@ -2084,8 +2084,9 @@ export default function CREPDashboardPage() {
           const eventsRes = await fetch("/api/natureos/global-events");
           if (eventsRes.ok) {
             const data = await eventsRes.json();
+            // Allow lat/lng of 0 (solar flares at Sun, geomagnetic at pole) - use typeof check
             const formattedEvents = (data.events || [])
-              .filter((e: any) => e.location?.latitude && e.location?.longitude)
+              .filter((e: any) => typeof e.location?.latitude === "number" && typeof e.location?.longitude === "number")
               .map((e: any) => ({
                 id: e.id,
                 type: e.type,
@@ -2343,7 +2344,7 @@ export default function CREPDashboardPage() {
         if (!eventsRes.ok) return;
         const data = await eventsRes.json();
         const formattedEvents: GlobalEvent[] = (data.events || [])
-          .filter((e: any) => e.location?.latitude && e.location?.longitude)
+          .filter((e: any) => typeof e.location?.latitude === "number" && typeof e.location?.longitude === "number")
           .map((e: any) => ({
             id: e.id,
             type: e.type,
@@ -2420,9 +2421,9 @@ export default function CREPDashboardPage() {
         return;
       }
       
-      // If we just picked a deck.gl entity (<200ms ago), do NOT dismiss - deck.gl onClick
+      // If we just picked a deck.gl entity (<400ms ago), do NOT dismiss - deck.gl onClick
       // may run after this; clicking species/plane/vessel icons was being cleared immediately.
-      if (Date.now() - lastEntityPickTimeRef.current < 200) return;
+      if (Date.now() - lastEntityPickTimeRef.current < 400) return;
       
       // Check if click is on the map (MapLibre canvas, deck.gl overlay, etc.) - never dismiss
       // when clicking map area; map's own click handler handles empty-map dismiss with delay.
@@ -2936,9 +2937,19 @@ export default function CREPDashboardPage() {
     if (!mapBounds || typeFilteredEvents.length === 0) {
       return typeFilteredEvents.slice(0, 30);
     }
+
+    // Space weather types have synthetic coordinates (0,0 for solar flares, 65,0 for geomag)
+    // - never cull them by viewport; always include if typeFilteredEvents passed them
+    const SPACE_WEATHER_TYPES = ["solar_flare", "geomagnetic_storm", "aurora"];
+    const isSpaceWeather = (e: GlobalEvent) => {
+      const t = (e.type || "").toLowerCase();
+      const sub = ((e as any).subtype || "").toLowerCase();
+      return SPACE_WEATHER_TYPES.includes(t) || sub === "solar_radiation" || sub === "radio_blackout" || sub.includes("aurora");
+    };
     
-    // Step 1: Filter to viewport bounds FIRST (fast culling)
+    // Step 1: Filter to viewport bounds (skip viewport culling for space weather)
     const inViewport = typeFilteredEvents.filter(event => {
+      if (isSpaceWeather(event)) return true;
       const lat = event.lat;
       const lng = event.lng;
       
@@ -3036,39 +3047,46 @@ export default function CREPDashboardPage() {
   }, [fungalObservations.length, globalEvents.length, aircraft.length, vessels.length, satellites.length, criticalCount]);
 
   // ===========================================================================
-  // FILTER AIRCRAFT based on aircraftFilter state
+  // FILTER AIRCRAFT: INCLUSION - show only if matches at least one enabled category
   // Uses intelligent sampling to prevent map clutter while maintaining coverage
   // ===========================================================================
   const filteredAircraft = useMemo(() => {
-    // First, apply type/altitude filters
     let filtered = aircraft.filter(ac => {
-      // Filter by airborne/ground status
       const isOnGround = ac.onGround === true;
+      // When showAirborne OFF: exclude planes that are airborne (!isOnGround)
       if (!aircraftFilter.showAirborne && !isOnGround) return false;
+      // When showGround OFF: exclude planes that are on ground
       if (!aircraftFilter.showGround && isOnGround) return false;
-      
-      // Filter by altitude range (altitude is in feet)
+
       const altitude = ac.altitude ?? 0;
       if (altitude < aircraftFilter.minAltitude || altitude > aircraftFilter.maxAltitude) return false;
-      
-      // Filter by aircraft category (commercial, cargo, military, private)
+
       const category = (ac as any).tags?.find((t: string) =>
         ["Wide-body", "Narrow-body", "Regional", "Cargo", "Helicopter", "Aircraft"].includes(t)
       ) || "Aircraft";
-      const isCargo = category === "Cargo" || ac.aircraftType?.includes("F");
-      const callsign = (ac.callsign || "").toUpperCase();
-      const militaryPrefixes = ["RCH", "DUKE", "EVAC", "HURLB", "SPAR", "REACH", "AWACS", "GAF", "IAM", "NAF", "NAVY", "AIRFORCE", "HAF", "BAF", "RAAF"];
-      const isMilitary = militaryPrefixes.some(p => callsign.startsWith(p)) || ac.registration?.startsWith("N/A") || false;
-      // Commercial: has origin+destination or flightNumber (FR24 sets airline="" so use schedule instead)
-      const hasSchedule = !!(ac.origin && ac.destination) || !!(ac as any).flightNumber;
-      const isCommercial = hasSchedule && !isCargo && !isMilitary;
+      const callsign = (ac.callsign || "").trim().toUpperCase();
+      const flightNumber = ((ac as any).flightNumber ?? "").toString();
+
+      const isCargo = category === "Cargo" || (ac.aircraftType ?? "").toUpperCase().includes("F") ||
+        ["FDX", "UPS", "CGN", "GTI", "ABX", "5Y", "K4", "FX", "PO"].some(p => callsign.startsWith(p));
+      const militaryPrefixes = ["RCH", "REACH", "DUKE", "EVAC", "HURLB", "SPAR", "AWACS", "GAF", "IAM", "NAF", "NAVY", "HAF", "BAF", "RAAF", "VADER", "HOSS"];
+      const isMilitary = militaryPrefixes.some(p => callsign.startsWith(p));
+
+      // Commercial: airline call sign (3-letter ICAO + digits), or Wide/Narrow/Regional category, or origin+dest
+      const airlineCallSign = /^[A-Z]{2,3}\d{1,4}$/.test(callsign);
+      const isScheduledCategory = ["Wide-body", "Narrow-body", "Regional"].includes(category);
+      const hasSchedule = !!(ac.origin && ac.destination) || !!flightNumber;
+      const isCommercial = !isCargo && !isMilitary && (airlineCallSign || isScheduledCategory || hasSchedule);
+
       const isPrivate = !isCargo && !isMilitary && !isCommercial;
-      
-      if (!aircraftFilter.showCargo && isCargo) return false;
-      if (!aircraftFilter.showMilitary && isMilitary) return false;
-      if (!aircraftFilter.showPrivate && isPrivate) return false;
-      if (!aircraftFilter.showCommercial && isCommercial) return false;
-      
+
+      const matchesEnabledCategory =
+        (aircraftFilter.showCargo && isCargo) ||
+        (aircraftFilter.showMilitary && isMilitary) ||
+        (aircraftFilter.showPrivate && isPrivate) ||
+        (aircraftFilter.showCommercial && isCommercial);
+
+      if (!matchesEnabledCategory) return false;
       return true;
     });
     
@@ -3084,33 +3102,41 @@ export default function CREPDashboardPage() {
   }, [aircraft, aircraftFilter]);
 
   // ===========================================================================
-  // FILTER VESSELS based on vesselFilter state  
+  // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
+  // AIS ShipType: 30=fishing, 31-32=towing, 35=military, 36-39=pleasure, 52=tug, 60-69=passenger, 70-79=cargo, 80-89=tanker
+  // shipType 0 = unknown (position-only AIS) → treat as other/pleasure
   // ===========================================================================
   const filteredVessels = useMemo(() => {
     return vessels.filter(v => {
-      const shipType = typeof v.shipType === "number" ? v.shipType : 0;
+      const shipType = typeof v.shipType === "number" ? v.shipType : (v as any).properties?.shipTypeNum ?? 0;
       const shipTypeStr = (
         (v as any).properties?.shipType ?? (v as any).tags?.[0] ?? (v as any).description ?? ""
       ).toString().toLowerCase();
-      
+      const navStatusNum = (v as any).properties?.navStatusNum ?? null;
+
       const isCargo = (shipType >= 70 && shipType <= 79) || shipTypeStr.includes("cargo");
       const isTanker = (shipType >= 80 && shipType <= 89) || shipTypeStr.includes("tanker");
       const isPassenger = (shipType >= 60 && shipType <= 69) || shipTypeStr.includes("passenger");
-      const isFishing = shipType === 30 || shipTypeStr.includes("fishing");
+      const isFishing = shipType === 30 || shipTypeStr.includes("fishing") || navStatusNum === 7;
       const isTug = shipType === 52 || (shipType >= 31 && shipType <= 32) || shipTypeStr.includes("tug") || shipTypeStr.includes("towing");
       const isMilitary = shipType === 35 || shipTypeStr.includes("military");
-      
-      if (!vesselFilter.showCargo && isCargo) return false;
-      if (!vesselFilter.showTanker && isTanker) return false;
-      if (!vesselFilter.showPassenger && isPassenger) return false;
-      if (!vesselFilter.showFishing && isFishing) return false;
-      if (!vesselFilter.showTug && isTug) return false;
-      if (!vesselFilter.showMilitary && isMilitary) return false;
-      
-      // Filter by minimum speed
+      const isPleasure = (shipType >= 36 && shipType <= 39) || shipTypeStr.includes("pleasure");
+      const isOther = !isCargo && !isTanker && !isPassenger && !isFishing && !isTug && !isMilitary && !isPleasure; // shipType 0 or unmapped
+
+      const matchesEnabledCategory =
+        (vesselFilter.showCargo && isCargo) ||
+        (vesselFilter.showTanker && isTanker) ||
+        (vesselFilter.showPassenger && isPassenger) ||
+        (vesselFilter.showFishing && isFishing) ||
+        (vesselFilter.showTug && isTug) ||
+        (vesselFilter.showMilitary && isMilitary) ||
+        (vesselFilter.showPleasure && (isPleasure || isOther));
+
+      if (!matchesEnabledCategory) return false;
+
       const speed = v.sog ?? (v as any).properties?.sog ?? 0;
       if (speed < vesselFilter.minSpeed) return false;
-      
+
       return true;
     });
   }, [vessels, vesselFilter]);
@@ -3359,23 +3385,8 @@ export default function CREPDashboardPage() {
         s2_cell: "",
       };
       }),
-      ...(layers.find((l) => l.id === "fungi")?.enabled !== false ? visibleFungalObservations : []).map((observation) => ({
-        id: `fungal-${observation.id}`,
-        type: "fungal" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [observation.longitude, observation.latitude] as [number, number],
-        },
-        state: {},
-        time: {
-          observed_at: observation.observed_on ?? new Date().toISOString(),
-          valid_from: observation.observed_on ?? new Date().toISOString(),
-        },
-        confidence: 0.95,
-        source: "mindex",
-        properties: observation as unknown as Record<string, unknown>,
-        s2_cell: "",
-      })),
+      // Fungal observations are rendered as DOM MapMarkers (FungalMarker) for reliable click handling.
+      // deck.gl IconLayer onClick does not fire reliably with MapboxOverlay/interleaved; DOM markers work.
     ];
 
     const byId = new Map<string, UnifiedEntity>();
@@ -3879,9 +3890,10 @@ export default function CREPDashboardPage() {
               // map "click" with target=canvas. We use lastEntityPickTimeRef to avoid
               // dismissing immediately after an entity pick (deck.gl onClick fires first).
               map.on("click", (e: any) => {
+                // 300ms delay: deck.gl onClick runs async; wait so it can set lastEntityPickTimeRef first
                 setTimeout(() => {
-                  // If we just picked a deck.gl entity (<200ms ago), do NOT dismiss
-                  if (Date.now() - lastEntityPickTimeRef.current < 200) return;
+                  // If we just picked a deck.gl entity (<400ms ago), do NOT dismiss
+                  if (Date.now() - lastEntityPickTimeRef.current < 400) return;
                   const openPopups = document.querySelectorAll('.maplibregl-popup');
                   if (openPopups.length > 0) {
                     const target = e.originalEvent?.target as HTMLElement | null;
@@ -3895,7 +3907,7 @@ export default function CREPDashboardPage() {
                       setSelectedOther(null);
                     }
                   }
-                }, 100);
+                }, 300);
               });
             }}
           >
@@ -4162,18 +4174,17 @@ export default function CREPDashboardPage() {
 
             {/* Aircraft / Vessel / Satellite rendering via deck.gl EntityDeckLayer */}
 
-            {/* Fungal Observation Markers - Rendered as MapMarker components for interactive popups
-                deck.gl renders the species icons for visible observations; Fungi layer controls icon visibility.
-                MapMarker shows the popup whenever user selects an observation (click or list) - layer-agnostic. */}
-            {selectedFungal && (
+            {/* Fungal Observation Markers - DOM MapMarkers for reliable clicks (deck.gl IconLayer onClick fails with MapboxOverlay).
+                Each visible fungal observation gets a FungalMarker; clicking selects and shows the species widget popup. */}
+            {layers.find(l => l.id === "fungi")?.enabled && visibleFungalObservations.map((obs) => (
               <FungalMarker
-                key={`fungal-popup-${selectedFungal.id}`}
-                observation={selectedFungal}
-                isSelected={true}
-                onClick={() => handleSelectFungal(null)}
+                key={`fungal-${obs.id}`}
+                observation={obs}
+                isSelected={selectedFungal?.id === obs.id}
+                onClick={() => handleSelectFungal(selectedFungal?.id === obs.id ? null : obs)}
                 onClose={() => handleSelectFungal(null)}
               />
-            )}
+            ))}
 
             {/* Other entity popup (weather, earthquake, elephant, device, fire, crisis) - P0 biodiversity/wildlife bubble selection */}
             {selectedOther && selectedOther.geometry.type === "Point" && selectedOther.geometry.coordinates.length >= 2 && (
