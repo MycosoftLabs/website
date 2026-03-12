@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
 export async function GET(
-  request: NextRequest, 
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
@@ -49,8 +49,8 @@ export async function GET(
         SELECT * FROM phylogeny_trees WHERE root_species_id = ${id} LIMIT 1
       `
 
-      if (result.rows.length > 0) {
-        treeData = result.rows[0].tree_data
+      if (result.length > 0) {
+        treeData = result[0].tree_data
         console.log("Successfully fetched tree data from the database.")
       } else {
         return NextResponse.json({ error: "Tree not found", code: "NOT_FOUND", id }, { status: 404 })
