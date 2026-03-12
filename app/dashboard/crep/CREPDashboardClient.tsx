@@ -3837,7 +3837,22 @@ export default function CREPDashboardPage() {
         </div>
 
         {/* Map Container - Full size, panels overlay it. data-crep-map used by click-away to avoid dismissing when clicking deck.gl icons. */}
-        <div className="absolute inset-0 crep-map-container" data-crep-map>
+        <div
+          className="absolute inset-0 crep-map-container"
+          data-crep-map
+          onClickCapture={(e) => {
+            if (!layers.find(l => l.id === "fungi")?.enabled) return;
+            const el = (e.target as Element)?.closest?.("[data-marker=fungal], [data-observation-id]");
+            if (!el) return;
+            const obsId = el.getAttribute("data-observation-id");
+            if (!obsId) return;
+            const obs = visibleFungalObservations.find(o => String(o.id) === obsId);
+            if (obs) {
+              handleSelectFungal(selectedFungal?.id === obs.id ? null : obs);
+              e.stopPropagation();
+            }
+          }}
+        >
           {/* Custom CSS to hide map attribution for military/scientific use */}
           <style jsx global>{`
             .crep-map-container .maplibregl-ctrl-attrib,
@@ -3851,7 +3866,7 @@ export default function CREPDashboardPage() {
             }
             /* Ensure species/fungal markers receive clicks above deck.gl overlay canvas */
             .crep-map-container .maplibregl-marker-container {
-              z-index: 1000 !important;
+              z-index: 9999 !important;
               pointer-events: auto !important;
             }
             .crep-map-container .maplibregl-marker {

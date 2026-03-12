@@ -159,7 +159,6 @@ export const FungalMarker = memo(function FungalMarkerInner({ observation, isSel
       <MarkerContent data-marker="fungal" data-observation-id={String(observation.id)}>
         <button
           type="button"
-          data-observation-id={String(observation.id)}
           onClick={(e) => {
             e.stopPropagation();
             onClick?.();
