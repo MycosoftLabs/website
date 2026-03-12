@@ -1,4 +1,4 @@
-## Release Notes â€” MycoBrain Website Integration
+﻿## Release Notes â€” MycoBrain Website Integration
 
 - Added MycoBrain integration documentation pages.
 - Added Mycorrhizae Protocol page.

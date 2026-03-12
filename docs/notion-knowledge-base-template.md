@@ -1,4 +1,4 @@
-## Notion: â€œMycoBrain Knowledge Baseâ€ (Template)
+﻿## Notion: â€œMycoBrain Knowledge Baseâ€ (Template)
 
 Create a Notion database called **MycoBrain Knowledge Base** with templates:
 
