@@ -1,4 +1,4 @@
-﻿# Mycosoft Website
+# Mycosoft Website
 
 > **Version**: 2.0.0  
 > **Last Updated**: 2026-01-15T14:30:00Z  
@@ -134,4 +134,12 @@ See [CHANGELOG.md](./CHANGELOG.md) for version history.
 
 ## ðŸ“œ License
 
-Copyright Â© 2026 Mycosoft. All rights reserved.
+## MycoBrain + Protocol Documentation
+
+- MycoBrain integration pages: `app/devices/mycobrain/integration/`
+- Mycorrhizae Protocol page: `app/protocols/mycorrhizae/`
+- Engineering notes: `docs/`
+
+## License
+
+Copyright © 2026 Mycosoft. All rights reserved.
