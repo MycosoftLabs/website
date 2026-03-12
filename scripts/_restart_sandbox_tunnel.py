@@ -50,7 +50,9 @@ cmds = [
 ]
 for c in cmds:
     _, out, _ = sb.exec_command(c)
-    r = out.read().decode().strip()
+    r = out.read().decode(errors="replace").strip()
+    # Avoid Unicode bullets that break Windows console
+    r = r.replace("\u25cf", "*").replace("\u25cb", "o")
     print(f">> {c[:50]}...")
     print(r or "(none)")
     print()
@@ -62,7 +64,7 @@ for svc in ["cloudflared", "cloudflare-tunnel"]:
     stdin.write(password + "\n")
     stdin.flush()
     code = out.channel.recv_exit_status()
-    txt = (out.read() + err.read()).decode().strip()
+    txt = (out.read() + err.read()).decode(errors="replace").strip()
     if code == 0:
         print(f">> Restarted {svc} successfully")
         restarted = True
@@ -75,7 +77,7 @@ if not restarted:
     print(">> No systemd service found, trying Docker container...")
     _, out, _ = sb.exec_command("docker restart mycosoft-tunnel 2>&1")
     code = out.channel.recv_exit_status()
-    txt = out.read().decode().strip()
+    txt = out.read().decode(errors="replace").strip()
     if code == 0:
         print(f">> Restarted Docker tunnel container: {txt}")
     else:
@@ -86,7 +88,7 @@ if not restarted:
             "cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml up -d cloudflared 2>&1"
         )
         code = out.channel.recv_exit_status()
-        txt = out.read().decode().strip()
+        txt = out.read().decode(errors="replace").strip()
         print(f">> docker-compose up cloudflared: {txt}")
 
 sb.close()
