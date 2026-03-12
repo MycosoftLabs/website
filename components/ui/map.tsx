@@ -354,15 +354,18 @@ type MarkerContentProps = {
   className?: string;
   /** Data attribute for marker identification (used for click-away detection) */
   "data-marker"?: string;
+  /** Data attribute for observation ID (used for fallback click handling on CREP species markers) */
+  "data-observation-id"?: string;
 };
 
-function MarkerContent({ children, className, "data-marker": dataMarker }: MarkerContentProps) {
+function MarkerContent({ children, className, "data-marker": dataMarker, "data-observation-id": dataObservationId }: MarkerContentProps) {
   const { marker } = useMarkerContext();
 
   return createPortal(
     <div 
       className={cn("relative cursor-pointer", className)} 
       data-marker={dataMarker}
+      data-observation-id={dataObservationId}
     >
       {children || <DefaultMarkerIcon />}
     </div>,
