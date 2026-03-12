@@ -3,7 +3,6 @@
 import type React from "react"
 import { DashboardNav } from "@/components/dashboard/nav"
 import { TopNav } from "@/components/dashboard/top-nav"
-import { NavigationTitle } from "@/components/dashboard/navigation-title"
 import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger } from "@/components/ui/sidebar"
 
 export default function AncestryLayout({
@@ -18,7 +17,7 @@ export default function AncestryLayout({
         <div className="flex flex-1 h-[calc(100vh-3.5rem)] transition-all duration-300">
           <Sidebar className="border-r border-gray-800 md:sticky md:top-14 h-full">
             <div className="flex items-center justify-between p-2">
-              <NavigationTitle />
+              <h2 className="text-sm font-semibold text-gray-200">Navigation</h2>
               <SidebarTrigger />
             </div>
             <SidebarContent className="h-full">
