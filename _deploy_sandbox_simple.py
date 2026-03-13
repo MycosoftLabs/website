@@ -118,7 +118,7 @@ mycosoft-always-on-mycosoft-website:latest"""
         print("✅ DEPLOYMENT COMPLETE")
         print("="*60)
         print("Website: http://192.168.0.187:3000")
-        print("         https://sandbox.mycosoft.com")
+        print("         https://mycosoft.com")
         print("\nNext: Purge Cloudflare cache if needed")
         
         sandbox_ssh.close()

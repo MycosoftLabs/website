@@ -61,7 +61,7 @@ def main() -> None:
 
     ssh.close()
     print("\nContainer restarted with NAS assets mount.")
-    print("Run Cloudflare purge and verify: https://sandbox.mycosoft.com/about/human-team")
+    print("Run Cloudflare purge and verify: https://mycosoft.com/about/human-team")
 
 
 if __name__ == "__main__":

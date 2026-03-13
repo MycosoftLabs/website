@@ -2,7 +2,7 @@
 """Upload team images from local public/assets/team to Sandbox VM NAS mount.
 
 VM mounts /opt/mycosoft/media/website/assets from NAS. Team images must be in
-/opt/mycosoft/media/website/assets/team/ for sandbox.mycosoft.com to serve them.
+/opt/mycosoft/media/website/assets/team/ for mycosoft.com to serve them.
 
 Usage: python scripts/upload_team_assets_to_sandbox.py
 """

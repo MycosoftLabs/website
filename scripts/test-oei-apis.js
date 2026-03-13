@@ -1,7 +1,7 @@
 /**
  * Test OEI APIs: planes (FlightRadar24), boats (AISStream), satellites (CelesTrak).
  * Run with dev server up: npm run dev:next-only then node scripts/test-oei-apis.js
- * Or: BASE_URL=https://sandbox.mycosoft.com node scripts/test-oei-apis.js
+ * Or: BASE_URL=https://mycosoft.com node scripts/test-oei-apis.js
  *
  * Shows whether each source returns data or not (so we can confirm "they are not there" when 0).
  */

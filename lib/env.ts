@@ -7,7 +7,7 @@
 
 export const env = {
   // NatureOS API Configuration (legacy - for backward compatibility)
-  natureosApiUrl: process.env.NEXT_PUBLIC_API_URL || "https://api.mycosoft.org/v1",
+  natureosApiUrl: process.env.NEXT_PUBLIC_API_URL || "/api/natureos",
 
   // MINDEX API Configuration (canonical data layer)
   // Use MINDEX_API_URL from .env.local, fallback to MINDEX_API_BASE_URL or VM default
@@ -19,11 +19,11 @@ export const env = {
   myceliumsegApiUrl: process.env.NEXT_PUBLIC_MYCELIUMSEG_API_URL || process.env.MYCELIUMSEG_API_URL || "http://localhost:8010/mindex/myceliumseg",
 
   // MYCA MAS API Configuration (multi-agent orchestration)
-  mycaMasApiBaseUrl: process.env.MYCA_MAS_API_BASE_URL || "https://myca.mycosoft.org/api/v1",
+  mycaMasApiBaseUrl: process.env.MYCA_MAS_API_BASE_URL || "/api/mas",
   mycaMasApiKey: process.env.MYCA_MAS_API_KEY, // Server-only, never expose to client
 
   // NatureOS Platform API (optional domain layer)
-  natureosApiBaseUrl: process.env.NATUREOS_API_BASE_URL || "https://natureos.mycosoft.org/api/v1",
+  natureosApiBaseUrl: process.env.NATUREOS_API_BASE_URL || "/api/natureos",
 
   // Mycorrhizae Protocol Configuration
   mycorrhizaeApiUrl: process.env.MYCORRHIZAE_API_URL || "http://192.168.0.187:8002",

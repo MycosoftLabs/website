@@ -150,8 +150,8 @@ def main():
     print("DEPLOYMENT COMPLETE")
     print("=" * 80)
     print("\nNext steps:")
-    print("1. Purge Cloudflare cache for sandbox.mycosoft.com")
-    print("2. Verify https://sandbox.mycosoft.com/natureos/devices")
+    print("1. Purge Cloudflare cache for mycosoft.com")
+    print("2. Verify https://mycosoft.com/natureos/devices")
     print("3. Check MycoBrain devices display correctly")
 
 if __name__ == "__main__":

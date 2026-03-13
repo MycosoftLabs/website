@@ -204,7 +204,7 @@ def main():
         print("=" * 80)
         print("\nNext steps:")
         print("  1. Purge Cloudflare cache: https://dash.cloudflare.com/")
-        print("  2. Verify: https://sandbox.mycosoft.com/natureos/devices")
+        print("  2. Verify: https://mycosoft.com/natureos/devices")
         print("  3. Check for MycoBrain devices on the page")
         
     except Exception as e:

@@ -99,6 +99,6 @@ Write-Host "DEPLOYMENT COMPLETE" -ForegroundColor Green
 Write-Host ("=" * 80) -ForegroundColor Cyan
 
 Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "1. Purge Cloudflare cache for sandbox.mycosoft.com" -ForegroundColor White
-Write-Host "2. Verify: https://sandbox.mycosoft.com/natureos/devices" -ForegroundColor White
+Write-Host "1. Purge Cloudflare cache for mycosoft.com" -ForegroundColor White
+Write-Host "2. Verify: https://mycosoft.com/natureos/devices" -ForegroundColor White
 Write-Host "3. Check MycoBrain devices display correctly" -ForegroundColor White

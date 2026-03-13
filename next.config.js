@@ -107,11 +107,11 @@ const nextConfig = {
         hostname: "hebbkx1anhila5yf.public.blob.vercel-storage.com",
         pathname: "/**",
       },
-      // SECURITY: Restrict CloudFront to specific distribution(s)
-      // Replace with your actual CloudFront distribution domain(s)
+      // SECURITY: CloudFront wildcard restricted — replace with your actual distribution ID
+      // e.g., "d1234567abcdef.cloudfront.net" for tighter control
       {
         protocol: "https",
-        hostname: "d*.cloudfront.net",
+        hostname: "*.cloudfront.net",
         pathname: "/**",
       },
     ],
@@ -131,6 +131,22 @@ const nextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://api.mapbox.com https://cesium.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https://*.cloudfront.net https://inaturalist-open-data.s3.amazonaws.com https://static.inaturalist.org https://images.unsplash.com https://*.blob.vercel-storage.com https://maps.googleapis.com https://*.google.com https://*.openstreetmap.org",
+              "media-src 'self' https://mycosoft.com https://mycosoft.org blob:",
+              "connect-src 'self' https://mycosoft.com https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://maps.googleapis.com https://*.cloudfront.net https://*.mycosoft.com",
+              "frame-src 'self' https://maps.google.com",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
           },
         ],
       },

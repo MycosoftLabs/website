@@ -180,7 +180,7 @@ def main():
     ssh.close()
     
     if http_code == "200":
-        print("\n✅ Deployment successful! Site is live at sandbox.mycosoft.com")
+        print("\n✅ Deployment successful! Site is live at mycosoft.com")
         purge_everything()
     else:
         print(f"\n⚠️  Site returned {http_code} - may need attention")

@@ -49,7 +49,7 @@ def main() -> int:
         (f"cd {WEBSITE_DIR} && docker build -t mycosoft-always-on-mycosoft-website:latest --no-cache . 2>&1", 1800),
         (
             "docker run -d --name mycosoft-website -p 3000:3000 "
-            "-e NEXTAUTH_URL=https://sandbox.mycosoft.com "
+            "-e NEXTAUTH_URL=https://mycosoft.com "
             "-e AUTH_TRUST_HOST=true "
             "-v /opt/mycosoft/media/website/assets:/app/public/assets:ro "
             "--restart unless-stopped mycosoft-always-on-mycosoft-website:latest",

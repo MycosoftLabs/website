@@ -143,7 +143,7 @@ def main():
         print("="*60)
         print(f"Website should be available at:")
         print(f"  - http://{SANDBOX_HOST}:3000")
-        print(f"  - https://sandbox.mycosoft.com")
+        print(f"  - https://mycosoft.com")
         print(f"\nNext step: Purge Cloudflare cache if needed")
         
         sandbox_ssh.close()

@@ -242,7 +242,7 @@ if ($success) {
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
     Write-Host "║              DEPLOYMENT COMPLETED SUCCESSFULLY              ║" -ForegroundColor Green
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
-    Write-Host "`nVerify at: https://sandbox.mycosoft.com" -ForegroundColor Cyan
+    Write-Host "`nVerify at: https://mycosoft.com" -ForegroundColor Cyan
 } else {
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
     Write-Host "║              DEPLOYMENT FAILED - CHECK ERRORS               ║" -ForegroundColor Red

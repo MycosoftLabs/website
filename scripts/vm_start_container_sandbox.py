@@ -36,7 +36,7 @@ def main() -> None:
     commands = [
         "docker rm -f mycosoft-website 2>/dev/null || true",
         "docker run -d --name mycosoft-website -p 3000:3000 "
-        "-e NEXTAUTH_URL=https://sandbox.mycosoft.com "
+        "-e NEXTAUTH_URL=https://mycosoft.com "
         "-e AUTH_TRUST_HOST=true "
         "-e MAS_API_URL=http://192.168.0.188:8001 "
         "-e NEXT_PUBLIC_MAS_API_URL=http://192.168.0.188:8001 "

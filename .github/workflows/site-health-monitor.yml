@@ -22,7 +22,8 @@ env:
   SITE_URL: https://mycosoft.com
   # Fallback if the above is unreachable (Cloudflare tunnel target)
   SITE_URL_ALT: https://www.mycosoft.com
-  SANDBOX_URL: https://sandbox.mycosoft.com
+  # Sandbox domain dropped — all traffic now goes to mycosoft.com
+  # SANDBOX_URL: removed (domain dropped 2026-03)
 
 jobs:
   health-check:
@@ -39,17 +40,6 @@ jobs:
             echo "Homepage: OK ($STATUS)"
           else
             echo "::error::Homepage unreachable (HTTP $STATUS)"
-          fi
-
-      - name: Check sandbox (tunnel / staging)
-        id: sandbox
-        run: |
-          STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$SANDBOX_URL" 2>/dev/null || echo "000")
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-            echo "Sandbox: OK ($STATUS)"
-          else
-            echo "::warning::Sandbox unreachable (HTTP $STATUS) — check Cloudflare Tunnel / error 1033"
           fi
 
       - name: Check health API
@@ -126,7 +116,7 @@ jobs:
         if: always()
         env:
           HOMEPAGE_STATUS: ${{ steps.homepage.outputs.status }}
-          SANDBOX_STATUS: ${{ steps.sandbox.outputs.status }}
+          # SANDBOX_STATUS removed — domain dropped
           HEALTH_STATUS: ${{ steps.health.outputs.status }}
           MYCA_STATUS: ${{ steps.myca.outputs.status }}
           PROVIDER_STATUS: ${{ steps.providers.outputs.status }}
@@ -138,7 +128,7 @@ jobs:
         run: |
           echo "=== HEALTH SUMMARY ==="
           echo "Homepage:     HTTP $HOMEPAGE_STATUS"
-          echo "Sandbox:      HTTP $SANDBOX_STATUS"
+          # Sandbox domain dropped
           echo "Health API:   $HEALTH_STATUS"
           echo "MYCA API:     HTTP $MYCA_STATUS"
           echo "LLM Status:   $PROVIDER_STATUS ($PROVIDERS_WORKING working)"

@@ -53,7 +53,7 @@ export const API_URLS = {
   LOCAL_BASE: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010",
   
   // Production website
-  PRODUCTION: "https://sandbox.mycosoft.com",
+  PRODUCTION: process.env.NEXT_PUBLIC_BASE_URL || "https://mycosoft.com",
 } as const
 
 /**

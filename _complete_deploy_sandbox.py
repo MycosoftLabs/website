@@ -134,7 +134,7 @@ try:
         "-e OLLAMA_BASE_URL=http://192.168.0.188:11434 "
         "-e OLLAMA_MODEL=llama3.2:3b "
         "-e N8N_URL=http://192.168.0.188:5678 "
-        "-e NEXT_PUBLIC_BASE_URL=https://sandbox.mycosoft.com "
+        "-e NEXT_PUBLIC_BASE_URL=https://mycosoft.com "
         "--restart unless-stopped "
         "mycosoft-always-on-mycosoft-website:latest"
     )
@@ -167,7 +167,7 @@ try:
         print(f"    {output}")
         print(f"\n>> Website should be accessible at:")
         print(f"    http://192.168.0.187:3000")
-        print(f"    https://sandbox.mycosoft.com")
+        print(f"    https://mycosoft.com")
     else:
         print(f"WARNING: Container may not be running. Checking logs...")
         stdin, stdout, stderr = sandbox_client.exec_command(
@@ -217,7 +217,7 @@ try:
     print(f">> Deployment complete!")
     print(f"\n>> Next steps:")
     print(f"    1. Verify website: http://192.168.0.187:3000")
-    print(f"    2. Test a page or feature at https://sandbox.mycosoft.com")
+    print(f"    2. Test a page or feature at https://mycosoft.com")
     
 except paramiko.AuthenticationException:
     print(f"ERROR: Authentication failed. Check credentials in .credentials.local")

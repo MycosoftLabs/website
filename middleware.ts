@@ -8,7 +8,14 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
+  const hostname = request.headers.get("host") || ""
   const pathname = request.nextUrl.pathname
+
+  // Redirect mycosoft.org (all paths) -> mycosoft.com/about
+  if (hostname.replace(/^www\./, "").startsWith("mycosoft.org")) {
+    return NextResponse.redirect("https://mycosoft.com/about", 301)
+  }
+
   const response =
     pathname === "/MYCA"
       ? NextResponse.redirect(new URL("/myca", request.url), 302)

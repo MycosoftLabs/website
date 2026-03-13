@@ -127,7 +127,7 @@ mycosoft-always-on-mycosoft-website:latest"""
     print("=" * 80)
     print("\nNext steps:")
     print("1. Purge Cloudflare cache")
-    print("2. Verify: https://sandbox.mycosoft.com/natureos/devices")
+    print("2. Verify: https://mycosoft.com/natureos/devices")
     
     return 0
 

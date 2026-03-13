@@ -147,7 +147,7 @@ def main():
         purge_everything()
     else:
         print("⚠️  Deployment complete but some pages may not be ready yet")
-    print("   URL: https://sandbox.mycosoft.com")
+    print("   URL: https://mycosoft.com")
     print("   Note: Cloudflare purge runs automatically when configured.")
     print("=" * 60)
 

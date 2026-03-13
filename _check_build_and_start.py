@@ -79,7 +79,7 @@ print(f"   HTTP status: {http_code}")
 ssh.close()
 
 if http_code == "200":
-    print("\n✅ Site is up at sandbox.mycosoft.com")
+    print("\n✅ Site is up at mycosoft.com")
     purge_everything()
 else:
     print(f"\n⚠️  Site returned {http_code}")
