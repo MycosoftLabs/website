@@ -19,6 +19,7 @@ export enum AccessGate {
   FREEMIUM = 'freemium',       // 🆓 Public with limits, full on signup
   AUTHENTICATED = 'authenticated', // 🔐 Requires login
   PREMIUM = 'premium',         // 💎 Requires subscription
+  COMPANY = 'company',         // 🏢 Company emails only (@mycosoft.org / @mycosoft.com)
   ADMIN = 'admin',             // 🛡️ Admin users only
   SUPER_ADMIN = 'super_admin'  // 👑 Morgan only
 }
@@ -94,12 +95,23 @@ export interface GateCheckResult {
   }
 }
 
+// Allowed company email domains for COMPANY gate
+export const COMPANY_EMAIL_DOMAINS = ['mycosoft.org', 'mycosoft.com']
+
+// Check if an email belongs to a company domain
+export function isCompanyEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  const domain = email.split('@')[1]?.toLowerCase()
+  return COMPANY_EMAIL_DOMAINS.includes(domain)
+}
+
 // Gate symbols for UI
 export const GATE_SYMBOLS: Record<AccessGate, string> = {
   [AccessGate.PUBLIC]: '🌍',
   [AccessGate.FREEMIUM]: '🆓',
   [AccessGate.AUTHENTICATED]: '🔐',
   [AccessGate.PREMIUM]: '💎',
+  [AccessGate.COMPANY]: '🏢',
   [AccessGate.ADMIN]: '🛡️',
   [AccessGate.SUPER_ADMIN]: '👑'
 }
@@ -110,6 +122,7 @@ export const GATE_LABELS: Record<AccessGate, string> = {
   [AccessGate.FREEMIUM]: 'Free (Limited)',
   [AccessGate.AUTHENTICATED]: 'Sign In Required',
   [AccessGate.PREMIUM]: 'Premium',
+  [AccessGate.COMPANY]: 'Mycosoft Employees Only',
   [AccessGate.ADMIN]: 'Admin Only',
   [AccessGate.SUPER_ADMIN]: 'Super Admin Only'
 }
@@ -144,6 +157,8 @@ export function getMinimumRoleForGate(gate: AccessGate): UserRole {
     case AccessGate.FREEMIUM:
       return UserRole.ANONYMOUS
     case AccessGate.AUTHENTICATED:
+      return UserRole.USER
+    case AccessGate.COMPANY:
       return UserRole.USER
     case AccessGate.PREMIUM:
       return UserRole.PREMIUM
