@@ -690,15 +690,20 @@ export default function DeviceNetworkPage() {
                     </div>
                   </div>
                   
-                  {device.status === "online" && device.port && (
-                    <div className="mt-4 pt-4 border-t">
-                      <Button variant="outline" size="sm" className="w-full" asChild>
+                  <div className="mt-4 pt-4 border-t flex flex-col sm:flex-row gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" asChild>
+                      <Link href={`/natureos/devices/${device.deviceId}`}>
+                        View Details
+                      </Link>
+                    </Button>
+                    {device.status === "online" && device.port && (
+                      <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" asChild>
                         <Link href={`/natureos/devices?device=${device.port}`}>
                           Manage Device
                         </Link>
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -828,6 +833,13 @@ export default function DeviceNetworkPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Close
             </Button>
+            {selectedDevice && (
+              <Button variant="outline" asChild>
+                <Link href={`/natureos/devices/${selectedDevice.deviceId}`} onClick={() => setDialogOpen(false)}>
+                  View Details
+                </Link>
+              </Button>
+            )}
             {selectedDevice?.status === "online" && selectedDevice?.port && (
               <Button onClick={openDeviceManager} className="gap-2">
                 <ExternalLink className="h-4 w-4" />
