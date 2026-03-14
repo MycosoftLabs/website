@@ -109,7 +109,7 @@ services:
       redis:
         condition: service_healthy
       ollama:
-        condition: service_started
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -173,7 +173,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-mycosoft}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mycosoft}"]
