@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
 import { chatLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { requireAuth } from "@/lib/auth/api-auth"
 
 /**
  * MYCA Chat API - Real AI Integration
@@ -319,6 +320,10 @@ async function callGrok(message: string, systemContext: string): Promise<string 
 }
 
 export async function POST(request: NextRequest) {
+  // Require authentication - no anonymous access to chat
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   // Rate limit: 10 requests/min per IP, 100/hour global
   const ip = getClientIP(request)
   const rl = chatLimiter.check(ip)
