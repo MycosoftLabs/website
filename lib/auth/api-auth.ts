@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
+import { isCompanyEmail } from '@/lib/access/types'
 
 export interface AuthenticatedUser {
   id: string
@@ -116,6 +117,28 @@ export async function requireOwner(): Promise<
   if (!result.user.isOwner) {
     return {
       error: NextResponse.json({ error: 'Owner access required' }, { status: 403 }),
+    }
+  }
+
+  return result
+}
+
+/**
+ * Require company email authentication (@mycosoft.org or @mycosoft.com).
+ * Used for infrastructure API routes.
+ */
+export async function requireCompanyAuth(): Promise<
+  { user: AuthenticatedUser; error?: never } | { user?: never; error: NextResponse }
+> {
+  const result = await requireAuth()
+  if (result.error) return result
+
+  if (!isCompanyEmail(result.user.email)) {
+    return {
+      error: NextResponse.json(
+        { error: 'Company access required. Only @mycosoft.org and @mycosoft.com emails are authorized.' },
+        { status: 403 }
+      ),
     }
   }
 

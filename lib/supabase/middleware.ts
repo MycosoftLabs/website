@@ -5,6 +5,7 @@
  */
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isCompanyEmail, COMPANY_EMAIL_DOMAINS } from '@/lib/access/types'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -86,6 +87,24 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
     console.log('[Auth] UNSAFE development bypass enabled for:', request.nextUrl.pathname)
+  }
+
+  // COMPANY GATE: Infrastructure routes require @mycosoft.org or @mycosoft.com email
+  const infrastructurePaths = [
+    '/natureos/devices', '/natureos/mycobrain', '/natureos/sporebase',
+    '/natureos/fci', '/natureos/crep', '/natureos/fusarium',
+    '/natureos/mindex', '/natureos/storage', '/natureos/containers',
+    '/natureos/monitoring',
+  ]
+  const isInfrastructureRoute = infrastructurePaths.some(
+    p => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(p + '/')
+  )
+
+  if (user && isInfrastructureRoute && !isCompanyEmail(user.email)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/natureos'
+    url.searchParams.set('error', 'company_access_required')
+    return NextResponse.redirect(url)
   }
 
   // Redirect authenticated users away from auth pages

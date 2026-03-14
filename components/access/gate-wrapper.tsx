@@ -2,14 +2,15 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, Sparkles, ShieldAlert, Crown, ArrowRight } from 'lucide-react'
+import { Lock, Sparkles, ShieldAlert, Crown, ArrowRight, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { 
-  AccessGate, 
-  GATE_SYMBOLS, 
+import {
+  AccessGate,
+  GATE_SYMBOLS,
   GATE_LABELS,
   SubscriptionTier,
-  SUBSCRIPTION_PRICING
+  SUBSCRIPTION_PRICING,
+  isCompanyEmail
 } from '@/lib/access/types'
 import { useSupabaseUser, useProfile } from '@/hooks/use-supabase-user'
 
@@ -51,9 +52,12 @@ export function GateWrapper({
       case AccessGate.AUTHENTICATED:
         setHasAccess(!!user)
         break
+      case AccessGate.COMPANY:
+        setHasAccess(!!user && isCompanyEmail(user.email))
+        break
       case AccessGate.PREMIUM:
         setHasAccess(
-          profile?.subscription_tier === 'pro' || 
+          profile?.subscription_tier === 'pro' ||
           profile?.subscription_tier === 'enterprise' ||
           profile?.role === 'admin' ||
           profile?.role === 'super_admin'
@@ -61,7 +65,7 @@ export function GateWrapper({
         break
       case AccessGate.ADMIN:
         setHasAccess(
-          profile?.role === 'admin' || 
+          profile?.role === 'admin' ||
           profile?.role === 'super_admin'
         )
         break
@@ -109,6 +113,14 @@ function AccessDenied({ gate }: { gate: AccessGate }) {
             href: '/login'
           },
           gradient: 'from-blue-500 to-indigo-600'
+        }
+      case AccessGate.COMPANY:
+        return {
+          icon: Building2,
+          title: 'Mycosoft employees only',
+          description: 'This infrastructure area is restricted to authorized Mycosoft personnel. You must be signed in with a @mycosoft.org or @mycosoft.com email address.',
+          action: null,
+          gradient: 'from-teal-500 to-emerald-600'
         }
       case AccessGate.PREMIUM:
         return {
@@ -226,9 +238,12 @@ export function useGateAccess(gate: AccessGate): {
       case AccessGate.AUTHENTICATED:
         setHasAccess(!!user)
         break
+      case AccessGate.COMPANY:
+        setHasAccess(!!user && isCompanyEmail(user.email))
+        break
       case AccessGate.PREMIUM:
         setHasAccess(
-          profile?.subscription_tier === 'pro' || 
+          profile?.subscription_tier === 'pro' ||
           profile?.subscription_tier === 'enterprise' ||
           profile?.role === 'admin'
         )
@@ -241,6 +256,6 @@ export function useGateAccess(gate: AccessGate): {
         break
     }
   }, [user, loading, profile, gate])
-  
+
   return { loading, hasAccess, user }
 }
