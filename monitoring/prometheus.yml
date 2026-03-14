@@ -22,26 +22,27 @@ scrape_configs:
     metrics_path: /api/tags
     scrape_interval: 30s
 
-  - job_name: 'mycobrain'
-    static_configs:
-      - targets: ['mycobrain:8765']
-    scrape_interval: 30s
+  # External services — uncomment when running on VMs with these services
+  # - job_name: 'mycobrain'
+  #   static_configs:
+  #     - targets: ['mycobrain:8765']
+  #   scrape_interval: 30s
 
-  - job_name: 'collectors'
-    static_configs:
-      - targets:
-          - 'aviation-collector:8101'
-          - 'maritime-collector:8102'
-          - 'satellite-collector:8103'
-          - 'spaceweather-collector:8104'
-    scrape_interval: 60s
+  # - job_name: 'collectors'
+  #   static_configs:
+  #     - targets:
+  #         - 'aviation-collector:8101'
+  #         - 'maritime-collector:8102'
+  #         - 'satellite-collector:8103'
+  #         - 'spaceweather-collector:8104'
+  #   scrape_interval: 60s
 
-  - job_name: 'mindex'
-    static_configs:
-      - targets: ['mindex:8001']
-    scrape_interval: 30s
+  # - job_name: 'mindex'
+  #   static_configs:
+  #     - targets: ['mindex:8001']
+  #   scrape_interval: 30s
 
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-    scrape_interval: 15s
+  # - job_name: 'node-exporter'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #   scrape_interval: 15s

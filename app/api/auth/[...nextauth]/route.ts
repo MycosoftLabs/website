@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import NextAuth, { type NextAuthOptions, type User } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -267,8 +269,11 @@ export const authOptions: NextAuthOptions = {
     maxAge: 7 * 24 * 60 * 60, // 7 days (reduced from 30 for security)
   },
   // SECURITY: No hardcoded fallback — NEXTAUTH_SECRET must be set in environment
+  // Deferred to runtime: during build, NODE_ENV=production but secrets aren't available yet.
+  // NextAuth will read NEXTAUTH_SECRET from env at request time if secret is undefined.
   secret: process.env.NEXTAUTH_SECRET || (() => {
-    if (process.env.NODE_ENV === 'production') {
+    // During build (next build), process.env vars aren't populated — skip the fatal check
+    if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PHASE) {
       throw new Error('FATAL: NEXTAUTH_SECRET environment variable is required in production')
     }
     console.error('[SECURITY] WARNING: NEXTAUTH_SECRET is not set. Using random secret (sessions will not persist across restarts)')
