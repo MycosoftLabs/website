@@ -191,6 +191,19 @@ export const ETHICS_TRAINING_ROUTES: RouteAccess[] = [
   { path: '/ethics-training/observations', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Observer Notes' },
 ]
 
+// Platform routes - require login with @mycosoft.org company email
+export const PLATFORM_ROUTES: RouteAccess[] = [
+  { path: '/platform', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Platform Admin' },
+  { path: '/platform/analytics', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Platform Analytics' },
+  { path: '/platform/team', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Team Management' },
+  { path: '/platform/billing', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Billing & Plans' },
+  { path: '/platform/api-keys', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'API Keys' },
+  { path: '/platform/security', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Security & Compliance' },
+]
+
+// Company email domain for platform access
+export const PLATFORM_ALLOWED_DOMAIN = 'mycosoft.org'
+
 // Admin routes
 export const ADMIN_ROUTES: RouteAccess[] = [
   { path: '/devices', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Device Manager' },
@@ -226,6 +239,7 @@ export const ALL_ROUTES: RouteAccess[] = [
   ...FREEMIUM_ROUTES,
   ...AUTHENTICATED_ROUTES,
   ...PREMIUM_ROUTES,
+  ...PLATFORM_ROUTES,
   ...ETHICS_TRAINING_ROUTES,
   ...ADMIN_ROUTES,
   ...SUPER_ADMIN_ROUTES,
