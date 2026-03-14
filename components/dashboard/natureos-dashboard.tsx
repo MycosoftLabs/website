@@ -84,6 +84,8 @@ import { RollingNumber } from "@/components/widgets/rolling-number"
 import { DataSourceMarquee, type DataSource } from "@/components/widgets/data-source-marquee"
 import { KingdomStatCard } from "@/components/widgets/kingdom-stat-card"
 import { HumansMachinesPanel } from "@/components/widgets/humans-machines-panel"
+import { AgentRegistryPanel } from "@/components/widgets/agent-registry-panel"
+import { EnvironmentalQualityPanel } from "@/components/widgets/environmental-quality-panel"
 import { useLiveStats, useGlobalEvents } from "@/hooks/use-live-stats"
 
 const MyceliumMap = dynamic(() => import("@/components/maps/mycelium-map").then((mod) => mod.MyceliumMap), {
@@ -831,8 +833,15 @@ export function NatureOSDashboard() {
               )}
             </div>
 
-            {/* Humans & Machines Intelligence Panel (Right Sidebar) */}
-            <HumansMachinesPanel />
+            {/* Right Sidebar — Stacked Intelligence Panels */}
+            <div className="space-y-2">
+              {/* Human Population & Machine Intelligence */}
+              <HumansMachinesPanel />
+              {/* Agent, Bot & Digital Being Population (mirrors human section) */}
+              <AgentRegistryPanel />
+              {/* Live Environmental Quality — Air, Water, Ground */}
+              <EnvironmentalQualityPanel />
+            </div>
           </div>
 
           {/* MycoBrain Live Sensor Data */}
