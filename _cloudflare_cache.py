@@ -49,8 +49,11 @@ def _get_cloudflare_config() -> Tuple[Optional[str], Optional[str], Optional[str
     return token, zone_id, account_id
 
 
-def purge_everything(timeout_seconds: int = 20) -> bool:
+def purge_everything(timeout_seconds: int = 20, zone_id_override: Optional[str] = None) -> bool:
+    """Purge Cloudflare cache. Uses zone_id_override if provided, else CLOUDFLARE_ZONE_ID.
+    For Production (mycosoft.com), set CLOUDFLARE_ZONE_ID_PRODUCTION or pass zone_id_override."""
     token, zone_id, _ = _get_cloudflare_config()
+    zone_id = zone_id_override or os.getenv("CLOUDFLARE_ZONE_ID_PRODUCTION") or zone_id
     if not token or not zone_id:
         print("Cloudflare purge skipped: CLOUDFLARE_API_TOKEN/CLOUDFLARE_ZONE_ID not set.")
         return False

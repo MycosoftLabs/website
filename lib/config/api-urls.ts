@@ -53,7 +53,7 @@ export const API_URLS = {
   LOCAL_BASE: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010",
   
   // Production website
-  PRODUCTION: "https://sandbox.mycosoft.com",
+  PRODUCTION: "https://mycosoft.com",
 } as const
 
 /**
@@ -93,6 +93,13 @@ export const VOICE_ENDPOINTS = {
   // PersonaPlex (local GPU, port 8998/8999)
   PERSONAPLEX_WS: process.env.PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat",
   PERSONAPLEX_HTTP: process.env.PERSONAPLEX_HTTP_URL || "http://localhost:8998",
+  
+  // CREP map command WebSocket (PersonaPlex Bridge CREP channel)
+  // Uses PERSONAPLEX for ws - Bridge runs alongside PersonaPlex
+  CREP_BRIDGE_WS:
+    process.env.NEXT_PUBLIC_CREP_BRIDGE_WS ||
+    process.env.CREP_BRIDGE_WS ||
+    "ws://localhost:8999/ws/crep/commands",
   
   // MAS TTS endpoint
   MAS_TTS: `${API_URLS.MAS}/voice/tts`,

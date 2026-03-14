@@ -203,6 +203,9 @@ import { getOrbitPath } from "@/lib/crep/orbit-path";
 
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
+import { executeCrepCommand, type MapCommandHandlers } from "@/hooks/useMapWebSocket";
+import type { FrontendCommand } from "@/lib/voice/map-websocket-client";
+import { VOICE_ENDPOINTS } from "@/lib/config/api-urls";
 
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
@@ -1592,7 +1595,9 @@ function CREPMycaPanel({
         const query = action.query.toLowerCase();
         const match = fungalObservations.find(obs =>
           obs.species_guess?.toLowerCase().includes(query) ||
-          obs.taxon_name?.toLowerCase().includes(query)
+          obs.taxon_name?.toLowerCase().includes(query) ||
+          obs.species?.toLowerCase().includes(query) ||
+          obs.taxon?.name?.toLowerCase().includes(query)
         );
         if (match) {
           onSelectFungal(match);
@@ -2274,10 +2279,14 @@ export default function CREPDashboardPage() {
   }, []);
 
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
+  // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
   useEffect(() => {
     if (!mapBounds) return;
     const { north, south, east, west } = mapBounds;
     if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
+
+    // Server-side LOD: request only what we need based on zoom (reduces latency, matches visibleFungalObservations tiers)
+    const zoomLimit = mapZoom < 2 ? 100 : mapZoom < 3 ? 300 : mapZoom < 4 ? 600 : mapZoom < 5 ? 2000 : mapZoom < 6 ? 4000 : mapZoom < 7 ? 8000 : 16000;
 
     const ctrl = new AbortController();
     const formatObs = (obs: Record<string, unknown>): FungalObservation => {
@@ -2325,6 +2334,7 @@ export default function CREPDashboardPage() {
           south: String(south),
           east: String(east),
           west: String(west),
+          limit: String(zoomLimit),
           nocache: "true",
         });
         const res = await fetch(`/api/crep/fungal?${q}`, { signal: ctrl.signal });
@@ -2344,7 +2354,7 @@ export default function CREPDashboardPage() {
       ctrl.abort();
       clearTimeout(t);
     };
-  }, [mapBounds]);
+  }, [mapBounds, mapZoom]);
 
   // Periodic refresh of live events (earthquakes, lightning, fire, etc.) – new events pop up and blink
   const LIVE_EVENTS_REFRESH_MS = 90_000; // 90s
@@ -2539,6 +2549,93 @@ export default function CREPDashboardPage() {
       l.id in layerMap ? { ...l, enabled: layerMap[l.id] } : l
     ));
   }, [groundFilter]);
+
+  // Map command handlers for voice/MYCA CREP control (Todo 4 - wire-dashboard-consumers)
+  const mapCommandHandlers = useMemo<MapCommandHandlers>(() => {
+    const voiceToLayer: Record<string, string> = {
+      planes: "aviation", vessels: "ships", ships: "ships", satellites: "satellites",
+      fungal: "fungi", fungi: "fungi", earth2: "earth2Forecast",
+    };
+    const voiceToGround: Record<string, keyof GroundFilter> = {
+      earthquakes: "showEarthquakes", volcanoes: "showVolcanoes", wildfires: "showWildfires",
+      storms: "showStorms", lightning: "showLightning", tornadoes: "showTornadoes",
+      mycobrain: "showMycoBrain", sporebase: "showSporeBase", smartfence: "showSmartFence",
+      partners: "showPartnerNetworks",
+    };
+    const setLayerEnabled = (layerId: string, enabled: boolean) => {
+      setLayers((prev) => prev.map((l) => (l.id === layerId ? { ...l, enabled } : l)));
+    };
+    const setGroundKey = (key: keyof GroundFilter, value: boolean) => {
+      setGroundFilter((prev) => ({ ...prev, [key]: value }));
+    };
+    return {
+      onFlyTo: (lng, lat, zoom, duration) => {
+        if (mapRef?.flyTo) {
+          mapRef.flyTo({ center: [lng, lat], zoom: zoom ?? mapRef.getZoom?.() ?? 4, duration: duration ?? 800 });
+        }
+      },
+      onGeocodeAndFlyTo: async (query, zoom) => {
+        try {
+          const res = await fetch(`/api/crep/geocode?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          const first = data?.results?.[0];
+          if (first?.lat != null && first?.lng != null && mapRef?.flyTo) {
+            mapRef.flyTo({ center: [first.lng, first.lat], zoom: zoom ?? 10, duration: 1000 });
+          }
+        } catch (e) {
+          console.warn("[CREP] Geocode failed:", e);
+        }
+      },
+      onZoomBy: (delta, duration) => {
+        if (mapRef?.getZoom) {
+          const z = mapRef.getZoom() + delta;
+          mapRef.easeTo?.({ zoom: Math.max(0, Math.min(22, z)), duration: duration ?? 300 });
+        }
+      },
+      onSetZoom: (zoom, duration) => {
+        if (mapRef?.easeTo) mapRef.easeTo({ zoom, duration: duration ?? 300 });
+      },
+      onPanBy: (offset, duration) => {
+        if (mapRef?.panBy) mapRef.panBy(offset, { duration: duration ?? 300 });
+      },
+      onResetView: () => {
+        if (mapRef?.flyTo) mapRef.flyTo({ center: [0, 20], zoom: 2.5, duration: 800 });
+      },
+      onShowLayer: (layer) => {
+        const l = voiceToLayer[layer.toLowerCase()];
+        if (l) setLayerEnabled(l, true);
+        else if (voiceToGround[layer.toLowerCase()]) setGroundKey(voiceToGround[layer.toLowerCase()], true);
+      },
+      onHideLayer: (layer) => {
+        const l = voiceToLayer[layer.toLowerCase()];
+        if (l) setLayerEnabled(l, false);
+        else if (voiceToGround[layer.toLowerCase()]) setGroundKey(voiceToGround[layer.toLowerCase()], false);
+      },
+      onToggleLayer: (layer) => {
+        const l = voiceToLayer[layer.toLowerCase()];
+        if (l) {
+          setLayers((prev) => prev.map((x) => (x.id === l ? { ...x, enabled: !x.enabled } : x)));
+        } else if (voiceToGround[layer.toLowerCase()]) {
+          const k = voiceToGround[layer.toLowerCase()];
+          setGroundFilter((prev) => ({ ...prev, [k]: !prev[k] }));
+        }
+      },
+      onApplyFilter: (filterType, filterValue) => {
+        if ((filterType === "fungalSpecies" || filterType === "species") && filterValue) {
+          setFungalSpeciesFilter(filterValue);
+        }
+      },
+      onClearFilters: () => setFungalSpeciesFilter(null),
+    };
+  }, [mapRef, setLayers, setGroundFilter, setFungalSpeciesFilter]);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent<FrontendCommand>) => {
+      if (e.detail) executeCrepCommand(e.detail, mapCommandHandlers);
+    };
+    window.addEventListener("myca-crep-action" as any, handler as any);
+    return () => window.removeEventListener("myca-crep-action" as any, handler as any);
+  }, [mapCommandHandlers]);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LOD (LEVEL OF DETAIL) FILTERING - Progressive disclosure system
@@ -3981,6 +4078,12 @@ export default function CREPDashboardPage() {
                 </button>
               </div>
             )}
+
+            <VoiceMapControls
+              {...mapCommandHandlers}
+              websocketUrl={VOICE_ENDPOINTS.CREP_BRIDGE_WS}
+              className={cn("absolute top-4 z-20", rightPanelOpen ? "right-[340px]" : "right-4")}
+            />
 
             <EntityDeckLayer
               map={mapRef}

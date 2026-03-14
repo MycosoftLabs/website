@@ -52,6 +52,25 @@ export interface MYCASearchAction {
   item?: Record<string, unknown>
 }
 
+/** CREP map command from MAS (voice/autonomy) - matches FrontendCommand in map-websocket-client */
+export interface MYCACREPAction {
+  type: string
+  center?: [number, number]
+  zoom?: number
+  delta?: number
+  offset?: [number, number]
+  layer?: string
+  duration?: number
+  filterType?: string
+  filterValue?: string
+  model?: string
+  lead_time?: number
+  entity?: string
+  time?: string
+  query?: string
+  [key: string]: unknown
+}
+
 export interface MYCALastResponseMetadata {
   agent?: string
   routed_to?: string
@@ -75,6 +94,7 @@ export interface MYCAContextValue {
   restoreFromMAS: () => Promise<void>
   syncToMAS: () => Promise<void>
   executeSearchAction: (action: MYCASearchAction) => void
+  executeCREPAction: (command: MYCACREPAction) => void
   consciousness: MYCAConsciousnessState | null
   grounding: MYCAGroundingState | null
   isActive: boolean
@@ -135,6 +155,12 @@ export function MYCAProvider({
     if (typeof window === "undefined") return
     if (!action || !action.type) return
     window.dispatchEvent(new CustomEvent("myca-search-action", { detail: action }))
+  }, [])
+
+  const executeCREPAction = useCallback((command: MYCACREPAction) => {
+    if (typeof window === "undefined") return
+    if (!command || !command.type) return
+    window.dispatchEvent(new CustomEvent("myca-crep-action", { detail: command }))
   }, [])
 
   useEffect(() => {
@@ -289,6 +315,11 @@ export function MYCAProvider({
             : []
         actionList.forEach((action: MYCASearchAction) => executeSearchAction(action))
 
+        const frontendCommand = data.frontend_command
+        if (frontendCommand && typeof frontendCommand === "object" && frontendCommand.type) {
+          executeCREPAction(frontendCommand)
+        }
+
         if (assistantMessage.requires_confirmation) {
           setPendingConfirmationId(assistantMessage.confirmation_id || nextConversationId)
         } else {
@@ -319,7 +350,7 @@ export function MYCAProvider({
         setIsLoading(false)
       }
     },
-    [appendMessage, conversationId, executeSearchAction, memoryEnabled, sessionId, storeMemory, userId, userRole]
+    [appendMessage, conversationId, executeSearchAction, executeCREPAction, memoryEnabled, sessionId, storeMemory, userId, userRole]
   )
 
   const confirmAction = useCallback(
@@ -520,6 +551,7 @@ export function MYCAProvider({
       restoreFromMAS,
       syncToMAS,
       executeSearchAction,
+      executeCREPAction,
       consciousness,
       grounding,
       lastResponseMetadata,
@@ -541,6 +573,7 @@ export function MYCAProvider({
       restoreFromMAS,
       syncToMAS,
       executeSearchAction,
+      executeCREPAction,
       consciousness,
       grounding,
       lastResponseMetadata,

@@ -203,8 +203,7 @@ async function fetchMINDEXObservations(
       return []
     }
     
-    // Fetch taxa lookup for species names (batch)
-    const taxaLookup = await fetchTaxaLookup(allObservations)
+    const taxaLookup = await fetchTaxaForObservations(allObservations)
     
     return transformMINDEXData(allObservations, taxaLookup)
   } catch (error) {
@@ -213,80 +212,56 @@ async function fetchMINDEXObservations(
   }
 }
 
-// In-memory taxa cache (populated on first request)
-let taxaLookupCache: Map<string, { canonical_name: string; common_name?: string }> | null = null
-let taxaCacheExpiry: number = 0
-
 /**
- * Fetch ALL taxa into a lookup table (cached for 30 minutes)
- * Since MINDEX API doesn't support filtering by IDs, we fetch all ~19K taxa
- * and cache them for efficient lookups
+ * Fetch taxa by IDs only (batch lookup) - much faster than loading all ~19K taxa.
+ * MINDEX supports ?ids=uuid1,uuid2,... for targeted fetch. Single request, ~100-500 IDs typical.
  */
-async function fetchTaxaLookup(_observations: Record<string, unknown>[]): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
-  // Return cached lookup if still valid
-  if (taxaLookupCache && Date.now() < taxaCacheExpiry) {
-    console.log(`[CREP/Fungal] Using cached taxa lookup (${taxaLookupCache.size} taxa)`)
-    return taxaLookupCache
+async function fetchTaxaForObservations(observations: Record<string, unknown>[]): Promise<Map<string, { canonical_name: string; common_name?: string }>> {
+  const uniqueIds = [...new Set(
+    observations
+      .map((obs: Record<string, unknown>) => obs.taxon_id as string)
+      .filter((id): id is string => !!id && typeof id === "string")
+  )] as string[]
+
+  if (uniqueIds.length === 0) {
+    return new Map()
   }
-  
+
   const lookup = new Map<string, { canonical_name: string; common_name?: string }>()
-  
+
   try {
-    console.log("[CREP/Fungal] Fetching ALL taxa for name lookup (will be cached)...")
-    
-    // Paginate through all taxa (MINDEX has ~19K taxa)
-    const BATCH_SIZE = 1000
-    let offset = 0
-    let hasMore = true
-    
-    while (hasMore) {
-      const response = await fetch(`${MINDEX_API}/api/mindex/taxa?limit=${BATCH_SIZE}&offset=${offset}`, {
-        headers: { 
+    const idsParam = uniqueIds.slice(0, 500).join(",")
+    const response = await fetch(
+      `${MINDEX_API}/api/mindex/taxa?ids=${encodeURIComponent(idsParam)}&limit=1000`,
+      {
+        headers: {
           "Accept": "application/json",
           "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
         },
-        signal: AbortSignal.timeout(15000),
-      })
-      
-      if (!response.ok) {
-        console.warn(`[CREP/Fungal] Taxa fetch failed at offset ${offset}: ${response.status}`)
-        break
+        signal: AbortSignal.timeout(8000),
       }
-      
-      const data = await response.json()
-      const taxa = data.data || data.taxa || []
-      const total = data.pagination?.total || 0
-      
-      if (taxa.length === 0) {
-        hasMore = false
-        break
-      }
-      
-      for (const taxon of taxa) {
-        lookup.set(taxon.id, {
-          canonical_name: taxon.canonical_name,
-          common_name: taxon.common_name,
-        })
-      }
-      
-      offset += taxa.length
-      console.log(`[CREP/Fungal] Taxa fetch progress: ${lookup.size}/${total}`)
-      
-      if (offset >= total || taxa.length < BATCH_SIZE) {
-        hasMore = false
-      }
+    )
+
+    if (!response.ok) {
+      console.warn(`[CREP/Fungal] Taxa batch fetch failed: ${response.status}`)
+      return lookup
     }
-    
-    console.log(`[CREP/Fungal] ✅ Fetched ${lookup.size} taxa names for lookup`)
-    
-    // Cache for 30 minutes
-    taxaLookupCache = lookup
-    taxaCacheExpiry = Date.now() + 30 * 60 * 1000
-    
+
+    const data = await response.json()
+    const taxa = data.data || data.taxa || []
+
+    for (const taxon of taxa) {
+      lookup.set(String(taxon.id), {
+        canonical_name: taxon.canonical_name || "Unknown",
+        common_name: taxon.common_name,
+      })
+    }
+
+    console.log(`[CREP/Fungal] ✅ Fetched ${lookup.size} taxa for ${uniqueIds.length} unique IDs (batch)`)
   } catch (error) {
-    console.warn("[CREP/Fungal] Failed to fetch taxa lookup:", error)
+    console.warn("[CREP/Fungal] Failed to fetch taxa batch:", error)
   }
-  
+
   return lookup
 }
 

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 /**
  * useMapWebSocket - React hook for CREP voice commands
@@ -42,6 +42,10 @@ export interface MapCommandHandlers {
   onGetEntityDetails?: (entity: string) => void
   onGetViewContext?: () => void
   onGeocodeAndFlyTo?: (query: string, zoom?: number) => void
+  
+  // Timeline
+  onSetTimeCursor?: (time: string) => void
+  onTimelineSearch?: (query: string) => void
   
   // System
   onGetSystemStatus?: () => void
@@ -89,6 +93,8 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
     onGetEntityDetails,
     onGetViewContext,
     onGeocodeAndFlyTo,
+    onSetTimeCursor,
+    onTimelineSearch,
     onGetSystemStatus,
     onSetMute,
     onCommand,
@@ -102,123 +108,28 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
   
   const clientRef = useRef<MapWebSocketClient | null>(null)
   
-  // Execute a frontend command
+  // Build handlers object for executeCrepCommand
+  const handlers: MapCommandHandlers = {
+    onCommand, onSpeak, onFlyTo, onGeocodeAndFlyTo, onZoomBy, onSetZoom, onPanBy,
+    onShowLayer, onHideLayer, onToggleLayer, onApplyFilter, onClearFilters,
+    onRunForecast, onRunNowcast, onLoadModel, onGetEntityDetails, onGetViewContext,
+    onSetTimeCursor, onTimelineSearch, onResetView, onGetSystemStatus, onSetMute,
+  }
+
+  // Execute a frontend command (delegates to shared executeCrepCommand)
   const executeCommand = useCallback((command: FrontendCommand, speak?: string) => {
     setLastCommand(command)
     if (speak) {
       setLastSpeak(speak)
       onSpeak?.(speak)
     }
-    
-    // Call generic handler
-    onCommand?.(command, speak)
-    
-    // Route to specific handlers based on command type
-    switch (command.type) {
-      case "flyTo":
-        if (command.center) {
-          onFlyTo?.(command.center[0], command.center[1], command.zoom, command.duration)
-        }
-        break
-      
-      case "geocodeAndFlyTo":
-        if (command.query) {
-          onGeocodeAndFlyTo?.(command.query as string, command.zoom)
-        }
-        break
-      
-      case "zoomBy":
-        if (command.delta !== undefined) {
-          onZoomBy?.(command.delta, command.duration)
-        }
-        break
-      
-      case "setZoom":
-        if (command.zoom !== undefined) {
-          onSetZoom?.(command.zoom, command.duration)
-        }
-        break
-      
-      case "panBy":
-        if (command.offset) {
-          onPanBy?.(command.offset, command.duration)
-        }
-        break
-      
-      case "showLayer":
-        if (command.layer) {
-          onShowLayer?.(command.layer)
-        }
-        break
-      
-      case "hideLayer":
-        if (command.layer) {
-          onHideLayer?.(command.layer)
-        }
-        break
-      
-      case "toggleLayer":
-        if (command.layer) {
-          onToggleLayer?.(command.layer)
-        }
-        break
-      
-      case "applyFilter":
-        if (command.filterType && command.filterValue) {
-          onApplyFilter?.(command.filterType, command.filterValue)
-        }
-        break
-      
-      case "clearFilters":
-        onClearFilters?.()
-        break
-      
-      case "run_forecast":
-        if (command.model && command.lead_time) {
-          onRunForecast?.(command.model, command.lead_time)
-        }
-        break
-      
-      case "run_nowcast":
-        onRunNowcast?.()
-        break
-      
-      case "load_model":
-        if (command.model) {
-          onLoadModel?.(command.model)
-        }
-        break
-      
-      case "getEntityDetails":
-        if (command.entity) {
-          onGetEntityDetails?.(command.entity)
-        }
-        break
-      
-      case "getViewContext":
-        onGetViewContext?.()
-        break
-      
-      case "getSystemStatus":
-        onGetSystemStatus?.()
-        break
-      
-      case "setMute":
-        onSetMute?.(command.muted as boolean)
-        break
-      
-      default:
-        // Reset view is a flyTo with specific params
-        if (command.type === "flyTo" && command.center?.[0] === 0 && command.center?.[1] === 20 && command.zoom === 2) {
-          onResetView?.()
-        }
-        break
-    }
+    const cmdWithSpeak = { ...command, speak } as FrontendCommand & { speak?: string }
+    executeCrepCommand(cmdWithSpeak, handlers, { onSpeak })
   }, [
     onCommand, onSpeak, onFlyTo, onGeocodeAndFlyTo, onZoomBy, onSetZoom, onPanBy,
     onShowLayer, onHideLayer, onToggleLayer, onApplyFilter, onClearFilters,
     onRunForecast, onRunNowcast, onLoadModel, onGetEntityDetails, onGetViewContext,
-    onResetView, onGetSystemStatus, onSetMute
+    onSetTimeCursor, onTimelineSearch, onResetView, onGetSystemStatus, onSetMute
   ])
   
   // Connect to WebSocket
@@ -280,5 +191,100 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
     connect,
     disconnect,
     sendCommand,
+  }
+}
+
+/**
+ * Execute a CREP frontend command using provided handlers.
+ * Used by both useMapWebSocket and myca-crep-action event listener.
+ * Mar 13, 2026 - CREP + MYCA Autonomy Plan
+ */
+export function executeCrepCommand(
+  command: FrontendCommand,
+  handlers: MapCommandHandlers,
+  options?: { onSpeak?: (text: string) => void }
+): void {
+  const speak = (options?.onSpeak as ((t: string) => void) | undefined);
+  if ((command as { speak?: string }).speak && speak) {
+    speak((command as { speak: string }).speak);
+  }
+  handlers.onCommand?.(command, (command as { speak?: string }).speak);
+  switch (command.type) {
+    case "flyTo":
+      if (command.center) {
+        handlers.onFlyTo?.(command.center[0], command.center[1], command.zoom, command.duration);
+      }
+      break;
+    case "geocodeAndFlyTo":
+      if (command.query) {
+        handlers.onGeocodeAndFlyTo?.(command.query as string, command.zoom);
+      }
+      break;
+    case "zoomBy":
+      if (command.delta !== undefined) {
+        handlers.onZoomBy?.(command.delta, command.duration);
+      }
+      break;
+    case "setZoom":
+      if (command.zoom !== undefined) {
+        handlers.onSetZoom?.(command.zoom, command.duration);
+      }
+      break;
+    case "panBy":
+      if (command.offset) {
+        handlers.onPanBy?.(command.offset, command.duration);
+      }
+      break;
+    case "showLayer":
+      if (command.layer) handlers.onShowLayer?.(command.layer);
+      break;
+    case "hideLayer":
+      if (command.layer) handlers.onHideLayer?.(command.layer);
+      break;
+    case "toggleLayer":
+      if (command.layer) handlers.onToggleLayer?.(command.layer);
+      break;
+    case "applyFilter":
+      if (command.filterType && command.filterValue !== undefined) {
+        handlers.onApplyFilter?.(command.filterType, String(command.filterValue));
+      }
+      break;
+    case "clearFilters":
+      handlers.onClearFilters?.();
+      break;
+    case "run_forecast":
+      if (command.model && command.lead_time) {
+        handlers.onRunForecast?.(command.model, command.lead_time);
+      }
+      break;
+    case "run_nowcast":
+      handlers.onRunNowcast?.();
+      break;
+    case "load_model":
+      if (command.model) handlers.onLoadModel?.(command.model);
+      break;
+    case "getEntityDetails":
+      if (command.entity) handlers.onGetEntityDetails?.(command.entity);
+      break;
+    case "getViewContext":
+      handlers.onGetViewContext?.();
+      break;
+    case "setTimeCursor":
+      if (command.time) handlers.onSetTimeCursor?.(command.time as string);
+      break;
+    case "timelineSearch":
+      if (command.query) handlers.onTimelineSearch?.(command.query as string);
+      break;
+    case "getSystemStatus":
+      handlers.onGetSystemStatus?.();
+      break;
+    case "setMute":
+      handlers.onSetMute?.(command.muted as boolean);
+      break;
+    case "resetView":
+      handlers.onResetView?.();
+      break;
+    default:
+      break;
   }
 }

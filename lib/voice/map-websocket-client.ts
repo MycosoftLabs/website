@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Map WebSocket Client - February 6, 2026
  * Connects to PersonaPlex Bridge for real-time voice command delivery
  * 
@@ -19,6 +19,8 @@ export interface FrontendCommand {
   model?: string
   lead_time?: number
   entity?: string
+  time?: string
+  query?: string
   [key: string]: unknown
 }
 

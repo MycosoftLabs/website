@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 /**
  * Voice Map Controls for CREP
@@ -21,6 +21,8 @@ interface VoiceMapControlsProps extends MapCommandHandlers {
   collapsed?: boolean
   enableWebSocket?: boolean
   useMASBackend?: boolean
+  /** WebSocket URL for CREP voice commands (e.g. VOICE_ENDPOINTS.CREP_BRIDGE_WS). Defaults to ws://localhost:8999/ws/crep/commands */
+  websocketUrl?: string
 }
 
 interface CommandLog {
@@ -57,6 +59,7 @@ export function VoiceMapControls({
   collapsed = false,
   enableWebSocket = true,
   useMASBackend = true,
+  websocketUrl,
 }: VoiceMapControlsProps) {
   const [commandLog, setCommandLog] = useState<CommandLog[]>([])
   const [lastCommand, setLastCommand] = useState<string | null>(null)
@@ -108,6 +111,7 @@ export function VoiceMapControls({
   } = useMapWebSocket({
     enabled: enableWebSocket,
     autoConnect: enableWebSocket,
+    url: websocketUrl,
     onFlyTo,
     onZoomBy,
     onSetZoom,
