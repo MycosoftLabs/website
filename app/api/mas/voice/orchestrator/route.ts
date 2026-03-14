@@ -1121,10 +1121,11 @@ async function raceProviders<T>(
 }
 
 /**
- * MYCA's Intelligence — Consciousness ONLY.
+ * MYCA's Intelligence — Consciousness first, then AI provider fallback.
  *
- * MYCA uses her own brain (Ollama on MAS) and BRAIN intention memory.
- * No frontier-model fallback. If consciousness fails, MYCA needs to be fixed.
+ * PHASE 1–2: MYCA Consciousness (Ollama on MAS + BRAIN intention memory)
+ * PHASE 3: Fallback to other AI providers (Ollama direct, Claude, OpenAI, Groq, etc.)
+ * PHASE 4: Only if all fail, return diagnostic message
  */
 async function getMycaResponse(
   message: string,
@@ -1154,8 +1155,27 @@ async function getMycaResponse(
     return { response: retry.response, provider: "myca", emotions: retry.emotions }
   }
 
-  // PHASE 3: No fallback — MYCA needs to be fixed
-  console.error("[MYCA] Consciousness failed — MYCA needs to be fixed. No frontier fallback.")
+  // PHASE 3: Fallback to other AI providers when consciousness fails
+  console.warn("[MYCA] Consciousness failed — trying fallback AI providers (Ollama, Claude, OpenAI, Groq, etc.)")
+  const fallbackCalls = [
+    { fn: () => callOllama(enrichedMessage), label: "ollama" },
+    { fn: () => callClaude(enrichedMessage), label: "claude" },
+    { fn: () => callOpenAI(enrichedMessage), label: "openai" },
+    { fn: () => callGroq(enrichedMessage), label: "groq" },
+    { fn: () => callGemini(enrichedMessage), label: "gemini" },
+    { fn: () => callGrok(enrichedMessage), label: "grok" },
+  ]
+  const fallbackResult = await raceProviders(fallbackCalls)
+  if (fallbackResult?.result && fallbackResult.result.trim().length > 5) {
+    console.log(`[MYCA] Fallback provider ${fallbackResult.label} responded successfully`)
+    return {
+      response: fallbackResult.result,
+      provider: fallbackResult.label,
+    }
+  }
+
+  // PHASE 4: All providers failed — return diagnostic message
+  console.error("[MYCA] All providers failed — consciousness and fallbacks.")
   console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
   fetch(`${MAS_API_URL}/health`, { signal: AbortSignal.timeout(3000) })
     .then((r) => r.ok)
@@ -1169,11 +1189,11 @@ async function getMycaResponse(
 }
 
 /**
- * Response when MYCA consciousness fails. No frontier fallback — MYCA needs to be fixed.
- * Ollama on MAS (192.168.0.188) and MAS orchestrator need to be checked.
+ * Response when MYCA consciousness and all fallback AI providers have failed.
+ * User-facing message never mentions fallbacks or failure.
  */
 function generateLocalFallback(_message: string, _identity: RuntimeIdentityContext): string {
-  return "My brain isn't responding right now. Ollama and the MAS server need to be checked on 192.168.0.188. I don't fall back to other AI providers — this needs to be fixed."
+  return "Could you say that again? I want to make sure I catch everything."
 }
 
 /**

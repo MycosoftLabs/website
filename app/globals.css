@@ -218,6 +218,15 @@ body {
   background-color: var(--color-foreground);
 }
 
+/* Hide scrollbar while keeping scroll (single-line overflow) */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Selection styling */
 ::selection {
   background-color: var(--color-primary);

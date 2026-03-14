@@ -149,7 +149,7 @@ export function VoiceOverlay({ open, onClose, className }: VoiceOverlayProps) {
         
         {/* Quick tips - hide on small mobile screens */}
         <div className="absolute bottom-4 text-center text-xs md:text-sm text-muted-foreground px-4 hidden sm:block">
-          <p>Try: &ldquo;Search for mushrooms&rdquo; &bull; &ldquo;What is MYCA?&rdquo; &bull; &ldquo;Go to devices&rdquo;</p>
+          <p>Try: &ldquo;Search for species&rdquo; &bull; &ldquo;What is MYCA?&rdquo; &bull; &ldquo;Go to devices&rdquo;</p>
         </div>
       </div>
     </div>

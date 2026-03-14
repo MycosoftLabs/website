@@ -67,6 +67,12 @@ export const MYCA_ENDPOINTS = {
   EMOTIONS: `${API_URLS.MAS}/api/myca/emotions`,
   IDENTITY: `${API_URLS.MAS}/api/myca/identity`,
   WORLD: `${API_URLS.MAS}/api/myca/world`,
+  /** Website proxy for worldstate (use for client-side to avoid CORS) */
+  WORLD_PROXY: "/api/mas/world",
+  WORLD_SUMMARY: "/api/mas/world/summary",
+  WORLD_REGION: "/api/mas/world/region",
+  WORLD_SOURCES: "/api/mas/world/sources",
+  WORLD_DIFF: "/api/mas/world/diff",
   INTENTION: `${API_URLS.MAS}/api/myca/intention`,
   BRAIN_QUERY: `${API_URLS.MAS}/api/brain/query`,
   BRAIN_STREAM: `${API_URLS.MAS}/voice/brain/stream`,

@@ -303,7 +303,7 @@ export function CommandSearch({ ...props }: DialogProps) {
                 <CommandInput
                   value={query}
                   onValueChange={setQuery}
-                  placeholder="Search fungi, compounds, research..."
+                  placeholder="Search species, weather, flights..."
                   className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 />
               )}

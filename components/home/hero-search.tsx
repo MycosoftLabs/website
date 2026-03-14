@@ -20,6 +20,7 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
+import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import {
   Search,
   Mic,
@@ -38,6 +39,7 @@ export function HeroSearch() {
   const [query, setQuery] = useState("")
   const [isFocused, setIsFocused] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [trySuggestions, setTrySuggestions] = useState<{ term: string; phoneVisible?: boolean }[]>(DEFAULT_TRY_SUGGESTIONS)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -64,6 +66,14 @@ export function HeroSearch() {
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  // Rotate Try: suggestions on mount and every 30s for variety
+  useEffect(() => {
+    const refresh = () => setTrySuggestions(getRotatedSuggestions(6, 3))
+    refresh()
+    const id = setInterval(refresh, 30000)
+    return () => clearInterval(id)
   }, [])
 
   // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
@@ -196,7 +206,17 @@ export function HeroSearch() {
                 transition={{ delay: 0.2, duration: 0.5 }}
               >
                 <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-                <span>Governed AI for humans and agents</span>
+                <span>The AI That Sees the World — All of It</span>
+              </motion.p>
+              <motion.p
+                className="text-xs sm:text-sm italic text-foreground/60 text-center max-w-2xl"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.5 }}
+              >
+                All species, all signals, all machines, all environments
+                <br />
+                — indexed and searchable in real time
               </motion.p>
             </div>
 
@@ -233,7 +253,7 @@ export function HeroSearch() {
                   onBlur={() => {
                     if (!query) resume()
                   }}
-                  placeholder={animatedPlaceholder || "Search fungi, compounds..."}
+                  placeholder={animatedPlaceholder || "Search nature, environment, live data..."}
                   className={cn(
                     "flex-1 bg-transparent text-base sm:text-lg md:text-xl",
                     "text-foreground placeholder:text-muted-foreground placeholder:text-sm sm:placeholder:text-base",
@@ -335,22 +355,15 @@ export function HeroSearch() {
               </AnimatePresence>
             </motion.form>
 
-            {/* Quick Actions — type="button" is REQUIRED so these don't submit the form */}
+            {/* Quick Actions — single line, no wrap; type="button" is REQUIRED so these don't submit the form */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex flex-wrap items-center justify-center gap-2 mt-4 sm:mt-6 sm:gap-3 sm:mt-8"
+              className="flex flex-nowrap items-center justify-center gap-2 mt-4 sm:mt-6 sm:gap-3 sm:mt-8 overflow-x-auto overflow-y-hidden scrollbar-hide"
             >
-              <span className="text-xs text-muted-foreground hidden sm:inline">Try:</span>
-              {[
-                { term: "Amanita", phoneVisible: true },
-                { term: "Psilocybin", phoneVisible: true },
-                { term: "Mycelium", phoneVisible: true },
-                { term: "ITS Sequence", phoneVisible: false },
-                { term: "Reishi", phoneVisible: false },
-                { term: "Muscarine", phoneVisible: false },
-              ].map(({ term, phoneVisible }) => (
+              <span className="text-xs text-muted-foreground hidden sm:inline flex-shrink-0 whitespace-nowrap">Try:</span>
+              {trySuggestions.map(({ term, phoneVisible }) => (
                 <button
                   key={term}
                   type="button"
@@ -359,7 +372,7 @@ export function HeroSearch() {
                     router.push(`/search?q=${encodeURIComponent(term)}`)
                   }}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs sm:text-sm",
+                    "px-3 py-1.5 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
                     "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground",
                     "border border-border dark:border-white/10 dark:hover:border-white/25",
                     "transition-all duration-200 cursor-pointer select-none",
@@ -369,7 +382,7 @@ export function HeroSearch() {
                   {term}
                 </button>
               ))}
-              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2">
+              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0 whitespace-nowrap">
                 <Command className="h-3 w-3" />
                 <span>K for commands</span>
               </div>

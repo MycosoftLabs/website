@@ -103,7 +103,7 @@ export function MycaSuggestionsWidget({
 
       {isFocused && !hasSuggestions && (
         <div className="text-[11px] text-muted-foreground">
-          Tip: try searching a species name, then open Chemistry or Research.
+          Tip: try species, weather, flights, environment, or live data.
         </div>
       )}
     </div>

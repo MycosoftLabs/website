@@ -137,11 +137,11 @@ export function SearchSection() {
                       setShowSuggestions(true)
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    placeholder="Search fungi..."
+                    placeholder="Search species, weather, flights..."
                     className="pl-10 h-12 transition-all duration-200 hover:shadow-lg focus:shadow-xl"
                     aria-expanded={showSuggestions}
                     aria-controls="search-suggestions"
-                    aria-label="Search fungi and compounds"
+                    aria-label="Search species, weather, flights"
                     aria-busy={isLoading}
                     aria-invalid={!!error}
                     aria-errormessage={error || undefined}

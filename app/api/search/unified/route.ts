@@ -11,7 +11,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
-import { searchFungi } from "@/lib/services/inaturalist"
+import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
+import { detectFungalSearchIntent } from "@/lib/search/world-view-suggestions"
 
 export const dynamic = "force-dynamic"
 
@@ -32,6 +33,7 @@ interface MindexTaxon {
   image_url?: string
   observation_count?: number
   rank?: string
+  kingdom?: string
 }
 
 interface MindexCompound {
@@ -240,7 +242,7 @@ async function transformMindexTaxa(taxa: MindexTaxon[]): Promise<SpeciesResult[]
     scientificName: t.scientific_name || t.name || "",
     commonName: t.common_name || t.preferred_common_name || "",
     taxonomy: {
-      kingdom: "Fungi",
+      kingdom: t.kingdom ?? "",
       phylum: "",
       class: "",
       order: "",
@@ -342,21 +344,26 @@ async function searchMindexResearch(query: string, limit: number, origin?: strin
 // iNaturalist (SECONDARY / additive)
 // ---------------------------------------------------------------------------
 
-async function searchINaturalist(query: string, limit: number) {
+async function searchINaturalist(query: string, limit: number, fungiIntent: boolean) {
   try {
-    const data = await searchFungi(query)
+    const data = fungiIntent
+      ? await searchFungi(query)
+      : await searchTaxa(query)
     if (!data?.results) return []
-    return data.results
-      .filter(
-        (r: INaturalistTaxon) =>
-          (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
-          (r.preferred_common_name || r.name)
-      )
+    const filtered = fungiIntent
+      ? data.results.filter(
+          (r: INaturalistTaxon) =>
+            (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
+            (r.preferred_common_name || r.name)
+        )
+      : data.results.filter((r: INaturalistTaxon) => r.preferred_common_name || r.name)
+    return filtered
       .slice(0, limit)
       .map((r: INaturalistTaxon) => {
         // Parse real taxonomy from ancestor array (never hardcode empty strings)
         const taxonomy: Record<string, string> = {
-          kingdom: "Fungi", phylum: "", class: "", order: "", family: "", genus: "",
+          kingdom: fungiIntent ? "Fungi" : (r.iconic_taxon_name || ""),
+          phylum: "", class: "", order: "", family: "", genus: "",
         }
         for (const a of r.ancestors || []) {
           const rank = (a.rank || "").toLowerCase()
@@ -375,7 +382,7 @@ async function searchINaturalist(query: string, limit: number) {
           commonName: r.preferred_common_name || r.name || "",
           taxonomy,
           description: r.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-            || `A species of fungus (${r.name})`,
+            || (fungiIntent ? `A species of fungus (${r.name})` : `Species: ${r.name || ""}`),
           photos: r.default_photo
             ? [
                 {
@@ -844,9 +851,9 @@ async function searchINaturalistLiveObservations(query: string, limit: number) {
 // ---------------------------------------------------------------------------
 
 // Use CrossRef API (highly reliable, free, no API key needed)
-async function searchCrossRefResearch(query: string, limit: number) {
+async function searchCrossRefResearch(query: string, limit: number, fungiIntent: boolean) {
   try {
-    const searchQuery = `${query} fungi mushroom`
+    const searchQuery = fungiIntent ? `${query} fungi mushroom` : query
     const res = await fetch(
       `https://api.crossref.org/works?query=${encodeURIComponent(searchQuery)}&rows=${limit}&sort=relevance&filter=type:journal-article`,
       { 
@@ -895,9 +902,9 @@ function _extractGeneRegion(title: string): string {
   return m ? m[1].toUpperCase() : ""
 }
 
-async function searchNCBIGenetics(query: string, limit: number): Promise<GeneticsResult[]> {
+async function searchNCBIGenetics(query: string, limit: number, fungiIntent: boolean): Promise<GeneticsResult[]> {
   try {
-    const term = `${query}[Organism] AND fungi[filter]`
+    const term = fungiIntent ? `${query}[Organism] AND fungi[filter]` : `${query}[Organism]`
     const esearchRes = await fetch(
       `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nucleotide&term=${encodeURIComponent(term)}&retmax=${limit}&retmode=json`,
       {
@@ -944,9 +951,9 @@ async function searchNCBIGenetics(query: string, limit: number): Promise<Genetic
 }
 
 // Fallback: OpenAlex API (may be slow/blocked in some networks)
-async function searchOpenAlexResearch(query: string, limit: number) {
+async function searchOpenAlexResearch(query: string, limit: number, fungiIntent: boolean) {
   try {
-    const searchQuery = `${query} fungi mushroom`
+    const searchQuery = fungiIntent ? `${query} fungi mushroom` : query
     const res = await fetch(
       `https://api.openalex.org/works?search=${encodeURIComponent(searchQuery)}&per_page=${limit}&sort=cited_by_count:desc`,
       { 
@@ -1128,6 +1135,8 @@ export async function GET(request: NextRequest) {
     })
   }
 
+  const fungiIntent = detectFungalSearchIntent(query)
+
   try {
     const mindexStart = performance.now()
 
@@ -1155,13 +1164,13 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       searchMindexUnified(query, limit),
       types.includes("research") ? searchMindexResearch(query, limit, origin) : Promise.resolve([]),
-      types.includes("species") ? searchINaturalist(query, Math.min(limit, 10)) : Promise.resolve([]),
+      types.includes("species") ? searchINaturalist(query, Math.min(limit, 10), fungiIntent) : Promise.resolve([]),
       types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
-      types.includes("research") ? searchCrossRefResearch(query, limit) : Promise.resolve([]),
-      types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5)) : Promise.resolve([]),
+      types.includes("research") ? searchCrossRefResearch(query, limit, fungiIntent) : Promise.resolve([]),
+      types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5), fungiIntent) : Promise.resolve([]),
       types.includes("research") && includeWeb ? searchExaWeb(query, Math.min(limit, 6), origin) : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
-      types.includes("genetics") ? searchNCBIGenetics(query, Math.min(limit, 8)) : Promise.resolve([]),
+      types.includes("genetics") ? searchNCBIGenetics(query, Math.min(limit, 8), fungiIntent) : Promise.resolve([]),
       // Targeted genetics: when "Reishi" → search "Ganoderma lucidum[Organism] AND ITS[Gene]"
       (types.includes("genetics") && scientificName)
         ? searchGeneticsForSpecies(scientificName, Math.min(limit, 8))

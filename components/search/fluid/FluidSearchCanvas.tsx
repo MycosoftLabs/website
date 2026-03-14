@@ -49,6 +49,7 @@ import {
   findParticleConnections,
   type Particle,
 } from "@/lib/search/widget-physics"
+import { detectWorldviewIntent } from "@/lib/search/world-view-suggestions"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
@@ -790,7 +791,7 @@ export function FluidSearchCanvas({
     mouseY.set(e.clientY - rect.top)
   }, [mouseX, mouseY])
 
-  // Widget configs with depth layers - ALL widget types enabled
+  // Widget configs with depth layers - ALL widget types enabled (including worldview: CREP, Earth2, map)
   const widgetConfigs: WidgetConfig[] = useMemo(() => [
     { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: (mycaMessages?.filter((m) => m.role !== "system").length || 0) > 0 || (suggestions.widgets?.length || 0) > 0 || (suggestions.queries?.length || 0) > 0, depth: getParallaxDepth("answers") },
     { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: species.length > 0, depth: getParallaxDepth("species") },
@@ -800,7 +801,10 @@ export function FluidSearchCanvas({
     { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: mediaResults.length > 0, depth: getParallaxDepth("media") },
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: locationResults.length > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: newsResults.length > 0, depth: getParallaxDepth("news") },
-  ], [species.length, compounds.length, genetics.length, research.length, mediaResults.length, locationResults.length, newsResults.length, suggestions.widgets, suggestions.queries, mycaMessages])
+    { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: crepResults.length > 0, depth: getParallaxDepth("crep") },
+    { type: "earth2", label: "Earth2", icon: "🌍", gradient: "from-cyan-500/30 to-teal-500/20", hasData: !!earth2Data, depth: getParallaxDepth("earth2") },
+    { type: "map", label: "Map", icon: <MapPin className="h-4 w-4" />, gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0, depth: getParallaxDepth("map") },
+  ], [species.length, compounds.length, genetics.length, research.length, mediaResults.length, locationResults.length, newsResults.length, crepResults.length, earth2Data, mapObservations.length, suggestions.widgets, suggestions.queries, mycaMessages])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
@@ -865,26 +869,32 @@ export function FluidSearchCanvas({
     if (isLoading) return
     if (!localQuery || localQuery.length < 2) return
 
-    // Build a signature of which types have data
+    // Build a signature of which types have data (including worldview widgets)
     const dataMap: Record<string, number> = {
       species: species.length,
       chemistry: compounds.length,
       genetics: genetics.length,
       research: research.length,
+      crep: crepResults.length,
+      earth2: earth2Data ? 1 : 0,
+      map: mapObservations.length,
     }
     const key = `${localQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return
     prevAutoExpandKeyRef.current = key
 
-    // No data at all yet — nothing to do
     const total = Object.values(dataMap).reduce((a, b) => a + b, 0)
-    if (total === 0) return
+    const intent = detectWorldviewIntent(localQuery)
+    // Even with no data, expand worldview widgets when query suggests intent
+    const hasIntentOrData = total > 0 || intent.crep || intent.earth2 || intent.map
+    if (!hasIntentOrData) return
 
     setExpandedWidgets((prev) => {
       const next = new Set(prev)
 
       // Always remove species from the default set if it has no data AND something else does
-      const hasNonSpeciesData = dataMap.chemistry > 0 || dataMap.genetics > 0 || dataMap.research > 0
+      const hasNonSpeciesData = dataMap.chemistry > 0 || dataMap.genetics > 0 || dataMap.research > 0 ||
+        dataMap.crep > 0 || dataMap.earth2 > 0 || dataMap.map > 0
       if (dataMap.species === 0 && hasNonSpeciesData && next.has("species" as WidgetType) && next.size === 1) {
         next.delete("species" as WidgetType)
       }
@@ -894,6 +904,13 @@ export function FluidSearchCanvas({
       if (dataMap.chemistry > 0) next.add("chemistry" as WidgetType)
       if (dataMap.genetics > 0)  next.add("genetics" as WidgetType)
       if (dataMap.research > 0)  next.add("research" as WidgetType)
+      if (dataMap.crep > 0)      next.add("crep" as WidgetType)
+      if (dataMap.earth2 > 0)    next.add("earth2" as WidgetType)
+      if (dataMap.map > 0)       next.add("map" as WidgetType)
+      // Intent-based: expand worldview widgets when query suggests it (even before data arrives)
+      if (intent.crep)   next.add("crep" as WidgetType)
+      if (intent.earth2) next.add("earth2" as WidgetType)
+      if (intent.map)    next.add("map" as WidgetType)
       next.add("answers" as WidgetType)  // Always show Answers for conversational search
 
       // If still empty (shouldn't happen), default to species and answers
@@ -909,9 +926,12 @@ export function FluidSearchCanvas({
       if (dataMap.genetics > 0)  next.delete("genetics" as WidgetType)
       if (dataMap.research > 0)  next.delete("research" as WidgetType)
       if (dataMap.species > 0)   next.delete("species" as WidgetType)
+      if (dataMap.crep > 0 || intent.crep)   next.delete("crep" as WidgetType)
+      if (dataMap.earth2 > 0 || intent.earth2) next.delete("earth2" as WidgetType)
+      if (dataMap.map > 0 || intent.map)     next.delete("map" as WidgetType)
       return next
     })
-  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length]) // eslint-disable-line
+  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, crepResults.length, earth2Data, mapObservations.length]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1051,6 +1071,9 @@ export function FluidSearchCanvas({
       media: "Media",
       location: "Location",
       news: "News",
+      crep: "CREP Observations",
+      earth2: "Earth2 Weather",
+      map: "Map",
     }
     try {
       e.dataTransfer.setData("application/search-widget", JSON.stringify({
@@ -1083,7 +1106,7 @@ export function FluidSearchCanvas({
             onChange={(e) => setLocalQuery(e.target.value)}
             onFocus={() => { setIsInputFocused(true); pause() }}
             onBlur={() => { setIsInputFocused(false); if (!localQuery) resume() }}
-            placeholder={animatedPlaceholder || "Search fungi, compounds..."}
+            placeholder={animatedPlaceholder || "Search species, weather, flights..."}
             className="pl-8 sm:pl-9 pr-16 sm:pr-20 h-10 sm:h-9 text-base sm:text-sm rounded-xl border bg-card/80 backdrop-blur-sm shadow-sm focus:shadow-md transition-shadow"
           />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 sm:gap-1">
@@ -1404,6 +1427,7 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
   const icons: Record<string, string> = {
     species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
     answers: "💬", media: "🎬", location: "📍", news: "📰",
+    crep: "✈️", earth2: "🌍", map: "🗺️",
   }
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">

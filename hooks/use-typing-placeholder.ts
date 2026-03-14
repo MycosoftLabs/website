@@ -8,21 +8,10 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { TYPING_PLACEHOLDER_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 
-// Default search suggestions showcasing Mycosoft capabilities
-const DEFAULT_SUGGESTIONS = [
-  "Search fungi species and taxonomy...",
-  "Ask about medicinal compounds...",
-  "Find genetic sequences...",
-  "Explore mycelium networks...",
-  "Analyze chemical structures...",
-  "Discover research papers...",
-  "Query Earth2 climate data...",
-  "Check device telemetry...",
-  "What is the most poisonous mushroom?",
-  "Psilocybin research papers...",
-  "Amanita muscaria properties...",
-]
+/** World-view suggestions for typing placeholder (fungi, flora, fauna, weather, CREP, Earth2, environment). */
+const DEFAULT_SUGGESTIONS = TYPING_PLACEHOLDER_SUGGESTIONS
 
 interface UseTypingPlaceholderOptions {
   /** Custom suggestions array */

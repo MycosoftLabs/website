@@ -139,7 +139,7 @@ export function EnhancedSearch() {
               className="pl-3 pr-16 py-1.5 h-10 text-sm rounded-lg focus-visible:ring-offset-0"
               aria-expanded={showSuggestions}
               aria-controls="search-suggestions"
-              aria-label="Search fungi and compounds"
+              aria-label="Search species, weather, flights"
               aria-busy={isLoading}
               aria-invalid={!!error}
               aria-errormessage={error || undefined}

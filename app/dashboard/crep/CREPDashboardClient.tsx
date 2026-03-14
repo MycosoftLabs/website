@@ -209,6 +209,7 @@ import { VOICE_ENDPOINTS } from "@/lib/config/api-urls";
 
 // Map Controls with streaming status
 import { MapControls as OEIMapControls, StreamingStatusBar } from "@/components/crep/map-controls";
+import { WorldstateSourcesBadge } from "@/components/crep/WorldstateSourcesBadge";
 import type { AircraftFilter, VesselFilter, SatelliteFilter, SpaceWeatherFilter, GroundFilter, NOAAScales } from "@/components/crep/map-controls";
 import { CrepMapPreferencesPanel, type CrepMapPreferences } from "@/components/crep/CrepMapPreferencesPanel";
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget";
@@ -4566,15 +4567,18 @@ export default function CREPDashboardPage() {
                           <Signal className="w-3.5 h-3.5 text-amber-400" />
                           <span className="text-[10px] font-bold text-white">LIVE DATA FEEDS</span>
                         </div>
-                        <StreamingStatusBar
-                          statuses={[
-                            { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
-                            { type: "vessels", connected: isStreaming, messageCount: vessels.length },
-                            { type: "satellites", connected: isStreaming, messageCount: satellites.length },
-                          ]}
-                          isLive={isStreaming}
-                          onToggle={() => setIsStreaming(!isStreaming)}
-                        />
+                        <div className="flex items-center gap-2">
+                          <StreamingStatusBar
+                            statuses={[
+                              { type: "aircraft", connected: isStreaming, messageCount: aircraft.length },
+                              { type: "vessels", connected: isStreaming, messageCount: vessels.length },
+                              { type: "satellites", connected: isStreaming, messageCount: satellites.length },
+                            ]}
+                            isLive={isStreaming}
+                            onToggle={() => setIsStreaming(!isStreaming)}
+                          />
+                          <WorldstateSourcesBadge />
+                        </div>
                       </div>
                       
                       {/* Map Controls - Filter Panel */}

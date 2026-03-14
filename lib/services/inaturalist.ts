@@ -290,20 +290,30 @@ export async function getFungiDetails(id: string) {
   }
 }
 
-// Define FUNGI_TAXON_ID
+// Define FUNGI_TAXON_ID for fungi-only searches
 const FUNGI_TAXON_ID = "47170"
 
-// Add timeout and retry logic to searchFungi
-export async function searchFungi(query: string, retries = 3): Promise<{ results: Record<string, unknown>[] }> {
-  const timeout = 5000 // 5 second timeout
+/**
+ * Search iNaturalist taxa. When taxonId is provided, restricts to that taxon (e.g. fungi).
+ * When taxonId is omitted, returns all-life results.
+ */
+export async function searchTaxa(
+  query: string,
+  options?: { taxonId?: string; retries?: number }
+): Promise<{ results: Record<string, unknown>[] }> {
+  const { taxonId, retries = 3 } = options || {}
+  const timeout = 5000
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), timeout)
 
+      const params = new URLSearchParams({ q: query })
+      if (taxonId) params.set("taxon_id", taxonId)
+
       const response = await fetch(
-        `${INATURALIST_API}/taxa/autocomplete?q=${encodeURIComponent(query)}&taxon_id=${FUNGI_TAXON_ID}`,
+        `${INATURALIST_API}/taxa/autocomplete?${params.toString()}`,
         {
           signal: controller.signal,
           headers: {
@@ -335,4 +345,9 @@ export async function searchFungi(query: string, retries = 3): Promise<{ results
 
   // Fallback to empty results if all retries fail
   return { results: [] }
+}
+
+/** Fungi-only search. Wrapper around searchTaxa with taxonId=FUNGI_TAXON_ID. */
+export async function searchFungi(query: string, retries = 3): Promise<{ results: Record<string, unknown>[] }> {
+  return searchTaxa(query, { taxonId: FUNGI_TAXON_ID, retries })
 }

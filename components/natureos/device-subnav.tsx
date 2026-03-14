@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/natureos/devices/map", label: "Map" },
   { href: "/natureos/devices/insights", label: "Insights" },
   { href: "/natureos/devices/fleet", label: "Fleet" },
+  { href: "/natureos/devices/onsite-ai", label: "On-Site AI" },
 ]
 
 export function DeviceSubnav() {

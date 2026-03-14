@@ -284,20 +284,24 @@ export class UnifiedSearchClient {
 export const unifiedSearch = new UnifiedSearchClient()
 
 /**
- * Prefetch common/popular searches on app load
+ * Prefetch common/popular searches on app load.
+ * Balanced across biodiversity (including fungi), weather, and worldview intent —
+ * does not seed mushroom-only as the default user intent.
  */
 export function prefetchPopularSearches(): void {
   const popularQueries = [
-    "psilocybe",
-    "agaricus",
-    "amanita",
-    "ganoderma",
-    "cordyceps",
-    "lion's mane",
+    // Biodiversity (fungi remain a first-class domain)
     "reishi",
-    "turkey tail",
-    "shiitake",
     "chanterelle",
+    "amanita",
+    // Biodiversity (all-life)
+    "birds",
+    "oak",
+    "butterfly",
+    // Worldview / operational
+    "weather",
+    "flights over pacific",
+    "satellites",
   ]
 
   // Stagger prefetches to avoid overwhelming the server

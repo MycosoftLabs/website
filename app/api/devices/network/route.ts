@@ -140,6 +140,8 @@ export async function GET(request: NextRequest) {
         registered_at: device.registered_at,
         source: "MAS-Registry",
         extra: device.extra || {},
+        // OpenClaw Control UI (port 18789) runs on same host as device for on-site AI
+        openclaw_url: device.host ? `http://${device.host}:18789` : null,
       }
     })
 

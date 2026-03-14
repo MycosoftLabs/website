@@ -202,7 +202,7 @@ export function MobileSearchChat({ initialQuery = "" }: MobileSearchChatProps) {
             </div>
             <h2 className="text-lg font-semibold mb-2">Answers</h2>
             <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-              Search for fungi species, compounds, genetics, research papers, or ask questions about mycology.
+              Search species, weather, flights, vessels, or ask questions about biodiversity and the world.
             </p>
             
           </motion.div>

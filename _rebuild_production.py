@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rebuild and restart website on Production VM (192.168.0.186) - March 13, 2026
 Deploys to mycosoft.com. Mirror of _rebuild_sandbox but VM 186, no MycoBrain."""
+import base64
 import io
 import os
 import paramiko
@@ -13,16 +14,38 @@ sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
 
 
 def load_credentials():
-    creds_file = Path(__file__).parent / ".credentials.local"
-    if creds_file.exists():
-        for line in creds_file.read_text().splitlines():
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                os.environ[key.strip()] = value.strip()
+    """Load from .credentials.local and .env.local (for Supabase, etc.)."""
+    for fname in (".credentials.local", ".env.local"):
+        creds_file = Path(__file__).parent / fname
+        if creds_file.exists():
+            for line in creds_file.read_text().splitlines():
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    os.environ[key.strip()] = value.strip().strip('"\'')
     return True
 
 
 load_credentials()
+
+
+def _build_supabase_args():
+    """Build env exports and --build-arg for Supabase (base64 avoids shell escaping)."""
+    exports = []
+    args = []
+    url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+    key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    if url:
+        b64 = base64.b64encode(url.encode()).decode()
+        exports.append(f"NEXT_PUBLIC_SUPABASE_URL=$(echo {b64} | base64 -d)")
+        args.append("--build-arg NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL")
+    if key:
+        b64 = base64.b64encode(key.encode()).decode()
+        exports.append(f"NEXT_PUBLIC_SUPABASE_ANON_KEY=$(echo {b64} | base64 -d)")
+        args.append("--build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    if not exports:
+        return ""
+    return "export " + " ".join(exports) + " && " + " ".join(args) + " "
+
 
 VM_HOST = os.environ.get("PRODUCTION_VM_HOST", "192.168.0.186")
 VM_USER = os.environ.get("VM_SSH_USER", "mycosoft")
@@ -78,8 +101,9 @@ def main():
 
     print("\n2. Rebuilding Docker image (--no-cache)...")
     image_tag = "mycosoft-always-on-mycosoft-website:latest"
-    build_cmd_legacy = f"cd {WEBSITE_DIR} && DOCKER_BUILDKIT=0 docker build --network host --no-cache -t {image_tag} ."
-    build_cmd_buildkit = f"cd {WEBSITE_DIR} && DOCKER_BUILDKIT=1 docker build --network host --no-cache -t {image_tag} ."
+    build_args = _build_supabase_args()
+    build_cmd_legacy = f"cd {WEBSITE_DIR} && {build_args}DOCKER_BUILDKIT=0 docker build --network host --no-cache -t {image_tag} ."
+    build_cmd_buildkit = f"cd {WEBSITE_DIR} && {build_args}DOCKER_BUILDKIT=1 docker build --network host --no-cache -t {image_tag} ."
 
     print("   Attempt 1/2: DOCKER_BUILDKIT=0")
     code, out = _tail_build(build_cmd_legacy, timeout=900)
