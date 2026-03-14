@@ -143,15 +143,15 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
     }, 
     description: 'Ancestry Tools' 
   },
-  { 
-    path: '/natureos/ai-studio', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'AI Studio' 
+  {
+    path: '/natureos/ai-studio',
+    gate: AccessGate.COMPANY,
+    config: {
+      gate: AccessGate.COMPANY,
+      minimumRole: UserRole.USER,
+      features: ['internal-only']
+    },
+    description: 'AI Studio (Internal - Mycosoft employees only)'
   },
   { 
     path: '/natureos/live-map', 

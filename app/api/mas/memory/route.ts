@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/api-auth"
 
 // MAS API URL
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
@@ -31,6 +32,10 @@ interface ConversationMemory {
  * Retrieve conversation history and context
  */
 export async function GET(request: NextRequest) {
+  // Require authentication - no anonymous access to memory
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("session_id")
@@ -93,6 +98,10 @@ export async function GET(request: NextRequest) {
  * Store conversation turn
  */
 export async function POST(request: NextRequest) {
+  // Require authentication
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { session_id, user_id, message, role, agent, context } = body
@@ -179,6 +188,10 @@ export async function POST(request: NextRequest) {
  * Clear conversation memory
  */
 export async function DELETE(request: NextRequest) {
+  // Require authentication
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
+
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get("session_id")
