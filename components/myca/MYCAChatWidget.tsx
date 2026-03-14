@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
 import { Brain, Loader2, Play, Send, Trash2 } from "lucide-react"
 import { GroundingStatusBadge } from "./GroundingStatusBadge"
+import { AvaniStatusBadge } from "./AvaniStatusBadge"
 
 interface MYCAChatWidgetProps {
   className?: string
@@ -106,6 +107,7 @@ export function MYCAChatWidget({
               isGrounded={grounding?.is_grounded}
               thoughtCount={grounding?.thought_count}
             />
+            <AvaniStatusBadge />
           </div>
           <div className="flex items-center gap-1">
             <Button

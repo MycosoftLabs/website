@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { PresenceProvider } from "@/contexts/presence-context"
 import { AppStateProvider } from "@/contexts/app-state-context"
 import { MYCAProvider } from "@/contexts/myca-context"
+import { AvaniProvider } from "@/contexts/avani-context"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { UnifiedVoiceProvider } from "@/components/voice/UnifiedVoiceProvider"
@@ -138,7 +139,11 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
   let shell: React.ReactNode = pageLayout
 
   if (enableMyca) {
-    shell = <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{pageLayout}</MYCAProvider>
+    shell = (
+      <AvaniProvider>
+        <MYCAProvider initialConsciousnessActive={mycaAlwaysActive}>{pageLayout}</MYCAProvider>
+      </AvaniProvider>
+    )
   }
 
   if (enableVoice) {
