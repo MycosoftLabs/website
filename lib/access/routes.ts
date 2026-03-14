@@ -85,16 +85,7 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
     }, 
     description: 'Ancestry' 
   },
-  { 
-    path: '/natureos/mindex', 
-    gate: AccessGate.FREEMIUM, 
-    config: { 
-      gate: AccessGate.FREEMIUM, 
-      minimumRole: UserRole.ANONYMOUS,
-      freemiumLimits: { dailyLimit: 50 }
-    }, 
-    description: 'MINDEX database' 
-  },
+  // MINDEX moved to COMPANY_ROUTES (infrastructure gate)
 ]
 
 // Authenticated routes - require login
@@ -103,8 +94,21 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
   { path: '/apps', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Apps hub' },
   { path: '/natureos', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'NatureOS home' },
-  { path: '/natureos/devices', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Devices' },
-  { path: '/natureos/storage', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Storage' },
+]
+
+// Company routes - require @mycosoft.org or @mycosoft.com email
+// All NatureOS Infrastructure section routes
+export const COMPANY_ROUTES: RouteAccess[] = [
+  { path: '/natureos/devices', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Device Network' },
+  { path: '/natureos/mycobrain', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MycoBrain Console' },
+  { path: '/natureos/sporebase', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'SporeBase Monitor' },
+  { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
+  { path: '/natureos/crep', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'CREP Dashboard' },
+  { path: '/natureos/fusarium', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FUSARIUM' },
+  { path: '/natureos/mindex', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MINDEX' },
+  { path: '/natureos/storage', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Storage' },
+  { path: '/natureos/containers', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Containers' },
+  { path: '/natureos/monitoring', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Monitoring' },
 ]
 
 // Premium routes - require subscription
@@ -139,15 +143,15 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
     }, 
     description: 'Ancestry Tools' 
   },
-  { 
-    path: '/natureos/ai-studio', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'AI Studio' 
+  {
+    path: '/natureos/ai-studio',
+    gate: AccessGate.COMPANY,
+    config: {
+      gate: AccessGate.COMPANY,
+      minimumRole: UserRole.USER,
+      features: ['internal-only']
+    },
+    description: 'AI Studio (Internal - Mycosoft employees only)'
   },
   { 
     path: '/natureos/live-map', 
@@ -191,6 +195,19 @@ export const ETHICS_TRAINING_ROUTES: RouteAccess[] = [
   { path: '/ethics-training/observations', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['ethics-training'] }, description: 'Observer Notes' },
 ]
 
+// Platform routes - require login with @mycosoft.org company email
+export const PLATFORM_ROUTES: RouteAccess[] = [
+  { path: '/platform', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Platform Admin' },
+  { path: '/platform/analytics', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Platform Analytics' },
+  { path: '/platform/team', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Team Management' },
+  { path: '/platform/billing', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Billing & Plans' },
+  { path: '/platform/api-keys', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'API Keys' },
+  { path: '/platform/security', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN, features: ['company-email'] }, description: 'Security & Compliance' },
+]
+
+// Company email domain for platform access
+export const PLATFORM_ALLOWED_DOMAIN = 'mycosoft.org'
+
 // Admin routes
 export const ADMIN_ROUTES: RouteAccess[] = [
   { path: '/devices', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Device Manager' },
@@ -212,8 +229,7 @@ export const ADMIN_ROUTES: RouteAccess[] = [
 export const SUPER_ADMIN_ROUTES: RouteAccess[] = [
   { path: '/natureos/settings', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Settings' },
   { path: '/natureos/model-training', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Model Training' },
-  { path: '/natureos/containers', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Containers' },
-  { path: '/natureos/monitoring', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Monitoring' },
+  // containers and monitoring moved to COMPANY_ROUTES (infrastructure gate)
   { path: '/natureos/drone', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Drone Control' },
   { path: '/natureos/shell', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'System Shell' },
   { path: '/natureos/cloud', gate: AccessGate.SUPER_ADMIN, config: { gate: AccessGate.SUPER_ADMIN, minimumRole: UserRole.SUPER_ADMIN }, description: 'Cloud' },
@@ -225,7 +241,9 @@ export const ALL_ROUTES: RouteAccess[] = [
   ...PUBLIC_ROUTES,
   ...FREEMIUM_ROUTES,
   ...AUTHENTICATED_ROUTES,
+  ...COMPANY_ROUTES,
   ...PREMIUM_ROUTES,
+  ...PLATFORM_ROUTES,
   ...ETHICS_TRAINING_ROUTES,
   ...ADMIN_ROUTES,
   ...SUPER_ADMIN_ROUTES,
@@ -276,3 +294,12 @@ export function requiresAuth(path: string): boolean {
   if (!route) return true // Default to requiring auth
   return route.gate !== AccessGate.PUBLIC && route.gate !== AccessGate.FREEMIUM
 }
+
+// Check if path requires company email
+export function requiresCompanyEmail(path: string): boolean {
+  const route = getRouteAccess(path)
+  return route?.gate === AccessGate.COMPANY
+}
+
+// Infrastructure route paths (for quick checking)
+export const INFRASTRUCTURE_PATHS = COMPANY_ROUTES.map(r => r.path)

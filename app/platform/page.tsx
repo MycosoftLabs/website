@@ -1,4 +1,4 @@
-﻿import { Metadata } from 'next'
+import { Metadata } from 'next'
 import { AdminConsole } from '@/components/platform/admin-console'
 
 export const metadata: Metadata = {

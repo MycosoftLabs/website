@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { requireAuth } from "@/lib/auth/api-auth"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 
@@ -15,6 +16,9 @@ interface Notification {
 }
 
 export async function GET() {
+  // Require authentication - no anonymous access to notifications
+  const auth = await requireAuth()
+  if (auth.error) return auth.error
   try {
     // Try to get notifications from MAS
     try {
