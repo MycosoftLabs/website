@@ -74,6 +74,19 @@ export const MYCA_ENDPOINTS = {
 } as const
 
 /**
+ * AVANI Governance endpoints
+ * Embedded engine runs locally; standalone backend will run from `avani` repo.
+ */
+export const AVANI_ENDPOINTS = {
+  STATUS: "/api/avani/status",
+  EVALUATE: "/api/avani/evaluate",
+  RULES: "/api/avani/rules",
+  // Standalone backend (when deployed from `avani` repo)
+  BACKEND_STATUS: process.env.AVANI_API_URL ? `${process.env.AVANI_API_URL}/api/avani/status` : null,
+  BACKEND_EVALUATE: process.env.AVANI_API_URL ? `${process.env.AVANI_API_URL}/api/avani/evaluate` : null,
+} as const
+
+/**
  * MINDEX API endpoints
  */
 export const MINDEX_ENDPOINTS = {

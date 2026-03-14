@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { MycaNLQEngine, type NLQResponse } from "@/lib/services/myca-nlq"
 import { createClient } from "@/lib/supabase/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-governance"
 
 /**
  * MYCA Voice Orchestrator API v6.0 - MYCA-Only Architecture
@@ -130,13 +131,15 @@ interface ChatResponse {
   routed_to?: string
   requires_confirmation?: boolean
   confirmation_prompt?: string
-  
+
   // Action transparency - what the orchestrator did
   actions: {
     memory_saved: boolean
     workflow_executed?: string
     agent_routed?: string
     confirmation_required?: boolean
+    avani_verdict?: string
+    avani_risk_tier?: string
   }
   
   // Telemetry
@@ -498,6 +501,42 @@ export async function POST(request: NextRequest) {
     // LOG THE ACTUAL RESPONSE - this is critical for debugging (internal only; never exposed to user)
     console.log(`[MYCA] Response: "${response.response_text}"`)
     console.log(`[MYCA] Response length: ${response.response_text.length} chars`)
+
+    // Step 4b: AVANI Governance Evaluation (background — non-blocking)
+    // Avani evaluates every MYCA interaction for safety, policy, and constitutional compliance.
+    // She runs in the background; verdicts are logged and surfaced but don't block standard chat.
+    let avaniEval: AvaniEvaluation | null = null
+    try {
+      avaniEval = await evaluateGovernance({
+        message,
+        user_id: runtimeIdentity.userId,
+        user_role: runtimeIdentity.userRole,
+        is_superuser: runtimeIdentity.isSuperuser,
+        action_type: "chat",
+        response_text: response.response_text,
+      })
+      actions.avani_verdict = avaniEval.verdict
+      actions.avani_risk_tier = avaniEval.risk_tier
+      console.log(`[AVANI] Verdict: ${avaniEval.verdict} | Risk: ${avaniEval.risk_tier} | Rules: ${avaniEval.rules_triggered.join(",")}`)
+
+      // If Avani denies, override the response
+      if (avaniEval.verdict === "deny") {
+        console.warn(`[AVANI] DENIED response — ${avaniEval.reasoning}`)
+        response.response_text =
+          "I can't process that request right now. It was flagged by our governance layer for review. If you believe this is an error, please contact an administrator."
+        response.agent = "avani-governance"
+        response.routed_to = "avani"
+      }
+
+      // If Avani requires confirmation, flag it
+      if (avaniEval.requires_human_review && avaniEval.verdict !== "deny") {
+        response.requires_confirmation = true
+        actions.confirmation_required = true
+      }
+    } catch (avaniError) {
+      // Avani failure never blocks MYCA — log and continue
+      console.warn("[AVANI] Governance evaluation failed (non-blocking):", avaniError)
+    }
 
     // Step 5: Generate audio if requested
     if (want_audio && response.response_text) {
