@@ -7,6 +7,22 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
+// Infrastructure routes gated to company emails only (@mycosoft.org / @mycosoft.com)
+const INFRASTRUCTURE_PATHS = [
+  '/natureos/devices', '/natureos/mycobrain', '/natureos/sporebase',
+  '/natureos/fci', '/natureos/crep', '/natureos/fusarium',
+  '/natureos/mindex', '/natureos/storage', '/natureos/containers',
+  '/natureos/monitoring',
+]
+
+const COMPANY_EMAIL_DOMAINS = ['mycosoft.org', 'mycosoft.com']
+
+function isCompanyEmail(email: string | null | undefined): boolean {
+  if (!email) return false
+  const domain = email.split('@')[1]?.toLowerCase()
+  return COMPANY_EMAIL_DOMAINS.includes(domain)
+}
+
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const response =
@@ -30,7 +46,29 @@ export async function middleware(request: NextRequest) {
         },
       },
     })
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // COMPANY GATE: Infrastructure routes require @mycosoft.org or @mycosoft.com email
+    const isInfrastructureRoute = INFRASTRUCTURE_PATHS.some(
+      p => pathname === p || pathname.startsWith(p + '/')
+    )
+
+    if (isInfrastructureRoute) {
+      if (!user) {
+        // Not logged in — redirect to login
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        url.searchParams.set('redirectTo', pathname)
+        return NextResponse.redirect(url)
+      }
+      if (!isCompanyEmail(user.email)) {
+        // Logged in but not a company email — redirect to NatureOS with error
+        const url = request.nextUrl.clone()
+        url.pathname = '/natureos'
+        url.searchParams.set('error', 'company_access_required')
+        return NextResponse.redirect(url)
+      }
+    }
   }
 
   return response

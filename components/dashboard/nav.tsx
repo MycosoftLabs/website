@@ -39,17 +39,21 @@ import {
   Droplets,
   Shield,
   Leaf,
+  Lock,
   type LucideIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
+import { isCompanyEmail } from "@/lib/access/types"
 
 interface NavItem {
   title: string
   href: string
   icon: LucideIcon
+  companyOnly?: boolean
 }
 
 interface NavSection {
@@ -57,6 +61,7 @@ interface NavSection {
   key: string
   items: NavItem[]
   defaultOpen?: boolean
+  companyOnly?: boolean
 }
 
 const navSections: NavSection[] = [
@@ -118,17 +123,18 @@ const navSections: NavSection[] = [
     title: "Infrastructure",
     key: "infrastructure",
     defaultOpen: false,
+    companyOnly: true,
     items: [
-      { title: "Device Network", href: "/natureos/devices", icon: Network },
-      { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu },
-      { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets },
-      { title: "FCI Monitor", href: "/natureos/fci", icon: Brain },
-      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity },
-      { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield },
-      { title: "MINDEX", href: "/natureos/mindex", icon: Database },
-      { title: "Storage", href: "/natureos/storage", icon: Layers },
-      { title: "Containers", href: "/natureos/containers", icon: Boxes },
-      { title: "Monitoring", href: "/natureos/monitoring", icon: Activity },
+      { title: "Device Network", href: "/natureos/devices", icon: Network, companyOnly: true },
+      { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
+      { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
+      { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
+      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity, companyOnly: true },
+      { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
+      { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
+      { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },
+      { title: "Containers", href: "/natureos/containers", icon: Boxes, companyOnly: true },
+      { title: "Monitoring", href: "/natureos/monitoring", icon: Activity, companyOnly: true },
     ],
   },
   {
@@ -143,10 +149,10 @@ const navSections: NavSection[] = [
   },
 ]
 
-function CollapsibleSection({ section, pathname, isOpen: sidebarOpen }: { section: NavSection; pathname: string; isOpen: boolean }) {
+function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyUser }: { section: NavSection; pathname: string; isOpen: boolean; isCompanyUser: boolean }) {
   // Check if any item in this section is active
   const hasActiveItem = section.items.some(item => pathname === item.href || pathname.startsWith(item.href + "/"))
-  
+
   // Open by default if section has active item or if defaultOpen is true
   const [isExpanded, setIsExpanded] = useState(section.defaultOpen || hasActiveItem)
 
@@ -156,6 +162,11 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen }: { sectio
     }
   }
 
+  // Hide entire section from non-company users if it's company-only
+  if (section.companyOnly && !isCompanyUser) {
+    return null
+  }
+
   return (
     <SidebarGroup>
       {sidebarOpen ? (
@@ -163,7 +174,12 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen }: { sectio
           onClick={handleToggle}
           className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider hover:text-gray-200 transition-colors group"
         >
-          <span>{section.title}</span>
+          <span className="flex items-center gap-1.5">
+            {section.title}
+            {section.companyOnly && (
+              <Lock className="h-2.5 w-2.5 text-gray-500" />
+            )}
+          </span>
           <span className="transition-transform duration-200">
             {isExpanded ? (
               <ChevronDown className="h-3 w-3" />
@@ -173,7 +189,7 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen }: { sectio
           </span>
         </button>
       ) : null}
-      
+
       <div
         className={cn(
           "overflow-hidden transition-all duration-200",
@@ -205,6 +221,8 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen }: { sectio
 export function DashboardNav() {
   const pathname = usePathname()
   const { isOpen } = useSidebar()
+  const { user } = useAuth()
+  const companyUser = isCompanyEmail(user?.email)
 
   return (
     <div className="h-full py-2">
@@ -214,6 +232,7 @@ export function DashboardNav() {
           section={section}
           pathname={pathname}
           isOpen={isOpen}
+          isCompanyUser={companyUser}
         />
       ))}
     </div>

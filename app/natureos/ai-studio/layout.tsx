@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { isCompanyEmail } from "@/lib/access/types"
 import { AIStudioUnauthorized } from "./_components/unauthorized"
 
 export const dynamic = "force-dynamic"
@@ -10,8 +11,6 @@ export const dynamic = "force-dynamic"
  * Used for demos to investors and Enterprise users to showcase MYCA control.
  * No public user should be able to access this.
  */
-const ALLOWED_EMAIL_DOMAINS = ["mycosoft.org", "mycosoft.com"]
-
 export default async function AIStudioLayout({
   children,
 }: {
@@ -25,11 +24,8 @@ export default async function AIStudioLayout({
     return <AIStudioUnauthorized reason="unauthenticated" />
   }
 
-  // Check email domain
-  const emailDomain = user.email.toLowerCase().split("@")[1]
-  const isAllowedDomain = ALLOWED_EMAIL_DOMAINS.includes(emailDomain)
-
-  if (!isAllowedDomain) {
+  // Check email domain - must be a Mycosoft company email
+  if (!isCompanyEmail(user.email)) {
     return <AIStudioUnauthorized reason="unauthorized" email={user.email} />
   }
 
