@@ -13,3 +13,9 @@ export {
   type WebMCPToolResult,
   type WebMCPCallbacks,
 } from "./provider"
+
+export {
+  registerEarthMCPTools,
+  EARTH_TOOL_SCHEMAS,
+  type EarthToolCallbacks,
+} from "./earth-tools"

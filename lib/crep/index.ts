@@ -117,3 +117,15 @@ export {
 } from "./spatial/s2-indexer"
 
 export type { MapBounds } from "./spatial/s2-indexer"
+
+// CREP Data Service — Earth Intelligence
+export {
+  getEarthDataByBbox,
+  getEarthStats,
+  fetchAllEarthData,
+  type EarthBboxOptions,
+  type WeatherAlert,
+  type EmissionSource,
+  type InfrastructureItem,
+  type SpaceWeatherEvent,
+} from "./crep-data-service"

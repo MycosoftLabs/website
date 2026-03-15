@@ -32,6 +32,8 @@ import {
   getDataSummary,
   getServiceStats,
   fetchAllData,
+  fetchAllEarthData,
+  getEarthStats,
 } from "@/lib/crep/crep-data-service"
 
 export const dynamic = "force-dynamic"
@@ -79,6 +81,19 @@ export async function GET(request: NextRequest) {
         case "devices":
           data = await getDevices({ forceRefresh })
           break
+        case "weather":
+          // Fetch weather from MINDEX earth sync
+          { const earth = await fetchAllEarthData(); data = earth.weather }
+          break
+        case "emissions":
+          { const earth2 = await fetchAllEarthData(); data = earth2.emissions }
+          break
+        case "infrastructure":
+          { const earth3 = await fetchAllEarthData(); data = earth3.infrastructure }
+          break
+        case "earthStats":
+          data = await getEarthStats()
+          break
         case "summary":
           data = await getDataSummary()
           break
@@ -98,11 +113,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Fetch all data
-    console.log("[CREP Unified] Fetching all data...")
+    // Fetch all data (including new earth domains via MINDEX)
+    console.log("[CREP Unified] Fetching all earth data...")
     const startTime = Date.now()
 
-    const allData = await fetchAllData()
+    const allData = await fetchAllEarthData()
 
     const elapsed = Date.now() - startTime
     console.log(`[CREP Unified] All data fetched in ${elapsed}ms`)
@@ -117,6 +132,10 @@ export async function GET(request: NextRequest) {
         fungalObservations: allData.fungalObservations.length,
         globalEvents: allData.globalEvents.length,
         devices: allData.devices.length,
+        weather: allData.weather.length,
+        emissions: allData.emissions.length,
+        infrastructure: allData.infrastructure.length,
+        spaceWeather: allData.spaceWeather.length,
       },
       elapsed,
       timestamp: new Date().toISOString(),

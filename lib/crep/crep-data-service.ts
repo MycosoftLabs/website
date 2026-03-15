@@ -457,3 +457,234 @@ export function getServiceStats() {
     timestamp: new Date().toISOString(),
   }
 }
+
+// ============================================================================
+// MINDEX Earth Intelligence — Spatial Queries (bbox)
+// ============================================================================
+
+export interface EarthBboxOptions extends FetchOptions {
+  north: number
+  south: number
+  east: number
+  west: number
+  layers?: string[]
+}
+
+export interface WeatherAlert {
+  id: string
+  type: string
+  title: string
+  severity: string
+  lat: number
+  lng: number
+  timestamp: string
+}
+
+export interface EmissionSource {
+  id: string
+  type: string
+  name: string
+  lat: number
+  lng: number
+  value?: number
+  unit?: string
+}
+
+export interface InfrastructureItem {
+  id: string
+  type: string
+  name: string
+  lat: number
+  lng: number
+  status?: string
+}
+
+export interface SpaceWeatherEvent {
+  id: string
+  type: string
+  title: string
+  severity: string
+  timestamp: string
+}
+
+/**
+ * Fetch all earth data within a bounding box from MINDEX.
+ * Uses the new /api/earth/map/bbox endpoint for spatial queries.
+ * Falls back to individual OEI endpoints if MINDEX is unreachable.
+ */
+export async function getEarthDataByBbox(options: EarthBboxOptions): Promise<{
+  aircraft: Aircraft[]
+  vessels: Vessel[]
+  satellites: Satellite[]
+  globalEvents: GlobalEvent[]
+  fungalObservations: FungalObservation[]
+  devices: Device[]
+  weather: WeatherAlert[]
+  emissions: EmissionSource[]
+  infrastructure: InfrastructureItem[]
+  spaceWeather: SpaceWeatherEvent[]
+}> {
+  const emptyResult = {
+    aircraft: [] as Aircraft[],
+    vessels: [] as Vessel[],
+    satellites: [] as Satellite[],
+    globalEvents: [] as GlobalEvent[],
+    fungalObservations: [] as FungalObservation[],
+    devices: [] as Device[],
+    weather: [] as WeatherAlert[],
+    emissions: [] as EmissionSource[],
+    infrastructure: [] as InfrastructureItem[],
+    spaceWeather: [] as SpaceWeatherEvent[],
+  }
+
+  // Try MINDEX spatial endpoint first
+  try {
+    const params = new URLSearchParams({
+      north: String(options.north),
+      south: String(options.south),
+      east: String(options.east),
+      west: String(options.west),
+    })
+    if (options.layers?.length) {
+      params.set("layers", options.layers.join(","))
+    }
+    if (options.limit) {
+      params.set("limit", String(options.limit))
+    }
+
+    const mindexUrl = `${API_URLS.MINDEX}/api/earth/map/bbox?${params}`
+    const data = await safeFetch<Record<string, unknown[]>>(
+      mindexUrl,
+      {},
+      options.timeout || 8000,
+      options.signal
+    )
+
+    if (data && Object.keys(data).length > 0) {
+      return {
+        aircraft: (data.aircraft as Aircraft[]) || [],
+        vessels: (data.vessels as Vessel[]) || [],
+        satellites: (data.satellites as Satellite[]) || [],
+        globalEvents: (data.events as GlobalEvent[]) || (data.globalEvents as GlobalEvent[]) || [],
+        fungalObservations: (data.observations as FungalObservation[]) || (data.fungalObservations as FungalObservation[]) || [],
+        devices: (data.devices as Device[]) || [],
+        weather: (data.weather as WeatherAlert[]) || [],
+        emissions: (data.emissions as EmissionSource[]) || [],
+        infrastructure: (data.infrastructure as InfrastructureItem[]) || [],
+        spaceWeather: (data.space_weather as SpaceWeatherEvent[]) || (data.spaceWeather as SpaceWeatherEvent[]) || [],
+      }
+    }
+  } catch {
+    console.warn("[CREP Service] MINDEX earth/map/bbox unavailable, falling back to OEI")
+  }
+
+  // Fallback: use existing OEI-based fetchers
+  const opts: FetchOptions = { signal: options.signal }
+  const [aircraft, vessels, satellites, fungalObservations, globalEvents, devices] =
+    await Promise.all([
+      getAircraft(opts).catch(() => []),
+      getVessels(opts).catch(() => []),
+      getSatellites(opts).catch(() => []),
+      getFungalObservations(opts).catch(() => []),
+      getGlobalEvents(opts).catch(() => []),
+      getDevices(opts).catch(() => []),
+    ])
+
+  return {
+    ...emptyResult,
+    aircraft,
+    vessels,
+    satellites,
+    fungalObservations,
+    globalEvents,
+    devices,
+  }
+}
+
+/**
+ * Get MINDEX earth domain statistics.
+ */
+export async function getEarthStats(signal?: AbortSignal): Promise<Record<string, number>> {
+  try {
+    const data = await safeFetch<Record<string, number>>(
+      `${API_URLS.MINDEX}/api/earth/stats`,
+      {},
+      5000,
+      signal
+    )
+    return data
+  } catch {
+    // Fallback: build stats from existing data
+    const summary = await getDataSummary(signal)
+    return {
+      aircraft: summary.aircraft,
+      vessels: summary.vessels,
+      satellites: summary.satellites,
+      fungalObservations: summary.fungalObservations,
+      globalEvents: summary.globalEvents,
+      devices: summary.devices,
+    }
+  }
+}
+
+/**
+ * Fetch all data including new earth domains with progressive loading.
+ */
+export async function fetchAllEarthData(
+  onDataReady?: (type: string, data: unknown[]) => void,
+  signal?: AbortSignal
+): Promise<{
+  aircraft: Aircraft[]
+  vessels: Vessel[]
+  satellites: Satellite[]
+  fungalObservations: FungalObservation[]
+  globalEvents: GlobalEvent[]
+  devices: Device[]
+  weather: WeatherAlert[]
+  emissions: EmissionSource[]
+  infrastructure: InfrastructureItem[]
+  spaceWeather: SpaceWeatherEvent[]
+}> {
+  // Try MINDEX full earth sync first
+  try {
+    const data = await safeFetch<Record<string, unknown[]>>(
+      `${API_URLS.MINDEX}/api/earth/crep/sync`,
+      {},
+      12000,
+      signal
+    )
+    if (data && Object.keys(data).length > 0) {
+      const result = {
+        aircraft: (data.aircraft as Aircraft[]) || [],
+        vessels: (data.vessels as Vessel[]) || [],
+        satellites: (data.satellites as Satellite[]) || [],
+        fungalObservations: (data.observations as FungalObservation[]) || [],
+        globalEvents: (data.events as GlobalEvent[]) || [],
+        devices: (data.devices as Device[]) || [],
+        weather: (data.weather as WeatherAlert[]) || [],
+        emissions: (data.emissions as EmissionSource[]) || [],
+        infrastructure: (data.infrastructure as InfrastructureItem[]) || [],
+        spaceWeather: (data.space_weather as SpaceWeatherEvent[]) || [],
+      }
+      // Fire progressive callbacks
+      for (const [key, val] of Object.entries(result)) {
+        if (Array.isArray(val) && val.length > 0) {
+          onDataReady?.(key, val)
+        }
+      }
+      return result
+    }
+  } catch {
+    // Fall through to individual fetchers
+  }
+
+  // Fallback: use existing fetchAllData + empty new domains
+  const base = await fetchAllData(onDataReady, signal)
+  return {
+    ...base,
+    weather: [],
+    emissions: [],
+    infrastructure: [],
+    spaceWeather: [],
+  }
+}

@@ -271,6 +271,111 @@ const INTENT_PATTERNS: IntentPattern[] = [
     type: "help",
     dataSources: ["documents"],
   },
+
+  // Earth Intelligence — transport, aviation, maritime
+  {
+    patterns: [
+      /(?:flights?|planes?|aircraft)\s+(?:over|near|above|around|in)/i,
+      /(?:show|find|track|where)\s+(?:are\s+)?(?:the\s+)?(?:flights?|planes?|aircraft)/i,
+      /(?:ships?|vessels?|boats?)\s+(?:in|near|at|around)\s+/i,
+      /(?:show|find|track|where)\s+(?:are\s+)?(?:the\s+)?(?:ships?|vessels?|boats?)/i,
+      /(?:satellite|orbit|iss|space\s+station)/i,
+      /(?:ais|ads-b|adsb|transponder|maritime\s+traffic|shipping\s+lane)/i,
+    ],
+    type: "query_data",
+    entities: ["domain", "location"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — natural events, hazards
+  {
+    patterns: [
+      /(?:earthquake|volcano|wildfire|tsunami|storm|hurricane|tornado|flood|lightning)/i,
+      /(?:active|recent|current)\s+(?:earthquake|eruption|fire|storm|disaster)/i,
+      /(?:natural\s+disaster|hazard|emergency|alert)/i,
+      /(?:seismic|volcanic|geological)\s+(?:activity|event)/i,
+    ],
+    type: "query_data",
+    entities: ["domain", "eventType"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — weather, climate, atmospheric
+  {
+    patterns: [
+      /(?:weather|forecast|temperature|rain|snow|wind|humidity|pressure)\s+(?:in|at|near|for|around)/i,
+      /(?:climate|warming|cooling|anomaly)\s+(?:data|forecast|trend)/i,
+      /(?:air\s+quality|aqi|pollution|smog|particulate)/i,
+      /(?:solar\s+flare|geomagnetic|aurora|space\s+weather|coronal)/i,
+    ],
+    type: "query_data",
+    entities: ["domain", "location"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — emissions, environmental
+  {
+    patterns: [
+      /(?:co2|carbon|methane|emission|greenhouse)\s+/i,
+      /(?:deforestation|land\s+use|habitat|ecosystem)/i,
+      /(?:river|lake|ocean|water)\s+(?:level|quality|temperature)/i,
+      /(?:dam|reservoir|watershed|hydrology)/i,
+    ],
+    type: "query_data",
+    entities: ["domain"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — infrastructure
+  {
+    patterns: [
+      /(?:power\s+plant|nuclear|solar\s+farm|wind\s+farm|hydroelectric)/i,
+      /(?:cell\s+tower|antenna|radio|telecommunications)/i,
+      /(?:oil\s+rig|refinery|pipeline|mine|quarry)/i,
+      /(?:airport|seaport|railway|highway|bridge|tunnel)/i,
+      /(?:submarine\s+cable|fiber\s+optic|data\s+center)/i,
+    ],
+    type: "query_data",
+    entities: ["domain", "infraType"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — biodiversity, species
+  {
+    patterns: [
+      /(?:species|bird|mammal|reptile|insect|fish|coral|whale|dolphin)\s+(?:near|in|at|sighting)/i,
+      /(?:biodiversity|wildlife|fauna|flora|ecosystem|habitat)/i,
+      /(?:migration|breeding|nesting|spawning)\s+(?:pattern|season|route)/i,
+      /(?:endangered|threatened|invasive|native)\s+(?:species|plant|animal)/i,
+      /(?:fungal|mushroom|fungi|mycology|mycelium)/i,
+    ],
+    type: "query_data",
+    entities: ["domain", "taxon"],
+    dataSources: ["mindex"],
+  },
+
+  // Earth Intelligence — devices, sensors
+  {
+    patterns: [
+      /(?:mycobrain|sensor|device|iot)\s+(?:data|reading|status|telemetry)/i,
+      /(?:buoy|weather\s+station|seismograph|gauge)\s+(?:reading|data|near)/i,
+    ],
+    type: "query_telemetry",
+    dataSources: ["mindex", "telemetry"],
+  },
+
+  // Earth Intelligence — map/CREP commands
+  {
+    patterns: [
+      /(?:fly\s+to|zoom\s+to|navigate\s+to|show\s+me|center\s+on)\s+/i,
+      /(?:show|hide|toggle|enable|disable)\s+(?:the\s+)?(?:\w+\s+)?layer/i,
+      /(?:what\s+am\s+i|what\s+are\s+we)\s+(?:looking\s+at|seeing)/i,
+      /(?:reset|default|home)\s+(?:view|map)/i,
+    ],
+    type: "navigation",
+    entities: ["location", "layer"],
+    dataSources: [],
+  },
 ]
 
 // =============================================================================
@@ -280,21 +385,36 @@ const INTENT_PATTERNS: IntentPattern[] = [
 const ENTITY_PATTERNS = {
   // Agent categories
   category: /\b(core|financial|mycology|research|dao|communication|data|infrastructure|simulation|security|integration|device|chemistry|nlm)\b/i,
-  
+
   // Agent statuses
   status: /\b(active|busy|idle|offline|error|starting|stopping)\b/i,
-  
+
   // Metrics
   metric: /\b(cpu|memory|ram|error|latency|messages?|throughput|uptime)\b/i,
-  
+
   // Time references
   timeRange: /\b(today|yesterday|this\s+week|last\s+week|this\s+month|last\s+hour)\b/i,
-  
+
   // Numbers
   number: /\b(\d+)\b/,
-  
+
   // Comparison
   comparison: /\b(high|low|above|below|greater|less|more|fewer)\b/i,
+
+  // Earth Intelligence domains
+  domain: /\b(aircraft|vessel|satellite|weather|emission|infrastructure|device|species|event|space_weather|hydrology|atmospheric|signal|transport|monitor|military)\b/i,
+
+  // Location references
+  location: /\b(?:near|in|at|over|around|above)\s+(.+?)(?:\s+(?:right|now|today|currently)|[.!?]|$)/i,
+
+  // Event types
+  eventType: /\b(earthquake|volcano|wildfire|storm|flood|tsunami|lightning|eruption|hurricane|tornado)\b/i,
+
+  // Taxon references
+  taxon: /\b(fungal|bird|mammal|reptile|fish|insect|coral|whale|dolphin|species|plant|tree|flower|marine)\b/i,
+
+  // Infrastructure types
+  infraType: /\b(power\s+plant|cell\s+tower|airport|railway|dam|pipeline|mine|refinery|antenna|port|cable)\b/i,
 }
 
 // =============================================================================

@@ -311,6 +311,14 @@ export function buildCREPContextForMYCA(context: CREPContextForMYCA): string {
   // Stream status
   parts.push(`Stream status: ${context.streamStatus}`)
 
+  // Earth Intelligence capabilities
+  parts.push(
+    `Earth Intelligence domains: aircraft, vessels, satellites, events, weather, emissions, infrastructure, devices, space_weather, species, hydrology, atmospheric, signals, transport, monitor`
+  )
+  parts.push(
+    `Available tools: mycosoft_earth_search (query all domains), mycosoft_earth_bbox (spatial query), mycosoft_earth_stats (domain counts), mycosoft_map_command (map control)`
+  )
+
   return parts.join("\n")
 }
 

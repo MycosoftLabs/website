@@ -103,6 +103,14 @@ export const MINDEX_ENDPOINTS = {
   RESEARCH: `${API_URLS.MINDEX}/api/mindex/research`,
   UNIFIED_SEARCH: `${API_URLS.MINDEX}/api/mindex/unified-search`,
   HEALTH: `${API_URLS.MINDEX}/health`,
+  // Earth Intelligence endpoints (MINDEX backend migration)
+  EARTH_SEARCH: `${API_URLS.MINDEX}/api/search/earth`,
+  EARTH_MAP_BBOX: `${API_URLS.MINDEX}/api/earth/map/bbox`,
+  EARTH_STATS: `${API_URLS.MINDEX}/api/earth/stats`,
+  EARTH_CREP_SYNC: `${API_URLS.MINDEX}/api/earth/crep/sync`,
+  EARTH_MAP_LAYERS: `${API_URLS.MINDEX}/api/earth/map/layers`,
+  EARTH_DOMAINS: `${API_URLS.MINDEX}/api/earth/domains`,
+  EARTH_INGEST: `${API_URLS.MINDEX}/api/earth/ingest`,
 } as const
 
 /**
