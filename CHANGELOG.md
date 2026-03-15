@@ -187,6 +187,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -278,6 +279,8 @@ All notable changes to this project will be documented in this file.
 - Gate NatureOS infrastructure routes to Mycosoft company emails only
 - Add auth-gated platform pages and context-aware settings
 - *(home)* Use Mycosoft Background video from NAS in hero section
+- *(search)* Expand unified search to all Earth Intelligence domains
+- Integrate MINDEX earth intelligence with CREP, MYCA, and agent APIs
 
 ### Fix
 
@@ -304,6 +307,7 @@ All notable changes to this project will be documented in this file.
 - Update tsconfig.tsbuildinfo
 - Update tsconfig.tsbuildinfo
 - Update _restart_sandbox_tunnel script
+- Update tsconfig build info
 - Update tsconfig build info
 - Update tsconfig build info
 - Update tsconfig build info
