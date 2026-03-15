@@ -125,14 +125,10 @@ export function useUnifiedSearch(
   )
 
   // Extract results with memoization
+  const emptyResults = { species: [] as SpeciesResult[], compounds: [] as CompoundResult[], genetics: [] as GeneticsResult[], research: [] as ResearchResult[] }
   const results = useMemo(() => {
-    if (!data) {
-      return {
-        species: [],
-        compounds: [],
-        genetics: [],
-        research: [],
-      }
+    if (!data?.results) {
+      return emptyResults
     }
     return data.results
   }, [data])
