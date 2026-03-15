@@ -152,6 +152,7 @@ All notable changes to this project will be documented in this file.
 - Agent worldstate $1 checkout + agent page MYCA/AVANI/WORLDVIEW copy
 - *(stripe)* Reject invalid agent_worldstate minutes instead of coercing to 1
 - *(ci)* Make db backup and migration non-fatal for first deploy
+- *(hero)* Single video source for homepage background - correct path /assets/homepage/Mycosoft%20Background.mp4
 
 ### CREP
 
@@ -161,6 +162,7 @@ All notable changes to this project will be documented in this file.
 ### Deploy
 
 - Voice provider fix, MINDEX URLs, search improvements - Feb 12 2026
+- Rebuild script force-remove container; natureos and NLM panel updates
 
 ### Documentation
 
@@ -181,6 +183,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 
 ### Features
