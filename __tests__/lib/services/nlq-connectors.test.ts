@@ -135,7 +135,7 @@ describe("DocumentsConnector", () => {
 
     expect(result.success).toBe(true)
     expect(result.data.length).toBeGreaterThan(0)
-    expect(result.data.some((d: { title?: string }) => 
+    expect((result.data as Array<{ title?: string }>).some((d) =>
       d.title?.toLowerCase().includes("deployment")
     )).toBe(true)
   })
@@ -154,7 +154,7 @@ describe("DocumentsConnector", () => {
     const result = await connector.query(intent)
 
     expect(result.success).toBe(true)
-    expect(result.data.some((d: { title?: string }) => 
+    expect((result.data as Array<{ title?: string }>).some((d) =>
       d.title?.toLowerCase().includes("mycobrain")
     )).toBe(true)
   })
@@ -229,7 +229,7 @@ describe("TelemetryConnector", () => {
 
     expect(result.success).toBe(true)
     expect(result.data.length).toBeGreaterThan(0)
-    expect(result.data.some((d: { type?: string }) => d.type === "temperature")).toBe(true)
+    expect((result.data as Array<{ type?: string }>).some((d) => d.type === "temperature")).toBe(true)
   })
 })
 
@@ -261,7 +261,7 @@ describe("N8nConnector", () => {
 
     expect(result.success).toBe(true)
     expect(result.data.length).toBeGreaterThan(0)
-    expect(result.data.some((d: { name?: string }) => 
+    expect((result.data as Array<{ name?: string }>).some((d) =>
       d.name?.includes("Voice Chat") || d.name?.includes("Jarvis")
     )).toBe(true)
   })

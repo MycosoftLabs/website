@@ -1,10 +1,8 @@
 "use client"
 
-import type React from "react"
-
-import { Canvas, useFrame } from "@react-three/fiber"
-import { OrbitControls, Text } from "@react-three/drei"
-import { Suspense, useState, useRef } from "react"
+import { Canvas } from "@react-three/fiber"
+import { OrbitControls, Text, Html } from "@react-three/drei"
+import { Suspense, useState } from "react"
 import { Button } from "@/components/ui/button"
 
 const FungalNode = ({ name, level, x, y, z }: { name: string; level: number; x: number; y: number; z: number }) => {
@@ -32,8 +30,8 @@ const FungalNode = ({ name, level, x, y, z }: { name: string; level: number; x: 
           <FungalNode name={`${name}-child2`} level={level + 1} x={x - 1} y={y - 1} z={z} />
         </>
       )}
-      <Html distanceFactor={5}>
-        <Button variant="outline" size="xs" onClick={() => setIsExpanded(!isExpanded)}>
+      <Html distanceFactor={5} transform occlude>
+        <Button variant="outline" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
           {isExpanded ? "Collapse" : "Expand"}
         </Button>
       </Html>
@@ -41,25 +39,6 @@ const FungalNode = ({ name, level, x, y, z }: { name: string; level: number; x: 
   )
 }
 
-const Html = ({ children, distanceFactor }: { children: React.ReactNode; distanceFactor: number }) => {
-  const ref = useRef<HTMLDivElement>(null)
-  useFrame((state) => {
-    if (!ref.current) return
-    const distance = ref.current.position.distanceTo(state.camera.position)
-    ref.current.scale.set(distance / distanceFactor, distance / distanceFactor, distance / distanceFactor)
-  })
-  return (
-    <group ref={ref}>
-      <mesh>
-        <sphereGeometry args={[0.2, 32, 32]} />
-        <meshStandardMaterial visible={false} />
-      </mesh>
-      <Html transform occlude>
-        <div className=" pointer-events-auto">{children}</div>
-      </Html>
-    </group>
-  )
-}
 
 export default function FungalAncestryPage() {
   return (

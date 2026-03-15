@@ -62,7 +62,7 @@ export default function PhylogenyPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Tree Type</label>
-                <Select value={treeType} onValueChange={setTreeType}>
+                <Select value={treeType} onValueChange={(value) => setTreeType(value as "cladogram" | "phylogram" | "radial" | "unrooted")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select tree type" />
                   </SelectTrigger>
@@ -254,7 +254,7 @@ export default function PhylogenyPage() {
                         ? "Large Subunit (LSU)"
                         : dataSource === "rpb2"
                           ? "RNA Polymerase II Second Largest Subunit (RPB2)"
-                          : "tef1"
+                          : dataSource === "tef1"
                             ? "Translation Elongation Factor 1-α (TEF1)"
                             : "Combined"}{" "}
                     region of ribosomal DNA.
