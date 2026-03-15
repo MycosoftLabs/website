@@ -150,11 +150,7 @@ export function HeroSearch() {
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
         >
-          <source src="/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
           <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-          <source src="https://mycosoft.com/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
-          <source src="https://mycosoft.com/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-          <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
       </div>
