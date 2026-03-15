@@ -2,6 +2,8 @@ export interface SearchSuggestion {
   id: string
   title: string
   type: "fungi" | "article" | "compound" | "research" | "category"
+    | "event" | "aircraft" | "vessel" | "satellite" | "weather"
+    | "emissions" | "infrastructure" | "device" | "space_weather"
   scientificName?: string
   url: string
   date?: string
@@ -14,8 +16,12 @@ export interface SearchResult {
   title: string
   description: string
   type: "fungi" | "compound" | "paper" | "research"
+    | "event" | "aircraft" | "vessel" | "satellite" | "weather"
+    | "emissions" | "infrastructure" | "device" | "space_weather"
   url: string
   source: "iNaturalist" | "MycoBank" | "FungiDB" | "Elsevier" | "ChemSpider" | "PubChem" | "Mycosoft"
+    | "USGS" | "NOAA" | "NASA" | "OpenSky" | "AISstream" | "CelesTrak" | "OpenAQ"
+    | "CarbonMapper" | "GBIF" | "eBird" | "OBIS" | "Blitzortung" | "MycoBrain" | "EONET"
   metadata?: {
     authors?: string[]
     year?: number
@@ -25,6 +31,11 @@ export interface SearchResult {
     molecularWeight?: number
     sourceSpecies?: string[]
     biologicalActivity?: string[]
+    lat?: number
+    lng?: number
+    magnitude?: number
+    severity?: string
+    timestamp?: string
   }
 }
 

@@ -12,6 +12,7 @@ import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
 import { detectFungalSearchIntent } from "@/lib/search/world-view-suggestions"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
+import { searchEarthIntelligence } from "@/lib/search/earth-search-connectors"
 
 export const dynamic = "force-dynamic"
 
@@ -1125,10 +1126,17 @@ export async function GET(request: NextRequest) {
   const includeAI = searchParams.get("ai") === "true"
   const includeWeb = searchParams.get("include_web") === "true"
 
+  const emptyResults = {
+    species: [], compounds: [], genetics: [], research: [],
+    events: [], aircraft: [], vessels: [], satellites: [],
+    weather: [], emissions: [], infrastructure: [], devices: [],
+    space_weather: [],
+  }
+
   if (!query || query.length < 2) {
     return NextResponse.json({
       query: query || "",
-      results: { species: [], compounds: [], genetics: [], research: [] },
+      results: emptyResults,
       totalCount: 0,
       timing: { total: 0, mindex: 0 },
       source: "live",
@@ -1158,6 +1166,15 @@ export async function GET(request: NextRequest) {
           compounds: results.compounds as CompoundResult[],
           genetics: results.genetics as GeneticsResult[],
           research: results.research as ResearchResult[],
+          events: [],
+          aircraft: [],
+          vessels: [],
+          satellites: [],
+          weather: [],
+          emissions: [],
+          infrastructure: [],
+          devices: [],
+          space_weather: [],
         },
         totalCount,
         timing: { total: masTime, mindex: masTime },
@@ -1197,6 +1214,7 @@ export async function GET(request: NextRequest) {
       speciesCompoundsRaw,     // PubChem compounds for this specific species
       compoundFungiRaw,        // fungi that produce this compound (for compound queries)
       aiAnswer,
+      earthResults,            // ALL Earth Intelligence domains in parallel
     ] = await Promise.all([
       searchMindexUnified(query, limit),
       types.includes("research") ? searchMindexResearch(query, limit, origin) : Promise.resolve([]),
@@ -1220,6 +1238,9 @@ export async function GET(request: NextRequest) {
         ? searchFungiForCompound(query, Math.min(limit, 8))
         : Promise.resolve([]),
       includeAI ? getAIAnswer(query, origin) : Promise.resolve(undefined),
+      // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
+      // infrastructure, devices, space weather — all searched in parallel internally
+      searchEarthIntelligence(query, origin, limit),
     ])
 
     // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
@@ -1305,7 +1326,23 @@ export async function GET(request: NextRequest) {
     const allResearch = [...mindexResearch, ...crossRefResearch, ...openAlexResearch, ...exaResearch]
     const research = ensureUniqueIds(allResearch, "res").slice(0, limit)
 
+    // Earth Intelligence results (already searched in parallel)
+    const {
+      events: earthEvents = [],
+      aircraft: earthAircraft = [],
+      vessels: earthVessels = [],
+      satellites: earthSatellites = [],
+      weather: earthWeather = [],
+      emissions: earthEmissions = [],
+      infrastructure: earthInfrastructure = [],
+      devices: earthDevices = [],
+      space_weather: earthSpaceWeather = [],
+    } = earthResults || {}
+
     const totalCount = species.length + compounds.length + genetics.length + research.length
+      + earthEvents.length + earthAircraft.length + earthVessels.length + earthSatellites.length
+      + earthWeather.length + earthEmissions.length + earthInfrastructure.length
+      + earthDevices.length + earthSpaceWeather.length
 
     // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──
     // This ensures every search result gets stored in MINDEX so future searches
@@ -1355,6 +1392,26 @@ export async function GET(request: NextRequest) {
       }).catch(() => {})
     }
 
+    // 5. Earth Intelligence data → MINDEX ingest (fire-and-forget)
+    //    Store aircraft, vessels, satellites, events for local low-latency retrieval
+    const earthIngestTypes: Array<{ type: string; data: unknown[] }> = [
+      { type: "aircraft", data: earthAircraft },
+      { type: "vessels", data: earthVessels },
+      { type: "satellites", data: earthSatellites },
+      { type: "events", data: earthEvents },
+      { type: "weather", data: earthWeather },
+      { type: "telemetry", data: earthDevices },
+    ]
+    for (const { type, data } of earthIngestTypes) {
+      if (data.length > 0) {
+        void fetch(`${origin}/api/mindex/ingest/${type}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entities: data.slice(0, 50), source: "unified-search" }),
+        }).catch(() => {})
+      }
+    }
+
     await recordUsageFromRequest({
       request,
       usageType: "SPECIES_IDENTIFICATION",
@@ -1365,7 +1422,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         query,
-        results: { species, compounds, genetics, research },
+        results: {
+          species,
+          compounds,
+          genetics,
+          research,
+          events: earthEvents,
+          aircraft: earthAircraft,
+          vessels: earthVessels,
+          satellites: earthSatellites,
+          weather: earthWeather,
+          emissions: earthEmissions,
+          infrastructure: earthInfrastructure,
+          devices: earthDevices,
+          space_weather: earthSpaceWeather,
+        },
         totalCount,
         timing: {
           total: Math.round(performance.now() - startTime),
@@ -1377,8 +1448,8 @@ export async function GET(request: NextRequest) {
           mindex: mindexResearch.length > 0,
           crossref: crossRefResearch.length > 0,
           openalex: openAlexResearch.length > 0,
-          mindex_note: mindexResearch.length === 0 
-            ? "MINDEX research endpoint pending implementation. Using CrossRef and OpenAlex." 
+          mindex_note: mindexResearch.length === 0
+            ? "MINDEX research endpoint pending implementation. Using CrossRef and OpenAlex."
             : undefined,
         },
         ...(aiAnswer ? { aiAnswer } : {}),
@@ -1394,7 +1465,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         query,
-        results: { species: [], compounds: [], genetics: [], research: [] },
+        results: emptyResults,
         totalCount: 0,
         timing: { total: Math.round(performance.now() - startTime), mindex: 0 },
         source: "fallback",

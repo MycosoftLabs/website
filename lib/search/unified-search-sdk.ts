@@ -76,14 +76,160 @@ export interface LiveResult {
   lng?: number
 }
 
+// ---------------------------------------------------------------------------
+// Earth Intelligence result types — all domains beyond biology
+// ---------------------------------------------------------------------------
+
+export interface EventResult {
+  id: string
+  type: "earthquake" | "volcano" | "wildfire" | "storm" | "flood" | "lightning" | "tornado" | "tsunami" | "dust_haze"
+  title: string
+  description: string
+  lat: number
+  lng: number
+  magnitude?: number
+  severity?: string
+  timestamp: string
+  source: string
+}
+
+export interface AircraftResult {
+  id: string
+  callsign: string
+  icao24: string
+  origin: string
+  destination?: string
+  lat: number
+  lng: number
+  altitude: number
+  velocity: number
+  heading: number
+  onGround: boolean
+  source: string
+}
+
+export interface VesselResult {
+  id: string
+  name: string
+  mmsi: string
+  shipType: string
+  lat: number
+  lng: number
+  speed: number
+  heading: number
+  destination?: string
+  source: string
+}
+
+export interface SatelliteResult {
+  id: string
+  name: string
+  noradId: string
+  category: string
+  lat: number
+  lng: number
+  altitude: number
+  velocity?: number
+  source: string
+}
+
+export interface WeatherResult {
+  id: string
+  type: "forecast" | "alert" | "observation" | "radar" | "satellite_imagery"
+  title: string
+  description: string
+  lat?: number
+  lng?: number
+  temperature?: number
+  windSpeed?: number
+  humidity?: number
+  precipitation?: number
+  pressure?: number
+  timestamp: string
+  source: string
+}
+
+export interface EmissionsResult {
+  id: string
+  type: "co2" | "methane" | "air_quality" | "pollution_source"
+  title: string
+  description: string
+  lat: number
+  lng: number
+  value?: number
+  unit?: string
+  parameter?: string
+  sourceType?: string
+  timestamp: string
+  source: string
+}
+
+export interface InfrastructureResult {
+  id: string
+  type: "power_plant" | "factory" | "dam" | "mining" | "oil_gas" | "treatment_plant"
+    | "airport" | "seaport" | "spaceport" | "railway" | "antenna" | "cable" | "military_base"
+  name: string
+  description?: string
+  lat: number
+  lng: number
+  operator?: string
+  source: string
+}
+
+export interface DeviceResult {
+  id: string
+  deviceType: string
+  name: string
+  lat?: number
+  lng?: number
+  temperature?: number
+  humidity?: number
+  airQuality?: number
+  sporeCount?: number
+  lastSeen: string
+  status: string
+  source: string
+}
+
+export interface SpaceWeatherResult {
+  id: string
+  type: "solar_flare" | "geomagnetic_storm" | "solar_wind" | "radiation_belt" | "cme"
+  title: string
+  description: string
+  severity?: string
+  kpIndex?: number
+  xrayFlux?: number
+  solarWindSpeed?: number
+  timestamp: string
+  source: string
+}
+
+/** All result bucket key names */
+export type ResultBucketKey =
+  | "species" | "compounds" | "genetics" | "research"
+  | "events" | "aircraft" | "vessels" | "satellites"
+  | "weather" | "emissions" | "infrastructure" | "devices"
+  | "space_weather"
+
+export interface UnifiedSearchResults {
+  species: SpeciesResult[]
+  compounds: CompoundResult[]
+  genetics: GeneticsResult[]
+  research: ResearchResult[]
+  events: EventResult[]
+  aircraft: AircraftResult[]
+  vessels: VesselResult[]
+  satellites: SatelliteResult[]
+  weather: WeatherResult[]
+  emissions: EmissionsResult[]
+  infrastructure: InfrastructureResult[]
+  devices: DeviceResult[]
+  space_weather: SpaceWeatherResult[]
+}
+
 export interface UnifiedSearchResponse {
   query: string
-  results: {
-    species: SpeciesResult[]
-    compounds: CompoundResult[]
-    genetics: GeneticsResult[]
-    research: ResearchResult[]
-  }
+  results: UnifiedSearchResults
   totalCount: number
   timing: {
     total: number
@@ -101,8 +247,24 @@ export interface UnifiedSearchResponse {
   error?: string
 }
 
+export const EMPTY_RESULTS: UnifiedSearchResults = {
+  species: [],
+  compounds: [],
+  genetics: [],
+  research: [],
+  events: [],
+  aircraft: [],
+  vessels: [],
+  satellites: [],
+  weather: [],
+  emissions: [],
+  infrastructure: [],
+  devices: [],
+  space_weather: [],
+}
+
 export interface SearchOptions {
-  types?: ("species" | "compounds" | "genetics" | "research")[]
+  types?: ResultBucketKey[]
   limit?: number
   includeAI?: boolean
   signal?: AbortSignal
@@ -130,7 +292,7 @@ export class UnifiedSearchClient {
    */
   async search(query: string, options: SearchOptions = {}): Promise<UnifiedSearchResponse> {
     const {
-      types = ["species", "compounds", "genetics", "research"],
+      types = ["species", "compounds", "genetics", "research", "events", "aircraft", "vessels", "satellites", "weather", "emissions", "infrastructure", "devices", "space_weather"],
       limit = 20,
       includeAI = false,
       signal,
@@ -141,7 +303,7 @@ export class UnifiedSearchClient {
     if (!normalizedQuery || normalizedQuery.length < 2) {
       return {
         query: "",
-        results: { species: [], compounds: [], genetics: [], research: [] },
+        results: { ...EMPTY_RESULTS },
         totalCount: 0,
         timing: { total: 0, mindex: 0 },
         source: "cache",
@@ -232,7 +394,7 @@ export class UnifiedSearchClient {
       if (error instanceof Error && error.name === "AbortError") {
         return {
           query: "",
-          results: { species: [], compounds: [], genetics: [], research: [] },
+          results: { ...EMPTY_RESULTS },
           totalCount: 0,
           timing: { total: performance.now() - startTime, mindex: 0 },
           source: "cache",
@@ -243,7 +405,7 @@ export class UnifiedSearchClient {
       console.error("Unified search error:", error)
       return {
         query: "",
-        results: { species: [], compounds: [], genetics: [], research: [] },
+        results: { ...EMPTY_RESULTS },
         totalCount: 0,
         timing: { total: performance.now() - startTime, mindex: 0 },
         source: "cache",

@@ -2,7 +2,10 @@
 
 /**
  * Voice Map Controls for CREP
- * Updated: Feb 6, 2026 - WebSocket integration for real-time voice commands
+ * Updated: Mar 15, 2026
+ *   - Interim Web Speech API for STT/TTS when PersonaPlex unavailable
+ *   - Collapsible into a small mic icon in the toolbar
+ *   - Falls back gracefully: PersonaPlex → Web Speech API → typed only
  */
 
 import { useState, useCallback, useEffect, useRef } from "react"
@@ -10,15 +13,107 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Mic, MicOff, MapPin, Layers, Filter, Navigation, Volume2, Wifi, WifiOff, Send } from "lucide-react"
+import { Mic, MicOff, MapPin, Layers, Filter, Navigation, Volume2, Wifi, WifiOff, Send, ChevronUp, ChevronDown, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useMapVoiceControl } from "@/hooks/useMapVoiceControl"
 import { useMapWebSocket, MapCommandHandlers } from "@/hooks/useMapWebSocket"
 
+// ---------------------------------------------------------------------------
+// Interim Web Speech API bridge (fallback when PersonaPlex is unavailable)
+// ---------------------------------------------------------------------------
+
+function useWebSpeechBridge() {
+  const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [lastTranscript, setLastTranscript] = useState("")
+  const [isSupported, setIsSupported] = useState(false)
+  const recognitionRef = useRef<unknown>(null)
+
+  useEffect(() => {
+    const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition
+      || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+    setIsSupported(!!SpeechRecognition && "speechSynthesis" in window)
+
+    if (SpeechRecognition) {
+      const recognition = new (SpeechRecognition as new () => SpeechRecognition)()
+      recognition.continuous = false
+      recognition.interimResults = false
+      recognition.lang = "en-US"
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0]?.[0]?.transcript || ""
+        if (transcript) {
+          setLastTranscript(transcript)
+        }
+        setIsListening(false)
+      }
+
+      recognition.onerror = () => {
+        setIsListening(false)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+      }
+
+      recognitionRef.current = recognition
+    }
+  }, [])
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        (recognitionRef.current as SpeechRecognition).start()
+        setIsListening(true)
+      } catch {
+        // Already started or not supported
+      }
+    }
+  }, [])
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        (recognitionRef.current as SpeechRecognition).stop()
+      } catch {
+        // Already stopped
+      }
+    }
+    setIsListening(false)
+  }, [])
+
+  const speak = useCallback((text: string) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [])
+
+  return {
+    isListening,
+    isSpeaking,
+    lastTranscript,
+    isSupported,
+    isConnected: isSupported,
+    connectionState: isSupported ? "connected" : "disconnected",
+    startListening,
+    stopListening,
+    speak,
+  }
+}
+
 interface VoiceMapControlsProps extends MapCommandHandlers {
   className?: string
   collapsed?: boolean
+  /** Start in minimized icon mode (true) or expanded card (false) */
+  defaultMinimized?: boolean
   enableWebSocket?: boolean
   useMASBackend?: boolean
   /** WebSocket URL for CREP voice commands (e.g. VOICE_ENDPOINTS.CREP_BRIDGE_WS). Defaults to ws://localhost:8999/ws/crep/commands */
@@ -57,6 +152,7 @@ export function VoiceMapControls({
   onSpeak,
   className,
   collapsed = false,
+  defaultMinimized = true,
   enableWebSocket = true,
   useMASBackend = true,
   websocketUrl,
@@ -64,19 +160,39 @@ export function VoiceMapControls({
   const [commandLog, setCommandLog] = useState<CommandLog[]>([])
   const [lastCommand, setLastCommand] = useState<string | null>(null)
   const [typedCommand, setTypedCommand] = useState("")
+  const [isMinimized, setIsMinimized] = useState(defaultMinimized)
   const inputRef = useRef<HTMLInputElement>(null)
-  
+
   // PersonaPlex context (from app-level provider)
-  // Type-safe access with fallback defaults when PersonaPlex is not available
   const personaplex = usePersonaPlexContext()
   const ppCtx = personaplex as Record<string, unknown> | null
-  const isListening = (ppCtx?.isListening as boolean) ?? false
-  const lastTranscript = (ppCtx?.lastTranscript as string) ?? ""
-  const startListening = (ppCtx?.startListening as () => void) ?? (() => {})
-  const stopListening = (ppCtx?.stopListening as () => void) ?? (() => {})
-  const voiceConnected = (ppCtx?.isConnected as boolean) ?? false
-  const connectionState = (ppCtx?.connectionState as string) ?? "disconnected"
-  const isSpeaking = (ppCtx?.isSpeaking as boolean) ?? false
+  const ppConnected = (ppCtx?.isConnected as boolean) ?? false
+
+  // Web Speech API bridge (interim fallback when PersonaPlex unavailable)
+  const webSpeech = useWebSpeechBridge()
+
+  // Use PersonaPlex if connected, otherwise fall back to Web Speech API
+  const usePersonaPlex = ppConnected
+  const isListening = usePersonaPlex
+    ? ((ppCtx?.isListening as boolean) ?? false)
+    : webSpeech.isListening
+  const lastTranscript = usePersonaPlex
+    ? ((ppCtx?.lastTranscript as string) ?? "")
+    : webSpeech.lastTranscript
+  const startListening = usePersonaPlex
+    ? ((ppCtx?.startListening as () => void) ?? (() => {}))
+    : webSpeech.startListening
+  const stopListening = usePersonaPlex
+    ? ((ppCtx?.stopListening as () => void) ?? (() => {}))
+    : webSpeech.stopListening
+  const voiceConnected = usePersonaPlex ? ppConnected : webSpeech.isConnected
+  const connectionState = usePersonaPlex
+    ? ((ppCtx?.connectionState as string) ?? "disconnected")
+    : webSpeech.connectionState
+  const isSpeaking = usePersonaPlex
+    ? ((ppCtx?.isSpeaking as boolean) ?? false)
+    : webSpeech.isSpeaking
+  const voiceEngine = usePersonaPlex ? "PersonaPlex" : webSpeech.isSupported ? "Web Speech" : "none"
   
   // Adapter functions to convert old API to new MapCommandHandlers format
   const handleZoom = useCallback((direction: "in" | "out") => {
@@ -94,10 +210,14 @@ export function VoiceMapControls({
     onPanBy?.(offsets[direction] || [0, 0], 300)
   }, [onPanBy])
   
-  // Handle spoken text from MYCA
+  // Handle spoken text from MYCA — use PersonaPlex if available, otherwise Web Speech TTS
   const handleSpeak = useCallback((text: string) => {
-    onSpeak?.(text)
-  }, [onSpeak])
+    if (onSpeak) {
+      onSpeak(text)
+    } else if (!usePersonaPlex && webSpeech.isSupported) {
+      webSpeech.speak(text)
+    }
+  }, [onSpeak, usePersonaPlex, webSpeech])
   
   // WebSocket for receiving voice commands from PersonaPlex Bridge
   const { 
@@ -241,34 +361,47 @@ export function VoiceMapControls({
     }
   }, [wsLastCommand])
   
-  if (collapsed) {
+  // Minimized: just a small mic icon button in the toolbar
+  if (collapsed || isMinimized) {
     return (
-      <div className={cn(
-        "absolute top-4 right-4 z-10 flex items-center gap-2",
-        className
-      )}>
-        {enableWebSocket && (
-          <Badge variant={wsConnected ? "default" : "secondary"} className="h-6">
-            {wsConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          </Badge>
-        )}
+      <div className={cn("flex items-center gap-1", className)}>
         <Button
           size="icon"
-          variant={isListening ? "destructive" : "secondary"}
-          onClick={toggleListening}
-          disabled={!voiceConnected && connectionState !== "connecting"}
-          className="h-10 w-10 rounded-full shadow-lg"
+          variant={isListening ? "destructive" : "ghost"}
+          onClick={() => {
+            if (voiceConnected) {
+              toggleListening()
+            } else {
+              setIsMinimized(false)
+            }
+          }}
+          className={cn(
+            "h-8 w-8 rounded-full",
+            isListening && "animate-pulse shadow-lg shadow-red-500/30"
+          )}
+          title={isListening ? "Stop listening" : voiceConnected ? "Start voice control" : "Open voice controls"}
         >
           {isListening ? (
-            <Mic className="h-5 w-5 animate-pulse" />
+            <Mic className="h-4 w-4" />
           ) : (
-            <MicOff className="h-5 w-5" />
+            <Mic className="h-4 w-4 opacity-70" />
           )}
         </Button>
+        {!collapsed && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setIsMinimized(false)}
+            className="h-6 w-6"
+            title="Expand voice controls"
+          >
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        )}
       </div>
     )
   }
-  
+
   return (
     <Card className={cn("w-80", className)}>
       <CardHeader className="pb-2">
@@ -276,11 +409,14 @@ export function VoiceMapControls({
           <CardTitle className="text-sm flex items-center gap-2">
             <Navigation className="h-4 w-4" />
             Voice Map Control
+            <Badge variant="outline" className="text-[9px] font-normal">
+              {voiceEngine}
+            </Badge>
           </CardTitle>
           <div className="flex items-center gap-1">
             {enableWebSocket && (
-              <Badge 
-                variant={wsConnected ? "default" : "secondary"} 
+              <Badge
+                variant={wsConnected ? "default" : "secondary"}
                 className="text-xs cursor-pointer"
                 onClick={() => wsConnected ? wsDisconnect() : wsConnect()}
               >
@@ -290,6 +426,15 @@ export function VoiceMapControls({
             <Badge variant={voiceConnected ? "default" : "secondary"} className="text-xs">
               {isListening ? "Listening" : voiceConnected ? "Ready" : "Offline"}
             </Badge>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setIsMinimized(true)}
+              className="h-6 w-6 ml-1"
+              title="Minimize to icon"
+            >
+              <X className="h-3 w-3" />
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -305,7 +450,7 @@ export function VoiceMapControls({
           {isListening ? (
             <>
               <Mic className="h-4 w-4 animate-pulse" />
-              Listening (PersonaPlex)
+              Listening...
             </>
           ) : isSpeaking ? (
             <>
@@ -320,7 +465,7 @@ export function VoiceMapControls({
           ) : !voiceConnected ? (
             <>
               <MicOff className="h-4 w-4" />
-              Voice Offline
+              Voice Unavailable
             </>
           ) : (
             <>
@@ -345,9 +490,14 @@ export function VoiceMapControls({
         </form>
         
         {/* Connection status */}
-        {!voiceConnected && connectionState !== "connecting" && (
+        {!ppConnected && webSpeech.isSupported && (
+          <div className="p-2 bg-blue-500/10 rounded text-xs text-blue-500">
+            Using Web Speech API (browser). PersonaPlex will be used when available.
+          </div>
+        )}
+        {!ppConnected && !webSpeech.isSupported && (
           <div className="p-2 bg-yellow-500/10 rounded text-xs text-yellow-500">
-            PersonaPlex not connected. Voice requires PersonaPlex Bridge (8999).
+            Voice unavailable. Use typed commands below, or connect PersonaPlex (port 8999).
           </div>
         )}
         
