@@ -106,8 +106,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ sessionId, url });
       
     } else if (type === 'agent_worldstate') {
-      // Agent live worldstate access — prepaid minutes at $1/min (MYCA/AVANI)
-      const minutes = body.minutes === 60 ? 60 : 60; // only 60-min pack supported for launch
+      // Agent live worldstate access — prepaid minutes at $1/min (MYCA/AVANI). Supports 1-min ($1) or 60-min ($60) pack.
+      const requestedMinutes = typeof body.minutes === 'number' ? body.minutes : 1;
+      const minutes = requestedMinutes === 60 ? 60 : 1;
       const { sessionId, url } = await createAgentWorldstateCheckout({
         userId: user.id,
         email: user.email!,

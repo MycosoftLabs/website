@@ -251,7 +251,8 @@ export async function createPersonaPlexCheckout({
 interface CreateAgentWorldstateCheckoutParams {
   userId: string;
   email: string;
-  minutes?: 60;
+  /** Requested minutes: 1 ($1 connection fee) or 60 ($60 pack). */
+  minutes?: number;
   successUrl: string;
   cancelUrl: string;
 }
@@ -259,20 +260,28 @@ interface CreateAgentWorldstateCheckoutParams {
 /**
  * Create Stripe Checkout for agent live worldstate access (prepaid minutes at $1/min).
  * MYCA Worldstate Monetization — agents pay for MYCA/AVANI connection time.
+ * Uses the pack that matches the requested minutes (1 or 60).
  */
 export async function createAgentWorldstateCheckout({
   userId,
   email,
-  minutes = 60,
+  minutes = 1,
   successUrl,
   cancelUrl,
 }: CreateAgentWorldstateCheckoutParams): Promise<{ sessionId: string; url: string }> {
   const stripe = getStripe();
-  const pack = AGENT_WORLDSTATE_PACKS[60];
+  const pack = AGENT_WORLDSTATE_PACKS[minutes];
+  if (!pack) {
+    throw new Error(
+      `Invalid agent worldstate minutes. Supported: 1 ($1), 60 ($60). Got: ${minutes}.`
+    );
+  }
   const priceId = pack.stripePriceId;
   if (!priceId) {
     throw new Error(
-      'Agent worldstate price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
+      minutes === 1
+        ? 'Agent worldstate 1-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_1MIN_PRICE_ID.'
+        : 'Agent worldstate 60-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
     );
   }
 

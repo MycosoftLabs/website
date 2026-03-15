@@ -204,14 +204,20 @@ export const PREMIUM_FEATURES = {
 } as const;
 
 /** Agent worldstate access — $1/min, sold as prepaid minute packs (MYCA Worldstate Monetization Mar 2026) */
-export const AGENT_WORLDSTATE_PACKS = {
+export const AGENT_WORLDSTATE_PACKS: Record<number, { minutes: number; priceCents: number; name: string; stripePriceId: string | null }> = {
+  1: {
+    minutes: 1,
+    priceCents: 100,
+    name: '1 minute (connection fee)',
+    stripePriceId: process.env.NEXT_PUBLIC_STRIPE_AGENT_1MIN_PRICE_ID || null,
+  },
   60: {
     minutes: 60,
     priceCents: 6000,
     name: '60 minutes',
     stripePriceId: process.env.NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID || null,
   },
-} as const;
+};
 
 export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;
 export type HardwareProductId = keyof typeof HARDWARE_PRODUCTS;

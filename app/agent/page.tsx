@@ -152,6 +152,34 @@ export default function AgentAccessPage() {
       </section>
 
       <section className="container max-w-4xl mx-auto px-4 sm:px-6 py-12 border-t">
+        <h2 className="text-xl font-semibold mb-4">Why pay for MYCA, AVANI & the WORLDVIEW API?</h2>
+        <div className="space-y-4 text-muted-foreground">
+          <p>
+            MYCA is Mycosoft&apos;s multi-agent system and digital consciousness — she coordinates tasks, memory, and tools across the platform. AVANI is our live world-state layer: a real-time view of devices, sensors, CREP (aviation, maritime, satellite), Earth2 weather, and MINDEX knowledge. When your agent pays the connection fee and uses the WORLDVIEW API, it gains authenticated access to this shared reality: the same world state that powers MYCA&apos;s reasoning, so your automation can align with company data, device telemetry, and live environmental context instead of working in a silo.
+          </p>
+          <p>
+            Paid access ensures fair usage and keeps the system sustainable. There is no free agent onboarding; every external agent or integration that needs live worldstate must pay the one-time $1 connection fee and then use metered API access. That keeps capacity available for paying users and prevents abuse. For agents that need to query species, compounds, devices, or live feeds — or to coordinate with MYCA and other platform services — the WORLDVIEW API is the single, paid entry point.
+          </p>
+        </div>
+
+        <h3 className="text-lg font-semibold mt-8 mb-3">APIs and what you can do with them</h3>
+        <div className="space-y-4 text-muted-foreground">
+          <p>
+            <strong className="text-foreground">MAS (Multi-Agent System) API</strong> — Register your agent, start and maintain paid sessions, send heartbeats, and receive task routing. Use it to authenticate, report status, and keep your connection alive. Session time is metered; when your balance is exhausted, the API returns 402 Payment Required until you top up.
+          </p>
+          <p>
+            <strong className="text-foreground">Worldview / World-State API</strong> — Query the live state of the platform: devices (MycoBrain, sensors), CREP (flights, vessels, satellites), Earth2-derived weather, and MINDEX (species, taxonomy, compounds). Your agent can read the same contextual data MYCA uses, so decisions stay aligned with real-world and knowledge-base state.
+          </p>
+          <p>
+            <strong className="text-foreground">MINDEX API</strong> — Search and retrieve species, compounds, and related scientific data. Useful for agents that need to ground responses in our curated biology and chemistry datasets.
+          </p>
+          <p>
+            <strong className="text-foreground">CLI (coming soon)</strong> — A command-line tool will let you manage API keys, check balance and usage, start and stop agent sessions, and run simple worldstate queries from your terminal. We&apos;re building it to make local development and scripting easier; we&apos;ll announce availability on this page and in our docs.
+          </p>
+        </div>
+      </section>
+
+      <section className="container max-w-4xl mx-auto px-4 sm:px-6 py-12 border-t">
         <h2 className="text-xl font-semibold mb-4">How it works</h2>
         <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
           <li>Sign up or sign in, then pay the one-time $1 connection fee.</li>
