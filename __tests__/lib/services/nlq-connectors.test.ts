@@ -135,8 +135,8 @@ describe("DocumentsConnector", () => {
 
     expect(result.success).toBe(true)
     expect(result.data.length).toBeGreaterThan(0)
-    expect(result.data.some((d: { title?: string }) => 
-      d.title?.toLowerCase().includes("deployment")
+    expect(result.data.some((d: unknown) =>
+      (d as { title?: string }).title?.toLowerCase().includes("deployment")
     )).toBe(true)
   })
 
