@@ -12,42 +12,57 @@ export interface SuggestionItem {
   phoneVisible?: boolean
 }
 
-/** Suggestion terms by category: live, trending, recent, anomalies. */
+/** Suggestion terms by category: live, trending, recent, anomalies, infrastructure, species, environmental. */
 export const WORLD_VIEW_SUGGESTIONS: Record<string, string[]> = {
   live_events: [
     "Flights over Pacific",
     "Ships in port now",
     "Satellite passes",
-    "Live weather radar",
     "Planes over LA",
     "Vessels near coast",
     "ISS orbit now",
+    "Active earthquakes",
+    "Lightning strikes now",
   ],
-  trending: [
-    "Bird migration 2025",
-    "Pacific storm track",
-    "California drought",
-    "Psilocybin research",
-    "Climate forecast",
-    "Wildfire status",
-    "Port activity",
-  ],
-  recent_discoveries: [
+  species_biodiversity: [
+    "Bird migration 2026",
     "New fungal species",
-    "Biodiversity hotspot",
     "Species near me",
-    "Temperature anomaly",
-    "Unusual migration",
-    "New research papers",
+    "Marine life Pacific",
+    "Endangered mammals",
+    "Coral reef status",
+    "Insect populations",
+    "Whale sightings",
   ],
-  anomalies_events: [
-    "Temperature anomaly",
+  environmental: [
     "Wildfire alert",
-    "Storm surge",
-    "Unusual migration",
-    "Port congestion",
-    "Hurricane track",
+    "Air quality index",
+    "CO2 emissions",
+    "Methane plumes",
+    "River levels",
     "Dam status",
+    "Water treatment plants",
+    "Deforestation",
+  ],
+  weather_climate: [
+    "Temperature anomaly",
+    "Storm surge",
+    "Hurricane track",
+    "Climate forecast",
+    "Solar flare activity",
+    "Weather radar",
+    "Pacific storm track",
+    "Drought status",
+  ],
+  infrastructure: [
+    "Power plants near me",
+    "Cell tower locations",
+    "Submarine cables",
+    "Airport traffic",
+    "Nuclear facilities",
+    "Oil rigs",
+    "Railway stations",
+    "Wind farms",
   ],
   popular_searches: [
     "Planes over LA",
@@ -55,7 +70,9 @@ export const WORLD_VIEW_SUGGESTIONS: Record<string, string[]> = {
     "Ships in port",
     "Species near me",
     "Flights near me",
-    "River levels",
+    "Earthquake activity",
+    "Satellite tracking",
+    "Volcano alerts",
   ],
 }
 
@@ -108,9 +125,9 @@ export function getRotatedSuggestions(count = 6, mobileCount = 3): SuggestionIte
 export const DEFAULT_TRY_SUGGESTIONS: { term: string; phoneVisible?: boolean }[] = [
   { term: "Planes over LA", phoneVisible: true },
   { term: "Ships in port", phoneVisible: true },
-  { term: "Temperature anomaly", phoneVisible: true },
-  { term: "Bird migration 2025", phoneVisible: false },
-  { term: "Wildfire alert", phoneVisible: false },
+  { term: "Active earthquakes", phoneVisible: true },
+  { term: "Bird migration 2026", phoneVisible: false },
+  { term: "Air quality index", phoneVisible: false },
   { term: "Species near me", phoneVisible: false },
 ]
 
@@ -137,36 +154,41 @@ export function detectFungalSearchIntent(query: string): boolean {
  * Detect worldview intent from a search query.
  * Returns which widgets (crep, earth2, map) should be expanded based on query keywords.
  * Used for intent-based auto-expand so worldview widgets surface even before data arrives.
+ * Now covers ALL Earth Intelligence domains.
  */
 export function detectWorldviewIntent(query: string): { crep: boolean; earth2: boolean; map: boolean } {
   if (!query || query.length < 2) return { crep: false, earth2: false, map: false }
   const q = query.toLowerCase()
   const crep =
     /\b(flights?|planes?|ships?|vessels?|satellites?|aircraft|aviation|maritime|orbit|iss|port|crep)\b/.test(q) ||
-    /\b(planes?\s+over|flights?\s+over|ships?\s+in\s+port|vessels?\s+near)\b/.test(q)
+    /\b(planes?\s+over|flights?\s+over|ships?\s+in\s+port|vessels?\s+near)\b/.test(q) ||
+    /\b(earthquake|volcano|wildfire|lightning|tsunami|emission|methane|co2|air\s+quality)\b/.test(q) ||
+    /\b(power\s+plant|factory|dam|mine|antenna|cell\s+tower|military|infrastructure)\b/.test(q) ||
+    /\b(solar\s+flare|space\s+weather|geomagnetic|aurora|mycobrain|sensor|device)\b/.test(q)
   const earth2 =
     /\b(earth2|climate\s+forecast|weather\s+forecast|temperature\s+anomaly)\b/.test(q) ||
-    /\b(weather|climate|forecast|storm|hurricane|drought)\b/.test(q)
+    /\b(weather|climate|forecast|storm|hurricane|drought|modis|landsat)\b/.test(q)
   const map =
     /\b(map|location|where|near\s+me|river\s+levels?|dam|wildfire|flood)\b/.test(q) ||
+    /\b(airport|seaport|spaceport|railway|cable|antenna|buoy|webcam)\b/.test(q) ||
     crep ||
     earth2
   return { crep, earth2, map }
 }
 
-/** Full-sentence suggestions for typing placeholder effect (world-view first). */
+/** Full-sentence suggestions for typing placeholder effect (all-Earth intelligence). */
 export const TYPING_PLACEHOLDER_SUGGESTIONS: string[] = [
-  "Search species, weather, flights...",
-  "Find flights, ships, satellites...",
-  "Ask about weather, climate, storms...",
-  "Explore species and biodiversity...",
-  "Query Earth2 climate data...",
-  "Check river levels, dams, wildfire...",
-  "Search species, biodiversity, taxonomy...",
-  "Discover research papers...",
-  "Analyze chemical structures...",
+  "Search all species, weather, flights, ships...",
+  "Find earthquakes, volcanoes, storms...",
+  "Track aircraft, vessels, satellites...",
+  "Explore all biodiversity on Earth...",
+  "Check air quality, CO2, methane emissions...",
+  "Find power plants, dams, infrastructure...",
+  "Query solar flares, space weather...",
+  "Search marine life, coral reefs...",
   "What planes are over the Pacific?",
-  "Species near me...",
-  "Port activity, freeway congestion...",
-  "Weather along shipping lane...",
+  "Bird migration patterns near me...",
+  "Active wildfires and lightning...",
+  "MycoBrain sensor readings...",
+  "Cell towers and antenna locations...",
 ]

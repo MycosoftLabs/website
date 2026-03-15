@@ -17,7 +17,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
-import { useUnifiedSearch, type SpeciesResult, type CompoundResult, type GeneticsResult, type ResearchResult } from "@/hooks/use-unified-search"
+import { useUnifiedSearch, type SpeciesResult, type CompoundResult, type GeneticsResult, type ResearchResult, type EventResult, type AircraftResult, type VesselResult, type SatelliteResult, type WeatherResult, type EmissionsResult, type InfrastructureResult, type DeviceResult, type SpaceWeatherResult } from "@/hooks/use-unified-search"
 import { usePackery } from "@/hooks/use-packery"
 import { useSearchContext } from "@/components/search/SearchContextProvider"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -468,14 +468,18 @@ export function FluidSearchCanvas({
     )
   }, [])
 
-  // Search hook - fetch ALL data types
+  // Search hook - fetch ALL data types across all Earth Intelligence domains
   const {
     species, compounds, genetics, research, aiAnswer,
     liveResults,
+    events, aircraft, vessels, satellites, weather,
+    emissions, infrastructure, devices, spaceWeather,
     isLoading, isValidating, totalCount, error, message,
     refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
-    types: ["species", "compounds", "genetics", "research"],
+    types: ["species", "compounds", "genetics", "research",
+      "events", "aircraft", "vessels", "satellites", "weather",
+      "emissions", "infrastructure", "devices", "space_weather"],
     includeAI: true,
     limit: 20,
   })
@@ -809,7 +813,17 @@ export function FluidSearchCanvas({
     { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: crepResults.length > 0, depth: getParallaxDepth("crep") },
     { type: "earth2", label: "Earth2", icon: "🌍", gradient: "from-cyan-500/30 to-teal-500/20", hasData: !!earth2Data, depth: getParallaxDepth("earth2") },
     { type: "map", label: "Map", icon: <MapPin className="h-4 w-4" />, gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0, depth: getParallaxDepth("map") },
-  ], [species.length, compounds.length, genetics.length, research.length, mediaResults.length, locationResults.length, newsResults.length, crepResults.length, earth2Data, mapObservations.length, suggestions.widgets, suggestions.queries, mycaMessages])
+    // Earth Intelligence widgets
+    { type: "events", label: "Events", icon: "⚡", gradient: "from-red-500/30 to-orange-500/20", hasData: events.length > 0, depth: getParallaxDepth("events") },
+    { type: "aircraft", label: "Aircraft", icon: "✈️", gradient: "from-sky-500/30 to-indigo-500/20", hasData: aircraft.length > 0, depth: getParallaxDepth("aircraft") },
+    { type: "vessels", label: "Vessels", icon: "🚢", gradient: "from-blue-500/30 to-slate-500/20", hasData: vessels.length > 0, depth: getParallaxDepth("vessels") },
+    { type: "satellites", label: "Satellites", icon: "🛰️", gradient: "from-indigo-500/30 to-purple-500/20", hasData: satellites.length > 0, depth: getParallaxDepth("satellites") },
+    { type: "weather", label: "Weather", icon: "🌦️", gradient: "from-cyan-500/30 to-blue-500/20", hasData: weather.length > 0, depth: getParallaxDepth("weather") },
+    { type: "emissions", label: "Emissions", icon: "🏭", gradient: "from-gray-500/30 to-red-500/20", hasData: emissions.length > 0, depth: getParallaxDepth("emissions") },
+    { type: "infrastructure", label: "Infrastructure", icon: "🏗️", gradient: "from-amber-500/30 to-yellow-500/20", hasData: infrastructure.length > 0, depth: getParallaxDepth("infrastructure") },
+    { type: "devices", label: "Devices", icon: "📡", gradient: "from-green-500/30 to-lime-500/20", hasData: devices.length > 0, depth: getParallaxDepth("devices") },
+    { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: spaceWeather.length > 0, depth: getParallaxDepth("space_weather") },
+  ], [species.length, compounds.length, genetics.length, research.length, mediaResults.length, locationResults.length, newsResults.length, crepResults.length, earth2Data, mapObservations.length, suggestions.widgets, suggestions.queries, mycaMessages, events.length, aircraft.length, vessels.length, satellites.length, weather.length, emissions.length, infrastructure.length, devices.length, spaceWeather.length])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
@@ -1433,6 +1447,9 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
     species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
     answers: "💬", media: "🎬", location: "📍", news: "📰",
     crep: "✈️", earth2: "🌍", map: "🗺️",
+    events: "⚡", aircraft: "✈️", vessels: "🚢", satellites: "🛰️",
+    weather: "🌦️", emissions: "🏭", infrastructure: "🏗️",
+    devices: "📡", space_weather: "☀️",
   }
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">

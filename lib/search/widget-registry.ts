@@ -18,6 +18,15 @@ export type WidgetType =
   | "crep"
   | "earth2"
   | "map"
+  | "events"
+  | "aircraft"
+  | "vessels"
+  | "satellites"
+  | "weather"
+  | "emissions"
+  | "infrastructure"
+  | "devices"
+  | "space_weather"
   | "fallback"
 
 export interface WidgetRegistryEntry {
@@ -46,6 +55,15 @@ export const WIDGET_TYPE_IDS: WidgetType[] = [
   "crep",
   "earth2",
   "map",
+  "events",
+  "aircraft",
+  "vessels",
+  "satellites",
+  "weather",
+  "emissions",
+  "infrastructure",
+  "devices",
+  "space_weather",
 ]
 
 /** Map result bucket keys (from API) to widget type. Unknown buckets use "fallback". */
@@ -62,6 +80,16 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   crep: "crep",
   earth2: "earth2",
   map: "map",
+  // Earth Intelligence buckets
+  events: "events",
+  aircraft: "aircraft",
+  vessels: "vessels",
+  satellites: "satellites",
+  weather: "weather",
+  emissions: "emissions",
+  infrastructure: "infrastructure",
+  devices: "devices",
+  space_weather: "space_weather",
 }
 
 export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
@@ -142,6 +170,74 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     label: "Map",
     resultKey: "map",
     size: { width: 2, height: 2 },
+    emptyPolicy: "hide",
+  },
+  // Earth Intelligence widgets
+  events: {
+    id: "events",
+    label: "Events",
+    resultKey: "events",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "hide",
+    autoExpand: true,
+  },
+  aircraft: {
+    id: "aircraft",
+    label: "Aircraft",
+    resultKey: "aircraft",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "hide",
+    autoExpand: true,
+  },
+  vessels: {
+    id: "vessels",
+    label: "Vessels",
+    resultKey: "vessels",
+    size: { width: 1, height: 2 },
+    emptyPolicy: "hide",
+    autoExpand: true,
+  },
+  satellites: {
+    id: "satellites",
+    label: "Satellites",
+    resultKey: "satellites",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "hide",
+  },
+  weather: {
+    id: "weather",
+    label: "Weather",
+    resultKey: "weather",
+    size: { width: 2, height: 1 },
+    emptyPolicy: "hide",
+    autoExpand: true,
+  },
+  emissions: {
+    id: "emissions",
+    label: "Emissions",
+    resultKey: "emissions",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "hide",
+  },
+  infrastructure: {
+    id: "infrastructure",
+    label: "Infrastructure",
+    resultKey: "infrastructure",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "hide",
+  },
+  devices: {
+    id: "devices",
+    label: "Devices",
+    resultKey: "devices",
+    size: { width: 1, height: 1 },
+    emptyPolicy: "hide",
+  },
+  space_weather: {
+    id: "space_weather",
+    label: "Space Weather",
+    resultKey: "space_weather",
+    size: { width: 1, height: 1 },
     emptyPolicy: "hide",
   },
   fallback: {

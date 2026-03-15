@@ -72,7 +72,7 @@ export interface CREPContextForMYCA {
     zoom: number
     bounds?: { north: number; south: number; east: number; west: number }
   }
-  /** Summary of visible entities */
+  /** Summary of visible entities — all Earth Intelligence domains */
   entitySummary: {
     aircraft: number
     vessels: number
@@ -80,6 +80,10 @@ export interface CREPContextForMYCA {
     fungalObservations: number
     globalEvents: number
     devices: number
+    weather: number
+    emissions: number
+    infrastructure: number
+    spaceWeather: number
     total: number
   }
   /** Active mission context */
@@ -265,9 +269,13 @@ export function buildCREPContextForMYCA(context: CREPContextForMYCA): string {
   if (entitySummary.aircraft > 0) entityParts.push(`${entitySummary.aircraft} aircraft`)
   if (entitySummary.vessels > 0) entityParts.push(`${entitySummary.vessels} vessels`)
   if (entitySummary.satellites > 0) entityParts.push(`${entitySummary.satellites} satellites`)
-  if (entitySummary.fungalObservations > 0) entityParts.push(`${entitySummary.fungalObservations} fungal observations`)
+  if (entitySummary.fungalObservations > 0) entityParts.push(`${entitySummary.fungalObservations} biodiversity observations`)
   if (entitySummary.globalEvents > 0) entityParts.push(`${entitySummary.globalEvents} global events`)
   if (entitySummary.devices > 0) entityParts.push(`${entitySummary.devices} MycoBrain devices`)
+  if (entitySummary.weather > 0) entityParts.push(`${entitySummary.weather} weather alerts`)
+  if (entitySummary.emissions > 0) entityParts.push(`${entitySummary.emissions} emission sources`)
+  if (entitySummary.infrastructure > 0) entityParts.push(`${entitySummary.infrastructure} infrastructure`)
+  if (entitySummary.spaceWeather > 0) entityParts.push(`${entitySummary.spaceWeather} space weather events`)
   if (entityParts.length > 0) {
     parts.push(`Visible entities: ${entityParts.join(", ")} (${entitySummary.total} total)`)
   }
@@ -302,6 +310,14 @@ export function buildCREPContextForMYCA(context: CREPContextForMYCA): string {
 
   // Stream status
   parts.push(`Stream status: ${context.streamStatus}`)
+
+  // Earth Intelligence capabilities
+  parts.push(
+    `Earth Intelligence domains: aircraft, vessels, satellites, events, weather, emissions, infrastructure, devices, space_weather, species, hydrology, atmospheric, signals, transport, monitor`
+  )
+  parts.push(
+    `Available tools: mycosoft_earth_search (query all domains), mycosoft_earth_bbox (spatial query), mycosoft_earth_stats (domain counts), mycosoft_map_command (map control)`
+  )
 
   return parts.join("\n")
 }

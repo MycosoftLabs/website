@@ -13,24 +13,43 @@
 import { useMemo, useCallback } from "react"
 import useSWR from "swr"
 import { useDebounce } from "@/hooks/use-debounce"
-import { 
-  unifiedSearch, 
-  type UnifiedSearchResponse, 
+import {
+  unifiedSearch,
+  EMPTY_RESULTS,
+  type UnifiedSearchResponse,
   type SearchOptions,
   type SpeciesResult,
   type CompoundResult,
   type GeneticsResult,
   type ResearchResult,
   type LiveResult,
+  type EventResult,
+  type AircraftResult,
+  type VesselResult,
+  type SatelliteResult,
+  type WeatherResult,
+  type EmissionsResult,
+  type InfrastructureResult,
+  type DeviceResult,
+  type SpaceWeatherResult,
 } from "@/lib/search/unified-search-sdk"
 
 // Re-export types for convenience
-export type { 
-  SpeciesResult, 
-  CompoundResult, 
-  GeneticsResult, 
+export type {
+  SpeciesResult,
+  CompoundResult,
+  GeneticsResult,
   ResearchResult,
   LiveResult,
+  EventResult,
+  AircraftResult,
+  VesselResult,
+  SatelliteResult,
+  WeatherResult,
+  EmissionsResult,
+  InfrastructureResult,
+  DeviceResult,
+  SpaceWeatherResult,
   UnifiedSearchResponse,
 }
 
@@ -40,30 +59,40 @@ interface UseUnifiedSearchOptions extends SearchOptions {
 }
 
 interface UseUnifiedSearchResult {
-  // Data
+  // Data — biological
   results: UnifiedSearchResponse["results"]
   species: SpeciesResult[]
   compounds: CompoundResult[]
   genetics: GeneticsResult[]
   research: ResearchResult[]
   liveResults: LiveResult[]
+  // Data — Earth Intelligence
+  events: EventResult[]
+  aircraft: AircraftResult[]
+  vessels: VesselResult[]
+  satellites: SatelliteResult[]
+  weather: WeatherResult[]
+  emissions: EmissionsResult[]
+  infrastructure: InfrastructureResult[]
+  devices: DeviceResult[]
+  spaceWeather: SpaceWeatherResult[]
   totalCount: number
-  
+
   // AI
   aiAnswer?: UnifiedSearchResponse["aiAnswer"]
-  
+
   // State
   isLoading: boolean
   isValidating: boolean
   error: string | null
-  
+
   // Empty state indicators
   isEmpty: boolean
   isSpeciesEmpty: boolean
   isCompoundsEmpty: boolean
   isGeneticsEmpty: boolean
   isResearchEmpty: boolean
-  
+
   // Metadata
   timing: UnifiedSearchResponse["timing"]
   source: "live" | "cache" | "fallback"
@@ -125,18 +154,26 @@ export function useUnifiedSearch(
   )
 
   // Extract results with memoization
-  const emptyResults = { species: [] as SpeciesResult[], compounds: [] as CompoundResult[], genetics: [] as GeneticsResult[], research: [] as ResearchResult[] }
   const results = useMemo(() => {
-    if (!data?.results) {
-      return emptyResults
-    }
-    return data.results
+    if (!data?.results) return EMPTY_RESULTS
+    return { ...EMPTY_RESULTS, ...data.results }
   }, [data])
 
   const species = useMemo(() => results.species || [], [results.species])
   const compounds = useMemo(() => results.compounds || [], [results.compounds])
   const genetics = useMemo(() => results.genetics || [], [results.genetics])
   const research = useMemo(() => results.research || [], [results.research])
+  // Earth Intelligence
+  const events = useMemo(() => results.events || [], [results.events])
+  const aircraft = useMemo(() => results.aircraft || [], [results.aircraft])
+  const vessels = useMemo(() => results.vessels || [], [results.vessels])
+  const satellites = useMemo(() => results.satellites || [], [results.satellites])
+  const weather = useMemo(() => results.weather || [], [results.weather])
+  const emissions = useMemo(() => results.emissions || [], [results.emissions])
+  const infrastructure = useMemo(() => results.infrastructure || [], [results.infrastructure])
+  const devices = useMemo(() => results.devices || [], [results.devices])
+  const spaceWeather = useMemo(() => results.space_weather || [], [results.space_weather])
+
   const totalCount = data?.totalCount || 0
   const liveResults = data?.live_results || []
   const aiAnswer = data?.aiAnswer
@@ -159,6 +196,9 @@ export function useUnifiedSearch(
   const isGeneticsEmpty = genetics.length === 0
   const isResearchEmpty = research.length === 0
   const isEmpty = isSpeciesEmpty && isCompoundsEmpty && isGeneticsEmpty && isResearchEmpty
+    && events.length === 0 && aircraft.length === 0 && vessels.length === 0
+    && satellites.length === 0 && weather.length === 0 && emissions.length === 0
+    && infrastructure.length === 0 && devices.length === 0 && spaceWeather.length === 0
 
   return {
     results,
@@ -167,6 +207,16 @@ export function useUnifiedSearch(
     genetics,
     research,
     liveResults,
+    // Earth Intelligence
+    events,
+    aircraft,
+    vessels,
+    satellites,
+    weather,
+    emissions,
+    infrastructure,
+    devices,
+    spaceWeather,
     totalCount,
     aiAnswer,
     isLoading: isLoading && !data,
