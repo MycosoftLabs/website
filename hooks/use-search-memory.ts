@@ -336,9 +336,9 @@ export function useSearchMemory({ userId, autoStart = true }: UseSearchMemoryOpt
     }
   }, [userId]);
 
-  // Check for active session on mount
+  // Check for active session on mount — only when logged in (userId truthy)
   useEffect(() => {
-    if (!autoStart || isInitialized.current || !userId) return;
+    if (!userId || !autoStart || isInitialized.current) return;
     isInitialized.current = true;
     
     // Check if user has active session

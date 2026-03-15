@@ -137,47 +137,47 @@ export function HeroSearch() {
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
   return (
-    <section className="pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center gap-4 sm:gap-6 md:gap-8">
+    <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
+      {/* Full-screen video — fixed to viewport so always covers entire screen on desktop, tablet, mobile */}
+      <div className="fixed inset-0 z-0 overflow-hidden">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ filter: "brightness(0.95) saturate(1.05)" }}
+        >
+          <source src="/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
+          <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+          <source src="https://mycosoft.com/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
+          <source src="https://mycosoft.com/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+          <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
+      </div>
+
       <div 
         ref={containerRef}
-        className="w-full max-w-3xl relative"
+        className="w-full max-w-3xl relative z-10"
         onMouseMove={handleMouseMove}
       >
-        {/* Hero Container with Glass Morphism */}
+        {/* Hero Container with Glass Morphism — no video inside; sits on top of page video */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className={cn(
             "relative rounded-3xl overflow-hidden",
-            "backdrop-blur-xl",
+            "backdrop-blur-xl bg-background/20 dark:bg-background/30",
             isFocused && "ring-2 ring-primary/50"
           )}
         >
           {/* Animated Gradient Border */}
           <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
-          
-          {/* Background Video — NAS asset first; fallback when missing (e.g. local dev or NAS down) */}
-          <div className="absolute inset-[2px] rounded-[22px] overflow-hidden">
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: "brightness(0.4) saturate(1.2)" }}
-            >
-              {/* Try both NAS path variants (subfolder + flat); then sandbox; then guaranteed fallback */}
-              <source src="/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
-              <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-              <source src="https://sandbox.mycosoft.com/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
-              <source src="https://sandbox.mycosoft.com/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-              <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background/90" />
-          </div>
+          <div className="absolute inset-[2px] rounded-[22px] bg-background/10 dark:bg-background/20" />
 
           {/* Content */}
           <div className="relative z-10 px-3 py-6 sm:px-6 sm:py-10 md:px-12 md:py-16">

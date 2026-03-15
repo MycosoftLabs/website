@@ -239,10 +239,10 @@ export function FluidSearchCanvas({
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   
-  // MYCA Memory integration - track searches and record to memory system
+  // MYCA Memory integration — only when logged in; no persistence for anonymous
   const searchMemory = useSearchMemory({ 
-    userId: user?.id || "anonymous",
-    autoStart: true,
+    userId: user?.id ?? "",
+    autoStart: !!user?.id,
   })
   
   // Widget sizes state - user can resize widgets

@@ -23,6 +23,7 @@ import {
 } from "react"
 import { useRouter } from "next/navigation"
 import { useWebMCPProvider } from "@/hooks/useWebMCPProvider"
+import { useAuth } from "@/contexts/auth-context"
 import type {
   SpeciesResult,
   CompoundResult,
@@ -156,10 +157,17 @@ const SearchContext = createContext<SearchContextValue | null>(null)
 // Provider
 // ---------------------------------------------------------------------------
 
-const NOTEPAD_STORAGE_KEY = "search-notepad"
 const CHAT_STORAGE_KEY = "search-chat-history"
 
+/** Notepad storage key is user-scoped; no persistence when not logged in (Mar 14, 2026). */
+function getNotepadStorageKey(userId: string | undefined): string | null {
+  return userId ? `search-notepad-${userId}` : null
+}
+
 export function SearchContextProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  const notepadStorageKey = getNotepadStorageKey(user?.id)
+
   // Track if we're mounted (client-side)
   const [mounted, setMounted] = useState(false)
   
@@ -226,18 +234,27 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
-  // Notepad - start empty, hydrate from storage after mount
+  // Notepad - auth-gated: only hydrate/persist when logged in (Mar 14, 2026)
   const [notepadItems, setNotepadItems] = useState<NotepadItem[]>([])
 
-  // Hydrate notepad from localStorage after mount
+  // Hydrate notepad from localStorage only when user is logged in; clear when logged out
   useEffect(() => {
+    if (!mounted) return
+    if (!notepadStorageKey) {
+      setNotepadItems([])
+      return
+    }
     try {
-      const saved = localStorage.getItem(NOTEPAD_STORAGE_KEY)
+      const saved = localStorage.getItem(notepadStorageKey)
       if (saved) {
         setNotepadItems(JSON.parse(saved))
+      } else {
+        setNotepadItems([])
       }
-    } catch {}
-  }, [])
+    } catch {
+      setNotepadItems([])
+    }
+  }, [mounted, notepadStorageKey])
 
   const addNotepadItem = useCallback(
     (item: Omit<NotepadItem, "id" | "timestamp">) => {
@@ -248,31 +265,40 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
       }
       setNotepadItems((prev) => {
         const next = [newItem, ...prev]
-        try {
-          localStorage.setItem(NOTEPAD_STORAGE_KEY, JSON.stringify(next))
-        } catch {}
+        if (notepadStorageKey) {
+          try {
+            localStorage.setItem(notepadStorageKey, JSON.stringify(next))
+          } catch {}
+        }
         return next
       })
     },
-    []
+    [notepadStorageKey]
   )
 
-  const removeNotepadItem = useCallback((id: string) => {
-    setNotepadItems((prev) => {
-      const next = prev.filter((n) => n.id !== id)
-      try {
-        localStorage.setItem(NOTEPAD_STORAGE_KEY, JSON.stringify(next))
-      } catch {}
-      return next
-    })
-  }, [])
+  const removeNotepadItem = useCallback(
+    (id: string) => {
+      setNotepadItems((prev) => {
+        const next = prev.filter((n) => n.id !== id)
+        if (notepadStorageKey) {
+          try {
+            localStorage.setItem(notepadStorageKey, JSON.stringify(next))
+          } catch {}
+        }
+        return next
+      })
+    },
+    [notepadStorageKey]
+  )
 
   const clearNotepad = useCallback(() => {
     setNotepadItems([])
-    try {
-      localStorage.removeItem(NOTEPAD_STORAGE_KEY)
-    } catch {}
-  }, [])
+    if (notepadStorageKey) {
+      try {
+        localStorage.removeItem(notepadStorageKey)
+      } catch {}
+    }
+  }, [notepadStorageKey])
 
   // Live results
   const [liveObservations, setLiveObservations] = useState<LiveObservation[]>([])
