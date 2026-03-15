@@ -149,8 +149,11 @@ export function HeroSearch() {
           preload="auto"
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
+          poster="/assets/homepage/hero-poster.jpg"
         >
+          {/* Try local NAS path first, then mycosoft.org CDN fallback */}
           <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+          <source src="https://mycosoft.org/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
       </div>

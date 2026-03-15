@@ -474,7 +474,7 @@ export function FluidSearchCanvas({
     liveResults,
     events, aircraft, vessels, satellites, weather,
     emissions, infrastructure, devices, spaceWeather,
-    isLoading, isValidating, totalCount, error, message,
+    isLoading: rawIsLoading, isValidating, totalCount, error, message,
     refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
     types: ["species", "compounds", "genetics", "research",
@@ -483,6 +483,20 @@ export function FluidSearchCanvas({
     includeAI: true,
     limit: 20,
   })
+
+  // Timeout guard: if loading takes longer than 15s, stop showing skeleton
+  // loaders and show empty states instead. This prevents infinite skeletons
+  // when backend APIs (MAS/MINDEX) are unreachable.
+  const [searchTimedOut, setSearchTimedOut] = useState(false)
+  useEffect(() => {
+    if (!rawIsLoading) {
+      setSearchTimedOut(false)
+      return
+    }
+    const timer = setTimeout(() => setSearchTimedOut(true), 15000)
+    return () => clearTimeout(timer)
+  }, [rawIsLoading])
+  const isLoading = rawIsLoading && !searchTimedOut
 
   // Empty-widget policy: when a widget emits "refresh-search", re-fetch (triggers background ingest)
   useEffect(() => {

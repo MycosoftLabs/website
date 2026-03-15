@@ -217,9 +217,10 @@ interface INaturalistObservation {
 async function searchMindexUnified(query: string, limit: number) {
   try {
     // Use MINDEX unified-search endpoint which searches taxa, compounds, genetics in parallel
+    // Short timeout (3s) — if MINDEX is on a private LAN, fail fast to external APIs
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/unified-search?q=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(6000) }
+      { signal: AbortSignal.timeout(3000) }
     )
     if (!res.ok) {
       console.error("MINDEX unified-search failed:", res.status)
@@ -1144,11 +1145,14 @@ export async function GET(request: NextRequest) {
   }
 
   // MAS-first: proxy to canonical search orchestrator (Mar 14, 2026)
+  // Use a short timeout (3s) — if MAS is on a private LAN unreachable from
+  // production, we fall through to direct searches quickly instead of blocking
+  // for 10s+ while the user stares at skeleton loaders.
   if (USE_MAS_SEARCH) {
     const masStart = performance.now()
     const masPayload = await callMASSearchExecute(
       { query, limit },
-      AbortSignal.timeout(10000)
+      AbortSignal.timeout(3000)
     )
     if (masPayload) {
       const { results, source, totalCount } = mapMASResponseToUnified(masPayload)
