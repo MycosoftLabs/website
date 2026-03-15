@@ -170,7 +170,8 @@ export function HeroSearch() {
               style={{ filter: "brightness(0.4) saturate(1.2)" }}
             >
               <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
+              <source src="https://sandbox.mycosoft.com/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+              <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background/90" />
           </div>

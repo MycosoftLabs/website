@@ -94,7 +94,9 @@ export function SearchSection() {
               className="absolute inset-0 w-full h-full object-cover rounded-xl"
               style={{ filter: "brightness(0.5)" }}
             >
-              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
+              <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+              <source src="https://sandbox.mycosoft.com/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+              <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] rounded-xl" />
             <div className="relative z-10 flex flex-col items-center gap-6 md:gap-8">
