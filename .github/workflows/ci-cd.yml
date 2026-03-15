@@ -1,12 +1,12 @@
 # Mycosoft CI/CD Pipeline
-# Last Updated: 2026-03-01T00:00:00Z
-# Version: 2.1.0
+# Last Updated: 2026-03-15T00:00:00Z
+# Version: 2.2.0
 #
 # This workflow handles:
 # - Linting and type checking
 # - Unit and integration tests
 # - Docker image building
-# - Deployment to Proxmox VM
+# - Deployment to production VM via SSH
 # - Changelog generation
 
 name: Mycosoft CI/CD
@@ -213,10 +213,10 @@ jobs:
             echo "Deployed ${{ github.sha }} to staging at $(date)"
 
   # ===========================================================================
-  # DEPLOY TO PRODUCTION (Proxmox QEMU agent; requires PROXMOX_URL + PROXMOX_API_TOKEN)
+  # DEPLOY TO PRODUCTION (via SSH — uses PRODUCTION_HOST + SSH_USER + SSH_KEY)
   # ===========================================================================
   deploy-production:
-    name: Deploy to Production (Proxmox)
+    name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build]
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
@@ -224,188 +224,108 @@ jobs:
     continue-on-error: false
     timeout-minutes: 30
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Check deploy secrets
         id: check-secrets
         env:
-          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
-          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          if [ -z "${PROXMOX_API_TOKEN}" ] || [ -z "${PROXMOX_URL}" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Deploy skipped - PROXMOX_URL or PROXMOX_API_TOKEN secret not configured"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Discover Sandbox VM
-        if: steps.check-secrets.outputs.skip != 'true'
-        id: find-vm
-        env:
-          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
-          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
-            AUTH_HEADER="${PROXMOX_API_TOKEN}"
-          else
-            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
-          fi
-
-          BASE_ROOT="${PROXMOX_URL%/}"
-          BASE_ROOT="${BASE_ROOT%%/api2/json*}"
-          BASE_URL="${BASE_ROOT}/api2/json"
-
-          TMP_BODY="$(mktemp)"
-          HTTP_CODE=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" -o "${TMP_BODY}" -w "%{http_code}" "${BASE_URL}/nodes")
-          if [ "${HTTP_CODE}" -ge 400 ]; then
-            echo "::error::Proxmox /nodes failed with HTTP ${HTTP_CODE} at ${BASE_URL}/nodes"
-            echo "Response body:"
-            cat "${TMP_BODY}" || true
-            rm -f "${TMP_BODY}"
+          if [ -z "${SSH_KEY}" ]; then
+            echo "::error::Deploy failed - SSH_KEY secret not configured"
             exit 1
           fi
-
-          NODES_JSON="$(cat "${TMP_BODY}")"
-          rm -f "${TMP_BODY}"
-          NODES=$(echo "${NODES_JSON}" | jq -r '.data[]?.node')
-          if [ -z "${NODES}" ]; then
-            echo "::error::No Proxmox nodes returned from ${BASE_URL}/nodes"
-            echo "${NODES_JSON}"
+          if [ -z "${PRODUCTION_HOST}" ]; then
+            echo "::error::Deploy failed - PRODUCTION_HOST secret not configured"
             exit 1
           fi
+          echo "user=${SSH_USER:-mycosoft}" >> "$GITHUB_OUTPUT"
+          echo "Deploy secrets verified"
 
-          NODE=""
-          VMID=""
-          for N in ${NODES}; do
-            QEMU_JSON=$(curl -sS -k -H "Authorization: ${AUTH_HEADER}" "${BASE_URL}/nodes/${N}/qemu")
-            CANDIDATE=$(echo "${QEMU_JSON}" | jq -r '
-              .data[]
-              | select(
-                  .name == "mycosoft-sandbox"
-                  or .name == "mycosoft-website"
-                  or .name == "sandbox"
-                  or .name == "website"
-                  or ((.name // "") | test("sandbox"; "i"))
-                )
-              | .vmid
-            ' | head -n1)
-            if [ -n "${CANDIDATE}" ]; then
-              NODE="${N}"
-              VMID="${CANDIDATE}"
-              break
-            fi
-          done
+      - name: Backup database
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            cd /opt/mycosoft
+            docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null \
+              || echo "No existing database to backup (first deploy?) — skipping"
 
-          echo "base_url=${BASE_URL}" >> "$GITHUB_OUTPUT"
-          echo "node=${NODE}" >> "$GITHUB_OUTPUT"
-          echo "vmid=${VMID}" >> "$GITHUB_OUTPUT"
-          echo "Found node: ${NODE}"
-          echo "Found VM: ${VMID}"
+      - name: Pull latest code
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            cd /opt/mycosoft
+            git fetch origin
+            git reset --hard origin/main
 
-          if [ -z "${VMID}" ]; then
-            echo "::error::Could not find sandbox VM on any Proxmox node"
-            exit 1
-          fi
+      - name: Pull new images and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 10m
+          script: |
+            cd /opt/mycosoft
+            docker compose pull
+            docker compose up -d --remove-orphans
 
-      - name: Deploy via Proxmox QEMU Agent
-        if: steps.check-secrets.outputs.skip != 'true'
-        env:
-          PROXMOX_API_TOKEN: ${{ secrets.PROXMOX_API_TOKEN }}
-          PROXMOX_BASE_URL: ${{ steps.find-vm.outputs.base_url }}
-          VM_NODE: ${{ steps.find-vm.outputs.node }}
-          VM_ID: ${{ steps.find-vm.outputs.vmid }}
-          DEPLOY_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [[ "${PROXMOX_API_TOKEN}" == PVEAPIToken=* ]]; then
-            AUTH_HEADER="${PROXMOX_API_TOKEN}"
-          else
-            AUTH_HEADER="PVEAPIToken=${PROXMOX_API_TOKEN}"
-          fi
-          AGENT_EXEC="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec"
-          AGENT_STATUS="${PROXMOX_BASE_URL}/nodes/${VM_NODE}/qemu/${VM_ID}/agent/exec-status"
+      - name: Run database migrations
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            cd /opt/mycosoft
+            docker compose exec -T website npm run db:migrate --if-present 2>/dev/null \
+              || echo "Migration skipped (no migrations or db not ready)"
 
-          run_on_vm() {
-            local cmd="$1"
-            local desc="$2"
-            echo ">>> ${desc}"
-
-            # Build JSON payload safely with jq to avoid injection
-            PAYLOAD=$(jq -n --arg cmd "$cmd" '{"command":"bash","input-data":$cmd}')
-
-            # Start the command via QEMU guest agent
-            PID=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
-              -H "Content-Type: application/json" \
-              -d "${PAYLOAD}" \
-              "${AGENT_EXEC}" | jq -r '.data.pid')
-
-            if [ -z "${PID}" ] || [ "${PID}" = "null" ]; then
-              echo "::error::Failed to execute: ${desc}"
-              return 1
-            fi
-
-            # Poll for completion (max 5 min)
-            for i in $(seq 1 60); do
-              sleep 5
-              RESULT=$(curl -sf -k -H "Authorization: ${AUTH_HEADER}" \
-                "${AGENT_STATUS}?pid=${PID}" 2>/dev/null || echo '{}')
-              EXITED=$(echo "${RESULT}" | jq -r '.data.exited // 0')
-              if [ "${EXITED}" = "1" ]; then
-                EXITCODE=$(echo "${RESULT}" | jq -r '.data.exitcode // 0')
-                OUT=$(echo "${RESULT}" | jq -r '.data."out-data" // ""')
-                ERR=$(echo "${RESULT}" | jq -r '.data."err-data" // ""')
-                [ -n "${OUT}" ] && echo "${OUT}"
-                [ -n "${ERR}" ] && echo "STDERR: ${ERR}"
-                if [ "${EXITCODE}" != "0" ]; then
-                  echo "::error::Command failed (exit ${EXITCODE}): ${desc}"
-                  return 1
-                fi
-                return 0
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 3m
+          script: |
+            echo "=== Waiting for service to be healthy ==="
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -sf http://localhost:3000/api/health; then
+                echo ""
+                echo "Health check passed on attempt $i"
+                break
               fi
+              echo "Attempt $i: not ready, waiting 10s..."
+              sleep 10
             done
-            echo "::error::Timeout waiting for: ${desc}"
-            return 1
-          }
 
-          echo "=== Mycosoft Production Deployment ==="
-          echo "Commit: ${DEPLOY_SHA}"
+            echo ""
+            echo "=== LLM Provider Status ==="
+            curl -sf http://localhost:3000/api/health/providers 2>/dev/null \
+              | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get("summary",{}).get("working",0); print(f"LLM providers working: {w}")' \
+              2>/dev/null || echo "LLM provider check skipped"
 
-          run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo 'No existing database to backup (first deploy?) — skipping'" \
-            "Backup database (non-fatal)"
-
-          run_on_vm \
-            "cd /opt/mycosoft && git fetch origin && git reset --hard origin/main" \
-            "Pull latest code"
-
-          run_on_vm \
-            "cd /opt/mycosoft && docker compose pull" \
-            "Pull new images"
-
-          run_on_vm \
-            "cd /opt/mycosoft && docker compose up -d --remove-orphans" \
-            "Rolling update containers"
-
-          run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present 2>/dev/null || echo 'Migration skipped (no migrations or db not ready)'" \
-            "Run database migrations (non-fatal)"
-
-          run_on_vm \
-            "for i in 1 2 3 4 5; do curl -sf http://localhost:3000/api/health && break || sleep 10; done" \
-            "Health check (with retry)"
-
-          run_on_vm \
-            "curl -sf http://localhost:3000/api/health/providers 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get(\"summary\",{}).get(\"working\",0); print(f\"LLM providers working: {w}\")' 2>/dev/null || echo 'LLM provider check skipped'" \
-            "Verify LLM providers"
-
-          run_on_vm \
-            "echo '${DEPLOY_SHA} deployed at \$(date)' >> /var/log/mycosoft-deployments.log" \
-            "Log deployment"
-
-          echo "=== Deployment Complete ==="
+      - name: Log deployment
+        uses: appleboy/ssh-action@v1.0.3
+        continue-on-error: true
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ steps.check-secrets.outputs.user }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "${{ github.sha }} deployed at $(date)" >> /var/log/mycosoft-deployments.log
 
       - name: Notify deployment
         uses: slackapi/slack-github-action@v1.24.0
