@@ -1539,9 +1539,9 @@ function WidgetContent({
     case "fallback":
       return (
         <FallbackWidget
-          bucketKey={config.fallbackBucketKey ?? "unknown"}
-          items={config.fallbackItems ?? []}
-          title={config.label}
+          bucketKey={"unknown"}
+          items={[]}
+          title={"Fallback"}
           widgetType="fallback"
         />
       )
