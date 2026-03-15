@@ -157,7 +157,7 @@ export function HeroSearch() {
           {/* Animated Gradient Border */}
           <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
           
-          {/* Background Video — no poster, instant start, NAS/local preferred over external */}
+          {/* Background Video — NAS asset from homepage/Mycosoft Background (mounted at /app/public/assets) */}
           <div className="absolute inset-[2px] rounded-[22px] overflow-hidden">
             <video
               ref={videoRef}
@@ -169,8 +169,7 @@ export function HeroSearch() {
               className="absolute inset-0 w-full h-full object-cover"
               style={{ filter: "brightness(0.4) saturate(1.2)" }}
             >
-              <source src={encodeURI("/assets/videos/mycelium-bg.mp4")} type="video/mp4" />
-              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
+              <source src="/assets/homepage/Mycosoft%20Background/Mycosoft%20Background.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background/90" />
           </div>
