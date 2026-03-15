@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { 
-  Check, 
-  X, 
-  Sparkles, 
-  Zap, 
+import {
+  Check,
+  X,
+  Sparkles,
+  Zap,
   Building2,
   ArrowRight,
   Shield,
@@ -16,63 +16,70 @@ import {
   Globe2,
   Cpu,
   Loader2,
-  Mic,
-  Key
+  Key,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useSupabaseUser } from '@/hooks/use-supabase-user'
+import {
+  BASIC_ACTIVATION_USD,
+  BASIC_PREPAID_BUNDLE_USD,
+  BASIC_INCLUDED_TOKENS_DISPLAY,
+  PRO_MONTHLY_USD,
+  PRO_ANNUAL_TOTAL_USD,
+  PRO_ANNUAL_MONTHLY_EQUIV_USD,
+  PRO_ANNUAL_SAVINGS_PERCENT,
+  ENTERPRISE_MONTHLY_USD,
+  ENTERPRISE_ANNUAL_TOTAL_USD,
+  ENTERPRISE_ANNUAL_MONTHLY_EQUIV_USD,
+  ENTERPRISE_ANNUAL_SAVINGS_PERCENT,
+} from '@/lib/pricing/public-pricing'
 
 const PLANS = [
   {
-    id: 'free',
-    name: 'Free',
-    price: { monthly: 0, annual: 0 },
-    description: 'Perfect for getting started with NatureOS',
+    id: 'basic',
+    name: 'Basic',
+    price: { monthly: null as number | null, annual: null as number | null },
+    description: 'Activation plus prepaid usage for search and API',
     icon: Sparkles,
     color: 'emerald',
     features: [
-      { name: 'Species database', limit: '50/day', included: true },
+      { name: 'Species & organism database access', limit: 'included', included: true },
       { name: 'Basic search', included: true },
-      { name: 'Weather data', included: true },
-      { name: 'Community features', included: true },
-      { name: 'Mobile access', included: true },
-      { name: 'AI Assistant', included: false },
-      { name: 'Export data', included: false },
-      { name: 'API access', included: false },
-      { name: 'CREP Dashboard', included: false },
+      { name: 'Weather & environmental data', included: true },
+      { name: 'Mobile & dashboard access', included: true },
+      { name: `Token/world-state bundle (≈${(BASIC_INCLUDED_TOKENS_DISPLAY / 1_000_000).toFixed(0)}M tokens)`, included: true },
+      { name: 'Worldview / world-state API', included: false },
       { name: 'Priority support', included: false },
     ],
-    cta: 'Get Started Free',
-    href: '/onboarding'
+    cta: 'Get started',
+    href: '/onboarding',
+    activationUsd: BASIC_ACTIVATION_USD,
+    prepaidUsd: BASIC_PREPAID_BUNDLE_USD,
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: { monthly: 29, annual: 23 },
-    description: 'For serious mycologists and researchers',
+    price: { monthly: PRO_MONTHLY_USD, annual: PRO_ANNUAL_MONTHLY_EQUIV_USD },
+    description: 'For professionals and teams',
     icon: Zap,
     color: 'violet',
     popular: true,
     features: [
-      { name: 'Species database', limit: 'Unlimited', included: true },
-      { name: 'Advanced search', included: true },
-      { name: 'Weather data', included: true },
-      { name: 'Community features', included: true },
-      { name: 'Mobile access', included: true },
+      { name: 'Everything in Basic', included: true },
       { name: 'MYCA AI Assistant', included: true },
       { name: 'Data export', included: true },
       { name: 'API access', limit: '10K/mo', included: true },
       { name: 'CREP Dashboard', included: true },
       { name: 'Priority support', included: true },
     ],
-    cta: 'Start Free Trial',
-    href: '/onboarding?plan=pro'
+    cta: 'Start Pro',
+    href: '/onboarding?plan=pro',
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: { monthly: 99, annual: 79 },
+    price: { monthly: ENTERPRISE_MONTHLY_USD, annual: ENTERPRISE_ANNUAL_MONTHLY_EQUIV_USD },
     description: 'For teams and organizations',
     icon: Building2,
     color: 'amber',
@@ -89,41 +96,41 @@ const PLANS = [
       { name: 'Custom training', included: true },
     ],
     cta: 'Contact Sales',
-    href: '/contact?plan=enterprise'
-  }
+    href: '/contact?plan=enterprise',
+  },
 ]
 
 const CAPABILITIES = [
   {
     icon: Database,
-    title: '15,000+ Species',
-    description: 'The world\'s most comprehensive fungal database'
+    title: 'Organism & biosphere data',
+    description: 'Access to biological organism and biosphere-wide knowledge',
   },
   {
     icon: Brain,
-    title: 'AI-Powered',
-    description: 'Intelligent species identification and recommendations'
+    title: 'Dual AI system',
+    description: 'Human-fed and nature-fed data with grounded world-state intelligence',
   },
   {
     icon: Microscope,
-    title: 'Scientific Data',
-    description: 'Linked research papers and genetic information'
+    title: 'Scientific data',
+    description: 'Physics, chemistry, biology, and environmental information',
   },
   {
     icon: Globe2,
-    title: 'Global Coverage',
-    description: 'Real-time data from around the world'
+    title: 'Global coverage',
+    description: 'Real-time data and world-state from around the world',
   },
   {
     icon: Cpu,
-    title: 'IoT Integration',
-    description: 'Connect MycoBrain devices for monitoring'
+    title: 'Device-agnostic monitoring',
+    description: 'Connect sensors, instruments, and environmental endpoints',
   },
   {
     icon: Shield,
-    title: 'Secure & Private',
-    description: 'Enterprise-grade security for your data'
-  }
+    title: 'Secure & auditable',
+    description: 'Security-first architecture, authenticated and metered access',
+  },
 ]
 
 export default function PricingPage() {
@@ -132,7 +139,7 @@ export default function PricingPage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   
   async function handleCheckout(planId: string) {
-    if (planId === 'free') {
+    if (planId === 'basic') {
       window.location.href = '/onboarding'
       return
     }
@@ -186,7 +193,7 @@ export default function PricingPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full text-emerald-600 text-sm font-medium"
           >
             <Sparkles className="w-4 h-4" />
-            Start free, upgrade anytime
+            Transparent pricing
           </motion.div>
           
           <motion.h1
@@ -204,8 +211,8 @@ export default function PricingPage() {
             transition={{ delay: 0.2 }}
             className="text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Choose the plan that fits your needs. All plans include access to our core 
-            fungal database and community features.
+            Choose the plan that fits your needs. Human plans include search, organism data, 
+            and continuity; agent access requires a one-time connection fee and paid usage.
           </motion.p>
           
           {/* Billing toggle */}
@@ -233,7 +240,7 @@ export default function PricingPage() {
             </button>
             <span className={cn("font-medium transition-colors", billingCycle === 'annual' ? 'text-foreground' : 'text-muted-foreground')}>
               Annual
-              <span className="ml-2 text-emerald-500 text-sm font-semibold">Save 20%</span>
+              <span className="ml-2 text-emerald-500 text-sm font-semibold">Save 30%</span>
             </span>
           </motion.div>
         </div>
@@ -289,12 +296,23 @@ export default function PricingPage() {
                 
                 {/* Price */}
                 <div className="mb-6">
-                  <span className="text-3xl sm:text-5xl font-bold">${price}</span>
-                  {price > 0 && <span className="text-muted-foreground">/month</span>}
-                  {billingCycle === 'annual' && price > 0 && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Billed annually (${price * 12}/year)
-                    </p>
+                  {plan.id === 'basic' ? (
+                    <>
+                      <span className="text-2xl sm:text-4xl font-bold">${(plan as { activationUsd: number }).activationUsd} activation</span>
+                      <span className="text-muted-foreground"> + </span>
+                      <span className="text-2xl sm:text-4xl font-bold">${(plan as { prepaidUsd: number }).prepaidUsd} prepaid</span>
+                      <p className="text-sm text-muted-foreground mt-1">One-time activation, then $10 token/world-state bundle</p>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-3xl sm:text-5xl font-bold">${billingCycle === 'annual' ? (plan.id === 'pro' ? PRO_ANNUAL_MONTHLY_EQUIV_USD : ENTERPRISE_ANNUAL_MONTHLY_EQUIV_USD) : price}</span>
+                      <span className="text-muted-foreground">/month</span>
+                      {billingCycle === 'annual' && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Billed annually (${plan.id === 'pro' ? PRO_ANNUAL_TOTAL_USD : ENTERPRISE_ANNUAL_TOTAL_USD}/year)
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 
@@ -352,77 +370,7 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* PersonaPlex Voice Add-on — March 5, 2026 MYCA Loop Closure */}
-        <div className="max-w-2xl mx-auto mt-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="rounded-3xl border border-violet-500/30 bg-gradient-to-b from-violet-500/5 to-background p-8"
-          >
-            <div className="flex items-start gap-4 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center shrink-0">
-                <Mic className="w-6 h-6 text-violet-500" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold">PersonaPlex Voice API</h3>
-                <p className="text-sm text-muted-foreground">
-                  Voice API access for MYCA — TTS/STT, full-duplex, GPU-accelerated
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-2xl font-bold">$29</span>
-                <span className="text-muted-foreground">/month</span>
-              </div>
-              <button
-                onClick={async () => {
-                  if (!user) {
-                    window.location.href = '/login?redirect=/pricing'
-                    return
-                  }
-                  setCheckingOut('personaplex')
-                  try {
-                    const res = await fetch('/api/stripe/checkout', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ type: 'addon', addonId: 'personaplex_voice' }),
-                    })
-                    if (res.ok) {
-                      const { url } = await res.json()
-                      window.location.href = url
-                    } else {
-                      const err = await res.json()
-                      alert(err.error || 'Checkout failed')
-                    }
-                  } catch (e) {
-                    console.error(e)
-                    alert('Checkout failed. Please try again.')
-                  } finally {
-                    setCheckingOut(null)
-                  }
-                }}
-                disabled={checkingOut === 'personaplex'}
-                className="flex items-center gap-2 px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
-              >
-                {checkingOut === 'personaplex' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    Add PersonaPlex Voice
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
+        {/* Agent Access — MYCA/AVANI live worldstate */}
         <div id="agent" className="max-w-2xl mx-auto mt-12 scroll-mt-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -435,17 +383,16 @@ export default function PricingPage() {
                 <Key className="w-6 h-6 text-amber-500" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">Agent Access — MYCA & AVANI Live Worldstate</h3>
+                <h3 className="text-xl font-bold">Agent Access — MYCA & Avani Live World State</h3>
                 <p className="text-sm text-muted-foreground">
-                  External agents pay $1/minute for live worldstate connection. Metered session, API keys, 402 when balance exhausted.
+                  Every agent must pay a one-time $1 connection fee to connect to MYCA and Avani Live World State. Worldview and world-state API access are paid and metered; there is no free agent onboarding.
                 </p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <span className="text-2xl font-bold">$1</span>
-                <span className="text-muted-foreground">/minute</span>
-                <span className="text-muted-foreground ml-2">(e.g. 60 min — $60)</span>
+                <span className="text-muted-foreground"> one-time connection fee</span>
               </div>
               <button
                 onClick={async () => {
@@ -454,12 +401,12 @@ export default function PricingPage() {
                     const res = await fetch('/api/stripe/checkout', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ type: 'agent_worldstate', minutes: 60 }),
+                      body: JSON.stringify({ type: 'agent_worldstate', minutes: 1 }),
                     })
                     if (res.ok) {
                       const { url } = await res.json()
                       if (url) window.location.href = url
-                      else alert('Checkout URL missing. Configure Stripe price for agent worldstate.')
+                      else alert('Checkout URL missing. Configure Stripe for agent connection fee.')
                     } else {
                       const err = await res.json().catch(() => ({}))
                       alert(err.error || 'Checkout failed')
@@ -481,7 +428,7 @@ export default function PricingPage() {
                   </>
                 ) : (
                   <>
-                    Buy 60 minutes — $60
+                    Pay connection fee
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -531,24 +478,20 @@ export default function PricingPage() {
           <div className="space-y-4">
             {[
               {
-                q: 'Can I try Pro features for free?',
-                a: 'Yes! All paid plans include a 14-day free trial. No credit card required to start.'
-              },
-              {
                 q: 'Can I cancel my subscription anytime?',
-                a: 'Absolutely. You can cancel anytime with no cancellation fees. Your access continues until the end of your billing period.'
-              },
-              {
-                q: 'What payment methods do you accept?',
-                a: 'We accept all major credit cards (Visa, MasterCard, American Express) and PayPal. Enterprise customers can also pay via invoice.'
-              },
-              {
-                q: 'Is there a discount for students or researchers?',
-                a: 'Yes! We offer a 50% discount for students, educators, and academic researchers. Contact us with your institutional email for verification.'
+                a: 'Yes. You can cancel anytime with no cancellation fees. Your access continues until the end of your billing period.'
               },
               {
                 q: 'Can I upgrade or downgrade my plan?',
-                a: 'Yes, you can change your plan at any time. When upgrading, you\'ll be charged the prorated difference. When downgrading, you\'ll receive a credit for your next billing cycle.'
+                a: 'Yes. You can change your plan at any time. When upgrading, you\'ll be charged the prorated difference. When downgrading, you\'ll receive a credit for your next billing cycle.'
+              },
+              {
+                q: 'What payment methods do you accept?',
+                a: 'We accept USDC, Solana, Bitcoin, Ethereum, USDT, Visa, Mastercard, American Express, and PayPal.'
+              },
+              {
+                q: 'How does agent access work?',
+                a: 'Every agent must pay a one-time $1 connection fee to connect to MYCA and Avani Live World State. Worldview and world-state API access are paid and metered; there is no free agent onboarding.'
               }
             ].map((faq, i) => (
               <motion.div
@@ -573,14 +516,14 @@ export default function PricingPage() {
           <div className="p-12 rounded-3xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
             <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
             <p className="text-emerald-100 mb-8 max-w-xl mx-auto">
-              Join thousands of researchers, cultivators, and nature enthusiasts 
-              already using NatureOS.
+              Get started with organism data, search, and world-state access. 
+              Agents: pay the one-time connection fee to connect.
             </p>
             <Link
               href="/onboarding"
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-emerald-600 rounded-full font-semibold hover:bg-emerald-50 transition-colors"
             >
-              Start for free
+              Get started
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>

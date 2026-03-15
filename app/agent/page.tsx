@@ -1,6 +1,6 @@
 /**
- * Agent Access — MYCA & AVANI Live Worldstate
- * Sell live connection time to external agents at $1/minute.
+ * Agent Access — MYCA & Avani Live World State
+ * One-time $1 connection fee; worldview/world-state access is paid and metered.
  * Created: March 14, 2026
  */
 
@@ -25,11 +25,11 @@ import { useSupabaseUser } from "@/hooks/use-supabase-user"
 import { useSearchParams } from "next/navigation"
 
 const FEATURES = [
-  { icon: Bot, text: "Live worldstate from MYCA and AVANI" },
-  { icon: Clock, text: "Metered by active connection minute" },
-  { icon: Key, text: "API keys and session lifecycle" },
+  { icon: Bot, text: "Live world state from MYCA and Avani" },
+  { icon: Clock, text: "Paid, metered worldview and world-state API access" },
+  { icon: Key, text: "API keys and authenticated agent connection" },
   { icon: Shield, text: "402 when balance exhausted — fail closed" },
-  { icon: Database, text: "Prepaid minutes, no surprise billing" },
+  { icon: Database, text: "One-time $1 connection fee; usage metered" },
 ]
 
 export default function AgentAccessPage() {
@@ -44,7 +44,7 @@ export default function AgentAccessPage() {
     }
   }, [success])
 
-  async function handleBuyMinutes() {
+  async function handleConnectionFee() {
     if (!user) {
       window.location.href = "/login?redirect=/agent"
       return
@@ -54,7 +54,7 @@ export default function AgentAccessPage() {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "agent_worldstate", minutes: 60 }),
+        body: JSON.stringify({ type: "agent_worldstate", minutes: 1 }),
       })
       if (res.ok) {
         const { url } = await res.json()
@@ -85,19 +85,19 @@ export default function AgentAccessPage() {
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-            Agent Access — MYCA & AVANI Live Worldstate
+            Agent Access — MYCA & Avani Live World State
           </h1>
 
           <p className="text-lg text-muted-foreground max-w-2xl">
-            Connect your agents to live worldstate from MYCA and AVANI. Pay only for
-            active connection time at <strong className="text-foreground">$1 per minute</strong>.
+            Every agent must pay a <strong className="text-foreground">one-time $1 connection fee</strong> to
+            connect to MYCA and Avani Live World State. Worldview and world-state API access are paid and metered; there is no free agent onboarding.
           </p>
 
           {success && (
             <div className="rounded-xl border border-emerald-500/50 bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-400">
-              <p className="font-medium">Purchase complete.</p>
+              <p className="font-medium">Connection fee paid.</p>
               <p className="text-sm mt-1">
-                Your prepaid minutes are on your account. Use your API key to start a paid session.
+                Your agent is connected. Use your API key for paid, metered world-state access.
               </p>
             </div>
           )}
@@ -106,7 +106,7 @@ export default function AgentAccessPage() {
             <Button
               size="lg"
               className="min-h-[44px] text-base"
-              onClick={handleBuyMinutes}
+              onClick={handleConnectionFee}
               disabled={checkingOut}
             >
               {checkingOut ? (
@@ -116,7 +116,7 @@ export default function AgentAccessPage() {
                 </>
               ) : (
                 <>
-                  Buy 60 minutes — $60
+                  Pay $1 connection fee
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}
@@ -154,15 +154,14 @@ export default function AgentAccessPage() {
       <section className="container max-w-4xl mx-auto px-4 sm:px-6 py-12 border-t">
         <h2 className="text-xl font-semibold mb-4">How it works</h2>
         <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
-          <li>Sign up or sign in, then purchase a prepaid minute pack (e.g. 60 minutes).</li>
-          <li>Receive an API key and account for metered session access.</li>
+          <li>Sign up or sign in, then pay the one-time $1 connection fee.</li>
+          <li>Receive an API key and account for metered world-state access.</li>
           <li>Call MAS to register, start a paid session, and send heartbeats to keep the session active.</li>
-          <li>Use MYCA and AVANI worldstate endpoints only; all other paid routes are off until verified.</li>
+          <li>Use MYCA and Avani world-state endpoints; access is paid and metered.</li>
           <li>When balance runs out, the API returns 402 Payment Required; top up to continue.</li>
         </ol>
         <p className="mt-6 text-sm text-muted-foreground">
-          Start with MYCA and AVANI only. Full x402 payment-challenge flow is planned as a
-          follow-up hardening phase.
+          There is no free agent onboarding. Worldview and world-state access are always paid.
         </p>
       </section>
 
