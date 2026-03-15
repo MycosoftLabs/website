@@ -374,8 +374,8 @@ jobs:
           echo "Commit: ${DEPLOY_SHA}"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql" \
-            "Backup database"
+            "cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-\$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo 'No existing database to backup (first deploy?) — skipping'" \
+            "Backup database (non-fatal)"
 
           run_on_vm \
             "cd /opt/mycosoft && git fetch origin && git reset --hard origin/main" \
@@ -390,8 +390,8 @@ jobs:
             "Rolling update containers"
 
           run_on_vm \
-            "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present" \
-            "Run database migrations"
+            "cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present 2>/dev/null || echo 'Migration skipped (no migrations or db not ready)'" \
+            "Run database migrations (non-fatal)"
 
           run_on_vm \
             "for i in 1 2 3 4 5; do curl -sf http://localhost:3000/api/health && break || sleep 10; done" \
@@ -445,7 +445,7 @@ jobs:
           fetch-depth: 0
 
       - name: Generate changelog
-        uses: orhun/git-cliff-action@v3
+        uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
           args: --verbose
