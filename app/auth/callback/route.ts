@@ -14,14 +14,13 @@ export async function GET(request: Request) {
   // Redirect to home page by default, not dashboard
   // SECURITY: Validate redirect target to prevent open redirect attacks
   const rawNext = searchParams.get('next') || searchParams.get('redirectTo') || '/'
-  // Only allow relative paths starting with / and not containing //
   const next = (rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.includes('://'))
     ? rawNext
     : '/'
   const error = searchParams.get('error')
   const error_description = searchParams.get('error_description')
 
-  // Get the correct origin from the request URL
+  // Get the correct origin from the request URL (needed before any redirect)
   // For local development, always use the request URL origin to avoid redirecting to sandbox
   const requestOrigin = new URL(request.url).origin
 
@@ -48,6 +47,12 @@ export async function GET(request: Request) {
     console.error('Auth callback error:', error, error_description)
     return NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent(error_description || error)}`
+    )
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent('Sign-in is not configured. Missing Supabase env.')}&redirectTo=${encodeURIComponent(next)}`
     )
   }
 
