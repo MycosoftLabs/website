@@ -1003,8 +1003,52 @@ async function callN8nSpeech(message: string, sessionId: string): Promise<string
 }
 
 /**
+ * Call MAS Brain API (canonical realtime MYCA voice path).
+ * Same contract as PersonaPlex Bridge: POST /voice/brain/chat.
+ * See docs/CANONICAL_MYCA_VOICE_PATH_MAR14_2026.md.
+ */
+async function callMasBrain(
+  message: string,
+  sessionId: string,
+  runtimeIdentity: RuntimeIdentityContext
+): Promise<{ response: string; provider: string } | null> {
+  const url = `${MAS_API_URL}/voice/brain/chat`
+  const body = {
+    message,
+    session_id: sessionId,
+    conversation_id: sessionId,
+    user_id: runtimeIdentity.isCreator ? "morgan" : runtimeIdentity.userId,
+    history: undefined as { role: string; content: string }[] | undefined,
+    provider: "auto",
+    include_memory_context: true,
+  }
+  const timeoutMs = 15000
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      console.warn(`[MYCA] Brain API ${res.status}: ${text.slice(0, 200)}`)
+      return null
+    }
+    const data = (await res.json()) as { response?: string; provider?: string }
+    const text = data.response ?? null
+    if (typeof text !== "string" || !text.trim()) return null
+    return { response: text, provider: data.provider ?? "brain" }
+  } catch (e) {
+    console.warn("[MYCA] Brain API failed:", e instanceof Error ? e.message : String(e))
+    return null
+  }
+}
+
+/**
  * Call MYCA Consciousness API (MAS backend).
  * Uses longer timeout and one retry so the connection actually succeeds when MAS is up.
+ * Used as fallback when canonical Brain API is unavailable.
  */
 async function callMycaConsciousness(
   message: string,
@@ -1121,11 +1165,12 @@ async function raceProviders<T>(
 }
 
 /**
- * MYCA's Intelligence — Consciousness first, then AI provider fallback.
+ * MYCA's Intelligence — canonical Brain first, then Consciousness fallback, then AI providers.
  *
- * PHASE 1–2: MYCA Consciousness (Ollama on MAS + BRAIN intention memory)
- * PHASE 3: Fallback to other AI providers (Ollama direct, Claude, OpenAI, Groq, etc.)
- * PHASE 4: Only if all fail, return diagnostic message
+ * PHASE 1–2: MAS Brain API (canonical voice path: /voice/brain/chat), then one retry
+ * PHASE 3–4: MYCA Consciousness (/api/myca/chat) when Brain is down, then one retry
+ * PHASE 5: Fallback to other AI providers (Ollama, Claude, OpenAI, Groq, etc.)
+ * PHASE 6: Only if all fail, return diagnostic message
  */
 async function getMycaResponse(
   message: string,
@@ -1138,9 +1183,20 @@ async function getMycaResponse(
     ? `${message}\n\n[Learning Directive]\n${learningDirective}`
     : message
 
-  // PHASE 1: Call MYCA Consciousness (Ollama + MAS brain)
-  const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
+  // PHASE 1: Canonical path — MAS Brain API (same contract as PersonaPlex Bridge)
+  const brainResult = await callMasBrain(enrichedMessage, sessionId, runtimeIdentity)
+  if (brainResult?.response && !isBrokenFallback(brainResult.response)) {
+    return { response: brainResult.response, provider: brainResult.provider }
+  }
 
+  // PHASE 2: Retry Brain once (transient failure)
+  const brainRetry = await callMasBrain(enrichedMessage, sessionId, runtimeIdentity)
+  if (brainRetry?.response && !isBrokenFallback(brainRetry.response)) {
+    return { response: brainRetry.response, provider: brainRetry.provider }
+  }
+
+  // PHASE 3: Fallback — MYCA Consciousness when Brain is unavailable
+  const consciousnessResult = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
   if (consciousnessResult?.response && !isBrokenFallback(consciousnessResult.response)) {
     return {
       response: consciousnessResult.response,
@@ -1149,13 +1205,13 @@ async function getMycaResponse(
     }
   }
 
-  // PHASE 2: Retry once (transient failure)
+  // PHASE 4: Retry Consciousness once
   const retry = await callMycaConsciousness(enrichedMessage, sessionId, runtimeIdentity)
   if (retry?.response && !isBrokenFallback(retry.response)) {
     return { response: retry.response, provider: "myca", emotions: retry.emotions }
   }
 
-  // PHASE 3: Fallback to other AI providers when consciousness fails
+  // PHASE 5: Fallback to other AI providers when Brain and Consciousness fail
   console.warn("[MYCA] Consciousness failed — trying fallback AI providers (Ollama, Claude, OpenAI, Groq, etc.)")
   const fallbackCalls = [
     { fn: () => callOllama(enrichedMessage), label: "ollama" },
@@ -1174,7 +1230,7 @@ async function getMycaResponse(
     }
   }
 
-  // PHASE 4: All providers failed — return diagnostic message
+  // PHASE 6: All providers failed — return diagnostic message
   console.error("[MYCA] All providers failed — consciousness and fallbacks.")
   console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
   fetch(`${MAS_API_URL}/health`, { signal: AbortSignal.timeout(3000) })

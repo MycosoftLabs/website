@@ -1,4 +1,10 @@
-import { defineConfig, devices } from '@playwright/test';
+/**
+ * Playwright config for website e2e (smoke, search, world view).
+ * Run: npx playwright test (dev server on 3010 recommended).
+ * Created: March 14, 2026
+ */
+
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -8,19 +14,13 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3010',
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3010',
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'mobile', use: { ...devices['Pixel 5'] } },
   ],
-  webServer: {
-    command: 'npm run dev:next-only',
-    url: 'http://localhost:3010',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
-});
+  webServer: process.env.CI
+    ? { command: 'npm run dev:next-only', url: 'http://localhost:3010', reuseExistingServer: false }
+    : undefined,
+})

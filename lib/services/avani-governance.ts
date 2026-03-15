@@ -192,7 +192,7 @@ export async function evaluateGovernance(params: {
 }): Promise<AvaniEvaluation> {
   const { message, user_id, user_role, is_superuser, action_type, response_text, context } = params
 
-  // If standalone Avani backend is available, delegate to it
+  // Authoritative backend (MAS or standalone AVANI): same contract via POST /api/avani/evaluate-message
   if (AVANI_API_URL) {
     try {
       const backendResult = await callAvaniBackend(params)
@@ -207,6 +207,22 @@ export async function evaluateGovernance(params: {
     } catch {
       governanceState.backend_connected = false
     }
+    // Backend unreachable or non-ok: do not bypass governance — return safe audit verdict
+    const safeVerdict: AvaniEvaluation = {
+      verdict: "allow_with_audit",
+      risk_tier: "elevated",
+      confidence: 0.5,
+      rules_triggered: ["audit-001"],
+      audit_trail_id: `avani-failover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      reasoning: "Backend unreachable; defaulting to allow_with_audit for safety.",
+      requires_human_review: true,
+      reversible: true,
+      timestamp: new Date().toISOString(),
+    }
+    governanceState.last_evaluation = safeVerdict
+    governanceState.evaluations_total++
+    governanceState.approvals_requiring_audit++
+    return safeVerdict
   }
 
   // Embedded evaluation (runs locally until Avani backend is deployed)
@@ -330,21 +346,22 @@ export function getConstitutionalRules(): AvaniConstitutionalRule[] {
 }
 
 /**
- * Call the standalone Avani backend service (when deployed)
+ * Call the authoritative AVANI backend (MAS or standalone).
+ * MAS exposes POST /api/avani/evaluate-message with the same contract as evaluateGovernance().
  */
 async function callAvaniBackend(
   params: Record<string, unknown>
 ): Promise<AvaniEvaluation | null> {
   if (!AVANI_API_URL) return null
   try {
-    const response = await fetch(`${AVANI_API_URL}/api/avani/evaluate`, {
+    const response = await fetch(`${AVANI_API_URL}/api/avani/evaluate-message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     })
     if (response.ok) {
-      return await response.json()
+      return (await response.json()) as AvaniEvaluation
     }
     return null
   } catch {

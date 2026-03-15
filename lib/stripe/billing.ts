@@ -11,6 +11,7 @@ import {
   HARDWARE_PRODUCTS, 
   API_USAGE_PRICING,
   PREMIUM_FEATURES,
+  AGENT_WORLDSTATE_PACKS,
   type SubscriptionPlanId 
 } from './config';
 import type Stripe from 'stripe';
@@ -236,6 +237,63 @@ export async function createPersonaPlexCheckout({
       supabase_user_id: userId,
       type: 'addon',
       addon_id: 'personaplex_voice',
+    },
+    allow_promotion_codes: true,
+  });
+
+  return { sessionId: session.id, url: session.url! };
+}
+
+// ============================================
+// AGENT WORLDSTATE CHECKOUT (one-time prepaid minutes)
+// ============================================
+
+interface CreateAgentWorldstateCheckoutParams {
+  userId: string;
+  email: string;
+  minutes?: 60;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+/**
+ * Create Stripe Checkout for agent live worldstate access (prepaid minutes at $1/min).
+ * MYCA Worldstate Monetization — agents pay for MYCA/AVANI connection time.
+ */
+export async function createAgentWorldstateCheckout({
+  userId,
+  email,
+  minutes = 60,
+  successUrl,
+  cancelUrl,
+}: CreateAgentWorldstateCheckoutParams): Promise<{ sessionId: string; url: string }> {
+  const stripe = getStripe();
+  const pack = AGENT_WORLDSTATE_PACKS[60];
+  const priceId = pack.stripePriceId;
+  if (!priceId) {
+    throw new Error(
+      'Agent worldstate price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
+    );
+  }
+
+  const customerId = await getOrCreateCustomer(userId, email);
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: 'payment',
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: cancelUrl,
+    metadata: {
+      supabase_user_id: userId,
+      type: 'agent_worldstate',
+      minutes: String(pack.minutes),
     },
     allow_promotion_codes: true,
   });

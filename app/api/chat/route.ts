@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { chatLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { evaluateGovernance } from "@/lib/services/avani-governance"
 
 // Force dynamic to skip static generation
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Message is required' },
         { status: 400 }
+      )
+    }
+
+    // AVANI governance: all chat ingress must pass; no path bypasses
+    const avani = await evaluateGovernance({
+      message,
+      user_id: ip || 'anonymous',
+      user_role: 'user',
+      is_superuser: false,
+      action_type: 'chat',
+    })
+    if (avani.verdict === 'deny') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Governance denied',
+          reason: avani.reasoning,
+          audit_trail_id: avani.audit_trail_id,
+        },
+        { status: 403 }
       )
     }
 

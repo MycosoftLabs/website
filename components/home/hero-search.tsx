@@ -157,7 +157,7 @@ export function HeroSearch() {
           {/* Animated Gradient Border */}
           <div className="absolute inset-0 rounded-3xl p-[2px] bg-gradient-to-r from-primary/40 via-purple-500/40 to-cyan-500/40 animate-gradient-x" />
           
-          {/* Background Video — NAS asset homepage/Mycosoft Background.mp4 (mounted at /app/public/assets) */}
+          {/* Background Video — NAS asset first; fallback when missing (e.g. local dev or NAS down) */}
           <div className="absolute inset-[2px] rounded-[22px] overflow-hidden">
             <video
               ref={videoRef}
@@ -170,6 +170,7 @@ export function HeroSearch() {
               style={{ filter: "brightness(0.4) saturate(1.2)" }}
             >
               <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
+              <source src="https://mycosoft.org/videos/mycelium-bg.mp4" type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background/90" />
           </div>
@@ -353,39 +354,40 @@ export function HeroSearch() {
                 )}
               </AnimatePresence>
             </motion.form>
+          </div>
+        </motion.div>
 
-            {/* Quick Actions — single line, no wrap; type="button" is REQUIRED so these don't submit the form */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex flex-nowrap items-center justify-center gap-2 mt-4 sm:mt-6 sm:gap-3 sm:mt-8 overflow-x-auto overflow-y-hidden scrollbar-hide"
+        {/* Try: suggestions — outside card so never clipped; single line, scales, horizontal scroll if needed */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="w-full flex flex-nowrap items-center gap-2 sm:gap-3 mt-3 sm:mt-4 min-h-[44px] overflow-x-auto overflow-y-visible scrollbar-hide py-1 px-1"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <span className="text-xs text-muted-foreground flex-shrink-0 whitespace-nowrap">Try:</span>
+          {trySuggestions.map(({ term, phoneVisible }) => (
+            <button
+              key={term}
+              type="button"
+              onClick={() => {
+                setQuery(term)
+                router.push(`/search?q=${encodeURIComponent(term)}`)
+              }}
+              className={cn(
+                "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
+                "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground",
+                "border border-border dark:border-white/10 dark:hover:border-white/25",
+                "transition-all duration-200 cursor-pointer select-none min-h-[36px]",
+                !phoneVisible && "hidden sm:inline-flex"
+              )}
             >
-              <span className="text-xs text-muted-foreground hidden sm:inline flex-shrink-0 whitespace-nowrap">Try:</span>
-              {trySuggestions.map(({ term, phoneVisible }) => (
-                <button
-                  key={term}
-                  type="button"
-                  onClick={() => {
-                    setQuery(term)
-                    router.push(`/search?q=${encodeURIComponent(term)}`)
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
-                    "bg-background/50 hover:bg-background/70 dark:bg-white/10 dark:hover:bg-white/20 dark:active:bg-white/30 text-foreground",
-                    "border border-border dark:border-white/10 dark:hover:border-white/25",
-                    "transition-all duration-200 cursor-pointer select-none",
-                    !phoneVisible && "hidden sm:inline-flex"
-                  )}
-                >
-                  {term}
-                </button>
-              ))}
-              <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0 whitespace-nowrap">
-                <Command className="h-3 w-3" />
-                <span>K for commands</span>
-              </div>
-            </motion.div>
+              {term}
+            </button>
+          ))}
+          <div className="hidden md:flex items-center gap-1 text-xs text-muted-foreground ml-2 flex-shrink-0 whitespace-nowrap">
+            <Command className="h-3 w-3" />
+            <span>K for commands</span>
           </div>
         </motion.div>
 

@@ -1,15 +1,17 @@
 /**
  * Search Chat API - Feb 2026
- * 
- * Streaming endpoint for MYCA-powered search conversations.
- * Handles entity detection, MINDEX enrichment, and data card generation.
+ *
+ * Proxies to MAS voice orchestrator; search-style enrichment via MAS /api/search/execute when enabled (Mar 14, 2026).
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
+import { evaluateGovernance } from "@/lib/services/avani-governance"
+import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 
 interface ChatRequest {
   message: string
@@ -40,6 +42,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // AVANI governance: all MYCA ingress routes must pass
+    const avani = await evaluateGovernance({
+      message: body.message,
+      user_id: body.user_id || ip || "anonymous",
+      user_role: "user",
+      is_superuser: false,
+      action_type: "chat",
+      context: body.context,
+    })
+    if (avani.verdict === "deny") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Governance denied",
+          reason: avani.reasoning,
+          audit_trail_id: avani.audit_trail_id,
+        },
+        { status: 403 }
+      )
+    }
+
     // First, detect entities in the message for data enrichment
     const detectedEntities = await detectEntities(body.message)
 
@@ -63,11 +86,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Also run a quick search if the message looks like a search query
+    // Search-style enrichment: MAS-first (Mar 14, 2026), else MINDEX
     if (looksLikeSearchQuery(body.message)) {
-      enrichmentPromises.push(
-        ...await searchMINDEX(body.message)
-      )
+      if (USE_MAS_SEARCH) {
+        enrichmentPromises.push(...await searchViaMAS(body.message))
+      } else {
+        enrichmentPromises.push(...await searchMINDEX(body.message))
+      }
     }
 
     // Collect enrichment cards
@@ -365,6 +390,51 @@ async function fetchLocationCard(value: string): Promise<DataCard | null> {
   // For "user_location", we'd need to get actual location from the client
   // For now, return null - the client will handle geolocation
   return null
+}
+
+/** Enrichment via MAS search orchestrator (Mar 14, 2026). Returns DataCard promises. */
+async function searchViaMAS(query: string): Promise<Promise<DataCard | null>[]> {
+  const promises: Promise<DataCard | null>[] = []
+  try {
+    const mas = await callMASSearchExecute({ query, limit: 10 }, AbortSignal.timeout(8000))
+    if (!mas) return promises
+    const { results } = mapMASResponseToUnified(mas)
+    for (const s of (results.species || []).slice(0, 2)) {
+      promises.push(Promise.resolve({
+        type: "species",
+        data: {
+          id: s.id ?? s.uuid,
+          name: s.scientific_name ?? s.scientificName ?? s.name,
+          commonName: s.common_name ?? s.commonName,
+          imageUrl: s.image_url ?? s.imageUrl,
+        },
+      }))
+    }
+    for (const c of (results.compounds || []).slice(0, 2)) {
+      promises.push(Promise.resolve({
+        type: "chemistry",
+        data: {
+          id: c.id ?? c.uuid,
+          name: c.name ?? c.compound_name,
+          molecularFormula: c.formula ?? c.molecular_formula,
+        },
+      }))
+    }
+    for (const r of (results.research || []).slice(0, 1)) {
+      promises.push(Promise.resolve({
+        type: "research",
+        data: {
+          id: r.id ?? r.doi,
+          title: r.title,
+          authors: r.authors,
+          doi: r.doi,
+        },
+      }))
+    }
+  } catch {
+    // Silently fail
+  }
+  return promises
 }
 
 async function searchMINDEX(query: string): Promise<Promise<DataCard | null>[]> {

@@ -1,20 +1,16 @@
 /**
  * Unified Search V2 API
- * 
- * The ultimate search endpoint that combines:
- * 1. Intent parsing (natural language understanding)
- * 2. Parallel MINDEX queries (taxa, compounds, genetics, research)
- * 3. AI answers with multi-provider fallback
- * 4. Live results from external sources (iNaturalist, etc.)
- * 5. Auto-grafting of discovered data
- * 6. User context personalization
- * 
+ *
+ * MAS-FIRST (Mar 14, 2026): Proxy to MAS /api/search/execute when available.
+ * Fallback: intent parsing, MINDEX, AI multi-provider, live results, grafting.
+ *
  * Never returns "No results" - always provides useful information
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
+import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 // Shared Redis cache for CREP and Search (Feb 12, 2026)
 import { cacheSearchUnified, cacheSearchTaxa, cacheSearchObservations } from "@/lib/crep/redis-cache"
 
@@ -27,6 +23,7 @@ export const maxDuration = 30
 
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const EXA_API_KEY = process.env.EXA_API_KEY
 
@@ -947,6 +944,66 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Query too short" }, { status: 400 })
   }
 
+  // MAS-first: proxy to canonical search orchestrator (Mar 14, 2026)
+  if (USE_MAS_SEARCH) {
+    const masPayload = await callMASSearchExecute(
+      { query, limit: 20 },
+      AbortSignal.timeout(10000)
+    )
+    if (masPayload) {
+      const intent = parseIntent(query)
+      const { results, totalCount } = mapMASResponseToUnified(masPayload)
+      const taxa = (results.species || []).map((s) => ({
+        id: s.id ?? s.uuid,
+        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
+        common_name: s.common_name ?? s.commonName,
+        rank: s.rank ?? "species",
+        description: s.description,
+        image_url: s.image_url ?? s.imageUrl,
+        toxicity: s.toxicity,
+        edibility: s.edibility,
+      }))
+      const compounds = (results.compounds || []).map((c) => ({
+        id: c.id ?? c.uuid,
+        name: c.name ?? c.compound_name,
+        formula: c.formula ?? c.molecular_formula,
+        molecular_weight: c.molecular_weight,
+        fungal_sources: c.fungal_sources ?? c.source_species,
+      }))
+      const research = (results.research || []).map((r) => ({
+        id: r.id ?? r.doi ?? r.uuid,
+        title: r.title,
+        authors: r.authors,
+        journal: r.journal,
+        year: r.year,
+        doi: r.doi,
+        abstract: r.abstract,
+      }))
+      await recordUsageFromRequest({
+        request,
+        usageType: "SPECIES_IDENTIFICATION",
+        quantity: 1,
+        metadata: { query, source: "mas" },
+      })
+      return NextResponse.json({
+        query,
+        intent,
+        ai_answer: {
+          answer: masPayload.focus ?? (masPayload.memories?.[0] as { content?: string })?.content ?? "",
+          provider: "MAS Orchestrator",
+          confidence: 0.9,
+          sources: ["MAS"],
+        },
+        mindex_results: { taxa, compounds, research },
+        live_results: { observations: [], exa_results: undefined, media: undefined, news: undefined },
+        crep_results: undefined,
+        personalization: { interests_applied: [], context_used: false },
+        grafting: { items_queued: 0, message: "MAS search; no grafting" },
+        meta: { duration_ms: Date.now() - startTime, providers_used: ["MAS"] },
+      } satisfies UnifiedSearchResponse)
+    }
+  }
+
   // Parse intent
   const intent = parseIntent(query)
   const providersUsed: string[] = []
@@ -1050,6 +1107,65 @@ export async function POST(request: NextRequest) {
   }
 
   const startTime = Date.now()
+
+  // MAS-first (Mar 14, 2026)
+  if (USE_MAS_SEARCH) {
+    const masPayload = await callMASSearchExecute(
+      { query, limit: 20, user_id: undefined, session_id: undefined, search_context: { interests, location } },
+      AbortSignal.timeout(10000)
+    )
+    if (masPayload) {
+      const intent = parseIntent(query)
+      if (location?.lat && location?.lng) {
+        intent.filters.location = { lat: location.lat, lng: location.lng, radius: 100 }
+      }
+      const { results } = mapMASResponseToUnified(masPayload)
+      const taxa = (results.species || []).map((s) => ({
+        id: s.id ?? s.uuid,
+        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
+        common_name: s.common_name ?? s.commonName,
+        rank: s.rank ?? "species",
+        description: s.description,
+        image_url: s.image_url ?? s.imageUrl,
+        toxicity: s.toxicity,
+        edibility: s.edibility,
+      }))
+      const compounds = (results.compounds || []).map((c) => ({
+        id: c.id ?? c.uuid,
+        name: c.name ?? c.compound_name,
+        formula: c.formula ?? c.molecular_formula,
+        molecular_weight: c.molecular_weight,
+        fungal_sources: c.fungal_sources ?? c.source_species,
+      }))
+      const research = (results.research || []).map((r) => ({
+        id: r.id ?? r.doi ?? r.uuid,
+        title: r.title,
+        authors: r.authors,
+        journal: r.journal,
+        year: r.year,
+        doi: r.doi,
+        abstract: r.abstract,
+      }))
+      await recordUsageFromRequest({ request, usageType: "SPECIES_IDENTIFICATION", quantity: 1, metadata: { query, source: "mas" } })
+      return NextResponse.json({
+        query,
+        intent,
+        ai_answer: {
+          answer: masPayload.focus ?? (masPayload.memories?.[0] as { content?: string })?.content ?? "",
+          provider: "MAS Orchestrator",
+          confidence: 0.9,
+          sources: ["MAS"],
+        },
+        mindex_results: { taxa, compounds, research },
+        live_results: { observations: [], exa_results: undefined, media: undefined, news: undefined },
+        crep_results: undefined,
+        personalization: { interests_applied: interests || [], context_used: !!(context || interests?.length) },
+        grafting: { items_queued: 0, message: "MAS search" },
+        meta: { duration_ms: Date.now() - startTime, providers_used: ["MAS"] },
+      } satisfies UnifiedSearchResponse)
+    }
+  }
+
   const intent = parseIntent(query)
 
   // Override location if provided

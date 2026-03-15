@@ -10,6 +10,7 @@ import {
   createSubscriptionCheckout, 
   createProductCheckout,
   createPersonaPlexCheckout,
+  createAgentWorldstateCheckout,
   SUBSCRIPTION_PLANS,
   type SubscriptionPlanId 
 } from '@/lib/stripe';
@@ -104,9 +105,21 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ sessionId, url });
       
+    } else if (type === 'agent_worldstate') {
+      // Agent live worldstate access — prepaid minutes at $1/min (MYCA/AVANI)
+      const minutes = body.minutes === 60 ? 60 : 60; // only 60-min pack supported for launch
+      const { sessionId, url } = await createAgentWorldstateCheckout({
+        userId: user.id,
+        email: user.email!,
+        minutes,
+        successUrl: `${origin}/agent?success=1`,
+        cancelUrl: `${origin}/agent`,
+      });
+      return NextResponse.json({ sessionId, url });
+      
     } else {
       return NextResponse.json(
-        { error: 'Invalid checkout type. Must be "subscription", "product", or "addon"' },
+        { error: 'Invalid checkout type. Must be "subscription", "product", "addon", or "agent_worldstate"' },
         { status: 400 }
       );
     }

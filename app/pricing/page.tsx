@@ -16,7 +16,8 @@ import {
   Globe2,
   Cpu,
   Loader2,
-  Mic
+  Mic,
+  Key
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -413,6 +414,74 @@ export default function PricingPage() {
                 ) : (
                   <>
                     Add PersonaPlex Voice
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
+        <div id="agent" className="max-w-2xl mx-auto mt-12 scroll-mt-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="rounded-3xl border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-background p-8"
+          >
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <Key className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Agent Access — MYCA & AVANI Live Worldstate</h3>
+                <p className="text-sm text-muted-foreground">
+                  External agents pay $1/minute for live worldstate connection. Metered session, API keys, 402 when balance exhausted.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-2xl font-bold">$1</span>
+                <span className="text-muted-foreground">/minute</span>
+                <span className="text-muted-foreground ml-2">(e.g. 60 min — $60)</span>
+              </div>
+              <button
+                onClick={async () => {
+                  setCheckingOut('agent_worldstate')
+                  try {
+                    const res = await fetch('/api/stripe/checkout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ type: 'agent_worldstate', minutes: 60 }),
+                    })
+                    if (res.ok) {
+                      const { url } = await res.json()
+                      if (url) window.location.href = url
+                      else alert('Checkout URL missing. Configure Stripe price for agent worldstate.')
+                    } else {
+                      const err = await res.json().catch(() => ({}))
+                      alert(err.error || 'Checkout failed')
+                    }
+                  } catch (e) {
+                    console.error(e)
+                    alert('Checkout failed. Please try again.')
+                  } finally {
+                    setCheckingOut(null)
+                  }
+                }}
+                disabled={checkingOut === 'agent_worldstate'}
+                className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 min-h-[44px]"
+              >
+                {checkingOut === 'agent_worldstate' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Buy 60 minutes — $60
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

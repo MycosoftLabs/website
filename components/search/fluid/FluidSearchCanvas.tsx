@@ -69,9 +69,10 @@ const NewsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default:
 const MapWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MapWidget })), { ssr: false })
 const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
 const Earth2Widget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.Earth2Widget })), { ssr: false })
+const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.FallbackWidget })), { ssr: false })
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
-  | "crep" | "earth2" | "map"
+  | "crep" | "earth2" | "map" | "fallback"
 
 interface WidgetConfig {
   type: WidgetType
@@ -80,6 +81,9 @@ interface WidgetConfig {
   gradient: string
   hasData: boolean
   depth: number
+  /** For type "fallback": result bucket key and items (Mar 14, 2026). */
+  fallbackBucketKey?: string
+  fallbackItems?: Array<Record<string, unknown>>
 }
 
 /** Typed observation for map display (combined from location + CREP data) */
@@ -195,19 +199,20 @@ interface FluidSearchCanvasProps {
   className?: string
 }
 
-// Default widget sizes - Species and Answers are primary
+// Default widget sizes - Species and Answers are primary (aligned with lib/search/widget-registry.ts)
 const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }> = {
-  species: { width: 2, height: 2 },  // Species is main/double-sized
+  species: { width: 2, height: 2 },
   chemistry: { width: 1, height: 1 },
   genetics: { width: 1, height: 1 },
   research: { width: 1, height: 2 },
-  answers: { width: 2, height: 2 },  // Answers is primary like Species
+  answers: { width: 2, height: 2 },
   media: { width: 1, height: 1 },
   location: { width: 1, height: 1 },
   news: { width: 1, height: 1 },
   crep: { width: 1, height: 1 },
   earth2: { width: 1, height: 1 },
   map: { width: 2, height: 2 },
+  fallback: { width: 1, height: 1 },
 }
 
 export function FluidSearchCanvas({
@@ -1531,6 +1536,15 @@ function WidgetContent({
     case "map":
       if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
       return <MapWidget observations={mapObservations} isFocused={isFocused} />
+    case "fallback":
+      return (
+        <FallbackWidget
+          bucketKey={config.fallbackBucketKey ?? "unknown"}
+          items={config.fallbackItems ?? []}
+          title={config.label}
+          widgetType="fallback"
+        />
+      )
     default:
       return <EmptyWidgetState type={type} label={type} />
   }

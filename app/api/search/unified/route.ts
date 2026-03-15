@@ -1,10 +1,8 @@
 /**
  * Unified Search API Route - Feb 2026
  *
- * MINDEX-FIRST architecture:
- * 1. PRIMARY: Query MINDEX API (192.168.0.189:8000) for species, compounds, sequences, research
- * 2. SECONDARY: iNaturalist for live observation data and species not in MINDEX
- * 3. MERGE: MINDEX results first, iNaturalist additive, deduplicate by scientific name
+ * MAS-FIRST (Mar 14, 2026): Proxy to MAS /api/search/execute when available.
+ * Fallback: MINDEX + iNaturalist + CrossRef etc. (direct).
  *
  * NO MOCK DATA - all results from real sources.
  */
@@ -13,10 +11,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
 import { detectFungalSearchIntent } from "@/lib/search/world-view-suggestions"
+import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 
 export const dynamic = "force-dynamic"
 
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY
 
 // ---------------------------------------------------------------------------
@@ -1133,6 +1133,42 @@ export async function GET(request: NextRequest) {
       timing: { total: 0, mindex: 0 },
       source: "live",
     })
+  }
+
+  // MAS-first: proxy to canonical search orchestrator (Mar 14, 2026)
+  if (USE_MAS_SEARCH) {
+    const masStart = performance.now()
+    const masPayload = await callMASSearchExecute(
+      { query, limit },
+      AbortSignal.timeout(10000)
+    )
+    if (masPayload) {
+      const { results, source, totalCount } = mapMASResponseToUnified(masPayload)
+      const masTime = Math.round(performance.now() - masStart)
+      await recordUsageFromRequest({
+        request,
+        usageType: "SPECIES_IDENTIFICATION",
+        quantity: 1,
+        metadata: { query, source: "mas" },
+      })
+      return NextResponse.json({
+        query,
+        results: {
+          species: results.species as SpeciesResult[],
+          compounds: results.compounds as CompoundResult[],
+          genetics: results.genetics as GeneticsResult[],
+          research: results.research as ResearchResult[],
+        },
+        totalCount,
+        timing: { total: masTime, mindex: masTime },
+        source,
+        live_results: [],
+      }, {
+        headers: {
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        },
+      })
+    }
   }
 
   const fungiIntent = detectFungalSearchIntent(query)

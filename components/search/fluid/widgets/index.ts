@@ -1,7 +1,7 @@
 /**
  * Widget Components Index - Feb 2026
- * 
- * Export all fluid search widgets
+ *
+ * Export all fluid search widgets. Registry: lib/search/widget-registry.ts (Mar 14, 2026).
  */
 
 export { SpeciesWidget } from "./SpeciesWidget"
@@ -19,3 +19,4 @@ export { MycaSuggestionsWidget } from "./MycaSuggestionsWidget"
 export { MapWidget } from "./MapWidget"
 export { CrepWidget } from "./CrepWidget"
 export { Earth2Widget } from "./Earth2Widget"
+export { FallbackWidget } from "./FallbackWidget"

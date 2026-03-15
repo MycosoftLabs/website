@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users } from "lucide-react"
+import { Search, Cloud, AppWindowIcon as Apps, User2, Cpu, Lock, Loader2, ChevronDown, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Bot, Users, Key } from "lucide-react"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Button } from "@/components/ui/button"
 // Dialog removed - MYCA bot icon removed from header
@@ -418,6 +418,16 @@ export function Header() {
           >
             <Users className="h-4 w-4 text-muted-foreground group-hover:text-green-400 transition-colors duration-300" />
             <span>About Us</span>
+          </Link>
+
+          {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
+          <Link
+            href="/agent"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
+            onMouseEnter={() => setOpenDropdown(null)}
+          >
+            <Key className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
+            <span>Agent Access</span>
           </Link>
 
           {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}

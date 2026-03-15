@@ -5,7 +5,7 @@ import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Users } from "lucide-react"
+import { Search, Cloud, Bot, AppWindowIcon as Apps, X, Menu, User2, Shield, Cpu, ChevronDown, Lock, Target, FileText, Map, Network, Database, Globe, Microscope, FlaskConical, Compass, TreeDeciduous, BarChart3, Bug, AlertTriangle, Radio, Box, Antenna, Wind, Users, Key } from "lucide-react"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -241,6 +241,12 @@ export function MobileNav() {
                 <Link href="/about" className="flex items-center gap-2 text-lg font-medium py-1" onClick={closeMenu}>
                   <Users className="h-5 w-5" />
                   About Us
+                </Link>
+
+                {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
+                <Link href="/agent" className="flex items-center gap-2 text-lg font-medium py-1 min-h-[44px] items-center" onClick={closeMenu}>
+                  <Key className="h-5 w-5" />
+                  Agent Access
                 </Link>
 
                 {/* AI - Expandable (Overview, MYCA, AVANI, NLM) */}
