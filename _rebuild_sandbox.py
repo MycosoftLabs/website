@@ -82,7 +82,7 @@ def main():
         print(f"Connecting to {VM_HOST}...")
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=30)
+        client.connect(VM_HOST, username=VM_USER, password=VM_PASS, timeout=60)
         transport = client.get_transport()
         if transport:
             transport.set_keepalive(30)
@@ -90,7 +90,7 @@ def main():
 
     ssh = _connect_ssh()
 
-    def _run(cmd: str, timeout: int = 60) -> tuple[int, str, str]:
+    def _run(cmd: str, timeout: int = 90) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
         nonlocal ssh
         try:
@@ -107,18 +107,52 @@ def main():
         err = stderr.read().decode(errors="replace").strip()
         return exit_code, out, err
 
-    def _tail_build(cmd: str, timeout: int = 600) -> tuple[int, str]:
-        """
-        Run a build-like command, keep output small, and preserve exit code.
-        We use bash + pipefail so errors propagate through the tail pipe.
-        """
-        wrapped = f"bash -lc \"set -o pipefail; {cmd} 2>&1 | tail -25\""
-        code, out, _ = _run(wrapped, timeout=timeout)
-        return code, out
+    def _start_background_build(cmd: str) -> str:
+        """Start build in background on VM; return PID. Avoids holding SSH channel for 40+ min."""
+        log = "/tmp/rebuild_build.log"
+        exit_file = "/tmp/rebuild_build.exit"
+        pid_file = "/tmp/rebuild_build.pid"
+        script_file = "/tmp/rebuild_build.sh"
+        # Clear previous run; script runs in subshell, writes log and exit code
+        script_content = f"({cmd}) > {log} 2>&1; echo $? > {exit_file}"
+        b64 = base64.b64encode(script_content.encode()).decode()
+        _run(f"rm -f {log} {exit_file} {pid_file} {script_file}", timeout=5)
+        # Write script via base64 (no quoting issues). Start build in subshell so SSH channel
+        # closes as soon as subshell exits; PID written to file so we don't depend on stdout.
+        run_cmd = (
+            f"echo {b64} | base64 -d > {script_file} && chmod +x {script_file} && "
+            f"( nohup bash {script_file} >>{log} 2>&1 & echo $! > {pid_file} )"
+        )
+        code, out, err = _run(run_cmd, timeout=45)
+        if code != 0:
+            raise RuntimeError(f"Failed to start background build: {err or out}")
+        code2, out2, _ = _run(f"cat {pid_file}", timeout=5)
+        if code2 != 0 or not (out2 or "").strip().isdigit():
+            raise RuntimeError(f"Could not read build PID from {pid_file}: {out2!r}")
+        return (out2 or "").strip()
+
+    def _poll_build_until_done(pid: str, poll_interval: int = 30, timeout_sec: int = 3600) -> tuple[int, str]:
+        """Poll until /tmp/rebuild_build.exit exists; return (exit_code, last_50_lines). Kill build on timeout."""
+        log = "/tmp/rebuild_build.log"
+        exit_file = "/tmp/rebuild_build.exit"
+        deadline = time.monotonic() + timeout_sec
+        while time.monotonic() < deadline:
+            code, out, _ = _run(f"test -f {exit_file} && cat {exit_file}", timeout=10)
+            if code == 0 and out.strip().isdigit():
+                build_code = int(out.strip())
+                _, tail_out, _ = _run(f"tail -50 {log}", timeout=10)
+                return build_code, (tail_out or "").strip()
+            # Progress: show last 5 lines
+            _, progress, _ = _run(f"tail -5 {log} 2>/dev/null || true", timeout=10)
+            if progress.strip():
+                print(f"   ... {progress.strip().split(chr(10))[-1]}")
+            time.sleep(poll_interval)
+        _run(f"kill {pid} 2>/dev/null || true", timeout=5)
+        raise RuntimeError(f"Build did not finish within {timeout_sec}s (PID {pid} killed)")
     
     # Pull latest code so build uses current main
     print("\n1. Syncing repo to origin/main...")
-    code, out, err = _run(f"cd {WEBSITE_DIR} && git fetch origin && git reset --hard origin/main", timeout=120)
+    code, out, err = _run(f"cd {WEBSITE_DIR} && git fetch origin && git reset --hard origin/main", timeout=180)
     if code != 0:
         raise RuntimeError(f"Failed to sync repo (exit {code}): {err or out}")
     if out:
@@ -153,11 +187,18 @@ else:
 """
     fix_b64 = base64.b64encode(fix_script).decode()
     fix_cmd = f"cd {WEBSITE_DIR} && echo {fix_b64} | base64 -d | python3"
-    code, out, err = _run(fix_cmd, timeout=10)
+    code, out, err = _run(fix_cmd, timeout=30)
     print(f"   {out or err or 'ok'}")
 
     print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
     image_tag = "mycosoft-always-on-mycosoft-website:latest"
+
+    # Kill any stale build processes so only one build runs (prevents resource contention from multiple deploys)
+    print("   Stopping any existing docker build processes on VM...")
+    _run("pkill -f 'docker build.*mycosoft-always-on-mycosoft-website' 2>/dev/null || true", timeout=15)
+    _run("pkill -f '/tmp/rebuild_build.sh' 2>/dev/null || true", timeout=10)
+    _run("rm -f /tmp/rebuild_build.log /tmp/rebuild_build.exit /tmp/rebuild_build.pid /tmp/rebuild_build.sh", timeout=5)
+    time.sleep(3)
 
     # Build strategy:
     # 1) Try classic builder first (DOCKER_BUILDKIT=0). If the base image is already cached, this
@@ -169,14 +210,16 @@ else:
     build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
 
     print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
-    code, out = _tail_build(build_cmd_legacy, timeout=900)
-    print(f"   Last 25 lines:\n{out}")
+    pid = _start_background_build(build_cmd_legacy)
+    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=3600)
+    print(f"   Last 50 lines:\n{out}")
 
     if code != 0:
         print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
         for attempt in (1, 2):
-            code, out = _tail_build(build_cmd_buildkit, timeout=900)
-            print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 25 lines:\n{out}")
+            pid = _start_background_build(build_cmd_buildkit)
+            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=3600)
+            print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
             if code == 0:
                 break
             time.sleep(5 * attempt)
@@ -194,10 +237,26 @@ else:
     _run("docker stop mycosoft-website >/dev/null 2>&1 || true", timeout=60)
     _run("docker rm mycosoft-website >/dev/null 2>&1 || true", timeout=60)
     print("   Old container removed.")
+
+    # Sync Stripe and other keys from .env.local to VM so container has them.
+    print("\n4b. Syncing env keys to VM (.env.local -> /opt/mycosoft/website/.env)...")
+    sync_script = Path(__file__).resolve().parent / "_sandbox_env_sync.py"
+    if sync_script.exists():
+        import subprocess
+        code_sync = subprocess.call(
+            [sys.executable, str(sync_script), "--no-restart"],
+            cwd=str(sync_script.parent),
+            timeout=60,
+        )
+        if code_sync != 0:
+            print("   Warning: env sync had non-zero exit; container may lack Stripe/other keys.")
+    else:
+        print("   _sandbox_env_sync.py not found; run it once to push keys to VM.")
     
-    # Start new container with NAS mount, MAS URL, MycoBrain gateway URL, and Supabase.
+    # Start new container with NAS mount, optional env file, MAS URL, MycoBrain gateway URL, and Supabase.
     # host.docker.internal lets container reach MycoBrain on host (port 8003).
     print(f"\n5. Starting new container with NAS mount ({site_label})...")
+    _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=15)  # ensure name free before run
     mycobrain_url = "http://host.docker.internal:8003"
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
     supabase_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
@@ -206,9 +265,13 @@ else:
         supabase_env += f' -e NEXT_PUBLIC_SUPABASE_URL="{supabase_url}"'
     if supabase_key:
         supabase_env += f' -e NEXT_PUBLIC_SUPABASE_ANON_KEY="{supabase_key}"'
+    env_file = f"{WEBSITE_DIR}/.env"
+    ec, _, _ = _run(f"test -f {env_file} && echo ok", timeout=5)
+    env_file_opt = f" --env-file {env_file}" if (ec == 0) else ""
     start_cmd = f"""docker run -d --name mycosoft-website -p 3000:3000 \
         --add-host=host.docker.internal:host-gateway \
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+        {env_file_opt} \
         -e NEXT_PUBLIC_BASE_URL={base_url} \
         -e NEXTAUTH_URL={base_url} \
         -e NEXT_PUBLIC_SITE_URL={base_url} \

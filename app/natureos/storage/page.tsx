@@ -118,24 +118,12 @@ export default function StoragePage() {
       if (res.ok) {
         const data = await res.json()
         setNasInfo(data)
+      } else {
+        setNasInfo({ connected: false })
       }
     } catch (error) {
       console.error("Failed to fetch NAS info:", error)
-      // Set default NAS info for UniFi Dream Machine network
-      setNasInfo({
-        connected: true,
-        hostname: "mycosoft-nas",
-        ip: "192.168.1.50",
-        model: "UniFi NAS / Ubiquiti",
-        shares: [
-          { name: "Shared", path: "//mycosoft-nas/shared", used: 2048, total: 8192 },
-          { name: "MINDEX Data", path: "//mycosoft-nas/mindex", used: 850, total: 2048 },
-          { name: "Backups", path: "//mycosoft-nas/backups", used: 1500, total: 4096 },
-          { name: "Media", path: "//mycosoft-nas/media", used: 3200, total: 8192 },
-          { name: "Research", path: "//mycosoft-nas/research", used: 512, total: 2048 },
-        ],
-        status: "online",
-      })
+      setNasInfo({ connected: false })
     }
   }, [])
 
@@ -146,19 +134,12 @@ export default function StoragePage() {
       if (res.ok) {
         const data = await res.json()
         setGoogleDrive(data)
+      } else {
+        setGoogleDrive({ connected: false })
       }
     } catch (error) {
       console.error("Failed to fetch Google Drive:", error)
-      // Set default Google Drive info
-      setGoogleDrive({
-        connected: true,
-        email: "team@mycosoft.org",
-        quota: {
-          used: 45.5,
-          total: 200,
-        },
-        lastSync: new Date().toISOString(),
-      })
+      setGoogleDrive({ connected: false })
     }
   }, [])
 
@@ -168,20 +149,12 @@ export default function StoragePage() {
       const res = await fetch(`/api/storage/files?path=${encodeURIComponent(currentPath)}&source=${activeStorage}`)
       if (res.ok) {
         const data = await res.json()
-        setFiles(data.files || [])
+        setFiles(data.files ?? [])
+      } else {
+        setFiles([])
       }
     } catch {
-      // Set mock files
-      setFiles([
-        { id: "1", name: "MINDEX Database", type: "folder", modified: "2024-12-20", path: "/mindex", shared: true },
-        { id: "2", name: "Research Papers", type: "folder", modified: "2024-12-19", path: "/research" },
-        { id: "3", name: "Species Images", type: "folder", modified: "2024-12-18", path: "/images", shared: true },
-        { id: "4", name: "Agent Logs", type: "folder", modified: "2024-12-20", path: "/logs" },
-        { id: "5", name: "NLM Training Data", type: "folder", modified: "2024-12-15", path: "/nlm-data" },
-        { id: "6", name: "Backup_2024-12-20.tar.gz", type: "file", size: 2560000000, modified: "2024-12-20", path: "/backups", mimeType: "application/gzip" },
-        { id: "7", name: "species_export.json", type: "file", size: 45000000, modified: "2024-12-19", path: "/exports", mimeType: "application/json" },
-        { id: "8", name: "quarterly_report.pdf", type: "file", size: 3500000, modified: "2024-12-18", path: "/docs", mimeType: "application/pdf" },
-      ])
+      setFiles([])
     }
   }, [currentPath, activeStorage])
 
@@ -264,11 +237,11 @@ export default function StoragePage() {
       id: "mindex-local",
       name: "MINDEX Local Cache",
       path: "/data/mindex",
-      used: 850,
-      total: 2048,
+      used: 0,
+      total: 0,
       type: "local",
       provider: "Local SSD",
-      status: "online",
+      status: "offline",
       icon: <Database className="h-6 w-6 text-purple-500" />,
       features: ["Fast Access", "SSD", "Auto-sync to NAS"],
     },

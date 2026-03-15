@@ -70,8 +70,23 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
     trend: 0,
   })
   
-  const [anomalyScore, setAnomalyScore] = useState(0)
+  const [anomalyScore, setAnomalyScore] = useState<number | null>(null)
   const [predictions, setPredictions] = useState<{ label: string; probability: number }[]>([])
+  const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("degraded")
+
+  // Fetch NLM status from MAS; no mock analysis
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_MAS_API_URL || ""
+    if (!base) {
+      setNlmStatus("degraded")
+      return
+    }
+    setNlmStatus("loading")
+    fetch(`${base}/api/nlm/health`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then(() => setNlmStatus("live"))
+      .catch(() => setNlmStatus("degraded"))
+  }, [])
 
   // Handle resize
   useEffect(() => {
@@ -129,14 +144,8 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
       ctx.fillStyle = "#050810"
       ctx.fillRect(0, 0, w, h)
       
-      // Draw neural network visualization
+      // Draw neural network visualization (decorative only; no fake analysis)
       drawNeuralNetwork(ctx, w, h, t)
-      
-      // Update analysis periodically
-      if (now - lastAnalysisUpdate > 800) {
-        lastAnalysisUpdate = now
-        updateAnalysis(t)
-      }
       
       animationRef.current = requestAnimationFrame(draw)
     }
@@ -228,43 +237,6 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
     })
   }
   
-  // Update analysis state
-  const updateAnalysis = (t: number) => {
-    // Simulate pattern classification
-    const primaryIdx = Math.floor((Math.sin(t * 0.1) + 1) / 2 * PATTERN_CLASSES.length)
-    const secondaryIdx = (primaryIdx + 1) % PATTERN_CLASSES.length
-    const confidence = 0.7 + Math.sin(t * 0.3) * 0.2
-    
-    setClassification({
-      primary: PATTERN_CLASSES[primaryIdx],
-      confidence,
-      secondary: PATTERN_CLASSES[secondaryIdx],
-      secondaryConfidence: 1 - confidence,
-    })
-    
-    // Simulate behavioral state
-    const activity = (Math.sin(t * 0.15) + 1) / 2
-    const stateIdx = Math.min(3, Math.floor(activity * 4))
-    const trend = Math.sin(t * 0.05) > 0 ? 1 : -1
-    
-    setBehavioralState({
-      current: BEHAVIORAL_STATES[stateIdx],
-      activity,
-      trend,
-    })
-    
-    // Anomaly detection
-    const anomaly = Math.max(0, Math.sin(t * 0.4) * 0.5 - 0.2)
-    setAnomalyScore(anomaly)
-    
-    // Predictions
-    setPredictions([
-      { label: "Spike in 5min", probability: 0.6 + Math.sin(t * 0.2) * 0.3 },
-      { label: "State change", probability: 0.4 + Math.sin(t * 0.25) * 0.2 },
-      { label: "Pattern repeat", probability: 0.5 + Math.sin(t * 0.15) * 0.25 },
-    ])
-  }
-  
   const handleReset = () => {
     timeRef.current = 0
     setIsAnalyzing(true)
@@ -312,54 +284,47 @@ export function NLMPanel({ deviceId = null, patterns = [], className }: NLMPanel
         <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block" />
       </div>
       
-      {/* Classification Result */}
-      <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: classification.primary.color }} />
-            <span className="text-[9px] font-semibold" style={{ color: classification.primary.color }}>
-              {classification.primary.name}
-            </span>
-          </div>
-          <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-emerald-500/30 text-emerald-400">
-            {(classification.confidence * 100).toFixed(0)}%
-          </Badge>
-        </div>
-        <div className="mt-0.5 h-1 bg-gray-800 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{ width: `${classification.confidence * 100}%`, backgroundColor: classification.primary.color }} />
-        </div>
-      </div>
-      
-      {/* Behavioral State */}
-      <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/40 border border-cyan-500/20">
-        <div className="flex items-center gap-1">
-          <Activity className="h-2.5 w-2.5 text-cyan-400" />
-          <span className="text-[8px] text-cyan-400">{behavioralState.current.name}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <TrendingUp className={cn("h-2.5 w-2.5", behavioralState.trend > 0 ? "text-emerald-400" : "text-red-400 rotate-180")} />
-          <span className="text-[8px] font-mono text-cyan-400">{(behavioralState.activity * 100).toFixed(0)}%</span>
-        </div>
-      </div>
-      
-      {/* Anomaly Alert */}
-      {anomalyScore > 0.1 && (
-        <div className="flex-none flex items-center gap-1 p-1 mt-1 rounded bg-amber-500/10 border border-amber-500/30">
-          <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
-          <span className="text-[8px] text-amber-400">Anomaly: {(anomalyScore * 100).toFixed(0)}%</span>
+      {/* Analysis: real API or explicit degraded state only (no mock data) */}
+      {nlmStatus === "loading" && (
+        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
+          Checking NLM…
         </div>
       )}
-      
-      {/* Predictions */}
-      <div className="flex-none mt-1 space-y-0.5">
-        <div className="text-[7px] text-gray-500 px-0.5">Predictions</div>
-        {predictions.slice(0, 2).map((pred, i) => (
-          <div key={i} className="flex items-center justify-between px-1 py-0.5 rounded bg-black/30">
-            <span className="text-[7px] text-gray-400">{pred.label}</span>
-            <span className="text-[7px] font-mono text-purple-400">{(pred.probability * 100).toFixed(0)}%</span>
+      {nlmStatus === "degraded" && (
+        <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-amber-500/20 text-[8px] text-amber-400/90">
+          NLM offline. Connect NLM API for live analysis.
+        </div>
+      )}
+      {nlmStatus === "live" && (
+        <>
+          <div className="flex-none p-1 mt-1 rounded bg-black/40 border border-purple-500/20 text-[8px] text-gray-400">
+            Classification: No analysis data
           </div>
-        ))}
-      </div>
+          <div className="flex-none flex items-center justify-between p-1 mt-1 rounded bg-black/40 border border-cyan-500/20 text-[8px] text-gray-400">
+            <Activity className="h-2.5 w-2.5 text-cyan-500/50" />
+            Behavioral state: No analysis data
+          </div>
+          {anomalyScore != null && anomalyScore > 0.1 && (
+            <div className="flex-none flex items-center gap-1 p-1 mt-1 rounded bg-amber-500/10 border border-amber-500/30">
+              <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+              <span className="text-[8px] text-amber-400">Anomaly: {(anomalyScore * 100).toFixed(0)}%</span>
+            </div>
+          )}
+          <div className="flex-none mt-1 space-y-0.5">
+            <div className="text-[7px] text-gray-500 px-0.5">Predictions</div>
+            {predictions.length > 0 ? (
+              predictions.slice(0, 2).map((pred, i) => (
+                <div key={i} className="flex items-center justify-between px-1 py-0.5 rounded bg-black/30">
+                  <span className="text-[7px] text-gray-400">{pred.label}</span>
+                  <span className="text-[7px] font-mono text-purple-400">{(pred.probability * 100).toFixed(0)}%</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-[7px] text-gray-500 px-1 py-0.5">No analysis data</div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

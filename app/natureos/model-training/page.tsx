@@ -14,15 +14,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
-const TRAINING_PHASES = [
-  { name: "Mycospeak Foundation", progress: 100, status: "complete", description: "Base fungal communication patterns" },
-  { name: "Chemical Signal Mapping", progress: 100, status: "complete", description: "VOC and enzyme signal translation" },
-  { name: "Mycelial Network Topology", progress: 87, status: "training", description: "Network structure and behavior patterns" },
-  { name: "Interspecies Communication", progress: 45, status: "training", description: "Cross-kingdom signal interpretation" },
-  { name: "Environmental Response", progress: 12, status: "queued", description: "Stress and adaptation signals" },
-  { name: "Symbiotic Relationships", progress: 0, status: "queued", description: "Mycorrhizal communication patterns" },
-]
-
 const NLM_PHASES = [
   { 
     phase: "Phase 0", 
@@ -83,23 +74,28 @@ const RESEARCH_PAPERS = [
 ]
 
 export default function ModelTrainingPage() {
-  const [isTraining, setIsTraining] = useState(true)
-  const [currentEpoch, setCurrentEpoch] = useState(4523)
-  const [accuracy, setAccuracy] = useState(94.7)
   const [activeTab, setActiveTab] = useState("overview")
+  const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("degraded")
+  const [trainingSummary, setTrainingSummary] = useState<{ epoch?: number; accuracy?: number; signalSamples?: number; overallProgress?: number } | null>(null)
 
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isTraining) {
-      interval = setInterval(() => {
-        setCurrentEpoch(e => e + 1)
-        setAccuracy(a => Math.min(99.9, a + Math.random() * 0.01))
-      }, 2000)
+    const base = process.env.NEXT_PUBLIC_MAS_API_URL || ""
+    if (!base) {
+      setNlmStatus("degraded")
+      return
     }
-    return () => clearInterval(interval)
-  }, [isTraining])
-
-  const overallProgress = TRAINING_PHASES.reduce((sum, p) => sum + p.progress, 0) / TRAINING_PHASES.length
+    setNlmStatus("loading")
+    fetch(`${base}/api/nlm/status`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => {
+        setTrainingSummary(data.training_summary ?? null)
+        setNlmStatus(data.training_summary ? "live" : "degraded")
+      })
+      .catch(() => {
+        setNlmStatus("degraded")
+        setTrainingSummary(null)
+      })
+  }, [])
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -113,8 +109,8 @@ export default function ModelTrainingPage() {
                 <Badge variant="outline" className="bg-purple-500/20 border-purple-400 text-purple-300">
                   <Sparkles className="h-3 w-3 mr-1" /> Foundation Model
                 </Badge>
-                <Badge variant="outline" className="bg-green-500/20 border-green-400 text-green-300">
-                  Training Active
+                <Badge variant="outline" className={nlmStatus === "live" ? "bg-green-500/20 border-green-400 text-green-300" : "bg-muted text-muted-foreground"}>
+                  {nlmStatus === "loading" ? "Checking…" : nlmStatus === "live" ? "Live" : "No live data"}
                 </Badge>
               </div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-green-400 to-emerald-400 bg-clip-text text-transparent">
@@ -126,17 +122,13 @@ export default function ModelTrainingPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setIsTraining(!isTraining)
-                  // TODO: Connect to real NLM training API when available
-                  console.log(`[NLM] Training ${!isTraining ? "resumed" : "paused"} (simulation)`)
-                }}
-                title="Simulation mode - Real training API coming soon"
+              <Button
+                variant="outline"
+                disabled={nlmStatus !== "live"}
+                title={nlmStatus !== "live" ? "Connect NLM API to control training" : "Pause or resume training"}
               >
-                {isTraining ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-                {isTraining ? "Pause" : "Resume"}
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
               </Button>
               <Button 
                 className="bg-gradient-to-r from-purple-600 to-green-600"
@@ -158,29 +150,47 @@ export default function ModelTrainingPage() {
         <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Brain className="h-4 w-4" /> Model Status</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-400">{isTraining ? "Training" : "Paused"}</div>
-            <p className="text-sm text-muted-foreground">Epoch {currentEpoch.toLocaleString()}</p>
+            <div className="text-2xl font-bold text-purple-400">
+              {nlmStatus === "loading" ? "Checking…" : nlmStatus === "live" && trainingSummary?.epoch != null ? "Training" : nlmStatus === "live" ? "Connected" : "No live data"}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {nlmStatus === "live" && trainingSummary?.epoch != null ? `Epoch ${trainingSummary.epoch.toLocaleString()}` : "Connect NLM API for status"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Translation Accuracy</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-500">{accuracy.toFixed(2)}%</div>
-            <Progress value={accuracy} className="h-2 mt-2" />
+            <div className="text-2xl font-bold text-green-500">
+              {nlmStatus === "live" && trainingSummary?.accuracy != null ? `${trainingSummary.accuracy.toFixed(2)}%` : "—"}
+            </div>
+            {nlmStatus === "live" && trainingSummary?.accuracy != null ? (
+              <Progress value={trainingSummary.accuracy} className="h-2 mt-2" />
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">No live data</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Training Data</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2.4M</div>
-            <p className="text-sm text-muted-foreground">Signal samples</p>
+            <div className="text-2xl font-bold">
+              {nlmStatus === "live" && trainingSummary?.signalSamples != null ? `${(trainingSummary.signalSamples / 1e6).toFixed(1)}M` : "—"}
+            </div>
+            <p className="text-sm text-muted-foreground">Signal samples from NLM API</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Overall Progress</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overallProgress.toFixed(0)}%</div>
-            <Progress value={overallProgress} className="h-2 mt-2" />
+            <div className="text-2xl font-bold">
+              {nlmStatus === "live" && trainingSummary?.overallProgress != null ? `${trainingSummary.overallProgress.toFixed(0)}%` : "—"}
+            </div>
+            {nlmStatus === "live" && trainingSummary?.overallProgress != null ? (
+              <Progress value={trainingSummary.overallProgress} className="h-2 mt-2" />
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">No live data</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -262,21 +272,16 @@ export default function ModelTrainingPage() {
                 <CardTitle className="flex items-center gap-2"><Dna className="h-5 w-5" /> Training Phases</CardTitle>
                 <CardDescription>Progressive learning stages for Mycospeak translation</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {TRAINING_PHASES.map((phase, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="font-medium">{phase.name}</span>
-                        <p className="text-sm text-muted-foreground">{phase.description}</p>
-                      </div>
-                      <Badge variant={phase.status === "complete" ? "default" : phase.status === "training" ? "outline" : "secondary"}>
-                        {phase.status === "complete" ? "✓ Complete" : phase.status === "training" ? "Training..." : "Queued"}
-                      </Badge>
-                    </div>
-                    <Progress value={phase.progress} className="h-2" />
-                  </div>
-                ))}
+              <CardContent>
+                {nlmStatus === "live" && trainingSummary ? (
+                  <p className="text-sm text-muted-foreground">
+                    Live phase data is provided by the NLM training API. Connect the service to view current phases and progress.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Live training phase data is not available. Connect the NLM training API to view current phases and progress.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -320,50 +325,16 @@ export default function ModelTrainingPage() {
             </Card>
           </div>
 
-          {/* Live Translation Demo */}
+          {/* Live Translation */}
           <Card className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 border-green-500/20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-green-500" /> Live Translation Demo</CardTitle>
-              <CardDescription>Real-time Mycospeak translation from simulated mycelial signals</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-green-500" /> Live Translation</CardTitle>
+              <CardDescription>Real-time Mycospeak translation from NLM runtime</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Raw Signal Input</h4>
-                  <div className="bg-background p-4 rounded-lg font-mono text-xs h-40 overflow-hidden">
-                    <div className="animate-pulse space-y-1">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <p key={i} className="text-green-400">
-                          [{new Date().toISOString().split('T')[1].slice(0,8)}] VOC: {Math.random().toFixed(4)} | E: {(Math.random() * 100).toFixed(0)}mV | pH: {(6 + Math.random()).toFixed(2)}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Structured Translation Output</h4>
-                  <div className="bg-background p-4 rounded-lg h-40 overflow-auto">
-                    <pre className="text-xs text-green-300">
-{`{
-  "state": "nutrient_foraging_upshift",
-  "confidence": 0.82,
-  "evidence": [
-    "token_17_burst",
-    "soil_moisture_drop",
-    "CO2_rise"
-  ],
-  "predicted_next": [
-    "growth_direction_change",
-    "resource_allocation_shift"
-  ],
-  "recommended_action": [
-    "increase_sampling_rate"
-  ]
-}`}
-                    </pre>
-                  </div>
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                Live translation is available when the NLM runtime is connected. Raw signals and structured translation are provided by the NLM service only; no simulated data is shown.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
