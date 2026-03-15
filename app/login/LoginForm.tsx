@@ -237,7 +237,7 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
         <CardFooter className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm text-muted-foreground">
             <span className="mr-1">Don&apos;t have an account?</span>
-            <Link href="/signup" className="text-primary hover:underline">
+            <Link href={redirectTo !== "/dashboard" ? `/signup?redirectTo=${encodeURIComponent(redirectTo)}` : "/signup"} className="text-primary hover:underline">
               Sign up
             </Link>
           </div>

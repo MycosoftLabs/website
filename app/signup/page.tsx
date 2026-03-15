@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,12 @@ export default function SignUpPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Support redirect and redirectTo (same as login) so /signup?redirect=/agent works
+  const redirectTo =
+    searchParams.get("redirect") ||
+    searchParams.get("redirectTo") ||
+    "/"
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -48,7 +54,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
           data: {
             full_name: fullName,
           },
@@ -76,7 +82,7 @@ export default function SignUpPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
       })
 
@@ -99,7 +105,7 @@ export default function SignUpPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
       })
 
@@ -128,7 +134,7 @@ export default function SignUpPage() {
           </CardHeader>
           <CardContent>
             <Button asChild className="w-full">
-              <Link href="/login">Go to sign in</Link>
+              <Link href={redirectTo !== "/" ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login"}>Go to sign in</Link>
             </Button>
           </CardContent>
         </Card>
@@ -249,7 +255,10 @@ export default function SignUpPage() {
         <CardFooter>
           <div className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link
+              href={redirectTo !== "/" ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : "/login"}
+              className="text-primary hover:underline"
+            >
               Sign in
             </Link>
           </div>

@@ -10,10 +10,13 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  // Support both 'next' and 'redirectTo' query params
-  // Redirect to home page by default, not dashboard
+  // Support 'next', 'redirectTo', and 'redirect' (agent uses ?redirect=/agent)
   // SECURITY: Validate redirect target to prevent open redirect attacks
-  const rawNext = searchParams.get('next') || searchParams.get('redirectTo') || '/'
+  const rawNext =
+    searchParams.get('next') ||
+    searchParams.get('redirectTo') ||
+    searchParams.get('redirect') ||
+    '/'
   const next = (rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.includes('://'))
     ? rawNext
     : '/'

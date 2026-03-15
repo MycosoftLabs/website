@@ -23,9 +23,15 @@ export async function POST(request: Request) {
   const url = new URL(request.url)
   const origin = getOrigin(request)
 
+  // Support both 'redirect' and 'redirectTo' (agent page uses ?redirect=/agent)
+  const redirectFromUrl =
+    url.searchParams.get('redirect') ||
+    url.searchParams.get('redirectTo')
+
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const preserveRedirect = redirectFromUrl ? `&redirectTo=${encodeURIComponent(redirectFromUrl)}` : ''
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent('Sign-in is not configured. Missing Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).')}&redirectTo=/dashboard`,
+      `${origin}/login?error=${encodeURIComponent('Sign-in is not configured. Missing Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).')}${preserveRedirect}`,
       303
     )
   }
@@ -33,10 +39,11 @@ export async function POST(request: Request) {
   const formData = await request.formData()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  // Prefer URL (form action) so redirectTo survives even if hidden input is wrong
+  // Prefer URL (form action) then form body so redirect survives
   const redirectTo =
-    url.searchParams.get('redirectTo') ||
+    redirectFromUrl ||
     (formData.get('redirectTo') as string) ||
+    (formData.get('redirect') as string) ||
     '/dashboard'
 
   if (!email || !password) {

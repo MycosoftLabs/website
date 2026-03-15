@@ -7,6 +7,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams
   const redirectTo =
+    (typeof params.redirect === "string" ? params.redirect : null) ||
     (typeof params.redirectTo === "string" ? params.redirectTo : null) ||
     (typeof params.callbackUrl === "string" ? params.callbackUrl : null) ||
     "/dashboard"
