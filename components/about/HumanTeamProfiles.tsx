@@ -3,8 +3,8 @@ import Link from "next/link"
 import { NeuCard, NeuCardContent, NeuBadge } from "@/components/ui/neuromorphic"
 import { teamMembers } from "@/lib/team-data"
 
-/** Human team display order: top row Morgan–Michelle, bottom row RJ–Chris–Alberto–Garret */
-const TOP_ROW_SLUGS = ["morgan-rockwell", "michelle-seven"]
+/** Human team display order: Morgan centered on top, bottom row RJ–Chris–Alberto–Garret */
+const TOP_ROW_SLUGS = ["morgan-rockwell"]
 const BOTTOM_ROW_SLUGS = ["rj-ricasata", "chris-freetage", "alberto-septien", "garret-baquet"]
 
 function getMembersBySlugs(slugs: string[]) {
@@ -59,11 +59,13 @@ export function HumanTeamProfiles() {
       </div>
 
       <div className="space-y-6">
-        {/* Top row: Morgan – Michelle */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {topRow.map((member) => (
-            <MemberCard key={member.slug} member={member} />
-          ))}
+        {/* Top row: Morgan centered */}
+        <div className="flex justify-center">
+          <div className="w-full sm:w-1/2 lg:w-1/3">
+            {topRow.map((member) => (
+              <MemberCard key={member.slug} member={member} />
+            ))}
+          </div>
         </div>
         {/* Bottom row: RJ – Chris – Alberto – Garret */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

@@ -574,7 +574,6 @@ export default function AboutPage() {
                     { label: "RJ", slug: "rj-ricasata" },
                     { label: "Chris", slug: "chris-freetage" },
                     { label: "Alberto", slug: "alberto-septien" },
-                    { label: "Michelle", slug: "michelle-seven" },
                   ].map((person) => (
                     <Link
                       key={person.slug}
