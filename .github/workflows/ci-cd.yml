@@ -255,16 +255,21 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
           # Configure SSH to use cloudflared as proxy for the production host
-          cat >> ~/.ssh/config <<EOF
+          cat > ~/.ssh/config <<'SSHEOF'
           Host production
-            HostName ${{ secrets.PRODUCTION_HOST }}
-            User ${{ steps.check-secrets.outputs.user }}
+            HostName PLACEHOLDER_HOST
+            User PLACEHOLDER_USER
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ProxyCommand cloudflared access ssh --hostname %h
-          EOF
+          SSHEOF
+          sed -i 's/^[[:space:]]*//' ~/.ssh/config
+          sed -i "s/PLACEHOLDER_HOST/${{ secrets.PRODUCTION_HOST }}/" ~/.ssh/config
+          sed -i "s/PLACEHOLDER_USER/${{ steps.check-secrets.outputs.user }}/" ~/.ssh/config
           chmod 600 ~/.ssh/config
+          echo "=== SSH config ==="
+          cat ~/.ssh/config
 
       - name: Backup database
         continue-on-error: true
