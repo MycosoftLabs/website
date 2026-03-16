@@ -199,12 +199,26 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:
+      - name: Prepare SSH key
+        id: ssh-key
+        run: |
+          if [ -n "$SSH_KEY_B64" ]; then
+            echo "$SSH_KEY_B64" | base64 -d > "$RUNNER_TEMP/deploy_key"
+          else
+            printf '%s' "$SSH_KEY" > "$RUNNER_TEMP/deploy_key"
+          fi
+          chmod 600 "$RUNNER_TEMP/deploy_key"
+          echo "path=$RUNNER_TEMP/deploy_key" >> "$GITHUB_OUTPUT"
+        env:
+          SSH_KEY_B64: ${{ secrets.SSH_KEY_B64 }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           script: |
             cd /opt/mycosoft-staging
             docker compose pull
@@ -230,9 +244,10 @@ jobs:
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KEY_B64: ${{ secrets.SSH_KEY_B64 }}
         run: |
-          if [ -z "${SSH_KEY}" ]; then
-            echo "::error::Deploy failed - SSH_KEY secret not configured"
+          if [ -z "${SSH_KEY}" ] && [ -z "${SSH_KEY_B64}" ]; then
+            echo "::error::Deploy failed - SSH_KEY or SSH_KEY_B64 secret not configured"
             exit 1
           fi
           if [ -z "${PRODUCTION_HOST}" ]; then
@@ -242,13 +257,27 @@ jobs:
           echo "user=${SSH_USER:-mycosoft}" >> "$GITHUB_OUTPUT"
           echo "Deploy secrets verified"
 
+      - name: Prepare SSH key
+        id: ssh-key
+        run: |
+          if [ -n "$SSH_KEY_B64" ]; then
+            echo "$SSH_KEY_B64" | base64 -d > "$RUNNER_TEMP/deploy_key"
+          else
+            printf '%s' "$SSH_KEY" > "$RUNNER_TEMP/deploy_key"
+          fi
+          chmod 600 "$RUNNER_TEMP/deploy_key"
+          echo "path=$RUNNER_TEMP/deploy_key" >> "$GITHUB_OUTPUT"
+        env:
+          SSH_KEY_B64: ${{ secrets.SSH_KEY_B64 }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+
       - name: Backup database
         uses: appleboy/ssh-action@v1.0.3
         continue-on-error: true
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           command_timeout: 2m
           script: |
             cd /opt/mycosoft
@@ -260,10 +289,10 @@ jobs:
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           command_timeout: 2m
           script: |
-            cd /opt/mycosoft
+            cd /opt/mycosoft/website
             git fetch origin
             git reset --hard origin/main
 
@@ -272,7 +301,7 @@ jobs:
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           command_timeout: 10m
           script: |
             cd /opt/mycosoft
@@ -285,7 +314,7 @@ jobs:
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           command_timeout: 2m
           script: |
             cd /opt/mycosoft
@@ -297,7 +326,7 @@ jobs:
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           command_timeout: 3m
           script: |
             echo "=== Waiting for service to be healthy ==="
@@ -323,7 +352,7 @@ jobs:
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ steps.ssh-key.outputs.path }}
           script: |
             echo "${{ github.sha }} deployed at $(date)" >> /var/log/mycosoft-deployments.log
 
