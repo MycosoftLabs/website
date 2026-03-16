@@ -158,6 +158,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Replace Proxmox QEMU agent deploy with SSH for reliable production deployment
 - *(auth)* Env checks in login/callback + AUTH_TROUBLESHOOTING_MAR15_2026
 - Honor redirect/redirectTo system-wide for login, signup, and agent
+- Search timeouts, hero video fallback, and cross-repo deployment fixes
 
 ### CREP
 
@@ -188,6 +189,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
