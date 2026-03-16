@@ -242,90 +242,73 @@ jobs:
           echo "user=${SSH_USER:-mycosoft}" >> "$GITHUB_OUTPUT"
           echo "Deploy secrets verified"
 
+      - name: Install cloudflared and configure SSH
+        run: |
+          # Install cloudflared
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          rm cloudflared.deb
+
+          # Write SSH key
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Configure SSH to use cloudflared as proxy for the production host
+          cat >> ~/.ssh/config <<EOF
+          Host production
+            HostName ${{ secrets.PRODUCTION_HOST }}
+            User ${{ steps.check-secrets.outputs.user }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
       - name: Backup database
-        uses: appleboy/ssh-action@v1.0.3
         continue-on-error: true
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 2m
-          script: |
-            cd /opt/mycosoft
-            docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null \
-              || echo "No existing database to backup (first deploy?) — skipping"
+        run: |
+          ssh production 'cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo "No existing database to backup (first deploy?) — skipping"'
 
       - name: Pull latest code
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 2m
-          script: |
-            cd /opt/mycosoft
-            git fetch origin
-            git reset --hard origin/main
+        run: |
+          ssh production 'cd /opt/mycosoft && git fetch origin && git reset --hard origin/main'
 
       - name: Pull new images and deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 10m
-          script: |
-            cd /opt/mycosoft
-            docker compose pull
-            docker compose up -d --remove-orphans
+        run: |
+          ssh -o ConnectTimeout=600 production 'cd /opt/mycosoft && docker compose pull && docker compose up -d --remove-orphans'
 
       - name: Run database migrations
-        uses: appleboy/ssh-action@v1.0.3
         continue-on-error: true
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 2m
-          script: |
-            cd /opt/mycosoft
-            docker compose exec -T website npm run db:migrate --if-present 2>/dev/null \
-              || echo "Migration skipped (no migrations or db not ready)"
+        run: |
+          ssh production 'cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped (no migrations or db not ready)"'
 
       - name: Health check
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 3m
-          script: |
-            echo "=== Waiting for service to be healthy ==="
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-              if curl -sf http://localhost:3000/api/health; then
-                echo ""
-                echo "Health check passed on attempt $i"
-                break
-              fi
-              echo "Attempt $i: not ready, waiting 10s..."
-              sleep 10
-            done
+        run: |
+          ssh production bash -s <<'SCRIPT'
+          echo "=== Waiting for service to be healthy ==="
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf http://localhost:3000/api/health; then
+              echo ""
+              echo "Health check passed on attempt $i"
+              break
+            fi
+            echo "Attempt $i: not ready, waiting 10s..."
+            sleep 10
+          done
 
-            echo ""
-            echo "=== LLM Provider Status ==="
-            curl -sf http://localhost:3000/api/health/providers 2>/dev/null \
-              | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get("summary",{}).get("working",0); print(f"LLM providers working: {w}")' \
-              2>/dev/null || echo "LLM provider check skipped"
+          echo ""
+          echo "=== LLM Provider Status ==="
+          curl -sf http://localhost:3000/api/health/providers 2>/dev/null \
+            | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get("summary",{}).get("working",0); print(f"LLM providers working: {w}")' \
+            2>/dev/null || echo "LLM provider check skipped"
+          SCRIPT
 
       - name: Log deployment
-        uses: appleboy/ssh-action@v1.0.3
         continue-on-error: true
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ steps.check-secrets.outputs.user }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            echo "${{ github.sha }} deployed at $(date)" >> /var/log/mycosoft-deployments.log
+        run: |
+          ssh production "echo '${{ github.sha }} deployed at $(date)' >> /var/log/mycosoft-deployments.log"
 
       - name: Notify deployment
         uses: slackapi/slack-github-action@v1.24.0
