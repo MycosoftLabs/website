@@ -269,7 +269,7 @@ jobs:
       - name: Backup database
         continue-on-error: true
         run: |
-          ssh production 'cd /opt/mycosoft && docker compose exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo "No existing database to backup (first deploy?) — skipping"'
+          ssh production 'cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo "No existing database to backup (first deploy?) — skipping"'
 
       - name: Pull latest code
         run: |
@@ -277,12 +277,12 @@ jobs:
 
       - name: Pull new images and deploy
         run: |
-          ssh -o ConnectTimeout=600 production 'cd /opt/mycosoft && docker compose pull && docker compose up -d --remove-orphans'
+          ssh -o ConnectTimeout=600 production 'cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml pull && docker compose -f docker-compose.production.yml up -d --remove-orphans'
 
       - name: Run database migrations
         continue-on-error: true
         run: |
-          ssh production 'cd /opt/mycosoft && docker compose exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped (no migrations or db not ready)"'
+          ssh production 'cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped (no migrations or db not ready)"'
 
       - name: Health check
         run: |
