@@ -40,6 +40,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     
     try {
       const supabase = createClient()
+      if (!supabase) throw new Error('Authentication is not configured')
 
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({
@@ -74,6 +75,7 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
     setIsLoading(true)
     try {
       const supabase = createClient()
+      if (!supabase) throw new Error('Authentication is not configured')
       await supabase.auth.signInWithOAuth({
         provider,
         options: {

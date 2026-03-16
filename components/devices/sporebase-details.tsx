@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useMemo } from "react"
+import { useState, useRef, useMemo } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
@@ -15,6 +15,7 @@ import { SporeUniverse } from "@/components/effects/star-universe"
 import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
 import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -209,7 +210,6 @@ export function SporeBaseDetails() {
   const [selectedCase, setSelectedCase] = useState(0)
   const [currentImage, setCurrentImage] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
   const floatingPixels = useMemo(() => buildFloatingPixels(20, 42, 0, 100), [])
   const floatingParticles = useMemo(() => buildFloatingPixels(8, 1337, 10, 90), [])
   
@@ -221,38 +221,21 @@ export function SporeBaseDetails() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
 
-  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
-  useEffect(() => {
-    const v = videoRef.current
-    if (v) {
-      v.play().catch(() => {})
-      const handler = () => v.play().catch(() => {})
-      document.addEventListener("touchstart", handler, { once: true })
-      return () => document.removeEventListener("touchstart", handler)
-    }
-  }, [])
-
   return (
     <NeuromorphicProvider>
     <div className="relative min-h-dvh bg-background text-foreground overflow-hidden">
       {/* Hero Section — data-over-video for dark background text consistency */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
-        {/* Background video */}
+        {/* Background video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
         <motion.div 
           style={{ scale: heroScale }}
           className="absolute inset-0"
         >
-          <video
-            ref={videoRef}
+          <AutoplayVideo
+            src={SPOREBASE_ASSETS.heroVideo}
+            encodeSrc
             className="absolute inset-0 h-full w-full object-cover"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-          >
-            <source src={encodeURI(SPOREBASE_ASSETS.heroVideo)} type="video/mp4" />
-          </video>
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-slate-950/70" />
         </motion.div>
         

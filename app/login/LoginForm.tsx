@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, Mail } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 
 interface LoginFormProps {
   redirectTo: string
@@ -33,6 +33,10 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
 
   const handleMagicLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!supabase) {
+      setError("Authentication is not configured. Please contact support.")
+      return
+    }
     setIsLoading(true)
     setError("")
     setMessage("")
@@ -61,6 +65,10 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
   }
 
   const handleGoogleLogin = async () => {
+    if (!supabase) {
+      setError("Authentication is not configured. Please contact support.")
+      return
+    }
     setIsLoading(true)
     setError("")
 
@@ -83,6 +91,10 @@ export function LoginForm({ redirectTo, initialError, initialMessage }: LoginFor
   }
 
   const handleGitHubLogin = async () => {
+    if (!supabase) {
+      setError("Authentication is not configured. Please contact support.")
+      return
+    }
     setIsLoading(true)
     setError("")
 

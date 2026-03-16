@@ -10,6 +10,7 @@ import {
   NeuBadge,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
 import { teamMembers } from "@/lib/team-data"
@@ -139,16 +140,11 @@ export default function AboutPage() {
     <div className="min-h-dvh">
       {/* Hero Section — no poster, instant start, no image flash */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
+        <AutoplayVideo
+          src={HERO_VIDEO_SRC}
           className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={encodeURI(HERO_VIDEO_SRC)} type="video/mp4" />
-        </video>
+          encodeSrc
+        />
 
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-black/60" />
@@ -690,16 +686,11 @@ export default function AboutPage() {
 
       {/* Why Mycosoft - Closing Statement — data-over-video */}
       <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center" data-over-video>
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
+        <AutoplayVideo
+          src="/assets/about us/10343918-hd_1920_1080_24fps.mp4"
           className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={encodeURI("/assets/about us/10343918-hd_1920_1080_24fps.mp4")} type="video/mp4" />
-        </video>
+          encodeSrc
+        />
 
         {/* Dark overlay so text is legible */}
         <div className="absolute inset-0 bg-black/65" />

@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { PreOrderModal } from "./pre-order-modal"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
 import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
 import { NetworkCanvas } from "@/components/effects/network-canvas"
@@ -253,7 +254,6 @@ export function Mushroom1Details() {
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
   const [isPreOrderModalOpen, setIsPreOrderModalOpen] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
   const isMobile = useIsMobile()
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
@@ -263,17 +263,6 @@ export function Mushroom1Details() {
     target: heroRef,
     offset: ["start start", "end start"]
   })
-
-  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
-  useEffect(() => {
-    const v = videoRef.current
-    if (v) {
-      v.play().catch(() => {})
-      const handler = () => v.play().catch(() => {})
-      document.addEventListener("touchstart", handler, { once: true })
-      return () => document.removeEventListener("touchstart", handler)
-    }
-  }, [heroVideoSrc])
 
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.1])
@@ -310,19 +299,13 @@ export function Mushroom1Details() {
         style={{ opacity: heroOpacity }}
         data-over-video
       >
-        {/* Background Video — preload="auto" and programmatic play for mobile/tablet reliability */}
+        {/* Background Video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
+          <AutoplayVideo
+            src={heroVideoSrc}
+            encodeSrc
             className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={encodeURI(heroVideoSrc)} type="video/mp4" />
-          </video>
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black" />
         </motion.div>
 

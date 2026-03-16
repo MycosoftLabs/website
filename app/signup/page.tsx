@@ -50,6 +50,11 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient()
+      if (!supabase) {
+        setError("Authentication is not configured. Please contact support.")
+        setIsLoading(false)
+        return
+      }
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -79,6 +84,11 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient()
+      if (!supabase) {
+        setError("Authentication is not configured. Please contact support.")
+        setIsLoading(false)
+        return
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -102,6 +112,11 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient()
+      if (!supabase) {
+        setError("Authentication is not configured. Please contact support.")
+        setIsLoading(false)
+        return
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {

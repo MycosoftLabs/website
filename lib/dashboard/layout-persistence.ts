@@ -87,7 +87,8 @@ export async function saveLayoutToSupabase(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createClient()
-    
+    if (!supabase) return { success: false, error: 'Supabase not configured' }
+
     const { error } = await supabase
       .from('dashboard_layouts')
       .upsert({
@@ -121,7 +122,8 @@ export async function loadLayoutFromSupabase(
 ): Promise<LayoutItem[] | null> {
   try {
     const supabase = createClient()
-    
+    if (!supabase) return null
+
     const { data, error } = await supabase
       .from('dashboard_layouts')
       .select('layout_data')
@@ -149,7 +151,8 @@ export async function loadLayoutFromSupabase(
 export async function getUserLayouts(userId: string): Promise<DashboardLayout[]> {
   try {
     const supabase = createClient()
-    
+    if (!supabase) return null
+
     const { data, error } = await supabase
       .from('dashboard_layouts')
       .select('*')
@@ -181,7 +184,8 @@ export async function getUserLayouts(userId: string): Promise<DashboardLayout[]>
 export async function deleteLayout(layoutId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = createClient()
-    
+    if (!supabase) return { success: false, error: 'Supabase not configured' }
+
     const { error } = await supabase
       .from('dashboard_layouts')
       .delete()

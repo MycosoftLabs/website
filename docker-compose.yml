@@ -42,6 +42,11 @@ services:
       # MAS Orchestrator
       - MAS_API_URL=${MAS_API_URL:-http://192.168.0.188:8001}
       - N8N_URL=${N8N_URL:-http://n8n:5678}
+      # Supabase — server-side key for protected operations (anon key is baked into the build)
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      # Stripe — server-side secrets
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy

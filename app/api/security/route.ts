@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
+import { requireAdmin } from '@/lib/auth/api-auth';
 
 // Legacy imports (for backwards compatibility)
 import { 
@@ -388,9 +389,13 @@ function loadSecurityConfig(): SecurityConfig | null {
 
 /**
  * GET /api/security
- * Returns security status and threat summary
+ * Returns security status and threat summary.
+ * Admin required (company/SOC access).
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
 
@@ -641,9 +646,13 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/security
- * Handle security actions
+ * Handle security actions.
+ * Admin required.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const body = await request.json();
     const { action, ...data } = body;

@@ -53,20 +53,20 @@ ENV MONGODB_ENDPOINT_URL=mongodb://placeholder:27017
 ENV MONGODB_API_KEY=placeholder
 ENV NEON_DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
 ENV DATABASE_URL=postgres://placeholder:placeholder@placeholder/placeholder
-# Supabase - pass via CI/CD build args, never hardcode
-ARG SUPABASE_URL
-ARG SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV SUPABASE_URL=${SUPABASE_URL}
-ENV SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+# Supabase — NEXT_PUBLIC_ vars MUST be present at build time for Next.js to inline them.
+# The anon key is a public key (safe to embed in client bundles — it only grants Row-Level Security access).
+# Override via --build-arg if you use a different Supabase project.
+ARG NEXT_PUBLIC_SUPABASE_URL=https://hnevnsxnhfibhbsipqvz.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuZXZuc3huaGZpYmhic2lwcXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NzQ1NzEsImV4cCI6MjA4NDI1MDU3MX0.ooL4ZtASkUR4aQqpN4KfUPNcEwpbPLoGfGUkEoc4g7w
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-# Site URL for OAuth callbacks - MUST match deployed domain (sandbox or mycosoft.com)
-ARG NEXT_PUBLIC_SITE_URL=https://sandbox.mycosoft.com
+# Site URL for OAuth callbacks - MUST match deployed domain
+ARG NEXT_PUBLIC_SITE_URL=https://mycosoft.com
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV SUPABASE_SERVICE_ROLE_KEY=placeholder
-# Stripe - Required for webhook route
+# Stripe — publishable key must be inlined at build time; secret key is set at runtime via docker-compose
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 ENV STRIPE_SECRET_KEY=sk_placeholder
 ENV STRIPE_WEBHOOK_SECRET=whsec_placeholder
 # OpenAI - Required for AI routes

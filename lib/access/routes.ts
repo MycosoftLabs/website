@@ -94,6 +94,8 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
   { path: '/apps', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Apps hub' },
   { path: '/natureos', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'NatureOS home' },
+  { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
+  { path: '/billing', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Billing' },
 ]
 
 // Company routes - require @mycosoft.org or @mycosoft.com email
@@ -303,3 +305,33 @@ export function requiresCompanyEmail(path: string): boolean {
 
 // Infrastructure route paths (for quick checking)
 export const INFRASTRUCTURE_PATHS = COMPANY_ROUTES.map(r => r.path)
+
+// Path prefix lists for middleware (Edge-safe; no dynamic imports)
+const AUTH_REQUIRED_PREFIXES: string[] = [
+  ...AUTHENTICATED_ROUTES.map(r => r.path),
+  ...COMPANY_ROUTES.map(r => r.path),
+  ...PREMIUM_ROUTES.map(r => r.path),
+  ...PLATFORM_ROUTES.map(r => r.path),
+  ...ETHICS_TRAINING_ROUTES.map(r => r.path),
+  ...ADMIN_ROUTES.map(r => r.path),
+  ...SUPER_ADMIN_ROUTES.map(r => r.path),
+].filter((p, i, a) => a.indexOf(p) === i)
+
+const COMPANY_REQUIRED_PREFIXES: string[] = [
+  ...COMPANY_ROUTES.map(r => r.path),
+  ...PLATFORM_ROUTES.map(r => r.path),
+].filter((p, i, a) => a.indexOf(p) === i)
+
+/** True if path requires any authenticated user (middleware use). */
+export function pathRequiresAuth(pathname: string): boolean {
+  return AUTH_REQUIRED_PREFIXES.some(
+    p => pathname === p || pathname.startsWith(p + '/')
+  )
+}
+
+/** True if path requires company email (middleware use). */
+export function pathRequiresCompanyEmail(pathname: string): boolean {
+  return COMPANY_REQUIRED_PREFIXES.some(
+    p => pathname === p || pathname.startsWith(p + '/')
+  )
+}

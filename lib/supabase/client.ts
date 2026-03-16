@@ -9,16 +9,22 @@ import { createBrowserClient } from '@supabase/ssr'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
+/** True when Supabase env vars are present and the client can function. */
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+
+if (!isSupabaseConfigured) {
   console.warn('[Supabase] Missing environment variables. Auth features will not work.')
   console.warn('[Supabase] Required: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+/**
+ * Create a Supabase browser client.
+ * Returns null when env vars are missing instead of throwing,
+ * so pages can render gracefully without auth.
+ */
 export function createClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Supabase credentials not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local'
-    )
+    return null
   }
   return createBrowserClient(supabaseUrl, supabaseAnonKey, {
     auth: {

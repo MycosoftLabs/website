@@ -108,7 +108,7 @@ export default function DashboardPage() {
   const handleSignOut = async () => {
     try {
       const supabase = createClient()
-      await supabase.auth.signOut()
+      if (supabase) await supabase.auth.signOut()
     } finally {
       router.push("/")
     }

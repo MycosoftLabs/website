@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import {
   Search,
   Mic,
@@ -42,7 +43,6 @@ export function HeroSearch() {
   const [trySuggestions, setTrySuggestions] = useState<{ term: string; phoneVisible?: boolean }[]>(DEFAULT_TRY_SUGGESTIONS)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
   
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
@@ -74,17 +74,6 @@ export function HeroSearch() {
     refresh()
     const id = setInterval(refresh, 30000)
     return () => clearInterval(id)
-  }, [])
-
-  // Mobile/tablet: programmatic play() for reliable autoplay (iOS can block declarative autoplay)
-  useEffect(() => {
-    const v = videoRef.current
-    if (v) {
-      v.play().catch(() => {})
-      const handler = () => v.play().catch(() => {})
-      document.addEventListener("touchstart", handler, { once: true })
-      return () => document.removeEventListener("touchstart", handler)
-    }
   }, [])
 
   // Handle mouse move for gradient effect
@@ -140,21 +129,12 @@ export function HeroSearch() {
     <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
       {/* Full-screen video — fixed to viewport so always covers entire screen on desktop, tablet, mobile */}
       <div className="fixed inset-0 z-0 overflow-hidden">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
+        <AutoplayVideo
+          src="/assets/homepage/Mycosoft Background.mp4"
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
-          poster="/assets/homepage/hero-poster.jpg"
-        >
-          {/* Try local NAS path first, then mycosoft.org CDN fallback */}
-          <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-          <source src="https://mycosoft.org/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
-        </video>
+          encodeSrc
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
       </div>
 
