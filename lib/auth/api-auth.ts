@@ -1,12 +1,11 @@
 /**
  * API Route Authentication Helper
  *
- * Provides consistent authentication checks for API routes.
- * Uses Supabase Auth (primary) with NextAuth fallback.
+ * Single active auth path: Supabase Auth only.
+ * NextAuth is not used for production gating.
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { isCompanyEmail } from '@/lib/access/types'
 
@@ -29,56 +28,28 @@ const ADMIN_EMAILS = [
 /**
  * Require authentication on an API route.
  * Returns the authenticated user or a 401 response.
+ * Uses Supabase Auth only (no NextAuth fallback).
  */
 export async function requireAuth(): Promise<
   { user: AuthenticatedUser; error?: never } | { user?: never; error: NextResponse }
 > {
-  // Try Supabase Auth first
-  try {
-    const supabase = await createClient()
-    const { data: { user }, error } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (user && !error) {
-      const email = user.email || ''
-      const isOwner = OWNER_EMAILS.includes(email)
-      const isAdmin = ADMIN_EMAILS.includes(email) || isOwner
+  if (user && !error) {
+    const email = user.email || ''
+    const isOwner = OWNER_EMAILS.includes(email)
+    const isAdmin = ADMIN_EMAILS.includes(email) || isOwner
 
-      return {
-        user: {
-          id: user.id,
-          email,
-          role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
-          isAdmin,
-          isOwner,
-        },
-      }
+    return {
+      user: {
+        id: user.id,
+        email,
+        role: isOwner ? 'owner' : isAdmin ? 'admin' : 'user',
+        isAdmin,
+        isOwner,
+      },
     }
-  } catch {
-    // Supabase not available, try NextAuth
-  }
-
-  // Fallback to NextAuth
-  try {
-    const { authOptions } = await import('@/app/api/auth/[...nextauth]/route')
-    const session = await getServerSession(authOptions)
-    if (session?.user) {
-      const sessionUser = session.user as any
-      const email = sessionUser.email || ''
-      const isOwner = OWNER_EMAILS.includes(email) || sessionUser.isOwner
-      const isAdmin = ADMIN_EMAILS.includes(email) || sessionUser.isAdmin || isOwner
-
-      return {
-        user: {
-          id: sessionUser.id || '',
-          email,
-          role: sessionUser.role || (isOwner ? 'owner' : isAdmin ? 'admin' : 'user'),
-          isAdmin,
-          isOwner,
-        },
-      }
-    }
-  } catch {
-    // NextAuth not available
   }
 
   return {

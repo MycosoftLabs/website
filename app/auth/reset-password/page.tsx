@@ -41,6 +41,11 @@ export default function ResetPasswordPage() {
   // Check for token validity on mount
   useEffect(() => {
     const checkToken = async () => {
+      if (!supabase) {
+        setTokenValid(false)
+        setError('Authentication is not configured. Please contact support.')
+        return
+      }
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
         

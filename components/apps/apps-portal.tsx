@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { 
   PipetteIcon as PetriDish, 
   Microscope, 
@@ -406,16 +407,11 @@ export function AppsPortal() {
       {/* Hero Section with Background Video — data-over-video for theme-aware text over dark video */}
       <section className="relative py-24 overflow-hidden" data-over-video>
         {/* Background Video */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
+        <AutoplayVideo
+          src="/assets/backgrounds/apps-hero.mp4"
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.25)" }}
-        >
-          <source src="/assets/backgrounds/apps-hero.mp4" type="video/mp4" />
-        </video>
+        />
         
         {/* Overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background" />
@@ -571,16 +567,11 @@ export function AppsPortal() {
             <div className="relative">
               <div className="aspect-video bg-gradient-to-br from-primary/10 via-muted to-green-500/10 rounded-2xl border overflow-hidden">
                 {/* Video Placeholder */}
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
+                <AutoplayVideo
+                  src="/assets/backgrounds/natureos-demo.mp4"
                   className="absolute inset-0 w-full h-full object-cover opacity-60"
                   style={{ filter: "brightness(0.8)" }}
-                >
-                  <source src="/assets/backgrounds/natureos-demo.mp4" type="video/mp4" />
-                </video>
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
@@ -602,15 +593,10 @@ export function AppsPortal() {
       {/* Integration Section with Topology Diagram */}
       <section className="py-24 bg-muted/30 relative overflow-hidden">
         {/* Background Video */}
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
+        <AutoplayVideo
+          src="/assets/backgrounds/nature-compute.mp4"
           className="absolute inset-0 w-full h-full object-cover opacity-10"
-        >
-          <source src="/assets/backgrounds/nature-compute.mp4" type="video/mp4" />
-        </video>
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-muted/90 to-muted/95" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">

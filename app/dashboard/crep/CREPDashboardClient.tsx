@@ -1475,10 +1475,12 @@ function LayerControlPanel({
 }
 
 // Right Panel - Services Integration Component (MycoBrain status from real API)
+// Poll only when tab is visible; 30s interval to reduce load (main CREP fetchData also hits /api/mycobrain at 60s)
 function ServicesPanel() {
   const [mycoStatus, setMycoStatus] = useState<{ connected: boolean; devices: number }>({ connected: false, devices: 0 });
   useEffect(() => {
     const check = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(5000) });
         const data = await res.json();
@@ -1489,8 +1491,15 @@ function ServicesPanel() {
       }
     };
     check();
-    const interval = setInterval(check, 15000);
-    return () => clearInterval(interval);
+    const interval = setInterval(check, 30000);
+    const onVisibility = () => {
+      if (!document.hidden) check();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   const services = [
@@ -1682,6 +1691,7 @@ export default function CREPDashboardPage() {
   
   // Live events: IDs that appeared after initial load (show blinking indicator; pop-up)
   const initialEventIdsRef = useRef<Set<string> | null>(null);
+  const initialSatelliteLoadDoneRef = useRef(false);
   const [newEventIds, setNewEventIds] = useState<Set<string>>(new Set());
   // Timestamp when deck.gl entity was clicked - used to avoid map click-away dismissing the popup
   const lastEntityPickTimeRef = useRef(0);
@@ -2206,37 +2216,33 @@ export default function CREPDashboardPage() {
           }
         }
 
-        // Fetch satellite data from CelesTrak API - ALL categories for comprehensive data
+        // Satellites: bounded initial load (3 categories), full set on 60s refresh
         const satelliteLayerEnabled = true;
         if (satelliteLayerEnabled) {
           try {
-            // Fetch multiple satellite categories in parallel (NO LIMITS)
-            const categories = ["stations", "starlink", "weather", "gnss", "active", "debris"];
+            const isInitial = !initialSatelliteLoadDoneRef.current;
+            const categories = isInitial
+              ? ["stations", "starlink", "active"]
+              : ["stations", "starlink", "weather", "gnss", "active", "debris"];
+            if (isInitial) initialSatelliteLoadDoneRef.current = true;
             const allSatellites: SatelliteEntity[] = [];
-            
-            await Promise.all(
-              categories.map(async (category) => {
-                try {
-                  // NO LIMIT - fetch all available satellites for each category
-                  const res = await fetch(`/api/oei/satellites?category=${category}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    if (data.satellites && Array.isArray(data.satellites)) {
-                      console.log(`[CREP] Loaded ${data.satellites.length} ${category} satellites`);
-                      allSatellites.push(...data.satellites);
-                    }
+            for (const category of categories) {
+              try {
+                const res = await fetch(`/api/oei/satellites?category=${category}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.satellites && Array.isArray(data.satellites)) {
+                    allSatellites.push(...data.satellites);
                   }
-                } catch (e) {
-                  console.error(`Failed to fetch ${category} satellites:`, e);
                 }
-              })
-            );
-            
-            // Deduplicate by satellite ID
+              } catch (e) {
+                console.warn(`[CREP] Failed to fetch ${category} satellites:`, e);
+              }
+            }
             const uniqueSatellites = Array.from(
               new Map(allSatellites.map(s => [s.id, s])).values()
             );
-            console.log(`[CREP] Total unique satellites: ${uniqueSatellites.length}`);
+            console.log(`[CREP] Satellites: ${uniqueSatellites.length} (${isInitial ? "bounded initial" : "full refresh"})`);
             setSatellites(uniqueSatellites);
           } catch (e) {
             console.error("Failed to fetch satellite data:", e);
@@ -2275,7 +2281,8 @@ export default function CREPDashboardPage() {
     }
 
     fetchData();
-    const interval = setInterval(fetchData, 15000);
+    // Refresh every 60s to reduce cold-path and polling load (was 15s)
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
 
