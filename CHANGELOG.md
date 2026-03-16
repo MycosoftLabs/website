@@ -161,6 +161,7 @@ All notable changes to this project will be documented in this file.
 - Search timeouts, hero video fallback, and cross-repo deployment fixes
 - Graceful Supabase degradation, search crash, and auth page guards
 - Add force-dynamic exports to fix build prerender errors
+- *(ci)* Pull code in /opt/mycosoft/website on production VM
 
 ### CREP
 
@@ -191,6 +192,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
