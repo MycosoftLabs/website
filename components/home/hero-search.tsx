@@ -138,7 +138,7 @@ export function HeroSearch() {
 
   return (
     <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
-      {/* Full-screen video — fixed to viewport so always covers entire screen on desktop, tablet, mobile */}
+      {/* Full-screen background — fixed to viewport so always covers entire screen */}
       <div className="fixed inset-0 z-0 overflow-hidden">
         <video
           ref={videoRef}
@@ -150,12 +150,18 @@ export function HeroSearch() {
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
           poster="/assets/homepage/hero-poster.jpg"
+          onError={(e) => {
+            // Hide video element if both sources fail — gradient background will show instead
+            (e.target as HTMLVideoElement).style.display = "none"
+          }}
         >
-          {/* Try local NAS path first, then mycosoft.org CDN fallback */}
+          {/* Try local path first, then mycosoft.org CDN fallback */}
           <source src="/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
           <source src="https://mycosoft.org/assets/homepage/Mycosoft%20Background.mp4" type="video/mp4" />
         </video>
+        {/* Gradient overlay — doubles as graceful fallback when video is unavailable */}
         <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5" aria-hidden />
       </div>
 
       <div 

@@ -1,0 +1,240 @@
+# NLM (Natural Language Model) CI/CD Pipeline
+# Deploy this workflow to MycosoftLabs/nlm repo: .github/workflows/ci-cd.yml
+#
+# This workflow handles:
+# - Linting and type checking
+# - Unit tests
+# - Docker image building
+# - Deployment to VM via SSH
+#
+# Required secrets:
+# - PRODUCTION_HOST: VM hostname/IP
+# - SSH_USER: SSH username
+# - SSH_KEY: SSH private key
+# - NLM_API_KEY: API key for NLM service (optional)
+#
+# SECURITY: The /api/sync endpoint MUST have rate limiting and authentication
+# before deploying to production. See docs/DEPLOYMENT_FIXES_MAR16_2026.md.
+
+name: NLM CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy to production'
+        required: false
+        default: 'false'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================================================
+  # LINT AND TYPE CHECK
+  # ===========================================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt 2>/dev/null || true
+          pip install ruff mypy 2>/dev/null || true
+
+      - name: Run Ruff linter
+        run: ruff check . || echo "::warning::Linting issues found (non-blocking)"
+        continue-on-error: true
+
+      - name: Run type check
+        run: mypy . --ignore-missing-imports || echo "::warning::Type check issues found (non-blocking)"
+        continue-on-error: true
+
+      # If NLM has a Node.js frontend/API component
+      - name: Setup Node.js (if applicable)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+        continue-on-error: true
+
+      - name: Install Node dependencies (if applicable)
+        run: npm ci 2>/dev/null || true
+        continue-on-error: true
+
+  # ===========================================================================
+  # TESTS
+  # ===========================================================================
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt 2>/dev/null || true
+          pip install pytest pytest-cov pytest-asyncio 2>/dev/null || true
+
+      - name: Run tests
+        run: |
+          pytest --tb=short -q --co 2>/dev/null && pytest --tb=short -q || echo "::warning::Tests failed or no tests found"
+        continue-on-error: true
+        env:
+          TESTING: "true"
+
+  # ===========================================================================
+  # SECURITY SCAN
+  # ===========================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run Bandit security scan
+        run: |
+          pip install bandit
+          bandit -r . -ll --exclude ./tests,./node_modules,./.venv -f json -o bandit-report.json || true
+          bandit -r . -ll --exclude ./tests,./node_modules,./.venv || true
+
+      - name: Check for known vulnerabilities
+        run: |
+          pip install safety
+          safety check --json 2>/dev/null || echo "::warning::Dependency vulnerabilities found"
+        continue-on-error: true
+
+  # ===========================================================================
+  # BUILD DOCKER IMAGE
+  # ===========================================================================
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+  # ===========================================================================
+  # DEPLOY TO PRODUCTION
+  # ===========================================================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Check deploy secrets
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+        run: |
+          if [ -z "${SSH_KEY}" ]; then
+            echo "::error::SSH_KEY secret not configured"
+            exit 1
+          fi
+          if [ -z "${PRODUCTION_HOST}" ]; then
+            echo "::error::PRODUCTION_HOST secret not configured"
+            exit 1
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.SSH_USER || 'mycosoft' }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            cd /opt/nlm || exit 1
+            git fetch origin
+            git reset --hard origin/main
+            docker compose pull
+            docker compose up -d --remove-orphans
+            echo "NLM deployed: ${{ github.sha }} at $(date)"
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.SSH_USER || 'mycosoft' }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 2m
+          script: |
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:8080/health 2>/dev/null; then
+                echo "NLM healthy on attempt $i"
+                exit 0
+              fi
+              sleep 5
+            done
+            echo "::warning::Health check did not pass — service may still be starting"

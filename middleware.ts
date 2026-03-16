@@ -74,8 +74,9 @@ export async function middleware(request: NextRequest) {
   return response
 }
 
-// Exclude auth/continue and auth/callback - they handle session themselves and redirect immediately.
+// Exclude auth routes and login - they handle session themselves and redirect immediately.
 // Middleware's getUser() can overwrite response cookies that never get sent when page throws redirect().
+// Also exclude /api/health and static assets to reduce unnecessary auth checks.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|auth/login|auth/signup|auth/reset|auth/continue|auth/callback).*)'],
+  matcher: ['/((?!_next/static|_next/image|login|auth/login|auth/signup|auth/reset|auth/continue|auth/callback|api/health|favicon\\.ico|assets/).*)'],
 }
