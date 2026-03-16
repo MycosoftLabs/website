@@ -273,7 +273,7 @@ jobs:
 
       - name: Pull latest code
         run: |
-          ssh production 'cd /opt/mycosoft && git fetch origin && git reset --hard origin/main'
+          ssh production 'cd /opt/mycosoft/website && git fetch origin && git reset --hard origin/main'
 
       - name: Pull new images and deploy
         run: |
