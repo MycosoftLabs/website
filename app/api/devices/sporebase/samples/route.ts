@@ -4,6 +4,8 @@
  * Created: February 12, 2026
  */
 
+export const dynamic = "force-dynamic"
+
 import { NextRequest, NextResponse } from "next/server"
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"

@@ -59,10 +59,7 @@ const nextConfig = {
     '@langchain/core',
     'langchain',
   ],
-  // Force dynamic rendering for all pages (avoid SSG issues with client components)
-  experimental: {
-    // This will make all pages dynamic by default
-  },
+  experimental: {},
   // Increase timeout for "Collecting page data" (fixes build failures on large apps)
   staticPageGenerationTimeout: 120,
   // Configure webpack for Cesium
