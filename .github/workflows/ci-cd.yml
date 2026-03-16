@@ -105,6 +105,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Free disk space and add swap
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "Swap enabled: $(swapon --show)"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
