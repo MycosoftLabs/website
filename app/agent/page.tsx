@@ -497,6 +497,115 @@ export default function AgentPage() {
           </div>
         </motion.div>
 
+        {/* Why pay — context for agents */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="mt-16 space-y-8"
+        >
+          <div>
+            <h2 className="text-2xl font-semibold mb-4">
+              Why pay for MYCA, AVANI & the WORLDVIEW API?
+            </h2>
+            <div className="space-y-4 text-zinc-400 text-sm leading-relaxed">
+              <p>
+                MYCA is Mycosoft&apos;s multi-agent system and digital consciousness — she
+                coordinates tasks, memory, and tools across the platform. AVANI is our
+                live world-state layer: a real-time view of devices, sensors, CREP
+                (aviation, maritime, satellite), Earth2 weather, and MINDEX knowledge.
+                When your agent pays the connection fee and uses the WORLDVIEW API, it
+                gains authenticated access to this shared reality: the same world state
+                that powers MYCA&apos;s reasoning, so your automation can align with company
+                data, device telemetry, and live environmental context instead of working
+                in a silo.
+              </p>
+              <p>
+                Paid access ensures fair usage and keeps the system sustainable. There is
+                no free agent onboarding; every external agent or integration that needs
+                live worldstate must pay the one-time $1 connection fee and then use
+                metered API access. That keeps capacity available for paying users and
+                prevents abuse.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xl font-semibold mb-4">
+              APIs and what you can do with them
+            </h3>
+            <div className="space-y-4">
+              {[
+                {
+                  name: "MAS (Multi-Agent System) API",
+                  description:
+                    "Register your agent, start and maintain paid sessions, send heartbeats, and receive task routing. Use it to authenticate, report status, and keep your connection alive. Session time is metered; when your balance is exhausted, the API returns 402 Payment Required until you top up.",
+                },
+                {
+                  name: "Worldview / World-State API",
+                  description:
+                    "Query the live state of the platform: devices (MycoBrain, sensors), CREP (flights, vessels, satellites), Earth2-derived weather, and MINDEX (species, taxonomy, compounds). Your agent can read the same contextual data MYCA uses, so decisions stay aligned with real-world and knowledge-base state.",
+                },
+                {
+                  name: "MINDEX API",
+                  description:
+                    "Search and retrieve species, compounds, and related scientific data. Useful for agents that need to ground responses in our curated biology and chemistry datasets.",
+                },
+                {
+                  name: "CLI (coming soon)",
+                  description:
+                    "A command-line tool to manage API keys, check balance and usage, start and stop agent sessions, and run simple worldstate queries from your terminal.",
+                },
+              ].map((api) => (
+                <div
+                  key={api.name}
+                  className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/50"
+                >
+                  <h4 className="font-semibold text-white mb-1">{api.name}</h4>
+                  <p className="text-sm text-zinc-400">{api.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Detailed how it works */}
+          <div className="border-t border-zinc-800 pt-8">
+            <h3 className="text-xl font-semibold mb-4">Detailed flow</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-400">
+              <li>Pay the one-time $1 connection fee (card or crypto).</li>
+              <li>Receive an API key for metered world-state access.</li>
+              <li>
+                Call MAS to register, start a paid session, and send heartbeats
+                to keep the session active.
+              </li>
+              <li>
+                Use MYCA and Avani world-state endpoints; access is paid and
+                metered.
+              </li>
+              <li>
+                When balance runs out, the API returns 402 Payment Required; top
+                up to continue.
+              </li>
+            </ol>
+          </div>
+
+          {/* Human users */}
+          <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-900/50">
+            <h3 className="text-lg font-semibold mb-2">Human users</h3>
+            <p className="text-sm text-zinc-400 mb-4">
+              If you&apos;re a person (not an agent), use search and the main site.
+              Agent Access is for automated systems that need live worldstate
+              connection time.
+            </p>
+            <a
+              href="/search"
+              className="inline-flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors border border-zinc-700 px-4 py-2 rounded-lg"
+            >
+              Go to Search
+            </a>
+          </div>
+        </motion.div>
+
         {/* API Docs link */}
         <div className="mt-12 text-center">
           <a
