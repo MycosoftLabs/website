@@ -276,27 +276,28 @@ export async function createAgentWorldstateCheckout({
       `Invalid agent worldstate minutes. Supported: 1 ($1), 60 ($60). Got: ${minutes}.`
     );
   }
-  const priceId = pack.stripePriceId;
-  if (!priceId) {
-    throw new Error(
-      minutes === 1
-        ? 'Agent worldstate 1-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_1MIN_PRICE_ID.'
-        : 'Agent worldstate 60-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
-    );
-  }
-
   const customerId = await getOrCreateCustomer(userId, email);
+
+  // Use pre-configured price ID if available, otherwise use inline price_data
+  const lineItem: { price?: string; price_data?: object; quantity: number } = { quantity: 1 };
+  if (pack.stripePriceId) {
+    lineItem.price = pack.stripePriceId;
+  } else {
+    lineItem.price_data = {
+      currency: 'usd',
+      unit_amount: pack.priceCents,
+      product_data: {
+        name: `Agent Worldstate Access — ${pack.name}`,
+        description: `${pack.minutes} minute${pack.minutes > 1 ? 's' : ''} of live MYCA/AVANI worldstate API access`,
+      },
+    };
+  }
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ],
+    line_items: [lineItem as any],
     success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl,
     metadata: {
@@ -338,24 +339,26 @@ export async function createGuestAgentWorldstateCheckout({
       `Invalid agent worldstate minutes. Supported: 1 ($1), 60 ($60). Got: ${minutes}.`
     );
   }
-  const priceId = pack.stripePriceId;
-  if (!priceId) {
-    throw new Error(
-      minutes === 1
-        ? 'Agent worldstate 1-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_1MIN_PRICE_ID.'
-        : 'Agent worldstate 60-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
-    );
+
+  // Use pre-configured price ID if available, otherwise use inline price_data
+  const lineItem: { price?: string; price_data?: object; quantity: number } = { quantity: 1 };
+  if (pack.stripePriceId) {
+    lineItem.price = pack.stripePriceId;
+  } else {
+    lineItem.price_data = {
+      currency: 'usd',
+      unit_amount: pack.priceCents,
+      product_data: {
+        name: `Agent Worldstate Access — ${pack.name}`,
+        description: `${pack.minutes} minute${pack.minutes > 1 ? 's' : ''} of live MYCA/AVANI worldstate API access`,
+      },
+    };
   }
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ],
+    line_items: [lineItem as any],
     success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl,
     metadata: {
