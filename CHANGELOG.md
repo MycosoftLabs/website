@@ -167,6 +167,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Authenticate GHCR on VM before pulling image
 - *(ci)* Use heredoc for deploy SSH to fix working directory
 - *(ci)* Remove stale container before deploy to avoid name conflict
+- *(deploy)* Don't block website start on Ollama health check
 
 ### CREP
 
@@ -197,6 +198,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
