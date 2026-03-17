@@ -168,6 +168,9 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Use heredoc for deploy SSH to fix working directory
 - *(ci)* Remove stale container before deploy to avoid name conflict
 - *(deploy)* Don't block website start on Ollama health check
+- *(auth)* Pass NEXT_PUBLIC_SUPABASE_* as Docker build args
+- *(deploy)* Mount NAS media assets into website container
+- SporeBase hero video case, MINDEX IP leak, Hyphae1 placeholder
 
 ### CREP
 
@@ -198,6 +201,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -306,6 +310,7 @@ All notable changes to this project will be documented in this file.
 - *(search)* Expand unified search to all Earth Intelligence domains
 - Integrate MINDEX earth intelligence with CREP, MYCA, and agent APIs
 - Agent payment pipeline — crypto wallets, API key auth, Supabase migration
+- *(agent)* Restore MYCA/AVANI/WORLDVIEW context and API docs
 
 ### Fix
 
@@ -340,6 +345,8 @@ All notable changes to this project will be documented in this file.
 - Add swap space to prevent OOM during Docker build
 - Build in CI, deploy = pull + restart (no VM builds)
 - Inject Supabase + wallet env vars into production .env during deploy
+- Add Fast Deploy workflow — skip build, pull + restart only
+- Add Instant Deploy and Fast Deploy workflows
 
 ### Refactor
 
