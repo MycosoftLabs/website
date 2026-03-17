@@ -1,19 +1,32 @@
 # Mycosoft CI/CD Pipeline
-# Last Updated: 2026-03-15T00:00:00Z
-# Version: 2.2.0
+# Last Updated: 2026-03-16T00:00:00Z
+# Version: 3.0.0
 #
-# This workflow handles:
-# - Linting and type checking
-# - Unit and integration tests
-# - Docker image building
-# - Deployment to production VM via SSH
-# - Changelog generation
+# Principles (see docs/INSTANT_WEBSITE_UPDATES_FASTER_CICD_MAR15_2026.md):
+#   1. Build in CI, not on the VM — image pushed to GHCR, VM only pulls + restarts
+#   2. GHA layer cache — repeat builds are fast
+#   3. Path filters — no full rebuild on doc-only changes
+#   4. Parallel jobs — lint + test run concurrently
+#   5. Smaller images — multi-stage Dockerfile, slim base
 
 name: Mycosoft CI/CD
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'services/**'
+      - 'Dockerfile.production'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.*'
+      - 'tsconfig.json'
+      - 'tailwind.config.*'
+      - '.github/workflows/ci-cd.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -30,7 +43,7 @@ env:
 
 jobs:
   # ===========================================================================
-  # LINT AND TYPE CHECK
+  # LINT AND TYPE CHECK (runs in parallel with test)
   # ===========================================================================
   lint:
     name: Lint & Type Check
@@ -55,12 +68,11 @@ jobs:
         run: npx tsc --noEmit || echo "::warning::TypeScript errors found (non-blocking — next.config.js has ignoreBuildErrors enabled)"
 
   # ===========================================================================
-  # UNIT TESTS
+  # UNIT TESTS (runs in parallel with lint)
   # ===========================================================================
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
-    needs: lint
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,18 +101,19 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ===========================================================================
-  # BUILD DOCKER IMAGES
+  # BUILD DOCKER IMAGE — with GHA layer cache, push to GHCR
   # ===========================================================================
   build:
-    name: Build Docker Images
+    name: Build & Push Image
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: test
+    needs: [lint, test]
     permissions:
       contents: read
       packages: write
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build-push.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -132,15 +145,19 @@ jobs:
           tags: |
             type=sha,prefix=
             type=ref,event=branch
-            type=semver,pattern={{version}}
+            type=raw,value=production-latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=staging-latest,enable=${{ github.ref == 'refs/heads/develop' }}
 
       - name: Build and push Website
+        id: build-push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.production
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_SHA=${{ github.sha }}
@@ -150,9 +167,12 @@ jobs:
         run: |
           IMAGE_NAME_LC="${IMAGE_NAME,,}"
           for service in aviation maritime satellite; do
-            docker build -t ${{ env.REGISTRY }}/${IMAGE_NAME_LC}-${service}:${{ github.sha }} \
+            docker buildx build \
+              --cache-from type=gha,scope=collector-${service} \
+              --cache-to type=gha,scope=collector-${service},mode=max \
+              --push \
+              -t ${{ env.REGISTRY }}/${IMAGE_NAME_LC}-${service}:${{ github.sha }} \
               -f ./services/collectors/Dockerfile.${service} ./services/collectors
-            docker push ${{ env.REGISTRY }}/${IMAGE_NAME_LC}-${service}:${{ github.sha }}
           done
 
   # ===========================================================================
@@ -199,7 +219,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
   # ===========================================================================
-  # DEPLOY TO STAGING
+  # DEPLOY TO STAGING — pull pre-built image + restart only
   # ===========================================================================
   deploy-staging:
     name: Deploy to Staging
@@ -215,14 +235,15 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            IMAGE_NAME_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+            docker pull ${{ env.REGISTRY }}/${IMAGE_NAME_LC}:staging-latest
             cd /opt/mycosoft-staging
-            docker compose pull
             docker compose up -d --remove-orphans
             docker compose exec -T website npm run db:migrate --if-present
             echo "Deployed ${{ github.sha }} to staging at $(date)"
 
   # ===========================================================================
-  # DEPLOY TO PRODUCTION (via SSH — uses PRODUCTION_HOST + SSH_USER + SSH_KEY)
+  # DEPLOY TO PRODUCTION — pull GHCR image + restart (no build on VM)
   # ===========================================================================
   deploy-production:
     name: Deploy to Production
@@ -231,7 +252,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
     environment: production
     continue-on-error: false
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Check deploy secrets
         id: check-secrets
@@ -253,17 +274,14 @@ jobs:
 
       - name: Install cloudflared and configure SSH
         run: |
-          # Install cloudflared
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
           sudo dpkg -i cloudflared.deb
           rm cloudflared.deb
 
-          # Write SSH key
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # Configure SSH to use cloudflared as proxy for the production host
           cat >> ~/.ssh/config <<EOF
           Host production
             HostName ${{ secrets.PRODUCTION_HOST }}
@@ -280,13 +298,26 @@ jobs:
         run: |
           ssh production 'cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml exec -T postgres pg_dump -U mycosoft mycosoft > /backup/db-$(date +%Y%m%d-%H%M%S).sql 2>/dev/null || echo "No existing database to backup (first deploy?) — skipping"'
 
-      - name: Pull latest code
+      - name: Pull image and deploy
         run: |
-          ssh production 'cd /opt/mycosoft/website && git fetch origin && git reset --hard origin/main'
+          IMAGE_NAME_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          ssh production bash -s <<SCRIPT
+            set -e
+            IMAGE="${{ env.REGISTRY }}/${IMAGE_NAME_LC}:production-latest"
 
-      - name: Pull new images and deploy
-        run: |
-          ssh -o ConnectTimeout=600 production 'cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml pull && docker compose -f docker-compose.production.yml up -d --remove-orphans'
+            # Authenticate to GHCR if token is available
+            if [ -n "\${GHCR_PULL_TOKEN:-}" ]; then
+              echo "\${GHCR_PULL_TOKEN}" | docker login ghcr.io -u mycosoft --password-stdin
+            fi
+
+            # Pull the pre-built image (the only thing that changes per deploy)
+            docker pull "\${IMAGE}"
+
+            # Restart only the website service — other services (postgres, redis,
+            # ollama, cloudflared) don't change and stay running
+            cd /opt/mycosoft/website
+            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+          SCRIPT
 
       - name: Run database migrations
         continue-on-error: true
@@ -297,22 +328,30 @@ jobs:
         run: |
           ssh production bash -s <<'SCRIPT'
           echo "=== Waiting for service to be healthy ==="
-          for i in 1 2 3 4 5 6 7 8 9 10; do
+          for i in 1 2 3 4 5; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
               echo "Health check passed on attempt $i"
-              break
+              exit 0
             fi
-            echo "Attempt $i: not ready, waiting 10s..."
-            sleep 10
+            echo "Attempt $i: not ready, waiting 5s..."
+            sleep 5
           done
-
-          echo ""
-          echo "=== LLM Provider Status ==="
-          curl -sf http://localhost:3000/api/health/providers 2>/dev/null \
-            | python3 -c 'import sys,json; d=json.load(sys.stdin); w=d.get("summary",{}).get("working",0); print(f"LLM providers working: {w}")' \
-            2>/dev/null || echo "LLM provider check skipped"
+          echo "::warning::Health check did not pass within 25s"
           SCRIPT
+
+      - name: Purge Cloudflare cache
+        if: success()
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ] && [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"purge_everything":true}'
+            echo "Cloudflare cache purged"
+          fi
 
       - name: Log deployment
         continue-on-error: true
@@ -331,7 +370,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Mycosoft Production Deployment*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}"
+                    "text": "*Mycosoft Production Deployment*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}\nDeploy: pull + restart (no VM build)"
                   }
                 }
               ]
