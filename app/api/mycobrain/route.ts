@@ -194,6 +194,12 @@ export async function GET(request: NextRequest) {
       const normalizedDevices = (data.devices || []).map(normalizeDevice)
       
       const portsData = portsRes && portsRes.ok ? await portsRes.json().catch(() => ({})) : { ports: [], discovery_running: false }
+      const rawPorts = portsData.ports || []
+      // Filter to likely MycoBrain ports only; exclude COM5 (known phantom ACPI port)
+      const availablePorts = rawPorts.filter(
+        (p: { device?: string; likely_mycobrain?: boolean }) =>
+          p.likely_mycobrain === true && (p.device || "").toUpperCase() !== "COM5"
+      )
       
       const localDeviceIds = new Set(normalizedDevices.map((d: { device_id?: string }) => d.device_id))
       const additionalNetworkDevices = networkDevices.filter(d => !localDeviceIds.has(d.device_id))
@@ -202,7 +208,7 @@ export async function GET(request: NextRequest) {
         ...data,
         devices: [...normalizedDevices, ...additionalNetworkDevices],
         source: "mycobrain-service",
-        availablePorts: portsData.ports || [],
+        availablePorts,
         discoveryRunning: portsData.discovery_running || false,
         serviceHealthy: true,
         networkDevicesIncluded: additionalNetworkDevices.length,
@@ -239,7 +245,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { action, port = "COM5" } = body
+  const { action, port = "COM7" } = body
   
   try {
     let endpoint = ""

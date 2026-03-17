@@ -175,31 +175,47 @@ export default function DeviceNetworkPage() {
   const handleScan = async () => {
     setScanning(true)
     try {
-      // First try to connect to COM5 (USB-C MycoBrain)
+      // Determine port: prefer COM7 (primary MycoBrain USB), then first available from service
+      let portToTry = "COM7"
+      try {
+        const mycobrainRes = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(5000) })
+        if (mycobrainRes.ok) {
+          const data = await mycobrainRes.json()
+          const ports = data.availablePorts || []
+          if (ports.length > 0) {
+            const portNames = ports.map((p: { port?: string; device?: string }) => p.port || p.device).filter(Boolean)
+            if (portNames.includes("COM7")) portToTry = "COM7"
+            else if (portNames.length > 0) portToTry = portNames[0]
+          }
+        }
+      } catch {
+        // Use COM7 as default when service unavailable
+      }
+
       try {
         const connectRes = await fetch("/api/mycobrain", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "connect", port: "COM5" }),
-          signal: AbortSignal.timeout(15000), // 15 second timeout
+          body: JSON.stringify({ action: "connect", port: portToTry }),
+          signal: AbortSignal.timeout(15000),
         })
         
         if (!connectRes.ok) {
           const errorData = await connectRes.json().catch(() => ({}))
           if (errorData.error?.includes("locked") || errorData.error?.includes("in use")) {
-            alert("COM5 is locked by another application. Please close the debugging agent, Arduino IDE, or serial monitor and try again.")
+            alert(`${portToTry} is locked by another application. Please close the debugging agent, Arduino IDE, or serial monitor and try again.`)
             return
           }
         }
-      } catch (error: any) {
-        if (error.name === "AbortError") {
-          alert("Connection to COM5 timed out. The port may be locked or the device not responding.")
+      } catch (error: unknown) {
+        const err = error as { name?: string }
+        if (err.name === "AbortError") {
+          alert(`Connection to ${portToTry} timed out. The port may be locked or the device not responding.`)
           return
         }
         console.error("Connection error:", error)
       }
       
-      // Refresh device list after connection attempt
       await fetchDevices()
     } catch (error) {
       console.error("Scan failed:", error)
