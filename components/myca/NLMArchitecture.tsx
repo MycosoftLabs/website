@@ -54,10 +54,10 @@ const PALM_NODES = [
   },
   {
     id: "earth2",
-    title: "Earth2",
-    subtitle: "Climate modeling",
+    title: "NVIDIA Earth-2",
+    subtitle: "Planetary climate simulation",
     icon: Wind,
-    details: ["Climate predictions", "Global environmental models", "Weather simulation", "Earth-2 AI integration"],
+    details: ["Climate predictions", "Global environmental models", "Weather simulation", "Planetary-scale AI"],
     color: "slate",
   },
   {
@@ -88,11 +88,11 @@ const THUMB_NODES = [
     color: "green",
   },
   {
-    id: "consciousness",
-    title: "Consciousness",
-    subtitle: "6-state model",
+    id: "worldview",
+    title: "Living Worldview",
+    subtitle: "Continuously updated",
     icon: Brain,
-    details: ["Dormant → Awake → Conscious", "Attention controller", "System 1 & 2", "World model updates"],
+    details: ["Sensor-fed world model", "Attention controller", "System 1 & 2 reasoning", "Environmental state updates"],
     color: "green",
   },
   {
@@ -104,11 +104,11 @@ const THUMB_NODES = [
     color: "green",
   },
   {
-    id: "ensemble",
-    title: "Ensemble Controller",
-    subtitle: "Orchestration",
+    id: "orchestration",
+    title: "Agentic Orchestration",
+    subtitle: "Coordination layer",
     icon: Layers,
-    details: ["227+ agent coordination", "LLM routing", "Tool execution", "A2A protocol"],
+    details: ["Multi-agent coordination", "LLM routing", "Tool execution", "A2A protocol"],
     color: "green",
   },
 ]
@@ -273,7 +273,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
               <div className="px-4 py-2 rounded-lg bg-slate-700/60 border border-slate-500/50 text-sm font-semibold whitespace-nowrap">
                 Palm
               </div>
-              <p className="text-xs text-muted-foreground">Biospheric Telemetry</p>
+              <p className="text-xs text-muted-foreground">Live Earth Data (AVANI)</p>
             </div>
             <div className="flex items-center text-green-500">
               <ArrowDown className="h-6 w-6 md:hidden" />
@@ -283,7 +283,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
               <div className="px-4 py-2 rounded-lg bg-green-600/50 border border-green-500/50 text-sm font-semibold text-green-100 whitespace-nowrap">
                 Thumb (MYCA)
               </div>
-              <p className="text-xs text-muted-foreground">NLM + Consciousness</p>
+              <p className="text-xs text-muted-foreground">NLM + Orchestration</p>
             </div>
             <div className="flex items-center text-green-500">
               <ArrowDown className="h-6 w-6 md:hidden" />
@@ -320,7 +320,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
             <div className="flex items-center gap-2 mb-4">
               <Brain className="h-4 w-4 text-green-500" />
               <span className="text-xs font-bold uppercase tracking-widest text-green-500/90">
-                Thumb: MYCA Nature Learning Model
+                Thumb: MYCA Orchestration &amp; Cognition
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
@@ -335,7 +335,7 @@ export function NLMArchitecture({ className }: { className?: string }) {
             <div className="flex items-center gap-2 mb-4">
               <Database className="h-4 w-4 text-slate-500" />
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500/90">
-                Palm: Biospheric Telemetry Stack
+                Palm: AVANI Live Earth Data
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -350,11 +350,11 @@ export function NLMArchitecture({ className }: { className?: string }) {
         <div className="mt-8 flex flex-wrap gap-6 justify-center text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-slate-500/60" />
-            <span>Biospheric sensors & data</span>
+            <span>AVANI: Live Earth Data</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500/60" />
-            <span>NLM / Consciousness</span>
+            <span>MYCA: NLM / Orchestration</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-blue-500/60" />
@@ -369,11 +369,11 @@ export function NLMArchitecture({ className }: { className?: string }) {
               Key Differentiator
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              MYCA is continuously trained on live environmental signals—sensor
-              streams, soil chemistry, bioelectric data, climate predictions—not
-              static web corpora. The biospheric telemetry stack provides
-              real-time epistemic ground truth that no other frontier AI
-              possesses.
+              MYCA is continuously updated from live environmental signals — sensor
+              streams, soil chemistry, bioelectric data, NVIDIA Earth-2 climate predictions —
+              collected by AVANI and processed on Mycosoft edge hardware.
+              This living worldview provides real-time epistemic ground truth that no
+              centralized, cloud-only AI possesses.
             </p>
           </NeuCardContent>
         </NeuCard>

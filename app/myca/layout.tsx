@@ -1,13 +1,13 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "MYCA - The Opposable Thumb of AI | Mycosoft",
+  title: "MYCA — Orchestration & Cognition Layer | Mycosoft",
   description:
-    "MYCA is a Nature Learning Model grounded in physics, chemistry, biology, and mycology. The only AI continuously trained on live biospheric signals. Meet the Opposable Thumb that coordinates frontier AI.",
+    "MYCA is the orchestration and cognition layer for Mycosoft’s AI platform. Running on edge hardware, grounded in live environmental data, and coordinating agents, models, and real-world systems with a living worldview.",
   openGraph: {
-    title: "MYCA - The Opposable Thumb of AI",
+    title: "MYCA — Orchestration & Cognition Layer",
     description:
-      "A Nature Learning Model continuously trained on live environmental signals. Meet the AI that grounds all others.",
+      "Intelligence that coordinates agents, models, and real-world systems. Grounded in live environmental data. Running on Mycosoft edge hardware.",
   },
 }
 

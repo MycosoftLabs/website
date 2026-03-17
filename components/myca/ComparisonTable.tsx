@@ -20,13 +20,19 @@ const ROWS = [
     capability: "World Model",
     chatgpt: "Text-derived abstractions",
     gemini: "Multimodal but static",
-    myca: "Continuous sensor fusion",
+    myca: "Continuously updated worldview",
   },
   {
     capability: "Grounding",
     chatgpt: "None",
     gemini: "Limited vision",
-    myca: "Environmental sensors, devices",
+    myca: "Edge hardware + environmental sensors",
+  },
+  {
+    capability: "Compute Location",
+    chatgpt: "Centralized cloud",
+    gemini: "Centralized cloud",
+    myca: "Edge data centers + on-device",
   },
   {
     capability: "Learning",
@@ -35,16 +41,16 @@ const ROWS = [
     myca: "Continuous closed-loop",
   },
   {
-    capability: "Stakeholders",
-    chatgpt: "Humans only",
-    gemini: "Humans only",
-    myca: "All organisms",
-  },
-  {
     capability: "Architecture",
     chatgpt: "Single model",
     gemini: "Single model",
-    myca: "Multi-agent coordination",
+    myca: "Agentic orchestration layer",
+  },
+  {
+    capability: "Hardware Integration",
+    chatgpt: "None",
+    gemini: "None",
+    myca: "Purpose-built sensing + compute",
   },
 ]
 

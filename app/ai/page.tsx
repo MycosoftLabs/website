@@ -1,8 +1,8 @@
 /**
  * AI Overview Page — Paired Intelligence System
  * Route: /ai
- * Public entry point for MYCA + AVANI + NLM.
- * Per CURSOR_BRIEF_PUBLIC_AI_PAGE_MYCA_AVANI_MAR09_2026.md
+ * Public entry point for MYCA + AVANI + NLM + NVIDIA stack.
+ * Updated: Mar 17, 2026
  */
 
 import type { Metadata } from "next"
@@ -21,11 +21,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { ArrowRight, Shield, Sparkles, Brain, Users, Bot, Cpu } from "lucide-react"
+import { ArrowRight, Shield, Sparkles, Brain, Users, Bot, Cpu, Globe, Zap, Server } from "lucide-react"
 export const metadata: Metadata = {
-  title: "AI | Grounded Intelligence for Humans, Agents, and Real-World Operations",
+  title: "AI | Orchestration, Sensing, and Governed Intelligence | Mycosoft",
   description:
-    "Mycosoft pairs MYCA, an active operating intelligence, with AVANI, a stewardship layer, for grounded AI across tools, data, devices, and real-world systems.",
+    "Mycosoft pairs MYCA, an orchestration and cognition layer running on edge hardware, with AVANI, a live Earth data and governance system — for grounded AI across tools, data, devices, and real-world systems.",
 }
 
 export default function AIOverviewPage() {
@@ -35,12 +35,13 @@ export default function AIOverviewPage() {
       <section className="relative py-16 md:py-24 overflow-hidden border-b">
         <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6">
-            Grounded AI for Humans, Agents, and Real-World Operations
+            Orchestration, Sensing, and Governed Intelligence
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            Mycosoft pairs <strong>MYCA</strong>, an active operating intelligence, with{" "}
-            <strong>AVANI</strong>, a stewardship and governance layer, to help humans, agents,
-            and frontier models work together across tools, data, devices, and real-world systems.
+            Mycosoft pairs <strong>MYCA</strong>, an orchestration and cognition layer
+            running on edge hardware, with <strong>AVANI</strong>, a live Earth data and
+            governance system — to help humans, agents, and frontier models work together
+            across tools, data, devices, and real-world systems.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="/myca">
@@ -72,9 +73,14 @@ export default function AIOverviewPage() {
             Mycosoft takes a different approach.
           </p>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
-            We build a paired AI system for real operations: one layer to think, coordinate, and
-            execute, and another to ground, govern, and protect. That makes Mycosoft useful not
-            only for chat, but for research, workflows, devices, teams, and AI-native infrastructure.
+            We build a paired AI system for real operations: one layer to orchestrate, coordinate,
+            and reason — running on purpose-built edge hardware — and another to sense, govern,
+            and protect. That makes Mycosoft useful not only for chat, but for research,
+            workflows, devices, teams, and AI-native infrastructure.
+          </p>
+          <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+            The intelligence runs at the edge, close to the data. Not in a distant data center
+            disconnected from the real world.
           </p>
         </div>
       </section>
@@ -90,16 +96,19 @@ export default function AIOverviewPage() {
                   <Sparkles className="h-5 w-5 text-green-500 shrink-0" />
                   <CardTitle className="text-xl">MYCA</CardTitle>
                 </div>
-                <CardDescription>Active operating intelligence</CardDescription>
+                <CardDescription>Orchestration &amp; Cognition Layer</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  MYCA helps users and systems understand requests, coordinate tools, work across
-                  context, and turn questions into action. Built for multimodal interaction, agent
-                  orchestration, research support, simulation workflows, and operational execution.
+                  MYCA is the intelligence that coordinates agents, models, and real-world systems.
+                  It maintains a living worldview from continuous sensor data, runs on Mycosoft
+                  edge hardware (Mushroom 1, Hyphae 1, SporeBase, Alarm, Myconode), and
+                  orchestrates frontier AI models for multimodal interaction, research, and
+                  operational execution.
                 </p>
                 <p className="text-sm font-medium">
-                  MYCA is not just a chatbot. It is an operating intelligence layer.
+                  MYCA is not just a chatbot. It is the orchestration and cognition layer for
+                  an entire platform.
                 </p>
                 <Link href="/myca">
                   <Button variant="outline" size="sm" className="mt-4 min-h-[44px] touch-manipulation">
@@ -111,20 +120,21 @@ export default function AIOverviewPage() {
             <Card className="border-amber-500/30 bg-amber-500/5">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-amber-500 shrink-0" />
+                  <Globe className="h-5 w-5 text-amber-500 shrink-0" />
                   <CardTitle className="text-xl">AVANI</CardTitle>
                 </div>
-                <CardDescription>Stewardship and governance layer</CardDescription>
+                <CardDescription>Live Earth Data &amp; Planetary Sensing</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  AVANI provides grounding, policy, approvals, auditability, and risk-aware control.
-                  She exists so powerful AI can be deployed in the real world without losing
-                  accountability, safety, or human trust.
+                  AVANI provides real-time environmental data, governance, and stewardship.
+                  It runs as its own system adjacent to MYCA — with independent data pipelines,
+                  its own constitutional constraints, and the live planetary sensing that keeps
+                  intelligence grounded in environmental reality.
                 </p>
                 <p className="text-sm font-medium">
-                  AVANI is not a filter bolted on at the end. She is part of how the system
-                  thinks safely in the first place.
+                  AVANI is not a filter bolted on at the end. It is the foundation that
+                  keeps the entire system accountable to reality.
                 </p>
                 <Link href="/ai/avani">
                   <Button variant="outline" size="sm" className="mt-4 min-h-[44px] touch-manipulation">
@@ -145,8 +155,60 @@ export default function AIOverviewPage() {
         </div>
       </section>
 
-      {/* Why they were built together */}
+      {/* Hardware + NVIDIA Stack */}
       <section className="py-16 md:py-20 border-b bg-muted/30">
+        <div className="container max-w-5xl mx-auto px-4 md:px-6">
+          <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center">
+            Edge Hardware &amp; NVIDIA-Aligned Stack
+          </h2>
+          <p className="text-muted-foreground text-base md:text-lg leading-relaxed text-center max-w-2xl mx-auto mb-8">
+            Mycosoft intelligence runs on purpose-built edge hardware, powered by an
+            NVIDIA-aligned runtime stack for accelerated inference and planetary-scale simulation.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <Server className="h-6 w-6 mb-2 text-green-500" />
+                <CardTitle className="text-lg">Mycosoft Edge Hardware</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                  MYCA operates across Mycosoft&apos;s purpose-built hardware systems —
+                  not in generic cloud data centers.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>Mushroom 1</strong> — Edge compute ground station</li>
+                  <li>• <strong>Hyphae 1</strong> — Mesh networking backbone</li>
+                  <li>• <strong>SporeBase</strong> — Environmental collection platform</li>
+                  <li>• <strong>Alarm</strong> — Monitoring &amp; alert system</li>
+                  <li>• <strong>Myconode</strong> — Compact edge sensing node</li>
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Zap className="h-6 w-6 mb-2 text-green-500" />
+                <CardTitle className="text-lg">NVIDIA Runtime Stack</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                  Accelerated inference, model orchestration, and planetary-scale
+                  environmental modeling.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• <strong>NemoClaw</strong> — Runtime orchestration for edge inference</li>
+                  <li>• <strong>Nemotron</strong> — Specialized reasoning models</li>
+                  <li>• <strong>Earth-2</strong> — Planetary climate simulation</li>
+                  <li>• <strong>PersonaPlex</strong> — Identity-aware interaction</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Why they were built together */}
+      <section className="py-16 md:py-20 border-b">
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Why They Were Built Together</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
@@ -154,19 +216,19 @@ export default function AIOverviewPage() {
             useful for demos, but risky, brittle, and hard to trust in real operations.
           </p>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
-            Mycosoft separates reasoning from governance, capability from restraint, action from
-            authorization, intelligence from stewardship. MYCA expands capability. AVANI protects
+            Mycosoft separates orchestration from sensing, cognition from governance, action from
+            environmental truth. MYCA expands capability. AVANI grounds it in reality and protects
             integrity. Together, they create a system that can move quickly without becoming reckless.
           </p>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-            Mycosoft was built on the belief that real AI systems should not be trapped in a
-            single-model, single-vendor wall. They should operate as grounded, governed ecosystems.
+            By running intelligence at the edge — on Mycosoft&apos;s own hardware — the system stays
+            connected to the real world instead of being trapped in a centralized cloud.
           </p>
         </div>
       </section>
 
       {/* For Humans, Agents, Models */}
-      <section className="py-16 md:py-20 border-b">
+      <section className="py-16 md:py-20 border-b bg-muted/30">
         <div className="container max-w-5xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">Built for Multiple Participants</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -192,9 +254,9 @@ export default function AIOverviewPage() {
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Agents use Mycosoft as a coordination and trust layer. MYCA gives them context,
-                  memory, and task routing. AVANI gives them boundaries, policy, and approval logic.
-                  Organizations can run many agents without losing coherence, traceability, or control.
-                  Mycosoft is built for AI-native operations, not just AI-assisted user interfaces.
+                  memory, and task routing. AVANI gives them environmental data, policy boundaries,
+                  and approval logic. Organizations can run many agents without losing coherence,
+                  traceability, or control.
                 </p>
               </CardContent>
             </Card>
@@ -205,10 +267,9 @@ export default function AIOverviewPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Mycosoft is model-flexible. Claude, GPT, Gemini, Grok, and other models can be
-                  used as specialized reasoning engines. MYCA coordinates them; AVANI governs their
-                  use. Users are not trapped in one vendor&apos;s context window or policy model.
-                  Mycosoft does not ask you to bet your future on one model.
+                  Mycosoft is model-flexible. Claude, GPT, Gemini, Grok, Nemotron, and other models
+                  can be used as specialized reasoning engines. MYCA coordinates them; AVANI governs
+                  their use. Users are not locked into one vendor&apos;s context window or policy model.
                 </p>
               </CardContent>
             </Card>
@@ -217,21 +278,22 @@ export default function AIOverviewPage() {
       </section>
 
       {/* Why companies choose */}
-      <section className="py-16 md:py-20 border-b bg-muted/30">
+      <section className="py-16 md:py-20 border-b">
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Why Companies Choose Mycosoft</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
             Companies choose Mycosoft when they need more than a chatbot. They need AI that can
-            operate across teams, workflows, tools, data, and devices — and still remain explainable,
-            auditable, and governable.
+            operate across teams, workflows, tools, data, and devices — grounded in real-world
+            environmental data and governed by constitutional constraints.
           </p>
           <ul className="list-disc list-inside text-muted-foreground space-y-2 mb-4">
             <li>More than a model: orchestration, memory, tools, devices, workflows, governance</li>
-            <li>Grounding: real data, real systems, real state</li>
-            <li>Governance: approvals, audit trails, safety, reversibility, accountability</li>
-            <li>Model flexibility: not locked into one vendor</li>
+            <li>Edge intelligence: hardware-integrated compute, not cloud-only dependence</li>
+            <li>Environmental grounding: real data, real systems, real state via AVANI</li>
+            <li>Constitutional governance: approvals, audit trails, safety, reversibility</li>
+            <li>NVIDIA-aligned stack: NemoClaw, Nemotron, Earth-2 for accelerated inference</li>
+            <li>Model flexibility: not locked into one vendor — Claude, GPT, Gemini, Grok, and more</li>
             <li>Human + agent usability: designed for both people and autonomous systems</li>
-            <li>Trustworthy deployment: safer for real organizations than raw model access alone</li>
           </ul>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
             If you want AI that can actually operate in the real world — across people, agents,
@@ -240,8 +302,8 @@ export default function AIOverviewPage() {
         </div>
       </section>
 
-      {/* Value / Cost — no pricing, Talk to us */}
-      <section className="py-16 md:py-20 border-b">
+      {/* Value / Cost */}
+      <section className="py-16 md:py-20 border-b bg-muted/30">
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Cost Less. Do More. Govern Better.</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-6">
@@ -261,14 +323,15 @@ export default function AIOverviewPage() {
       </section>
 
       {/* Trust, safety, stewardship */}
-      <section className="py-16 md:py-20 border-b bg-muted/30">
+      <section className="py-16 md:py-20 border-b">
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">Trust, Safety, and Stewardship</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
             AVANI provides constitutional constraints, ecological awareness, human-centered stewardship,
             and multi-stakeholder governance. The system is designed for real organizations where
             accountability, auditability, and reversibility matter. Mycosoft does not ship governance
-            as an afterthought — it is built into the architecture from the start.
+            as an afterthought — it is built into the architecture from the start, enforced by a
+            system that runs independently from the intelligence it governs.
           </p>
         </div>
       </section>
@@ -303,34 +366,55 @@ export default function AIOverviewPage() {
             <AccordionItem value="myca-avani">
               <AccordionTrigger className="text-base text-left">What is the difference between MYCA and AVANI?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                MYCA is the active intelligence layer that thinks, coordinates, and executes. AVANI
-                is the stewardship layer that grounds, governs, approves, and protects. MYCA expands
-                capability; AVANI protects integrity. They work together so the system can move
-                quickly without becoming reckless.
+                MYCA is the orchestration and cognition layer — it coordinates agents, models, and
+                hardware systems, maintaining a living worldview from continuous sensor data.
+                AVANI is the live Earth data and governance layer — it provides real-time environmental
+                signals, constitutional constraints, and stewardship. MYCA acts; AVANI senses and
+                governs. They are complementary halves of a unified system.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="edge">
+              <AccordionTrigger className="text-base text-left">Where does the intelligence run?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                MYCA runs on Mycosoft&apos;s purpose-built edge hardware — Mushroom 1, Hyphae 1,
+                SporeBase, Alarm, and Myconode. The intelligence operates at the edge, close
+                to the sensors and data, rather than in centralized cloud data centers. This reduces
+                latency, keeps sensitive data local, and ensures the system stays connected to
+                environmental reality.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="nvidia">
+              <AccordionTrigger className="text-base text-left">What is the NVIDIA stack integration?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground">
+                Mycosoft leverages an NVIDIA-aligned runtime stack including NemoClaw for inference
+                orchestration, Nemotron for specialized reasoning models, Earth-2 for planetary-scale
+                climate simulation, and PersonaPlex for identity-aware interaction. This accelerates
+                AI inference at the edge and enables environmental modeling at global scale.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="models">
               <AccordionTrigger className="text-base text-left">Can Mycosoft work with other frontier models?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Yes. Mycosoft is model-flexible. Claude, GPT, Gemini, Grok, and other models can be
-                used as specialized reasoning engines. MYCA coordinates them; AVANI governs their use.
-                You are not locked into one vendor.
+                Yes. Mycosoft is model-flexible. Claude, GPT, Gemini, Grok, Nemotron, and other
+                models can be used as specialized reasoning engines. MYCA coordinates them; AVANI
+                governs their use. You are not locked into one vendor.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="agents">
               <AccordionTrigger className="text-base text-left">Is this only for humans, or can agents use it too?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
                 Both. Mycosoft is built for AI-native operations. Agents use MYCA for context, memory,
-                and task routing, and AVANI for policy and approval logic. Humans and agents can
-                collaborate through the same operating layer.
+                and task routing, and AVANI for environmental data, policy, and approval logic.
+                Humans and agents can collaborate through the same operating layer.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="single-model">
               <AccordionTrigger className="text-base text-left">How is Mycosoft different from a single-model AI product?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
                 Single-model products collapse intelligence and governance into one layer. Mycosoft
-                separates them: MYCA for capability and action, AVANI for grounding and restraint.
-                You get orchestration, memory, tools, devices, and governance — not just a chat interface.
+                separates them: MYCA for orchestration and cognition, AVANI for sensing and governance.
+                You get agentic coordination, edge hardware, environmental grounding, memory, tools,
+                devices, and constitutional governance — not just a chat interface.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="pricing">

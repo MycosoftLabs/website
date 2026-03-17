@@ -60,7 +60,7 @@ const NLM_PHASES = [
   { phase: "Phase 0", name: "Foundations", timeline: "0-6 months", status: "active", items: ["NMF v0.1 + ingestion pipeline", "Lab rigs for 3-5 fungal species", "Baseline dataset + calibration logs", "Baseline NLM-Funga: denoiser + event detector", "Benchmark harness"] },
   { phase: "Phase 1", name: "Funga Decoding", timeline: "6-18 months", status: "upcoming", items: ["Scale to 10-20 species", "FungaLex v0.5 probabilistic lexicon", "NatureOS dashboards integration", "Closed-loop stimulation-response protocols"] },
   { phase: "Phase 2", name: "Cross-Species Translation", timeline: "18-36 months", status: "planned", items: ["Plant root-zone + VOC/hormone sensing", "Interaction graph learning", "Causal hypothesis generation", "Regional pilots"] },
-  { phase: "Phase 3", name: "Nature Intelligence at Scale", timeline: "36+ months", status: "vision", items: ["Earth observation integration", "Data-assimilating world model", "Open benchmarks ecosystem", "Global nature translation network"] },
+  { phase: "Phase 3", name: "Nature Intelligence at Scale", timeline: "36+ months", status: "vision", items: ["NVIDIA Earth-2 integration", "Data-assimilating world model", "Open benchmarks ecosystem", "Global nature translation network"] },
 ]
 
 const RESEARCH_PAPERS = [
@@ -71,11 +71,11 @@ const RESEARCH_PAPERS = [
 ]
 
 const SIX_LAYERS = [
-  { layer: "1", title: "Sensing & Acquisition", icon: Activity, cardClass: "bg-purple-500/5 border-purple-500/20", iconClass: "text-purple-600 dark:text-purple-400", badgeClass: "bg-purple-500/20", items: ["Fungal electrophysiology (FCI)", "Chemical & environmental sensors", "Time-lapse imaging"] },
-  { layer: "2", title: "Edge Processing", icon: Cpu, cardClass: "bg-blue-500/5 border-blue-500/20", iconClass: "text-blue-600 dark:text-blue-400", badgeClass: "bg-blue-500/20", items: ["Denoising & artifact removal", "Spike/event detection", "On-device compression"] },
-  { layer: "3", title: "Transport", icon: Network, cardClass: "bg-cyan-500/5 border-cyan-500/20", iconClass: "text-cyan-600 dark:text-cyan-400", badgeClass: "bg-cyan-500/20", items: ["Mesh/gateway architecture", "Store-and-forward", "Mycorrhizae Protocol alignment"] },
+  { layer: "1", title: "Sensing & Acquisition", icon: Activity, cardClass: "bg-purple-500/5 border-purple-500/20", iconClass: "text-purple-600 dark:text-purple-400", badgeClass: "bg-purple-500/20", items: ["Fungal electrophysiology (FCI)", "Chemical & environmental sensors", "Time-lapse imaging", "Myconode & SporeBase field hardware"] },
+  { layer: "2", title: "Edge Processing", icon: Cpu, cardClass: "bg-blue-500/5 border-blue-500/20", iconClass: "text-blue-600 dark:text-blue-400", badgeClass: "bg-blue-500/20", items: ["On-device inference (Mushroom 1)", "Denoising & artifact removal", "Spike/event detection", "NVIDIA NemoClaw runtime"] },
+  { layer: "3", title: "Transport", icon: Network, cardClass: "bg-cyan-500/5 border-cyan-500/20", iconClass: "text-cyan-600 dark:text-cyan-400", badgeClass: "bg-cyan-500/20", items: ["Hyphae 1 mesh networking", "Store-and-forward", "Mycorrhizae Protocol alignment"] },
   { layer: "4", title: "Data Integrity & Indexing", icon: Database, cardClass: "bg-green-500/5 border-green-500/20", iconClass: "text-green-600 dark:text-green-400", badgeClass: "bg-green-500/20", items: ["MINDEX provenance layer", "Dataset lakehouse", "Feature derivation"] },
-  { layer: "5", title: "Model Layer (NLM)", icon: Brain, cardClass: "bg-amber-500/5 border-amber-500/20", iconClass: "text-amber-600 dark:text-amber-400", badgeClass: "bg-amber-500/20", items: ["NLM-Funga foundation model", "Translation services", "Forecasting & anomaly detection"] },
+  { layer: "5", title: "Model Layer (NLM)", icon: Brain, cardClass: "bg-amber-500/5 border-amber-500/20", iconClass: "text-amber-600 dark:text-amber-400", badgeClass: "bg-amber-500/20", items: ["NLM-Funga foundation model", "Nemotron-accelerated inference", "Translation services", "Forecasting & anomaly detection"] },
   { layer: "6", title: "Application (NatureOS)", icon: Layers, cardClass: "bg-pink-500/5 border-pink-500/20", iconClass: "text-pink-600 dark:text-pink-400", badgeClass: "bg-pink-500/20", items: ["Dashboards & APIs", "Experiment orchestration", "Stimulation loops"] },
 ]
 
@@ -108,6 +108,7 @@ export default function NLMPage() {
                 <p className="text-base md:text-lg text-muted-foreground mt-2 max-w-2xl">
                   The world&apos;s first multi-modal foundation model that learns the information-bearing signals of living Earth systems
                   and translates them into operational representations for humans, machines, and scientific workflows.
+                  Trained on data from Mycosoft edge hardware and accelerated by the NVIDIA runtime stack.
                 </p>
               </div>
               <Link href="/natureos/model-training">

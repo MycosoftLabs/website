@@ -2,9 +2,10 @@
 
 /**
  * MYCA Introduction Page - Architectural Showcase
- * Presents MYCA as Environmental Superintelligence
+ * Presents MYCA as the orchestration and cognition layer
+ * with worldview framing, edge compute, and hardware architecture
  * Route: /myca (and /MYCA via redirect)
- * Created: Feb 17, 2026
+ * Created: Feb 17, 2026 | Updated: Mar 17, 2026
  */
 
 import Link from "next/link"
@@ -16,6 +17,7 @@ import { LiveDemo } from "@/components/myca/LiveDemo"
 import { ComparisonTable } from "@/components/myca/ComparisonTable"
 import { TechnicalSpecs } from "@/components/myca/TechnicalSpecs"
 import { MYCAAbstract } from "@/components/myca/MYCAAbstract"
+import { MYCAHardwareSystems } from "@/components/myca/MYCAHardwareSystems"
 import { MYCAConsciousnessStatus } from "@/components/mas/myca-consciousness-status"
 import { NeuromorphicProvider, NeuBadge, NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
 import { Button } from "@/components/ui/button"
@@ -25,7 +27,7 @@ export default function MYCAPage() {
   return (
     <NeuromorphicProvider>
       <div className="min-h-dvh myca-page">
-      {/* Section 1: Hero - no duplicate hand (hand is in ThumbThesisDiagram) */}
+      {/* Section 1: Hero — orchestration, cognition, edge intelligence */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-black via-green-950/30 to-background" data-over-video>
         <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">
@@ -37,11 +39,16 @@ export default function MYCAPage() {
               MYCA
             </span>
             <br />
-            <span className="text-foreground">Environmental Superintelligence</span>
+            <span className="text-foreground">Orchestration &amp; Cognition Layer</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            A Nature Learning Model grounded in physics, chemistry, biology, and
-            mycology. Continuously trained on live biospheric signals.
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-4">
+            The intelligence that coordinates agents, models, and real-world systems.
+            Grounded in live environmental data. Running on Mycosoft edge hardware.
+          </p>
+          <p className="text-base text-muted-foreground/80 max-w-2xl mx-auto mb-8">
+            MYCA builds and maintains a living worldview — continuously updated from
+            sensors, devices, and planetary signals — so every decision is rooted in reality,
+            not static training data.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="#live-demo">
@@ -85,31 +92,47 @@ export default function MYCAPage() {
         <LiveDemo />
       </section>
 
-      {/* Section 6: NLM Architecture — detailed visual diagram */}
+      {/* Section 6: Hardware Systems — edge compute + Mycosoft devices */}
+      <MYCAHardwareSystems />
+
+      {/* Section 7: NLM Architecture — detailed visual diagram */}
       <NLMArchitecture />
 
-      {/* Section 7: Fungal Principles */}
+      {/* Section 8: Fungal Principles */}
       <FungalPrinciples />
 
-      {/* Section 8: Comparison Table */}
+      {/* Section 9: Comparison Table */}
       <ComparisonTable />
 
-      {/* Section 9: All Organisms as Users */}
+      {/* Section 10: Worldview & Multi-Stakeholder Governance */}
       <section className="py-16 md:py-24 neuromorphic-section">
         <div className="container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
             <NeuBadge variant="default" className="mb-4 border border-green-500/30">
-              Philosophy
+              Worldview
             </NeuBadge>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              All Organisms as Users
+              A Living Worldview, Not a Static Model
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Traditional AI: built by humans, for humans. MYCA: built for all
-              organisms—humans, ecosystems, and machines.
+              MYCA maintains a continuously updated understanding of the world — built from
+              real signals, real devices, and real environmental conditions.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <NeuCard className="border border-green-500/30 bg-green-500/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-3">
+                  <Globe className="h-5 w-5 text-green-400 shrink-0" />
+                  <h3 className="font-bold text-lg">Reality-Grounded</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  MYCA&apos;s worldview is not derived from web text — it is built from
+                  continuous sensor streams, environmental signals, and field data
+                  collected by Mycosoft hardware deployed at the edge.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
             <NeuCard className="border border-green-500/30 bg-green-500/5">
               <NeuCardContent>
                 <div className="flex items-center gap-2 mb-3">
@@ -117,29 +140,30 @@ export default function MYCAPage() {
                   <h3 className="font-bold text-lg">Multi-Stakeholder Governance</h3>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Humans, ecosystems, and machines as stakeholders. Deontological
-                  constraints protecting ecosystems and future organisms.
+                  Humans, ecosystems, and machines as stakeholders. Constitutional
+                  constraints protect ecosystems and future organisms. Governance
+                  is built into the architecture, not bolted on.
                 </p>
               </NeuCardContent>
             </NeuCard>
             <NeuCard>
               <NeuCardContent>
                 <div className="flex items-center gap-2 mb-3">
-                  <Globe className="h-5 w-5 text-green-400 shrink-0" />
-                  <h3 className="font-bold text-lg">Reality-First Principle</h3>
+                  <Leaf className="h-5 w-5 text-green-400 shrink-0" />
+                  <h3 className="font-bold text-lg">Agentic Coordination</h3>
                 </div>
-                <blockquote className="text-sm text-muted-foreground leading-relaxed italic">
-                  &quot;MYCA treats biological networks not only as data sources,
-                  but as active experimental partners in a feedback loop of
-                  stimulation, measurement, inference, and refinement.&quot;
-                </blockquote>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  MYCA orchestrates a network of specialized agents — each with bounded
+                  authority and clear roles — coordinating across models, tools, and
+                  hardware systems to execute complex multi-step operations.
+                </p>
               </NeuCardContent>
             </NeuCard>
           </div>
         </div>
       </section>
 
-      {/* Section 10: Technical Specs */}
+      {/* Section 11: Technical Specs */}
       <TechnicalSpecs />
 
       {/* Section 11: CTA */}
