@@ -163,6 +163,8 @@ All notable changes to this project will be documented in this file.
 - Add force-dynamic exports to fix build prerender errors
 - *(ci)* Use website dir and production compose for deploy
 - *(ci)* Pull code in /opt/mycosoft/website on production VM
+- Update migration for existing schema + fix payments table column names
+- *(ci)* Authenticate GHCR on VM before pulling image
 
 ### CREP
 
@@ -193,6 +195,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -296,6 +299,7 @@ All notable changes to this project will be documented in this file.
 - *(home)* Use Mycosoft Background video from NAS in hero section
 - *(search)* Expand unified search to all Earth Intelligence domains
 - Integrate MINDEX earth intelligence with CREP, MYCA, and agent APIs
+- Agent payment pipeline — crypto wallets, API key auth, Supabase migration
 
 ### Fix
 
@@ -327,6 +331,9 @@ All notable changes to this project will be documented in this file.
 - Update tsconfig build info
 - Update tsconfig build info
 - Update tsconfig build info
+- Add swap space to prevent OOM during Docker build
+- Build in CI, deploy = pull + restart (no VM builds)
+- Inject Supabase + wallet env vars into production .env during deploy
 
 ### Refactor
 
