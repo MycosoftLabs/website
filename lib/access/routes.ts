@@ -21,6 +21,9 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/login', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Login page' },
   { path: '/signup', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Signup page' },
   { path: '/preview', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Preview page' },
+  { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
+  { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
+  { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
 ]
 
 // Freemium routes - public with limits
@@ -212,8 +215,7 @@ export const PLATFORM_ALLOWED_DOMAIN = 'mycosoft.org'
 
 // Admin routes
 export const ADMIN_ROUTES: RouteAccess[] = [
-  { path: '/devices', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Device Manager' },
-  { path: '/devices/[id]', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Device Details' },
+  // /devices and /devices/[id] moved to PUBLIC_ROUTES — product pages are public
   { path: '/security', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Security' },
   { path: '/security/compliance', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'Compliance' },
   { path: '/security/fcl', gate: AccessGate.ADMIN, config: { gate: AccessGate.ADMIN, minimumRole: UserRole.ADMIN }, description: 'FCL Tracking' },
