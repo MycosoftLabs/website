@@ -138,9 +138,9 @@ export function ContactForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">Send us a Message</CardTitle>
+        <CardTitle className="text-2xl">Send Us a Message</CardTitle>
         <CardDescription>
-          Fill out the form below and we'll get back to you within 24-48 hours.
+          Tell us about your project, question, or idea. We typically respond within one to two business days.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -246,7 +246,7 @@ export function ContactForm() {
               </Label>
               <Input
                 id="subject"
-                placeholder="How can we help?"
+                placeholder="e.g. Partnership inquiry, Product question, Research collaboration"
                 value={formData.subject}
                 onChange={handleInputChange}
                 className={errors.subject ? "border-red-500" : ""}
@@ -263,7 +263,7 @@ export function ContactForm() {
               </Label>
               <Textarea
                 id="message"
-                placeholder="Tell us more about your inquiry..."
+                placeholder="Tell us about your project, research interest, or how Mycosoft can help..."
                 rows={5}
                 value={formData.message}
                 onChange={handleInputChange}

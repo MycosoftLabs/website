@@ -28,8 +28,12 @@ interface ContactFormData {
 async function sendContactNotification(contactData: ContactFormData): Promise<void> {
   try {
     // Send notification via MAS communication service
-    const masUrl = process.env.MAS_API_URL || 'http://192.168.0.188:8001'
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@mycosoft.com'
+    const masUrl = process.env.MAS_API_URL
+    if (!masUrl) {
+      console.warn('[Contact API] MAS_API_URL not configured, skipping notification')
+      return
+    }
+    const adminEmail = process.env.ADMIN_EMAIL || 'hello@mycosoft.org'
     
     const response = await fetch(`${masUrl}/api/communications/notify`, {
       method: 'POST',

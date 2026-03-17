@@ -11,61 +11,53 @@ import {
   Github,
   Twitter,
   Linkedin,
-  Headphones,
-  FileText,
-  Users,
+  Phone,
+  Cpu,
+  FlaskConical,
+  Handshake,
+  Leaf,
 } from "lucide-react"
 import { ContactForm } from "@/components/contact/contact-form"
 
 export const metadata: Metadata = {
   title: "Contact Us | Mycosoft",
-  description: "Get in touch with the Mycosoft team. We're here to help with questions about our products, research, partnerships, and more.",
+  description: "Get in touch with the Mycosoft team. Reach us about AI systems, hardware, biotechnology research, partnerships, and platform inquiries.",
 }
 
 const contactMethods = [
   {
     icon: Mail,
-    title: "Email",
-    description: "For general inquiries",
-    value: "hello@mycosoft.com",
-    link: "mailto:hello@mycosoft.com",
+    title: "General Inquiries",
+    description: "Questions about Mycosoft",
+    value: "hello@mycosoft.org",
+    link: "mailto:hello@mycosoft.org",
   },
   {
-    icon: Headphones,
-    title: "Support",
-    description: "Technical assistance",
-    value: "support@mycosoft.com",
-    link: "mailto:support@mycosoft.com",
+    icon: Cpu,
+    title: "Product & Platform",
+    description: "NatureOS, MYCA, devices",
+    value: "support@mycosoft.org",
+    link: "mailto:support@mycosoft.org",
   },
   {
-    icon: Users,
+    icon: Handshake,
     title: "Partnerships",
-    description: "Business development",
-    value: "partners@mycosoft.com",
-    link: "mailto:partners@mycosoft.com",
+    description: "Research & business collaboration",
+    value: "partners@mycosoft.org",
+    link: "mailto:partners@mycosoft.org",
   },
   {
-    icon: FileText,
-    title: "Press",
-    description: "Media inquiries",
-    value: "press@mycosoft.com",
-    link: "mailto:press@mycosoft.com",
-  },
-]
-
-const offices = [
-  {
-    city: "San Francisco",
-    country: "United States",
-    role: "Headquarters",
-    address: "548 Market St, Suite 35000",
-    timezone: "PST (UTC-8)",
+    icon: Phone,
+    title: "Phone",
+    description: "Direct line",
+    value: "(619) 483-1077",
+    link: "tel:+16194831077",
   },
 ]
 
 const socialLinks = [
-  { icon: Github, label: "GitHub", href: "https://github.com/mycosoft" },
-  { icon: Twitter, label: "Twitter", href: "https://twitter.com/mycosoft" },
+  { icon: Github, label: "GitHub", href: "https://github.com/MycosoftLabs" },
+  { icon: Twitter, label: "Twitter", href: "https://twitter.com/mycosoftorg" },
   { icon: Linkedin, label: "LinkedIn", href: "https://linkedin.com/company/mycosoft" },
 ]
 
@@ -82,14 +74,14 @@ export default function ContactPage() {
             Get in Touch
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-            We'd Love to{" "}
+            Let's Build{" "}
             <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-              Hear From You
+              Something Together
             </span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Whether you have questions about our products, want to explore partnership opportunities, 
-            or just want to say hello — our team is here to help.
+            Mycosoft builds AI, automation, and sensor-driven systems that connect technology with nature.
+            Reach out about our platforms, research, hardware, or partnership opportunities.
           </p>
         </div>
       </section>
@@ -140,47 +132,68 @@ export default function ContactPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-green-500" />
-                    Our Office
+                    Headquarters
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {offices.map((office) => (
-                    <div key={office.city}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{office.city}, {office.country}</span>
-                      </div>
-                      <Badge variant="secondary" className="mb-2">{office.role}</Badge>
-                      <p className="text-sm text-muted-foreground">{office.address}</p>
-                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>{office.timezone}</span>
-                      </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">Chula Vista, California</span>
                     </div>
-                  ))}
+                    <p className="text-sm text-muted-foreground ml-6">
+                      451 Acero Pl, Chula Vista, CA 91910
+                    </p>
+                    <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      <a href="tel:+16194831077" className="hover:text-green-500 transition-colors">
+                        (619) 483-1077
+                      </a>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>Pacific Time (UTC-8)</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Business Hours */}
+              {/* What We Work On */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-green-500" />
-                    Business Hours
+                    <Leaf className="h-5 w-5 text-green-500" />
+                    What We Work On
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Monday - Friday</span>
-                    <span>9:00 AM - 6:00 PM PST</span>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded bg-green-500/10 mt-0.5">
+                      <Cpu className="h-3.5 w-3.5 text-green-500" />
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">AI Hardware & Software</span>
+                      <p className="text-muted-foreground">Edge devices, NatureOS, MYCA agent systems</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Saturday - Sunday</span>
-                    <span>Closed</span>
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded bg-green-500/10 mt-0.5">
+                      <FlaskConical className="h-3.5 w-3.5 text-green-500" />
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">Biotechnology</span>
+                      <p className="text-muted-foreground">Fungal computing, environmental sensing, MINDEX</p>
+                    </div>
                   </div>
-                  <p className="text-muted-foreground pt-2">
-                    Support tickets are monitored 24/7 for critical issues.
-                  </p>
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded bg-green-500/10 mt-0.5">
+                      <Globe className="h-3.5 w-3.5 text-green-500" />
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">Automation & Sensing</span>
+                      <p className="text-muted-foreground">CREP environmental perception, OEI intelligence</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -217,43 +230,43 @@ export default function ContactPage() {
       {/* Quick Links */}
       <section className="py-16 bg-muted/30">
         <div className="container max-w-6xl mx-auto px-6">
-          <h2 className="text-2xl font-bold mb-8 text-center">Looking for Something Else?</h2>
+          <h2 className="text-2xl font-bold mb-8 text-center">Explore Mycosoft</h2>
           <div className="grid sm:grid-cols-3 gap-4">
-            <Link href="/support">
+            <Link href="/ai">
               <Card className="h-full hover:border-green-500/50 transition-colors cursor-pointer">
                 <CardHeader>
                   <div className="p-2 rounded-lg bg-blue-500/10 w-fit mb-2">
-                    <Headphones className="h-5 w-5 text-blue-500" />
+                    <Cpu className="h-5 w-5 text-blue-500" />
                   </div>
-                  <CardTitle className="text-lg">Support Center</CardTitle>
+                  <CardTitle className="text-lg">AI & Platforms</CardTitle>
                   <CardDescription>
-                    Browse FAQs and troubleshooting guides
+                    Learn about MYCA, AVANI, NatureOS, and our AI infrastructure
                   </CardDescription>
                 </CardHeader>
               </Card>
             </Link>
-            <Link href="/careers">
+            <Link href="/devices">
               <Card className="h-full hover:border-green-500/50 transition-colors cursor-pointer">
                 <CardHeader>
                   <div className="p-2 rounded-lg bg-purple-500/10 w-fit mb-2">
-                    <Users className="h-5 w-5 text-purple-500" />
+                    <FlaskConical className="h-5 w-5 text-purple-500" />
                   </div>
-                  <CardTitle className="text-lg">Careers</CardTitle>
+                  <CardTitle className="text-lg">Hardware & Devices</CardTitle>
                   <CardDescription>
-                    Join our team and build the future
+                    MycoBrain, Sporebase, and sensor-driven edge systems
                   </CardDescription>
                 </CardHeader>
               </Card>
             </Link>
-            <Link href="/docs">
+            <Link href="/science">
               <Card className="h-full hover:border-green-500/50 transition-colors cursor-pointer">
                 <CardHeader>
                   <div className="p-2 rounded-lg bg-amber-500/10 w-fit mb-2">
-                    <FileText className="h-5 w-5 text-amber-500" />
+                    <Leaf className="h-5 w-5 text-amber-500" />
                   </div>
-                  <CardTitle className="text-lg">Documentation</CardTitle>
+                  <CardTitle className="text-lg">Research</CardTitle>
                   <CardDescription>
-                    Technical docs and API references
+                    Mycology, fungal computing, and environmental science
                   </CardDescription>
                 </CardHeader>
               </Card>
