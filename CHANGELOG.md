@@ -171,6 +171,7 @@ All notable changes to this project will be documented in this file.
 - *(auth)* Pass NEXT_PUBLIC_SUPABASE_* as Docker build args
 - *(deploy)* Mount NAS media assets into website container
 - SporeBase hero video case, MINDEX IP leak, Hyphae1 placeholder
+- MycoBrain COM5 phantom - use COM7, filter virtual ports in API and Scan
 
 ### CREP
 
@@ -201,6 +202,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
