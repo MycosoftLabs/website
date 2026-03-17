@@ -1,0 +1,117 @@
+# Fast Deploy — Skip build, just pull existing image and restart
+# Use when: compose file changed, env vars changed, or you just need to restart
+# Image must already exist in GHCR (built by ci-cd.yml)
+name: Fast Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: production-latest)'
+        required: false
+        default: 'production-latest'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (for compose file sync)
+        uses: actions/checkout@v4
+
+      - name: Install cloudflared and configure SSH
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          rm cloudflared.deb
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config <<SSHEOF
+          Host production
+            HostName ${{ secrets.PRODUCTION_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ProxyCommand cloudflared access ssh --hostname %h
+          SSHEOF
+          chmod 600 ~/.ssh/config
+
+      - name: Sync compose file
+        run: |
+          ssh production 'cd /opt/mycosoft/website && git fetch origin main && git checkout origin/main -- docker-compose.production.yml'
+
+      - name: Inject environment variables
+        run: |
+          ssh production bash -s <<'ENVSCRIPT'
+            set -e
+            cd /opt/mycosoft/website
+            touch .env
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+              sed -i "/^${var}=/d" .env
+            done
+          ENVSCRIPT
+          ssh production bash -s <<ENVSCRIPT2
+            cd /opt/mycosoft/website
+            echo 'NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}' >> .env
+            echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}' >> .env
+            echo 'SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' >> .env
+            echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
+            echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
+            echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            echo "Env vars injected"
+          ENVSCRIPT2
+
+      - name: Pull image and deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IMAGE_NAME_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="${{ env.REGISTRY }}/${IMAGE_NAME_LC}:${{ github.event.inputs.image_tag }}"
+
+          echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          ssh production docker pull "${IMAGE}"
+
+          ssh production bash -s <<DEPLOY
+            set -e
+            cd /opt/mycosoft/website
+            export WEBSITE_IMAGE="${IMAGE}"
+            docker rm -f mycosoft-website 2>/dev/null || true
+            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+          DEPLOY
+
+      - name: Health check
+        run: |
+          ssh production bash -s <<'SCRIPT'
+          for i in 1 2 3 4 5 6; do
+            if curl -sf http://localhost:3000/api/health; then
+              echo ""
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i: not ready, waiting 5s..."
+            sleep 5
+          done
+          echo "::warning::Health check did not pass within 30s"
+          SCRIPT
+
+      - name: Purge Cloudflare cache
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ] && [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"purge_everything":true}'
+            echo "Cloudflare cache purged"
+          fi
