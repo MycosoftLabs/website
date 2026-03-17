@@ -311,6 +311,65 @@ export async function createAgentWorldstateCheckout({
 }
 
 // ============================================
+// GUEST AGENT WORLDSTATE CHECKOUT (no auth required)
+// ============================================
+
+interface CreateGuestAgentWorldstateCheckoutParams {
+  /** Requested minutes: 1 ($1 connection fee) or 60 ($60 pack). */
+  minutes?: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+/**
+ * Create Stripe Checkout for agent worldstate access WITHOUT requiring authentication.
+ * Stripe collects the buyer's email at checkout. The webhook handles onboarding.
+ * This is the primary card-payment path for the /agent page.
+ */
+export async function createGuestAgentWorldstateCheckout({
+  minutes = 1,
+  successUrl,
+  cancelUrl,
+}: CreateGuestAgentWorldstateCheckoutParams): Promise<{ sessionId: string; url: string }> {
+  const stripe = getStripe();
+  const pack = AGENT_WORLDSTATE_PACKS[minutes];
+  if (!pack) {
+    throw new Error(
+      `Invalid agent worldstate minutes. Supported: 1 ($1), 60 ($60). Got: ${minutes}.`
+    );
+  }
+  const priceId = pack.stripePriceId;
+  if (!priceId) {
+    throw new Error(
+      minutes === 1
+        ? 'Agent worldstate 1-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_1MIN_PRICE_ID.'
+        : 'Agent worldstate 60-min price not configured. Set NEXT_PUBLIC_STRIPE_AGENT_60MIN_PRICE_ID.'
+    );
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: cancelUrl,
+    metadata: {
+      type: 'agent_worldstate',
+      minutes: String(pack.minutes),
+      guest: 'true',
+    },
+    allow_promotion_codes: true,
+  });
+
+  return { sessionId: session.id, url: session.url! };
+}
+
+// ============================================
 // CUSTOMER PORTAL
 // ============================================
 

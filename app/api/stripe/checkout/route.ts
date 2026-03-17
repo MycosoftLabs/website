@@ -11,15 +11,51 @@ import {
   createProductCheckout,
   createPersonaPlexCheckout,
   createAgentWorldstateCheckout,
+  createGuestAgentWorldstateCheckout,
   SUBSCRIPTION_PLANS,
   type SubscriptionPlanId 
 } from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const body = await request.json();
+    const { type, planId, productId, quantity, billingPeriod, addonId } = body;
     
-    // Verify authentication
+    const origin = request.headers.get('origin') || 'http://localhost:3001';
+    
+    // ---- Agent worldstate: allow guest (unauthenticated) checkout ----
+    // Stripe collects email at checkout; no account required.
+    if (type === 'agent_worldstate') {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Authenticated user — use their profile for Stripe customer
+        const requestedMinutes = typeof body.minutes === 'number' ? body.minutes : 1;
+        const minutes = requestedMinutes === 60 ? 60 : 1;
+        const { sessionId, url } = await createAgentWorldstateCheckout({
+          userId: user.id,
+          email: user.email!,
+          minutes,
+          successUrl: `${origin}/agent?success=1`,
+          cancelUrl: `${origin}/agent`,
+        });
+        return NextResponse.json({ sessionId, url });
+      } else {
+        // Guest checkout — Stripe collects email, no login needed
+        const requestedMinutes = typeof body.minutes === 'number' ? body.minutes : 1;
+        const minutes = requestedMinutes === 60 ? 60 : 1;
+        const { sessionId, url } = await createGuestAgentWorldstateCheckout({
+          minutes,
+          successUrl: `${origin}/agent?success=1`,
+          cancelUrl: `${origin}/agent`,
+        });
+        return NextResponse.json({ sessionId, url });
+      }
+    }
+
+    // ---- All other checkout types require authentication ----
+    const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
@@ -28,10 +64,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const body = await request.json();
-    const { type, planId, productId, quantity, billingPeriod, addonId } = body;
-    
-    const origin = request.headers.get('origin') || 'http://localhost:3001';
     const successUrl = `${origin}/billing/success`;
     const cancelUrl = `${origin}/pricing`;
     
@@ -103,19 +135,6 @@ export async function POST(request: NextRequest) {
         cancelUrl: `${origin}/shop`,
       });
       
-      return NextResponse.json({ sessionId, url });
-      
-    } else if (type === 'agent_worldstate') {
-      // Agent live worldstate access — prepaid minutes at $1/min (MYCA/AVANI). Supports 1-min ($1) or 60-min ($60) pack.
-      const requestedMinutes = typeof body.minutes === 'number' ? body.minutes : 1;
-      const minutes = requestedMinutes === 60 ? 60 : 1;
-      const { sessionId, url } = await createAgentWorldstateCheckout({
-        userId: user.id,
-        email: user.email!,
-        minutes,
-        successUrl: `${origin}/agent?success=1`,
-        cancelUrl: `${origin}/agent`,
-      });
       return NextResponse.json({ sessionId, url });
       
     } else {

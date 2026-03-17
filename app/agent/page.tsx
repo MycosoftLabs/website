@@ -107,6 +107,7 @@ export default function AgentPage() {
   const [verifyResult, setVerifyResult] = useState<VerifyResponse | null>(null);
   const [verifyError, setVerifyError] = useState("");
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState("");
   const [showCrypto, setShowCrypto] = useState(false);
 
   // Fetch wallet addresses on mount
@@ -117,9 +118,10 @@ export default function AgentPage() {
       .catch(() => {});
   }, []);
 
-  // Handle Stripe checkout (existing flow)
+  // Handle Stripe checkout — works for both authenticated and guest users
   const handleStripeCheckout = async () => {
     setStripeLoading(true);
+    setStripeError("");
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -129,9 +131,11 @@ export default function AgentPage() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        setStripeError(data.error || "Could not create checkout session. Please try crypto payment instead.");
       }
     } catch {
-      // Stripe checkout error
+      setStripeError("Network error. Please try again or use crypto payment.");
     } finally {
       setStripeLoading(false);
     }
@@ -260,6 +264,11 @@ export default function AgentPage() {
               )}
               {stripeLoading ? "Redirecting..." : "$1 Connection Fee — Pay with Card"}
             </Button>
+            {stripeError && (
+              <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {stripeError}
+              </div>
+            )}
           </div>
 
           {/* Crypto Payment */}
