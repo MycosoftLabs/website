@@ -62,11 +62,8 @@ services:
   # ==========================================================================
 
   website:
-    image: ghcr.io/mycosoftlabs/website:production-latest
-    # Fallback: uncomment to build locally instead of pulling from GHCR
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile.production
+    image: ${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}
+    # To build locally instead: WEBSITE_IMAGE= docker compose -f docker-compose.production.yml build website
     container_name: mycosoft-website
     ports:
       - "3000:3000"
