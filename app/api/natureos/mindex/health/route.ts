@@ -161,6 +161,23 @@ export async function GET(request: NextRequest) {
       health.status = "unhealthy"
     }
 
+    // Include troubleshooting info when DB is down but API is up
+    if (health.api && !health.database) {
+      return NextResponse.json({
+        ...health,
+        troubleshooting: {
+          issue: "PostgreSQL database is not connected",
+          fix: "SSH to VM 189 and restart containers",
+          commands: [
+            "ssh mycosoft@192.168.0.189",
+            "cd /home/mycosoft/mindex",
+            "docker compose restart",
+          ],
+          docs: "docs/FIX_MINDEX_DB_CONNECTION_FEB11_2026.md",
+        },
+      })
+    }
+
     return NextResponse.json(health)
   } catch (error) {
     console.error("MINDEX health check error:", error)

@@ -739,6 +739,31 @@ function OverviewSection({
 }) {
   return (
     <div className="space-y-6">
+      {/* Database Connection Error Banner */}
+      {health && health.api && !health.database && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-orange-400">Database Connection Error</p>
+              <p className="text-sm text-gray-400 mt-1">
+                The MINDEX API is reachable but PostgreSQL is not connected. Data endpoints will return empty results.
+              </p>
+              <div className="mt-3 p-2 bg-black/40 rounded border border-orange-500/20">
+                <code className="text-xs text-cyan-300 block whitespace-pre">{`ssh mycosoft@192.168.0.189\ncd /home/mycosoft/mindex\ndocker compose restart`}</code>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                See <span className="text-cyan-400 font-mono">docs/FIX_MINDEX_DB_CONNECTION_FEB11_2026.md</span> for details
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Quick Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
