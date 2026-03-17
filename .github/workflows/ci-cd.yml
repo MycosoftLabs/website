@@ -308,6 +308,27 @@ jobs:
         run: |
           ssh production 'cd /opt/mycosoft/website && git fetch origin main && git checkout origin/main -- docker-compose.production.yml'
 
+      - name: Inject environment variables
+        run: |
+          ssh production bash -s <<'ENVSCRIPT'
+            set -e
+            cd /opt/mycosoft/website
+            touch .env
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+              sed -i "/^${var}=/d" .env
+            done
+          ENVSCRIPT
+          ssh production bash -s <<ENVSCRIPT2
+            cd /opt/mycosoft/website
+            echo 'NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}' >> .env
+            echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}' >> .env
+            echo 'SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' >> .env
+            echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
+            echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
+            echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            echo "Env vars injected"
+          ENVSCRIPT2
+
       - name: Pull image and deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
