@@ -383,16 +383,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // Record payment
+    // Record payment (uses existing payments schema: user_id, amount, etc.)
     await supabase.from("payments").insert({
-      profile_id: profileId,
-      amount_cents: result.amount_cents,
+      user_id: profileId,
+      amount: result.amount_cents,
       currency: "USD",
       method: "crypto",
       status: "confirmed",
       tx_hash,
       network,
       sender_address,
+      description: `Crypto payment via ${network}`,
     });
 
     // Generate API key

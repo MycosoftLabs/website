@@ -1,80 +1,46 @@
--- Migration: Agent Payment Pipeline
--- Creates profiles, payments, agent_sessions, and agent_api_keys tables
--- with RLS policies, triggers, indexes, and constraints.
+-- Migration: Agent Payment Pipeline v2
+-- WORKS WITH EXISTING TABLES: profiles, payments, economy_wallets, api_usage
+-- ADDS: missing columns to profiles & payments, creates agent_api_keys & agent_sessions
+-- Run this in Supabase Dashboard → SQL Editor
 
 -- =============================================================================
--- 1. PROFILES
+-- 1. ADD MISSING COLUMNS TO EXISTING PROFILES TABLE
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  auth_user_id    UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
-  email           TEXT,
-  display_name    TEXT,
-  stripe_customer_id TEXT UNIQUE,
-  sol_wallet      TEXT,
-  eth_wallet      TEXT,
-  btc_address     TEXT,
-  balance_cents   INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents >= 0),
-  total_paid_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_paid_cents >= 0),
-  api_key_hash    TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- The existing profiles table has: id, username, full_name, avatar_url, organization,
+-- role, stripe_customer_id, stripe_subscription_id, subscription_tier/status/period_end
 
-COMMENT ON TABLE public.profiles IS 'User/agent profiles with payment and wallet info';
-COMMENT ON COLUMN public.profiles.balance_cents IS 'Current credit balance in cents';
-COMMENT ON COLUMN public.profiles.api_key_hash IS 'SHA-256 hash of the active API key (legacy, prefer agent_api_keys)';
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS sol_wallet TEXT,
+  ADD COLUMN IF NOT EXISTS eth_wallet TEXT,
+  ADD COLUMN IF NOT EXISTS btc_address TEXT,
+  ADD COLUMN IF NOT EXISTS balance_cents INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_paid_cents INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS api_key_hash TEXT,
+  ADD COLUMN IF NOT EXISTS is_agent BOOLEAN NOT NULL DEFAULT false;
 
--- =============================================================================
--- 2. PAYMENTS
--- =============================================================================
-CREATE TYPE public.payment_method AS ENUM ('card', 'crypto');
-CREATE TYPE public.payment_status AS ENUM ('pending', 'confirmed', 'failed', 'refunded');
-CREATE TYPE public.crypto_network AS ENUM ('solana', 'ethereum', 'base', 'bitcoin');
-
-CREATE TABLE IF NOT EXISTS public.payments (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id      UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amount_cents    INTEGER NOT NULL CHECK (amount_cents > 0),
-  currency        TEXT NOT NULL DEFAULT 'USD',
-  method          public.payment_method NOT NULL,
-  status          public.payment_status NOT NULL DEFAULT 'pending',
-  -- Stripe fields
-  stripe_payment_intent_id TEXT,
-  -- Crypto fields
-  tx_hash         TEXT,
-  network         public.crypto_network,
-  sender_address  TEXT,
-  -- Metadata
-  metadata        JSONB DEFAULT '{}',
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-COMMENT ON TABLE public.payments IS 'All payment records (card + crypto)';
+-- Backfill email from auth.users for existing profiles
+UPDATE public.profiles p
+SET email = u.email
+FROM auth.users u
+WHERE p.id = u.id AND p.email IS NULL;
 
 -- =============================================================================
--- 3. AGENT SESSIONS
+-- 2. ADD MISSING COLUMNS TO EXISTING PAYMENTS TABLE
 -- =============================================================================
-CREATE TYPE public.session_status AS ENUM ('active', 'completed', 'expired', 'error');
+-- The existing payments table has: id, user_id, amount, currency, description,
+-- status, stripe_invoice_id, stripe_payment_intent_id
 
-CREATE TABLE IF NOT EXISTS public.agent_sessions (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id      UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  api_key_id      UUID,  -- FK added after agent_api_keys table creation
-  started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  ended_at        TIMESTAMPTZ,
-  status          public.session_status NOT NULL DEFAULT 'active',
-  tokens_used     INTEGER NOT NULL DEFAULT 0 CHECK (tokens_used >= 0),
-  cost_cents      INTEGER NOT NULL DEFAULT 0 CHECK (cost_cents >= 0),
-  metadata        JSONB DEFAULT '{}',
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-COMMENT ON TABLE public.agent_sessions IS 'Metered agent session tracking';
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS method TEXT DEFAULT 'card',  -- 'card' or 'crypto'
+  ADD COLUMN IF NOT EXISTS tx_hash TEXT,
+  ADD COLUMN IF NOT EXISTS network TEXT,  -- 'solana', 'ethereum', 'base', 'bitcoin'
+  ADD COLUMN IF NOT EXISTS sender_address TEXT,
+  ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
 -- =============================================================================
--- 4. AGENT API KEYS
+-- 3. CREATE AGENT API KEYS TABLE
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.agent_api_keys (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,53 +62,67 @@ CREATE TABLE IF NOT EXISTS public.agent_api_keys (
 );
 
 COMMENT ON TABLE public.agent_api_keys IS 'API keys with SHA-256 hashed storage and rate limits';
-COMMENT ON COLUMN public.agent_api_keys.key_hash IS 'SHA-256 hex digest of the raw API key';
-COMMENT ON COLUMN public.agent_api_keys.key_prefix IS 'First 8 chars of key for identification';
 
--- Add FK from agent_sessions to agent_api_keys
-ALTER TABLE public.agent_sessions
-  ADD CONSTRAINT fk_agent_sessions_api_key
-  FOREIGN KEY (api_key_id) REFERENCES public.agent_api_keys(id) ON DELETE SET NULL;
+-- =============================================================================
+-- 4. CREATE AGENT SESSIONS TABLE
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.agent_sessions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id      UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  api_key_id      UUID REFERENCES public.agent_api_keys(id) ON DELETE SET NULL,
+  started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ended_at        TIMESTAMPTZ,
+  status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'expired', 'error')),
+  tokens_used     INTEGER NOT NULL DEFAULT 0,
+  cost_cents      INTEGER NOT NULL DEFAULT 0,
+  metadata        JSONB DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.agent_sessions IS 'Metered agent session tracking';
 
 -- =============================================================================
 -- 5. INDEXES
 -- =============================================================================
-CREATE INDEX idx_profiles_stripe_customer ON public.profiles(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
-CREATE INDEX idx_profiles_sol_wallet ON public.profiles(sol_wallet) WHERE sol_wallet IS NOT NULL;
-CREATE INDEX idx_profiles_eth_wallet ON public.profiles(eth_wallet) WHERE eth_wallet IS NOT NULL;
+-- Profiles indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_sol_wallet ON public.profiles(sol_wallet) WHERE sol_wallet IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_profiles_eth_wallet ON public.profiles(eth_wallet) WHERE eth_wallet IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_profiles_is_agent ON public.profiles(is_agent) WHERE is_agent = true;
 
-CREATE INDEX idx_payments_profile ON public.payments(profile_id);
-CREATE INDEX idx_payments_status ON public.payments(status);
-CREATE INDEX idx_payments_tx_hash ON public.payments(tx_hash) WHERE tx_hash IS NOT NULL;
-CREATE INDEX idx_payments_created ON public.payments(created_at DESC);
+-- Payments indexes
+CREATE INDEX IF NOT EXISTS idx_payments_tx_hash ON public.payments(tx_hash) WHERE tx_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_payments_method ON public.payments(method);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON public.payments(user_id);
 
-CREATE INDEX idx_agent_sessions_profile ON public.agent_sessions(profile_id);
-CREATE INDEX idx_agent_sessions_status ON public.agent_sessions(status);
-CREATE INDEX idx_agent_sessions_api_key ON public.agent_sessions(api_key_id) WHERE api_key_id IS NOT NULL;
+-- Agent API keys indexes
+CREATE INDEX IF NOT EXISTS idx_api_keys_profile ON public.agent_api_keys(profile_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON public.agent_api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_active ON public.agent_api_keys(is_active) WHERE is_active = true;
 
-CREATE INDEX idx_api_keys_profile ON public.agent_api_keys(profile_id);
-CREATE INDEX idx_api_keys_hash ON public.agent_api_keys(key_hash);
-CREATE INDEX idx_api_keys_active ON public.agent_api_keys(is_active) WHERE is_active = true;
-
--- =============================================================================
--- 6. AUTO-CREATE PROFILE ON AUTH.USERS INSERT
--- =============================================================================
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (auth_user_id, email)
-  VALUES (NEW.id, NEW.email)
-  ON CONFLICT (auth_user_id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Agent sessions indexes
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_profile ON public.agent_sessions(profile_id);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_status ON public.agent_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_api_key ON public.agent_sessions(api_key_id) WHERE api_key_id IS NOT NULL;
 
 -- =============================================================================
--- 7. UPDATED_AT TRIGGER
+-- 6. UPDATE ECONOMY_WALLETS WITH REAL ADDRESSES
+-- =============================================================================
+UPDATE public.economy_wallets
+SET address = 'BdmxPETu9qx3dXCPhf74C1eTaPUrDhP59DDuBWbhdGMY'
+WHERE wallet_type = 'solana';
+
+UPDATE public.economy_wallets
+SET address = 'bc1qjksusf6mjst30cpc4489qvjhaa0xw97xhgy8s2'
+WHERE wallet_type = 'bitcoin';
+
+-- Add ETH/Base wallet if not exists
+INSERT INTO public.economy_wallets (wallet_type, address, balance, currency)
+VALUES ('ethereum', '0xb9110785C81E6e428A70Dc7C14a67dC1675b92ae', 0, 'ETH')
+ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- 7. UPDATED_AT TRIGGER (if not already exists)
 -- =============================================================================
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
@@ -152,44 +132,38 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER set_profiles_updated_at
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- Only create trigger if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_profiles_updated_at') THEN
+    CREATE TRIGGER set_profiles_updated_at
+      BEFORE UPDATE ON public.profiles
+      FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+  END IF;
+END $$;
 
-CREATE TRIGGER set_payments_updated_at
-  BEFORE UPDATE ON public.payments
-  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'set_payments_updated_at') THEN
+    CREATE TRIGGER set_payments_updated_at
+      BEFORE UPDATE ON public.payments
+      FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+  END IF;
+END $$;
 
 -- =============================================================================
--- 8. ROW LEVEL SECURITY
+-- 8. ROW LEVEL SECURITY FOR NEW TABLES
 -- =============================================================================
 
--- Profiles: users can read and update their own row
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Agent API keys: users can read their own
+ALTER TABLE public.agent_api_keys ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read own profile"
-  ON public.profiles FOR SELECT
-  USING (auth.uid() = auth_user_id);
+CREATE POLICY "Users can read own API keys"
+  ON public.agent_api_keys FOR SELECT
+  USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
-CREATE POLICY "Users can update own profile"
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = auth_user_id)
-  WITH CHECK (auth.uid() = auth_user_id);
-
--- Service role can do everything (for admin operations)
-CREATE POLICY "Service role full access on profiles"
-  ON public.profiles FOR ALL
-  USING (auth.role() = 'service_role');
-
--- Payments: users can read their own
-ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can read own payments"
-  ON public.payments FOR SELECT
-  USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
-
-CREATE POLICY "Service role full access on payments"
-  ON public.payments FOR ALL
+CREATE POLICY "Service role full access on api_keys"
+  ON public.agent_api_keys FOR ALL
   USING (auth.role() = 'service_role');
 
 -- Agent sessions: users can read their own
@@ -197,19 +171,24 @@ ALTER TABLE public.agent_sessions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own sessions"
   ON public.agent_sessions FOR SELECT
-  USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+  USING (profile_id IN (SELECT id FROM public.profiles WHERE id = auth.uid()));
 
 CREATE POLICY "Service role full access on sessions"
   ON public.agent_sessions FOR ALL
   USING (auth.role() = 'service_role');
 
--- API keys: users can read their own
-ALTER TABLE public.agent_api_keys ENABLE ROW LEVEL SECURITY;
+-- =============================================================================
+-- 9. HELPER FUNCTION: Look up profile by wallet address
+-- =============================================================================
+CREATE OR REPLACE FUNCTION public.find_profile_by_wallet(wallet_addr TEXT)
+RETURNS UUID AS $$
+  SELECT id FROM public.profiles
+  WHERE sol_wallet = wallet_addr
+     OR eth_wallet = wallet_addr
+     OR btc_address = wallet_addr
+  LIMIT 1;
+$$ LANGUAGE sql STABLE;
 
-CREATE POLICY "Users can read own API keys"
-  ON public.agent_api_keys FOR SELECT
-  USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
-
-CREATE POLICY "Service role full access on api_keys"
-  ON public.agent_api_keys FOR ALL
-  USING (auth.role() = 'service_role');
+-- =============================================================================
+-- DONE! Tables ready for agent payment pipeline.
+-- =============================================================================
