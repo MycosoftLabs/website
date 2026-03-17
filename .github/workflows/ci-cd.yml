@@ -342,10 +342,13 @@ jobs:
           # Pull the pre-built image
           ssh production docker pull "${IMAGE}"
 
-          # Restart only the website service with the new image
-          # WEBSITE_IMAGE env var overrides the compose default — works even if
-          # the VM's compose file hasn't been updated yet
-          ssh production bash -c "cd /opt/mycosoft/website && WEBSITE_IMAGE=${IMAGE} docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website"
+          # Restart the website service with the new image
+          ssh production bash -s <<DEPLOY
+            set -e
+            cd /opt/mycosoft/website
+            export WEBSITE_IMAGE="${IMAGE}"
+            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+          DEPLOY
 
       - name: Run database migrations
         continue-on-error: true
