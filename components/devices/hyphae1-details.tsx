@@ -37,7 +37,7 @@ const HYPHAE1_ASSETS = {
   standard: "/assets/hyphae1/standard.jpg",
   industrial: "/assets/hyphae1/industrial.jpg",
   // Generic fallback
-  mainImage: "/placeholder.svg?height=600&width=800&text=Hyphae1",
+  mainImage: "/images/hyphae1-card.svg",
   // Gallery images
   gallery: [
     { src: "/assets/hyphae1/gallery-1.jpg", alt: "Hyphae 1 Compact", location: "Panel Mounted" },

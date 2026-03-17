@@ -682,7 +682,7 @@ export function MINDEXPortal() {
                 title: "Docker Containers", 
                 href: "/natureos/mindex", 
                 icon: Container, 
-                description: "Infrastructure monitoring on VM 192.168.0.189" 
+                description: "Infrastructure monitoring and container orchestration" 
               },
               { 
                 title: "Species Explorer", 

@@ -182,7 +182,7 @@ export const DEVICES: Device[] = [
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
     price: 199,
     status: "In Stock",
-    image: "/placeholder.svg?height=600&width=800&text=Hyphae1",
+    image: "/images/hyphae1-card.svg",
     video: "https://mycosoft.org/videos/hyphae1-promo.mp4",
     videoTitle: "Industrial Standard",
     videoDescription: "Modular I/O platform designed for decades of reliable operation.",
