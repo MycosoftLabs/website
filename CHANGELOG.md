@@ -220,6 +220,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -315,6 +316,7 @@ All notable changes to this project will be documented in this file.
 - Integrate MINDEX earth intelligence with CREP, MYCA, and agent APIs
 - Agent payment pipeline — crypto wallets, API key auth, Supabase migration
 - *(agent)* Restore MYCA/AVANI/WORLDVIEW context and API docs
+- Replace Jetson Core OS / OpenClaw with NVIDIA NemoClaw + Nemotron
 
 ### Fix
 
