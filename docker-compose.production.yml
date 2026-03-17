@@ -108,7 +108,7 @@ services:
       redis:
         condition: service_healthy
       ollama:
-        condition: service_healthy
+        condition: service_started
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
