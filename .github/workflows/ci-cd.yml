@@ -342,11 +342,13 @@ jobs:
           # Pull the pre-built image
           ssh production docker pull "${IMAGE}"
 
-          # Restart the website service with the new image
+          # Stop old container if it exists, then start fresh
           ssh production bash -s <<DEPLOY
             set -e
             cd /opt/mycosoft/website
             export WEBSITE_IMAGE="${IMAGE}"
+            # Remove stale container that blocks the name
+            docker rm -f mycosoft-website 2>/dev/null || true
             docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
           DEPLOY
 
