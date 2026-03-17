@@ -102,6 +102,9 @@ services:
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}
       - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-http://192.168.0.188:8001}
       - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    volumes:
+      # NAS media assets (videos, images) mounted read-only into public/assets
+      - /opt/mycosoft/media/website/assets:/app/public/assets:ro
     depends_on:
       postgres:
         condition: service_healthy
