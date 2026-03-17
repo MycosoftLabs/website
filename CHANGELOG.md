@@ -165,6 +165,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Pull code in /opt/mycosoft/website on production VM
 - Update migration for existing schema + fix payments table column names
 - *(ci)* Authenticate GHCR on VM before pulling image
+- *(ci)* Use heredoc for deploy SSH to fix working directory
 
 ### CREP
 
@@ -195,6 +196,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
