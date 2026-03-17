@@ -1,7 +1,7 @@
 /**
  * Device Role Configurations for Mushroom 1 and Hyphae 1
  *
- * Production Jetson+MycoBrain box configurations.
+ * Production NemoClaw+MycoBrain box configurations (Jetson gateway with NVIDIA Nemotron).
  * Used by device detail pages, telemetry cards, and API routes.
  *
  * @see docs/JETSON_MYCOBRAIN_PRODUCTION_DEPLOY_MAR13_2026.md

@@ -25,6 +25,9 @@ export const env = {
   // NatureOS Platform API (optional domain layer)
   natureosApiBaseUrl: process.env.NATUREOS_API_BASE_URL || "https://natureos.mycosoft.org/api/v1",
 
+  // NemoClaw Gateway (Jetson with NVIDIA Nemotron - On-Site AI)
+  nemoclawGatewayUrl: process.env.NEMOCLAW_GATEWAY_URL || "http://192.168.0.123:18789",
+
   // Mycorrhizae Protocol Configuration
   mycorrhizaeApiUrl: process.env.MYCORRHIZAE_API_URL || "http://192.168.0.187:8002",
   mycorrhizaePublishKey: process.env.MYCORRHIZAE_PUBLISH_KEY,

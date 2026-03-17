@@ -1,7 +1,7 @@
 /**
  * Device Telemetry Route
  *
- * Proxies telemetry from MAS Device Registry or On-Device Jetson.
+ * Proxies telemetry from MAS Device Registry or On-Device NemoClaw (Jetson gateway).
  * Used by device detail pages for Mushroom 1 and Hyphae 1.
  *
  * Created: March 7, 2026
@@ -15,7 +15,7 @@ const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
  * GET /api/devices/[deviceId]/telemetry
  *
  * Get telemetry from a device via MAS. Supports ?n=10 for last N readings
- * when proxying to On-Device Jetson /telemetry/latest.
+ * when proxying to On-Device NemoClaw /telemetry/latest.
  */
 export async function GET(
   request: NextRequest,

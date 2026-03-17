@@ -87,17 +87,18 @@ export function OnSiteAIPanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>On-Site AI (OpenClaw)</CardTitle>
+          <CardTitle>On-Site AI (NemoClaw)</CardTitle>
           <CardDescription>
-            No gateway devices with OpenClaw detected. OpenClaw runs on the same host as your
-            MycoBrain gateway. Deploy OpenClaw to your Jetson or gateway host, then devices
+            No gateway devices with NemoClaw detected. NemoClaw runs on the same host as your
+            MycoBrain gateway with NVIDIA Nemotron for local inference. Deploy NemoClaw to your Jetson or gateway host, then devices
             with a host address will appear here.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Run <code className="rounded bg-muted px-1 py-0.5">install_openclaw.sh</code> on
-            your Jetson to enable On-Site AI.
+            Run <code className="rounded bg-muted px-1 py-0.5">curl -fsSL https://nvidia.com/nemoclaw.sh | bash</code> then{" "}
+            <code className="rounded bg-muted px-1 py-0.5">nemoclaw onboard</code> on
+            your Jetson to enable On-Site AI with Nemo LLM.
           </p>
         </CardContent>
       </Card>
@@ -108,9 +109,9 @@ export function OnSiteAIPanel() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>On-Site AI (OpenClaw)</CardTitle>
+          <CardTitle>On-Site AI (NemoClaw)</CardTitle>
           <CardDescription>
-            Manage MycoBrain devices via OpenClaw from your browser. Open the Control UI for
+            Manage MycoBrain devices via NemoClaw from your browser. Powered by NVIDIA Nemotron for local inference with policy-based privacy and security guardrails. Open the Control UI for
             chat, config, logs, and shell. You must be on the same LAN or VPN as the device.
           </CardDescription>
         </CardHeader>
@@ -136,7 +137,7 @@ export function OnSiteAIPanel() {
                     className="inline-flex items-center gap-2"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open OpenClaw
+                    Open NemoClaw
                   </a>
                 </Button>
               </div>
@@ -149,7 +150,7 @@ export function OnSiteAIPanel() {
                   ssh mycosoft@{entry.host}
                 </code>
                 <p className="mt-1 text-muted-foreground">
-                  Then run OpenClaw commands in the terminal.
+                  Then run NemoClaw commands in the terminal.
                 </p>
               </div>
             </CardContent>

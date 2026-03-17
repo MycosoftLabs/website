@@ -47,7 +47,7 @@ const KNOWN_WORKFLOWS: WorkflowInfo[] = [
   // Defense Workflows
   { id: "30", name: "Defense Connector", description: "Defense and OEI integrations", category: "defense", file: "30_defense_connector.json" },
   
-  // MYCA Platform Integration Workflows (OpenClaw / n8n)
+  // MYCA Platform Integration Workflows (NemoClaw / n8n)
   { id: "myca-discord", name: "MYCA Discord to MAS", description: "Discord → MAS message routing", category: "myca", file: "myca-discord-to-mas.json" },
   { id: "myca-slack", name: "MYCA Slack to MAS", description: "Slack → MAS message routing", category: "myca", file: "myca-slack-to-mas.json" },
   { id: "myca-signal", name: "MYCA Signal to MAS", description: "Signal → MAS message routing", category: "myca", file: "myca-signal-to-mas.json" },
