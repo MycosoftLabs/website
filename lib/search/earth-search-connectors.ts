@@ -659,3 +659,71 @@ export async function searchEarthIntelligence(
 
   return { events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather }
 }
+
+// ---------------------------------------------------------------------------
+// Embedding Atlas Search — cross-domain similarity search
+// ---------------------------------------------------------------------------
+
+/**
+ * Search across all domains using embedding-space similarity.
+ * Fetches compressed embedding batch from the embeddings API,
+ * enabling cross-domain pattern discovery and visualization.
+ */
+export async function searchEmbeddings(
+  query: string,
+  origin: string,
+  options: {
+    limit?: number
+    types?: string[]
+    includeCrep?: boolean
+    bounds?: { north: number; south: number; east: number; west: number }
+    timeRange?: { start?: string; end?: string }
+  } = {}
+): Promise<{
+  points: Array<{
+    id: string
+    label: string
+    description: string
+    type: string
+    score: number
+    lat?: number
+    lng?: number
+  }>
+  similar: Array<{
+    id: string
+    label: string
+    type: string
+    score: number
+  }>
+  totalCount: number
+  compressionRatio: number
+} | null> {
+  try {
+    const body = {
+      query,
+      types: options.types || [],
+      limit: options.limit || 500,
+      bounds: options.bounds,
+      timeRange: options.timeRange,
+    }
+
+    const res = await fetch(`${origin}/api/search/embeddings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(12000),
+    })
+
+    if (!res.ok) return null
+    const data = await res.json()
+
+    return {
+      points: data.batch?.points || [],
+      similar: data.similar || [],
+      totalCount: data.batch?.totalCount || 0,
+      compressionRatio: data.batch?.compressionRatio || 1,
+    }
+  } catch {
+    return null
+  }
+}

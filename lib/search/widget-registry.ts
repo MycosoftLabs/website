@@ -27,6 +27,7 @@ export type WidgetType =
   | "infrastructure"
   | "devices"
   | "space_weather"
+  | "embedding_atlas"
   | "fallback"
 
 export interface WidgetRegistryEntry {
@@ -64,6 +65,7 @@ export const WIDGET_TYPE_IDS: WidgetType[] = [
   "infrastructure",
   "devices",
   "space_weather",
+  "embedding_atlas",
 ]
 
 /** Map result bucket keys (from API) to widget type. Unknown buckets use "fallback". */
@@ -90,6 +92,7 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   infrastructure: "infrastructure",
   devices: "devices",
   space_weather: "space_weather",
+  embeddings: "embedding_atlas",
 }
 
 export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
@@ -239,6 +242,14 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     resultKey: "space_weather",
     size: { width: 1, height: 1 },
     emptyPolicy: "hide",
+  },
+  embedding_atlas: {
+    id: "embedding_atlas",
+    label: "Embedding Atlas",
+    resultKey: "embeddings",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "show_empty",
+    autoExpand: true,
   },
   fallback: {
     id: "fallback",

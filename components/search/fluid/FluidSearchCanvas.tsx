@@ -70,9 +70,10 @@ const MapWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: 
 const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
 const Earth2Widget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.Earth2Widget })), { ssr: false })
 const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.FallbackWidget })), { ssr: false })
+const EmbeddingAtlasWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EmbeddingAtlasWidget })), { ssr: false })
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
-  | "crep" | "earth2" | "map" | "fallback"
+  | "crep" | "earth2" | "map" | "fallback" | "embedding_atlas"
 
 interface WidgetConfig {
   type: WidgetType
@@ -213,6 +214,7 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
   earth2: { width: 1, height: 1 },
   map: { width: 2, height: 2 },
   fallback: { width: 1, height: 1 },
+  embedding_atlas: { width: 2, height: 2 },
 }
 
 export function FluidSearchCanvas({
@@ -841,6 +843,7 @@ export function FluidSearchCanvas({
     { type: "infrastructure", label: "Infrastructure", icon: "🏗️", gradient: "from-amber-500/30 to-yellow-500/20", hasData: len(infrastructure) > 0, depth: getParallaxDepth("infrastructure") },
     { type: "devices", label: "Devices", icon: "📡", gradient: "from-green-500/30 to-lime-500/20", hasData: len(devices) > 0, depth: getParallaxDepth("devices") },
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
+    { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
   ], [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), len(crepResults), earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
@@ -1468,6 +1471,7 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
     events: "⚡", aircraft: "✈️", vessels: "🚢", satellites: "🛰️",
     weather: "🌦️", emissions: "🏭", infrastructure: "🏗️",
     devices: "📡", space_weather: "☀️",
+    embedding_atlas: "🔮",
   }
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-muted-foreground text-center p-4">
@@ -1571,6 +1575,8 @@ function WidgetContent({
     case "map":
       if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
       return <MapWidget observations={mapObservations} isFocused={isFocused} />
+    case "embedding_atlas":
+      return <EmbeddingAtlasWidget query={debouncedQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "fallback":
       return (
         <FallbackWidget
