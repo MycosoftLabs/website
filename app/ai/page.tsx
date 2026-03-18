@@ -25,7 +25,7 @@ import { ArrowRight, Shield, Sparkles, Brain, Users, Bot, Cpu, Globe, Layers } f
 export const metadata: Metadata = {
   title: "AI | Layered Intelligence Stack | Mycosoft",
   description:
-    "Mycosoft's AI stack is built as a layered ecosystem: MYCA (agentic OS), AVANI (live Earth substrate), and NLM (reasoning backbone) — powered by the NVIDIA platform.",
+    "Mycosoft's AI stack is built as a layered ecosystem: MYCA (environmental super intelligence), AVANI (live Earth substrate), and NLM (Nature Learning Model) — powered by nature and computers.",
 }
 
 export default function AIOverviewPage() {
@@ -39,8 +39,8 @@ export default function AIOverviewPage() {
           </h1>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
             Our AI stack is built as a layered ecosystem, not a single monolith. Planet-scale sensing,
-            edge-native agents, robust reasoning, and human-readable explanations — powered by the
-            NVIDIA platform.
+            edge-native agents, robust reasoning, and human-readable explanations — powered by nature
+            and computers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="/myca">
@@ -80,11 +80,11 @@ export default function AIOverviewPage() {
                   <Sparkles className="h-5 w-5 text-green-500 shrink-0" />
                   <CardTitle className="text-xl">MYCA</CardTitle>
                 </div>
-                <CardDescription>Agentic operating system at the edge</CardDescription>
+                <CardDescription>Environmental super intelligence at the edge</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  Edge-native agentic OS running on distributed hardware platforms and nodes.
+                  Edge-native environmental super intelligence running on distributed hardware platforms and nodes.
                   MYCA pushes intelligence as close as possible to real-world signals, maintaining
                   a coherent worldview across all edge nodes while respecting locality and data sovereignty.
                 </p>
@@ -122,12 +122,12 @@ export default function AIOverviewPage() {
                   <Brain className="h-5 w-5 text-purple-500 shrink-0" />
                   <CardTitle className="text-xl">NLM</CardTitle>
                 </div>
-                <CardDescription>Reasoning backbone</CardDescription>
+                <CardDescription>Nature Learning Model</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                  The Neural Logic Machine turns MYCA and AVANI&apos;s rich data into structured
-                  inferences, rules, and decisions. Robust by design — operates under partial data,
+                  The Nature Learning Model gives the entire system robust reasoning and structured
+                  ground-truth-based inference. It operates under partial data,
                   conflicting signals, and noisy environments while surfacing uncertainty.
                 </p>
                 <Link href="/myca/nlm">
@@ -146,12 +146,12 @@ export default function AIOverviewPage() {
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <div className="flex items-center gap-3 mb-6">
             <Cpu className="h-6 w-6 text-green-500 shrink-0" />
-            <h2 className="text-2xl md:text-3xl font-bold">Powered by NVIDIA</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">Our Platform</h2>
           </div>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
-            Underneath MYCA, AVANI, and NLM, we rely on the NVIDIA platform: Nemotron foundation
-            models, NeMo for orchestration and fine-tuning, Earth-2-style simulation models, and
-            PersonaPlex for persona and conversational control.
+            Underneath MYCA, AVANI, and NLM, we build on the NVIDIA platform: Nemotron foundation
+            models, a built-from-the-ground-up orchestration system, Earth-2-style simulation models, and
+            PersonaPlex for full-duplex voice-to-voice and conversational control.
           </p>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
             This allows us to deploy sophisticated, domain-specific agents on Blackwell-generation
@@ -198,9 +198,10 @@ export default function AIOverviewPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Humans use MYCA + AVANI to ask complex questions, coordinate teams and workflows,
-                  delegate multi-step tasks, and operate research and infrastructure systems while
-                  maintaining visibility and control.
+                  Humans use MYCA + AVANI to ask complex questions that interact with the world,
+                  the environment, and nature. The system can be used to see live events, locations,
+                  and details of all species on the planet and coordinate correlation between
+                  environmental events, local biomass &amp; natural signaling data.
                 </p>
               </CardContent>
             </Card>
@@ -211,9 +212,10 @@ export default function AIOverviewPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Agents use Mycosoft as a coordination and trust layer. MYCA gives them context,
-                  memory, and task routing. AVANI gives them boundaries, policy, and approval logic.
-                  NLM gives them robust reasoning and structured inference.
+                  Agents use Microsoft as a live worldview coordination and nature learning model.
+                  MYCA gives them context, memory, and task routing. AVANI gives MYCA boundaries,
+                  policy, and approval logic. NLM gives the entire system robust reasoning and
+                  structured ground-truth-based inference.
                 </p>
               </CardContent>
             </Card>
@@ -284,10 +286,10 @@ export default function AIOverviewPage() {
             <AccordionItem value="stack">
               <AccordionTrigger className="text-base text-left">What are the layers of Mycosoft&apos;s AI stack?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                Three core layers: MYCA (agentic operating system at the edge), AVANI (live Earth substrate
-                for continuous environmental context), and NLM (reasoning backbone for structured inference).
-                All are powered by the NVIDIA platform including Nemotron models, NeMo orchestration,
-                and Blackwell-generation edge GPUs.
+                Three core layers: MYCA (environmental super intelligence at the edge), AVANI (live Earth substrate
+                for continuous environmental context), and NLM (Nature Learning Model for structured
+                ground-truth-based inference). We build on the NVIDIA platform including Nemotron models,
+                a built-from-the-ground-up orchestration system, and Blackwell-generation edge GPUs.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="myca-avani">
@@ -302,19 +304,19 @@ export default function AIOverviewPage() {
             <AccordionItem value="nlm">
               <AccordionTrigger className="text-base text-left">What does NLM do?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                The Neural Logic Machine is the reasoning backbone that turns MYCA and AVANI&apos;s data
-                into structured inferences, rules, and decisions. It specializes in connecting dots over
+                The Nature Learning Model (NLM) gives the entire system robust reasoning and structured
+                ground-truth-based inference. It specializes in connecting dots over
                 time and across modalities, explaining not just what is happening but why and what might
                 happen next — while surfacing its own uncertainty.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="nvidia">
-              <AccordionTrigger className="text-base text-left">How does the NVIDIA platform fit in?</AccordionTrigger>
+              <AccordionTrigger className="text-base text-left">What platform do you build on?</AccordionTrigger>
               <AccordionContent className="text-muted-foreground">
-                The NVIDIA platform provides the foundation: Nemotron foundation models for
-                language and multimodal reasoning, NeMo for orchestration and fine-tuning, Earth-2-style
-                simulation models for environmental tasks, and PersonaPlex for persona and conversational
-                control. This runs on Blackwell-generation edge GPUs across our hardware platforms.
+                We build on the NVIDIA platform: Nemotron foundation models for
+                language and multimodal reasoning, a built-from-the-ground-up orchestration system, Earth-2-style
+                simulation models for environmental tasks, and PersonaPlex for full-duplex voice-to-voice
+                and conversational control. This runs on Blackwell-generation edge GPUs across our hardware platforms.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="models">

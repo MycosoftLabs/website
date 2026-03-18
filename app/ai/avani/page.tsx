@@ -117,7 +117,7 @@ export default function AVANIPage() {
         <div className="container max-w-4xl mx-auto px-4 md:px-6">
           <h2 className="text-2xl md:text-3xl font-bold mb-6">What AVANI Is</h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed mb-4">
-            AVANI runs on its own dedicated backend next to the MYCA master VM, exposing a stable public
+            AVANI runs on its own dedicated backend next to the MYCA system, exposing a stable public
             interface for live earth queries while keeping its internal data pipelines and optimizations
             private. It is designed to be the planetary memory and sensory cortex for all other systems
             we build.
