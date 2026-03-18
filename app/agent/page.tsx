@@ -109,6 +109,7 @@ export default function AgentPage() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState("");
   const [showCrypto, setShowCrypto] = useState(false);
+  const [successKey, setSuccessKey] = useState<{ api_key: string; balance_cents: number } | null>(null);
 
   // Fetch wallet addresses on mount
   useEffect(() => {
@@ -116,6 +117,20 @@ export default function AgentPage() {
       .then((res) => res.json())
       .then(setWallets)
       .catch(() => {});
+  }, []);
+
+  // Fetch API key after Stripe checkout redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (sessionId) {
+      fetch(`/api/agent/success?session_id=${sessionId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.api_key) setSuccessKey(data);
+        })
+        .catch(() => {});
+    }
   }, []);
 
   // Handle Stripe checkout — works for both authenticated and guest users
@@ -217,6 +232,38 @@ export default function AgentPage() {
             and start building.
           </p>
         </motion.div>
+
+        {/* Success banner after Stripe checkout */}
+        {successKey && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 rounded-xl bg-green-500/10 border border-green-500/20 space-y-4"
+          >
+            <div className="flex items-center gap-2 text-green-400">
+              <Check className="h-5 w-5" />
+              <span className="font-semibold text-lg">
+                Payment confirmed. Here&apos;s your API key:
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-zinc-900 rounded-lg p-3 border border-zinc-700">
+              <Key className="h-4 w-4 text-zinc-500 flex-shrink-0" />
+              <code className="text-sm text-green-300 break-all flex-1">
+                {successKey.api_key}
+              </code>
+              <CopyButton text={successKey.api_key} />
+            </div>
+            <div className="text-sm text-zinc-400">
+              Balance:{" "}
+              <span className="text-white font-medium">
+                ${(successKey.balance_cents / 100).toFixed(2)}
+              </span>
+            </div>
+            <p className="text-xs text-yellow-400/80">
+              Save this key securely — it won&apos;t be shown again.
+            </p>
+          </motion.div>
+        )}
 
         {/* Features grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-16">

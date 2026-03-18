@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import { createHash, randomBytes } from 'crypto';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe/server';
 import { createClient } from '@supabase/supabase-js';
@@ -154,20 +155,26 @@ export async function POST(request: NextRequest) {
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const userId = session.metadata?.supabase_user_id;
   const type = session.metadata?.type;
-  
+
+  // Agent worldstate checkout — may be guest (no userId)
+  if (type === 'agent_worldstate') {
+    await handleAgentWorldstateCheckout(session);
+    return;
+  }
+
   if (!userId) {
     console.error('No user ID in checkout session metadata');
     return;
   }
-  
+
   if (type === 'subscription') {
     // Subscription checkout completed - handled by subscription.created event
     console.log(`Subscription checkout completed for user ${userId}`);
-    
+
   } else if (type === 'product') {
     // Product purchase completed
     const productId = session.metadata?.product_id;
-    
+
     // Create order record
     await getSupabaseAdmin().from('orders').insert({
       user_id: userId,
@@ -179,9 +186,106 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       status: 'paid',
       shipping_address: session.shipping_details,
     });
-    
+
     console.log(`Order created for user ${userId}, product ${productId}`);
   }
+}
+
+async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
+  const supabase = getSupabaseAdmin();
+  const userId = session.metadata?.supabase_user_id;
+  const email = session.customer_email || session.customer_details?.email;
+  const amountCents = session.amount_total || 100;
+
+  // 1. Get or create profile
+  let profileId = userId;
+
+  if (!profileId && email) {
+    // Guest checkout — look up by email
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id, balance_cents, total_paid_cents')
+      .eq('email', email)
+      .single();
+
+    if (existing) {
+      profileId = existing.id;
+    }
+  }
+
+  if (!profileId) {
+    // Create anonymous profile
+    profileId = crypto.randomUUID();
+    await supabase.from('profiles').insert({
+      id: profileId,
+      email: email || null,
+      balance_cents: 0,
+      total_paid_cents: 0,
+      is_agent: true,
+    });
+  }
+
+  // 2. Record payment
+  await supabase.from('payments').insert({
+    user_id: profileId,
+    amount: amountCents,
+    currency: session.currency || 'usd',
+    method: 'card',
+    status: 'succeeded',
+    stripe_checkout_session_id: session.id,
+    stripe_payment_intent_id: session.payment_intent as string,
+    description: 'Agent Worldstate Access',
+  });
+
+  // 3. Credit balance
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('balance_cents, total_paid_cents')
+    .eq('id', profileId)
+    .single();
+
+  const currentBalance = profile?.balance_cents ?? 0;
+  const currentPaid = profile?.total_paid_cents ?? 0;
+
+  await supabase
+    .from('profiles')
+    .update({
+      balance_cents: currentBalance + amountCents,
+      total_paid_cents: currentPaid + amountCents,
+    })
+    .eq('id', profileId);
+
+  // 4. Generate API key
+  const rawKey = `mk_${randomBytes(32).toString('hex')}`;
+  const keyHash = createHash('sha256').update(rawKey).digest('hex');
+  const keyPrefix = rawKey.slice(0, 11);
+
+  await supabase.from('agent_api_keys').insert({
+    profile_id: profileId,
+    key_hash: keyHash,
+    key_prefix: keyPrefix,
+    name: 'Stripe onboard',
+    scopes: ['agent:read', 'agent:write'],
+    is_active: true,
+  });
+
+  // 5. Insert agent event
+  await supabase.from('agent_events').insert({
+    profile_id: profileId,
+    event_type: 'payment_received',
+    severity: 'info',
+    message: `Payment received: $${(amountCents / 100).toFixed(2)} via Stripe`,
+    metadata: { session_id: session.id, amount_cents: amountCents },
+  });
+
+  // 6. Store temp key for success page retrieval
+  await supabase.from('agent_temp_keys').insert({
+    session_id: session.id,
+    raw_key: rawKey,
+    profile_id: profileId,
+  });
+
+  console.log(`Agent worldstate checkout completed for profile ${profileId}, key ${keyPrefix}...`);
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
