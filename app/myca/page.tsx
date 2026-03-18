@@ -1,10 +1,10 @@
 "use client"
 
 /**
- * MYCA Introduction Page - Architectural Showcase
- * Presents MYCA as Environmental Superintelligence
+ * MYCA Introduction Page - Edge-Native Agentic Operating System
+ * Presents MYCA as the agentic OS for the mycelial edge
  * Route: /myca (and /MYCA via redirect)
- * Created: Feb 17, 2026
+ * Updated: Mar 18, 2026
  */
 
 import Link from "next/link"
@@ -19,13 +19,13 @@ import { MYCAAbstract } from "@/components/myca/MYCAAbstract"
 import { MYCAConsciousnessStatus } from "@/components/mas/myca-consciousness-status"
 import { NeuromorphicProvider, NeuBadge, NeuCard, NeuCardContent } from "@/components/ui/neuromorphic"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, ExternalLink, Leaf, Globe, FileText } from "lucide-react"
+import { ArrowRight, ExternalLink, Leaf, Globe, FileText, Cpu, Network, Shield } from "lucide-react"
 
 export default function MYCAPage() {
   return (
     <NeuromorphicProvider>
       <div className="min-h-dvh myca-page">
-      {/* Section 1: Hero - no duplicate hand (hand is in ThumbThesisDiagram) */}
+      {/* Section 1: Hero */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden bg-gradient-to-b from-black via-green-950/30 to-background" data-over-video>
         <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.03)_1px,transparent_1px)] bg-[size:100px_100px]" />
         <div className="relative z-10 container max-w-6xl mx-auto px-4 md:px-6 text-center">
@@ -37,11 +37,12 @@ export default function MYCAPage() {
               MYCA
             </span>
             <br />
-            <span className="text-foreground">Environmental Superintelligence</span>
+            <span className="text-foreground">Agentic Operating System</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            A Nature Learning Model grounded in physics, chemistry, biology, and
-            mycology. Continuously trained on live biospheric signals.
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+            Edge-native intelligence for the mycelial edge. MYCA runs in distributed edge data centers
+            embedded inside our dedicated hardware platforms and nodes, treating them like a planetary
+            nervous system that pushes intelligence as close as possible to real-world signals.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="#live-demo">
@@ -71,30 +72,105 @@ export default function MYCAPage() {
         </div>
       </section>
 
-      {/* Section 2: MYCA Abstract - What, Why, How (unified flowing widget) */}
+      {/* Section 2: Edge-Native Intelligence */}
+      <section className="py-16 md:py-24 border-b">
+        <div className="container max-w-4xl mx-auto px-4 md:px-6">
+          <div className="text-center mb-12">
+            <NeuBadge variant="default" className="mb-4 border border-green-500/30">
+              Edge-Native
+            </NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              Intelligence at the Edge
+            </h2>
+          </div>
+          <div className="space-y-6 text-muted-foreground text-base md:text-lg leading-relaxed">
+            <p>
+              MYCA is our agentic operating system for the mycelial edge: instead of living in centralized
+              hyperscale data centers, MYCA runs in distributed edge data centers embedded inside our
+              dedicated hardware platforms and nodes. It treats these locations like a planetary nervous
+              system, pushing intelligence as close as possible to real-world signals.
+            </p>
+            <p>
+              Under the hood, MYCA is powered by the full NVIDIA AI stack, including Nemotron foundation
+              models, NeMo-based orchestration, and PersonaPlex-driven persona routing, with support for
+              Blackwell-generation edge GPUs so each node can host rich, local agents. MYCA maintains a
+              coherent worldview across all these nodes, allowing it to reason about environments, policies,
+              and user intent while still respecting locality and data sovereignty.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: MYCA + AVANI Yin-Yang */}
+      <section className="py-16 md:py-24 border-b bg-muted/30">
+        <div className="container max-w-5xl mx-auto px-4 md:px-6">
+          <div className="text-center mb-12">
+            <NeuBadge variant="default" className="mb-4 border border-green-500/30">
+              Paired Intelligence
+            </NeuBadge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              The Yin-Yang of MYCA and AVANI
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <NeuCard className="border border-green-500/30 bg-green-500/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-4">
+                  <Cpu className="h-6 w-6 text-green-400 shrink-0" />
+                  <h3 className="font-bold text-xl">MYCA — The Hand</h3>
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  The structured, goal-seeking &quot;hand&quot; — focused on form, goals, plans, and agents.
+                  MYCA coordinates action across distributed edge nodes, turning intent into execution
+                  with full environmental awareness.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
+            <NeuCard className="border border-amber-500/30 bg-amber-500/5">
+              <NeuCardContent>
+                <div className="flex items-center gap-2 mb-4">
+                  <Globe className="h-6 w-6 text-amber-400 shrink-0" />
+                  <h3 className="font-bold text-xl">AVANI — The Palm</h3>
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  The live Earth &quot;palm&quot; providing continuous environmental context and feedback.
+                  AVANI focuses on flows — data, signals, fields — grounding every action in real,
+                  continuous planetary data.
+                </p>
+              </NeuCardContent>
+            </NeuCard>
+          </div>
+          <p className="text-muted-foreground text-base md:text-lg leading-relaxed mt-8 text-center max-w-3xl mx-auto">
+            Together, MYCA and AVANI form a closed loop across sensing, prediction, decision, and actuation,
+            while exposing simple, human-readable interfaces at the edge.
+          </p>
+        </div>
+      </section>
+
+      {/* Section 4: MYCA Abstract */}
       <MYCAAbstract />
 
-      {/* Section 3: Hand Thesis */}
+      {/* Section 5: Hand Thesis */}
       <ThumbThesisDiagram />
 
-      {/* Section 4: Four Fingers */}
+      {/* Section 6: Four Fingers */}
       <FingerCards />
 
-      {/* Section 5: Live Demo — above NLM so users experience MYCA first */}
+      {/* Section 7: Live Demo */}
       <section id="live-demo">
         <LiveDemo />
       </section>
 
-      {/* Section 6: NLM Architecture — detailed visual diagram */}
+      {/* Section 8: NLM Architecture */}
       <NLMArchitecture />
 
-      {/* Section 7: Fungal Principles */}
+      {/* Section 9: Fungal Principles */}
       <FungalPrinciples />
 
-      {/* Section 8: Comparison Table */}
+      {/* Section 10: Comparison Table */}
       <ComparisonTable />
 
-      {/* Section 9: All Organisms as Users */}
+      {/* Section 11: All Organisms as Users */}
       <section className="py-16 md:py-24 neuromorphic-section">
         <div className="container max-w-6xl mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
@@ -139,10 +215,10 @@ export default function MYCAPage() {
         </div>
       </section>
 
-      {/* Section 10: Technical Specs */}
+      {/* Section 12: Technical Specs */}
       <TechnicalSpecs />
 
-      {/* Section 11: CTA */}
+      {/* Section 13: CTA */}
       <section className="py-16 md:py-24 bg-green-600 relative overflow-hidden" data-over-video>
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:40px_40px]" />
         <div className="container max-w-4xl mx-auto px-4 md:px-6 text-center relative z-10">
@@ -150,7 +226,7 @@ export default function MYCAPage() {
             Experience MYCA
           </h2>
           <p className="text-lg text-green-100 mb-8 max-w-2xl mx-auto">
-            Chat, explore consciousness, and see the future of ecologically-grounded AI.
+            Chat, explore consciousness, and see the future of edge-native, ecologically-grounded AI.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
             <Link href="#live-demo">
