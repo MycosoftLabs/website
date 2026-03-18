@@ -175,6 +175,7 @@ All notable changes to this project will be documented in this file.
 - Make all /devices routes public — no auth wall on product pages
 - *(agent)* Allow guest checkout for agent worldstate — no login required
 - *(agent)* Use inline price_data when Stripe Price ID not configured
+- Correct AI stack page content — MYCA, AVANI, NLM, and AI overview
 
 ### CREP
 
@@ -205,6 +206,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
