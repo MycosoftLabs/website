@@ -225,6 +225,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -321,6 +322,8 @@ All notable changes to this project will be documented in this file.
 - Agent payment pipeline — crypto wallets, API key auth, Supabase migration
 - *(agent)* Restore MYCA/AVANI/WORLDVIEW context and API docs
 - Replace Jetson Core OS / OpenClaw with NVIDIA NemoClaw + Nemotron
+- Agent platform — API key validation, key management, MYCA hooks, success page
+- Worldview API — public data only, path allowlist, response sanitization
 
 ### Fix
 
