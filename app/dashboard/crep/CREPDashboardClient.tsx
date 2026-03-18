@@ -154,6 +154,11 @@ const SatelliteTrackerWidget = dynamic(() => import("@/components/crep/satellite
 // Conservation Demo Widgets (Feb 05, 2026) - lazy loaded
 const SmartFenceWidget = dynamic(() => import("@/components/crep/smart-fence-widget").then((m) => ({ default: m.SmartFenceWidget })), { ssr: false });
 const PresenceDetectionWidget = dynamic(() => import("@/components/crep/presence-detection-widget").then((m) => ({ default: m.PresenceDetectionWidget })), { ssr: false });
+
+// Ground Station Integration (Mar 2026) - lazy loaded
+const GSOverlayPanel = dynamic(() => import("@/components/crep/ground-station/GSOverlayPanel").then((m) => ({ default: m.GSOverlayPanel })), { ssr: false });
+const GSPassTimeline = dynamic(() => import("@/components/crep/ground-station/GSPassTimeline").then((m) => ({ default: m.GSPassTimeline })), { ssr: false });
+const GSSatelliteInfoPanel = dynamic(() => import("@/components/crep/ground-station/GSSatelliteInfoPanel").then((m) => ({ default: m.GSSatelliteInfoPanel })), { ssr: false });
 import type { FenceSegment } from "@/components/crep/smart-fence-widget";
 import type { PresenceReading } from "@/components/crep/presence-detection-widget";
 
@@ -1681,6 +1686,24 @@ export default function CREPDashboardPage() {
   // Individual widget toggle states (Feb 17, 2026) - default OFF per user request
   const [showSmartFenceWidget, setShowSmartFenceWidget] = useState(false);
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
+
+  // Ground Station overlay state (Mar 2026)
+  const [showGroundStation, setShowGroundStation] = useState(false);
+  const [gsConnected, setGsConnected] = useState(false);
+  const [gsSatellites, setGsSatellites] = useState<Array<{
+    norad_id: number; name: string; az: number; el: number; range: number; alt: number;
+    trend: "rising" | "falling" | "stable" | "peak"; is_visible: boolean; is_tracking: boolean;
+  }>>([]);
+  const [gsGroups, setGsGroups] = useState<Array<{ id: string; name: string; satellite_count: number }>>([]);
+  const [gsSelectedGroupId, setGsSelectedGroupId] = useState<string | null>(null);
+  const [gsTrackingNoradId, setGsTrackingNoradId] = useState<number | undefined>(undefined);
+  const [gsPasses, setGsPasses] = useState<Array<{
+    norad_id: number; satellite_name: string; aos_time: string; los_time: string;
+    max_elevation: number; duration_seconds: number; is_visible?: boolean;
+  }>>([]);
+  const [gsHardwareStatus, setGsHardwareStatus] = useState({
+    rotator_connected: false, rig_connected: false, sdr_connected: false,
+  });
   
   // Selected entity states for map interaction
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
@@ -1822,6 +1845,51 @@ export default function CREPDashboardPage() {
   // Mission context - prompt-based creation on first use
   const [currentMission, setCurrentMission] = useState<MissionContext | null>(null);
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
+
+  // Ground Station data loading (Mar 2026)
+  useEffect(() => {
+    if (!showGroundStation) return;
+    // Check connection
+    fetch("/api/ground-station/system?action=health")
+      .then((r) => r.json())
+      .then((d) => setGsConnected(d.status === "connected"))
+      .catch(() => setGsConnected(false));
+    // Load groups
+    fetch("/api/ground-station/groups")
+      .then((r) => r.json())
+      .then((d) => {
+        const groups = Array.isArray(d) ? d : d.groups || [];
+        setGsGroups(groups.map((g: Record<string, unknown>) => ({
+          id: String(g.id), name: String(g.name),
+          satellite_count: Array.isArray(g.satellite_ids) ? (g.satellite_ids as unknown[]).length : 0,
+        })));
+      })
+      .catch(() => {});
+  }, [showGroundStation]);
+
+  // Load GS satellites when group changes
+  useEffect(() => {
+    if (!showGroundStation || !gsSelectedGroupId) return;
+    fetch(`/api/ground-station/satellites?group_id=${gsSelectedGroupId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const sats = Array.isArray(d) ? d : d.satellites || [];
+        setGsSatellites(sats.map((s: Record<string, unknown>) => ({
+          norad_id: Number(s.norad_id), name: String(s.name),
+          az: 0, el: 0, range: 0, alt: 0,
+          trend: "stable" as const, is_visible: false, is_tracking: false,
+        })));
+      })
+      .catch(() => {});
+    // Load passes
+    fetch(`/api/ground-station/satellites?action=passes&group_id=${gsSelectedGroupId}&hours=24`)
+      .then((r) => r.json())
+      .then((d) => {
+        const passes = Array.isArray(d) ? d : d.passes || [];
+        setGsPasses(passes);
+      })
+      .catch(() => {});
+  }, [showGroundStation, gsSelectedGroupId]);
 
   // Check for existing mission in localStorage on mount
   useEffect(() => {
@@ -4641,6 +4709,44 @@ export default function CREPDashboardPage() {
                           {/* Satellite Tracker Widget */}
                           <SatelliteTrackerWidget compact limit={10} />
                           
+                          {/* Ground Station Overlay (Mar 2026) */}
+                          {showGroundStation && (
+                            <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span className="text-[10px] font-bold text-white">GROUND STATION</span>
+                                  <div className={cn("w-1.5 h-1.5 rounded-full", gsConnected ? "bg-green-400" : "bg-red-500")} />
+                                </div>
+                                <span className="text-[8px] text-gray-500">{gsSatellites.length} sats</span>
+                              </div>
+                              <select
+                                value={gsSelectedGroupId || ""}
+                                onChange={(e) => setGsSelectedGroupId(e.target.value || null)}
+                                className="w-full h-6 text-[10px] bg-black/40 border border-gray-700/50 rounded px-1.5 text-white"
+                              >
+                                <option value="">Select group...</option>
+                                {gsGroups.map((g) => (
+                                  <option key={g.id} value={g.id}>{g.name} ({g.satellite_count})</option>
+                                ))}
+                              </select>
+                              {gsPasses.length > 0 && (
+                                <div className="space-y-0.5">
+                                  {gsPasses.slice(0, 3).map((p, i) => (
+                                    <div key={i} className="flex justify-between text-[8px]">
+                                      <span className="text-gray-300 truncate">{p.satellite_name}</span>
+                                      <span className="text-cyan-400">{p.max_elevation.toFixed(0)}°</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
+                                className="block text-center text-[8px] text-cyan-400 hover:text-cyan-300 py-1 border border-cyan-500/20 rounded">
+                                Open Full Dashboard
+                              </a>
+                            </div>
+                          )}
+
                           {/* Conservation Demo Widgets (Feb 05, 2026) - Individual toggles (Feb 17, 2026) */}
                           {/* Smart Fence Network Widget - toggled individually */}
                           {showSmartFenceWidget && fenceSegments.length > 0 && (
@@ -4682,6 +4788,7 @@ export default function CREPDashboardPage() {
                           <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
                           {(showSmartFenceWidget || showPresenceWidget) && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
+                          {showGroundStation && <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400">GS</Badge>}
                         </div>
                       </div>
                     </div>
@@ -4702,6 +4809,33 @@ export default function CREPDashboardPage() {
                       onOpacityChange={setLayerOpacity}
                     />
                     
+                    {/* Ground Station Toggle (Mar 2026) */}
+                    <div className="mt-4 rounded-lg bg-black/40 border border-cyan-500/20 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-black/30">
+                        <div className="flex items-center gap-2">
+                          <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                          <span className="text-[11px] font-semibold text-white">Ground Station</span>
+                        </div>
+                        <Switch
+                          checked={showGroundStation}
+                          onCheckedChange={setShowGroundStation}
+                          className="h-4 w-7 data-[state=checked]:bg-cyan-500"
+                        />
+                      </div>
+                      {showGroundStation && (
+                        <div className="p-2 space-y-1">
+                          <div className="text-[9px] text-gray-500 px-2">
+                            Satellite tracking, SDR control, observation scheduling.
+                            Data syncs bi-directionally with Mindex and the Agent Worldview API.
+                          </div>
+                          <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
+                            className="block text-center text-[9px] text-cyan-400 hover:text-cyan-300 py-1 mx-2 border border-cyan-500/20 rounded mt-1">
+                            Open Full Dashboard
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Conservation Widget Toggles (Feb 17, 2026) */}
                     <div className="mt-4 rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2 bg-black/30">
@@ -4926,6 +5060,58 @@ export default function CREPDashboardPage() {
         vessel={selectedVessel as any}
         satellite={selectedSatellite as any}
       />
+
+      {/* Ground Station Overlay Panel (Mar 2026) */}
+      {showGroundStation && (
+        <>
+          <GSOverlayPanel
+            visible={showGroundStation}
+            onToggle={() => setShowGroundStation(!showGroundStation)}
+            connected={gsConnected}
+            satellites={gsSatellites}
+            groups={gsGroups}
+            selectedGroupId={gsSelectedGroupId}
+            onSelectGroup={(id) => setGsSelectedGroupId(id)}
+            onSelectSatellite={(noradId) => {
+              const sat = gsSatellites.find((s) => s.norad_id === noradId);
+              if (sat) {
+                // Fly to satellite approximate position on the CREP map
+                // (position would be computed from TLE in a full integration)
+              }
+            }}
+            onTrackSatellite={(noradId) => {
+              setGsTrackingNoradId(noradId);
+              fetch("/api/ground-station/tracking", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ norad_id: noradId }),
+              }).catch(() => {});
+            }}
+            onStopTracking={() => {
+              setGsTrackingNoradId(undefined);
+              fetch("/api/ground-station/tracking", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ norad_id: null, rotator_state: "idle", rig_state: "idle" }),
+              }).catch(() => {});
+            }}
+            trackingNoradId={gsTrackingNoradId}
+            hardwareStatus={gsHardwareStatus}
+            passCount={gsPasses.length}
+          />
+          {/* Pass Timeline at bottom of map */}
+          {gsPasses.length > 0 && (
+            <div className="fixed bottom-8 left-0 right-0 z-40">
+              <GSPassTimeline
+                passes={gsPasses}
+                hoursWindow={24}
+                trackingNoradId={gsTrackingNoradId}
+                onTrackSatellite={(noradId) => setGsTrackingNoradId(noradId)}
+              />
+            </div>
+          )}
+        </>
+      )}
 
       {/* Mission Prompt Modal - shown on first CREP use */}
       {showMissionPrompt && (
