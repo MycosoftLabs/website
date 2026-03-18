@@ -103,7 +103,7 @@ export default function NLMPage() {
                   </Badge>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-green-600 to-emerald-600 dark:from-purple-400 dark:via-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  Neural Logic Machine
+                  Nature Learning Model
                 </h1>
                 <p className="text-base md:text-lg text-muted-foreground mt-2 max-w-2xl">
                   The reasoning backbone inside our ecosystem, responsible for turning MYCA and AVANI&apos;s rich data
@@ -151,7 +151,7 @@ export default function NLMPage() {
                   The NLM in the World of Frontier AI
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  The Neural Logic Machine (NLM) is the reasoning backbone inside our ecosystem, specializing in connecting dots
+                  The Nature Learning Model (NLM) is the reasoning backbone inside our ecosystem, specializing in connecting dots
                   over time and across modalities. It helps the system explain not just what is happening but why and what might
                   happen next. NLM integrates tightly with MYCA&apos;s worldview and AVANI&apos;s live Earth feeds, giving every agent
                   access to a shared, evolving logical substrate.

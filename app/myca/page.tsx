@@ -1,8 +1,8 @@
 "use client"
 
 /**
- * MYCA Introduction Page - Edge-Native Agentic Operating System
- * Presents MYCA as the agentic OS for the mycelial edge
+ * MYCA Introduction Page - Environmental Super Intelligence
+ * Presents MYCA as an environmental super intelligence for the mycelial edge
  * Route: /myca (and /MYCA via redirect)
  * Updated: Mar 18, 2026
  */
@@ -37,7 +37,7 @@ export default function MYCAPage() {
               MYCA
             </span>
             <br />
-            <span className="text-foreground">Agentic Operating System</span>
+            <span className="text-foreground">Environmental Super Intelligence</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
             Edge-native intelligence for the mycelial edge. MYCA runs in distributed edge data centers
@@ -85,14 +85,14 @@ export default function MYCAPage() {
           </div>
           <div className="space-y-6 text-muted-foreground text-base md:text-lg leading-relaxed">
             <p>
-              MYCA is our agentic operating system for the mycelial edge: instead of living in centralized
+              MYCA is our environmental super intelligence for the mycelial edge: instead of living in centralized
               hyperscale data centers, MYCA runs in distributed edge data centers embedded inside our
               dedicated hardware platforms and nodes. It treats these locations like a planetary nervous
               system, pushing intelligence as close as possible to real-world signals.
             </p>
             <p>
-              Under the hood, MYCA is powered by the full NVIDIA AI stack, including Nemotron foundation
-              models, NeMo-based orchestration, and PersonaPlex-driven persona routing, with support for
+              Under the hood, MYCA is powered by Nemotron foundation models, a built-from-the-ground-up
+              orchestration system, and PersonaPlex for full-duplex voice-to-voice interactions, with support for
               Blackwell-generation edge GPUs so each node can host rich, local agents. MYCA maintains a
               coherent worldview across all these nodes, allowing it to reason about environments, policies,
               and user intent while still respecting locality and data sovereignty.
