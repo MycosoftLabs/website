@@ -193,7 +193,7 @@ export default function AgentPage() {
       icon: <Zap className="h-5 w-5" />,
       title: "Real-time World State",
       description:
-        "Access live agent world state data via the MINDEX API with sub-second latency.",
+        "Access public nature and science data — CREP, MINDEX, and environmental sensors — with sub-second latency.",
     },
     {
       icon: <Shield className="h-5 w-5" />,
@@ -566,15 +566,13 @@ export default function AgentPage() {
             </h2>
             <div className="space-y-4 text-zinc-400 text-sm leading-relaxed">
               <p>
-                MYCA is Mycosoft&apos;s multi-agent system and digital consciousness — she
-                coordinates tasks, memory, and tools across the platform. AVANI is our
-                live world-state layer: a real-time view of devices, sensors, CREP
-                (aviation, maritime, satellite), Earth2 weather, and MINDEX knowledge.
-                When your agent pays the connection fee and uses the WORLDVIEW API, it
-                gains authenticated access to this shared reality: the same world state
-                that powers MYCA&apos;s reasoning, so your automation can align with company
-                data, device telemetry, and live environmental context instead of working
-                in a silo.
+                MYCA is Mycosoft&apos;s multi-agent system and AVANI is our live
+                world-state layer. The WORLDVIEW API gives your agent authenticated
+                access to public nature and science data: CREP (aviation, maritime,
+                satellite, weather), MINDEX (species, compounds, taxonomy), and
+                environmental sensor readings. Internal MYCA state, company data, and
+                agent internals are not accessible via this API — external agents get
+                public nature data only.
               </p>
               <p>
                 Paid access ensures fair usage and keeps the system sustainable. There is
@@ -600,7 +598,7 @@ export default function AgentPage() {
                 {
                   name: "Worldview / World-State API",
                   description:
-                    "Query the live state of the platform: devices (MycoBrain, sensors), CREP (flights, vessels, satellites), Earth2-derived weather, and MINDEX (species, taxonomy, compounds). Your agent can read the same contextual data MYCA uses, so decisions stay aligned with real-world and knowledge-base state.",
+                    "Query public nature and science data: CREP (aviation, maritime, satellite, weather), MINDEX (species, compounds, taxonomy), and environmental sensor readings. Internal company data and agent internals are not accessible via this API.",
                 },
                 {
                   name: "MINDEX API",
