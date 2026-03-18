@@ -43,11 +43,33 @@ env:
 
 jobs:
   # ===========================================================================
+  # CHECK IF FAST DEPLOY REQUESTED — skip full CI/CD when [fast] in commit msg
+  # ===========================================================================
+  check-fast:
+    name: Check for fast deploy
+    runs-on: ubuntu-latest
+    outputs:
+      is_fast: ${{ steps.check.outputs.is_fast }}
+    steps:
+      - name: Check commit message for [fast]
+        id: check
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          if echo "$MSG" | grep -qiE '\[fast\]|\[instant\]|\[quick\]'; then
+            echo "is_fast=true" >> "$GITHUB_OUTPUT"
+            echo "Fast deploy requested — skipping full CI/CD"
+          else
+            echo "is_fast=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ===========================================================================
   # LINT AND TYPE CHECK (runs in parallel with test)
   # ===========================================================================
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
+    needs: [check-fast]
+    if: needs.check-fast.outputs.is_fast != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,6 +95,8 @@ jobs:
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    needs: [check-fast]
+    if: needs.check-fast.outputs.is_fast != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -107,7 +131,13 @@ jobs:
     name: Build & Push Image
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [lint, test]
+    needs: [check-fast, lint, test]
+    if: >-
+      always()
+      && needs.check-fast.outputs.is_fast != 'true'
+      && needs.check-fast.result == 'success'
+      && !contains(needs.lint.result, 'failure')
+      && !contains(needs.test.result, 'failure')
     permissions:
       contents: read
       packages: write
@@ -183,8 +213,12 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request'
+    needs: [check-fast, build]
+    if: >-
+      always()
+      && needs.check-fast.outputs.is_fast != 'true'
+      && needs.build.result == 'success'
+      && github.event_name != 'pull_request'
     continue-on-error: true
     services:
       postgres:
@@ -226,8 +260,12 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build, integration]
-    if: github.ref == 'refs/heads/develop'
+    needs: [check-fast, build, integration]
+    if: >-
+      always()
+      && needs.check-fast.outputs.is_fast != 'true'
+      && needs.build.result == 'success'
+      && github.ref == 'refs/heads/develop'
     environment: staging
     steps:
       - name: Deploy to staging
@@ -254,8 +292,12 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build]
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')
+    needs: [check-fast, build]
+    if: >-
+      always()
+      && needs.check-fast.outputs.is_fast != 'true'
+      && needs.build.result == 'success'
+      && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true'))
     permissions:
       packages: read
     environment: production
@@ -416,11 +458,149 @@ jobs:
   # ===========================================================================
   # GENERATE CHANGELOG
   # ===========================================================================
+  # ===========================================================================
+  # INSTANT DEPLOY — triggered when [fast] is in the commit message
+  # Builds directly on the VM, skipping CI lint/test/GHCR. ~2-5 min.
+  # ===========================================================================
+  instant-deploy:
+    name: Instant Deploy (fast)
+    runs-on: ubuntu-latest
+    needs: [check-fast]
+    if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main'
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Install cloudflared and configure SSH
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          rm cloudflared.deb
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config <<EOF
+          Host production
+            HostName ${{ secrets.PRODUCTION_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Pull latest code on VM
+        run: |
+          ssh production bash -s <<'SCRIPT'
+            set -e
+            cd /opt/mycosoft/website
+            git fetch origin main
+            git reset --hard origin/main
+            echo "Code synced to $(git rev-parse --short HEAD)"
+          SCRIPT
+
+      - name: Inject environment variables
+        run: |
+          ssh production bash -s <<'ENVSCRIPT'
+            set -e
+            cd /opt/mycosoft/website
+            touch .env
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+              sed -i "/^${var}=/d" .env
+            done
+          ENVSCRIPT
+          ssh production bash -s <<ENVSCRIPT2
+            cd /opt/mycosoft/website
+            echo 'NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}' >> .env
+            echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}' >> .env
+            echo 'SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' >> .env
+            echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
+            echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
+            echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+          ENVSCRIPT2
+
+      - name: Build and deploy on VM
+        run: |
+          ssh production bash -s <<'BUILD'
+            set -e
+            cd /opt/mycosoft/website
+
+            echo "=== Building Docker image locally ==="
+            docker build \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
+              -f Dockerfile.production \
+              -t mycosoft-website:local \
+              .
+
+            echo "=== Restarting website container ==="
+            export WEBSITE_IMAGE="mycosoft-website:local"
+            docker rm -f mycosoft-website 2>/dev/null || true
+            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+
+            echo "=== Instant deploy complete at $(date) ==="
+          BUILD
+
+      - name: Health check
+        run: |
+          ssh production bash -s <<'SCRIPT'
+          for i in 1 2 3 4 5 6; do
+            if curl -sf http://localhost:3000/api/health; then
+              echo ""
+              echo "Healthy on attempt $i"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::warning::Health check timeout"
+          SCRIPT
+
+      - name: Purge Cloudflare cache
+        continue-on-error: true
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ] && [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            curl -sf -X POST \
+              "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{"purge_everything":true}'
+            echo "Cache purged"
+          fi
+
+      - name: Log deployment
+        continue-on-error: true
+        run: |
+          ssh production "echo '${{ github.sha }} instant-deployed at $(date)' >> /var/log/mycosoft-deployments.log"
+
+      - name: Notify deployment
+        uses: slackapi/slack-github-action@v1.24.0
+        if: always() && env.SLACK_WEBHOOK_URL != ''
+        with:
+          payload: |
+            {
+              "text": "Mycosoft instant-deployed to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Mycosoft Production Instant Deploy*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}\nMode: instant (build on VM, no CI)"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
   changelog:
     name: Generate Changelog
     runs-on: ubuntu-latest
-    needs: [build]
-    if: github.ref == 'refs/heads/main'
+    needs: [check-fast, build]
+    if: >-
+      always()
+      && needs.check-fast.outputs.is_fast != 'true'
+      && needs.build.result == 'success'
+      && github.ref == 'refs/heads/main'
     continue-on-error: true
     permissions:
       contents: write
