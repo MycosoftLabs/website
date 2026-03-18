@@ -103,11 +103,12 @@ export default function NLMPage() {
                   </Badge>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-green-600 to-emerald-600 dark:from-purple-400 dark:via-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  Nature Learning Model
+                  Neural Logic Machine
                 </h1>
                 <p className="text-base md:text-lg text-muted-foreground mt-2 max-w-2xl">
-                  The world&apos;s first multi-modal foundation model that learns the information-bearing signals of living Earth systems
-                  and translates them into operational representations for humans, machines, and scientific workflows.
+                  The reasoning backbone inside our ecosystem, responsible for turning MYCA and AVANI&apos;s rich data
+                  into structured inferences, rules, and decisions. Robust by design — operates under partial data,
+                  conflicting signals, and noisy environments while surfacing its own uncertainty.
                 </p>
               </div>
               <Link href="/natureos/model-training">
@@ -150,26 +151,26 @@ export default function NLMPage() {
                   The NLM in the World of Frontier AI
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  Frontier AI models today are dominated by large language models trained on human text, code, and imagery.
-                  The NLM represents a different frontier: <strong>biological and environmental intelligence</strong>. Where LLMs
-                  model human cognition and culture, the NLM models the signal dynamics of living systems&mdash;fungal networks,
-                  plant root zones, microbial communities, and eventually Earth-scale biophysical processes.
+                  The Neural Logic Machine (NLM) is the reasoning backbone inside our ecosystem, specializing in connecting dots
+                  over time and across modalities. It helps the system explain not just what is happening but why and what might
+                  happen next. NLM integrates tightly with MYCA&apos;s worldview and AVANI&apos;s live Earth feeds, giving every agent
+                  access to a shared, evolving logical substrate.
                 </p>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg bg-background/50 border">
-                    <h4 className="font-medium mb-2">Why This Matters Now</h4>
+                    <h4 className="font-medium mb-2">Robust by Design</h4>
                     <p className="text-sm text-muted-foreground">
-                      Climate, agriculture, and biodiversity crises require tools that can interpret nature&apos;s signals at scale.
-                      The NLM fills a gap: a foundation model whose ground truth is <em>causal experiment and field observation</em>,
-                      not human annotation. It is designed for scientific falsifiability and calibrated uncertainty.
+                      NLM can operate under partial data, conflicting signals, and noisy environments, while surfacing its own
+                      uncertainty so humans and downstream agents can react appropriately. It is designed for scientific
+                      falsifiability and calibrated uncertainty — never overstating confidence.
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-background/50 border">
-                    <h4 className="font-medium mb-2">Technical Differentiator</h4>
+                    <h4 className="font-medium mb-2">Shared Logical Substrate</h4>
                     <p className="text-sm text-muted-foreground">
-                      NLM uses synchronized multi-modal telemetry (bioelectric, chemical, environmental, imagery) and a structured
-                      bio-token vocabulary (&quot;micro-speak&quot;) aligned to ontologies. Output is operational state, not prose&mdash;enabling
-                      automation, forecasting, and closed-loop control.
+                      NLM exposes simple APIs for classification, causal inference, and plan evaluation. It uses synchronized
+                      multi-modal telemetry and structured vocabularies aligned to MYCA/AVANI ontologies. Output is operational
+                      state — enabling automation, forecasting, and closed-loop control across the entire stack.
                     </p>
                   </div>
                 </div>
