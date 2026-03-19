@@ -6,12 +6,16 @@ import { Copy, Check, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubscriptionTier } from '@/lib/access/types'
 
+type UserType = 'individual' | 'developer' | 'researcher' | 'organization'
+
 interface ApiKeyStepProps {
   plan: SubscriptionTier
+  userType?: UserType
+  startupFeePaid?: boolean
   onComplete: () => void
 }
 
-export function ApiKeyStep({ plan, onComplete }: ApiKeyStepProps) {
+export function ApiKeyStep({ plan, userType = 'individual', startupFeePaid = false, onComplete }: ApiKeyStepProps) {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +29,7 @@ export function ApiKeyStep({ plan, onComplete }: ApiKeyStepProps) {
         const res = await fetch('/api/beta/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan }),
+          body: JSON.stringify({ plan, user_type: userType, startup_fee_paid: startupFeePaid }),
           credentials: 'include',
         })
 

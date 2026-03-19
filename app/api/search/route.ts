@@ -8,6 +8,9 @@ import { searchExpandedMushrooms } from "@/lib/data/top-mushrooms-expanded"
 import { searchTracker } from "@/lib/services/search-tracker"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
+const MINDEX_BASE = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const USE_WORLDVIEW_SEARCH = process.env.USE_WORLDVIEW_SEARCH === "true"
+
 interface SpeciesMappingEntry {
   iNaturalistId?: string | number
   scientificName: string
@@ -175,6 +178,47 @@ export async function GET(request: NextRequest) {
 
     // Track this search query
     searchTracker.trackSearch(query)
+
+    // Worldview-first: try MINDEX /api/worldview/v1/search when enabled.
+    // Uses per-user API key forwarding for rate limiting.
+    if (USE_WORLDVIEW_SEARCH) {
+      try {
+        const authHeader = request.headers.get("authorization") || ""
+        const wvHeaders: Record<string, string> = { "Content-Type": "application/json" }
+        if (authHeader) wvHeaders["Authorization"] = authHeader
+        const mindexApiKey = process.env.MINDEX_API_KEY
+        if (mindexApiKey) wvHeaders["X-API-Key"] = mindexApiKey
+
+        const wvRes = await fetch(
+          `${MINDEX_BASE}/api/worldview/v1/search?q=${encodeURIComponent(query)}&limit=20`,
+          { headers: wvHeaders, signal: AbortSignal.timeout(5000), cache: "no-store" }
+        )
+        if (wvRes.ok) {
+          const wvData = await wvRes.json()
+          const wvResults: SearchResult[] = (wvData.results || []).map(
+            (r: { id?: string; title?: string; description?: string; type?: string; url?: string; source?: string }) => ({
+              id: r.id || "",
+              title: r.title || "",
+              description: r.description || "",
+              type: r.type || "fungi",
+              url: r.url || "",
+              source: r.source || "Worldview",
+            })
+          )
+          if (wvResults.length > 0) {
+            await recordUsageFromRequest({
+              request,
+              usageType: "SPECIES_IDENTIFICATION",
+              quantity: 1,
+              metadata: { query, source: "worldview_v1" },
+            })
+            return NextResponse.json({ results: wvResults, query, source: "worldview" }, { status: 200, headers })
+          }
+        }
+      } catch {
+        // Worldview not available — fall through to legacy search
+      }
+    }
 
     // Initialize with local results first
     const results: SearchResult[] = await getLocalSearchResults(query)

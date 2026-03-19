@@ -2,12 +2,20 @@
  * POST /api/beta/onboard
  * Onboard beta user: create MINDEX beta_users record, generate API key.
  * Requires authenticated Supabase session.
+ *
+ * Body: { plan, user_type?, startup_fee_paid? }
+ *   - user_type: "individual" | "developer" | "researcher" | "organization" (default: "individual")
+ *   - startup_fee_paid: boolean — true when the $1 Stripe startup fee has been charged
+ *
  * March 5, 2026 — MYCA Loop Closure (revenue validation)
+ * March 19, 2026 — Added user_type and startup_fee_paid for segregated public/internal APIs
  */
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MINDEX_BASE = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL
+
+const VALID_USER_TYPES = ['individual', 'developer', 'researcher', 'organization'] as const
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +38,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const plan = typeof body?.plan === 'string' ? body.plan.toLowerCase() : 'free'
+    const userType = VALID_USER_TYPES.includes(body?.user_type) ? body.user_type : 'individual'
+    const startupFeePaid = body?.startup_fee_paid === true
 
     const response = await fetch(`${MINDEX_BASE}/api/mindex/beta/onboard`, {
       method: 'POST',
@@ -38,6 +48,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         plan,
         supabase_user_id: user.id,
+        user_type: userType,
+        startup_fee_paid: startupFeePaid,
       }),
       cache: 'no-store',
     })
