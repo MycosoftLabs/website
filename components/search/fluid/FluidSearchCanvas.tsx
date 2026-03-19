@@ -589,11 +589,11 @@ export function FluidSearchCanvas({
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   )
   
-  // CREP data fetcher - uses both fungal endpoint and new CREP search API
+  // CREP data fetcher - uses CREP search API with live auto-refresh (30s)
   const { data: crepData } = useSWR(
-    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=20` : null,
+    debouncedQuery && debouncedQuery.length >= 2 ? `/api/search/crep?q=${encodeURIComponent(debouncedQuery)}&limit=50` : null,
     async (url) => { const res = await fetch(url); return res.json() },
-    { revalidateOnFocus: false, dedupingInterval: 15000 }
+    { revalidateOnFocus: false, dedupingInterval: 10000, refreshInterval: 30000 }
   )
   
   // Earth2 weather/spore data fetcher - use user location or default to San Francisco
@@ -612,25 +612,34 @@ export function FluidSearchCanvas({
   const newsError = newsData?.error
   const newsQueryUsed = newsData?.queryUsed as string | undefined
   const crepResults = useMemo(() => {
-    // Support both old format (observations) and new CREP search format (results)
+    // Pass through full CREPSearchResult objects to preserve domain-specific properties
+    // for the compartmentalized CrepWidget (aircraft speed/altitude, vessel heading, etc.)
     const raw = crepData?.results || crepData?.observations
     const results = Array.isArray(raw) ? raw : []
     return results.map((r: Record<string, unknown>) => ({
+      // Full CREPSearchResult fields (used by new compartmentalized widget)
       id: r.id,
-      species: r.title || r.species,
-      scientificName: r.properties?.scientificName || r.scientificName || r.title,
-      commonName: r.properties?.commonName || r.commonName,
+      type: r.type || "fungal",
+      title: r.title || r.species,
+      description: r.description || r.location || "",
       latitude: r.latitude || r.lat || 0,
       longitude: r.longitude || r.lng || 0,
+      altitude: r.altitude,
       timestamp: r.timestamp || r.observed_on,
       source: r.source || "CREP",
-      verified: r.properties?.qualityGrade === "research",
-      imageUrl: r.properties?.imageUrl || r.imageUrl || r.image_url,
-      thumbnailUrl: r.properties?.thumbnailUrl || r.thumbnailUrl || r.thumbnail_url,
+      properties: r.properties || {},
+      relevance: r.relevance || 0.5,
+      crepMapUrl: r.crepMapUrl || "",
+      // Legacy CrepObservation fields (backwards compat for map observations)
+      species: r.title || r.species,
+      scientificName: (r.properties as Record<string, unknown>)?.scientificName || r.scientificName || r.title,
+      commonName: (r.properties as Record<string, unknown>)?.commonName || r.commonName,
+      verified: (r.properties as Record<string, unknown>)?.qualityGrade === "research",
+      imageUrl: (r.properties as Record<string, unknown>)?.imageUrl || r.imageUrl || r.image_url,
+      thumbnailUrl: (r.properties as Record<string, unknown>)?.thumbnailUrl || r.thumbnailUrl || r.thumbnail_url,
       location: r.description || r.location,
-      sourceUrl: r.properties?.sourceUrl || r.sourceUrl || r.crepMapUrl,
-      isToxic: r.properties?.isToxic || r.isToxic,
-      type: r.type || "fungal",
+      sourceUrl: (r.properties as Record<string, unknown>)?.sourceUrl || r.sourceUrl || r.crepMapUrl,
+      isToxic: (r.properties as Record<string, unknown>)?.isToxic || r.isToxic,
     }))
   }, [crepData])
   const earth2Data = earth2RawData?.available ? earth2RawData : null
