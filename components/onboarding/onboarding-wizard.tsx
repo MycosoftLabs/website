@@ -2,11 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Leaf, 
-  Microscope, 
-  Globe2, 
-  Brain, 
+import {
+  Leaf,
+  Microscope,
+  Globe2,
+  Brain,
   Sparkles,
   ChevronRight,
   ChevronLeft,
@@ -17,7 +17,9 @@ import {
   Dna,
   CloudSun,
   Cpu,
-  ArrowRight
+  ArrowRight,
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SignupForm } from './signup-form'
@@ -407,17 +409,111 @@ function ParticleBackground() {
   )
 }
 
+// Stripe $1 startup fee step
+function StartupFeeStep({ onSuccess, onSkip }: { onSuccess: () => void; onSkip: () => void }) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handlePay = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'agent_worldstate', minutes: 1 }),
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data?.error || 'Checkout failed')
+        return
+      }
+      if (data.url) {
+        // Redirect to Stripe — on return the success page triggers onSuccess
+        window.location.href = data.url
+      }
+    } catch {
+      setError('Network error')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-white">Activate Your Account</h2>
+        <p className="text-white/60 mt-2 text-sm">
+          A one-time $1 startup fee activates your API key and verifies your account.
+        </p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-200 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handlePay}
+        disabled={isLoading}
+        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold bg-white text-emerald-900 hover:bg-emerald-50 disabled:opacity-50 transition-all"
+      >
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <>
+            Pay $1 &mdash; Activate Account
+            <ArrowRight className="w-5 h-5" />
+          </>
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onSkip}
+        className="w-full py-2 text-white/50 text-sm hover:text-white/80 transition-colors"
+      >
+        Skip for now (limited access)
+      </button>
+    </div>
+  )
+}
+
 // Signup slide component
 function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplete: () => void }) {
-  const [step, setStep] = useState<'form' | 'plan' | 'apikey'>('form')
+  const [step, setStep] = useState<'form' | 'plan' | 'fee' | 'apikey'>('form')
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionTier>(SubscriptionTier.FREE)
+  const [startupFeePaid, setStartupFeePaid] = useState(false)
   const IconComponent = slide.icon
+
+  // Check if returning from Stripe success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === '1' || params.get('startup_fee') === 'paid') {
+      setStartupFeePaid(true)
+      setStep('apikey')
+    }
+  }, [])
 
   const handlePlanComplete = (plan: SubscriptionTier) => {
     setSelectedPlan(plan)
+    setStep('fee')
+  }
+
+  const handleFeeSuccess = () => {
+    setStartupFeePaid(true)
     setStep('apikey')
   }
-  
+
+  const handleFeeSkip = () => {
+    setStartupFeePaid(false)
+    setStep('apikey')
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
       {/* Left side - info */}
@@ -430,7 +526,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
         >
           <IconComponent className="w-10 h-10 text-white" />
         </motion.div>
-        
+
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -438,7 +534,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
         >
           {slide.title}
         </motion.h1>
-        
+
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -447,7 +543,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
         >
           {slide.description}
         </motion.p>
-        
+
         {/* Features list */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -471,7 +567,7 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
           ))}
         </motion.div>
       </div>
-      
+
       {/* Right side - form */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
@@ -483,8 +579,10 @@ function SignupSlide({ slide, onComplete }: { slide: typeof SLIDES[0], onComplet
           <SignupForm onSuccess={() => setStep('plan')} />
         ) : step === 'plan' ? (
           <PlanSelector onComplete={handlePlanComplete} />
+        ) : step === 'fee' ? (
+          <StartupFeeStep onSuccess={handleFeeSuccess} onSkip={handleFeeSkip} />
         ) : (
-          <ApiKeyStep plan={selectedPlan} onComplete={onComplete} />
+          <ApiKeyStep plan={selectedPlan} startupFeePaid={startupFeePaid} onComplete={onComplete} />
         )}
       </motion.div>
     </div>

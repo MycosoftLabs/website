@@ -16,6 +16,7 @@ const API_KEYS_CONFIG = [
   { key: 'SUPABASE_SERVICE_ROLE_KEY', name: 'Supabase Service Role' },
   { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', name: 'Supabase Anon' },
   { key: 'MINDEX_API_KEY', name: 'MINDEX' },
+  { key: 'MINDEX_INTERNAL_TOKEN', name: 'MINDEX Internal' },
   { key: 'GOOGLE_MAPS_API_KEY', name: 'Google Maps' },
   { key: 'INFURA_API_KEY', name: 'Infura' },
   { key: 'NIH_API_KEY', name: 'NIH' },

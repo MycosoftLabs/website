@@ -20,13 +20,19 @@ import type {
 
 // Create MINDEX HTTP client
 // MINDEX uses X-API-Key header instead of Bearer token
+const mindexHeaders: Record<string, string> = {
+  "X-API-Key": env.mindexApiKey || "",
+}
+// Include internal token for admin/internal endpoints when configured
+if (env.mindexInternalToken) {
+  mindexHeaders["x-internal-token"] = env.mindexInternalToken
+}
+
 const mindexClient = createHttpClient({
   baseUrl: env.mindexApiBaseUrl,
   timeout: 15000,
   retries: 2,
-  headers: {
-    "X-API-Key": env.mindexApiKey || "",
-  },
+  headers: mindexHeaders,
 })
 
 // ============================================

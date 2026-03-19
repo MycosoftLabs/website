@@ -111,6 +111,12 @@ export const MINDEX_ENDPOINTS = {
   EARTH_MAP_LAYERS: `${API_URLS.MINDEX}/api/earth/map/layers`,
   EARTH_DOMAINS: `${API_URLS.MINDEX}/api/earth/domains`,
   EARTH_INGEST: `${API_URLS.MINDEX}/api/earth/ingest`,
+  // Worldview public API (per-user API keys, segregated from internal)
+  WORLDVIEW_SEARCH: `${API_URLS.MINDEX}/api/worldview/v1/search`,
+  // Internal admin API (requires MINDEX_INTERNAL_TOKEN)
+  INTERNAL_STATS: `${API_URLS.MINDEX}/api/mindex/internal/stats`,
+  INTERNAL_BETA_STATS: `${API_URLS.MINDEX}/api/mindex/internal/beta/stats`,
+  INTERNAL_USERS: `${API_URLS.MINDEX}/api/mindex/internal/users`,
 } as const
 
 /**

@@ -14,6 +14,9 @@ export const env = {
   // MINDEX runs on 192.168.0.189:8000 (dedicated database VM)
   mindexApiBaseUrl: process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || process.env.NEXT_PUBLIC_MINDEX_URL || "http://192.168.0.189:8000",
   mindexApiKey: process.env.MINDEX_API_KEY || "", // Server-only — must be set via env
+  // Internal token for MINDEX admin/internal endpoints (/api/mindex/internal/...)
+  // Shared secret between website and MINDEX backend — bypasses public API rate limits
+  mindexInternalToken: process.env.MINDEX_INTERNAL_TOKEN || process.env.INTERNAL_API_SECRET || "",
 
   // MyceliumSeg validation API (segmentation metrics for Petri Dish / scientific validation)
   myceliumsegApiUrl: process.env.NEXT_PUBLIC_MYCELIUMSEG_API_URL || process.env.MYCELIUMSEG_API_URL || "http://localhost:8010/mindex/myceliumseg",
