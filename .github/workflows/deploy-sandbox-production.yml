@@ -140,7 +140,7 @@ jobs:
             curl -sf -o /dev/null http://localhost:3000 || exit 1
 
       - name: Purge Cloudflare cache
-        if: success() && secrets.CLOUDFLARE_ZONE_ID != ''
+        if: ${{ success() && secrets.CLOUDFLARE_ZONE_ID != '' }}
         run: |
           curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
