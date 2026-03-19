@@ -22,6 +22,7 @@ import {
   ActivityTopologyView,
 } from "@/components/mas"
 import { MYCAChatWidget } from "@/components/myca/MYCAChatWidget"
+import { Myca2PsiloPanel } from "@/components/myca2/Myca2PsiloPanel"
 import { usePersonaPlexContext } from "@/components/voice"
 import {
   Brain,
@@ -416,13 +417,14 @@ export default function AIStudioPage() {
                 Full Screen
               </Button>
             </div>
-            
-            {/* Embedded 3D Topology */}
-            <div className="h-[700px] rounded-xl overflow-hidden border-2 border-purple-500/20">
-              <AdvancedTopology3D
-                className="h-full"
-                fullScreen={false}
-              />
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+              <div className="lg:col-span-1">
+                <Myca2PsiloPanel />
+              </div>
+              <div className="lg:col-span-3 h-[min(700px,70vh)] min-h-[400px] rounded-xl overflow-hidden border-2 border-purple-500/20">
+                <AdvancedTopology3D className="h-full" fullScreen={false} />
+              </div>
             </div>
             
             {/* Full-screen mode */}

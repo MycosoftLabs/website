@@ -53,6 +53,7 @@ interface CrepWidgetProps {
   error?: string
   onAddToNotepad?: (item: { type: string; title: string; content: string; source?: string }) => void
   onViewOnMap?: (observation: CrepObservation) => void
+  onOpenDashboard?: () => void
 }
 
 export function CrepWidget({
@@ -62,6 +63,7 @@ export function CrepWidget({
   error,
   onAddToNotepad,
   onViewOnMap,
+  onOpenDashboard,
 }: CrepWidgetProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
 
@@ -106,9 +108,18 @@ export function CrepWidget({
         <p className="text-sm text-muted-foreground">
           No CREP observations available
         </p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
+        <p className="text-xs text-muted-foreground/70 mt-1 mb-4">
           Search for species to see global sightings
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
+          onClick={onOpenDashboard}
+        >
+          Open CREP Map
+          <ExternalLink className="h-3 w-3 ml-2" />
+        </Button>
       </div>
     )
   }
@@ -139,12 +150,10 @@ export function CrepWidget({
           variant="ghost"
           size="sm"
           className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
-          asChild
+          onClick={onOpenDashboard}
         >
-          <a href="/dashboard/crep" target="_blank" rel="noopener noreferrer">
-            Open CREP Map
-            <ExternalLink className="h-3 w-3 ml-1" />
-          </a>
+          Open CREP Map
+          <ExternalLink className="h-3 w-3 ml-1" />
         </Button>
       </div>
 

@@ -63,7 +63,7 @@ interface MapWidgetProps {
 }
 
 export function MapWidget({
-  data,
+  data = [],
   searchLocation,
   isFocused = false,
   error,

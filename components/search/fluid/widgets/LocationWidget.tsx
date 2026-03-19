@@ -68,7 +68,7 @@ function LocationLoadingSkeleton() {
 }
 
 export function LocationWidget({
-  data,
+  data = [],
   searchLocation,
   isFocused = false,
   isLoading = false,

@@ -20,7 +20,7 @@ function Write-Log ($msg, $lvl) {
     if (-not $lvl) { $lvl = "INFO" }
     $line = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$lvl] $msg"
     Add-Content -Path $LogFile -Value $line
-    Write-Host $line
+    # No Write-Host — runs as hidden scheduled task; log file only to avoid any window flash
 }
 
 function Is-Up {
@@ -69,7 +69,7 @@ function Start-DevServer {
     Start-Process -FilePath "cmd.exe" `
         -ArgumentList "/c npm run dev:next-only" `
         -WorkingDirectory $WebsiteRoot `
-        -WindowStyle Minimized
+        -WindowStyle Hidden
     Write-Log "Dev server process launched."
 }
 

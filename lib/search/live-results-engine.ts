@@ -1,14 +1,18 @@
 /**
- * Live Results Engine
- * 
- * Fetches live data based on search intent:
- * - iNaturalist observations for species
- * - Media results for movies/TV queries  
- * - News results for current events
- * - Location-based observations
+ * Live Results Engine — Updated Mar 19, 2026
+ *
+ * Fetches live data based on search intent across ALL domains:
+ * - iNaturalist observations for ALL species (not just fungi)
+ * - Events (earthquakes, storms, volcanoes)
+ * - Aircraft, vessels, satellites
+ * - News and research
+ * - Weather alerts
+ *
+ * Results are sorted: photo-attached first, then newest first.
  */
 
 import type { SearchIntent } from "./intent-parser"
+import type { LiveResultType } from "./search-intelligence-router"
 
 // =============================================================================
 // INATURALIST API RESPONSE TYPE
@@ -19,6 +23,7 @@ interface INatObservationResponse {
   taxon?: {
     preferred_common_name?: string
     name?: string
+    iconic_taxon_name?: string
   }
   place_guess?: string
   geojson?: {
@@ -50,6 +55,22 @@ export interface LiveObservation {
   source: "inaturalist" | "mindex" | "gbif"
 }
 
+/** Unified live result item that can represent any type of live data */
+export interface UnifiedLiveResult {
+  id: string
+  type: "observation" | "event" | "aircraft" | "vessel" | "news" | "research" | "weather"
+  title: string
+  subtitle?: string
+  location?: string
+  lat?: number
+  lng?: number
+  date: string
+  photoUrl?: string
+  url?: string
+  source: string
+  metadata?: Record<string, unknown>
+}
+
 export interface LiveMedia {
   id: string
   title: string
@@ -76,6 +97,8 @@ export interface LiveResults {
   observations?: LiveObservation[]
   media?: LiveMedia[]
   news?: LiveNews[]
+  /** Unified results across all types — sorted by photo-first, then newest */
+  unified?: UnifiedLiveResult[]
   source: string
   refreshedAt: string
 }
@@ -136,7 +159,8 @@ export async function fetchINaturalistObservations(
 }
 
 /**
- * Fetch observations by location (no taxon filter)
+ * Fetch observations by location for ALL species (not just fungi).
+ * Returns observations across all kingdoms: animals, plants, fungi, etc.
  */
 export async function fetchObservationsByLocation(
   lat: number,
@@ -151,8 +175,8 @@ export async function fetchObservationsByLocation(
     per_page: String(limit),
     order: "desc",
     order_by: "observed_on",
-    iconic_taxa: "Fungi",
     photos: "true",
+    // No iconic_taxa filter — fetch ALL species across all kingdoms
   })
 
   try {
@@ -324,37 +348,268 @@ export async function getLiveResultsByIntent(
 }
 
 // =============================================================================
+// UNIFIED LIVE RESULTS FETCHER
+// =============================================================================
+
+/**
+ * Fetch live results across ALL domains based on search route.
+ * This is the main entry point used by LiveResultsWidget.
+ * Returns sorted results: photo-attached first, then newest first.
+ */
+export async function fetchUnifiedLiveResults(
+  query: string,
+  resultTypes: LiveResultType[],
+  options?: {
+    lat?: number
+    lng?: number
+    limit?: number
+  }
+): Promise<UnifiedLiveResult[]> {
+  const results: UnifiedLiveResult[] = []
+  const limit = options?.limit || 30
+
+  // Launch all fetches in parallel
+  const fetchers: Promise<void>[] = []
+
+  // Observations (all species or specific)
+  if (resultTypes.includes("all_species") || resultTypes.includes("specific_species")) {
+    fetchers.push(
+      (async () => {
+        try {
+          let observations: LiveObservation[]
+          if (resultTypes.includes("specific_species") && query) {
+            observations = await fetchINaturalistObservations(query, {
+              lat: options?.lat,
+              lng: options?.lng,
+              limit: 15,
+            })
+          } else if (options?.lat && options?.lng) {
+            observations = await fetchObservationsByLocation(
+              options.lat,
+              options.lng,
+              100,
+              15
+            )
+          } else {
+            observations = await fetchINaturalistObservations(query || "life", {
+              limit: 15,
+            })
+          }
+          for (const obs of observations) {
+            results.push({
+              id: `obs-${obs.id}`,
+              type: "observation",
+              title: obs.species,
+              subtitle: obs.scientificName,
+              location: obs.location,
+              lat: obs.lat,
+              lng: obs.lng,
+              date: obs.date,
+              photoUrl: obs.photoUrl,
+              source: "iNaturalist",
+              metadata: { quality: obs.quality, observer: obs.observerName },
+            })
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  // Events (earthquakes, volcanoes, storms)
+  if (resultTypes.includes("events")) {
+    fetchers.push(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/unified?q=${encodeURIComponent(query)}&types=events&limit=10`,
+            { signal: AbortSignal.timeout(8000) }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const events = data?.results?.events || []
+            for (const ev of events) {
+              results.push({
+                id: `event-${ev.id || Math.random().toString(36).slice(2)}`,
+                type: "event",
+                title: ev.title || ev.type || "Event",
+                subtitle: ev.magnitude ? `Magnitude ${ev.magnitude}` : ev.severity,
+                location: ev.location || ev.place,
+                lat: ev.lat,
+                lng: ev.lng,
+                date: ev.timestamp || ev.date || new Date().toISOString(),
+                photoUrl: ev.imageUrl,
+                url: ev.url,
+                source: ev.source || "EONET",
+              })
+            }
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  // Aircraft
+  if (resultTypes.includes("aircraft")) {
+    fetchers.push(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/unified?q=${encodeURIComponent(query)}&types=aircraft&limit=10`,
+            { signal: AbortSignal.timeout(8000) }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const aircraft = data?.results?.aircraft || []
+            for (const ac of aircraft) {
+              results.push({
+                id: `aircraft-${ac.id || ac.callsign || Math.random().toString(36).slice(2)}`,
+                type: "aircraft",
+                title: ac.callsign || ac.registration || "Aircraft",
+                subtitle: `Alt: ${ac.altitude}ft • ${ac.speed}kts`,
+                lat: ac.lat,
+                lng: ac.lng,
+                date: ac.timestamp || new Date().toISOString(),
+                source: ac.source || "OpenSky",
+              })
+            }
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  // Vessels
+  if (resultTypes.includes("vessels")) {
+    fetchers.push(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/unified?q=${encodeURIComponent(query)}&types=vessels&limit=10`,
+            { signal: AbortSignal.timeout(8000) }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const vessels = data?.results?.vessels || []
+            for (const v of vessels) {
+              results.push({
+                id: `vessel-${v.id || v.mmsi || Math.random().toString(36).slice(2)}`,
+                type: "vessel",
+                title: v.name || v.callsign || "Vessel",
+                subtitle: v.type || `MMSI: ${v.mmsi}`,
+                lat: v.lat,
+                lng: v.lng,
+                date: v.timestamp || new Date().toISOString(),
+                source: v.source || "AIS",
+              })
+            }
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  // News
+  if (resultTypes.includes("news")) {
+    fetchers.push(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/news?q=${encodeURIComponent(query)}&limit=10`,
+            { signal: AbortSignal.timeout(8000) }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const newsItems = data?.results || []
+            for (const item of newsItems) {
+              results.push({
+                id: `news-${item.id || Math.random().toString(36).slice(2)}`,
+                type: "news",
+                title: item.title,
+                subtitle: item.source?.name || item.source,
+                date: item.publishedAt || item.published_at || new Date().toISOString(),
+                photoUrl: item.urlToImage || item.imageUrl || item.image_url,
+                url: item.url,
+                source: item.source?.name || item.source || "News",
+              })
+            }
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  // Weather
+  if (resultTypes.includes("weather")) {
+    fetchers.push(
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/unified?q=${encodeURIComponent(query)}&types=weather&limit=5`,
+            { signal: AbortSignal.timeout(8000) }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const weatherItems = data?.results?.weather || []
+            for (const w of weatherItems) {
+              results.push({
+                id: `weather-${w.id || Math.random().toString(36).slice(2)}`,
+                type: "weather",
+                title: w.event || w.headline || "Weather Alert",
+                subtitle: w.description?.slice(0, 100),
+                location: w.areaDesc || w.location,
+                lat: w.lat,
+                lng: w.lng,
+                date: w.effective || w.onset || new Date().toISOString(),
+                source: w.senderName || "NWS",
+              })
+            }
+          }
+        } catch { /* silent */ }
+      })()
+    )
+  }
+
+  await Promise.allSettled(fetchers)
+
+  // Sort: photo-attached results first, then newest first
+  return sortLiveResults(results).slice(0, limit)
+}
+
+/**
+ * Sort live results: photo-attached first, then newest first within each group.
+ */
+export function sortLiveResults(results: UnifiedLiveResult[]): UnifiedLiveResult[] {
+  return [...results].sort((a, b) => {
+    // Photo-attached results first
+    const aHasPhoto = a.photoUrl ? 1 : 0
+    const bHasPhoto = b.photoUrl ? 1 : 0
+    if (aHasPhoto !== bHasPhoto) return bHasPhoto - aHasPhoto
+
+    // Then newest first
+    const aDate = new Date(a.date || 0).getTime()
+    const bDate = new Date(b.date || 0).getTime()
+    return bDate - aDate
+  })
+}
+
+// =============================================================================
 // REAL API INTEGRATIONS (no mock data)
 // =============================================================================
 
 /**
  * Fetch media results from TMDB API
  * TODO: Implement when TMDB API key is available
- * For now returns empty array to comply with no-mock-data policy
  */
 export async function fetchMediaResults(query: string): Promise<LiveMedia[]> {
-  // TMDB API integration pending - API key required
-  // When implemented:
-  // const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
-  // const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${query}`)
-  // return parseMediaResults(res)
-  
   console.log(`[LiveResults] Media search for "${query}" - TMDB integration pending`)
-  return [] // No mock data
+  return []
 }
 
 /**
  * Fetch news results from news API
- * TODO: Implement when news API key is available (NewsAPI, GNews, etc.)
- * For now returns empty array to comply with no-mock-data policy
+ * TODO: Implement when news API key is available
  */
 export async function fetchNewsResults(query: string): Promise<LiveNews[]> {
-  // News API integration pending - API key required
-  // When implemented:
-  // const NEWS_API_KEY = process.env.NEXT_PUBLIC_NEWS_API_KEY
-  // const res = await fetch(`https://newsapi.org/v2/everything?q=${query}&apiKey=${NEWS_API_KEY}`)
-  // return parseNewsResults(res)
-  
   console.log(`[LiveResults] News search for "${query}" - News API integration pending`)
-  return [] // No mock data
+  return []
 }

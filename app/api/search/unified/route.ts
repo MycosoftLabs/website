@@ -1120,6 +1120,7 @@ export async function GET(request: NextRequest) {
   const startTime = performance.now()
 
   const { searchParams } = request.nextUrl
+  const origin = new URL(request.url).origin
   const query = searchParams.get("q")?.trim()
   const typesStr = searchParams.get("types") || "species,compounds,genetics,research"
   const types = typesStr.split(",").map((t) => t.trim())
@@ -1150,35 +1151,60 @@ export async function GET(request: NextRequest) {
   // for 10s+ while the user stares at skeleton loaders.
   if (USE_MAS_SEARCH) {
     const masStart = performance.now()
-    const masPayload = await callMASSearchExecute(
-      { query, limit },
-      AbortSignal.timeout(3000)
-    )
+    const [masPayload, earthResults] = await Promise.all([
+      callMASSearchExecute({ query, limit }, AbortSignal.timeout(15000)).catch((err) => {
+        console.warn("[MAS Search] Proxy timed out or failed:", err.message)
+        return null
+      }),
+      searchEarthIntelligence(query, origin, limit).catch((err) => {
+        console.warn("[Earth Intel] Search failed:", err.message)
+        return null
+      })
+    ])
+    
     if (masPayload) {
-      const { results, source, totalCount } = mapMASResponseToUnified(masPayload)
+      const { results, source, totalCount: masCount } = mapMASResponseToUnified(masPayload)
       const masTime = Math.round(performance.now() - masStart)
+      
+      const {
+        events: earthEvents = [],
+        aircraft: earthAircraft = [],
+        vessels: earthVessels = [],
+        satellites: earthSatellites = [],
+        weather: earthWeather = [],
+        emissions: earthEmissions = [],
+        infrastructure: earthInfrastructure = [],
+        devices: earthDevices = [],
+        space_weather: earthSpaceWeather = [],
+      } = earthResults || {}
+      
+      const totalCount = masCount + earthEvents.length + earthAircraft.length + earthVessels.length +
+        earthSatellites.length + earthWeather.length + earthEmissions.length + earthInfrastructure.length +
+        earthDevices.length + earthSpaceWeather.length
+
       await recordUsageFromRequest({
         request,
         usageType: "SPECIES_IDENTIFICATION",
         quantity: 1,
         metadata: { query, source: "mas" },
       })
+      
       return NextResponse.json({
         query,
         results: {
-          species: results.species as SpeciesResult[],
-          compounds: results.compounds as CompoundResult[],
-          genetics: results.genetics as GeneticsResult[],
-          research: results.research as ResearchResult[],
-          events: [],
-          aircraft: [],
-          vessels: [],
-          satellites: [],
-          weather: [],
-          emissions: [],
-          infrastructure: [],
-          devices: [],
-          space_weather: [],
+          species: results.species as unknown as SpeciesResult[],
+          compounds: results.compounds as unknown as CompoundResult[],
+          genetics: results.genetics as unknown as GeneticsResult[],
+          research: results.research as unknown as ResearchResult[],
+          events: earthEvents,
+          aircraft: earthAircraft,
+          vessels: earthVessels,
+          satellites: earthSatellites,
+          weather: earthWeather,
+          emissions: earthEmissions,
+          infrastructure: earthInfrastructure,
+          devices: earthDevices,
+          space_weather: earthSpaceWeather,
         },
         totalCount,
         timing: { total: masTime, mindex: masTime },
@@ -1203,7 +1229,6 @@ export async function GET(request: NextRequest) {
     const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
 
     // Run ALL searches in parallel — species, compounds, genetics simultaneously
-    const origin = new URL(request.url).origin
 
     const [
       mindexResults,
