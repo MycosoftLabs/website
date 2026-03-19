@@ -390,4 +390,49 @@ export const CREP_VOICE_COMMANDS = [
   { pattern: "create mission *", description: "Start a new CREP mission" },
   { pattern: "system status", description: "Get CREP system health" },
   { pattern: "reset view", description: "Reset map to default position" },
+  { pattern: "show atlas", description: "Open embedding atlas overlay" },
+  { pattern: "visualize embeddings", description: "Show embedding point cloud" },
+  { pattern: "find similar to *", description: "Search by similarity in embedding space" },
+  { pattern: "cluster analysis", description: "Show data clustering patterns" },
 ] as const
+
+// ============================================================================
+// Embedding Atlas Context for MYCA
+// ============================================================================
+
+/**
+ * Build MYCA context from embedding atlas state.
+ * Enables MYCA to understand the current embedding visualization
+ * and provide intelligent responses about data patterns and clusters.
+ */
+export function buildEmbeddingAtlasContextForMYCA(atlasStats: {
+  totalPoints: number
+  entityCount: Record<string, number>
+  topClusters?: Array<{ label: string; count: number }>
+}): string {
+  const parts: string[] = [
+    `[Embedding Atlas Active]`,
+    `Total data points: ${atlasStats.totalPoints}`,
+  ]
+
+  if (Object.keys(atlasStats.entityCount).length > 0) {
+    parts.push("Entity distribution:")
+    for (const [type, count] of Object.entries(atlasStats.entityCount)) {
+      parts.push(`  - ${type}: ${count}`)
+    }
+  }
+
+  if (atlasStats.topClusters?.length) {
+    parts.push("Detected clusters:")
+    for (const cluster of atlasStats.topClusters.slice(0, 5)) {
+      parts.push(`  - ${cluster.label}: ${cluster.count} points`)
+    }
+  }
+
+  parts.push(
+    "You can help the user understand patterns, anomalies, and relationships in this embedding visualization.",
+    "Suggest cross-domain correlations when entity types overlap geographically."
+  )
+
+  return parts.join("\n")
+}
