@@ -47,9 +47,17 @@ export function HeroSearch() {
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
   const isConnected = personaplex?.isConnected ?? false
-  const isListening = personaplex?.isListening ?? false
   const lastTranscript = personaplex?.lastTranscript ?? ""
   const connectionState = personaplex?.connectionState ?? "disconnected"
+
+  // Web Speech API fallback for STT when PersonaPlex is unavailable
+  const [webSpeechListening, setWebSpeechListening] = useState(false)
+  const [webSpeechTranscript, setWebSpeechTranscript] = useState("")
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  // Unified listening state: PersonaPlex OR Web Speech API
+  const isListening = (personaplex?.isListening ?? false) || webSpeechListening
+  const hasWebSpeech = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
   
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({
@@ -86,12 +94,74 @@ export function HeroSearch() {
     mouseY.set(y)
   }, [mouseX, mouseY])
 
-  // Handle voice transcript - auto-fill search when voice input received
+  // Handle voice transcript - auto-fill search from PersonaPlex
   useEffect(() => {
-    if (lastTranscript && isListening) {
+    if (lastTranscript && (personaplex?.isListening ?? false)) {
       setQuery(lastTranscript)
     }
-  }, [lastTranscript, isListening])
+  }, [lastTranscript, personaplex?.isListening])
+
+  // Handle Web Speech API transcript
+  useEffect(() => {
+    if (webSpeechTranscript && webSpeechListening) {
+      setQuery(webSpeechTranscript)
+    }
+  }, [webSpeechTranscript, webSpeechListening])
+
+  // Initialize Web Speech API recognition
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const SpeechRecognitionAPI = (window as unknown as Record<string, unknown>).SpeechRecognition ||
+      (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) return
+
+    const recognition = new (SpeechRecognitionAPI as new () => SpeechRecognition)()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = ""
+      let interimTranscript = ""
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript
+        } else {
+          interimTranscript += result[0].transcript
+        }
+      }
+      const transcript = finalTranscript || interimTranscript
+      if (transcript) {
+        setWebSpeechTranscript(transcript)
+        setQuery(transcript)
+      }
+      // Auto-submit on final result
+      if (finalTranscript) {
+        setWebSpeechListening(false)
+        // Auto-navigate to search after a brief pause
+        setTimeout(() => {
+          if (finalTranscript.trim()) {
+            router.push(`/search?q=${encodeURIComponent(finalTranscript.trim())}`)
+          }
+        }, 500)
+      }
+    }
+
+    recognition.onend = () => {
+      setWebSpeechListening(false)
+    }
+
+    recognition.onerror = () => {
+      setWebSpeechListening(false)
+    }
+
+    recognitionRef.current = recognition
+
+    return () => {
+      recognition.abort()
+    }
+  }, [router])
 
   // Click outside handler - just unfocus
   useEffect(() => {
@@ -113,11 +183,33 @@ export function HeroSearch() {
   }
 
   const toggleVoice = () => {
-    if (!personaplex) return
+    // If currently listening (either source), stop
     if (isListening) {
-      personaplex.stopListening()
-    } else {
+      if (personaplex?.isListening) personaplex.stopListening()
+      if (webSpeechListening && recognitionRef.current) {
+        recognitionRef.current.abort()
+        setWebSpeechListening(false)
+      }
+      return
+    }
+
+    // Try PersonaPlex first
+    if (personaplex && isConnected) {
       personaplex.startListening()
+      return
+    }
+
+    // Fall back to Web Speech API
+    if (hasWebSpeech && recognitionRef.current) {
+      try {
+        recognitionRef.current.start()
+        setWebSpeechListening(true)
+        setWebSpeechTranscript("")
+      } catch {
+        // Recognition may already be running
+        setWebSpeechListening(false)
+      }
+      return
     }
   }
 
@@ -266,26 +358,26 @@ export function HeroSearch() {
                 <motion.button
                   type="button"
                   onClick={toggleVoice}
-                  disabled={connectionState === "connecting"}
+                  disabled={connectionState === "connecting" && !hasWebSpeech}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
                     "relative p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
-                    isListening 
-                      ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50" 
-                      : isConnected 
+                    isListening
+                      ? "bg-red-500/20 text-red-400 ring-2 ring-red-500/50"
+                      : (isConnected || hasWebSpeech)
                         ? "bg-white/10 hover:bg-white/20 dark:bg-white/10 dark:hover:bg-white/20 text-foreground/90"
                         : "bg-white/5 dark:bg-white/5 text-muted-foreground",
-                    connectionState === "connecting" && "animate-pulse"
+                    connectionState === "connecting" && !hasWebSpeech && "animate-pulse"
                   )}
                   title={
-                    isListening 
-                      ? "Stop listening" 
-                      : isConnected 
-                        ? "Start voice search" 
+                    isListening
+                      ? "Stop listening"
+                      : (isConnected || hasWebSpeech)
+                        ? "Start voice search"
                         : connectionState === "connecting"
                           ? "Connecting to MYCA..."
-                          : "Voice search (connect to enable)"
+                          : "Voice search unavailable"
                   }
                 >
                   {isListening ? (
