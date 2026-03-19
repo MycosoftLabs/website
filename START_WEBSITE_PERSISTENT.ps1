@@ -41,12 +41,13 @@ Write-Host "Starting website on port $port..." -ForegroundColor Green
 Write-Host "This will run in the background and persist even if this window closes." -ForegroundColor Yellow
 Write-Host ""
 
-# Start in a new window that stays open
-Start-Process powershell -ArgumentList @(
+# Start in a hidden process (no window pop-up)
+Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+    "-NoProfile",
     "-NoExit",
     "-Command",
     "cd '$websitePath'; `$env:PORT='$port'; Write-Host 'Website running on port $port' -ForegroundColor Green; npm run dev"
-) -WindowStyle Minimized
+)
 
 Start-Sleep -Seconds 5
 
@@ -60,4 +61,4 @@ try {
 
 Write-Host ""
 Write-Host "Website service started. It will continue running even if you close this window." -ForegroundColor Cyan
-Write-Host "To stop it, find the PowerShell window running 'npm run dev' and close it." -ForegroundColor White
+Write-Host "To stop it: Task Manager (end node/powershell) or: Get-NetTCPConnection -LocalPort $port | % { Stop-Process -Id `$_.OwningProcess -Force }" -ForegroundColor White

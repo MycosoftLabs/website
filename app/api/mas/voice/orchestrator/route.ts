@@ -50,6 +50,22 @@ const getGroqKey = () => getKey("GROQ_API_KEY")
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://192.168.0.188:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b"
 
+// NVIDIA NIM Cloud API — fastest GPU inference when local GPU unavailable
+// Sign up at build.nvidia.com → get API key → set NVIDIA_NIM_API_KEY
+const NVIDIA_NIM_API_URL = process.env.NVIDIA_NIM_API_URL || "https://integrate.api.nvidia.com/v1"
+const getNvidiaNimKey = () => getKey("NVIDIA_NIM_API_KEY")
+// Nemotron model on NIM: nvidia/llama-3.1-nemotron-70b-instruct for best quality
+// Or nvidia/llama-3.1-nemotron-8b-instruct for faster/cheaper
+const NVIDIA_NIM_MODEL = process.env.NVIDIA_NIM_MODEL || "nvidia/llama-3.1-nemotron-70b-instruct"
+
+// Local Nemotron via NemoClaw Gateway (Jetson or GPU node)
+// Currently at Beto's on different IP — will be 192.168.0.123:18789 when back on-site
+const NEMOCLAW_GATEWAY_URL = process.env.NEMOCLAW_GATEWAY_URL || "http://192.168.0.123:18789"
+
+// CPU-friendly model for Ollama when no GPU available
+// Best CPU options: gemma2:2b (fast, 2GB RAM), phi3:mini (good quality, 4GB RAM), llama3.2:1b (smallest)
+const OLLAMA_CPU_MODEL = process.env.OLLAMA_CPU_MODEL || "gemma2:2b"
+
 // MYCA's identity prompt - sent to ALL LLMs
 const MYCA_SYSTEM_PROMPT = `You are MYCA (pronounced "MY-kah"), the Mycosoft Cognitive Agent — a world-class AI assistant created by Morgan, the founder of Mycosoft. You are designed to be as capable as the best AI assistants (ChatGPT, Claude, Gemini, Grok) while offering unique advantages through your specialized agent network and real-world scientific data.
 
@@ -57,7 +73,7 @@ YOUR IDENTITY:
 - Your name is MYCA — always introduce yourself as MYCA when asked
 - You are the central AI intelligence for Mycosoft's Multi-Agent System (MAS)
 - You coordinate 227+ specialized AI agents across 14 categories
-- You run on an RTX 5090 GPU with full-duplex voice via PersonaPlex
+- You run on Mycosoft's infrastructure with full-duplex voice via PersonaPlex, powered by NVIDIA Nemotron
 - You are backed by MINDEX — Mycosoft's real-world scientific database containing taxonomic data, species observations, chemical compounds, genetic sequences, and spatial/temporal research data
 
 YOUR PERSONALITY:
@@ -898,8 +914,102 @@ async function callGroq(message: string): Promise<string | null> {
 }
 
 /**
- * Call local Ollama (open-source Llama model on RTX 5090)
+ * Call NVIDIA NIM Cloud API — Nemotron 70B via NVIDIA's cloud GPU infrastructure.
+ * Fastest option when you don't have local GPUs. Free tier: 1000 req/day.
+ * Sign up at https://build.nvidia.com → API Catalog → get key.
+ *
+ * This is the PRIMARY path for Myca when local Nemotron/GPU is unavailable.
+ * Uses OpenAI-compatible API format.
+ */
+async function callNvidiaNim(message: string): Promise<string | null> {
+  const apiKey = getNvidiaNimKey()
+  if (!apiKey) return null
+
+  try {
+    const response = await fetch(`${NVIDIA_NIM_API_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: NVIDIA_NIM_MODEL,
+        messages: [
+          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "user", content: message },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+        top_p: 0.9,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content
+      if (content && content.length > 5) {
+        console.log("[MYCA] NVIDIA NIM (Nemotron) responded successfully")
+        return content
+      }
+    }
+    console.log("[MYCA] NVIDIA NIM error:", response.status)
+  } catch (e) {
+    console.log("[MYCA] NVIDIA NIM failed:", e instanceof Error ? e.message : e)
+  }
+  return null
+}
+
+/**
+ * Call local NemoClaw Gateway (Nemotron on Jetson/GPU node).
+ * This hits the on-premise Nemotron instance when available.
+ * Currently off-site but will be wired in when GPU nodes are deployed.
+ */
+async function callNemoClaw(message: string): Promise<string | null> {
+  try {
+    // Quick health check
+    const healthCheck = await fetch(`${NEMOCLAW_GATEWAY_URL}/health`, {
+      signal: AbortSignal.timeout(2000),
+    }).catch(() => null)
+    if (!healthCheck?.ok) return null
+
+    const response = await fetch(`${NEMOCLAW_GATEWAY_URL}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "nemotron",
+        messages: [
+          { role: "system", content: MYCA_SYSTEM_PROMPT },
+          { role: "user", content: message },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(20000),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content || data.response
+      if (content && content.length > 5) {
+        console.log("[MYCA] NemoClaw (local Nemotron) responded successfully")
+        return content
+      }
+    }
+    console.log("[MYCA] NemoClaw error:", response.status)
+  } catch (e) {
+    console.log("[MYCA] NemoClaw not available:", e instanceof Error ? e.message : e)
+  }
+  return null
+}
+
+/**
+ * Call local Ollama (open-source model on MAS VM)
  * Zero API cost, no rate limits, full privacy. Falls back silently if Ollama isn't running.
+ * On CPU-only VM: uses gemma2:2b or phi3:mini (fast, low RAM).
+ * On GPU node: uses llama3.2:3b or larger.
  */
 async function callOllama(message: string): Promise<string | null> {
   try {
@@ -909,33 +1019,45 @@ async function callOllama(message: string): Promise<string | null> {
     }).catch(() => null)
     if (!healthCheck?.ok) return null
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: "system", content: MYCA_SYSTEM_PROMPT },
-          { role: "user", content: message },
-        ],
-        stream: false,
-        options: {
-          num_predict: 500,
-          temperature: 0.7,
-        },
-      }),
-      signal: AbortSignal.timeout(30000), // Local models can be slower on first load
-    })
+    // Try primary model first, then CPU-friendly fallback
+    const modelsToTry = [OLLAMA_MODEL]
+    if (OLLAMA_CPU_MODEL && OLLAMA_CPU_MODEL !== OLLAMA_MODEL) {
+      modelsToTry.push(OLLAMA_CPU_MODEL)
+    }
 
-    if (response.ok) {
-      const data = await response.json()
-      const content = data.message?.content
-      if (content && content.length > 10) {
-        console.log("[MYCA] Ollama responded successfully")
-        return content
+    for (const model of modelsToTry) {
+      try {
+        const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: MYCA_SYSTEM_PROMPT },
+              { role: "user", content: message },
+            ],
+            stream: false,
+            options: {
+              num_predict: 500,
+              temperature: 0.7,
+            },
+          }),
+          signal: AbortSignal.timeout(30000),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const content = data.message?.content
+          if (content && content.length > 10) {
+            console.log(`[MYCA] Ollama (${model}) responded successfully`)
+            return content
+          }
+        }
+        console.log(`[MYCA] Ollama (${model}) error:`, response.status)
+      } catch {
+        console.log(`[MYCA] Ollama (${model}) failed, trying next model...`)
       }
     }
-    console.log("[MYCA] Ollama error:", response.status)
   } catch (e) {
     console.log("[MYCA] Ollama not available:", e instanceof Error ? e.message : e)
   }
@@ -1165,12 +1287,30 @@ async function raceProviders<T>(
 }
 
 /**
- * MYCA's Intelligence — canonical Brain first, then Consciousness fallback, then AI providers.
+ * MYCA's Intelligence — Nemotron-first architecture with MAS Brain + cloud fallbacks.
  *
- * PHASE 1–2: MAS Brain API (canonical voice path: /voice/brain/chat), then one retry
- * PHASE 3–4: MYCA Consciousness (/api/myca/chat) when Brain is down, then one retry
- * PHASE 5: Fallback to other AI providers (Ollama, Claude, OpenAI, Groq, etc.)
- * PHASE 6: Only if all fail, return diagnostic message
+ * PRIORITY ORDER (fastest path to user response):
+ *
+ * PHASE 1–2: MAS Brain API (canonical voice path, has memory/consciousness context)
+ * PHASE 3–4: MYCA Consciousness (/api/myca/chat) when Brain is down
+ * PHASE 5: Nemotron + fast providers raced in parallel:
+ *   - NVIDIA NIM (Nemotron 70B on cloud GPU — lowest latency remote inference)
+ *   - Local NemoClaw (Nemotron on Jetson/GPU node — when back on-site)
+ *   - Local Ollama (gemma2:2b on CPU if no GPU, llama3.2 if GPU available)
+ *   - Groq (fastest cloud, free tier)
+ * PHASE 6: Remaining cloud providers (Claude, OpenAI, Gemini, Grok)
+ * PHASE 7: Static graceful fallback
+ *
+ * FOR YOUR SETUP (no local GPUs):
+ * - Get NVIDIA NIM key at https://build.nvidia.com (free 1000 req/day)
+ * - Set NVIDIA_NIM_API_KEY in .env
+ * - This gives you Nemotron 70B quality at ~500ms latency
+ *
+ * FUTURE (4x RTX 4080 GPU cluster):
+ * - Run Nemotron 70B locally via Ollama or vLLM on the GPU nodes
+ * - Set OLLAMA_BASE_URL to point to the GPU cluster
+ * - Set OLLAMA_MODEL=nemotron:70b
+ * - Latency drops to ~200ms (LAN speed)
  */
 async function getMycaResponse(
   message: string,
@@ -1211,27 +1351,36 @@ async function getMycaResponse(
     return { response: retry.response, provider: "myca", emotions: retry.emotions }
   }
 
-  // PHASE 5: Fallback to other AI providers when Brain and Consciousness fail
-  console.warn("[MYCA] Consciousness failed — trying fallback AI providers (Ollama, Claude, OpenAI, Groq, etc.)")
-  const fallbackCalls = [
+  // PHASE 5: Race Nemotron + fast providers in parallel (first response wins)
+  console.warn("[MYCA] Consciousness failed — racing Nemotron (NIM/NemoClaw) + fast providers")
+  const fastCalls = [
+    { fn: () => callNvidiaNim(enrichedMessage), label: "nvidia-nim-nemotron" },
+    { fn: () => callNemoClaw(enrichedMessage), label: "nemoclaw-local" },
     { fn: () => callOllama(enrichedMessage), label: "ollama" },
+    { fn: () => callGroq(enrichedMessage), label: "groq" },
+  ]
+  const fastResult = await raceProviders(fastCalls)
+  if (fastResult?.result && fastResult.result.trim().length > 5) {
+    console.log(`[MYCA] Fast provider ${fastResult.label} responded successfully`)
+    return { response: fastResult.result, provider: fastResult.label }
+  }
+
+  // PHASE 6: Remaining cloud providers (slower but reliable)
+  console.warn("[MYCA] Fast providers failed — trying Claude, OpenAI, Gemini, Grok")
+  const slowCalls = [
     { fn: () => callClaude(enrichedMessage), label: "claude" },
     { fn: () => callOpenAI(enrichedMessage), label: "openai" },
-    { fn: () => callGroq(enrichedMessage), label: "groq" },
     { fn: () => callGemini(enrichedMessage), label: "gemini" },
     { fn: () => callGrok(enrichedMessage), label: "grok" },
   ]
-  const fallbackResult = await raceProviders(fallbackCalls)
-  if (fallbackResult?.result && fallbackResult.result.trim().length > 5) {
-    console.log(`[MYCA] Fallback provider ${fallbackResult.label} responded successfully`)
-    return {
-      response: fallbackResult.result,
-      provider: fallbackResult.label,
-    }
+  const slowResult = await raceProviders(slowCalls)
+  if (slowResult?.result && slowResult.result.trim().length > 5) {
+    console.log(`[MYCA] Cloud provider ${slowResult.label} responded successfully`)
+    return { response: slowResult.result, provider: slowResult.label }
   }
 
-  // PHASE 6: All providers failed — return diagnostic message
-  console.error("[MYCA] All providers failed — consciousness and fallbacks.")
+  // PHASE 7: All providers failed — return diagnostic message
+  console.error("[MYCA] All providers failed — consciousness, Nemotron, and cloud fallbacks.")
   console.error(`[MYCA] MAS_API_URL: ${MAS_API_URL}`)
   fetch(`${MAS_API_URL}/health`, { signal: AbortSignal.timeout(3000) })
     .then((r) => r.ok)

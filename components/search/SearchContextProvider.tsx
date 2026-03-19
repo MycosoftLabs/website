@@ -411,6 +411,60 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
     onNavigate: (path) => router.push(path),
   })
 
+  // ── Wire every query change to Myca's intention system ──
+  // This ensures Myca's brain, persistent memory, and consciousness
+  // are always aware of what the user is searching for.
+  const prevIntentionQueryRef = useRef("")
+  useEffect(() => {
+    if (!query || query.length < 2 || query === prevIntentionQueryRef.current) return
+    prevIntentionQueryRef.current = query
+
+    // Fire intention event to MAS backend (fire-and-forget)
+    fetch("/api/myca/intention", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: typeof window !== "undefined"
+          ? sessionStorage.getItem("myca_session_id") || "anonymous"
+          : "anonymous",
+        event_type: "search",
+        data: {
+          query,
+          timestamp: new Date().toISOString(),
+          source: "search-context",
+        },
+        context: {
+          current_query: query,
+          focused_species: focusedSpeciesId,
+          focused_compound: focusedCompoundId,
+          recent_results: {
+            species: species.length,
+            compounds: compounds.length,
+            genetics: genetics.length,
+            research: research.length,
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {
+      // Silent fail — intention tracking is non-critical
+    })
+
+    // Also notify consciousness endpoint so Myca is aware
+    fetch("/api/myca/consciousness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "user_search",
+        query,
+        timestamp: new Date().toISOString(),
+      }),
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => {
+      // Silent fail
+    })
+  }, [query, focusedSpeciesId, focusedCompoundId, species.length, compounds.length, genetics.length, research.length])
+
   // Auto-summarize searches in chat
   useEffect(() => {
     if (!results || !query) return

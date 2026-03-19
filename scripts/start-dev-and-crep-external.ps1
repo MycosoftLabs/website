@@ -18,13 +18,13 @@ if ($conn3020) {
 }
 Start-Sleep -Seconds 2
 
-# Launch dev server in external window
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host 'Website Dev Server (3010) - DO NOT CLOSE'; Set-Location '$WebsitePath'; npm run dev:next-only"
-Write-Host "Started dev server in external window (http://localhost:3010)"
+# Launch dev server hidden (no window pop-up)
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile", "-NoExit", "-Command", "Set-Location '$WebsitePath'; npm run dev:next-only"
+Write-Host "Started dev server (hidden) at http://localhost:3010"
 
-# Launch CREP server in external window
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host 'CREP Server (3020) - DO NOT CLOSE'; Set-Location '$WebsitePath'; npm run dev:crep"
-Write-Host "Started CREP server in external window (http://localhost:3020/dashboard/crep)"
+# Launch CREP server hidden (no window pop-up)
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile", "-NoExit", "-Command", "Set-Location '$WebsitePath'; npm run dev:crep"
+Write-Host "Started CREP server (hidden) at http://localhost:3020/dashboard/crep"
 
 Write-Host ""
 Write-Host "Both servers are running in separate windows. Do NOT run them inside Cursor."
