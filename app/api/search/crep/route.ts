@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic"
 
 interface CREPSearchResult {
   id: string
-  type: "aircraft" | "vessel" | "satellite" | "fungal" | "event" | "device"
+  type: "aircraft" | "vessel" | "satellite" | "fungal" | "event" | "device" | "space_weather"
   title: string
   description: string
   latitude: number
@@ -116,6 +116,26 @@ export async function GET(request: NextRequest) {
         fetchDevicesForSearch(query, limit).then((items) => {
           results.push(...items)
           if (items.length > 0) sources.push("MycoBrain")
+        })
+      )
+    }
+
+    // Satellites
+    if (!type || type === "satellite") {
+      fetchPromises.push(
+        fetchSatellitesForSearch(query, limit).then((items) => {
+          results.push(...items)
+          if (items.length > 0) sources.push("CelesTrak")
+        })
+      )
+    }
+
+    // Space Weather
+    if (!type || type === "space_weather") {
+      fetchPromises.push(
+        fetchSpaceWeatherForSearch(query, limit).then((items) => {
+          results.push(...items)
+          if (items.length > 0) sources.push("NOAA/SWPC")
         })
       )
     }
@@ -397,6 +417,154 @@ async function fetchDevicesForSearch(
       }))
   } catch (error) {
     console.warn("[CREP Search] Devices fetch error:", error)
+    return []
+  }
+}
+
+async function fetchSatellitesForSearch(
+  query: string,
+  limit: number
+): Promise<CREPSearchResult[]> {
+  try {
+    const response = await fetch(`${API_URLS.LOCAL_BASE}/api/oei/satellites`, {
+      signal: AbortSignal.timeout(2500),
+    })
+    if (!response.ok) return []
+
+    const data = await response.json()
+    const satellites = data.satellites || []
+
+    return satellites
+      .filter((s: Record<string, unknown>) => {
+        if (!query) return true
+        const searchable = `${s.name || ""} ${s.noradId || ""} ${s.category || ""} ${s.orbitType || ""}`.toLowerCase()
+        return searchable.includes(query.toLowerCase())
+      })
+      .slice(0, limit)
+      .map((s: Record<string, unknown>) => ({
+        id: String(s.id || s.noradId),
+        type: "satellite" as const,
+        title: String(s.name || s.noradId || "Unknown satellite"),
+        description: `${s.orbitType || "Orbit"} satellite ${s.category ? `(${s.category})` : ""}`,
+        latitude: Number(s.lat || s.latitude || 0),
+        longitude: Number(s.lng || s.longitude || 0),
+        altitude: Number(s.altitude || 0),
+        timestamp: String(s.lastSeen || new Date().toISOString()),
+        source: "CelesTrak",
+        properties: {
+          noradId: s.noradId || s.id,
+          orbitType: s.orbitType,
+          category: s.category,
+          inclination: s.inclination,
+          apogee: s.apogee,
+          perigee: s.perigee,
+          period: s.period,
+          velocity: s.velocity,
+        },
+        relevance: query
+          ? String(s.name || "").toLowerCase().includes(query.toLowerCase()) ? 0.9 : 0.5
+          : 0.4,
+        crepMapUrl: `/dashboard/crep?lat=${s.lat || s.latitude}&lng=${s.lng || s.longitude}&zoom=4&highlight=${s.id}`,
+      }))
+  } catch (error) {
+    console.warn("[CREP Search] Satellites fetch error:", error)
+    return []
+  }
+}
+
+async function fetchSpaceWeatherForSearch(
+  query: string,
+  limit: number
+): Promise<CREPSearchResult[]> {
+  try {
+    const response = await fetch(`${API_URLS.LOCAL_BASE}/api/oei/space-weather`, {
+      signal: AbortSignal.timeout(2500),
+    })
+    if (!response.ok) return []
+
+    const data = await response.json()
+    const results: CREPSearchResult[] = []
+
+    // Solar flares
+    const flares = data.solarFlares || data.flares || []
+    for (const f of flares.slice(0, Math.ceil(limit / 3))) {
+      const flareClass = String(f.classType || f.class || "Unknown")
+      if (query && !`solar flare ${flareClass} ${f.region || ""}`.toLowerCase().includes(query.toLowerCase())) continue
+      results.push({
+        id: String(f.id || `flare-${f.beginTime || Date.now()}`),
+        type: "space_weather",
+        title: `Solar Flare ${flareClass}`,
+        description: `${flareClass} class flare ${f.region ? `from region ${f.region}` : ""}`,
+        latitude: 0,
+        longitude: 0,
+        timestamp: String(f.beginTime || f.peakTime || new Date().toISOString()),
+        source: "NOAA/SWPC",
+        properties: {
+          flareClass,
+          region: f.region,
+          beginTime: f.beginTime,
+          peakTime: f.peakTime,
+          endTime: f.endTime,
+        },
+        relevance: query ? 0.8 : 0.3,
+        crepMapUrl: "/dashboard/crep?layer=space-weather",
+      })
+    }
+
+    // Geomagnetic storms / Kp index
+    const kpData = data.kpIndex || data.geomagneticStorms || []
+    if (Array.isArray(kpData) && kpData.length > 0) {
+      const latest = kpData[kpData.length - 1]
+      const kp = Number(latest.kp || latest.kpIndex || latest.value || 0)
+      if (!query || "geomagnetic storm kp aurora".includes(query.toLowerCase())) {
+        results.push({
+          id: `kp-${latest.timestamp || Date.now()}`,
+          type: "space_weather",
+          title: `Geomagnetic Activity Kp ${kp}`,
+          description: kp >= 5 ? "Storm conditions" : kp >= 4 ? "Active conditions" : "Quiet conditions",
+          latitude: 0,
+          longitude: 0,
+          timestamp: String(latest.timestamp || new Date().toISOString()),
+          source: "NOAA/SWPC",
+          properties: {
+            kpIndex: kp,
+            stormLevel: kp >= 5 ? "storm" : kp >= 4 ? "active" : "quiet",
+          },
+          relevance: query ? 0.7 : 0.2,
+          crepMapUrl: "/dashboard/crep?layer=space-weather",
+        })
+      }
+    }
+
+    // Solar wind
+    const wind = data.solarWind || {}
+    if (wind.speed != null || wind.density != null) {
+      if (!query || "solar wind speed".includes(query.toLowerCase())) {
+        results.push({
+          id: `solar-wind-${Date.now()}`,
+          type: "space_weather",
+          title: "Solar Wind",
+          description: `Speed ${Math.round(Number(wind.speed || 0))} km/s, density ${Number(wind.density || 0).toFixed(1)}/cm³`,
+          latitude: 0,
+          longitude: 0,
+          timestamp: String(wind.timestamp || new Date().toISOString()),
+          source: "NOAA/SWPC",
+          properties: {
+            solarWindSpeed: wind.speed,
+            solarWindDensity: wind.density,
+            solarWindTemperature: wind.temperature,
+            bz: wind.bz,
+            bt: wind.bt,
+          },
+          relevance: query ? 0.6 : 0.2,
+          crepMapUrl: "/dashboard/crep?layer=space-weather",
+        })
+      }
+    }
+
+    return results.slice(0, limit)
+  } catch (error) {
+    console.warn("[CREP Search] Space weather fetch error:", error)
     return []
   }
 }
