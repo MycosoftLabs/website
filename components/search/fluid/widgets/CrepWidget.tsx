@@ -592,8 +592,13 @@ export function CrepWidget({
           <span className="text-sm font-medium">{totalCount} live results</span>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center gap-1">
             <Activity className="h-2.5 w-2.5" />
-            {activeDomains.length} feeds
+            {activeDomains.length} {activeDomains.length === 1 ? "feed" : "feeds"}
           </span>
+          {query && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-muted-foreground truncate max-w-[120px]" title={query}>
+              &ldquo;{query}&rdquo;
+            </span>
+          )}
           {isRefreshing && (
             <RefreshCw className="h-3 w-3 text-cyan-400 animate-spin" />
           )}

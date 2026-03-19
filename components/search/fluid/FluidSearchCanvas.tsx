@@ -644,6 +644,85 @@ export function FluidSearchCanvas({
       isToxic: (r.properties as Record<string, unknown>)?.isToxic || r.isToxic,
     }))
   }, [crepData])
+
+  // Merge CREP search results with Earth Intelligence data from useUnifiedSearch.
+  // This ensures the CrepWidget shows compartmentalized live data from ALL domains
+  // (aircraft altitude/speed, vessel heading, device sensors, etc.) — not just the
+  // results from /api/search/crep but also the unified search Earth Intelligence feeds.
+  const mergedCrepData = useMemo(() => {
+    const seenIds = new Set<string>()
+    const merged: Record<string, unknown>[] = []
+
+    // Primary: CREP search results (already typed with domain info)
+    for (const r of crepResults) {
+      const id = String((r as Record<string, unknown>).id || "")
+      if (id && seenIds.has(id)) continue
+      if (id) seenIds.add(id)
+      merged.push(r as Record<string, unknown>)
+    }
+
+    // Supplement: Earth Intelligence domain data from useUnifiedSearch
+    // Convert each domain's raw data into CrepSearchResult format for the CrepWidget
+    const domainSources: { items: unknown[] | undefined; type: string; titleFn: (i: Record<string, unknown>) => string; propsFn: (i: Record<string, unknown>) => Record<string, unknown> }[] = [
+      {
+        items: aircraft, type: "aircraft",
+        titleFn: (a) => String(a.callsign || a.flightNumber || a.id || "Unknown"),
+        propsFn: (a) => ({ callsign: a.callsign, aircraftType: a.type || a.aircraftType, origin: a.origin, destination: a.destination, speed: a.speed || a.velocity, heading: a.heading }),
+      },
+      {
+        items: vessels, type: "vessel",
+        titleFn: (v) => String(v.name || v.mmsi || "Unknown"),
+        propsFn: (v) => ({ mmsi: v.mmsi, shipType: v.type || v.shipType, destination: v.destination, flag: v.flag, speed: v.speed || v.sog }),
+      },
+      {
+        items: events, type: "event",
+        titleFn: (e) => String(e.title || e.type || "Event"),
+        propsFn: (e) => ({ severity: e.severity, eventType: e.type, magnitude: e.magnitude, sourceUrl: e.sourceUrl || e.link }),
+      },
+      {
+        items: satellites, type: "satellite",
+        titleFn: (s) => String(s.name || s.noradId || "Satellite"),
+        propsFn: (s) => ({ noradId: s.noradId || s.id, orbitType: s.orbitType, category: s.category, inclination: s.inclination, velocity: s.velocity }),
+      },
+      {
+        items: devices, type: "device",
+        titleFn: (d) => String(d.name || d.id || "Device"),
+        propsFn: (d) => ({ deviceType: d.type, status: d.status, firmware: d.firmware, sensorData: d.sensorData }),
+      },
+      {
+        items: spaceWeather, type: "space_weather",
+        titleFn: (sw) => String(sw.title || "Space Weather"),
+        propsFn: (sw) => ({ kpIndex: sw.kpIndex, flareClass: sw.flareClass, solarWindSpeed: sw.solarWindSpeed }),
+      },
+    ]
+
+    for (const { items, type, titleFn, propsFn } of domainSources) {
+      if (!Array.isArray(items)) continue
+      for (const raw of items) {
+        const item = raw as Record<string, unknown>
+        const id = String(item.id || `${type}-${item.lat || item.latitude}-${item.lng || item.longitude}`)
+        if (seenIds.has(id)) continue
+        seenIds.add(id)
+        merged.push({
+          id,
+          type,
+          title: titleFn(item),
+          description: String(item.description || ""),
+          latitude: Number(item.lat || item.latitude || 0),
+          longitude: Number(item.lng || item.longitude || 0),
+          altitude: item.altitude != null ? Number(item.altitude) : undefined,
+          timestamp: String(item.timestamp || item.lastSeen || new Date().toISOString()),
+          source: String(item.source || type),
+          properties: propsFn(item),
+          relevance: 0.5,
+          crepMapUrl: `/dashboard/crep?lat=${item.lat || item.latitude}&lng=${item.lng || item.longitude}&zoom=8&highlight=${id}`,
+        })
+      }
+    }
+
+    return merged
+  }, [crepResults, aircraft, vessels, events, satellites, devices, spaceWeather])
+
   const earth2Data = earth2RawData?.available ? earth2RawData : null
   
   // Map observations from location and CREP data
@@ -956,7 +1035,7 @@ export function FluidSearchCanvas({
     { type: "media", label: "Media", icon: <Film className="h-4 w-4" />, gradient: "from-pink-500/30 to-rose-500/20", hasData: len(mediaResults) > 0, depth: getParallaxDepth("media") },
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(locationResults) > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: len(newsResults) > 0, depth: getParallaxDepth("news") },
-    { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: len(crepResults) > 0, depth: getParallaxDepth("crep") },
+    { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: mergedCrepData.length > 0, depth: getParallaxDepth("crep") },
     { type: "earth2", label: "Earth2", icon: "🌍", gradient: "from-cyan-500/30 to-teal-500/20", hasData: !!earth2Data, depth: getParallaxDepth("earth2") },
     { type: "map", label: "Map", icon: <MapPin className="h-4 w-4" />, gradient: "from-emerald-500/30 to-green-500/20", hasData: len(mapObservations) > 0, depth: getParallaxDepth("map") },
     // Earth Intelligence widgets
@@ -970,7 +1049,7 @@ export function FluidSearchCanvas({
     { type: "devices", label: "Devices", icon: "📡", gradient: "from-green-500/30 to-lime-500/20", hasData: len(devices) > 0, depth: getParallaxDepth("devices") },
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
-  ], [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), len(crepResults), earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)])
+  ], [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)])
 
   // Show ALL widgets regardless of whether they have data - users should see the full widget grid
   // Widgets without data will show an appropriate empty/loading state
@@ -1078,7 +1157,7 @@ export function FluidSearchCanvas({
       chemistry: compounds.length,
       genetics: genetics.length,
       research: research.length,
-      crep: crepResults.length,
+      crep: mergedCrepData.length,
       earth2: earth2Data ? 1 : 0,
       map: mapObservations.length,
       events: len(events),
@@ -1158,7 +1237,7 @@ export function FluidSearchCanvas({
       if (route.worldview.map) next.delete("map" as WidgetType)
       return next
     })
-  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, crepResults.length, earth2Data, mapObservations.length, searchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
+  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, searchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1516,7 +1595,7 @@ export function FluidSearchCanvas({
                           research: research.slice(0, 5).map((r) => r.title).filter(Boolean),
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
-                        crep={crepResults} earth2={earth2Data} mapObservations={mapObservations}
+                        crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {
@@ -1534,6 +1613,7 @@ export function FluidSearchCanvas({
                         openArticle={config.type === "news" ? notepadOpenArticle : undefined}
                         openPaper={config.type === "research" ? notepadOpenPaper : undefined}
                         pinnedSpeciesName={config.type === "species" ? pinnedSpeciesName : undefined}
+                        query={debouncedQuery}
                       />
                     </div>
                   </motion.div>
@@ -1706,7 +1786,7 @@ function WidgetContent({
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
   isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
-  openArticle, openPaper, pinnedSpeciesName,
+  openArticle, openPaper, pinnedSpeciesName, query: searchQuery,
 }: {
   type: WidgetType
   species: SpeciesResult[]; compounds: CompoundResult[]; genetics: GeneticsResult[]; research: ResearchResult[]; aiAnswer: string | undefined
@@ -1719,6 +1799,7 @@ function WidgetContent({
   onSelectSuggestionQuery: (query: string) => void
   isLoading?: boolean
   isFocused: boolean
+  query?: string
   focusedItemId?: string | null
   onFocusWidget: (target: { type: string; id?: string }) => void
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
@@ -1783,7 +1864,8 @@ function WidgetContent({
       if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
       return <NewsWidget data={news} isFocused={isFocused} queryUsed={newsQueryUsed} onAddToNotepad={onAddToNotepad} openArticle={openArticle} />
     case "crep":
-      return <CrepWidget data={crep as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} onOpenDashboard={onOpenDashboard} />
+      if (isLoading && crep.length === 0) return <CrepWidget data={[]} isLoading isFocused={isFocused} onAddToNotepad={onAddToNotepad} onOpenDashboard={onOpenDashboard} />
+      return <CrepWidget data={crep as any} isLoading={isLoading} isFocused={isFocused} query={searchQuery} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} onOpenDashboard={onOpenDashboard} />
     case "earth2":
       if (!earth2) return <EmptyWidgetState type="earth2" label="Earth2 Weather" />
       return <Earth2Widget data={earth2} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
@@ -1791,7 +1873,7 @@ function WidgetContent({
       if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
       return <MapWidget observations={mapObservations} isFocused={isFocused} />
     case "embedding_atlas":
-      return <EmbeddingAtlasWidget query={debouncedQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
+      return <EmbeddingAtlasWidget query={searchQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "events":
       if (!events?.length) return <EmptyWidgetState type="events" label="Global Events" />
       return <FallbackWidget bucketKey="events" title="Global Events" items={events} />
