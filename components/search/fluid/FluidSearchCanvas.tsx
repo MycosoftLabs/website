@@ -51,6 +51,7 @@ import {
   type Particle,
 } from "@/lib/search/widget-physics"
 import { detectWorldviewIntent } from "@/lib/search/world-view-suggestions"
+import { classifyAndRoute, type SearchRoute } from "@/lib/search/search-intelligence-router"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
@@ -202,7 +203,10 @@ interface FluidSearchCanvasProps {
   className?: string
 }
 
-// Default widget sizes - Species and Answers are primary (aligned with lib/search/widget-registry.ts)
+// Default widget sizes - aligned with lib/search/widget-registry.ts
+// Primary widgets (species, answers) start at 2x2.
+// Map/CREP/Earth2 start at 2x3 to fill viewport when relevant.
+// Earth Intelligence widgets (aircraft, vessels, events) start at 2x2 when data arrives.
 const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3 }> = {
   species: { width: 2, height: 2 },
   chemistry: { width: 1, height: 1 },
@@ -212,15 +216,15 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
   media: { width: 1, height: 1 },
   location: { width: 1, height: 1 },
   news: { width: 1, height: 1 },
-  crep: { width: 1, height: 1 },
-  earth2: { width: 1, height: 1 },
-  map: { width: 2, height: 2 },
+  crep: { width: 2, height: 3 },
+  earth2: { width: 2, height: 3 },
+  map: { width: 2, height: 3 },
   fallback: { width: 1, height: 1 },
-  events: { width: 1, height: 1 },
-  aircraft: { width: 1, height: 1 },
-  vessels: { width: 1, height: 1 },
+  events: { width: 2, height: 2 },
+  aircraft: { width: 2, height: 2 },
+  vessels: { width: 2, height: 2 },
   satellites: { width: 1, height: 1 },
-  weather: { width: 1, height: 1 },
+  weather: { width: 2, height: 1 },
   emissions: { width: 1, height: 1 },
   infrastructure: { width: 1, height: 1 },
   devices: { width: 1, height: 1 },
@@ -731,42 +735,142 @@ export function FluidSearchCanvas({
     setLiveObservationsRef.current = ctx.setLiveObservations
   }, [ctx.setLiveObservations])
 
-  // Push live observations to context for LiveResultsWidget
+  // Push live results to context for LiveResultsWidget.
+  // Now includes ALL result types (observations, events, aircraft, vessels, news)
+  // with type metadata so the panel can render type-specific icons and badges.
   // NOTE: ctx removed from deps to prevent infinite re-renders - using ref instead
   useEffect(() => {
-    const currentCount = liveResults.length || locationResults.length
-    if (liveResults.length > 0 && prevLiveCountRef.current !== liveResults.length) {
-      prevLiveCountRef.current = liveResults.length
-      setLiveObservationsRef.current(liveResults.map((obs) => ({
-        id: obs.id,
-        species: obs.species,
-        location: obs.location || "Unknown location",
-        date: obs.date || "",
-        photoUrl: obs.imageUrl,
-        lat: obs.lat,
-        lng: obs.lng,
-      })))
-      return
+    const allLiveItems: Array<Record<string, unknown>> = []
+
+    // 1. Species observations from unified search
+    if (liveResults.length > 0) {
+      for (const obs of liveResults) {
+        allLiveItems.push({
+          id: obs.id,
+          species: obs.species,
+          location: obs.location || "Unknown location",
+          date: obs.date || "",
+          photoUrl: obs.imageUrl,
+          lat: obs.lat,
+          lng: obs.lng,
+          type: "observation",
+          title: obs.species,
+          source: "iNaturalist",
+        })
+      }
+    } else if (locationResults.length > 0) {
+      // Fallback to location results
+      for (const obs of (locationResults as LocationResult[])) {
+        allLiveItems.push({
+          id: obs.id || `loc-${obs.lat}-${obs.lng}`,
+          species: obs.commonName || obs.speciesName || obs.species || "Unknown",
+          location: obs.placeName || "Unknown location",
+          date: obs.observedAt?.split("T")[0] || "",
+          photoUrl: obs.imageUrl,
+          lat: obs.lat,
+          lng: obs.lng,
+          type: "observation",
+          title: obs.commonName || obs.speciesName || obs.species || "Unknown",
+          source: "iNaturalist",
+        })
+      }
     }
-    // Keep compatibility fallback while live_results propagates through all environments
-    if (locationResults.length > 0 && prevLiveCountRef.current !== locationResults.length) {
-      prevLiveCountRef.current = locationResults.length
-      setLiveObservationsRef.current((locationResults as LocationResult[]).map((obs) => ({
-        id: obs.id || `loc-${obs.lat}-${obs.lng}`,
-        species: obs.commonName || obs.speciesName || obs.species || "Unknown",
-        location: obs.placeName || "Unknown location",
-        date: obs.observedAt?.split("T")[0] || "",
-        photoUrl: obs.imageUrl,
-        lat: obs.lat,
-        lng: obs.lng,
-      })))
-      return
+
+    // 2. Events (earthquakes, volcanoes, storms)
+    if (events && len(events) > 0) {
+      for (const ev of (events as Array<Record<string, unknown>>).slice(0, 5)) {
+        allLiveItems.push({
+          id: `event-${ev.id || Math.random().toString(36).slice(2)}`,
+          species: (ev.title as string) || (ev.type as string) || "Event",
+          location: (ev.location as string) || (ev.place as string) || "",
+          date: (ev.timestamp as string) || (ev.date as string) || "",
+          photoUrl: ev.imageUrl as string,
+          lat: ev.lat as number,
+          lng: ev.lng as number,
+          type: "event",
+          title: (ev.title as string) || (ev.type as string) || "Event",
+          subtitle: ev.magnitude ? `Magnitude ${ev.magnitude}` : (ev.severity as string),
+          source: (ev.source as string) || "EONET",
+          url: ev.url as string,
+        })
+      }
     }
-    if (currentCount === 0 && prevLiveCountRef.current !== 0) {
+
+    // 3. Aircraft
+    if (aircraft && len(aircraft) > 0) {
+      for (const ac of (aircraft as Array<Record<string, unknown>>).slice(0, 5)) {
+        allLiveItems.push({
+          id: `aircraft-${ac.callsign || ac.id || Math.random().toString(36).slice(2)}`,
+          species: (ac.callsign as string) || "Aircraft",
+          location: "",
+          date: (ac.timestamp as string) || "",
+          lat: ac.lat as number,
+          lng: ac.lng as number,
+          type: "aircraft",
+          title: (ac.callsign as string) || (ac.registration as string) || "Aircraft",
+          subtitle: `Alt: ${ac.altitude}ft`,
+          source: "OpenSky",
+        })
+      }
+    }
+
+    // 4. Vessels
+    if (vessels && len(vessels) > 0) {
+      for (const v of (vessels as Array<Record<string, unknown>>).slice(0, 5)) {
+        allLiveItems.push({
+          id: `vessel-${v.mmsi || v.id || Math.random().toString(36).slice(2)}`,
+          species: (v.name as string) || "Vessel",
+          location: "",
+          date: (v.timestamp as string) || "",
+          lat: v.lat as number,
+          lng: v.lng as number,
+          type: "vessel",
+          title: (v.name as string) || (v.callsign as string) || "Vessel",
+          subtitle: (v.type as string) || `MMSI: ${v.mmsi}`,
+          source: "AIS",
+        })
+      }
+    }
+
+    // 5. News
+    if (newsResults && len(newsResults) > 0) {
+      for (const item of (newsResults as Array<Record<string, unknown>>).slice(0, 5)) {
+        allLiveItems.push({
+          id: `news-${item.id || Math.random().toString(36).slice(2)}`,
+          species: (item.title as string) || "News",
+          location: "",
+          date: (item.publishedAt as string) || (item.published_at as string) || "",
+          photoUrl: (item.urlToImage as string) || (item.imageUrl as string) || (item.image_url as string),
+          type: "news",
+          title: (item.title as string) || "News",
+          subtitle: (item.source as Record<string, unknown>)?.name as string || (item.source as string),
+          source: "News",
+          url: item.url as string,
+        })
+      }
+    }
+
+    const totalCount = allLiveItems.length
+    if (totalCount > 0 && prevLiveCountRef.current !== totalCount) {
+      prevLiveCountRef.current = totalCount
+      // Sort: photo-attached first, then newest
+      allLiveItems.sort((a, b) => {
+        const aPhoto = a.photoUrl ? 1 : 0
+        const bPhoto = b.photoUrl ? 1 : 0
+        if (aPhoto !== bPhoto) return bPhoto - aPhoto
+        const aDate = new Date((a.date as string) || "1970").getTime()
+        const bDate = new Date((b.date as string) || "1970").getTime()
+        return bDate - aDate
+      })
+      setLiveObservationsRef.current(allLiveItems.slice(0, 30) as unknown as Array<{
+        id: string; species: string; location: string; date: string;
+        photoUrl?: string; lat?: number; lng?: number
+      }>)
+    } else if (totalCount === 0 && prevLiveCountRef.current !== 0) {
       prevLiveCountRef.current = 0
       setLiveObservationsRef.current([])
     }
-  }, [liveResults, locationResults])
+  }, [liveResults, locationResults, events, aircraft, vessels, newsResults])
   
   // Track history
   useEffect(() => {
@@ -910,16 +1014,53 @@ export function FluidSearchCanvas({
     }
   }, [activeWidgets.length]) // eslint-disable-line
 
-  // Smart auto-expand: when results arrive, show every widget that actually has data.
-  // This ensures "Psilocybin" expands Chemistry + Research even though it has no Species.
-  // Priority order: whichever types have data get expanded; species is only shown if it has data
-  // or if nothing else does (fallback).
+  // ── Intelligence Router: classify query and auto-expand/resize widgets ──
+  // Routes through Myca's brain: conversational → Myca LLM + widgets,
+  // data queries → auto-expand primary widget to fill viewport.
   const prevAutoExpandKeyRef = useRef("")
+  const [searchRoute, setSearchRoute] = useState<SearchRoute | null>(null)
+
+  // Classify query on change (before results arrive for instant widget routing)
+  useEffect(() => {
+    if (!localQuery || localQuery.length < 2) {
+      setSearchRoute(null)
+      return
+    }
+    const route = classifyAndRoute(localQuery)
+    setSearchRoute(route)
+
+    // If conversational/hybrid, send to Myca LLM alongside widget search
+    if (route.useMycaLLM && route.classification !== "data_query") {
+      // Build context from current search state
+      const contextParts: string[] = []
+      if (species.length) contextParts.push(`species in view: ${species.slice(0, 3).map(s => s.scientificName).join(", ")}`)
+      if (compounds.length) contextParts.push(`compounds: ${compounds.slice(0, 3).map(c => c.name).join(", ")}`)
+      sendMycaMessage(localQuery, {
+        contextText: contextParts.length ? `Search context: ${contextParts.join("; ")}` : undefined,
+        source: "search-router",
+      })
+    }
+
+    // Emit search route to activity stream for Myca's thinking display
+    ctx.emit("search:route", {
+      query: localQuery,
+      classification: route.classification,
+      primaryWidget: route.primaryWidget,
+      intent: route.intent.type,
+      useMycaLLM: route.useMycaLLM,
+      liveResultTypes: route.liveResultTypes,
+    })
+  }, [localQuery]) // eslint-disable-line
+
+  // Smart auto-expand: uses intelligence router + data availability.
+  // Primary widget gets resized to fill viewport; secondary widgets arranged around it.
   useEffect(() => {
     if (isLoading) return
     if (!localQuery || localQuery.length < 2) return
 
-    // Build a signature of which types have data (including worldview widgets)
+    const route = searchRoute || classifyAndRoute(localQuery)
+
+    // Build data signature including all Earth Intelligence domains
     const dataMap: Record<string, number> = {
       species: species.length,
       chemistry: compounds.length,
@@ -928,60 +1069,84 @@ export function FluidSearchCanvas({
       crep: crepResults.length,
       earth2: earth2Data ? 1 : 0,
       map: mapObservations.length,
+      events: len(events),
+      aircraft: len(aircraft),
+      vessels: len(vessels),
+      satellites: len(satellites),
+      weather: len(weather),
+      emissions: len(emissions),
+      infrastructure: len(infrastructure),
+      devices: len(devices),
+      space_weather: len(spaceWeather),
     }
     const key = `${localQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return
     prevAutoExpandKeyRef.current = key
 
     const total = Object.values(dataMap).reduce((a, b) => a + b, 0)
-    const intent = detectWorldviewIntent(localQuery)
-    // Even with no data, expand worldview widgets when query suggests intent
-    const hasIntentOrData = total > 0 || intent.crep || intent.earth2 || intent.map
+    const hasIntentOrData = total > 0 || route.worldview.crep || route.worldview.earth2 || route.worldview.map
     if (!hasIntentOrData) return
+
+    // ── Primary widget gets maximum viewport size ──
+    if (route.primaryWidget) {
+      setWidgetSizes(prev => ({
+        ...prev,
+        [route.primaryWidget!]: route.primaryWidgetSize,
+      }))
+    }
 
     setExpandedWidgets((prev) => {
       const next = new Set(prev)
 
-      // Always remove species from the default set if it has no data AND something else does
-      const hasNonSpeciesData = dataMap.chemistry > 0 || dataMap.genetics > 0 || dataMap.research > 0 ||
-        dataMap.crep > 0 || dataMap.earth2 > 0 || dataMap.map > 0
+      // Clear species-only default if something else is primary
+      const hasNonSpeciesData = Object.entries(dataMap)
+        .filter(([k]) => k !== "species")
+        .some(([, v]) => v > 0)
       if (dataMap.species === 0 && hasNonSpeciesData && next.has("species" as WidgetType) && next.size === 1) {
         next.delete("species" as WidgetType)
       }
 
-      // Expand every type that has data (don't collapse types already expanded by the user)
-      if (dataMap.species > 0)   next.add("species" as WidgetType)
-      if (dataMap.chemistry > 0) next.add("chemistry" as WidgetType)
-      if (dataMap.genetics > 0)  next.add("genetics" as WidgetType)
-      if (dataMap.research > 0)  next.add("research" as WidgetType)
-      if (dataMap.crep > 0)      next.add("crep" as WidgetType)
-      if (dataMap.earth2 > 0)    next.add("earth2" as WidgetType)
-      if (dataMap.map > 0)       next.add("map" as WidgetType)
-      // Intent-based: expand worldview widgets when query suggests it (even before data arrives)
-      if (intent.crep)   next.add("crep" as WidgetType)
-      if (intent.earth2) next.add("earth2" as WidgetType)
-      if (intent.map)    next.add("map" as WidgetType)
-      next.add("answers" as WidgetType)  // Always show Answers for conversational search
+      // Expand primary widget from router
+      if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
 
-      // If still empty (shouldn't happen), default to species and answers
+      // Expand secondary widgets from router
+      for (const sw of route.secondaryWidgets) {
+        next.add(sw as WidgetType)
+      }
+
+      // Expand every type that has data
+      for (const [wType, count] of Object.entries(dataMap)) {
+        if (count > 0) next.add(wType as WidgetType)
+      }
+
+      // Intent-based: expand worldview widgets even before data arrives
+      if (route.worldview.crep) next.add("crep" as WidgetType)
+      if (route.worldview.earth2) next.add("earth2" as WidgetType)
+      if (route.worldview.map) next.add("map" as WidgetType)
+
+      // Always show Answers for conversational/hybrid queries
+      if (route.useMycaLLM) next.add("answers" as WidgetType)
+
+      // If still empty, default to species and answers
       if (next.size === 0) next.add("species" as WidgetType).add("answers" as WidgetType)
 
       return next
     })
 
-    // Remove the newly expanded types from minimized (in case the user had them minimized before)
+    // Remove newly expanded types from minimized
     setMinimizedTypes((prev) => {
       const next = new Set(prev)
-      if (dataMap.chemistry > 0) next.delete("chemistry" as WidgetType)
-      if (dataMap.genetics > 0)  next.delete("genetics" as WidgetType)
-      if (dataMap.research > 0)  next.delete("research" as WidgetType)
-      if (dataMap.species > 0)   next.delete("species" as WidgetType)
-      if (dataMap.crep > 0 || intent.crep)   next.delete("crep" as WidgetType)
-      if (dataMap.earth2 > 0 || intent.earth2) next.delete("earth2" as WidgetType)
-      if (dataMap.map > 0 || intent.map)     next.delete("map" as WidgetType)
+      if (route.primaryWidget) next.delete(route.primaryWidget as WidgetType)
+      for (const sw of route.secondaryWidgets) next.delete(sw as WidgetType)
+      for (const [wType, count] of Object.entries(dataMap)) {
+        if (count > 0) next.delete(wType as WidgetType)
+      }
+      if (route.worldview.crep) next.delete("crep" as WidgetType)
+      if (route.worldview.earth2) next.delete("earth2" as WidgetType)
+      if (route.worldview.map) next.delete("map" as WidgetType)
       return next
     })
-  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, crepResults.length, earth2Data, mapObservations.length]) // eslint-disable-line
+  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, crepResults.length, earth2Data, mapObservations.length, searchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
