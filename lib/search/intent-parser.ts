@@ -142,6 +142,13 @@ const CREP_KEYWORDS = [
   "crep", "monitor", "tracking", "radar", "observation map",
 ]
 
+// Embedding/Atlas visualization keywords
+const EMBEDDING_KEYWORDS = [
+  "embedding", "embeddings", "atlas", "cluster", "clusters", "clustering",
+  "visualize data", "point cloud", "scatter plot", "density map",
+  "similarity", "nearest neighbor", "nearest neighbors", "semantic search",
+]
+
 // Event keywords
 const EVENT_KEYWORDS = [
   "earthquake", "seismic", "quake", "tremor", "volcano", "volcanic", "eruption",
