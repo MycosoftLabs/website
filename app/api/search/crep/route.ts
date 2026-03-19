@@ -172,7 +172,7 @@ async function fetchFungalForSearch(
     url.searchParams.set("east", String(bounds.east))
     url.searchParams.set("west", String(bounds.west))
 
-    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) })
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(2500) })
     if (!response.ok) return []
 
     const data = await response.json()
@@ -219,7 +219,7 @@ async function fetchAircraftForSearch(
 ): Promise<CREPSearchResult[]> {
   try {
     const response = await fetch(`${API_URLS.LOCAL_BASE}/api/oei/flightradar24`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(2500),
     })
     if (!response.ok) return []
 
@@ -268,7 +268,7 @@ async function fetchEventsForSearch(
 ): Promise<CREPSearchResult[]> {
   try {
     const response = await fetch(`${API_URLS.LOCAL_BASE}/api/natureos/global-events`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(2500),
     })
     if (!response.ok) return []
 
@@ -314,7 +314,7 @@ async function fetchVesselsForSearch(
 ): Promise<CREPSearchResult[]> {
   try {
     const response = await fetch(`${API_URLS.LOCAL_BASE}/api/oei/aisstream`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(2500),
     })
     if (!response.ok) return []
 
@@ -361,7 +361,7 @@ async function fetchDevicesForSearch(
 ): Promise<CREPSearchResult[]> {
   try {
     const response = await fetch(`${API_URLS.LOCAL_BASE}/api/mycobrain/devices`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(2500),
     })
     if (!response.ok) return []
 

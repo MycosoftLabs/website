@@ -37,6 +37,7 @@ import {
   Newspaper,
   Brain,
   GripVertical,
+  Radar,
 } from "lucide-react"
 import nextDynamic from "next/dynamic"
 import {
@@ -70,9 +71,11 @@ const MapWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: 
 const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
 const Earth2Widget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.Earth2Widget })), { ssr: false })
 const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.FallbackWidget })), { ssr: false })
+const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
   | "crep" | "earth2" | "map" | "fallback"
+  | "events" | "aircraft" | "vessels" | "satellites" | "weather" | "emissions" | "infrastructure" | "devices" | "space_weather"
 
 interface WidgetConfig {
   type: WidgetType
@@ -213,6 +216,15 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
   earth2: { width: 1, height: 1 },
   map: { width: 2, height: 2 },
   fallback: { width: 1, height: 1 },
+  events: { width: 1, height: 1 },
+  aircraft: { width: 1, height: 1 },
+  vessels: { width: 1, height: 1 },
+  satellites: { width: 1, height: 1 },
+  weather: { width: 1, height: 1 },
+  emissions: { width: 1, height: 1 },
+  infrastructure: { width: 1, height: 1 },
+  devices: { width: 1, height: 1 },
+  space_weather: { width: 1, height: 1 },
 }
 
 export function FluidSearchCanvas({
@@ -236,6 +248,7 @@ export function FluidSearchCanvas({
   const [minimizedTypes, setMinimizedTypes] = useState<Set<WidgetType>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [showCrepDashboard, setShowCrepDashboard] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   
@@ -1218,7 +1231,7 @@ export function FluidSearchCanvas({
             <AnimatePresence mode="popLayout" onExitComplete={() => packeryLayout()}>
               {gridWidgets.map((config) => {
                 const sizeClasses = getWidgetSizeClasses(config.type)
-                const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type]
+                const currentSize = widgetSizes[config.type] || DEFAULT_WIDGET_SIZES[config.type as WidgetType] || { width: 1, height: 1 }
                 
                 return (
                 <div
@@ -1340,6 +1353,7 @@ export function FluidSearchCanvas({
                         onAddToNotepad={handleAddToNotepad}
                         onViewOnMap={handleViewOnMap}
                         onExplore={(widgetType, itemId) => handleFocusWidget({ type: widgetType, id: itemId })}
+                        onOpenDashboard={() => setShowCrepDashboard(true)}
                         openArticle={config.type === "news" ? notepadOpenArticle : undefined}
                         openPaper={config.type === "research" ? notepadOpenPaper : undefined}
                         pinnedSpeciesName={config.type === "species" ? pinnedSpeciesName : undefined}
@@ -1455,6 +1469,31 @@ export function FluidSearchCanvas({
           </div>
         )}
       </div>
+
+      {/* CREP Widescreen Overlay */}
+      <AnimatePresence>
+        {showCrepDashboard && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute inset-0 z-[100] bg-background flex flex-col"
+          >
+            <div className="flex items-center justify-between p-2 sm:p-4 border-b shrink-0 bg-card/90 backdrop-blur-md">
+              <div className="flex items-center gap-2">
+                <Radar className="h-5 w-5 text-cyan-400" />
+                <h2 className="text-sm font-bold tracking-wider uppercase">CREP Operational Dashboard</h2>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowCrepDashboard(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="flex-1 min-h-0 relative">
+              <CREPDashboardClient />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1484,10 +1523,11 @@ function WidgetContent({
   searchContext,
   media, mediaError, location, news, newsError, newsQueryUsed,
   crep, earth2, mapObservations,
+  events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, spaceWeather,
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
-  isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore,
+  isLoading, isFocused, focusedItemId, onFocusWidget, onAddToNotepad, onViewOnMap, onExplore, onOpenDashboard,
   openArticle, openPaper, pinnedSpeciesName,
 }: {
   type: WidgetType
@@ -1495,6 +1535,7 @@ function WidgetContent({
   searchContext?: { species?: string[]; compounds?: string[]; genetics?: string[]; research?: string[] }
   media: Record<string, unknown>[]; mediaError?: string; location: Record<string, unknown>[]; news: Record<string, unknown>[]; newsError?: string; newsQueryUsed?: string
   crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]
+  events?: Record<string, unknown>[]; aircraft?: Record<string, unknown>[]; vessels?: Record<string, unknown>[]; satellites?: Record<string, unknown>[]; weather?: Record<string, unknown>[]; emissions?: Record<string, unknown>[]; infrastructure?: Record<string, unknown>[]; devices?: Record<string, unknown>[]; spaceWeather?: Record<string, unknown>[];
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
   onSelectSuggestionQuery: (query: string) => void
@@ -1505,6 +1546,7 @@ function WidgetContent({
   onAddToNotepad: (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => void
   onViewOnMap?: (observation: MapObservation) => void
   onExplore?: (type: string, id: string) => void
+  onOpenDashboard?: () => void
   /** Article/paper to immediately open in the reading modal (from notepad restore) */
   openArticle?: Record<string, unknown> | null
   openPaper?: Record<string, unknown> | null
@@ -1563,14 +1605,40 @@ function WidgetContent({
       if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
       return <NewsWidget data={news} isFocused={isFocused} queryUsed={newsQueryUsed} onAddToNotepad={onAddToNotepad} openArticle={openArticle} />
     case "crep":
-      if (crep.length === 0) return <EmptyWidgetState type="crep" label="CREP Observations" />
-      return <CrepWidget data={crep as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
+      return <CrepWidget data={crep as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} onOpenDashboard={onOpenDashboard} />
     case "earth2":
       if (!earth2) return <EmptyWidgetState type="earth2" label="Earth2 Weather" />
       return <Earth2Widget data={earth2} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "map":
       if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
       return <MapWidget observations={mapObservations} isFocused={isFocused} />
+    case "events":
+      if (!events?.length) return <EmptyWidgetState type="events" label="Global Events" />
+      return <FallbackWidget bucketKey="events" title="Global Events" items={events} />
+    case "aircraft":
+      if (!aircraft?.length) return <EmptyWidgetState type="aircraft" label="Aircraft Tracker" />
+      return <FallbackWidget bucketKey="aircraft" title="Aircraft Tracker" items={aircraft} />
+    case "vessels":
+      if (!vessels?.length) return <EmptyWidgetState type="vessels" label="Vessel Tracker" />
+      return <FallbackWidget bucketKey="vessels" title="Vessel Tracker" items={vessels} />
+    case "satellites":
+      if (!satellites?.length) return <EmptyWidgetState type="satellites" label="Satellites" />
+      return <FallbackWidget bucketKey="satellites" title="Satellites" items={satellites} />
+    case "weather":
+      if (!weather?.length) return <EmptyWidgetState type="weather" label="Weather" />
+      return <FallbackWidget bucketKey="weather" title="Weather" items={weather} />
+    case "emissions":
+      if (!emissions?.length) return <EmptyWidgetState type="emissions" label="Emissions" />
+      return <FallbackWidget bucketKey="emissions" title="Emissions" items={emissions} />
+    case "infrastructure":
+      if (!infrastructure?.length) return <EmptyWidgetState type="infrastructure" label="Infrastructure" />
+      return <FallbackWidget bucketKey="infrastructure" title="Infrastructure" items={infrastructure} />
+    case "devices":
+      if (!devices?.length) return <EmptyWidgetState type="devices" label="MycoBrain Devices" />
+      return <FallbackWidget bucketKey="devices" title="MycoBrain Devices" items={devices} />
+    case "space_weather":
+      if (!spaceWeather?.length) return <EmptyWidgetState type="space_weather" label="Space Weather" />
+      return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} />
     case "fallback":
       return (
         <FallbackWidget

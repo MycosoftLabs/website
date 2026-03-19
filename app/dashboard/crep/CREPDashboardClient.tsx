@@ -1815,7 +1815,9 @@ export default function CREPDashboardPage() {
   const [basemap, setBasemap] = useState<"dark" | "satellite" | null>(null);
 
   // Species filter for fungal observations (map overlay dropdown)
-  const [fungalSpeciesFilter, setFungalSpeciesFilter] = useState<string | null>(null);
+  const [fungalSpeciesFilter, setFungalSpeciesFilter] = useState<string | null>(
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q") : null
+  );
   const [fungalDropdownOpen, setFungalDropdownOpen] = useState(false);
   const fungalDropdownCloseTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -2124,6 +2126,18 @@ export default function CREPDashboardPage() {
                 affectedArea: e.affected?.area_km2,
                 affectedPopulation: e.affected?.population,
               }));
+              
+            // Filter by search query if it came from the overlay parent
+            const urlQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q")?.toLowerCase() : null;
+            if (urlQuery) {
+              formattedEvents = formattedEvents.filter((e: any) => 
+                (e.title && e.title.toLowerCase().includes(urlQuery)) ||
+                (e.description && e.description.toLowerCase().includes(urlQuery)) ||
+                (e.locationName && e.locationName.toLowerCase().includes(urlQuery)) ||
+                (e.type && e.type.toLowerCase().includes(urlQuery))
+              );
+            }
+            
             setGlobalEvents(formattedEvents);
             // Capture IDs at first load so we can detect "new" events on later refreshes
             if (initialEventIdsRef.current === null) {
