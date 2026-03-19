@@ -3,8 +3,9 @@
 # See docs/MYCOSOFT_COM_PRODUCTION_SANDBOX_ROUTE_MAR13_2026.md
 #
 # Secrets (Settings → Secrets and variables → Actions):
-#   SANDBOX_HOST           - 192.168.0.187
-#   VM_SSH_PRIVATE_KEY     - SSH private key for mycosoft user
+#   PRODUCTION_HOST        - Production VM hostname (Cloudflare Tunnel)
+#   SSH_KEY                - SSH private key for deploy user
+#   SSH_USER               - SSH username on production VM
 #   CLOUDFLARE_ZONE_ID     - Zone ID for purge (mycosoft.com)
 #   CLOUDFLARE_API_TOKEN   - API token with purge permission
 #   NEXT_PUBLIC_SUPABASE_URL    - Supabase project URL (public)
@@ -83,20 +84,33 @@ jobs:
       - name: Set image for deploy (GHCR uses lowercase)
         run: echo "IMAGE_FULL=${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]'):sandbox-latest" >> $GITHUB_ENV
 
+      - name: Install cloudflared and configure SSH
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          rm cloudflared.deb
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config <<EOF
+          Host production
+            HostName ${{ secrets.PRODUCTION_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
       - name: Deploy to Sandbox VM
-        uses: appleboy/ssh-action@v1.0.3
         env:
           IMAGE_FULL: ${{ env.IMAGE_FULL }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        with:
-          host: ${{ secrets.SANDBOX_HOST }}
-          username: mycosoft
-          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
-          command_timeout: 10m
-          envs: IMAGE_FULL,GHCR_PULL_TOKEN,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY
-          script: |
+        run: |
+          ssh production bash -s <<DEPLOY
             set -e
             BASE_URL="https://mycosoft.com"
 
@@ -113,15 +127,15 @@ jobs:
 
             WEBSITE_DIR="/opt/mycosoft/website"
             ENV_FILE_OPT=""
-            [ -f "$WEBSITE_DIR/.env" ] && ENV_FILE_OPT="--env-file $WEBSITE_DIR/.env"
+            [ -f "\$WEBSITE_DIR/.env" ] && ENV_FILE_OPT="--env-file \$WEBSITE_DIR/.env"
 
             docker run -d --name mycosoft-website -p 3000:3000 \
               --add-host=host.docker.internal:host-gateway \
               -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-              $ENV_FILE_OPT \
-              -e NEXT_PUBLIC_BASE_URL="${BASE_URL}" \
-              -e NEXTAUTH_URL="${BASE_URL}" \
-              -e NEXT_PUBLIC_SITE_URL="${BASE_URL}" \
+              \$ENV_FILE_OPT \
+              -e NEXT_PUBLIC_BASE_URL="\${BASE_URL}" \
+              -e NEXTAUTH_URL="\${BASE_URL}" \
+              -e NEXT_PUBLIC_SITE_URL="\${BASE_URL}" \
               -e MAS_API_URL=http://192.168.0.188:8001 \
               -e MINDEX_API_URL=http://192.168.0.189:8000 \
               -e MYCOBRAIN_SERVICE_URL=http://host.docker.internal:8003 \
@@ -137,22 +151,20 @@ jobs:
                 echo "Health check passed"
                 break
               fi
-              echo "Attempt $i: waiting 5s..."
+              echo "Attempt \$i: waiting 5s..."
               sleep 5
             done
             curl -sf -o /dev/null http://localhost:3000 || exit 1
+          DEPLOY
 
       - name: Purge Cloudflare cache
         if: success()
+        continue-on-error: true
         run: |
-          if [ -z "$CLOUDFLARE_ZONE_ID" ]; then
-            echo "CLOUDFLARE_ZONE_ID not set, skipping cache purge"
-            exit 0
+          if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ] && [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              --data '{"purge_everything":true}'
+            echo "Cache purged"
           fi
-          curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}'
-        env:
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
