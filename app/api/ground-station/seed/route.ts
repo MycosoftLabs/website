@@ -22,10 +22,15 @@ import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
-const rawSql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL || "")
+function getRawSql() {
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL
+  if (!url) throw new Error("Ground Station: No DATABASE_URL or POSTGRES_URL configured")
+  return neon(url)
+}
 
 export async function POST() {
   try {
+    const rawSql = getRawSql()
     // =========================================================================
     // CREATE TABLES (idempotent) - use raw neon client for DDL
     // =========================================================================
