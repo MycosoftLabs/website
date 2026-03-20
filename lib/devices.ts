@@ -46,6 +46,7 @@ export interface Device {
   features: Feature[]
   detailedFeatures: DetailedFeature[]
   specifications: Record<string, string>
+  deploymentTypes?: string[]
 }
 
 export const DEVICES: Device[] = [

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         latitude: body.location.latitude,
         longitude: body.location.longitude,
         altitude: body.location.altitude,
-        source: "registration",
+        source: "manual",
       }
     }
 
@@ -253,12 +253,14 @@ export async function DELETE(request: NextRequest) {
       type: "device",
       name: deviceId,
       status: "inactive",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       properties: {
         unregisteredAt: new Date().toISOString(),
       },
       provenance: {
-        source: "registration",
+        source: "unregistration",
         sourceId: deviceId,
         collectedAt: new Date().toISOString(),
         reliability: 1.0,

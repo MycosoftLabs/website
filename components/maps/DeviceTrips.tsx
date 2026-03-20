@@ -62,8 +62,8 @@ export function useDeviceLayers({
         new TripsLayer({
           id: "device-trips",
           data: tracks,
-          getPath: (d: DeviceTrack) => d.path.map((p) => [p[0], p[1]]),
-          getTimestamps: (d: DeviceTrack) => d.path.map((p) => p[2]),
+          getPath: ((d: DeviceTrack) => d.path.map((p) => [p[0], p[1]])) as any,
+          getTimestamps: ((d: DeviceTrack) => d.path.map((p) => p[2])) as any,
           getColor: (d: DeviceTrack) => d.color || DEVICE_COLORS[d.device_type] || [100, 100, 100],
           widthUnits: "pixels",
           getWidth: 3,
@@ -82,7 +82,7 @@ export function useDeviceLayers({
         new PathLayer({
           id: "device-paths",
           data: tracks,
-          getPath: (d: DeviceTrack) => d.path.map((p) => [p[0], p[1]]),
+          getPath: ((d: DeviceTrack) => d.path.map((p) => [p[0], p[1]])) as any,
           getColor: (d: DeviceTrack) => {
             const color = d.color || DEVICE_COLORS[d.device_type] || [100, 100, 100];
             return [...color, 60]; // Low opacity for background

@@ -136,7 +136,7 @@ function buildGeofenceFeatures(devices: RegistryDevice[]) {
         },
       }
     })
-    .filter((value): value is GeoJSON.Feature => Boolean(value))
+    .filter((value): value is NonNullable<typeof value> => Boolean(value))
 }
 
 export function LiveMapContent() {

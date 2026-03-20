@@ -81,7 +81,7 @@ function matchesSearch(species: SpeciesMappingEntry, query: string) {
 
 function formatSpeciesResult(species: SpeciesMappingEntry) {
   return {
-    id: species.iNaturalistId,
+    id: String(species.iNaturalistId || ""),
     title: species.commonNames[0],
     description: species.description || "",
     type: "fungi",
@@ -93,7 +93,7 @@ function formatSpeciesResult(species: SpeciesMappingEntry) {
 // Add function to format expanded mushroom results
 function formatExpandedMushroomResults(mushrooms: ExpandedMushroom[]) {
   return mushrooms.map((mushroom) => ({
-    id: mushroom.iNaturalistId || `expanded-${mushroom.scientificName.toLowerCase().replace(/\s+/g, "-")}`,
+    id: String(mushroom.iNaturalistId || `expanded-${mushroom.scientificName.toLowerCase().replace(/\s+/g, "-")}`),
     title: mushroom.commonNames[0],
     description: mushroom.description || `${mushroom.scientificName} - ${mushroom.category} mushroom`,
     type: "fungi" as const,
@@ -221,11 +221,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Initialize with local results first
-    const results: SearchResult[] = await getLocalSearchResults(query)
+    const results: SearchResult[] = await getLocalSearchResults(query) as any
 
     // Add expanded mushroom results
     const expandedResults = formatExpandedMushroomResults(searchExpandedMushrooms(query))
-    results.push(...expandedResults)
+    results.push(...expandedResults as any)
 
     // Try external APIs in parallel with timeouts
     const [iNaturalistResults, elsevierResults, compoundResults] = await Promise.allSettled([
@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
 
     // Add successful results
     if (iNaturalistResults.status === "fulfilled" && iNaturalistResults.value?.results) {
-      results.push(...formatFungiResults(iNaturalistResults.value.results))
+      results.push(...formatFungiResults(iNaturalistResults.value.results as INaturalistResult[]))
     }
 
     if (elsevierResults.status === "fulfilled") {

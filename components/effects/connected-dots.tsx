@@ -55,7 +55,7 @@ export function ConnectedDots({
   const dotsRef = useRef<Dot[]>([])
   const mouseRef = useRef({ x: 0, y: 0 })
   const cursorRef = useRef({ x: 0, y: 0 })
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const PI2 = Math.PI * 2
 
   // Create a single dot

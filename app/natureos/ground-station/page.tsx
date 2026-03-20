@@ -54,6 +54,7 @@ import {
   CheckCircle2,
   Timer,
   HardDrive,
+  Compass,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GroundStationProvider, useGroundStation } from "@/lib/ground-station/context"

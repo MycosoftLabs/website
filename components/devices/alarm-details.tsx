@@ -245,11 +245,11 @@ export function AlarmDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
+            <NeuButton className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Play className="mr-2 h-5 w-5" />
               Watch Video
             </NeuButton>
@@ -669,11 +669,11 @@ export function AlarmDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-red-200 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
             </NeuButton>
@@ -693,11 +693,11 @@ export function AlarmDetails() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <NeuButton size="lg" className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
+            <NeuButton className="bg-red-500 hover:bg-red-600 text-white font-semibold px-8 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order - $49.99
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-red-300 text-red-600 hover:bg-red-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800">
               <ExternalLink className="mr-2 h-5 w-5" />
               Bulk Ordering
             </NeuButton>

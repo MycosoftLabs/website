@@ -349,11 +349,11 @@ export function MycoNodeDetails() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.9 }}
           >
-            <NeuButton size="lg" className="device-cta-over-video bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
+            <NeuButton className="device-cta-over-video bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Contact Sales
             </NeuButton>
-            <NeuButton size="lg" variant="default" className="device-cta-over-video-outline border border-purple-500/50 hover:bg-purple-500/10">
+            <NeuButton variant="default" className="device-cta-over-video-outline border border-purple-500/50 hover:bg-purple-500/10">
               <Play className="mr-2 h-5 w-5" />
               Watch Demo
             </NeuButton>
@@ -1073,11 +1073,11 @@ export function MycoNodeDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
+            <NeuButton variant="default" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
+            <NeuButton variant="default" className="border-purple-500/30 text-purple-800 dark:text-purple-400 hover:bg-purple-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View 3D Model
             </NeuButton>
@@ -1104,11 +1104,11 @@ export function MycoNodeDetails() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <NeuButton size="lg" className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
+              <NeuButton className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 text-white font-semibold px-8">
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 Contact Sales
               </NeuButton>
-              <NeuButton size="lg" variant="outline" className="border-purple-500/50 text-purple-800 dark:text-purple-300 hover:bg-purple-500/10">
+              <NeuButton variant="default" className="border-purple-500/50 text-purple-800 dark:text-purple-300 hover:bg-purple-500/10">
                 <Download className="mr-2 h-5 w-5" />
                 Download Research Papers
               </NeuButton>

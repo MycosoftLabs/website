@@ -215,7 +215,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
     ]).then(([THREE, OC, EC, RP, UBP, OP]) => {
       if (disposed) return
 
-      const { OrbitControls } = OC as { OrbitControls: new (cam: unknown, el: HTMLElement) => unknown & { enableDamping: boolean; dampingFactor: number; rotateSpeed: number; minDistance: number; maxDistance: number; autoRotate: boolean; autoRotateSpeed: number; enablePan: boolean; update: () => void; dispose: () => void } }
+      const { OrbitControls } = OC as { OrbitControls: new (cam: unknown, el: HTMLElement) => unknown & { enableDamping: boolean; dampingFactor: number; rotateSpeed: number; minDistance: number; maxDistance: number; autoRotate: boolean; autoRotateSpeed: number; enablePan: boolean; enableZoom: boolean; update: () => void; dispose: () => void } }
       const { EffectComposer } = EC as { EffectComposer: new (r: unknown) => { addPass: (p: unknown) => void; render: () => void; setSize: (w: number, h: number) => void } }
       const { RenderPass } = RP as { RenderPass: new (s: unknown, c: unknown) => unknown }
       const { UnrealBloomPass } = UBP as { UnrealBloomPass: new (res: unknown, str: number, rad: number, thr: number) => { resolution: { set: (w: number, h: number) => void } } }
@@ -406,7 +406,7 @@ export function NeuralNetworkCanvas({ className }: Props) {
       const clock = new THREE.Clock()
 
       function triggerPulse(cx: number, cy: number) {
-        const rect = canvas.getBoundingClientRect()
+        const rect = canvas!.getBoundingClientRect()
         ptr.x = ((cx - rect.left) / rect.width) * 2 - 1
         ptr.y = -((cy - rect.top) / rect.height) * 2 + 1
         raycaster.setFromCamera(ptr, camera)

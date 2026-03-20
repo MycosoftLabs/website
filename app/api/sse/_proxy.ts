@@ -31,7 +31,7 @@ export async function createSseProxy(request: NextRequest, options: SseProxyOpti
 
   const customReadable = new ReadableStream({
     async start(controller) {
-      let ws: WebSocket | null = null;
+      let ws: any = null;
       let heartbeatInterval: NodeJS.Timeout | null = null;
 
       try {

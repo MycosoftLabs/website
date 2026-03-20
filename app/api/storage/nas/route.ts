@@ -211,7 +211,7 @@ async function checkNASConnection(): Promise<NASStatus> {
     totalStorageTB: defaultShares.reduce((sum, s) => sum + s.total, 0),
     usedStorageTB: defaultShares.reduce((sum, s) => sum + s.used, 0),
     availableStorageTB: defaultShares.reduce((sum, s) => sum + s.available, 0),
-  }
+  } as any
 }
 
 export async function GET() {

@@ -291,7 +291,7 @@ export default function SecurityOperationsCenterPage() {
             value={status?.critical_events || 0}
             icon={XCircle}
             color="red"
-            alert={status?.critical_events && status.critical_events > 0}
+            alert={Boolean(status?.critical_events && status.critical_events > 0)}
           />
           <StatCard
             title="High Severity"

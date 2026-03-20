@@ -189,7 +189,8 @@ export function PerspectiveViewer({
 
     async function updateData() {
       try {
-        await tableRef.current.update(data)
+        if (!tableRef.current) return
+        await tableRef.current.update(data as Record<string, unknown>[])
       } catch (e) {
         console.error("Failed to update data:", e)
       }

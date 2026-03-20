@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       .png()
       .toBuffer()
 
-    return new Response(processedImage, {
+    return new Response(new Uint8Array(processedImage), {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, max-age=31536000, immutable",

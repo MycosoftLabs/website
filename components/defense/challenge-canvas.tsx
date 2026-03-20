@@ -73,7 +73,7 @@
        findAFriend(node: Node, n: number) {
          const col = floor(node.x / this.res)
          const row = floor(node.y / this.res)
-         const bins: Node[][][] = []
+         const bins: Node[][] = []
 
          for (let c = col - 1; c <= col + 1; c++) {
            const cc = this.bins[c]

@@ -254,7 +254,7 @@ function BiodiversityPopup({ entity, source, onClose }: BiodiversityPopupProps) 
         {/* Content */}
         <div className="space-y-2 text-sm">
           {/* Scientific Name */}
-          {props.scientificName && (
+          {!!props.scientificName && (
             <div className="flex items-start gap-2">
               <span className="text-gray-500 w-20">Scientific:</span>
               <span className="text-gray-200 italic flex-1">{String(props.scientificName)}</span>
@@ -262,11 +262,11 @@ function BiodiversityPopup({ entity, source, onClose }: BiodiversityPopupProps) 
           )}
 
           {/* Taxonomy */}
-          {(props.kingdom || props.phylum || props.family) && (
+          {!!(props.kingdom || props.phylum || props.family) && (
             <div className="flex items-start gap-2">
               <span className="text-gray-500 w-20">Taxonomy:</span>
               <span className="text-gray-300 flex-1">
-                {[props.kingdom, props.phylum, props.family].filter(Boolean).join(" › ")}
+                {[props.kingdom, props.phylum, props.family].filter(Boolean).map(String).join(" › ")}
               </span>
             </div>
           )}
@@ -280,15 +280,15 @@ function BiodiversityPopup({ entity, source, onClose }: BiodiversityPopupProps) 
           </div>
 
           {/* Depth (for marine) */}
-          {props.depth && (
+          {!!props.depth && (
             <div className="flex items-start gap-2">
               <span className="text-gray-500 w-20">Depth:</span>
-              <span className="text-gray-300">{props.depth}m</span>
+              <span className="text-gray-300">{String(props.depth)}m</span>
             </div>
           )}
 
           {/* Date */}
-          {(props.eventDate || props.observationDate) && (
+          {!!(props.eventDate || props.observationDate) && (
             <div className="flex items-start gap-2">
               <span className="text-gray-500 w-20">Observed:</span>
               <span className="text-gray-300">
@@ -298,10 +298,10 @@ function BiodiversityPopup({ entity, source, onClose }: BiodiversityPopupProps) 
           )}
 
           {/* Count */}
-          {props.count && (
+          {!!props.count && (
             <div className="flex items-start gap-2">
               <span className="text-gray-500 w-20">Count:</span>
-              <span className="text-gray-300">{props.count}</span>
+              <span className="text-gray-300">{String(props.count)}</span>
             </div>
           )}
         </div>

@@ -55,7 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 // Mission Critical Application Modal
 interface MissionModalData {
   title: string
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   problem: string
   scenario: string
   outcome: string

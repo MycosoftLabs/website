@@ -65,7 +65,7 @@ async function getUserContainers(userId: string): Promise<string[]> {
       .select("container_id")
       .eq("user_id", userId)
     
-    return data?.map((row: ContainerVisibility) => row.container_id) || []
+    return data?.map((row: { container_id: string }) => row.container_id) || []
   } catch {
     return []
   }

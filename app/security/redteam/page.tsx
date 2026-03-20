@@ -116,8 +116,8 @@ function ScheduleTab({ scanTarget, setScanTarget, onRefresh }: {
   const [newSchedule, setNewSchedule] = useState({
     name: '',
     target: scanTarget || '192.168.0.0/24',
-    scanType: 'ping' as const,
-    frequency: 'daily' as const,
+    scanType: 'ping' as ScanSchedule['scanType'],
+    frequency: 'daily' as ScanSchedule['frequency'],
     dayOfWeek: 1,
     hourOfDay: 2,
     enabled: true,

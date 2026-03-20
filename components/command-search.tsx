@@ -555,8 +555,8 @@ export function CommandSearch({ ...props }: DialogProps) {
                         {suggestion.type === "fungi" && <Mushroom className="mr-2 h-4 w-4 text-green-500" />}
                         {suggestion.type === "article" && <FileText className="mr-2 h-4 w-4 text-blue-500" />}
                         {suggestion.type === "compound" && <Flask className="mr-2 h-4 w-4 text-purple-500" />}
-                        {suggestion.type === "research" ||
-                          (suggestion.type === "category" && <Microscope className="mr-2 h-4 w-4 text-orange-500" />)}
+                        {((suggestion.type as string) === "research" ||
+                          (suggestion.type as string) === "category") && <Microscope className="mr-2 h-4 w-4 text-orange-500" />}
                         <span>{suggestion.title}</span>
                         {suggestion.scientificName && (
                           <span className="ml-2 text-muted-foreground text-xs italic">{suggestion.scientificName}</span>

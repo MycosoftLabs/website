@@ -94,7 +94,7 @@ export function CorporateLiveFeed() {
         )
         if (active) {
           const next: Record<string, DocumentResult[]> = {}
-          for (const [id, results] of entries) next[id] = results
+          for (const [id, results] of entries) next[id] = [...results]
           setData(next)
         }
       } catch {

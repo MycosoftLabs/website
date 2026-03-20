@@ -151,7 +151,7 @@ export async function GET(
       // 2. Balance check
       if ((agent.balance_cents ?? 0) <= 0) {
         const admin = getAdmin()
-        const upsell = await admin.rpc("get_upsell_message", {
+        const upsell = await (admin.rpc as any)("get_upsell_message", {
           p_event_type: "balance_exhausted",
           p_balance_cents: 0,
         })
@@ -201,7 +201,7 @@ export async function GET(
 
       // 4. Increment usage (deduct 1 cent)
       if (agent.api_key_id) {
-        const { data: newBalance } = await getAdmin().rpc("increment_api_usage", {
+        const { data: newBalance } = await (getAdmin().rpc as any)("increment_api_usage", {
           p_api_key_id: agent.api_key_id,
           p_cost_cents: 1,
         })
@@ -317,7 +317,7 @@ async function logUsage(
       latency_ms: latencyMs,
       ip_address: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || null,
       user_agent: request.headers.get("user-agent") || null,
-    })
+    } as any)
   } catch (err) {
     console.error("[worldstate] Usage log error:", err)
   }

@@ -202,7 +202,7 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account }: any) {
       // For OAuth providers, check if email is allowed
       if (account?.provider === "google" || account?.provider === "github") {
         if (!user.email) return false
@@ -210,7 +210,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt({ token, user, account }) { 
+    async jwt({ token, user, account }: any) {
       // On initial sign in
       if (user) { 
         const mycosoftUser = findMycosoftUser(user.email || "")
@@ -237,7 +237,7 @@ export const authOptions: NextAuthOptions = {
       }
       return token 
     },
-    async session({ session, token }) { 
+    async session({ session, token }: any) {
       if (session.user) { 
         // Assign values directly from token to session.user
         const sessionUser = session.user as any
@@ -257,7 +257,7 @@ export const authOptions: NextAuthOptions = {
       }
       return session 
     },
-    async redirect({ url, baseUrl }) {
+    async redirect({ url, baseUrl }: any) {
       // Handle callback URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`
       if (new URL(url).origin === baseUrl) return url
@@ -281,7 +281,7 @@ export const authOptions: NextAuthOptions = {
   })(),
   debug: process.env.NODE_ENV === "development",
   trustHost: true, // Required behind Cloudflare/proxy so session is recognized
-}
+} as any
 
 const handler = NextAuth(authOptions)
 export { handler as GET, handler as POST }

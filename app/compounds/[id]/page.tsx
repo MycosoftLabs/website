@@ -32,7 +32,7 @@ export default async function CompoundPage({ params }: CompoundPageProps) {
       notFound()
     }
 
-    return <CompoundTemplate compound={compound} />
+    return <CompoundTemplate compound={compound as any} />
   } catch (error) {
     console.error("Error fetching compound:", error)
     notFound()

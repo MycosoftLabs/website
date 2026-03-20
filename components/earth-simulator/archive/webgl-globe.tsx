@@ -5,7 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { GridOverlay } from "./grid-overlay";
-import { LayerManager } from "./layer-manager";
+import { LayerManager } from "../layer-manager";
 import { GEEGlobe } from "./gee-globe";
 
 interface WebGLGlobeProps {
@@ -50,7 +50,7 @@ export function WebGLGlobe({ onCellClick, onViewportChange, layers }: WebGLGlobe
         <Stars radius={300} depth={50} count={5000} factor={4} fade speed={1} />
         
         <GridOverlay zoom={zoom} onCellClick={onCellClick} />
-        <LayerManager zoom={zoom} viewport={viewport || undefined} layers={layers} />
+        <LayerManager zoom={zoom} viewport={viewport || undefined} layers={layers as any} />
         
         <OrbitControls
           ref={controlsRef}
@@ -71,7 +71,7 @@ export function WebGLGlobe({ onCellClick, onViewportChange, layers }: WebGLGlobe
               
               // Calculate viewport from camera position
               if (onViewportChange) {
-                const camera = e.target.object;
+                const camera = e.target.object as THREE.PerspectiveCamera;
                 const target = e.target.target;
                 const camDistance = camera.position.distanceTo(target);
                 const fov = camera.fov;

@@ -221,14 +221,16 @@ async function processIngest(payload: IngestPayload): Promise<{
         id: `obs_${payload.deviceId}_${key}_${Date.now()}`,
         type: key as Observation["type"],
         entityId: entity.id,
-        location,
         observedAt: timestamp,
         receivedAt: new Date().toISOString(),
         value,
         unit: getUnitForSensor(key),
-        source: payload.deviceType || "generic",
-        sourceId: payload.deviceId,
         provenance,
+        metadata: {
+          location,
+          source: payload.deviceType || "generic",
+          sourceId: payload.deviceId,
+        },
       }
       
       observations.push(observation)

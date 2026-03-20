@@ -712,11 +712,11 @@ export function SporeBaseDetails() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-orange-500/40 text-orange-500 hover:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/10">
+            <NeuButton variant="default" className="border-orange-500/40 text-orange-500 hover:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/10">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-orange-500/40 text-orange-500 hover:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/10">
+            <NeuButton variant="default" className="border-orange-500/40 text-orange-500 hover:bg-orange-500/10 dark:text-orange-400 dark:hover:bg-orange-500/10">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
             </NeuButton>
@@ -743,11 +743,11 @@ export function SporeBaseDetails() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <NeuButton size="lg" className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
+            <NeuButton className="bg-orange-500 hover:bg-orange-600 text-black font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Pre-Order Now
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
+            <NeuButton variant="default" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
               <Download className="mr-2 h-5 w-5" />
               Download Brochure
             </NeuButton>

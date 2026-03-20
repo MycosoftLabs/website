@@ -76,7 +76,7 @@ export default function LandsatViewerDemo() {
 
       <Map
         initialViewState={{ longitude: 0, latitude: 10, zoom: 1.2 }}
-        mapStyle={mapStyle}
+        mapStyle={mapStyle as any}
         style={{ width: "100%", height: "100%" }}
         maxZoom={12}
         minZoom={0}

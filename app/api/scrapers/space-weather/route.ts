@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from "next/server"
-import { getScraperScheduler, getScraperCache, type SpaceWeatherScrapedData } from "@/lib/scrapers"
+import { getScraperScheduler, getScraperCache, type SpaceWeatherScrapedData, type ScrapedData } from "@/lib/scrapers"
 
 const SCRAPER_ID = "spaceweather-com"
 
@@ -27,7 +27,7 @@ export async function GET() {
       const result = await scheduler.runNow(SCRAPER_ID)
       
       if (result.success && result.data) {
-        data = result.data as typeof data
+        data = result.data as ScrapedData<SpaceWeatherScrapedData>
       } else {
         return NextResponse.json({
           source: "spaceweather.com",
@@ -41,10 +41,10 @@ export async function GET() {
     return NextResponse.json({
       source: "spaceweather.com",
       status: "live",
-      timestamp: data.timestamp,
-      expiresAt: data.expiresAt,
-      metadata: data.metadata,
-      data: data.data,
+      timestamp: data!.timestamp,
+      expiresAt: data!.expiresAt,
+      metadata: data!.metadata,
+      data: data!.data,
     })
   } catch (error) {
     console.error("[API] Space weather scraper error:", error)

@@ -86,7 +86,7 @@ export async function GET(request: Request) {
     logDataCollection("flightradar24", "flightradar24.com", aircraft.length, latency, false)
     
     // Ingest aircraft data to MINDEX for persistent storage (non-blocking)
-    ingestAircraft("flightradar24", aircraft)
+    ingestAircraft("flightradar24", aircraft as any)
 
     const responseData = {
       source: "flightradar24",

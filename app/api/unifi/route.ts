@@ -38,13 +38,13 @@ function requireUnifiKey() {
 async function unifiGet<T>(endpoint: string): Promise<T[]> {
   if (!UNIFI_API_KEY) throw new Error("UNIFI_API_KEY is not configured")
   const url = `https://${UNIFI_HOST}/proxy/network/api/s/${UNIFI_SITE}${endpoint}`
-  // @ts-expect-error — Node fetch supports agent option via undici
+  // @ts-ignore — Node fetch supports agent option via undici
   const response = await fetch(url, {
     headers: { "X-API-Key": UNIFI_API_KEY, "Content-Type": "application/json" },
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
     agent: unifiAgent,
-  })
+  } as any)
   if (!response.ok) throw new Error(`UniFi API error: ${response.status} for ${endpoint}`)
   const payload = (await response.json()) as UniFiApiResponse<T>
   return payload.data || []
@@ -53,7 +53,7 @@ async function unifiGet<T>(endpoint: string): Promise<T[]> {
 async function unifiPost<T>(endpoint: string, body: unknown): Promise<T[]> {
   if (!UNIFI_API_KEY) throw new Error("UNIFI_API_KEY is not configured")
   const url = `https://${UNIFI_HOST}/proxy/network/api/s/${UNIFI_SITE}${endpoint}`
-  // @ts-expect-error — Node fetch supports agent option via undici
+  // @ts-ignore — Node fetch supports agent option via undici
   const response = await fetch(url, {
     method: "POST",
     headers: { "X-API-Key": UNIFI_API_KEY, "Content-Type": "application/json" },
@@ -61,7 +61,7 @@ async function unifiPost<T>(endpoint: string, body: unknown): Promise<T[]> {
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
     agent: unifiAgent,
-  })
+  } as any)
   if (!response.ok) throw new Error(`UniFi API POST error: ${response.status} for ${endpoint}`)
   const payload = (await response.json()) as UniFiApiResponse<T>
   return payload.data || []

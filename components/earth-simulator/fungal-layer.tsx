@@ -113,7 +113,7 @@ export function FungalLayer({
     if (pointsRef.current) {
       const time = state.clock.elapsedTime;
       // Subtle pulsing effect
-      pointsRef.current.material.opacity = 0.7 + Math.sin(time * 2) * 0.2;
+      (pointsRef.current.material as THREE.PointsMaterial).opacity = 0.7 + Math.sin(time * 2) * 0.2;
     }
   });
 
@@ -129,12 +129,14 @@ export function FungalLayer({
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
+              args={[positions, 3]}
               count={positions.length / 3}
               array={positions}
               itemSize={3}
             />
             <bufferAttribute
               attach="attributes-color"
+              args={[colors, 3]}
               count={colors.length / 3}
               array={colors}
               itemSize={3}

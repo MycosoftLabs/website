@@ -11,12 +11,13 @@ interface DataPanelProps {
 }
 
 export function DataPanel({ cellId, lat, lon, probability }: DataPanelProps) {
-  const densityColor = {
+  const densityColorMap: Record<string, string> = {
     none: "bg-gray-500",
     low: "bg-green-500",
     medium: "bg-yellow-500",
     high: "bg-red-500",
-  }[probability?.density || "none"];
+  };
+  const densityColor = densityColorMap[probability?.density || "none"];
 
   return (
     <Card className="bg-gray-800 border-gray-700">

@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     const type = request.nextUrl.searchParams.get('type')
 
     const admin = getAdmin()
-    let query = admin
-      .from('agent_events')
+    let query = (admin
+      .from('agent_events') as any)
       .select('id, event_type, severity, message, metadata, created_at')
       .eq('profile_id', agent.profile_id)
       .order('created_at', { ascending: false })
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('event_type', type)
     }
 
-    const { data: events, error } = await query
+    const { data: events, error } = await query as { data: any[] | null; error: any }
 
     if (error) {
       console.error('[agent/events] Query error:', error.message)

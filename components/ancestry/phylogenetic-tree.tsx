@@ -535,7 +535,7 @@ export function PhylogeneticTree({
       })
 
     // Bootstrap values (for species with high confidence)
-    nodes.filter((d) => d.data.bootstrapValue && d.data.bootstrapValue >= 95)
+    nodes.filter((d) => !!d.data.bootstrapValue && d.data.bootstrapValue >= 95)
       .append("text")
       .attr("dy", "-10px")
       .attr("text-anchor", "middle")

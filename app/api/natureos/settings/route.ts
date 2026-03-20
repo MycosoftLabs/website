@@ -330,7 +330,7 @@ export async function PUT(request: NextRequest) {
         key: pendingChange.key,
         oldValue: pendingChange.oldValue,
         newValue: pendingChange.newValue,
-        source: pendingChange.source,
+        source: pendingChange.source as "user" | "myca" | "system" | "api",
         userId: pendingChange.userId,
         approved: true,
         approvedBy,

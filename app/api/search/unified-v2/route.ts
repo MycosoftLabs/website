@@ -953,31 +953,31 @@ export async function GET(request: NextRequest) {
     if (masPayload) {
       const intent = parseIntent(query)
       const { results, totalCount } = mapMASResponseToUnified(masPayload)
-      const taxa = (results.species || []).map((s) => ({
-        id: s.id ?? s.uuid,
-        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
-        common_name: s.common_name ?? s.commonName,
-        rank: s.rank ?? "species",
-        description: s.description,
-        image_url: s.image_url ?? s.imageUrl,
-        toxicity: s.toxicity,
-        edibility: s.edibility,
+      const taxa: TaxonResult[] = (results.species || []).map((s) => ({
+        id: String(s.id ?? s.uuid ?? ""),
+        canonical_name: String(s.scientific_name ?? s.scientificName ?? s.name ?? ""),
+        common_name: (s.common_name ?? s.commonName) as string | undefined,
+        rank: String(s.rank ?? "species"),
+        description: s.description as string | undefined,
+        image_url: (s.image_url ?? s.imageUrl) as string | undefined,
+        toxicity: s.toxicity as string | undefined,
+        edibility: s.edibility as string | undefined,
       }))
-      const compounds = (results.compounds || []).map((c) => ({
-        id: c.id ?? c.uuid,
-        name: c.name ?? c.compound_name,
-        formula: c.formula ?? c.molecular_formula,
-        molecular_weight: c.molecular_weight,
-        fungal_sources: c.fungal_sources ?? c.source_species,
+      const compounds: CompoundResult[] = (results.compounds || []).map((c) => ({
+        id: String(c.id ?? c.uuid ?? ""),
+        name: String(c.name ?? c.compound_name ?? ""),
+        formula: (c.formula ?? c.molecular_formula) as string | undefined,
+        molecular_weight: c.molecular_weight as number | undefined,
+        fungal_sources: (c.fungal_sources ?? c.source_species) as string[] | undefined,
       }))
-      const research = (results.research || []).map((r) => ({
-        id: r.id ?? r.doi ?? r.uuid,
-        title: r.title,
-        authors: r.authors,
-        journal: r.journal,
-        year: r.year,
-        doi: r.doi,
-        abstract: r.abstract,
+      const research: ResearchResult[] = (results.research || []).map((r) => ({
+        id: String(r.id ?? r.doi ?? r.uuid ?? ""),
+        title: String(r.title ?? ""),
+        authors: r.authors as string | undefined,
+        journal: r.journal as string | undefined,
+        year: r.year as number | undefined,
+        doi: r.doi as string | undefined,
+        abstract: r.abstract as string | undefined,
       }))
       await recordUsageFromRequest({
         request,
@@ -1120,31 +1120,31 @@ export async function POST(request: NextRequest) {
         intent.filters.location = { lat: location.lat, lng: location.lng, radius: 100 }
       }
       const { results } = mapMASResponseToUnified(masPayload)
-      const taxa = (results.species || []).map((s) => ({
-        id: s.id ?? s.uuid,
-        canonical_name: s.scientific_name ?? s.scientificName ?? s.name,
-        common_name: s.common_name ?? s.commonName,
-        rank: s.rank ?? "species",
-        description: s.description,
-        image_url: s.image_url ?? s.imageUrl,
-        toxicity: s.toxicity,
-        edibility: s.edibility,
+      const taxa: TaxonResult[] = (results.species || []).map((s) => ({
+        id: String(s.id ?? s.uuid ?? ""),
+        canonical_name: String(s.scientific_name ?? s.scientificName ?? s.name ?? ""),
+        common_name: (s.common_name ?? s.commonName) as string | undefined,
+        rank: String(s.rank ?? "species"),
+        description: s.description as string | undefined,
+        image_url: (s.image_url ?? s.imageUrl) as string | undefined,
+        toxicity: s.toxicity as string | undefined,
+        edibility: s.edibility as string | undefined,
       }))
-      const compounds = (results.compounds || []).map((c) => ({
-        id: c.id ?? c.uuid,
-        name: c.name ?? c.compound_name,
-        formula: c.formula ?? c.molecular_formula,
-        molecular_weight: c.molecular_weight,
-        fungal_sources: c.fungal_sources ?? c.source_species,
+      const compounds: CompoundResult[] = (results.compounds || []).map((c) => ({
+        id: String(c.id ?? c.uuid ?? ""),
+        name: String(c.name ?? c.compound_name ?? ""),
+        formula: (c.formula ?? c.molecular_formula) as string | undefined,
+        molecular_weight: c.molecular_weight as number | undefined,
+        fungal_sources: (c.fungal_sources ?? c.source_species) as string[] | undefined,
       }))
-      const research = (results.research || []).map((r) => ({
-        id: r.id ?? r.doi ?? r.uuid,
-        title: r.title,
-        authors: r.authors,
-        journal: r.journal,
-        year: r.year,
-        doi: r.doi,
-        abstract: r.abstract,
+      const research: ResearchResult[] = (results.research || []).map((r) => ({
+        id: String(r.id ?? r.doi ?? r.uuid ?? ""),
+        title: String(r.title ?? ""),
+        authors: r.authors as string | undefined,
+        journal: r.journal as string | undefined,
+        year: r.year as number | undefined,
+        doi: r.doi as string | undefined,
+        abstract: r.abstract as string | undefined,
       }))
       await recordUsageFromRequest({ request, usageType: "SPECIES_IDENTIFICATION", quantity: 1, metadata: { query, source: "mas" } })
       return NextResponse.json({

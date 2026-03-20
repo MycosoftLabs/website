@@ -526,11 +526,11 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <RollingNumber
-                  value={liveStats?.species.total || mindexStats?.total_taxa || 341000}
+                  value={liveStats?.species?.total || mindexStats?.total_taxa || 341000}
                   color="green"
                   size="lg"
                   showDelta
-                  deltaValue={liveStats?.species.delta || 7}
+                  deltaValue={liveStats?.species?.delta || 7}
                   staggering
                   diff
                 />
@@ -539,10 +539,10 @@ export function NatureOSDashboard() {
                 </p>
                 <DataSourceMarquee
                   sources={[
-                    { name: "GBIF Fungi", count: liveStats?.species.gbif || 156000, status: "online" },
-                    { name: "iNat Fungi", count: liveStats?.species.inaturalist || 58000, status: "online" },
-                    { name: "MycoBank", count: liveStats?.species.mycobank || 160000, status: "online" },
-                    { name: "Index Fungorum", count: liveStats?.species.indexFungorum || 550000, status: "syncing" },
+                    { name: "GBIF Fungi", count: liveStats?.species?.gbif || 156000, status: "online" },
+                    { name: "iNat Fungi", count: liveStats?.species?.inaturalist || 58000, status: "online" },
+                    { name: "MycoBank", count: liveStats?.species?.mycobank || 160000, status: "online" },
+                    { name: "Index Fungorum", count: liveStats?.species?.indexFungorum || 550000, status: "syncing" },
                   ]}
                   showStatus
                 />
@@ -563,11 +563,11 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <RollingNumber
-                  value={liveStats?.observations.total || mindexStats?.total_observations || 54000000}
+                  value={liveStats?.observations?.total || mindexStats?.total_observations || 54000000}
                   color="blue"
                   size="lg"
                   showDelta
-                  deltaValue={liveStats?.observations.delta || 3700}
+                  deltaValue={liveStats?.observations?.delta || 3700}
                   staggering
                   diff
                 />
@@ -576,8 +576,8 @@ export function NatureOSDashboard() {
                 </p>
                 <DataSourceMarquee
                   sources={[
-                    { name: "GBIF Fungi", count: liveStats?.observations.gbif || 35000000, status: "online" },
-                    { name: "iNat Fungi", count: liveStats?.observations.inaturalist || 19000000, status: "online" },
+                    { name: "GBIF Fungi", count: liveStats?.observations?.gbif || 35000000, status: "online" },
+                    { name: "iNat Fungi", count: liveStats?.observations?.inaturalist || 19000000, status: "online" },
                     { name: "MushroomObserver", count: 482000, status: "online" },
                   ]}
                   showStatus
@@ -599,11 +599,11 @@ export function NatureOSDashboard() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <RollingNumber
-                  value={liveStats?.images.total || mindexStats?.observations_with_images || 38000000}
+                  value={liveStats?.images?.total || mindexStats?.observations_with_images || 38000000}
                   color="purple"
                   size="lg"
                   showDelta
-                  deltaValue={liveStats?.images.delta || 3200}
+                  deltaValue={liveStats?.images?.delta || 3200}
                   staggering
                   diff
                 />
@@ -612,8 +612,8 @@ export function NatureOSDashboard() {
                 </p>
                 <DataSourceMarquee
                   sources={[
-                    { name: "iNat Fungi", count: liveStats?.images.inaturalist || 25800000, status: "online" },
-                    { name: "GBIF Fungi", count: liveStats?.images.gbif || 12500000, status: "online" },
+                    { name: "iNat Fungi", count: liveStats?.images?.inaturalist || 25800000, status: "online" },
+                    { name: "GBIF Fungi", count: liveStats?.images?.gbif || 12500000, status: "online" },
                     { name: "MushroomObserver", count: 1200000, status: "online" },
                     { name: "ETL Pipeline", count: 0, status: mindexStats?.etl_status === "running" ? "syncing" : "online" },
                   ]}
@@ -1961,9 +1961,9 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <Cpu className="h-4 w-4" /> CPU Usage
                     </span>
-                    <span className="font-mono">{Number(systemMetrics?.cpu?.usage || 0).toFixed(0)}%</span>
+                    <span className="font-mono">{Number((systemMetrics as any)?.cpu?.usage || 0).toFixed(0)}%</span>
                   </div>
-                  <Progress value={systemMetrics?.cpu?.usage || 0} className="h-3" />
+                  <Progress value={(systemMetrics as any)?.cpu?.usage || 0} className="h-3" />
                 </div>
                 
                 <div>
@@ -1971,9 +1971,9 @@ export function NatureOSDashboard() {
                     <span className="flex items-center gap-2">
                       <HardDrive className="h-4 w-4" /> Memory
                     </span>
-                    <span className="font-mono">{Number(systemMetrics?.memory?.percent || 0).toFixed(0)}%</span>
+                    <span className="font-mono">{Number((systemMetrics as any)?.memory?.percent || 0).toFixed(0)}%</span>
                   </div>
-                  <Progress value={systemMetrics?.memory?.percent || 0} className="h-3" />
+                  <Progress value={(systemMetrics as any)?.memory?.percent || 0} className="h-3" />
                 </div>
                 
                 <div>

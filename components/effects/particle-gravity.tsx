@@ -40,7 +40,7 @@ export function ParticleGravity({
   colorScheme = 'orange',
 }: ParticleGravityProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const particlesRef = useRef<Particle[]>([])
   const mouseRef = useRef({ x: 0, y: 0, out: true })
   const spawnTimerRef = useRef(0)

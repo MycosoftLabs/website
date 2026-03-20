@@ -86,7 +86,7 @@ async function fetchWeatherData(locations: typeof WEATHER_LOCATIONS): Promise<We
     })
 
     const results = await Promise.all(promises)
-    stations.push(...results.filter((s): s is WeatherStation => s !== null))
+    stations.push(...(results.filter(Boolean) as WeatherStation[]))
   }
 
   return stations

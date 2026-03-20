@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       subscription: subscription ? {
         id: subscription.id,
         status: subscription.status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+        currentPeriodStart: new Date((subscription as any).current_period_start * 1000).toISOString(),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         trialEnd: subscription.trial_end 
           ? new Date(subscription.trial_end * 1000).toISOString() 

@@ -65,15 +65,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 })
     }
 
-    const userIds = [...new Set((sessions ?? []).map((s) => s.user_id))]
+    const userIds = [...new Set((sessions ?? []).map((s: any) => s.user_id))]
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name, email, role")
       .in("id", userIds)
 
-    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
 
-    const enriched = (sessions ?? []).map((s) => ({
+    const enriched = (sessions ?? []).map((s: any) => ({
       ...s,
       user: profileMap.get(s.user_id) ?? { id: s.user_id, full_name: null, email: null, role: "user" },
       duration_seconds: s.last_activity_at

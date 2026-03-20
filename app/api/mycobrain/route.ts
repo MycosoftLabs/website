@@ -113,16 +113,16 @@ function normalizeDevice(d: Record<string, unknown>) {
   return {
     ...d,
     port: d.port || d.device,
-    device_id: d.device_id || `mycobrain-${(d.port || d.device || "unknown").replace(/[\/\\]/g, "-")}`,
+    device_id: d.device_id || `mycobrain-${(String(d.port || d.device || "unknown") as string).replace(/[\/\\]/g, "-")}`,
     connected: d.connected ?? (d.status === "connected"),
     // Mark as verified MycoBrain device if it has board info
     is_mycobrain: true,
     verified: true,
     // Normalize info -> device_info for frontend compatibility
     device_info: d.device_info || {
-      side: d.info?.side,
-      firmware_version: d.info?.firmware,
-      board_type: d.info?.board,
+      side: (d.info as Record<string, unknown>)?.side,
+      firmware_version: (d.info as Record<string, unknown>)?.firmware,
+      board_type: (d.info as Record<string, unknown>)?.board,
       bme688_count: 2, // MycoBrain boards typically have 2 BME688 sensors
       status: d.status,
     },

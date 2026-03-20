@@ -63,8 +63,8 @@ const appsItems = [
 // Individual dropdown component with animations
 interface NavDropdownProps {
   label: string
-  icon: React.ElementType
-  items: { title: string; href: string; icon: React.ElementType; description: string }[]
+  icon: React.ComponentType<{ className?: string }>
+  items: { title: string; href: string; icon: React.ComponentType<{ className?: string }>; description: string }[]
   isOpen: boolean
   onOpen: () => void
   onClose: () => void

@@ -56,7 +56,7 @@ interface LayerControlsProps {
 interface LayerItem {
   key: string;
   label: string;
-  icon: React.ElementType;
+  icon: React.ElementType<{ className?: string }>;
   description: string;
   primary?: boolean;
   comingSoon?: boolean;
@@ -64,7 +64,7 @@ interface LayerItem {
 
 interface LayerGroup {
   name: string;
-  icon: React.ElementType;
+  icon: React.ElementType<{ className?: string }>;
   isPrimary?: boolean;
   isEarth2?: boolean;
   layers: LayerItem[];

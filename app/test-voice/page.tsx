@@ -506,7 +506,7 @@ export default function VoiceTestPage() {
           s.status === "online" ? "success" : "error",
           `${s.name}: ${s.status === "online" ? "ONLINE" : "OFFLINE"}${s.latency ? ` (${s.latency}ms)` : ""}`
         )
-        if (i === 1 && serviceResults[i]?.data?.features) setBridgeFeatures(serviceResults[i].data!.features)
+        if (i === 1 && serviceResults[i]?.data?.features) setBridgeFeatures(serviceResults[i].data!.features!)
       }
 
       finalServices = updatedServices
@@ -618,7 +618,7 @@ export default function VoiceTestPage() {
       addLog("success", `Session: ${session.session_id.slice(0, 8)}...`)
       
       if (useV9DiagnosticsRef.current) {
-        v9.createSession(session.session_id)
+        (v9 as any).createSession(session.session_id)
       }
       
       // Initialize memory session
@@ -724,8 +724,8 @@ export default function VoiceTestPage() {
               addLog("event", `MAS: [${masEvent.type}] ${masEvent.message}`)
               // TTS: injection events contain MYCA response — send to Bridge for Moshi TTS (PersonaPlex)
               const injContent = (masEvent.data as { content?: string })?.content
-              if (masEvent.type === "injection" && injContent && typeof injContent === "string") {
-                addInjection((masEvent.data as { type?: string })?.type || "brain_response", injContent)
+              if ((masEvent.type as string) === "injection" && injContent && typeof injContent === "string") {
+                addInjection(((masEvent.data as { type?: string })?.type || "brain_response") as InjectionItem["type"], injContent)
               }
             } else if (msg.type === "injection_ack") {
               // Injection acknowledged by Moshi
@@ -1031,7 +1031,7 @@ export default function VoiceTestPage() {
           }
         }
         
-        recognition.onerror = (e) => {
+        recognition.onerror = (e: any) => {
           if (e.error !== "no-speech" && e.error !== "aborted") {
             addLog("warn", `Speech recognition: ${e.error}`)
           }
@@ -1672,10 +1672,10 @@ export default function VoiceTestPage() {
                     outputActive={isSpeaking}
                     onMicToggle={() => {
                       if (isRecognizing) stopAudioCapture()
-                      else if (testPhase === "voice" && wsRef.current) startAudioCapture(wsRef.current)
+                      else if ((testPhase as string) === "voice" && wsRef.current) startAudioCapture(wsRef.current)
                     }}
                     onOutputToggle={() => {}}
-                    disabled={testPhase !== "voice"}
+                    disabled={(testPhase as string) !== "voice"}
                   />
                 </div>
                 <LiveTranscriptPane

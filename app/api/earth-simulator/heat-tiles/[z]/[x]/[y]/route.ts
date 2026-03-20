@@ -165,7 +165,7 @@ export async function GET(
       (bounds.east + bounds.west) / 2
     )
     
-    return new NextResponse(png, {
+    return new NextResponse(new Uint8Array(png), {
       status: 200,
       headers: {
         "Content-Type": "image/png",

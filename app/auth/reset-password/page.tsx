@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
     }
 
     checkToken()
-  }, [supabase.auth])
+  }, [supabase?.auth])
 
   // Password strength calculation
   const passwordStrength = useMemo((): PasswordStrength => {
@@ -114,7 +114,7 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { error: updateError } = await supabase!.auth.updateUser({
         password: password,
       })
 

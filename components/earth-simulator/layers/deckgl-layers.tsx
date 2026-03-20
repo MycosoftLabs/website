@@ -12,7 +12,12 @@
  */
 
 import { useEffect, useMemo, useCallback } from "react"
-import type { Entity, Observation, Event as OEIEvent, GeoLocation } from "@/types/oei"
+import type { Entity, Observation as BaseObservation, Event as OEIEvent, GeoLocation } from "@/types/oei"
+
+// Extend Observation with optional location for map display
+type Observation = BaseObservation & {
+  location?: GeoLocation
+}
 
 // =============================================================================
 // TYPES
@@ -136,7 +141,7 @@ export function generateObservationScatterData(observations: Observation[]): Arr
     .map(obs => ({
       id: obs.id,
       position: [obs.location!.longitude, obs.location!.latitude] as [number, number],
-      radius: Math.max(5, Math.min(20, (obs.value || 1) / 10)),
+      radius: Math.max(5, Math.min(20, (Number(obs.value) || 1) / 10)),
       color: OBSERVATION_COLORS[obs.type] || OBSERVATION_COLORS.default,
       observation: obs,
     }))
@@ -153,7 +158,7 @@ export function generateHeatmapData(observations: Observation[]): Array<{
     .filter(o => o.location?.latitude && o.location?.longitude)
     .map(obs => ({
       position: [obs.location!.longitude, obs.location!.latitude] as [number, number],
-      weight: obs.value || 1,
+      weight: Number(obs.value) || 1,
     }))
 }
 

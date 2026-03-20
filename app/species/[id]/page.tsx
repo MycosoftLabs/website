@@ -65,6 +65,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
 
     let speciesData
     if (knownSpecies) {
+      const ks = knownSpecies as any
       console.log("Found species in mapping:", knownSpecies.scientificName)
       // Get iNaturalist data for the known species
       try {
@@ -72,13 +73,13 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
         // Merge with our known data
         speciesData = {
           ...speciesData,
-          description: knownSpecies.description || speciesData.description,
-          characteristics: knownSpecies.characteristics,
-          compounds: knownSpecies.compounds,
+          description: ks.description || speciesData.description,
+          characteristics: ks.characteristics,
+          compounds: ks.compounds,
           // Keep iNaturalist images but add our defaults as fallback
           images: [
             ...speciesData.images,
-            ...(knownSpecies.defaultImages || []).map((img) => ({
+            ...((ks.defaultImages || []) as any[]).map((img: any) => ({
               ...img,
               taxon_id: params.id,
               source: "mycosoft" as const,
@@ -91,11 +92,11 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
           id: params.id,
           commonName: knownSpecies.commonNames[0],
           scientificName: knownSpecies.scientificName,
-          description: knownSpecies.description || "",
-          taxonomy: knownSpecies.taxonomy,
-          characteristics: knownSpecies.characteristics,
-          compounds: knownSpecies.compounds,
-          images: (knownSpecies.defaultImages || []).map((img) => ({
+          description: ks.description || "",
+          taxonomy: ks.taxonomy,
+          characteristics: ks.characteristics,
+          compounds: ks.compounds,
+          images: ((ks.defaultImages || []) as any[]).map((img: any) => ({
             ...img,
             taxon_id: params.id,
             source: "mycosoft" as const,
@@ -122,7 +123,7 @@ export default async function SpeciesPage({ params }: SpeciesPageProps) {
       }
     }
 
-    return <SpeciesTemplate species={speciesData} />
+    return <SpeciesTemplate species={speciesData as any} />
   } catch (error) {
     if (error instanceof Error && error.message.includes("Species not found")) {
       return notFound()

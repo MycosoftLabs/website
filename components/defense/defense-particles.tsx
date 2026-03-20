@@ -20,7 +20,8 @@
      let isMounted = true
 
      async function initParticles() {
-       await import("particles.js")
+       // @ts-ignore - particles.js has no type declarations
+      await import("particles.js")
        if (!isMounted || !window.particlesJS) return
 
        window.particlesJS("particles-js", {

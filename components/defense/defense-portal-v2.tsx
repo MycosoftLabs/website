@@ -91,7 +91,7 @@ function DefenseHeroVideo() {
 // Mission Critical Application Modal
 interface MissionModalData {
   title: string
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   problem: string
   scenario: string
   outcome: string

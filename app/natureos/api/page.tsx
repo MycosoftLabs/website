@@ -38,7 +38,7 @@ interface APIEndpoint {
   category: string
   realtime?: boolean
   mycaIntegrated?: boolean
-  params?: { name: string; type: string; required?: boolean }[]
+  params?: { name: string; type: string; description?: string; required?: boolean }[]
   bodySchema?: string
 }
 

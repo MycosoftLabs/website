@@ -48,24 +48,26 @@ const GIBS_LAYERS = [
 type GibsLayer = (typeof GIBS_LAYERS)[number]
 
 function resolveLayerDate(layer: GibsLayer) {
-  if (layer.isStatic) return layer.fixedDate ?? "2012-01-01"
-  if (layer.fixedDate) return layer.fixedDate
-  const lag = layer.dateLagDays ?? 1
+  const l = layer as any
+  if (l.isStatic) return l.fixedDate ?? "2012-01-01"
+  if (l.fixedDate) return l.fixedDate
+  const lag = l.dateLagDays ?? 1
   return new Date(Date.now() - lag * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
 
 function buildGibsStyle(layer: GibsLayer, date: string) {
-  const tiles = layer.useWms
+  const l = layer as any
+  const tiles = l.useWms
     ? [
         `https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi` +
           `?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
-          `&LAYERS=${layer.layer}&STYLES=&FORMAT=image/${layer.format}` +
+          `&LAYERS=${l.layer}&STYLES=&FORMAT=image/${l.format}` +
           `&TRANSPARENT=TRUE&HEIGHT=256&WIDTH=256&SRS=EPSG:3857` +
           `&BBOX={bbox-epsg-3857}` +
-          (layer.omitTime ? "" : `&TIME=${date}`),
+          (l.omitTime ? "" : `&TIME=${date}`),
       ]
     : [
-        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${layer.layer}/default/${date}/${layer.tileMatrix}/{z}/{y}/{x}.${layer.format}`,
+        `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/${l.layer}/default/${date}/${l.tileMatrix}/{z}/{y}/{x}.${l.format}`,
       ]
 
   return {
@@ -84,7 +86,7 @@ function buildGibsStyle(layer: GibsLayer, date: string) {
         tiles,
         tileSize: 256,
         minzoom: 0,
-        maxzoom: layer.maxZoom,
+        maxzoom: l.maxZoom,
         scheme: "xyz",
       },
     },
@@ -101,7 +103,7 @@ function buildGibsStyle(layer: GibsLayer, date: string) {
         type: "raster",
         source: "gibs",
         minzoom: 0,
-        maxzoom: layer.maxZoom,
+        maxzoom: l.maxZoom,
         paint: {
           "raster-opacity": 0.75,
         },
@@ -146,9 +148,9 @@ export default function SatelliteTilesDemo() {
       {mapStyle ? (
         <Map
         initialViewState={{ longitude: 0, latitude: 0, zoom: 1.2 }}
-        mapStyle={mapStyle}
+        mapStyle={mapStyle as any}
         style={{ width: "100%", height: "100%" }}
-        maxZoom={activeLayer.maxZoom}
+        maxZoom={(activeLayer as any).maxZoom}
         minZoom={0}
         dragRotate={false}
         mapLib={maplibregl}

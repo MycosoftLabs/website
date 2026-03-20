@@ -289,7 +289,7 @@ export async function POST(
             {
               timestamp: new Date().toISOString(),
               sensor: "control",
-              data: { action, streaming: action === "start", port, device_id: deviceId },
+              data: { action, streaming: action === "start" ? "true" : "false", port, device_id: deviceId },
             },
           ])
           await fetch(`${MINDEX_API_URL}/api/telemetry/envelope`, {

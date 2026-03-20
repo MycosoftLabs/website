@@ -19,11 +19,9 @@ const HeatMaterial = shaderMaterial(
 
 extend({ HeatMaterial });
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      heatMaterial: any;
-    }
+declare module "@react-three/fiber" {
+  interface ThreeElements {
+    heatMaterial: any;
   }
 }
 

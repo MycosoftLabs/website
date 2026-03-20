@@ -373,7 +373,7 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
           <NeuCardContent className="relative z-10">
             <div className="flex items-start justify-between">
               <div className={`p-3 rounded-xl ${theme.iconBg} group-hover:scale-110 transition-transform`}>
-                <app.icon className={`h-6 w-6 ${theme.iconColor}`} />
+                {(() => { const I = app.icon as React.ComponentType<any>; return <I className={`h-6 w-6 ${theme.iconColor}`} />; })()}
               </div>
               <NeuBadge 
                 variant={app.status === "operational" ? "success" : "default"}
@@ -557,7 +557,7 @@ export function AppsPortal() {
               </div>
 
               <Link href="/natureos">
-                <NeuButton variant="primary" size="lg">
+                <NeuButton variant="primary" className="text-lg px-6 py-3">
                   Launch NatureOS
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </NeuButton>

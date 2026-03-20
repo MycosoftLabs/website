@@ -21,11 +21,9 @@ const MyceliumMaterial = shaderMaterial(
 
 extend({ MyceliumMaterial });
 
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      myceliumMaterial: any;
-    }
+declare module "@react-three/fiber" {
+  interface ThreeElements {
+    myceliumMaterial: any;
   }
 }
 

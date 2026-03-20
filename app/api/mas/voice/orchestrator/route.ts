@@ -261,7 +261,7 @@ async function fetchMindexDataForQuery(message: string): Promise<string | null> 
     const results = data.results || {}
     const parts: string[] = []
     if (results.taxa?.length) {
-      const taxa = results.taxa.slice(0, 5).map((t: { scientific_name?: string; common_name?: string }) =>
+      const taxa = results.taxa.slice(0, 5).map((t: { scientific_name?: string; common_name?: string; name?: string }) =>
         `- ${t.scientific_name || t.name || "?"}${t.common_name ? ` (${t.common_name})` : ""}`
       )
       parts.push(`Species in MINDEX: ${taxa.join("; ")}`)

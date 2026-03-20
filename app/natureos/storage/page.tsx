@@ -715,7 +715,7 @@ export default function StoragePage() {
             <p className="text-xs text-muted-foreground">Backup to NAS</p>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" asChild>
+        <Card className="cursor-pointer hover:border-primary/50 transition-colors">
           <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer">
             <CardContent className="p-6 text-center">
               <ExternalLink className="h-8 w-8 mx-auto mb-2 text-purple-500" />

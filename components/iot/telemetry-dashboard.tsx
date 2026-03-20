@@ -72,7 +72,7 @@ export function TelemetryDashboard() {
     ? `/api/iot/insights/trends?device_id=${encodeURIComponent(selectedId)}`
     : "/api/iot/insights/trends"
 
-  const { data: trendsData } = useSWR<TrendSeries>(trendsKey, async (url) => {
+  const { data: trendsData } = useSWR<TrendSeries>(trendsKey, async (url: string) => {
     const response = await fetch(url, { cache: "no-store" })
     if (!response.ok) return { points: [] }
     return response.json()

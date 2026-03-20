@@ -29,8 +29,8 @@ function OrbitScene({ satellites }: { satellites: SatelliteRecord[] }) {
 
     satellites.forEach((sat, i) => {
       const posVel = satellite.propagate(sat.satrec, now)
+      if (!posVel || typeof posVel === "boolean" || !posVel.position) return
       const positionEci = posVel.position
-      if (!positionEci) return
 
       const geo = satellite.eciToGeodetic(positionEci, gmst)
       const lat = geo.latitude
@@ -47,10 +47,10 @@ function OrbitScene({ satellites }: { satellites: SatelliteRecord[] }) {
       dummy.position.set(x, y, z)
       dummy.scale.setScalar(0.01)
       dummy.updateMatrix()
-      instancedRef.current.setMatrixAt(i, dummy.matrix)
+      instancedRef.current!.setMatrixAt(i, dummy.matrix)
     })
 
-    instancedRef.current.instanceMatrix.needsUpdate = true
+    instancedRef.current!.instanceMatrix.needsUpdate = true
   })
 
   return (

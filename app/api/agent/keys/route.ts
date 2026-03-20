@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = getAdmin()
-    const { data: keys, error } = await admin
-      .from('agent_api_keys')
+    const { data: keys, error } = await (admin
+      .from('agent_api_keys') as any)
       .select('id, key_prefix, name, is_active, scopes, rate_limit_per_minute, rate_limit_per_day, requests_today, last_used_at, created_at, revoked_at')
       .eq('profile_id', agent.profile_id)
       .order('created_at', { ascending: false })
@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'key_id required for rotate' }, { status: 400 })
       }
 
-      const { error: revokeErr } = await admin
-        .from('agent_api_keys')
+      const { error: revokeErr } = await (admin
+        .from('agent_api_keys') as any)
         .update({ is_active: false, revoked_at: new Date().toISOString() })
         .eq('id', key_id)
         .eq('profile_id', agent.profile_id)
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     const keyHash = createHash('sha256').update(rawKey).digest('hex')
     const keyPrefix = rawKey.slice(0, 11)
 
-    const { data: newKey, error: insertErr } = await admin
-      .from('agent_api_keys')
+    const { data: newKey, error: insertErr } = await (admin
+      .from('agent_api_keys') as any)
       .insert({
         profile_id: agent.profile_id,
         key_hash: keyHash,
@@ -136,8 +136,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const admin = getAdmin()
-    const { error } = await admin
-      .from('agent_api_keys')
+    const { error } = await (admin
+      .from('agent_api_keys') as any)
       .update({
         is_active: false,
         revoked_at: new Date().toISOString(),

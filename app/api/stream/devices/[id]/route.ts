@@ -39,16 +39,16 @@ export async function GET(
 
   const customReadable = new ReadableStream({
     async start(controller) {
-      let ws: WebSocket | null = null;
+      let ws: any = null;
       let heartbeatInterval: NodeJS.Timeout | null = null;
 
       try {
         // Connect to MAS WebSocket
         const wsUrl = `${MAS_WS_URL}/ws/devices/${encodeURIComponent(deviceId)}`;
-        
+
         // Use Node.js WebSocket (ws package)
         const WebSocket = (await import('ws')).default;
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(wsUrl) as any;
 
         // Send initial connection message
         controller.enqueue(
@@ -89,7 +89,7 @@ export async function GET(
         });
 
         // WebSocket error handler
-        ws.on('error', (error) => {
+        ws.on('error', (error: any) => {
           console.error(`[Device Stream ${deviceId}] WebSocket error:`, error);
           
           controller.enqueue(

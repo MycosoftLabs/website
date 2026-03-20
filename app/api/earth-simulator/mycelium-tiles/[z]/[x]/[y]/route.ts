@@ -190,7 +190,7 @@ export async function GET(
     const tileData = generateTileData(zoom, tileX, tileY)
     const png = createPNG(TILE_SIZE, TILE_SIZE, tileData)
     
-    return new NextResponse(png, {
+    return new NextResponse(new Uint8Array(png), {
       status: 200,
       headers: {
         "Content-Type": "image/png",

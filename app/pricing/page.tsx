@@ -358,7 +358,7 @@ export default function PricingPage() {
                         !feature.included && "text-muted-foreground"
                       )}>
                         {feature.name}
-                        {feature.limit && (
+                        {'limit' in feature && feature.limit && (
                           <span className="ml-1 text-muted-foreground">({feature.limit})</span>
                         )}
                       </span>

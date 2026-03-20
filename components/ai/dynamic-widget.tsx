@@ -102,7 +102,7 @@ export function DynamicWidget({
         </CardHeader>
       )}
       <CardContent className="space-y-4">
-        {validatedWidget.components.map((component) => (
+        {validatedWidget.components.map((component: any) => (
           <ComponentRenderer
             key={component.id}
             component={component}
@@ -131,7 +131,7 @@ export function DynamicWidget({
 
 // Component renderer for each type
 interface ComponentRendererProps {
-  component: Component
+  component: any
   onAction?: (actionId: string, data?: unknown) => void
   onFormSubmit?: (formId: string, data: Record<string, unknown>) => void
 }
@@ -184,7 +184,7 @@ function ComponentRenderer({ component, onAction, onFormSubmit }: ComponentRende
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${component.columns}, 1fr)` }}
         >
-          {component.children.map((child: Component) => (
+          {component.children.map((child: any) => (
             <ComponentRenderer key={child.id} component={child} onAction={onAction} onFormSubmit={onFormSubmit} />
           ))}
         </div>
@@ -206,7 +206,7 @@ function ComponentRenderer({ component, onAction, onFormSubmit }: ComponentRende
       )
     case "spacer":
       const sizeMap = { sm: 2, md: 4, lg: 8, xl: 12 }
-      return <div style={{ height: `${sizeMap[component.size] * 4}px` }} />
+      return <div style={{ height: `${sizeMap[component.size as keyof typeof sizeMap] * 4}px` }} />
     case "image":
       return <ImageRenderer component={component} />
     case "map":
@@ -449,7 +449,7 @@ function CardRenderer({
       )}
       {component.children && (
         <CardContent className="space-y-4">
-          {component.children.map((child: Component) => (
+          {component.children.map((child: any) => (
             <ComponentRenderer key={child.id} component={child} onAction={onAction} onFormSubmit={onFormSubmit} />
           ))}
         </CardContent>
@@ -481,7 +481,7 @@ function TabsRenderer({
       </TabsList>
       {component.tabs.map((tab) => (
         <TabsContent key={tab.id} value={tab.id} className="space-y-4">
-          {tab.children.map((child: Component) => (
+          {tab.children.map((child: any) => (
             <ComponentRenderer key={child.id} component={child} onAction={onAction} onFormSubmit={onFormSubmit} />
           ))}
         </TabsContent>

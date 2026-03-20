@@ -184,8 +184,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       amount: session.amount_total,
       currency: session.currency,
       status: 'paid',
-      shipping_address: session.shipping_details,
-    });
+      shipping_address: (session as any).shipping_details,
+    } as any);
 
     console.log(`Order created for user ${userId}, product ${productId}`);
   }
@@ -206,7 +206,7 @@ async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
       .from('profiles')
       .select('id, balance_cents, total_paid_cents')
       .eq('email', email)
-      .single();
+      .single() as any;
 
     if (existing) {
       profileId = existing.id;
@@ -222,7 +222,7 @@ async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
       balance_cents: 0,
       total_paid_cents: 0,
       is_agent: true,
-    });
+    } as any);
   }
 
   // 2. Record payment
@@ -235,20 +235,20 @@ async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
     stripe_checkout_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string,
     description: 'Agent Worldstate Access',
-  });
+  } as any);
 
   // 3. Credit balance
   const { data: profile } = await supabase
     .from('profiles')
     .select('balance_cents, total_paid_cents')
     .eq('id', profileId)
-    .single();
+    .single() as any;
 
   const currentBalance = profile?.balance_cents ?? 0;
   const currentPaid = profile?.total_paid_cents ?? 0;
 
-  await supabase
-    .from('profiles')
+  await (supabase
+    .from('profiles') as any)
     .update({
       balance_cents: currentBalance + amountCents,
       total_paid_cents: currentPaid + amountCents,
@@ -267,7 +267,7 @@ async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
     name: 'Stripe onboard',
     scopes: ['agent:read', 'agent:write'],
     is_active: true,
-  });
+  } as any);
 
   // 5. Insert agent event
   await supabase.from('agent_events').insert({
@@ -276,14 +276,14 @@ async function handleAgentWorldstateCheckout(session: Stripe.Checkout.Session) {
     severity: 'info',
     message: `Payment received: $${(amountCents / 100).toFixed(2)} via Stripe`,
     metadata: { session_id: session.id, amount_cents: amountCents },
-  });
+  } as any);
 
   // 6. Store temp key for success page retrieval
   await supabase.from('agent_temp_keys').insert({
     session_id: session.id,
     raw_key: rawKey,
     profile_id: profileId,
-  });
+  } as any);
 
   console.log(`Agent worldstate checkout completed for profile ${profileId}, key ${keyPrefix}...`);
 }
@@ -351,7 +351,7 @@ async function handleTrialWillEnd(subscription: Stripe.Subscription) {
     title: 'Your trial is ending soon',
     message: 'Your NatureOS Pro trial will end in 3 days. Add a payment method to continue.',
     read: false,
-  });
+  } as any);
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -365,12 +365,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     await getSupabaseAdmin().from('payments').insert({
       user_id: customer.metadata.supabase_user_id,
       stripe_invoice_id: invoice.id,
-      stripe_payment_intent_id: invoice.payment_intent as string,
+      stripe_payment_intent_id: (invoice as any).payment_intent as string,
       amount: invoice.amount_paid,
       currency: invoice.currency,
       status: 'succeeded',
       description: invoice.description || 'Subscription payment',
-    });
+    } as any);
   }
 }
 
@@ -390,7 +390,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       title: 'Payment Failed',
       message: 'Your payment could not be processed. Please update your payment method.',
       read: false,
-    });
+    } as any);
     
     // Record failed payment
     await getSupabaseAdmin().from('payments').insert({
@@ -400,7 +400,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       currency: invoice.currency,
       status: 'failed',
       description: 'Payment failed',
-    });
+    } as any);
   }
 }
 
@@ -430,28 +430,22 @@ async function updateUserSubscription(
     tier = planId?.toLowerCase() || 'pro';
   }
   
-  await getSupabaseAdmin()
-    .from('profiles')
-    .update({
-      subscription_tier: tier,
-      stripe_subscription_id: subscription.id,
-      subscription_status: subscription.status,
-      subscription_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-    })
-    .eq('id', userId);
+  await (getSupabaseAdmin().from('profiles') as any).update({
+    subscription_tier: tier,
+    stripe_subscription_id: subscription.id,
+    subscription_status: subscription.status,
+    subscription_period_end: new Date((subscription as any).current_period_end * 1000).toISOString(),
+  }).eq('id', userId);
   
   console.log(`Updated user ${userId} subscription to ${tier}`);
 }
 
 async function downgradeToFree(userId: string) {
-  await getSupabaseAdmin()
-    .from('profiles')
-    .update({
-      subscription_tier: 'free',
-      stripe_subscription_id: null,
-      subscription_status: 'canceled',
-    })
-    .eq('id', userId);
+  await (getSupabaseAdmin().from('profiles') as any).update({
+    subscription_tier: 'free',
+    stripe_subscription_id: null,
+    subscription_status: 'canceled',
+  }).eq('id', userId);
   
   console.log(`Downgraded user ${userId} to free tier`);
 }

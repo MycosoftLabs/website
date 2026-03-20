@@ -72,6 +72,7 @@ export function DraggableGrid({
     
     Promise.all([
       import('packery'),
+      // @ts-expect-error no types available
       import('draggabilly').catch(() => null) // Draggabilly might not be available
     ]).then(([packeryModule, draggabillyModule]) => {
       PackeryJS = packeryModule.default || packeryModule

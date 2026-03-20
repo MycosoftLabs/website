@@ -12,7 +12,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Marker, Popup } from "react-map-gl/maplibre"
 import type { GeoBounds } from "@/types/oei"
-import type { AirQualityObservation } from "@/lib/oei/connectors/openaq"
+import type { AirQualityObservation as BaseAirQualityObservation } from "@/lib/oei/connectors/openaq"
+import type { GeoLocation } from "@/types/oei"
+
+// Extend AirQualityObservation with location for map display
+type AirQualityObservation = BaseAirQualityObservation & {
+  location?: GeoLocation
+}
 
 // =============================================================================
 // TYPES
@@ -152,13 +158,13 @@ interface AQMarkerProps {
 function AQMarker({ observation, isSelected, onClick, onHover }: AQMarkerProps) {
   if (!observation.location) return null
 
-  const pm25 = observation.values?.pm25 ?? observation.value ?? 0
+  const pm25 = observation.values?.pm25 ?? (Number(observation.value) || 0)
   const aqi = observation.aqiCategory || getAQICategory(pm25)
 
   return (
     <Marker
-      longitude={observation.location.longitude}
-      latitude={observation.location.latitude}
+      longitude={observation.location!.longitude}
+      latitude={observation.location!.latitude}
       anchor="center"
       onClick={(e) => {
         e.originalEvent.stopPropagation()
@@ -201,13 +207,13 @@ interface AQPopupProps {
 function AQPopup({ observation, onClose }: AQPopupProps) {
   if (!observation.location) return null
 
-  const pm25 = observation.values?.pm25 ?? observation.value ?? 0
+  const pm25 = observation.values?.pm25 ?? (Number(observation.value) || 0)
   const aqi = observation.aqiCategory || getAQICategory(pm25)
 
   return (
     <Popup
-      longitude={observation.location.longitude}
-      latitude={observation.location.latitude}
+      longitude={observation.location!.longitude}
+      latitude={observation.location!.latitude}
       anchor="bottom"
       offset={[0, -20]}
       closeButton
@@ -280,7 +286,7 @@ function AQPopup({ observation, onClose }: AQPopupProps) {
           <div className="flex items-center justify-between pt-2 border-t border-gray-700">
             <span className="text-gray-400">Location</span>
             <span className="text-gray-300 text-xs">
-              {observation.location.latitude.toFixed(3)}, {observation.location.longitude.toFixed(3)}
+              {observation.location!.latitude.toFixed(3)}, {observation.location!.longitude.toFixed(3)}
             </span>
           </div>
 

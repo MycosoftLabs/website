@@ -52,8 +52,8 @@ function useIsMobile() {
     }
 
     // Safari < 14 fallback
-    mediaQuery.addListener(handleChange)
-    return () => mediaQuery.removeListener(handleChange)
+    ;(mediaQuery as any).addListener(handleChange)
+    return () => (mediaQuery as any).removeListener(handleChange)
   }, [])
 
   return isMobile
@@ -1149,8 +1149,8 @@ export function Mushroom1Details() {
           </div>
 
           <div className="mt-8 flex justify-center gap-4">
-            <NeuButton 
-              variant="outline" 
+            <NeuButton
+              variant="default"
               className="min-h-[44px] border-emerald-500/30 dark:border-emerald-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-emerald-500/10 dark:hover:bg-gray-600"
               onClick={() => {
                 alert("Full specifications document will be available soon.")
@@ -1159,8 +1159,8 @@ export function Mushroom1Details() {
               <Download className="mr-2 h-5 w-5" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton 
-              variant="outline" 
+            <NeuButton
+              variant="default"
               className="min-h-[44px] border-emerald-500/30 dark:border-emerald-500/50 dark:bg-gray-700 text-slate-900 dark:!text-white hover:bg-emerald-500/10 dark:hover:bg-gray-600"
               onClick={() => {
                 alert("3D CAD model viewer will be available soon. CAD files pending upload.")
@@ -1211,7 +1211,7 @@ export function Mushroom1Details() {
                 <ShoppingCart className="mr-2 h-6 w-6" />
                 Pre-Order - $2,000
               </NeuButton>
-              <NeuButton variant="outline" className="min-h-[44px] px-8 py-6 text-lg border-white/30 !text-white hover:!text-white hover:bg-white/10">
+              <NeuButton variant="default" className="min-h-[44px] px-8 py-6 text-lg border-white/30 !text-white hover:!text-white hover:bg-white/10">
                 <Download className="mr-2 h-6 w-6" />
                 Download Brochure
               </NeuButton>

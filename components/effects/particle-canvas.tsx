@@ -76,10 +76,10 @@ export function ParticleCanvas({ className }: Props) {
     }
 
     function resize() {
-      const parent = canvas.parentElement
-      W = canvas.width  = parent ? parent.offsetWidth  : window.innerWidth
-      H = canvas.height = parent ? parent.offsetHeight : window.innerHeight
-      ctx.clearRect(0, 0, W, H)
+      const parent = canvas!.parentElement
+      W = canvas!.width  = parent ? parent.offsetWidth  : window.innerWidth
+      H = canvas!.height = parent ? parent.offsetHeight : window.innerHeight
+      ctx!.clearRect(0, 0, W, H)
       spawn()
     }
 
@@ -87,10 +87,10 @@ export function ParticleCanvas({ className }: Props) {
       if (!running) return
       for (const p of particles) {
         stepParticle(p, W, H)
-        ctx.beginPath()
-        ctx.fillStyle = "rgba(255,255,255,0.04)"
-        ctx.arc(p.x, p.y, 1, 0, Math.PI * 2)
-        ctx.fill()
+        ctx!.beginPath()
+        ctx!.fillStyle = "rgba(255,255,255,0.04)"
+        ctx!.arc(p.x, p.y, 1, 0, Math.PI * 2)
+        ctx!.fill()
       }
       rafId = requestAnimationFrame(loop)
     }

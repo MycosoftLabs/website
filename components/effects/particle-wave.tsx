@@ -39,7 +39,7 @@ export function ParticleWave({
   className = "",
 }: ParticleWaveProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const particlesRef = useRef<Particle[]>([])
 
   // Modified random-normal distribution
@@ -62,7 +62,7 @@ export function ParticleWave({
   }, [])
 
   const randomNormal = useCallback((options: { mean: number; dev: number; pool?: number[] }) => {
-    const o = { mean: 0, dev: 1, pool: [], ...options }
+    const o = { pool: [] as number[], ...options }
     
     if (Array.isArray(o.pool) && o.pool.length > 0) {
       let r = 0

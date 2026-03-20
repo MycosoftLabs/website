@@ -61,10 +61,10 @@ export function SporeParticleCanvas() {
     let emitter = { x: 0, y: 0 }
 
     function resize() {
-      const W = canvas.parentElement?.clientWidth ?? 400
-      const H = canvas.parentElement?.clientHeight ?? 300
-      canvas.width = W
-      canvas.height = H
+      const W = canvas!.parentElement?.clientWidth ?? 400
+      const H = canvas!.parentElement?.clientHeight ?? 300
+      canvas!.width = W
+      canvas!.height = H
       // Emitter on the right, vertically centered – particles flow left
       emitter = { x: W - 24, y: H / 2 }
     }
@@ -81,26 +81,26 @@ export function SporeParticleCanvas() {
     }
 
     function draw() {
-      const W = canvas.width
-      const H = canvas.height
+      const W = canvas!.width
+      const H = canvas!.height
 
       for (let i = 0; i < 15; i++) {
         createParticle()
       }
 
-      ctx.globalCompositeOperation = "source-over"
-      ctx.fillStyle = bgColorRef.current
-      ctx.fillRect(0, 0, W, H)
+      ctx!.globalCompositeOperation = "source-over"
+      ctx!.fillStyle = bgColorRef.current
+      ctx!.fillRect(0, 0, W, H)
 
       const partNum = holder.length
       for (let i = partNum - 1; i >= 0; i--) {
         const temp = holder[i]
         if (!temp) continue
 
-        ctx.fillStyle = findColor(temp.life)
-        ctx.beginPath()
-        ctx.arc(temp.x, temp.y, temp.r, 0, Math.PI * 2, true)
-        ctx.fill()
+        ctx!.fillStyle = findColor(temp.life)
+        ctx!.beginPath()
+        ctx!.arc(temp.x, temp.y, temp.r, 0, Math.PI * 2, true)
+        ctx!.fill()
 
         temp.x -= wind - temp.traction
         temp.life -= 40
@@ -111,10 +111,10 @@ export function SporeParticleCanvas() {
         }
       }
 
-      ctx.fillStyle = EMITTER_COLOR
-      ctx.beginPath()
-      ctx.arc(emitter.x, emitter.y, 3, 0, Math.PI * 2, true)
-      ctx.fill()
+      ctx!.fillStyle = EMITTER_COLOR
+      ctx!.beginPath()
+      ctx!.arc(emitter.x, emitter.y, 3, 0, Math.PI * 2, true)
+      ctx!.fill()
 
       animationId = requestAnimationFrame(draw)
     }

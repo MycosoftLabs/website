@@ -48,7 +48,7 @@ export function NeuralWeb({
 }: NeuralWebProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const spidersRef = useRef<Spider[]>([])
   const mouseRef = useRef<Point>({ x: 0, y: 0 })
   const [dimensions, setDimensions] = useState({ w: 0, h: 0 })

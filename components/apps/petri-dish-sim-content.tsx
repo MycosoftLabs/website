@@ -105,7 +105,7 @@ export function PetriDishSimContent({ showBackLink = true, variant = "app" }: Pe
           </div>
           <div className="flex flex-col gap-4 lg:w-72 shrink-0">
             <ChemicalParamsPanel
-              compounds={compounds}
+              compounds={compounds as unknown as Record<string, number>}
               enzymes={enzymes}
               onCompoundChange={() => {}}
               onEnzymeToggle={() => {}}

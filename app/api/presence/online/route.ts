@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       .select("id, full_name, email, role")
       .in("id", userIds)
 
-    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
 
     const { data: sessions } = await supabase
       .from("active_sessions")
@@ -62,11 +62,11 @@ export async function GET(request: Request) {
       .eq("is_active", true)
       .in("user_id", userIds)
 
-    const sessionMap = new Map((sessions ?? []).map((s) => [s.user_id, s]))
+    const sessionMap = new Map((sessions ?? []).map((s: any) => [s.user_id, s]))
 
-    const online = Array.from(latestByUser.entries()).map(([uid, hb]) => {
-      const profile = profileMap.get(uid)
-      const sess = sessionMap.get(uid)
+    const online = Array.from(latestByUser.entries()).map(([uid, hb]: any) => {
+      const profile = profileMap.get(uid) as any
+      const sess = sessionMap.get(uid) as any
       const isSuperuser = ["admin", "superuser", "owner"].includes(
         (profile?.role ?? "").toLowerCase()
       )
@@ -82,9 +82,9 @@ export async function GET(request: Request) {
         email: profile?.email ?? null,
         role: profile?.role ?? "user",
         is_superuser: isSuperuser,
-        current_page: hb.current_page ?? "/",
+        current_page: (hb as any).current_page ?? "/",
         session_duration_seconds: duration,
-        last_heartbeat: hb.heartbeat_at,
+        last_heartbeat: (hb as any).heartbeat_at,
       }
     })
 

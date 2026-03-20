@@ -2171,7 +2171,7 @@ export default function CREPDashboardPage() {
           if (eventsRes.ok) {
             const data = await eventsRes.json();
             // Allow lat/lng of 0 (solar flares at Sun, geomagnetic at pole) - use typeof check
-            const formattedEvents = (data.events || [])
+            let formattedEvents = (data.events || [])
               .filter((e: any) => typeof e.location?.latitude === "number" && typeof e.location?.longitude === "number")
               .map((e: any) => ({
                 id: e.id,
@@ -2198,7 +2198,7 @@ export default function CREPDashboardPage() {
             // Filter by search query if it came from the overlay parent
             const urlQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q")?.toLowerCase() : null;
             if (urlQuery) {
-              formattedEvents = formattedEvents.filter((e: any) => 
+              formattedEvents = formattedEvents.filter((e: any) =>
                 (e.title && e.title.toLowerCase().includes(urlQuery)) ||
                 (e.description && e.description.toLowerCase().includes(urlQuery)) ||
                 (e.locationName && e.locationName.toLowerCase().includes(urlQuery)) ||
@@ -3869,7 +3869,7 @@ export default function CREPDashboardPage() {
                         const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
                         const isResearchGrade = obs.quality_grade === "research";
                         const isSelected = selectedFungal?.id === obs.id;
-                        const { Icon, color } = getObservationListIcon(obs);
+                        const { Icon, color } = getObservationListIcon(obs as any);
                         
                         return (
                           <div
@@ -4193,7 +4193,7 @@ export default function CREPDashboardPage() {
                 } else if (entity.type === "fungal") {
                   setSelectedOther(null);
                   // Use entity.properties (full observation) - more robust than lookup
-                  const fromProps = entity.properties as FungalObservation | undefined;
+                  const fromProps = entity.properties as unknown as FungalObservation | undefined;
                   const obs =
                     fromProps && typeof fromProps.id !== "undefined" && typeof fromProps.latitude === "number" && typeof fromProps.longitude === "number"
                       ? fromProps

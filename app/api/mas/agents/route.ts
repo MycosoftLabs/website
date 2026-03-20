@@ -94,7 +94,7 @@ async function getAllAgents(): Promise<AgentInfo[]> {
       
       // Update agents with live data where available
       agents.forEach(agent => {
-        const liveAgent = liveStatusMap.get(agent.agent_id)
+        const liveAgent = liveStatusMap.get(agent.agent_id) as Record<string, any> | undefined
         if (liveAgent) {
           agent.status = liveAgent.status || agent.status
           agent.container_id = liveAgent.container_id

@@ -124,7 +124,7 @@ export async function GET(request: Request) {
     logDataCollection("satellites", "celestrak.org", satellites.length, latency, false)
     
     // Ingest satellite data to MINDEX for persistent storage (non-blocking)
-    ingestSatellites("celestrak", satellites)
+    ingestSatellites("celestrak", satellites as any)
 
     const responseData = {
       source: "celestrak",
@@ -156,7 +156,7 @@ export async function GET(request: Request) {
     if (is429 && cached) {
       console.log(`[Satellites] 429 rate limit - returning stale cache for "${validCategory}"`)
       return NextResponse.json(
-        { ...(cached.data as object), rateLimit: true, message: "Rate limit reached; showing cached data." },
+        { ...(cached.data as Record<string, unknown>), rateLimit: true, message: "Rate limit reached; showing cached data." },
         { status: 200 }
       )
     }

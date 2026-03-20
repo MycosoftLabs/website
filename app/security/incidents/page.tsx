@@ -200,7 +200,7 @@ function StatCard({
   pulse,
   tooltip,
 }: {
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   color: string;
@@ -365,7 +365,7 @@ function ViewModeSelector({
   mode: ViewMode;
   onChange: (mode: ViewMode) => void;
 }) {
-  const modes: { id: ViewMode; icon: React.ElementType; label: string; tooltip: string }[] = [
+  const modes: { id: ViewMode; icon: React.ComponentType<{ className?: string }>; label: string; tooltip: string }[] = [
     { id: 'mempool', icon: Layers, label: 'Mempool', tooltip: 'Full blockchain explorer view with treemap, blocks, and statistics' },
     { id: 'split', icon: Grid3X3, label: 'Split View', tooltip: 'Side-by-side view of incident stream and agent activity' },
     { id: 'incidents', icon: AlertTriangle, label: 'Incidents', tooltip: 'Live incident stream with real-time updates' },

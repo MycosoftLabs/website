@@ -55,7 +55,7 @@ export function PerspectiveTable({
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
   const [lastDataLength, setLastDataLength] = useState(data.length)
   const [showRefreshIndicator, setShowRefreshIndicator] = useState(false)
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Detect data changes for refresh indicator
   useEffect(() => {

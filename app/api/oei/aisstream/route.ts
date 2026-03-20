@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     if (publish) {
       const result = await client.publishCachedVessels(query)
       logDataCollection("aisstream", "aisstream.com", result.entities.length, latency, true, "memory")
-      ingestVessels("aisstream", result.entities)
+      ingestVessels("aisstream", result.entities as any)
       const responseData = {
         success: true,
         published: result.published,
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(responseData)
     } else {
       logDataCollection("aisstream", "aisstream.com", vessels.length, latency, true, "memory")
-      ingestVessels("aisstream", vessels)
+      ingestVessels("aisstream", vessels as any)
       const responseData = {
         success: true,
         total: vessels.length,

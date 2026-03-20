@@ -38,7 +38,7 @@ function getSupabase() {
 async function createCausalityLink(
   sourceIncidentId: string,
   targetIncidentId: string,
-  relationshipType: 'causes' | 'caused_by' | 'related' | 'prevented' = 'causes',
+  relationshipType: string = 'causes',
   confidence: number = 0.85,
   predictedBy: string = 'CascadePredictionAgent'
 ) {
@@ -318,7 +318,7 @@ async function resolveTestIncident(
         agent_name: agent.name,
         agent_category: agent.category,
         incident_id: incidentId,
-        action_type: status === 'resolved' ? 'resolved' : 'updated',
+        action_type: status === 'resolved' ? 'resolved' : 'monitored',
         action_data: { new_status: status, test: true },
         severity: 'medium',
       });
@@ -341,7 +341,7 @@ async function createTestIncident(type: string, withChain: boolean = true) {
     { id: 'hunter', name: 'Threat Hunter', category: 'security' as const },
     { id: 'guardian', name: 'System Guardian', category: 'security' as const },
     { id: 'network-sentinel', name: 'Network Sentinel', category: 'infrastructure' as const },
-    { id: 'log-analyzer', name: 'Log Analyzer', category: 'monitoring' as const },
+    { id: 'log-analyzer', name: 'Log Analyzer', category: 'data' as const },
     { id: 'behavior-detector', name: 'Behavior Detector', category: 'security' as const },
     { id: 'file-integrity', name: 'File Integrity Monitor', category: 'security' as const },
     { id: 'endpoint-agent', name: 'Endpoint Protection Agent', category: 'security' as const },

@@ -292,11 +292,11 @@ export function Hyphae1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.1 }}
           >
-            <NeuButton size="lg" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-8">
+            <NeuButton className="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-8">
               <ShoppingCart className="mr-2 h-5 w-5" />
               Configure & Order
             </NeuButton>
-            <NeuButton size="lg" variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-5 w-5" />
               Download Datasheet
             </NeuButton>
@@ -700,11 +700,11 @@ export function Hyphae1Details() {
           </div>
           
           <div className="flex justify-center gap-4 mt-12">
-            <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-4 w-4" />
               Download Full Specifications
             </NeuButton>
-            <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <NeuButton variant="default" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Eye className="mr-2 h-4 w-4" />
               View CAD Models
             </NeuButton>
@@ -730,11 +730,11 @@ export function Hyphae1Details() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <NeuButton size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
+                <NeuButton className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
                   <ShoppingCart className="mr-2 h-5 w-5" />
                   Configure & Order
                 </NeuButton>
-                <NeuButton size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                <NeuButton variant="default" className="border-white/30 text-white hover:bg-white/10">
                   <ExternalLink className="mr-2 h-5 w-5" />
                   Contact Sales
                 </NeuButton>

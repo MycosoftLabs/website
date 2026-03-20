@@ -148,7 +148,7 @@ export function PerlinFlow({
   const containerRef = useRef<HTMLDivElement>(null)
   const noiseRef = useRef<NoiseGenerator | null>(null)
   const zRef = useRef<number>(Math.random() * 222)
-  const animationFrameRef = useRef<number>()
+  const animationFrameRef = useRef<number>(0)
 
   const render = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
     if (!noiseRef.current) return

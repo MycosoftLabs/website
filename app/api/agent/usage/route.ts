@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     }
 
     const admin = getAdmin()
-    const { data, error } = await admin.rpc('get_agent_usage_summary', {
+    const { data, error } = await admin.rpc('get_agent_usage_summary' as any, {
       p_profile_id: agent.profile_id,
-    })
+    } as any)
 
     if (error) {
       console.error('[agent/usage] RPC error:', error.message)

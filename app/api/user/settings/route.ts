@@ -90,7 +90,7 @@ async function loadUserSettings(userId: string): Promise<typeof DEFAULT_SETTINGS
     const data = await fs.readFile(filePath, "utf-8")
     const savedSettings = JSON.parse(data)
     // Merge with defaults to ensure all keys exist
-    return deepMerge(DEFAULT_SETTINGS, savedSettings)
+    return deepMerge(DEFAULT_SETTINGS, savedSettings) as typeof DEFAULT_SETTINGS
   } catch (error) {
     // File doesn't exist, return defaults
     return { ...DEFAULT_SETTINGS }

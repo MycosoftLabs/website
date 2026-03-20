@@ -131,7 +131,7 @@ function GateCard({
   title,
   description,
 }: {
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   title: string
   description: string
 }) {

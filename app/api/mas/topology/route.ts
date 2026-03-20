@@ -295,9 +295,7 @@ function generateConnections(
       active: isActive,
       intensity: isActive ? Math.round((rand() * 0.7 + 0.3) * 100) / 100 : 0.1,
       bidirectional: pc.bidirectional,
-      // Mark as persisted for UI differentiation
-      metadata: { persisted: true, createdBy: pc.created_by, createdAt: pc.created_at },
-    })
+    } as TopologyConnection & { metadata?: Record<string, unknown> })
   })
   
   // Get default connections
@@ -408,10 +406,13 @@ function generatePackets(connections: TopologyConnection[], count: number = 30):
         sourceId: direction ? conn.sourceId : conn.targetId,
         targetId: direction ? conn.targetId : conn.sourceId,
         type: packetTypes[Math.floor(rand() * 3)],
+        priority: "normal",
         size: Math.floor(rand() * 1000 + 100),
+        latency: Math.floor(rand() * 100 + 5),
         timestamp: Date.now(), // Current time for animation
         progress: ((Date.now() / 1000 + idx * 0.3 + i * 0.5) % 1), // Animated progress
-      })
+        direction: direction ? "forward" : "reverse",
+      } as DataPacket)
     }
   })
   
@@ -527,9 +528,9 @@ export async function GET(request: NextRequest) {
     // Calculate stats
     const activeNodes = nodes.filter(n => n.status === "active" || n.status === "busy").length
     const activeConnections = connections.filter(c => c.active).length
-    const persistedCount = connections.filter(c => c.metadata?.persisted).length
+    const persistedCount = connections.filter(c => (c as any).metadata?.persisted).length
     
-    const topology: ExtendedTopologyData = {
+    const topology = {
       nodes,
       connections,
       packets,
@@ -540,8 +541,8 @@ export async function GET(request: NextRequest) {
         activeConnections,
         persistedConnections: persistedCount,
         messagesPerSecond: connections.reduce((sum, c) => sum + c.traffic.messagesPerSecond, 0),
-        avgLatencyMs: connections.length > 0 
-          ? connections.reduce((sum, c) => sum + c.traffic.latencyMs, 0) / connections.length 
+        avgLatencyMs: connections.length > 0
+          ? connections.reduce((sum, c) => sum + c.traffic.latencyMs, 0) / connections.length
           : 0,
         systemLoad: activeNodes / nodes.length,
         uptimeSeconds: 86400 * 3 + Math.floor(Math.random() * 86400),
@@ -552,7 +553,7 @@ export async function GET(request: NextRequest) {
       predictions: [],
       // Include persistence info
       persistence: supabase ? "supabase" : "memory",
-    }
+    } as ExtendedTopologyData & { persistence: string }
     
     return NextResponse.json(topology)
   } catch (error) {

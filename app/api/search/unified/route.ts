@@ -352,13 +352,14 @@ async function searchINaturalist(query: string, limit: number, fungiIntent: bool
       ? await searchFungi(query)
       : await searchTaxa(query)
     if (!data?.results) return []
+    const typedResults = data.results as unknown as INaturalistTaxon[]
     const filtered = fungiIntent
-      ? data.results.filter(
+      ? typedResults.filter(
           (r: INaturalistTaxon) =>
             (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
             (r.preferred_common_name || r.name)
         )
-      : data.results.filter((r: INaturalistTaxon) => r.preferred_common_name || r.name)
+      : typedResults.filter((r: INaturalistTaxon) => r.preferred_common_name || r.name)
     return filtered
       .slice(0, limit)
       .map((r: INaturalistTaxon) => {
@@ -369,14 +370,14 @@ async function searchINaturalist(query: string, limit: number, fungiIntent: bool
         }
         for (const a of r.ancestors || []) {
           const rank = (a.rank || "").toLowerCase()
-          if (rank === "phylum") taxonomy.phylum = a.name
-          else if (rank === "class") taxonomy.class = a.name
-          else if (rank === "order") taxonomy.order = a.name
-          else if (rank === "family") taxonomy.family = a.name
-          else if (rank === "genus") taxonomy.genus = a.name
+          if (rank === "phylum") taxonomy.phylum = a.name || ''
+          else if (rank === "class") taxonomy.class = a.name || ''
+          else if (rank === "order") taxonomy.order = a.name || ''
+          else if (rank === "family") taxonomy.family = a.name || ''
+          else if (rank === "genus") taxonomy.genus = a.name || ''
         }
         // Infer genus from binomial name if still empty
-        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0]
+        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0] || ''
 
         return {
           id: `inat-${r.id}`,
@@ -781,13 +782,13 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
         }
         for (const a of r.ancestors || []) {
           const rank = (a.rank || "").toLowerCase()
-          if (rank === "phylum") taxonomy.phylum = a.name
-          else if (rank === "class") taxonomy.class = a.name
-          else if (rank === "order") taxonomy.order = a.name
-          else if (rank === "family") taxonomy.family = a.name
-          else if (rank === "genus") taxonomy.genus = a.name
+          if (rank === "phylum") taxonomy.phylum = a.name || ''
+          else if (rank === "class") taxonomy.class = a.name || ''
+          else if (rank === "order") taxonomy.order = a.name || ''
+          else if (rank === "family") taxonomy.family = a.name || ''
+          else if (rank === "genus") taxonomy.genus = a.name || ''
         }
-        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0]
+        if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0] || ''
 
         return {
           id: `inat-${r.id}`,
@@ -1106,8 +1107,8 @@ function ensureUniqueIds<T extends { id?: string; scientificName?: string; name?
       return item
     })
     .filter((item) => {
-      if (seen.has(item.id)) return false
-      seen.add(item.id)
+      if (seen.has(item.id || '')) return false
+      seen.add(item.id || '')
       return true
     })
 }

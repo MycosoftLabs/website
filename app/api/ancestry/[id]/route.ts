@@ -34,7 +34,7 @@ export async function GET(
               return NextResponse.json({
                 species,
                 source: "mindex",
-                data_quality: species.metadata?.data_quality ?? null,
+                data_quality: (species as any).metadata?.data_quality ?? null,
               })
             }
           }

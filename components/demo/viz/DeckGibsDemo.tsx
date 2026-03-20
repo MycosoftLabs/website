@@ -67,7 +67,7 @@ export default function DeckGibsDemo() {
       {mapStyle ? (
         <Map
           initialViewState={{ longitude: 0, latitude: 10, zoom: 2.2 }}
-          mapStyle={mapStyle}
+          mapStyle={mapStyle as any}
           style={{ width: "100%", height: "100%" }}
           maxZoom={9}
           minZoom={0}
