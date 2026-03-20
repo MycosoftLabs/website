@@ -179,6 +179,7 @@ All notable changes to this project will be documented in this file.
 - Wire Myca brain into search, expand live results to all domains, fix STT
 - Lowercase Docker image tag in sandbox build step
 - Use PRODUCTION_HOST + Cloudflare Tunnel for deploy (matches instant-deploy)
+- Use GITHUB_TOKEN for GHCR auth in sandbox deploy
 
 ### CREP
 
@@ -209,6 +210,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
