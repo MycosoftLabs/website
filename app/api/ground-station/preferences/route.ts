@@ -1,24 +1,32 @@
 /**
- * Ground Station Preferences API Proxy
+ * Ground Station Preferences API
+ *
+ * Key-value preference storage.
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { eq } from "drizzle-orm"
+import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
-const GS_API_URL = process.env.GROUND_STATION_URL || "http://localhost:5000"
-
 export async function GET() {
   try {
-    const res = await fetch(`${GS_API_URL}/api/preferences`, {
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!res.ok) throw new Error(`GS backend: ${res.status}`)
-    return NextResponse.json(await res.json())
-  } catch (error) {
+    const prefs = await gsDb.select().from(schema.gsPreferences)
     return NextResponse.json(
-      { error: "Ground Station preferences unavailable", details: String(error) },
-      { status: 502 }
+      prefs.map((p) => ({
+        id: p.id,
+        name: p.name,
+        value: p.value,
+        added: p.added?.toISOString(),
+        updated: p.updated?.toISOString(),
+      }))
+    )
+  } catch (error) {
+    console.error("Ground Station preferences error:", error)
+    return NextResponse.json(
+      { error: "Ground Station preferences error", details: String(error) },
+      { status: 500 }
     )
   }
 }
@@ -26,18 +34,41 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const res = await fetch(`${GS_API_URL}/api/preferences`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000),
+
+    const existing = await gsDb
+      .select()
+      .from(schema.gsPreferences)
+      .where(eq(schema.gsPreferences.name, body.name))
+      .limit(1)
+
+    if (existing.length > 0) {
+      const [pref] = await gsDb
+        .update(schema.gsPreferences)
+        .set({ value: body.value, updated: new Date() })
+        .where(eq(schema.gsPreferences.name, body.name))
+        .returning()
+      return NextResponse.json({
+        id: pref.id,
+        name: pref.name,
+        value: pref.value,
+      })
+    }
+
+    const [pref] = await gsDb
+      .insert(schema.gsPreferences)
+      .values({ name: body.name, value: body.value })
+      .returning()
+
+    return NextResponse.json({
+      id: pref.id,
+      name: pref.name,
+      value: pref.value,
     })
-    if (!res.ok) throw new Error(`GS backend: ${res.status}`)
-    return NextResponse.json(await res.json())
   } catch (error) {
+    console.error("Ground Station preferences update error:", error)
     return NextResponse.json(
       { error: "Ground Station preferences update failed", details: String(error) },
-      { status: 502 }
+      { status: 500 }
     )
   }
 }

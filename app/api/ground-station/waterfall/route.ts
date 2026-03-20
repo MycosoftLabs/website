@@ -1,48 +1,54 @@
 /**
- * Ground Station Waterfall/SDR API Proxy
+ * Ground Station Waterfall/SDR API
  *
- * Proxies waterfall state queries and SDR control commands.
+ * Waterfall state management. Since SDR hardware control requires
+ * a physical device, this manages the state/configuration in memory.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
-const GS_API_URL = process.env.GROUND_STATION_URL || "http://localhost:5000"
+// In-memory waterfall state (per-instance)
+let waterfallState = {
+  running: false,
+  sdr_id: null as string | null,
+  center_frequency: 145800000,
+  sample_rate: 2400000,
+  gain: 40,
+  fft_size: 2048,
+  averaging: 4,
+}
 
 export async function GET() {
-  try {
-    const res = await fetch(`${GS_API_URL}/api/waterfall/state`, {
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!res.ok) throw new Error(`GS backend: ${res.status}`)
-    return NextResponse.json(await res.json())
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Ground Station waterfall unavailable", details: String(error) },
-      { status: 502 }
-    )
-  }
+  return NextResponse.json(waterfallState)
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const action = body.action
 
-    const endpoint = action === "stop" ? "/api/waterfall/stop" : "/api/waterfall/start"
-    const res = await fetch(`${GS_API_URL}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000),
-    })
-    if (!res.ok) throw new Error(`GS backend: ${res.status}`)
-    return NextResponse.json(await res.json())
+    if (body.action === "stop") {
+      waterfallState = { ...waterfallState, running: false }
+      return NextResponse.json(waterfallState)
+    }
+
+    waterfallState = {
+      running: true,
+      sdr_id: body.sdr_id || waterfallState.sdr_id,
+      center_frequency: body.center_frequency || waterfallState.center_frequency,
+      sample_rate: body.sample_rate || waterfallState.sample_rate,
+      gain: body.gain ?? waterfallState.gain,
+      fft_size: body.fft_size || waterfallState.fft_size,
+      averaging: body.averaging ?? waterfallState.averaging,
+    }
+
+    return NextResponse.json(waterfallState)
   } catch (error) {
+    console.error("Ground Station waterfall control error:", error)
     return NextResponse.json(
       { error: "Ground Station waterfall control failed", details: String(error) },
-      { status: 502 }
+      { status: 500 }
     )
   }
 }
