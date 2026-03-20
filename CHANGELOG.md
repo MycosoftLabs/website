@@ -176,6 +176,9 @@ All notable changes to this project will be documented in this file.
 - *(agent)* Allow guest checkout for agent worldstate — no login required
 - *(agent)* Use inline price_data when Stripe Price ID not configured
 - Correct AI stack page content — MYCA, AVANI, NLM, and AI overview
+- Wire Myca brain into search, expand live results to all domains, fix STT
+- Lowercase Docker image tag in sandbox build step
+- Use PRODUCTION_HOST + Cloudflare Tunnel for deploy (matches instant-deploy)
 
 ### CREP
 
@@ -206,6 +209,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -327,6 +331,11 @@ All notable changes to this project will be documented in this file.
 - Replace Jetson Core OS / OpenClaw with NVIDIA NemoClaw + Nemotron
 - Agent platform — API key validation, key management, MYCA hooks, success page
 - Worldview API — public data only, path allowlist, response sanitization
+- Integrate embedding-atlas with CREP and search for large-scale data visualization
+- Integrate ground-station satellite tracking system into CREP and NatureOS
+- Wire Nemotron into voice orchestrator, add NVIDIA NIM + CPU fallbacks
+- Compartmentalized CREP live dashboard in search widget
+- Wire all CREP domains into search widget with live compartmentalized data
 
 ### Fix
 
@@ -363,6 +372,12 @@ All notable changes to this project will be documented in this file.
 - Inject Supabase + wallet env vars into production .env during deploy
 - Add Fast Deploy workflow — skip build, pull + restart only
 - Add Instant Deploy and Fast Deploy workflows
+- Update tsconfig.tsbuildinfo after embedding-atlas integration
+- Update tsconfig build info
+- Update tsconfig build info
+- Update tsconfig build info
+- Update tsconfig build info
+- Make ESLint step non-blocking to unblock deployments
 
 ### Refactor
 
