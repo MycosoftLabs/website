@@ -17,17 +17,19 @@
  */
 
 import { NextResponse } from "next/server"
-import { sql as vercelSql } from "@vercel/postgres"
+import { neon } from "@neondatabase/serverless"
 import { gsDb, schema } from "@/lib/ground-station/db"
 
 export const dynamic = "force-dynamic"
 
+const rawSql = neon(process.env.DATABASE_URL || process.env.POSTGRES_URL || "")
+
 export async function POST() {
   try {
     // =========================================================================
-    // CREATE TABLES (idempotent) - use @vercel/postgres sql directly for DDL
+    // CREATE TABLES (idempotent) - use raw neon client for DDL
     // =========================================================================
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_satellites (
         norad_id INTEGER PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -53,7 +55,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_transmitters (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         description TEXT,
@@ -87,7 +89,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_groups (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -98,7 +100,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_group_satellites (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         group_id UUID NOT NULL REFERENCES gs_groups(id),
@@ -106,7 +108,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_locations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -119,7 +121,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_sdrs (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -135,7 +137,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_rotators (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -152,7 +154,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_rigs (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -169,7 +171,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_cameras (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -181,7 +183,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_observations (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -212,7 +214,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_monitored_satellites (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         enabled BOOLEAN DEFAULT true,
@@ -229,7 +231,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_tracking_state (
         id VARCHAR(20) PRIMARY KEY DEFAULT 'current',
         norad_id INTEGER,
@@ -243,7 +245,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_preferences (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
@@ -253,7 +255,7 @@ export async function POST() {
       )
     `
 
-    await vercelSql`
+    await rawSql`
       CREATE TABLE IF NOT EXISTS gs_tle_sources (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -266,13 +268,13 @@ export async function POST() {
     `
 
     // Create indexes
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_satellites_name_idx ON gs_satellites(name)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_satellites_status_idx ON gs_satellites(status)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_transmitters_norad_idx ON gs_transmitters(norad_cat_id)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_group_satellites_group_idx ON gs_group_satellites(group_id)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_group_satellites_norad_idx ON gs_group_satellites(norad_id)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_observations_status_idx ON gs_observations(status)`
-    await vercelSql`CREATE INDEX IF NOT EXISTS gs_observations_norad_idx ON gs_observations(norad_id)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_satellites_name_idx ON gs_satellites(name)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_satellites_status_idx ON gs_satellites(status)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_transmitters_norad_idx ON gs_transmitters(norad_cat_id)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_group_satellites_group_idx ON gs_group_satellites(group_id)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_group_satellites_norad_idx ON gs_group_satellites(norad_id)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_observations_status_idx ON gs_observations(status)`
+    await rawSql`CREATE INDEX IF NOT EXISTS gs_observations_norad_idx ON gs_observations(norad_id)`
 
     // =========================================================================
     // SEED DATA
