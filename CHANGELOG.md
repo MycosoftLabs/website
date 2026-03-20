@@ -180,6 +180,10 @@ All notable changes to this project will be documented in this file.
 - Lowercase Docker image tag in sandbox build step
 - Use PRODUCTION_HOST + Cloudflare Tunnel for deploy (matches instant-deploy)
 - Use GITHUB_TOKEN for GHCR auth in sandbox deploy
+- Use @vercel/postgres sql tag for DDL in seed endpoint
+- Switch ground station DB from @vercel/postgres to @neondatabase/serverless
+- Lazy-init ground station DB to prevent build failure
+- Lazy-init neon() in seed route to prevent build crash
 
 ### CREP
 
@@ -210,6 +214,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
