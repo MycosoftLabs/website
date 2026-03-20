@@ -236,6 +236,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -339,6 +340,7 @@ All notable changes to this project will be documented in this file.
 - Wire Nemotron into voice orchestrator, add NVIDIA NIM + CPU fallbacks
 - Compartmentalized CREP live dashboard in search widget
 - Wire all CREP domains into search widget with live compartmentalized data
+- Self-contained ground station backend with CREP dashboard tab
 
 ### Fix
 
@@ -381,6 +383,7 @@ All notable changes to this project will be documented in this file.
 - Update tsconfig build info
 - Update tsconfig build info
 - Make ESLint step non-blocking to unblock deployments
+- Update tsconfig build info
 
 ### Refactor
 
