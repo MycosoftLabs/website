@@ -16,11 +16,13 @@ import {
   Crown, Shield, ArrowLeft, ChevronRight, Bell,
   CreditCard, LogOut, Brain, Globe, Menu, DollarSign
 } from "lucide-react"
+import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { MemoryHealthWidget } from "@/components/memory"
 import { MYCAFloatingButton } from "@/components/myca/MYCAFloatingButton"
 import { MYCAStateWidget } from "@/components/myca/MYCAStateWidget"
+import { DashboardHero } from "@/components/dashboard/dashboard-hero"
 
 function MRRWidget() {
   const [data, setData] = useState<{ mrr: number; active_users: number; api_calls: number } | null>(null)
@@ -70,7 +72,7 @@ function MRRWidget() {
           MRR & Beta Stats
         </CardTitle>
         <CardDescription className="text-slate-400">
-          From MINDEX beta_users and usage — March 5, 2026
+          From MINDEX beta_users and usage — {format(new Date(), "MMMM d, yyyy")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -251,17 +253,8 @@ export default function DashboardPage() {
         {/* MYCA State Widget — consciousness, grounding, pending confirmations */}
         <MYCAStateWidget />
 
-        {/* Purpose Explanation Card - What is this dashboard? */}
-        <div className="bg-gradient-to-r from-emerald-500/10 via-transparent to-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-          <p className="text-slate-300 text-sm">
-            <strong className="text-emerald-400">User Dashboard:</strong> This is your personal control center for managing devices, viewing data, and accessing Mycosoft services. 
-            {isSuperAdmin && (
-              <span className="ml-2">
-                As a Super Admin, you also have access to the <Link href="/admin" className="text-amber-400 hover:text-amber-300 underline">Admin Control Center</Link>.
-              </span>
-            )}
-          </p>
-        </div>
+        {/* NatureOS Introduction Hero */}
+        <DashboardHero displayName={displayName} isSuperAdmin={isSuperAdmin} />
 
         {/* Quick Stats */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
