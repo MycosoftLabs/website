@@ -184,6 +184,7 @@ All notable changes to this project will be documented in this file.
 - Switch ground station DB from @vercel/postgres to @neondatabase/serverless
 - Lazy-init ground station DB to prevent build failure
 - Lazy-init neon() in seed route to prevent build crash
+- Add DashboardHero to /natureos page
 
 ### CREP
 
@@ -214,6 +215,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
