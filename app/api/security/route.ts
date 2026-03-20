@@ -869,7 +869,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: !!manualExec, execution: manualExec });
       
       case 'test_ids':
-        // Generate test IDS event
+        // IDS pipeline validation only — generates synthetic event for testing. Not production data display.
         const mockEvent = await testWithMockEvent();
         return NextResponse.json({ success: true, event: mockEvent });
       

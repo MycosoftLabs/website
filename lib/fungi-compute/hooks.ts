@@ -31,26 +31,10 @@ const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188
 // ============================================================================
 // Device Management Hooks
 // ============================================================================
-
-// Static demo devices to prevent re-renders
-// Use mycobrain type + copper_steel probeType for compatibility with FCIDevice interface
-const DEMO_DEVICES: FCIDevice[] = [
-  {
-    id: "demo-fci-001",
-    name: "FCI Probe - Lab Demo",
-    type: "mycobrain",
-    probeType: "copper_steel",
-    status: "online",
-    location: { lat: 40.7128, lng: -74.0060 },
-    sampleRate: 250,
-    channels: 4,
-    lastSeen: new Date().toISOString(),
-    firmwareVersion: "1.0.0-demo",
-  }
-]
+// No mock/fallback devices per no-mock-data policy; empty state when API fails.
 
 export function useFCIDevices() {
-  const [devices, setDevices] = useState<FCIDevice[]>(DEMO_DEVICES)
+  const [devices, setDevices] = useState<FCIDevice[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const initialFetchDone = useRef(false)
@@ -59,17 +43,15 @@ export function useFCIDevices() {
     try {
       const res = await fetch(`/api/fci/devices`)
       if (!res.ok) {
-        // Keep demo devices if API fails - don't update state
+        setDevices([])
         return
       }
       const data = await res.json()
-      if (data.devices && data.devices.length > 0) {
-        setDevices(data.devices)
-      }
+      setDevices(data.devices ?? [])
       setError(null)
     } catch (err) {
-      // Keep demo devices on error - don't update state
-      setError(null)
+      setDevices([])
+      setError(err instanceof Error ? err : new Error("Failed to fetch devices"))
     }
   }, [])
 

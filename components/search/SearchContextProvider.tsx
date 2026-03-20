@@ -424,9 +424,7 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        session_id: typeof window !== "undefined"
-          ? sessionStorage.getItem("myca_session_id") || "anonymous"
-          : "anonymous",
+        session_id: `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         event_type: "search",
         data: {
           query,

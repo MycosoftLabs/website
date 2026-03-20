@@ -358,7 +358,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -370,6 +370,9 @@ jobs:
             echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
             echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
+            echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
             echo "Env vars injected"
           ENVSCRIPT2
 
@@ -505,7 +508,7 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             touch .env
-            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET; do
+            for var in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY MYCOSOFT_SOL_WALLET MYCOSOFT_ETH_WALLET MYCOSOFT_BTC_WALLET MAS_API_URL MINDEX_API_URL OPENAI_API_KEY; do
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
@@ -517,6 +520,9 @@ jobs:
             echo 'MYCOSOFT_SOL_WALLET=${{ secrets.MYCOSOFT_SOL_WALLET }}' >> .env
             echo 'MYCOSOFT_ETH_WALLET=${{ secrets.MYCOSOFT_ETH_WALLET }}' >> .env
             echo 'MYCOSOFT_BTC_WALLET=${{ secrets.MYCOSOFT_BTC_WALLET }}' >> .env
+            echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
+            echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
+            echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
           ENVSCRIPT2
 
       - name: Build and deploy on VM

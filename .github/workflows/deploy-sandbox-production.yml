@@ -111,6 +111,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
@@ -141,6 +142,7 @@ jobs:
               -e MYCOBRAIN_SERVICE_URL=http://host.docker.internal:8003 \
               -e NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-}" \
               -e NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" \
+              -e OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
               --restart unless-stopped \
               "$IMAGE_FULL"
 
