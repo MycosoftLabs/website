@@ -80,6 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: production
+    permissions:
+      packages: read
     steps:
       - name: Set image for deploy (GHCR uses lowercase)
         run: echo "IMAGE_FULL=${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]'):sandbox-latest" >> $GITHUB_ENV
@@ -106,17 +108,15 @@ jobs:
       - name: Deploy to Sandbox VM
         env:
           IMAGE_FULL: ${{ env.IMAGE_FULL }}
-          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
+          echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
           ssh production bash -s <<DEPLOY
             set -e
             BASE_URL="https://mycosoft.com"
-
-            if [ -n "$GHCR_PULL_TOKEN" ]; then
-              echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u mycosoft --password-stdin
-            fi
 
             echo "=== Pulling image ==="
             docker pull "$IMAGE_FULL"
