@@ -32,6 +32,7 @@ import {
   type InfrastructureResult,
   type DeviceResult,
   type SpaceWeatherResult,
+  type CameraResult,
 } from "@/lib/search/unified-search-sdk"
 
 // Re-export types for convenience
