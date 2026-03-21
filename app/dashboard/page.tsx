@@ -147,59 +147,116 @@ export default function DashboardPage() {
       {/* Navigation Header */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
-            {/* Left: Navigation */}
-            <div className="flex items-center gap-4">
-              <Link 
+          {/* Top row: Logo + User actions */}
+          <div className="flex items-center justify-between h-14">
+            {/* Left: Logo/Home */}
+            <div className="flex items-center gap-3">
+              <Link
                 href="/"
-                className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-white font-semibold hover:text-emerald-400 transition-colors"
               >
                 <Home className="w-5 h-5" />
-                <span className="hidden sm:inline">Home</span>
+                <span className="hidden sm:inline">Mycosoft</span>
               </Link>
               <ChevronRight className="w-4 h-4 text-slate-600" />
-              <span className="text-white font-medium">User Dashboard</span>
+              <span className="text-slate-300 font-medium text-sm">Dashboard</span>
             </div>
 
             {/* Right: User Menu */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               {isSuperAdmin && (
                 <>
-                  <Link 
+                  <Link
                     href="/dashboard/morgan"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg transition-colors text-sm"
                   >
                     <Crown className="w-4 h-4" />
                     <span className="hidden sm:inline">Morgan Oversight</span>
                   </Link>
-                  <Link 
+                  <Link
                     href="/admin"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg transition-colors text-sm"
                   >
+                    <Shield className="w-4 h-4" />
                     <span className="hidden sm:inline">Admin</span>
                   </Link>
                 </>
               )}
-              <Link 
+              <Link
                 href="/billing"
-                className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors min-h-[44px] px-1"
               >
                 <CreditCard className="w-4 h-4" />
-                <span className="hidden sm:inline">Billing</span>
+                <span className="hidden sm:inline text-sm">Billing</span>
               </Link>
-              <button className="text-slate-400 hover:text-white transition-colors relative min-h-[44px] min-w-[44px] flex items-center justify-center">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full" />
-              </button>
-              <button 
+              <Link
+                href="/natureos/settings"
+                className="text-slate-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
+              <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition-colors min-h-[44px] px-2"
+                className="flex items-center gap-2 text-slate-400 hover:text-red-400 transition-colors min-h-[44px] px-1"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span className="hidden sm:inline text-sm">Sign Out</span>
               </button>
             </div>
           </div>
+
+          {/* Navigation links row */}
+          <nav className="flex items-center gap-1 pb-2 overflow-x-auto scrollbar-none -mx-1 px-1">
+            <Link
+              href="/natureos"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Leaf className="w-4 h-4 text-emerald-400" />
+              NatureOS
+            </Link>
+            <Link
+              href="/apps"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Zap className="w-4 h-4 text-blue-400" />
+              Apps
+            </Link>
+            <Link
+              href="/mindex"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Database className="w-4 h-4 text-violet-400" />
+              MINDEX
+            </Link>
+            <Link
+              href="/myca"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Brain className="w-4 h-4 text-purple-400" />
+              MYCA
+            </Link>
+            <Link
+              href="/devices"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              Devices
+            </Link>
+            <Link
+              href="/search"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <Globe className="w-4 h-4 text-teal-400" />
+              Search
+            </Link>
+            <Link
+              href="/support"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap"
+            >
+              <ExternalLink className="w-4 h-4 text-amber-400" />
+              Support
+            </Link>
+          </nav>
         </div>
       </header>
 

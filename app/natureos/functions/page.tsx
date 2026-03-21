@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 import { 
   Code, 
   Play, 
@@ -197,16 +198,67 @@ const FUNCTIONS: ServerlessFunction[] = [
   },
 ]
 
+function timeAgoFromISO(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return `${seconds} sec ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days > 1 ? 's' : ''} ago`
+}
+
 export default function FunctionsPage() {
   const [functions, setFunctions] = useState<ServerlessFunction[]>(FUNCTIONS)
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [statsLoading, setStatsLoading] = useState(true)
   const [selectedFunction, setSelectedFunction] = useState<ServerlessFunction | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [aiPrompt, setAIPrompt] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedCode, setGeneratedCode] = useState("")
+  const [statsSource, setStatsSource] = useState<string>("loading")
+
+  // Fetch real function stats from API and overlay on metadata
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsLoading(true)
+      const res = await fetch("/api/natureos/functions/stats", { cache: "no-store" })
+      if (res.ok) {
+        const data = await res.json()
+        const statsMap = new Map<string, { invocations: number; avgDuration: number; lastRun: string | null; errorCount: number }>()
+        for (const stat of data.stats || []) {
+          statsMap.set(stat.functionName, stat)
+        }
+        setFunctions(prev => prev.map(fn => {
+          const stat = statsMap.get(fn.name)
+          if (stat) {
+            return {
+              ...fn,
+              invocations: stat.invocations,
+              avgDuration: stat.avgDuration,
+              lastRun: stat.lastRun ? timeAgoFromISO(stat.lastRun) : "No data",
+              status: stat.errorCount > 0 && stat.invocations > 0 && (stat.errorCount / stat.invocations) > 0.5 ? "error" as const : fn.status,
+            }
+          }
+          return { ...fn, invocations: 0, avgDuration: 0, lastRun: "No data" }
+        }))
+        setStatsSource(data.source || "api_usage_log")
+      }
+    } catch {
+      setStatsSource("unavailable")
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   const filteredFunctions = functions.filter(f => 
     f.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -349,7 +401,21 @@ export default async function handler(req: Request) {
             Manage serverless functions • MYCA oversees {mycaManagedCount} functions
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {statsSource !== "loading" && (
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {statsSource === "api_usage_log" ? "Live data" : statsSource === "fallback" ? "No usage data" : "Stats unavailable"}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fetchStats()}
+            disabled={statsLoading}
+            title="Refresh stats"
+          >
+            <RefreshCw className={cn("h-4 w-4", statsLoading && "animate-spin")} />
+          </Button>
           <Button variant="outline" asChild>
             <a href="http://localhost:5678" target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4 mr-2" />
