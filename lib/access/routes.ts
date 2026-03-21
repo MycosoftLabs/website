@@ -30,6 +30,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/apps/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator' },
   { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
+  { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
 ]
 
 // Freemium routes - public with limits
@@ -135,7 +136,6 @@ export const COMPANY_ROUTES: RouteAccess[] = [
   { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
   { path: '/natureos/fusarium', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FUSARIUM' },
   { path: '/natureos/mindex', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MINDEX' },
-  { path: '/natureos/crep', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'CREP Dashboard' },
   { path: '/natureos/storage', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Storage' },
   { path: '/natureos/containers', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Containers' },
   { path: '/natureos/monitoring', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Monitoring' },
@@ -341,6 +341,7 @@ const COMPANY_REQUIRED_PREFIXES: string[] = [
 
 const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/natureos/mindex/explorer',
+  '/natureos/crep',
   '/ancestry/explorer',
   '/apps/earth-simulator',
   '/apps/petri-dish-sim',
