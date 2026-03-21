@@ -39,6 +39,8 @@ import {
   Waves,
   Wind,
   RefreshCw,
+  Factory,
+  CloudFog,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -71,6 +73,7 @@ interface CrepDomainGroups {
   fungal: CrepSearchResult[]
   devices: CrepSearchResult[]
   spaceWeather: CrepSearchResult[]
+  emissions: CrepSearchResult[]
 }
 
 /** Legacy flat observation format (backwards compat) */
@@ -166,9 +169,16 @@ const DOMAIN_CONFIG: Record<DomainKey, {
     badgeColor: "bg-yellow-500/20 text-yellow-300",
     refreshInterval: 120_000,
   },
+  emissions: {
+    label: "Emissions",
+    icon: Factory,
+    gradient: "from-slate-500/20 to-zinc-600/10",
+    badgeColor: "bg-slate-500/20 text-slate-300",
+    refreshInterval: 60_000,
+  },
 }
 
-const DOMAIN_ORDER: DomainKey[] = ["aircraft", "vessels", "events", "fungal", "devices", "satellites", "spaceWeather"]
+const DOMAIN_ORDER: DomainKey[] = ["aircraft", "vessels", "events", "fungal", "devices", "satellites", "spaceWeather", "emissions"]
 
 // ============================================================================
 // Mini-Widget Renderers (compartmentalized dashboard cards)
@@ -380,6 +390,34 @@ function SpaceWeatherCard({ item }: { item: CrepSearchResult }) {
   )
 }
 
+function EmissionsCard({ item }: { item: CrepSearchResult }) {
+  const p = item.properties || {}
+  const isVessel = item.type === "vessel_emission"
+  const val = p.value || p.emissions_kg_hr
+  const unit = p.unit || "kg/hr"
+  return (
+    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-500/5 border border-slate-500/15 hover:border-slate-500/30 transition-colors">
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-500/15 shrink-0">
+        {isVessel ? <Ship className="h-4 w-4 text-slate-400" /> : <CloudFog className="h-4 w-4 text-slate-400" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-semibold text-slate-200 truncate block">{item.title}</span>
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+          {p.date ? <span>{String(p.date)}</span> : <span>Live</span>}
+          {p.source && <span className="uppercase">{String(p.source)}</span>}
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-0.5 shrink-0">
+        {val != null && (
+          <span className="text-[11px] font-mono text-slate-300">
+            {Number(val).toLocaleString()} {String(unit)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const CARD_RENDERERS: Record<DomainKey, React.FC<{ item: CrepSearchResult }>> = {
   aircraft: AircraftCard,
   vessels: VesselCard,
@@ -388,6 +426,7 @@ const CARD_RENDERERS: Record<DomainKey, React.FC<{ item: CrepSearchResult }>> = 
   fungal: FungalCard,
   devices: DeviceCard,
   spaceWeather: SpaceWeatherCard,
+  emissions: EmissionsCard,
 }
 
 // ============================================================================
@@ -504,18 +543,22 @@ export function CrepWidget({
       fungal: [],
       devices: [],
       spaceWeather: [],
+      emissions: [],
     }
 
     for (const item of data) {
       // Normalize: support both CrepSearchResult and legacy CrepObservation
       const normalized = normalizeToCrepResult(item)
       const t = normalized.type
+      const cDom = (item as any)?.domain
+      
       if (t === "aircraft") g.aircraft.push(normalized)
       else if (t === "vessel") g.vessels.push(normalized)
       else if (t === "satellite") g.satellites.push(normalized)
       else if (t === "event") g.events.push(normalized)
       else if (t === "device") g.devices.push(normalized)
       else if (t === "space_weather") g.spaceWeather.push(normalized)
+      else if (t === "co2_trend" || t === "ch4_trend" || t === "vessel_emission" || cDom === "emissions" || t === "emissions") g.emissions.push(normalized)
       else g.fungal.push(normalized) // default: fungal/species
     }
     return g

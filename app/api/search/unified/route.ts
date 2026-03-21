@@ -12,7 +12,7 @@ import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
 import { detectFungalSearchIntent } from "@/lib/search/world-view-suggestions"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
-import { searchEarthIntelligence } from "@/lib/search/earth-search-connectors"
+import { searchEarthIntelligence, detectEarthDomains } from "@/lib/search/earth-search-connectors"
 
 export const dynamic = "force-dynamic"
 
@@ -352,16 +352,17 @@ async function searchINaturalist(query: string, limit: number, fungiIntent: bool
       ? await searchFungi(query)
       : await searchTaxa(query)
     if (!data?.results) return []
+    const results = data.results as INaturalistTaxon[]
     const filtered = fungiIntent
-      ? data.results.filter(
-          (r: INaturalistTaxon) =>
+      ? results.filter(
+          (r) =>
             (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
             (r.preferred_common_name || r.name)
         )
-      : data.results.filter((r: INaturalistTaxon) => r.preferred_common_name || r.name)
+      : results.filter((r) => r.preferred_common_name || r.name)
     return filtered
       .slice(0, limit)
-      .map((r: INaturalistTaxon) => {
+      .map((r) => {
         // Parse real taxonomy from ancestor array (never hardcode empty strings)
         const taxonomy: Record<string, string> = {
           kingdom: fungiIntent ? "Fungi" : (r.iconic_taxon_name || ""),
@@ -818,10 +819,9 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
   }
 }
 
-async function searchINaturalistLiveObservations(query: string, limit: number) {
+async function searchINaturalistLiveObservations(query: string, limit: number, lat?: string, lng?: string) {
   try {
     const params = new URLSearchParams({
-      taxon_name: query,
       "has[]": "geo",
       per_page: String(limit),
       order: "desc",
@@ -829,6 +829,20 @@ async function searchINaturalistLiveObservations(query: string, limit: number) {
       photos: "true",
       quality_grade: "research,needs_id",
     })
+    
+    // Avoid literal generic searches, rely on location
+    if (query && query.toLowerCase() !== "species" && query.toLowerCase() !== "mushrooms") {
+      params.set("taxon_name", query)
+    } else {
+      params.set("iconic_taxa", "Fungi")
+    }
+
+    if (lat && lng) {
+      params.set("lat", lat)
+      params.set("lng", lng)
+      params.set("radius", "50")
+    }
+
     const res = await fetch(`https://api.inaturalist.org/v1/observations?${params.toString()}`, {
       signal: AbortSignal.timeout(4000),
     })
@@ -1097,7 +1111,7 @@ function deduplicateSpecies(primary: SpeciesResult[], secondary: SpeciesResult[]
   return results
 }
 
-function ensureUniqueIds<T extends { id?: string; scientificName?: string; name?: string }>(arr: T[], prefix: string): T[] {
+function ensureUniqueIds(arr: any[], prefix: string): any[] {
   const seen = new Set<string>()
   let counter = 0
   return arr
@@ -1106,8 +1120,8 @@ function ensureUniqueIds<T extends { id?: string; scientificName?: string; name?
       return item
     })
     .filter((item) => {
-      if (seen.has(item.id)) return false
-      seen.add(item.id)
+      if (seen.has(item.id as string)) return false
+      seen.add(item.id as string)
       return true
     })
 }
@@ -1131,9 +1145,14 @@ export async function GET(request: NextRequest) {
   const emptyResults = {
     species: [], compounds: [], genetics: [], research: [],
     events: [], aircraft: [], vessels: [], satellites: [],
-    weather: [], emissions: [], infrastructure: [], devices: [],
-    space_weather: [],
-  }
+    weather: [], emissions: [],  infrastructure: [],
+  devices: [],
+  space_weather: [],
+  cameras: [],
+}
+
+  const lat = searchParams.get("lat") || undefined
+  const lng = searchParams.get("lng") || undefined
 
   if (!query || query.length < 2) {
     return NextResponse.json({
@@ -1145,87 +1164,25 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // MAS-first: proxy to canonical search orchestrator (Mar 14, 2026)
-  // Use a short timeout (3s) — if MAS is on a private LAN unreachable from
-  // production, we fall through to direct searches quickly instead of blocking
-  // for 10s+ while the user stares at skeleton loaders.
-  if (USE_MAS_SEARCH) {
-    const masStart = performance.now()
-    const [masPayload, earthResults] = await Promise.all([
-      callMASSearchExecute({ query, limit }, AbortSignal.timeout(15000)).catch((err) => {
-        console.warn("[MAS Search] Proxy timed out or failed:", err.message)
-        return null
-      }),
-      searchEarthIntelligence(query, origin, limit).catch((err) => {
-        console.warn("[Earth Intel] Search failed:", err.message)
-        return null
-      })
-    ])
-    
-    if (masPayload) {
-      const { results, source, totalCount: masCount } = mapMASResponseToUnified(masPayload)
-      const masTime = Math.round(performance.now() - masStart)
-      
-      const {
-        events: earthEvents = [],
-        aircraft: earthAircraft = [],
-        vessels: earthVessels = [],
-        satellites: earthSatellites = [],
-        weather: earthWeather = [],
-        emissions: earthEmissions = [],
-        infrastructure: earthInfrastructure = [],
-        devices: earthDevices = [],
-        space_weather: earthSpaceWeather = [],
-      } = earthResults || {}
-      
-      const totalCount = masCount + earthEvents.length + earthAircraft.length + earthVessels.length +
-        earthSatellites.length + earthWeather.length + earthEmissions.length + earthInfrastructure.length +
-        earthDevices.length + earthSpaceWeather.length
-
-      await recordUsageFromRequest({
-        request,
-        usageType: "SPECIES_IDENTIFICATION",
-        quantity: 1,
-        metadata: { query, source: "mas" },
-      })
-      
-      return NextResponse.json({
-        query,
-        results: {
-          species: results.species as unknown as SpeciesResult[],
-          compounds: results.compounds as unknown as CompoundResult[],
-          genetics: results.genetics as unknown as GeneticsResult[],
-          research: results.research as unknown as ResearchResult[],
-          events: earthEvents,
-          aircraft: earthAircraft,
-          vessels: earthVessels,
-          satellites: earthSatellites,
-          weather: earthWeather,
-          emissions: earthEmissions,
-          infrastructure: earthInfrastructure,
-          devices: earthDevices,
-          space_weather: earthSpaceWeather,
-        },
-        totalCount,
-        timing: { total: masTime, mindex: masTime },
-        source,
-        live_results: [],
-      }, {
-        headers: {
-          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-        },
-      })
-    }
+  // Intercept location intent
+  let baseQuery = query
+  const isLocationIntent = /\b(near me|around me|around here|local|nearby)\b/i.test(query)
+  if (isLocationIntent) {
+    baseQuery = query.replace(/\b(near me|around me|around here|local|nearby)\b/gi, "").trim()
+    if (!baseQuery) baseQuery = "species"
   }
 
-  const fungiIntent = detectFungalSearchIntent(query)
+  const fungiIntent = detectFungalSearchIntent(baseQuery)
+  const earthDomainsObj = detectEarthDomains(baseQuery)
+  const isEarthIntent = Object.values(earthDomainsObj).some(Boolean)
+  const skipBio = isEarthIntent && !fungiIntent
 
   try {
     const mindexStart = performance.now()
 
     // Resolve scientific name + detect compound queries
-    const scientificName = resolveScientificName(query)
-    const queryLower = query.toLowerCase()
+    const scientificName = resolveScientificName(baseQuery)
+    const queryLower = baseQuery.toLowerCase()
     const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
 
     // Run ALL searches in parallel — species, compounds, genetics simultaneously
@@ -1244,32 +1201,34 @@ export async function GET(request: NextRequest) {
       compoundFungiRaw,        // fungi that produce this compound (for compound queries)
       aiAnswer,
       earthResults,            // ALL Earth Intelligence domains in parallel
+      masPayload,              // Canonical MAS Orchestrator
     ] = await Promise.all([
-      searchMindexUnified(query, limit),
-      types.includes("research") ? searchMindexResearch(query, limit, origin) : Promise.resolve([]),
-      types.includes("species") ? searchINaturalist(query, Math.min(limit, 10), fungiIntent) : Promise.resolve([]),
-      types.includes("species") ? searchINaturalistLiveObservations(query, Math.min(limit, 12)) : Promise.resolve([]),
-      types.includes("research") ? searchCrossRefResearch(query, limit, fungiIntent) : Promise.resolve([]),
-      types.includes("research") ? searchOpenAlexResearch(query, Math.min(limit, 5), fungiIntent) : Promise.resolve([]),
-      types.includes("research") && includeWeb ? searchExaWeb(query, Math.min(limit, 6), origin) : Promise.resolve([]),
+      (!skipBio) ? searchMindexUnified(baseQuery, limit).catch(() => ({ taxa: [], compounds: [], genetics: [] })) : Promise.resolve({ taxa: [], compounds: [], genetics: [] }),
+      types.includes("research") ? searchMindexResearch(baseQuery, limit, origin).catch(() => []) : Promise.resolve([]),
+      (types.includes("species") && !skipBio) ? searchINaturalist(baseQuery, Math.min(limit, 10), fungiIntent).catch(() => []) : Promise.resolve([]),
+      (types.includes("species") && !skipBio) ? searchINaturalistLiveObservations(baseQuery, Math.min(limit, 12), lat, lng).catch(() => []) : Promise.resolve([]),
+      types.includes("research") ? searchCrossRefResearch(baseQuery, limit, fungiIntent).catch(() => []) : Promise.resolve([]),
+      types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), fungiIntent).catch(() => []) : Promise.resolve([]),
+      types.includes("research") && includeWeb ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => []) : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
-      types.includes("genetics") ? searchNCBIGenetics(query, Math.min(limit, 8), fungiIntent) : Promise.resolve([]),
+      (types.includes("genetics") && !skipBio) ? searchNCBIGenetics(baseQuery, Math.min(limit, 8), fungiIntent).catch(() => []) : Promise.resolve([]),
       // Targeted genetics: when "Reishi" → search "Ganoderma lucidum[Organism] AND ITS[Gene]"
-      (types.includes("genetics") && scientificName)
-        ? searchGeneticsForSpecies(scientificName, Math.min(limit, 8))
+      (types.includes("genetics") && scientificName && !skipBio)
+        ? searchGeneticsForSpecies(scientificName, Math.min(limit, 8)).catch(() => [])
         : Promise.resolve([]),
       // Species-specific compounds: "Reishi" → ganoderic acid, lucidenic acid from PubChem
-      (types.includes("compounds") && (scientificName || getCompoundNamesForSpecies(query).length > 0))
-        ? searchCompoundsForSpecies(query, scientificName)
+      (types.includes("compounds") && (scientificName || getCompoundNamesForSpecies(baseQuery).length > 0) && !skipBio)
+        ? searchCompoundsForSpecies(baseQuery, scientificName).catch(() => [])
         : Promise.resolve([]),
       // Compound→fungi: for "psilocybin" → Psilocybe species
-      types.includes("species")
-        ? searchFungiForCompound(query, Math.min(limit, 8))
+      (types.includes("species") && !skipBio)
+        ? searchFungiForCompound(baseQuery, Math.min(limit, 8)).catch(() => [])
         : Promise.resolve([]),
-      includeAI ? getAIAnswer(query, origin) : Promise.resolve(undefined),
+      includeAI ? getAIAnswer(baseQuery, origin).catch(() => undefined) : Promise.resolve(undefined),
       // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
       // infrastructure, devices, space weather — all searched in parallel internally
-      searchEarthIntelligence(query, origin, limit),
+      searchEarthIntelligence(baseQuery, origin, limit).catch(() => null),
+      USE_MAS_SEARCH ? callMASSearchExecute({ query: baseQuery, limit }, AbortSignal.timeout(15000)).catch(() => null) : Promise.resolve(null),
     ])
 
     // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
@@ -1279,10 +1238,16 @@ export async function GET(request: NextRequest) {
     }
     const ncbiSequences: GeneticsResult[] = Array.from(ncbiSeqMap.values())
 
+    // Convert purely MINDEX taxa mapping into MAS fallback parsing
+    let masMappedResults: any = { species: [], compounds: [], genetics: [], research: [] }
+    if (masPayload) {
+      masMappedResults = mapMASResponseToUnified(masPayload).results
+    }
+
     // Transform MINDEX results to website format
-    const mindexSpecies = await transformMindexTaxa(mindexResults.taxa)
-    const mindexCompounds = await transformMindexCompounds(mindexResults.compounds)
-    const mindexSequences = await transformMindexGenetics(mindexResults.genetics)
+    const mindexSpecies = await transformMindexTaxa((mindexResults as any).taxa || [])
+    const mindexCompounds = await transformMindexCompounds((mindexResults as any).compounds || [])
+    const mindexSequences = await transformMindexGenetics((mindexResults as any).genetics || [])
 
     const mindexTime = performance.now() - mindexStart
 
@@ -1302,12 +1267,12 @@ export async function GET(request: NextRequest) {
       if (!needsEnrich) return m
       // Try to find matching NCBI record by accession number (strip .version)
       const accBase = m.accession?.replace(/\.\d+$/, "") || ""
-      const ncbi = ncbiByAccNum.get(m.accession) || ncbiByAccNum.get(accBase)
+      const ncbi = ncbiByAccNum.get(m.accession || "") || ncbiByAccNum.get(accBase)
       if (!ncbi) return m
       return {
         ...m,
-        geneRegion: ncbi.geneRegion || m.geneRegion,
-        sequenceLength: ncbi.sequenceLength || m.sequenceLength,
+        geneRegion: m.geneRegion || ncbi.geneRegion,
+        sequenceLength: m.sequenceLength || ncbi.sequenceLength,
       }
     })
 
@@ -1319,7 +1284,7 @@ export async function GET(request: NextRequest) {
       : compoundFungi  // Use compound-derived fungi when no direct species match
 
     const species = ensureUniqueIds(
-      deduplicateSpecies(mindexSpecies, inatSpeciesAll),
+      [...(masMappedResults.species || []), ...deduplicateSpecies(mindexSpecies, inatSpeciesAll)],
       "sp"
     ).slice(0, limit)
 
@@ -1331,7 +1296,7 @@ export async function GET(request: NextRequest) {
       (c) => !mindexCompoundNames.has((c.name || "").toLowerCase())
     )
     let compounds = ensureUniqueIds(
-      [...mindexCompounds, ...newSpeciesCompounds],
+      [...(masMappedResults.compounds || []), ...mindexCompounds, ...newSpeciesCompounds],
       "cmp"
     ).slice(0, limit)
 
@@ -1349,10 +1314,10 @@ export async function GET(request: NextRequest) {
     // MINDEX records with incomplete metadata are appended only if not already represented.
     const ncbiAccSet = new Set(ncbiSequences.map((n) => n.accession).filter(Boolean))
     const mindexNotInNcbi = enrichedMindex.filter((m) => !ncbiAccSet.has(m.accession))
-    const genetics = ensureUniqueIds([...ncbiSequences, ...mindexNotInNcbi], "gen").slice(0, limit)
+    const genetics = ensureUniqueIds([...(masMappedResults.genetics || []), ...ncbiSequences, ...mindexNotInNcbi], "gen").slice(0, limit)
 
     // Research: MINDEX first, CrossRef primary, OpenAlex additive
-    const allResearch = [...mindexResearch, ...crossRefResearch, ...openAlexResearch, ...exaResearch]
+    const allResearch = [...(masMappedResults.research || []), ...mindexResearch, ...crossRefResearch, ...openAlexResearch, ...exaResearch]
     const research = ensureUniqueIds(allResearch, "res").slice(0, limit)
 
     // Earth Intelligence results (already searched in parallel)
@@ -1366,12 +1331,13 @@ export async function GET(request: NextRequest) {
       infrastructure: earthInfrastructure = [],
       devices: earthDevices = [],
       space_weather: earthSpaceWeather = [],
+      cameras: earthCameras = [],
     } = earthResults || {}
 
     const totalCount = species.length + compounds.length + genetics.length + research.length
       + earthEvents.length + earthAircraft.length + earthVessels.length + earthSatellites.length
       + earthWeather.length + earthEmissions.length + earthInfrastructure.length
-      + earthDevices.length + earthSpaceWeather.length
+      + earthDevices.length + earthSpaceWeather.length + earthCameras.length
 
     // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──
     // This ensures every search result gets stored in MINDEX so future searches
@@ -1465,6 +1431,7 @@ export async function GET(request: NextRequest) {
           infrastructure: earthInfrastructure,
           devices: earthDevices,
           space_weather: earthSpaceWeather,
+          cameras: earthCameras,
         },
         totalCount,
         timing: {

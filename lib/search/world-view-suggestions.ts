@@ -164,7 +164,7 @@ export function detectWorldviewIntent(query: string): { crep: boolean; earth2: b
     /\b(planes?\s+over|flights?\s+over|ships?\s+in\s+port|vessels?\s+near)\b/.test(q) ||
     /\b(earthquake|volcano|wildfire|lightning|tsunami|emission|methane|co2|air\s+quality)\b/.test(q) ||
     /\b(power\s+plant|factory|dam|mine|antenna|cell\s+tower|military|infrastructure)\b/.test(q) ||
-    /\b(solar\s+flare|space\s+weather|geomagnetic|aurora|mycobrain|sensor|device)\b/.test(q) ||
+    /\b(mycobrain|sensor|device)\b/.test(q) ||
     /\b(species|fungal|fungi|mushroom|observation|biodiversity|inaturalist|coral|marine\s+life)\b/.test(q) ||
     /\b(live\s+data|real[\s-]?time|tracking|monitor|radar)\b/.test(q)
   const earth2 =

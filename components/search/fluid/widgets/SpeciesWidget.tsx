@@ -28,6 +28,7 @@ import {
   ExternalLink, Eye, ChevronRight, ChevronLeft, Leaf, Dna,
   Sparkles, Database, BookmarkPlus, FileText, X, Loader2,
   RefreshCw, TreeDeciduous, Globe, ShieldCheck, BookOpen, FlaskConical,
+  Bug, Bird, Fish, MouseIcon as Mushroom
 } from "lucide-react"
 import type { SpeciesResult } from "@/lib/search/unified-search-sdk"
 import { cn } from "@/lib/utils"
@@ -141,6 +142,20 @@ function SpeciesTabStrip({
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Get dynamic taxonomy icon based on Kingdom/Phylum */
+export function getTaxonomyIcon(taxonomy: Record<string, string | null | undefined>, className: string) {
+  const kingdom = (taxonomy.kingdom || "").toLowerCase()
+  const phylum = (taxonomy.phylum || "").toLowerCase()
+  if (kingdom === "fungi") return <Mushroom className={className} />
+  if (kingdom === "plantae") return <TreeDeciduous className={className} />
+  if (kingdom === "animalia") {
+    if (phylum === "chordata") return <Bird className={className} />
+    if (phylum === "arthropoda") return <Bug className={className} />
+    return <Fish className={className} />
+  }
+  return <Leaf className={className} />
+}
 
 /** Get a nice species page URL from search result id */
 function getSpeciesPageUrl(item: SpeciesResult): string {
@@ -325,7 +340,7 @@ function SpeciesDetailModal({ species, onClose }: { species: SpeciesResult; onCl
           {/* Header */}
           <div className="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
             <div className="p-2 bg-emerald-500/15 rounded-lg shrink-0 mt-0.5">
-              <Leaf className="h-5 w-5 text-emerald-400" />
+              {getTaxonomyIcon(taxonomy || {}, "h-5 w-5 text-emerald-400")}
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-bold text-base">{displayName}</h2>
@@ -690,7 +705,7 @@ export function SpeciesWidget({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Leaf className="h-4 w-4 text-muted-foreground/40" />
+                {getTaxonomyIcon(taxonomy || {}, "h-4 w-4 text-muted-foreground/40")}
               </div>
             )}
           </div>
@@ -744,7 +759,7 @@ export function SpeciesWidget({
                 : "bg-muted/10 border-border"
           )}>
             <div className="flex items-center gap-1.5">
-              <Leaf className="h-3 w-3 text-emerald-400 shrink-0" />
+              {getTaxonomyIcon(pinnedData?.taxonomy || {}, "h-3 w-3 text-emerald-400 shrink-0")}
               <p className="text-[9px] uppercase tracking-widest text-emerald-400 font-medium">
                 Navigated from search
               </p>

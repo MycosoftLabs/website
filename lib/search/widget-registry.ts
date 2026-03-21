@@ -27,6 +27,7 @@ export type WidgetType =
   | "infrastructure"
   | "devices"
   | "space_weather"
+  | "cameras"
   | "embedding_atlas"
   | "fallback"
 
@@ -65,6 +66,7 @@ export const WIDGET_TYPE_IDS: WidgetType[] = [
   "infrastructure",
   "devices",
   "space_weather",
+  "cameras",
   "embedding_atlas",
 ]
 
@@ -92,6 +94,7 @@ export const RESULT_BUCKET_TO_WIDGET: Record<string, WidgetType> = {
   infrastructure: "infrastructure",
   devices: "devices",
   space_weather: "space_weather",
+  cameras: "cameras",
   embeddings: "embedding_atlas",
 }
 
@@ -244,6 +247,14 @@ export const WIDGET_REGISTRY: Record<WidgetType, WidgetRegistryEntry> = {
     resultKey: "space_weather",
     size: { width: 1, height: 1 },
     emptyPolicy: "hide",
+  },
+  cameras: {
+    id: "cameras",
+    label: "Cameras",
+    resultKey: "cameras",
+    size: { width: 2, height: 2 },
+    emptyPolicy: "hide",
+    autoExpand: true,
   },
   embedding_atlas: {
     id: "embedding_atlas",

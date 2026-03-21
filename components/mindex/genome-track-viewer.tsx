@@ -100,16 +100,31 @@ export function GenomeTrackViewer({
   const [viewRange, setViewRange] = useState({ start: 0, end: 50000 })
   const [selectedTrack, setSelectedTrack] = useState<string | null>(null)
   const [hoveredFeature, setHoveredFeature] = useState<TrackDataPoint | null>(null)
-  
+  const [activeTracks, setActiveTracks] = useState<GenomeTrack[]>(tracks)
+
   const genomeLength = 50000 // Simplified genome length for demo
   const trackHeight = 40
   const trackGap = 8
 
   useEffect(() => {
-    // Simulate loading genome data
-    const timer = setTimeout(() => setLoading(false), 1000)
-    return () => clearTimeout(timer)
-  }, [speciesId])
+    async function loadData() {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/mindex/genome-tracks?speciesId=${encodeURIComponent(speciesId || "")}&speciesName=${encodeURIComponent(speciesName)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.tracks && data.tracks.length > 0) {
+            setActiveTracks(data.tracks)
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch real genome tracks, falling back to cached stubs", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [speciesId, speciesName, tracks])
 
   const handleZoomIn = useCallback(() => {
     const center = (viewRange.start + viewRange.end) / 2
@@ -357,11 +372,11 @@ export function GenomeTrackViewer({
             </div>
 
             {/* Tracks */}
-            {tracks.map((track, index) => renderTrack(track, index))}
+            {activeTracks.map((track, index) => renderTrack(track, index))}
 
             {/* Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-              {tracks.map(track => (
+              {activeTracks.map(track => (
                 <div key={track.id} className="flex items-center gap-2 text-xs">
                   <div 
                     className="w-3 h-3 rounded-sm"

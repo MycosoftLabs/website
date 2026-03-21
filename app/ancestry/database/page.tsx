@@ -134,21 +134,7 @@ export default function AncestryDatabasePage() {
         </div>
       </div>
 
-      {/* Status Banner */}
-      {usingFallback && (
-        <div className="mb-6 rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
-          <div className="flex items-start gap-3">
-            <Database className="h-5 w-5 text-blue-500 mt-0.5" />
-            <div>
-              <p className="font-medium text-blue-600 dark:text-blue-400">Data Source: External APIs</p>
-              <p className="text-sm text-muted-foreground">
-                Fetching real-time data from iNaturalist and GBIF. For faster local access, start MINDEX:
-                <code className="ml-2 px-2 py-0.5 bg-muted rounded text-xs">docker-compose -f docker-compose.mindex.yml up -d</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <Tabs defaultValue="browse" className="space-y-6">
         <TabsList>

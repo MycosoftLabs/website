@@ -50,6 +50,7 @@ export type {
   InfrastructureResult,
   DeviceResult,
   SpaceWeatherResult,
+  CameraResult,
   UnifiedSearchResponse,
 }
 
@@ -76,6 +77,7 @@ interface UseUnifiedSearchResult {
   infrastructure: InfrastructureResult[]
   devices: DeviceResult[]
   spaceWeather: SpaceWeatherResult[]
+  cameras: CameraResult[]
   totalCount: number
 
   // AI
@@ -199,6 +201,7 @@ export function useUnifiedSearch(
     && events.length === 0 && aircraft.length === 0 && vessels.length === 0
     && satellites.length === 0 && weather.length === 0 && emissions.length === 0
     && infrastructure.length === 0 && devices.length === 0 && spaceWeather.length === 0
+    && cameras.length === 0
 
   return {
     results,
@@ -217,6 +220,7 @@ export function useUnifiedSearch(
     infrastructure,
     devices,
     spaceWeather,
+    cameras,
     totalCount,
     aiAnswer,
     isLoading: isLoading && !data,

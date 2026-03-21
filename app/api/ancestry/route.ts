@@ -110,13 +110,19 @@ export async function GET(request: Request) {
       url = `${MINDEX_API_URL}/api/mindex/taxa?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
     }
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
+
     const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": MINDEX_API_KEY,
       },
       next: { revalidate: 60 }, // Cache for 60 seconds
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     if (response.ok) {
       const data = await response.json()
@@ -182,12 +188,14 @@ export async function GET(request: Request) {
 
   // Fallback: Query external APIs directly for real data
   try {
-    const species = await fetchFromExternalAPIs(query || "fungi", limit)
-    if (species.length > 0) {
+    const externalData = await fetchFromExternalAPIs(query || "fungi", limit)
+    if (externalData.species.length > 0) {
       return NextResponse.json({
-        species,
-        total: species.length,
-        source: "external_api",
+        species: externalData.species,
+        total: externalData.total,
+        page,
+        pages: Math.ceil(externalData.total / limit),
+        source: "external_api"
       })
     }
   } catch (error) {
@@ -206,6 +214,7 @@ export async function GET(request: Request) {
 // Fetch from external APIs directly (iNaturalist, GBIF)
 async function fetchFromExternalAPIs(query: string, limit: number) {
   const species: any[] = []
+  let total = 2500000 // base total for fungi
 
   try {
     // Try iNaturalist
@@ -221,6 +230,9 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
 
     if (inatResponse.ok) {
       const data = await inatResponse.json()
+      if (data.total_results) {
+        total = data.total_results
+      }
       for (const taxon of data.results || []) {
         species.push({
           id: taxon.id,
@@ -280,5 +292,5 @@ async function fetchFromExternalAPIs(query: string, limit: number) {
     }
   }
 
-  return species
+  return { species, total }
 }

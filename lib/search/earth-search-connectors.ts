@@ -28,6 +28,7 @@ import type {
   InfrastructureResult,
   DeviceResult,
   SpaceWeatherResult,
+  CameraResult,
 } from "./unified-search-sdk"
 
 // ---------------------------------------------------------------------------
@@ -488,25 +489,23 @@ export async function searchSpaceWeather(query: string, origin: string, _limit =
     const res = await safeFetch(`${origin}/api/oei/space-weather`)
     if (!res) return []
     const data = await res.json()
-    const conditions = data.conditions || data.data || data
 
     const results: SpaceWeatherResult[] = []
 
-    if (conditions.solar_wind || conditions.solarWind) {
-      const sw = conditions.solar_wind || conditions.solarWind || {}
+    if (data.solarWind) {
       results.push({
         id: "sw-solar-wind",
         type: "solar_wind",
         title: "Solar Wind Conditions",
-        description: `Speed: ${sw.speed || "N/A"} km/s, Density: ${sw.density || "N/A"} p/cm³`,
-        solarWindSpeed: sw.speed,
-        timestamp: sw.time_tag || new Date().toISOString(),
+        description: `Speed: ${data.solarWind.speed || "N/A"} km/s, Density: ${data.solarWind.density || "N/A"} p/cm³`,
+        solarWindSpeed: data.solarWind.speed,
+        timestamp: data.timestamp || new Date().toISOString(),
         source: "NOAA SWPC",
       })
     }
 
-    if (conditions.kp_index != null || conditions.kpIndex != null) {
-      const kp = conditions.kp_index ?? conditions.kpIndex
+    if (data.indices?.kpIndex != null) {
+      const kp = data.indices.kpIndex
       results.push({
         id: "sw-kp-index",
         type: "geomagnetic_storm",
@@ -514,25 +513,74 @@ export async function searchSpaceWeather(query: string, origin: string, _limit =
         description: kp >= 5 ? "Geomagnetic storm in progress" : "Quiet geomagnetic conditions",
         severity: kp >= 7 ? "high" : kp >= 5 ? "medium" : "low",
         kpIndex: kp,
-        timestamp: new Date().toISOString(),
+        timestamp: data.timestamp || new Date().toISOString(),
         source: "NOAA SWPC",
       })
     }
 
-    if (conditions.xray_flux || conditions.xrayFlux) {
-      const xf = conditions.xray_flux || conditions.xrayFlux
+    if (data.indices?.radioFlux != null) {
       results.push({
         id: "sw-xray",
         type: "solar_flare",
-        title: "X-Ray Flux",
-        description: `Current X-ray flux: ${typeof xf === "object" ? xf.flux : xf}`,
-        xrayFlux: typeof xf === "object" ? xf.flux : xf,
-        timestamp: new Date().toISOString(),
+        title: "Solar Radio Flux",
+        description: `Current 10.7cm flux: ${data.indices.radioFlux} SFU`,
+        xrayFlux: data.indices.radioFlux,
+        timestamp: data.timestamp || new Date().toISOString(),
         source: "NOAA SWPC",
       })
     }
 
     return results
+  } catch {
+    return []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 10. CCTV & Webcams (Static Mocks / Aggregator Fallbacks)
+// ---------------------------------------------------------------------------
+
+const CAMERA_KEYWORDS = [
+  "camera", "cctv", "webcam", "livestream", "live stream", "traffic cam"
+]
+
+export function isCamerasQuery(query: string): boolean {
+  const q = query.toLowerCase()
+  return CAMERA_KEYWORDS.some(kw => q.includes(kw))
+}
+
+export async function searchCameras(query: string, limit = 10): Promise<CameraResult[]> {
+  try {
+    // Return curated high-quality live streams for demo/fallback purposes
+    const MOCK_CAMERAS: CameraResult[] = [
+      {
+        id: "cam-iss", title: "ISS Live Stream", location: "Low Earth Orbit", lat: 0, lng: 0, type: "satellite", status: "live", source: "NASA",
+        streamUrl: "https://www.youtube.com/embed/86YLFOog4GM?autoplay=1&mute=1"
+      },
+      {
+        id: "cam-ts", title: "Times Square Live", location: "New York, USA", lat: 40.7580, lng: -73.9855, type: "cctv", status: "live", source: "EarthCam",
+        streamUrl: "https://www.youtube.com/embed/1-iS7LArMPA?autoplay=1&mute=1"
+      },
+      {
+        id: "cam-tyo", title: "Tokyo Shibuya Crossing", location: "Tokyo, Japan", lat: 35.6595, lng: 139.7001, type: "traffic", status: "live", source: "Shibuya Cam",
+        streamUrl: "https://www.youtube.com/embed/HpdO5Kq3o7Y?autoplay=1&mute=1"
+      },
+      {
+        id: "cam-reyk", title: "Reykjavik Volcano", location: "Reykjavik, Iceland", lat: 63.8933, lng: -22.2729, type: "webcam", status: "live", source: "LiveFromIceland",
+        streamUrl: "https://www.youtube.com/embed/80CGkH0gXVE?autoplay=1&mute=1"
+      }
+    ]
+    
+    // Filter down based on query, or return all if broad
+    const q = query.toLowerCase()
+    let results = MOCK_CAMERAS
+    
+    if (q.includes("new york") || q.includes("ny")) results = MOCK_CAMERAS.filter(c => c.id === "cam-ts")
+    else if (q.includes("tokyo") || q.includes("japan")) results = MOCK_CAMERAS.filter(c => c.id === "cam-tyo")
+    else if (q.includes("space") || q.includes("iss") || q.includes("orbit")) results = MOCK_CAMERAS.filter(c => c.id === "cam-iss")
+    else if (q.includes("volcano") || q.includes("iceland")) results = MOCK_CAMERAS.filter(c => c.id === "cam-reyk")
+
+    return results.slice(0, limit)
   } catch {
     return []
   }
@@ -552,6 +600,7 @@ export interface EarthSearchDomains {
   infrastructure: boolean
   devices: boolean
   spaceWeather: boolean
+  cameras: boolean
 }
 
 export function detectEarthDomains(query: string): EarthSearchDomains {
@@ -565,6 +614,7 @@ export function detectEarthDomains(query: string): EarthSearchDomains {
     infrastructure: isInfrastructureQuery(query),
     devices: isDeviceQuery(query),
     spaceWeather: isSpaceWeatherQuery(query),
+    cameras: isCamerasQuery(query),
   }
 }
 
@@ -609,6 +659,7 @@ export async function searchEarthIntelligence(
   infrastructure: InfrastructureResult[]
   devices: DeviceResult[]
   space_weather: SpaceWeatherResult[]
+  cameras: CameraResult[]
 }> {
   // MINDEX-first: try local database (instant, already scraped + stored)
   const mindexEarth = await searchMindexEarth(query, limit)
@@ -624,6 +675,7 @@ export async function searchEarthIntelligence(
       infrastructure: (mindexEarth.infrastructure as InfrastructureResult[]) || [],
       devices: (mindexEarth.devices as DeviceResult[]) || [],
       space_weather: (mindexEarth.space_weather as SpaceWeatherResult[]) || [],
+      cameras: (mindexEarth.cameras as CameraResult[]) || [],
     }
   }
 
@@ -641,10 +693,11 @@ export async function searchEarthIntelligence(
     emissions: domains.emissions ? searchEmissions(query, origin, limit) : Promise.resolve([]),
     infrastructure: domains.infrastructure ? searchInfrastructure(query, origin, limit) : Promise.resolve([]),
     devices: domains.devices ? searchDevices(query, origin, limit) : Promise.resolve([]),
-    space_weather: domains.spaceWeather ? searchSpaceWeather(query, origin, limit) : Promise.resolve([]),
+    spaceWeather: domains.spaceWeather ? searchSpaceWeather(query, origin, limit) : Promise.resolve([]),
+    cameras: domains.cameras ? searchCameras(query, limit) : Promise.resolve([]),
   }
 
-  const [events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather] =
+  const [events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras] =
     await Promise.all([
       promises.events,
       promises.aircraft,
@@ -654,10 +707,30 @@ export async function searchEarthIntelligence(
       promises.emissions,
       promises.infrastructure,
       promises.devices,
-      promises.space_weather,
+      promises.spaceWeather,
+      promises.cameras,
     ])
 
-  return { events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather }
+  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+  
+  // Background ingestion: "scrape that live data and put it in MINDEX"
+  if (!mindexEarth && Object.keys(domains).some(d => domains[d as keyof EarthSearchDomains])) {
+    const payload: Record<string, any> = {
+      events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras
+    }
+    // Only send non-empty arrays
+    const validPayload = Object.fromEntries(Object.entries(payload).filter(([_, v]) => v && v.length > 0))
+    if (Object.keys(validPayload).length > 0) {
+      fetch(`${MINDEX_API_URL}/api/search/earth/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validPayload),
+        signal: AbortSignal.timeout(5000)
+      }).catch(e => console.error("[EarthData] Failed to ingest into MINDEX:", e))
+    }
+  }
+
+  return { events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras }
 }
 
 // ---------------------------------------------------------------------------

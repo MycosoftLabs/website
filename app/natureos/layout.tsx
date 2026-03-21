@@ -5,6 +5,7 @@ import { DashboardNav } from "@/components/dashboard/nav"
 import { TopNav } from "@/components/dashboard/top-nav"
 import { NavigationTitle } from "@/components/dashboard/navigation-title"
 import { SidebarProvider, Sidebar, SidebarContent, SidebarTrigger } from "@/components/ui/sidebar"
+import { AutoGateWrapper } from "@/components/access/auto-gate-wrapper"
 
 export default function NatureOSLayout({
   children,
@@ -41,7 +42,9 @@ export default function NatureOSLayout({
               <SidebarTrigger className="text-gray-400 hover:text-white h-8 w-8" />
               <span className="text-xs text-gray-500">Toggle Menu</span>
             </div>
-            <main className="w-full h-full">{children}</main>
+            <main className="w-full h-full overflow-y-auto">
+              <AutoGateWrapper>{children}</AutoGateWrapper>
+            </main>
           </div>
         </div>
       </SidebarProvider>

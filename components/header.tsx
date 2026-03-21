@@ -22,6 +22,8 @@ import { MobileNav } from "@/components/mobile-nav"
 import { useEffect, useState, useRef, useCallback, memo } from "react"
 import { cn } from "@/lib/utils"
 import { AI_NAV_ITEMS } from "@/lib/nav-ai"
+import { useGateAccess } from "@/components/access/gate-wrapper"
+import { AccessGate } from "@/lib/access/types"
 
 // Import motion only what we need (tree-shaken by bundler)
 import { motion, AnimatePresence } from "framer-motion"
@@ -35,10 +37,9 @@ const defenseItems = [
 
 const natureOSItems = [
   { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map, description: "Common Relevant Environmental Picture" },
-  { title: "Device Network", href: "/natureos/devices", icon: Network, description: "Connected device management" },
-  { title: "MINDEX", href: "/mindex", icon: Database, description: "Cryptographic data integrity index" },
+  { title: "Device Network", href: "/natureos/devices", icon: Network, description: "Connected device management", companyOnly: true },
+  { title: "MINDEX", href: "/mindex", icon: Database, description: "Cryptographic data integrity index", companyOnly: true },
   { title: "Species Explorer", href: "/natureos/mindex/explorer", icon: Globe, description: "Spatial species visualization" },
-  { title: "AI Explainer", href: "/natureos/ai-studio/explainer", icon: Bot, description: "Understand how MYCA AI works" },
   { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe, description: "Global environmental modeling" },
 ]
 
@@ -52,19 +53,19 @@ const devicesItems = [
 
 const appsItems = [
   { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: FlaskConical, description: "Virtual culture growth simulation" },
-  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, description: "3D fungal growth modeling" },
+  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, description: "3D fungal growth modeling", companyOnly: true },
   { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical, description: "Chemical compound analysis" },
-  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, description: "Spore dispersal mapping" },
+  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, description: "Spore dispersal mapping", companyOnly: true },
   { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous, description: "Fungal genealogy explorer" },
   { title: "Genomics Tools", href: "/ancestry/tools#genomics", icon: Microscope, description: "Genome browsers & visualization" },
-  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, description: "Performance metrics & insights" },
+  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, description: "Performance metrics & insights", companyOnly: true },
 ]
 
 // Individual dropdown component with animations
 interface NavDropdownProps {
   label: string
   icon: React.ElementType
-  items: { title: string; href: string; icon: React.ElementType; description: string }[]
+  items: { title: string; href: string; icon: React.ElementType; description: string; companyOnly?: boolean }[]
   isOpen: boolean
   onOpen: () => void
   onClose: () => void
@@ -329,6 +330,11 @@ export function Header() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const navRef = useRef<HTMLElement>(null)
   const globalDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
+  
+  // Filter lists based on authorization
+  const visibleNatureOSItems = natureOSItems.filter(item => !item.companyOnly || isCompanyUser)
+  const visibleAppsItems = appsItems.filter(item => !item.companyOnly || isCompanyUser)
   
   // Transform supabase user to the expected format
   const user = supabaseUser ? {
@@ -460,7 +466,7 @@ export function Header() {
           <NavDropdown
             label="NatureOS"
             icon={Cloud}
-            items={natureOSItems}
+            items={visibleNatureOSItems}
             isOpen={openDropdown === "natureos"}
             onOpen={() => setOpenDropdown("natureos")}
             onClose={() => setOpenDropdown(null)}
@@ -486,7 +492,7 @@ export function Header() {
           <NavDropdown
             label="Apps"
             icon={Apps}
-            items={appsItems}
+            items={visibleAppsItems}
             isOpen={openDropdown === "apps"}
             onOpen={() => setOpenDropdown("apps")}
             onClose={() => setOpenDropdown(null)}

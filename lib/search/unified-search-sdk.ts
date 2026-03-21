@@ -198,18 +198,32 @@ export interface SpaceWeatherResult {
   description: string
   severity?: string
   kpIndex?: number
-  xrayFlux?: number
+  flareClass?: string
   solarWindSpeed?: number
   timestamp: string
   source: string
 }
+
+export interface CameraResult {
+  id: string
+  title: string
+  location: string
+  lat: number
+  lng: number
+  streamUrl?: string
+  imageUrl?: string
+  type: "cctv" | "webcam" | "traffic" | "satellite"
+  status: "live" | "offline"
+  source: string
+}
+
 
 /** All result bucket key names */
 export type ResultBucketKey =
   | "species" | "compounds" | "genetics" | "research"
   | "events" | "aircraft" | "vessels" | "satellites"
   | "weather" | "emissions" | "infrastructure" | "devices"
-  | "space_weather"
+  | "space_weather" | "cameras"
 
 export interface UnifiedSearchResults {
   species: SpeciesResult[]
@@ -225,6 +239,7 @@ export interface UnifiedSearchResults {
   infrastructure: InfrastructureResult[]
   devices: DeviceResult[]
   space_weather: SpaceWeatherResult[]
+  cameras: CameraResult[]
 }
 
 export interface UnifiedSearchResponse {
@@ -234,33 +249,39 @@ export interface UnifiedSearchResponse {
   timing: {
     total: number
     mindex: number
+    inaturalist?: number
+    crossref?: number
     ai?: number
+    earth?: number
   }
   source: "live" | "cache" | "fallback"
   message?: string
-  aiAnswer?: {
-    text: string
-    confidence: number
-    sources: string[]
-  }
+  aiAnswer?: string
   live_results?: LiveResult[]
   error?: string
 }
 
-export const EMPTY_RESULTS: UnifiedSearchResults = {
-  species: [],
-  compounds: [],
-  genetics: [],
-  research: [],
-  events: [],
-  aircraft: [],
-  vessels: [],
-  satellites: [],
-  weather: [],
-  emissions: [],
-  infrastructure: [],
-  devices: [],
-  space_weather: [],
+export const EMPTY_RESULTS: UnifiedSearchResponse = {
+  query: "",
+  results: {
+    species: [],
+    compounds: [],
+    genetics: [],
+    research: [],
+    events: [],
+    aircraft: [],
+    vessels: [],
+    satellites: [],
+    weather: [],
+    emissions: [],
+    infrastructure: [],
+    devices: [],
+    space_weather: [],
+    cameras: [],
+  },
+  totalCount: 0,
+  timing: { total: 0, mindex: 0 },
+  source: "cache",
 }
 
 export interface SearchOptions {
@@ -268,6 +289,8 @@ export interface SearchOptions {
   limit?: number
   includeAI?: boolean
   signal?: AbortSignal
+  lat?: number
+  lng?: number
 }
 
 // In-flight request deduplication
@@ -333,6 +356,10 @@ export class UnifiedSearchClient {
     })
     if (includeAI) {
       params.set("ai", "true")
+    }
+    if (options.lat !== undefined && options.lng !== undefined) {
+      params.set("lat", options.lat.toString())
+      params.set("lng", options.lng.toString())
     }
 
     // Execute request

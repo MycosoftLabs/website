@@ -96,9 +96,10 @@ export async function GET(request: NextRequest) {
     
     if (mindexApiUrl) {
       try {
+        const baseUrl = mindexApiUrl.endsWith('/api/mindex') ? mindexApiUrl : `${mindexApiUrl}/api/mindex`
         const apiUrl = species 
-          ? `${mindexApiUrl}/genomes?species=${encodeURIComponent(species)}`
-          : `${mindexApiUrl}/genomes`
+          ? `${baseUrl}/genomes?species=${encodeURIComponent(species)}`
+          : `${baseUrl}/genomes`
         
         const response = await fetch(apiUrl, {
           headers: {

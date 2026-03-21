@@ -310,8 +310,10 @@ function mapNlqTypeToCardType(nlqType: string): DataCard["type"] | null {
 }
 
 // Extract suggestions from message content (look for patterns like "You might also ask:")
-function extractSuggestions(content: string): string[] {
+function extractSuggestions(content: any): string[] {
   const suggestions: string[] = []
+  
+  if (typeof content !== 'string') return suggestions
   
   const suggestionPatterns = [
     /you (?:might|could|can) (?:also )?(?:ask|try|search)[:\s]+(.+?)(?:\n|$)/gi,

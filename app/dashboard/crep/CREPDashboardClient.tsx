@@ -1688,22 +1688,8 @@ export default function CREPDashboardPage() {
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
 
   // Ground Station overlay state (Mar 2026)
-  const [showGroundStation, setShowGroundStation] = useState(true);
-  const [gsConnected, setGsConnected] = useState(false);
-  const [gsSatellites, setGsSatellites] = useState<Array<{
-    norad_id: number; name: string; az: number; el: number; range: number; alt: number;
-    trend: "rising" | "falling" | "stable" | "peak"; is_visible: boolean; is_tracking: boolean;
-  }>>([]);
-  const [gsGroups, setGsGroups] = useState<Array<{ id: string; name: string; satellite_count: number }>>([]);
-  const [gsSelectedGroupId, setGsSelectedGroupId] = useState<string | null>(null);
-  const [gsTrackingNoradId, setGsTrackingNoradId] = useState<number | undefined>(undefined);
-  const [gsPasses, setGsPasses] = useState<Array<{
-    norad_id: number; satellite_name: string; aos_time: string; los_time: string;
-    max_elevation: number; duration_seconds: number; is_visible?: boolean;
-  }>>([]);
-  const [gsHardwareStatus, setGsHardwareStatus] = useState({
-    rotator_connected: false, rig_connected: false, sdr_connected: false,
-  });
+  const [showGroundStation, setShowGroundStation] = useState(false);
+
   
   // Selected entity states for map interaction
   const [selectedAircraft, setSelectedAircraft] = useState<AircraftEntity | null>(null);
@@ -1848,61 +1834,7 @@ export default function CREPDashboardPage() {
   const [currentMission, setCurrentMission] = useState<MissionContext | null>(null);
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
 
-  // Ground Station data loading (Mar 2026)
-  useEffect(() => {
-    if (!showGroundStation) return;
-    // Check connection
-    fetch("/api/ground-station/system?action=health")
-      .then((r) => r.json())
-      .then((d) => setGsConnected(d.status === "connected"))
-      .catch(() => setGsConnected(false));
-    // Load groups
-    fetch("/api/ground-station/groups")
-      .then((r) => r.json())
-      .then((d) => {
-        const groups = Array.isArray(d) ? d : d.groups || [];
-        setGsGroups(groups.map((g: Record<string, unknown>) => ({
-          id: String(g.id), name: String(g.name),
-          satellite_count: Number(g.satellite_count || 0),
-        })));
-      })
-      .catch(() => {});
-    // Load hardware status
-    fetch("/api/ground-station/hardware?type=all")
-      .then((r) => r.json())
-      .then((d) => {
-        setGsHardwareStatus({
-          rotator_connected: Array.isArray(d.rotators) && d.rotators.length > 0,
-          rig_connected: Array.isArray(d.rigs) && d.rigs.length > 0,
-          sdr_connected: Array.isArray(d.sdrs) && d.sdrs.length > 0,
-        });
-      })
-      .catch(() => {});
-  }, [showGroundStation]);
-
-  // Load GS satellites when group changes
-  useEffect(() => {
-    if (!showGroundStation || !gsSelectedGroupId) return;
-    fetch(`/api/ground-station/satellites?group_id=${gsSelectedGroupId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const sats = Array.isArray(d) ? d : d.satellites || [];
-        setGsSatellites(sats.map((s: Record<string, unknown>) => ({
-          norad_id: Number(s.norad_id), name: String(s.name),
-          az: 0, el: 0, range: 0, alt: 0,
-          trend: "stable" as const, is_visible: false, is_tracking: false,
-        })));
-      })
-      .catch(() => {});
-    // Load passes
-    fetch(`/api/ground-station/satellites?action=passes&group_id=${gsSelectedGroupId}&hours=24`)
-      .then((r) => r.json())
-      .then((d) => {
-        const passes = Array.isArray(d) ? d : d.passes || [];
-        setGsPasses(passes);
-      })
-      .catch(() => {});
-  }, [showGroundStation, gsSelectedGroupId]);
+  // Ground Station UI handled via components using GroundStationProvider context
 
   // Check for existing mission in localStorage on mount
   useEffect(() => {
@@ -2182,7 +2114,7 @@ export default function CREPDashboardPage() {
           if (eventsRes.ok) {
             const data = await eventsRes.json();
             // Allow lat/lng of 0 (solar flares at Sun, geomagnetic at pole) - use typeof check
-            const formattedEvents = (data.events || [])
+            let formattedEvents = (data.events || [])
               .filter((e: any) => typeof e.location?.latitude === "number" && typeof e.location?.longitude === "number")
               .map((e: any) => ({
                 id: e.id,
@@ -3880,7 +3812,7 @@ export default function CREPDashboardPage() {
                         const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
                         const isResearchGrade = obs.quality_grade === "research";
                         const isSelected = selectedFungal?.id === obs.id;
-                        const { Icon, color } = getObservationListIcon(obs);
+                        const { Icon, color } = getObservationListIcon(obs as any);
                         
                         return (
                           <div
@@ -4204,7 +4136,7 @@ export default function CREPDashboardPage() {
                 } else if (entity.type === "fungal") {
                   setSelectedOther(null);
                   // Use entity.properties (full observation) - more robust than lookup
-                  const fromProps = entity.properties as FungalObservation | undefined;
+                  const fromProps = entity.properties as unknown as FungalObservation | undefined;
                   const obs =
                     fromProps && typeof fromProps.id !== "undefined" && typeof fromProps.latitude === "number" && typeof fromProps.longitude === "number"
                       ? fromProps
@@ -4606,53 +4538,46 @@ export default function CREPDashboardPage() {
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-8 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
-                <TabsTrigger
-                  value="mission"
+              <TabsList className="w-full grid grid-cols-7 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+                <TabsTrigger 
+                  value="mission" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Target className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="data"
+                <TabsTrigger 
+                  value="data" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-none"
                 >
                   <Signal className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="groundstation"
-                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
-                  title="Ground Station"
-                >
-                  <Radio className="w-3 h-3" />
-                </TabsTrigger>
-                <TabsTrigger
-                  value="intel"
+                <TabsTrigger 
+                  value="intel" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 rounded-none"
                 >
                   <Users className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="layers"
+                <TabsTrigger 
+                  value="layers" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Layers className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="earth2"
+                <TabsTrigger 
+                  value="earth2" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 rounded-none"
                   title="NVIDIA Earth-2 AI Weather"
                 >
                   <Zap className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="services"
+                <TabsTrigger 
+                  value="services" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Cpu className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger
-                  value="myca"
+                <TabsTrigger 
+                  value="myca" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
                 >
                   <Bot className="w-3 h-3" />
@@ -4823,170 +4748,6 @@ export default function CREPDashboardPage() {
                           {showGroundStation && <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400">GS</Badge>}
                         </div>
                       </div>
-                    </div>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="groundstation" className="h-full m-0 p-2 overflow-auto">
-                  <ScrollArea className="h-full">
-                    <div className="space-y-3">
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-1">
-                        <div className="flex items-center gap-2">
-                          <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="text-[11px] font-bold text-white tracking-wide">GROUND STATION</span>
-                          <div className={cn("w-2 h-2 rounded-full", gsConnected ? "bg-green-400 animate-pulse" : "bg-red-500")} />
-                          <span className="text-[8px] text-gray-500">{gsConnected ? "ONLINE" : "OFFLINE"}</span>
-                        </div>
-                        <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
-                          className="text-[8px] text-cyan-400 hover:text-cyan-300 px-2 py-0.5 border border-cyan-500/20 rounded">
-                          Full Dashboard
-                        </a>
-                      </div>
-
-                      {/* Group Selector */}
-                      <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Satellite className="w-3 h-3 text-cyan-400" />
-                          <span className="text-[9px] font-semibold text-gray-300">SATELLITE GROUP</span>
-                        </div>
-                        <select
-                          value={gsSelectedGroupId || ""}
-                          onChange={(e) => setGsSelectedGroupId(e.target.value || null)}
-                          className="w-full h-7 text-[10px] bg-black/60 border border-gray-700/50 rounded px-2 text-white focus:border-cyan-500/50 focus:outline-none"
-                        >
-                          <option value="">Select group...</option>
-                          {gsGroups.map((g) => (
-                            <option key={g.id} value={g.id}>{g.name} ({g.satellite_count})</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Satellites List */}
-                      {gsSatellites.length > 0 && (
-                        <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Globe className="w-3 h-3 text-cyan-400" />
-                              <span className="text-[9px] font-semibold text-gray-300">SATELLITES</span>
-                            </div>
-                            <span className="text-[8px] text-gray-500">{gsSatellites.length} loaded</span>
-                          </div>
-                          <div className="space-y-0.5 max-h-[200px] overflow-auto">
-                            {gsSatellites.map((sat) => (
-                              <div
-                                key={sat.norad_id}
-                                className={cn(
-                                  "flex items-center justify-between px-2 py-1 rounded text-[9px] cursor-pointer hover:bg-cyan-500/10 transition-colors",
-                                  gsTrackingNoradId === sat.norad_id ? "bg-red-500/20 border border-red-500/30" : ""
-                                )}
-                                onClick={() => {
-                                  if (gsTrackingNoradId === sat.norad_id) {
-                                    setGsTrackingNoradId(undefined);
-                                    fetch("/api/ground-station/tracking", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ norad_id: null, rotator_state: "idle", rig_state: "idle" }),
-                                    }).catch(() => {});
-                                  } else {
-                                    setGsTrackingNoradId(sat.norad_id);
-                                    fetch("/api/ground-station/tracking", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ norad_id: sat.norad_id }),
-                                    }).catch(() => {});
-                                  }
-                                }}
-                              >
-                                <span className="text-gray-200 truncate flex-1">{sat.name}</span>
-                                <span className="text-gray-500 ml-2">#{sat.norad_id}</span>
-                                {gsTrackingNoradId === sat.norad_id && (
-                                  <Crosshair className="w-3 h-3 text-red-400 ml-1 animate-pulse" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Upcoming Passes */}
-                      {gsPasses.length > 0 && (
-                        <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-cyan-400" />
-                            <span className="text-[9px] font-semibold text-gray-300">UPCOMING PASSES</span>
-                            <span className="text-[8px] text-gray-500">{gsPasses.length} in 24h</span>
-                          </div>
-                          <div className="space-y-0.5 max-h-[160px] overflow-auto">
-                            {gsPasses.slice(0, 15).map((p, i) => (
-                              <div key={i} className="flex items-center justify-between text-[8px] px-1.5 py-0.5 rounded hover:bg-cyan-500/10">
-                                <span className="text-gray-300 truncate flex-1">{p.satellite_name}</span>
-                                <span className="text-cyan-400 font-mono ml-2">{p.max_elevation.toFixed(0)}°</span>
-                                <span className="text-gray-500 ml-2 font-mono">
-                                  {new Date(p.aos_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Hardware Status */}
-                      <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Cpu className="w-3 h-3 text-cyan-400" />
-                          <span className="text-[9px] font-semibold text-gray-300">HARDWARE</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1">
-                          {[
-                            { label: "Rotator", ok: gsHardwareStatus.rotator_connected },
-                            { label: "Rig", ok: gsHardwareStatus.rig_connected },
-                            { label: "SDR", ok: gsHardwareStatus.sdr_connected },
-                          ].map((hw) => (
-                            <div key={hw.label} className="flex items-center gap-1.5 px-2 py-1 bg-black/30 rounded">
-                              <div className={cn("w-1.5 h-1.5 rounded-full", hw.ok ? "bg-green-400" : "bg-gray-600")} />
-                              <span className="text-[8px] text-gray-400">{hw.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Tracking State */}
-                      {gsTrackingNoradId && (
-                        <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-2 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Crosshair className="w-3 h-3 text-red-400 animate-pulse" />
-                              <span className="text-[9px] font-bold text-red-400">TRACKING ACTIVE</span>
-                            </div>
-                            <button
-                              onClick={() => {
-                                setGsTrackingNoradId(undefined);
-                                fetch("/api/ground-station/tracking", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ norad_id: null, rotator_state: "idle", rig_state: "idle" }),
-                                }).catch(() => {});
-                              }}
-                              className="text-[8px] text-red-400 hover:text-red-300 px-2 py-0.5 border border-red-500/30 rounded"
-                            >
-                              STOP
-                            </button>
-                          </div>
-                          <div className="text-[9px] text-gray-400">
-                            {gsSatellites.find((s) => s.norad_id === gsTrackingNoradId)?.name || `NORAD ${gsTrackingNoradId}`}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Empty state */}
-                      {!gsConnected && (
-                        <div className="text-center py-4">
-                          <Radio className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                          <p className="text-[10px] text-gray-500">Ground station connecting...</p>
-                          <p className="text-[8px] text-gray-600 mt-1">Ensure the database is seeded via POST /api/ground-station/seed</p>
-                        </div>
-                      )}
                     </div>
                   </ScrollArea>
                 </TabsContent>
@@ -5263,49 +5024,11 @@ export default function CREPDashboardPage() {
           <GSOverlayPanel
             visible={showGroundStation}
             onToggle={() => setShowGroundStation(!showGroundStation)}
-            connected={gsConnected}
-            satellites={gsSatellites}
-            groups={gsGroups}
-            selectedGroupId={gsSelectedGroupId}
-            onSelectGroup={(id) => setGsSelectedGroupId(id)}
-            onSelectSatellite={(noradId) => {
-              const sat = gsSatellites.find((s) => s.norad_id === noradId);
-              if (sat) {
-                // Fly to satellite approximate position on the CREP map
-                // (position would be computed from TLE in a full integration)
-              }
-            }}
-            onTrackSatellite={(noradId) => {
-              setGsTrackingNoradId(noradId);
-              fetch("/api/ground-station/tracking", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ norad_id: noradId }),
-              }).catch(() => {});
-            }}
-            onStopTracking={() => {
-              setGsTrackingNoradId(undefined);
-              fetch("/api/ground-station/tracking", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ norad_id: null, rotator_state: "idle", rig_state: "idle" }),
-              }).catch(() => {});
-            }}
-            trackingNoradId={gsTrackingNoradId}
-            hardwareStatus={gsHardwareStatus}
-            passCount={gsPasses.length}
           />
           {/* Pass Timeline at bottom of map */}
-          {gsPasses.length > 0 && (
-            <div className="fixed bottom-8 left-0 right-0 z-40">
-              <GSPassTimeline
-                passes={gsPasses}
-                hoursWindow={24}
-                trackingNoradId={gsTrackingNoradId}
-                onTrackSatellite={(noradId) => setGsTrackingNoradId(noradId)}
-              />
-            </div>
-          )}
+          <div className="fixed bottom-8 left-0 right-0 z-40">
+            <GSPassTimeline />
+          </div>
         </>
       )}
 

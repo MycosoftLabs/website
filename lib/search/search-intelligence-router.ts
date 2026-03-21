@@ -104,7 +104,7 @@ export function classifyAndRoute(query: string): SearchRoute {
     classification,
     intent,
     useMycaLLM: classification === "conversational" || classification === "hybrid",
-    useUnifiedSearch: classification !== "conversational" || classification === "hybrid",
+    useUnifiedSearch: classification !== "conversational",
     primaryWidget,
     primaryWidgetSize,
     secondaryWidgets,
@@ -121,7 +121,7 @@ function classifyQuery(query: string, intent: SearchIntent): QueryClassification
   for (const pattern of PURE_DATA_PATTERNS) {
     if (pattern.test(query)) {
       if (intent.type === "location" || intent.type === "aircraft" ||
-          intent.type === "vessel" || intent.type === "event") {
+          intent.type === "vessel" || intent.type === "event" || intent.type === "cameras") { // Added intent.type === "cameras"
         return "location_query"
       }
       return "data_query"
@@ -165,7 +165,7 @@ function determinePrimaryWidget(
   if (worldview.crep) {
     return {
       primaryWidget: "crep",
-      primaryWidgetSize: { width: 2, height: 3 },
+      primaryWidgetSize: { width: 2, height: 2 },
       secondaryWidgets: getSecondaryWidgets(intent, "crep"),
     }
   }
@@ -202,12 +202,13 @@ function determinePrimaryWidget(
     infrastructure: "infrastructure",
     device: "devices",
     space_weather: "space_weather",
+    cameras: "cameras", // Added cameras
   }
 
   const primaryWidget = entityWidgetMap[intent.type] || "answers"
 
   // Size based on type - location/map/earth types get viewport priority
-  const largeWidgets: WidgetType[] = ["crep", "earth2", "map", "events", "aircraft", "vessels"]
+  const largeWidgets: WidgetType[] = ["crep", "earth2", "map", "events", "aircraft", "vessels", "cameras"] // Added cameras
   const mediumWidgets: WidgetType[] = ["species", "answers", "weather"]
 
   let primaryWidgetSize: { width: 1 | 2; height: 1 | 2 | 3 }

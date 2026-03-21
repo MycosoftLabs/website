@@ -68,15 +68,15 @@ const AnswersWidget = nextDynamic(() => import("./widgets").then((m) => ({ defau
 const MediaWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MediaWidget })), { ssr: false })
 const LocationWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.LocationWidget })), { ssr: false })
 const NewsWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.NewsWidget })), { ssr: false })
-const MapWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.MapWidget })), { ssr: false })
+const EarthWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EarthWidget })), { ssr: false })
 const CrepWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CrepWidget })), { ssr: false })
-const Earth2Widget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.Earth2Widget })), { ssr: false })
 const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.FallbackWidget })), { ssr: false })
 const EmbeddingAtlasWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EmbeddingAtlasWidget })), { ssr: false })
+const CameraWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CameraWidget })), { ssr: false })
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
-  | "crep" | "earth2" | "map" | "fallback" | "embedding_atlas"
+  | "crep" | "earth" | "fallback" | "embedding_atlas" | "cameras"
   | "events" | "aircraft" | "vessels" | "satellites" | "weather" | "emissions" | "infrastructure" | "devices" | "space_weather"
 
 interface WidgetConfig {
@@ -101,7 +101,7 @@ interface MapObservation {
 function MyceliumBackground({ width, height }: { width: number; height: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const particlesRef = useRef<Particle[]>([])
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!width || !height) return
@@ -218,8 +218,7 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
   location: { width: 1, height: 1 },
   news: { width: 1, height: 1 },
   crep: { width: 2, height: 3 },
-  earth2: { width: 2, height: 3 },
-  map: { width: 2, height: 3 },
+  earth: { width: 2, height: 3 },
   fallback: { width: 1, height: 1 },
   embedding_atlas: { width: 2, height: 2 },
   events: { width: 2, height: 2 },
@@ -231,6 +230,7 @@ const DEFAULT_WIDGET_SIZES: Record<WidgetType, { width: 1 | 2; height: 1 | 2 | 3
   infrastructure: { width: 1, height: 1 },
   devices: { width: 1, height: 1 },
   space_weather: { width: 1, height: 1 },
+  cameras: { width: 2, height: 2 },
 }
 
 export function FluidSearchCanvas({
@@ -284,7 +284,7 @@ export function FluidSearchCanvas({
     gutter: 12,
     itemSelector: ".packery-widget",
     horizontalOrder: true,
-    transitionDuration: "0.5s", // Slower transition for smoother animations
+    transitionDuration: 500, // Slower transition for smoother animations
     draggable: true,
     dragHandle: ".widget-drag-handle",
     percentPosition: true,
@@ -406,14 +406,13 @@ export function FluidSearchCanvas({
         contextParts.push(`compounds in view: ${ctx.compounds.slice(0, 3).map((c) => c.name).join(", ")}`)
       }
       if (ctx.genetics.length) {
-        contextParts.push(`genetics in view: ${ctx.genetics.slice(0, 3).map((g) => g.name).join(", ")}`)
+        contextParts.push(`genetics in view: ${ctx.genetics.slice(0, 3).map((g) => g.speciesName || "Sequence").join(", ")}`)
       }
       if (ctx.research.length) {
         contextParts.push(`papers in view: ${ctx.research.slice(0, 3).map((r) => r.title).join(", ")}`)
       }
       sendMycaMessage(question, {
         contextText: contextParts.length ? `Search context: ${contextParts.join("; ")}` : undefined,
-        source: "web-speech",
       })
       trackVoice(question)
       trackSearch(question, undefined, { current_query: question, source: "voice_ai" })
@@ -424,7 +423,7 @@ export function FluidSearchCanvas({
   // The search page mic button drives the UNIFIED voice context so it stays in sync
   // with everything else (nav bar, MYCA widgets, etc.).
   const isMicActive = unifiedVoice.isListening || voiceSearch.isListening
-  const handleMicClickRef = useRef<() => void>()
+  const handleMicClickRef = useRef<(() => void) | undefined>(undefined)
   handleMicClickRef.current = () => {
     if (unifiedVoice.isListening || voiceSearch.isListening) {
       unifiedVoice.stopListening()
@@ -492,15 +491,17 @@ export function FluidSearchCanvas({
     species, compounds, genetics, research, aiAnswer,
     liveResults,
     events, aircraft, vessels, satellites, weather,
-    emissions, infrastructure, devices, spaceWeather,
+    emissions, infrastructure, devices, spaceWeather, cameras,
     isLoading: rawIsLoading, isValidating, totalCount, error, message,
     refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
     types: ["species", "compounds", "genetics", "research",
       "events", "aircraft", "vessels", "satellites", "weather",
-      "emissions", "infrastructure", "devices", "space_weather"],
+      "emissions", "infrastructure", "devices", "space_weather", "cameras"],
     includeAI: true,
     limit: 20,
+    lat: userLocation?.lat,
+    lng: userLocation?.lng,
   })
 
   // Timeout guard: if loading takes longer than 15s, stop showing skeleton
@@ -748,7 +749,7 @@ export function FluidSearchCanvas({
       source: loc.source || "iNaturalist",
       thumbnailUrl: loc.imageUrl,
     }))
-    const creps = (crepResults as CrepResult[]).map((obs) => ({
+    const creps = (crepResults as any[]).map((obs) => ({
       id: obs.id || `crep-${obs.latitude}-${obs.longitude}`,
       lat: obs.latitude,
       lng: obs.longitude,
@@ -760,12 +761,26 @@ export function FluidSearchCanvas({
     }))
     return [...locations, ...creps]
   }, [locationResults, crepResults])
+
+  const eventObservations = useMemo(() => {
+    if (!events || !Array.isArray(events)) return []
+    return (events as unknown as Array<Record<string, unknown>>).map((ev) => ({
+      id: String(ev.id || Math.random().toString(36).slice(2)),
+      title: String(ev.title || ev.type || "Event"),
+      type: String(ev.type || "event"),
+      severity: ev.severity ? String(ev.severity) : undefined,
+      lat: Number(ev.lat || ev.latitude || 0),
+      lng: Number(ev.lng || ev.longitude || 0),
+      timestamp: ev.timestamp ? String(ev.timestamp) : undefined,
+      magnitude: ev.magnitude ? Number(ev.magnitude) : undefined,
+    }))
+  }, [events])
   
   // Handler to view an observation on the map
   const handleViewOnMap = useCallback((observation: MapObservation) => {
     // Expand the map widget and set focus
-    setExpandedWidgets((prev) => new Set(prev).add("map"))
-    setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("map"); return n })
+    setExpandedWidgets((prev) => new Set(prev).add("earth"))
+    setMinimizedTypes((prev) => { const n = new Set(prev); n.delete("earth"); return n })
   }, [])
 
   // Track search to MYCA intention when results arrive
@@ -811,7 +826,7 @@ export function FluidSearchCanvas({
       
       ctx.setResults({
         query: localQuery,
-        results: { species, compounds, genetics, research },
+        results: { species, compounds, genetics, research } as unknown as any,
         totalCount,
         timing: { total: 0, mindex: 0 },
         source: "live",
@@ -868,7 +883,7 @@ export function FluidSearchCanvas({
 
     // 2. Events (earthquakes, volcanoes, storms)
     if (events && len(events) > 0) {
-      for (const ev of (events as Array<Record<string, unknown>>).slice(0, 5)) {
+      for (const ev of (events as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `event-${ev.id || Math.random().toString(36).slice(2)}`,
           species: (ev.title as string) || (ev.type as string) || "Event",
@@ -888,7 +903,7 @@ export function FluidSearchCanvas({
 
     // 3. Aircraft
     if (aircraft && len(aircraft) > 0) {
-      for (const ac of (aircraft as Array<Record<string, unknown>>).slice(0, 5)) {
+      for (const ac of (aircraft as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `aircraft-${ac.callsign || ac.id || Math.random().toString(36).slice(2)}`,
           species: (ac.callsign as string) || "Aircraft",
@@ -906,7 +921,7 @@ export function FluidSearchCanvas({
 
     // 4. Vessels
     if (vessels && len(vessels) > 0) {
-      for (const v of (vessels as Array<Record<string, unknown>>).slice(0, 5)) {
+      for (const v of (vessels as unknown as Array<Record<string, unknown>>).slice(0, 5)) {
         allLiveItems.push({
           id: `vessel-${v.mmsi || v.id || Math.random().toString(36).slice(2)}`,
           species: (v.name as string) || "Vessel",
@@ -1026,9 +1041,19 @@ export function FluidSearchCanvas({
   const len = (arr: unknown[] | undefined | null) => (Array.isArray(arr) ? arr.length : 0)
 
   // Widget configs with depth layers - ALL widget types enabled (including worldview: CREP, Earth2, map)
-  const widgetConfigs: WidgetConfig[] = useMemo(() => [
+  const widgetConfigs: WidgetConfig[] = useMemo(() => {
+    // Dynamic icon for species based on first result's kingdom
+    const firstKingdom = (species[0]?.taxonomy?.kingdom || "").toLowerCase()
+    const firstPhylum = (species[0]?.taxonomy?.phylum || "").toLowerCase()
+    const speciesIcon = firstKingdom === "fungi" ? "🍄" :
+                        firstKingdom === "plantae" ? "🌳" :
+                        firstKingdom === "animalia" && firstPhylum === "chordata" ? "🦅" :
+                        firstKingdom === "animalia" && firstPhylum === "arthropoda" ? "🦋" :
+                        firstKingdom === "animalia" ? "🐠" : "🔬"
+
+    return [
     { type: "answers", label: "Answers", icon: <MessageCircle className="h-4 w-4" />, gradient: "from-violet-500/30 to-fuchsia-500/20", hasData: len(mycaMessages?.filter((m) => m.role !== "system")) > 0 || len(suggestions?.widgets) > 0 || len(suggestions?.queries) > 0, depth: getParallaxDepth("answers") },
-    { type: "species", label: "Species", icon: "🍄", gradient: "from-green-500/30 to-emerald-500/20", hasData: len(species) > 0, depth: getParallaxDepth("species") },
+    { type: "species", label: "Species", icon: speciesIcon, gradient: "from-green-500/30 to-emerald-500/20", hasData: len(species) > 0, depth: getParallaxDepth("species") },
     { type: "chemistry", label: "Chemistry", icon: "⚗️", gradient: "from-purple-500/30 to-violet-500/20", hasData: len(compounds) > 0, depth: getParallaxDepth("chemistry") },
     { type: "genetics", label: "Genetics", icon: "🧬", gradient: "from-blue-500/30 to-cyan-500/20", hasData: len(genetics) > 0, depth: getParallaxDepth("genetics") },
     { type: "research", label: "Research", icon: "📄", gradient: "from-orange-500/30 to-amber-500/20", hasData: len(research) > 0, depth: getParallaxDepth("research") },
@@ -1036,8 +1061,7 @@ export function FluidSearchCanvas({
     { type: "location", label: "Location", icon: <MapPin className="h-4 w-4" />, gradient: "from-teal-500/30 to-cyan-500/20", hasData: len(locationResults) > 0, depth: getParallaxDepth("location") },
     { type: "news", label: "News", icon: <Newspaper className="h-4 w-4" />, gradient: "from-yellow-500/30 to-orange-500/20", hasData: len(newsResults) > 0, depth: getParallaxDepth("news") },
     { type: "crep", label: "CREP", icon: "✈️", gradient: "from-sky-500/30 to-blue-500/20", hasData: mergedCrepData.length > 0, depth: getParallaxDepth("crep") },
-    { type: "earth2", label: "Earth2", icon: "🌍", gradient: "from-cyan-500/30 to-teal-500/20", hasData: !!earth2Data, depth: getParallaxDepth("earth2") },
-    { type: "map", label: "Map", icon: <MapPin className="h-4 w-4" />, gradient: "from-emerald-500/30 to-green-500/20", hasData: len(mapObservations) > 0, depth: getParallaxDepth("map") },
+    { type: "earth", label: "Earth", icon: "🌍", gradient: "from-emerald-500/30 to-green-500/20", hasData: mapObservations.length > 0 || !!earth2Data, depth: getParallaxDepth("earth") },
     // Earth Intelligence widgets
     { type: "events", label: "Events", icon: "⚡", gradient: "from-red-500/30 to-orange-500/20", hasData: len(events) > 0, depth: getParallaxDepth("events") },
     { type: "aircraft", label: "Aircraft", icon: "✈️", gradient: "from-sky-500/30 to-indigo-500/20", hasData: len(aircraft) > 0, depth: getParallaxDepth("aircraft") },
@@ -1049,11 +1073,10 @@ export function FluidSearchCanvas({
     { type: "devices", label: "Devices", icon: "📡", gradient: "from-green-500/30 to-lime-500/20", hasData: len(devices) > 0, depth: getParallaxDepth("devices") },
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
-  ], [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)])
+  ]}, [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), species])
 
-  // Show ALL widgets regardless of whether they have data - users should see the full widget grid
-  // Widgets without data will show an appropriate empty/loading state
-  const activeWidgets = widgetConfigs  // No filter - show all widgets
+  // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
+  const activeWidgets = widgetConfigs
   
   // Get saved widget order from sessionStorage
   const savedWidgetOrder = useMemo(() => {
@@ -1086,17 +1109,25 @@ export function FluidSearchCanvas({
   // Minimized widgets shown as icon buttons
   const minimizedWidgetConfigs = activeWidgets.filter((w) => minimizedTypes.has(w.type))
 
-  // Trigger Packery relayout when widgets change
+  // Trigger Packery relayout when widgets change or new data arrives that might resize them
   useEffect(() => {
     if (packeryReady) {
       // Small delay to allow DOM to update
       const timeoutId = setTimeout(() => {
         reloadItems()
         packeryLayout()
-      }, 50)
+      }, 100)
       return () => clearTimeout(timeoutId)
     }
-  }, [gridWidgets.length, expandedWidgets.size, packeryReady, reloadItems, packeryLayout])
+  }, [
+    gridWidgets.length, expandedWidgets.size, packeryReady, reloadItems, packeryLayout,
+    species.length, compounds.length, genetics.length, research.length,
+    mediaResults.length, locationResults.length, newsResults.length,
+    mergedCrepData.length, mapObservations.length,
+    events.length, aircraft.length, vessels.length, satellites.length, weather.length,
+    emissions.length, infrastructure.length, devices.length, spaceWeather.length,
+    aiAnswer
+  ])
 
   // Auto-expand Species and Answers on first load if nothing expanded (Answers is primary for conversational search)
   useEffect(() => {
@@ -1111,7 +1142,7 @@ export function FluidSearchCanvas({
   const prevAutoExpandKeyRef = useRef("")
   const [searchRoute, setSearchRoute] = useState<SearchRoute | null>(null)
 
-  // Classify query on change (before results arrive for instant widget routing)
+  // Classify query on change to show contextual suggestions, but DO NOT send to Myca yet
   useEffect(() => {
     if (!localQuery || localQuery.length < 2) {
       setSearchRoute(null)
@@ -1119,20 +1150,54 @@ export function FluidSearchCanvas({
     }
     const route = classifyAndRoute(localQuery)
     setSearchRoute(route)
+  }, [localQuery])
 
-    // If conversational/hybrid, send to Myca LLM alongside widget search
+  // Handle explicit search submit (Enter key)
+  const handleSubmitSearch = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!localQuery || localQuery.length < 2) return
+
+    setIsInputFocused(false)
+    const route = classifyAndRoute(localQuery)
+    setSearchRoute(route)
+    
+    // Instantly layout widgets based on the predicted route before data even arrives
+    setExpandedWidgets((prev) => {
+      const next = new Set<WidgetType>()
+      if (route.primaryWidget) next.add(route.primaryWidget as WidgetType)
+      for (const sw of route.secondaryWidgets) next.add(sw as WidgetType)
+      if (route.worldview.crep) next.add("crep" as WidgetType)
+      if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
+      if (route.useMycaLLM) next.add("answers" as WidgetType)
+      if (next.size === 0) {
+        next.add("species" as WidgetType)
+        next.add("answers" as WidgetType)
+      }
+      return next
+    })
+
+    if (route.primaryWidget) {
+      setWidgetSizes(prev => ({
+        ...prev,
+        [route.primaryWidget!]: route.primaryWidgetSize,
+      }))
+    }
+    
+    // Trigger packery layout adjustment instantly
+    if (packeryReady) {
+      setTimeout(() => { reloadItems(); packeryLayout() }, 10)
+    }
+
+    // Send to Myca LLM instantly
     if (route.useMycaLLM && route.classification !== "data_query") {
-      // Build context from current search state
       const contextParts: string[] = []
-      if (species.length) contextParts.push(`species in view: ${species.slice(0, 3).map(s => s.scientificName).join(", ")}`)
+      if (species.length) contextParts.push(`species: ${species.slice(0, 3).map(s => s.scientificName).join(", ")}`)
       if (compounds.length) contextParts.push(`compounds: ${compounds.slice(0, 3).map(c => c.name).join(", ")}`)
       sendMycaMessage(localQuery, {
-        contextText: contextParts.length ? `Search context: ${contextParts.join("; ")}` : undefined,
-        source: "search-router",
+        contextText: contextParts.length ? `Context: ${contextParts.join("; ")}` : undefined,
       })
     }
 
-    // Emit search route to activity stream for Myca's thinking display
     ctx.emit("search:route", {
       query: localQuery,
       classification: route.classification,
@@ -1141,7 +1206,9 @@ export function FluidSearchCanvas({
       useMycaLLM: route.useMycaLLM,
       liveResultTypes: route.liveResultTypes,
     })
-  }, [localQuery]) // eslint-disable-line
+    
+    ctx.setQuery(localQuery)
+  }, [localQuery, species, compounds, sendMycaMessage, ctx, packeryReady, reloadItems, packeryLayout])
 
   // Smart auto-expand: uses intelligence router + data availability.
   // Primary widget gets resized to fill viewport; secondary widgets arranged around it.
@@ -1158,8 +1225,7 @@ export function FluidSearchCanvas({
       genetics: genetics.length,
       research: research.length,
       crep: mergedCrepData.length,
-      earth2: earth2Data ? 1 : 0,
-      map: mapObservations.length,
+      earth: (mapObservations.length > 0 || !!earth2Data) ? 1 : 0,
       events: len(events),
       aircraft: len(aircraft),
       vessels: len(vessels),
@@ -1212,8 +1278,7 @@ export function FluidSearchCanvas({
 
       // Intent-based: expand worldview widgets even before data arrives
       if (route.worldview.crep) next.add("crep" as WidgetType)
-      if (route.worldview.earth2) next.add("earth2" as WidgetType)
-      if (route.worldview.map) next.add("map" as WidgetType)
+      if (route.worldview.earth2 || route.worldview.map) next.add("earth" as WidgetType)
 
       // Always show Answers for conversational/hybrid queries
       if (route.useMycaLLM) next.add("answers" as WidgetType)
@@ -1233,8 +1298,7 @@ export function FluidSearchCanvas({
         if (count > 0) next.delete(wType as WidgetType)
       }
       if (route.worldview.crep) next.delete("crep" as WidgetType)
-      if (route.worldview.earth2) next.delete("earth2" as WidgetType)
-      if (route.worldview.map) next.delete("map" as WidgetType)
+      if (route.worldview.earth2 || route.worldview.map) next.delete("earth" as WidgetType)
       return next
     })
   }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, searchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
@@ -1305,7 +1369,7 @@ export function FluidSearchCanvas({
   const handleAddToNotepad = useCallback(
     (item: { type: string; title: string; content: string; source?: string; meta?: Record<string, unknown> }) => {
       // meta carries the full article/paper data so notepad can re-open the reading modal
-      ctx.addNotepadItem({ ...item, searchQuery: localQuery })
+      ctx.addNotepadItem({ ...item, type: item.type as any, searchQuery: localQuery })
       trackNotepadAdd(item.type || "note", item.title || item.content?.slice(0, 50) || "Item")
     },
     [ctx, localQuery, trackNotepadAdd]
@@ -1378,8 +1442,7 @@ export function FluidSearchCanvas({
       location: "Location",
       news: "News",
       crep: "CREP Observations",
-      earth2: "Earth2 Weather",
-      map: "Map",
+      earth: "Earth Simulator",
     }
     try {
       e.dataTransfer.setData("application/search-widget", JSON.stringify({
@@ -1405,7 +1468,7 @@ export function FluidSearchCanvas({
       <MyceliumBackground width={canvasSize.width} height={canvasSize.height} />
       {/* Compact Search Bar */}
       <div className="relative z-20 px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3 shrink-0">
-        <form onSubmit={(e) => e.preventDefault()} className="flex-1 relative">
+        <form onSubmit={handleSubmitSearch} className="flex-1 relative">
           <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           <Input
             value={localQuery}
@@ -1498,8 +1561,10 @@ export function FluidSearchCanvas({
                     "packery-widget z-20 mb-3",
                     sizeClasses,
                   )}
-                  // Responsive width: driven by container columns, not by hardcoded breakpoints
-                  style={{ width: getWidgetWidth(currentSize.width) }}
+                  style={{ 
+                    width: getWidgetWidth(currentSize.width),
+                    order: config.hasData || expandedWidgets.has(config.type) ? -1 : 0
+                  }}
                   draggable
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                     const labels: Record<string, string> = {
@@ -1516,7 +1581,7 @@ export function FluidSearchCanvas({
                       map: "Map",
                     }
                     e.dataTransfer.setData("application/search-widget", JSON.stringify({
-                      type: config.type === "chemistry" ? "compound" : config.type,
+                      type: (config.type === "chemistry" ? "compound" : config.type) as any,
                       title: labels[config.type] || config.label,
                       content: `${config.label} results from search "${localQuery}"`,
                       source: "Search",
@@ -1587,7 +1652,7 @@ export function FluidSearchCanvas({
                       <WidgetContent
                         type={config.type}
                         species={species} compounds={compounds} genetics={genetics}
-                        research={research} aiAnswer={aiAnswer}
+                        research={research} aiAnswer={aiAnswer as any}
                         searchContext={{
                           species: species.slice(0, 5).map((s) => s.scientificName || s.commonName).filter(Boolean),
                           compounds: compounds.slice(0, 5).map((c) => c.name).filter(Boolean),
@@ -1595,7 +1660,7 @@ export function FluidSearchCanvas({
                           research: research.slice(0, 5).map((r) => r.title).filter(Boolean),
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
-                        crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations}
+                        crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {
@@ -1647,7 +1712,7 @@ export function FluidSearchCanvas({
                       map: "Map",
                     }
                     e.dataTransfer.setData("application/search-widget", JSON.stringify({
-                      type: config.type === "chemistry" ? "compound" : config.type,
+                      type: (config.type === "chemistry" ? "compound" : config.type) as any,
                       title: labels[config.type] || config.label,
                       content: `${config.label} results from search "${localQuery}"`,
                       source: "Search",
@@ -1760,7 +1825,7 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
   const icons: Record<string, string> = {
     species: "🍄", chemistry: "⚗️", genetics: "🧬", research: "📄",
     answers: "💬", media: "🎬", location: "📍", news: "📰",
-    crep: "✈️", earth2: "🌍", map: "🗺️",
+    crep: "✈️", earth: "🌍",
     events: "⚡", aircraft: "✈️", vessels: "🚢", satellites: "🛰️",
     weather: "🌦️", emissions: "🏭", infrastructure: "🏗️",
     devices: "📡", space_weather: "☀️",
@@ -1776,11 +1841,16 @@ function EmptyWidgetState({ type, label }: { type: string; label: string }) {
 }
 
 // Widget content renderer -- now accepts focusedItemId and all data types
+function ComponentWrapper(props: any) {
+  const { Element, ...rest } = props
+  return <Element {...rest} />
+}
+
 function WidgetContent({
   type, species, compounds, genetics, research, aiAnswer,
   searchContext,
   media, mediaError, location, news, newsError, newsQueryUsed,
-  crep, earth2, mapObservations,
+  crep, earth2, mapObservations, eventObservations,
   events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, spaceWeather,
   mycaSuggestions,
   onSelectSuggestionWidget,
@@ -1792,8 +1862,8 @@ function WidgetContent({
   species: SpeciesResult[]; compounds: CompoundResult[]; genetics: GeneticsResult[]; research: ResearchResult[]; aiAnswer: string | undefined
   searchContext?: { species?: string[]; compounds?: string[]; genetics?: string[]; research?: string[] }
   media: Record<string, unknown>[]; mediaError?: string; location: Record<string, unknown>[]; news: Record<string, unknown>[]; newsError?: string; newsQueryUsed?: string
-  crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]
-  events?: Record<string, unknown>[]; aircraft?: Record<string, unknown>[]; vessels?: Record<string, unknown>[]; satellites?: Record<string, unknown>[]; weather?: Record<string, unknown>[]; emissions?: Record<string, unknown>[]; infrastructure?: Record<string, unknown>[]; devices?: Record<string, unknown>[]; spaceWeather?: Record<string, unknown>[];
+  crep: Record<string, unknown>[]; earth2: Record<string, unknown> | null; mapObservations: MapObservation[]; eventObservations: any[]
+  events?: Record<string, unknown>[]; aircraft?: Record<string, unknown>[]; vessels?: Record<string, unknown>[]; satellites?: Record<string, unknown>[]; weather?: Record<string, unknown>[]; emissions?: Record<string, unknown>[]; infrastructure?: Record<string, unknown>[]; devices?: Record<string, unknown>[]; spaceWeather?: Record<string, unknown>[]; cameras?: Record<string, unknown>[];
   mycaSuggestions: { widgets: string[]; queries: string[] }
   onSelectSuggestionWidget: (widgetType: string) => void
   onSelectSuggestionQuery: (query: string) => void
@@ -1848,30 +1918,19 @@ function WidgetContent({
     case "research":
       if (isLoading && research.length === 0) return <ResearchWidget data={[]} isLoading isFocused={isFocused} />
       if (research.length === 0) return <EmptyWidgetState type="research" label="Research Papers" />
-      return <ResearchWidget data={research} isFocused={isFocused} onFocusWidget={onFocusWidget} onAddToNotepad={onAddToNotepad} openPaper={openPaper} />
+      return <ComponentWrapper Element={ResearchWidget} data={research} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onExplore={onExplore} openPaper={openPaper} />
     case "media":
-      if (mediaError) return <MediaWidget data={[]} error={mediaError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
-      if (isLoading && media.length === 0) return <MediaWidget data={[]} isLoading isFocused={isFocused} />
-      if (media.length === 0) return <EmptyWidgetState type="media" label="Media" />
-      return <MediaWidget data={media} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      return <ComponentWrapper Element={MediaWidget} data={media as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} error={mediaError} />
     case "location":
-      if (isLoading && location.length === 0) return <LocationWidget data={[]} isLoading isFocused={isFocused} />
-      if (location.length === 0) return <EmptyWidgetState type="location" label="Location" />
-      return <LocationWidget data={location} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
+      return <ComponentWrapper Element={LocationWidget} data={location as any} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "news":
-      if (newsError) return <NewsWidget data={[]} error={newsError} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
-      if (isLoading && news.length === 0) return <NewsWidget data={[]} isLoading isFocused={isFocused} />
-      if (news.length === 0) return <EmptyWidgetState type="news" label="News" />
-      return <NewsWidget data={news} isFocused={isFocused} queryUsed={newsQueryUsed} onAddToNotepad={onAddToNotepad} openArticle={openArticle} />
+      return <ComponentWrapper Element={NewsWidget} data={news as any} query={searchQuery} contextQuery={newsQueryUsed} isLoading={isLoading} isFocused={isFocused} onAddToNotepad={onAddToNotepad} openArticle={openArticle} error={newsError} />
     case "crep":
       if (isLoading && crep.length === 0) return <CrepWidget data={[]} isLoading isFocused={isFocused} onAddToNotepad={onAddToNotepad} onOpenDashboard={onOpenDashboard} />
       return <CrepWidget data={crep as any} isLoading={isLoading} isFocused={isFocused} query={searchQuery} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} onOpenDashboard={onOpenDashboard} />
-    case "earth2":
-      if (!earth2) return <EmptyWidgetState type="earth2" label="Earth2 Weather" />
-      return <Earth2Widget data={earth2} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
-    case "map":
-      if (mapObservations.length === 0) return <EmptyWidgetState type="map" label="Map" />
-      return <MapWidget observations={mapObservations} isFocused={isFocused} />
+    case "earth":
+      if (mapObservations.length === 0 && eventObservations.length === 0 && !earth2) return <EmptyWidgetState type="earth" label="Earth Simulator" />
+      return <EarthWidget data={mapObservations} earth2Data={earth2} eventsData={eventObservations} isFocused={isFocused} onAddToNotepad={onAddToNotepad} />
     case "embedding_atlas":
       return <EmbeddingAtlasWidget query={searchQuery} isFocused={isFocused} onAddToNotepad={onAddToNotepad} onViewOnMap={onViewOnMap as any} />
     case "events":
@@ -1901,6 +1960,9 @@ function WidgetContent({
     case "space_weather":
       if (!spaceWeather?.length) return <EmptyWidgetState type="space_weather" label="Space Weather" />
       return <FallbackWidget bucketKey="space_weather" title="Space Weather" items={spaceWeather} />
+    case "cameras":
+      if (!cameras?.length) return <EmptyWidgetState type="cameras" label="Live Cameras" />
+      return <CameraWidget data={cameras as any} />
     case "fallback":
       return (
         <FallbackWidget

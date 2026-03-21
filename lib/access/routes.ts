@@ -24,6 +24,12 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/devices', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Devices catalog' },
   { path: '/devices/[id]', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device product page' },
   { path: '/devices/specifications', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Device specifications' },
+  { path: '/natureos', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'NatureOS home' },
+  { path: '/natureos/mindex/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Species Explorer' },
+  { path: '/ancestry/explorer', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Ancestry Explorer' },
+  { path: '/apps/earth-simulator', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Earth Simulator' },
+  { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
+  { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
 ]
 
 // Freemium routes - public with limits
@@ -59,7 +65,27 @@ export const FREEMIUM_ROUTES: RouteAccess[] = [
     description: 'Mushroom catalog' 
   },
   { 
+    path: '/natureos/species', 
+    gate: AccessGate.FREEMIUM, 
+    config: { 
+      gate: AccessGate.FREEMIUM, 
+      minimumRole: UserRole.ANONYMOUS,
+      freemiumLimits: { dailyLimit: 50 }
+    }, 
+    description: 'Species database' 
+  },
+  { 
     path: '/compounds', 
+    gate: AccessGate.FREEMIUM, 
+    config: { 
+      gate: AccessGate.FREEMIUM, 
+      minimumRole: UserRole.ANONYMOUS,
+      freemiumLimits: { dailyLimit: 20, features: { simulate: false } }
+    }, 
+    description: 'Compounds' 
+  },
+  { 
+    path: '/natureos/compounds', 
     gate: AccessGate.FREEMIUM, 
     config: { 
       gate: AccessGate.FREEMIUM, 
@@ -96,7 +122,6 @@ export const AUTHENTICATED_ROUTES: RouteAccess[] = [
   { path: '/profile', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'User profile' },
   { path: '/settings', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Settings' },
   { path: '/apps', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Apps hub' },
-  { path: '/natureos', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'NatureOS home' },
   { path: '/dashboard', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Dashboard' },
   { path: '/billing', gate: AccessGate.AUTHENTICATED, config: { gate: AccessGate.AUTHENTICATED, minimumRole: UserRole.USER }, description: 'Billing' },
 ]
@@ -108,9 +133,9 @@ export const COMPANY_ROUTES: RouteAccess[] = [
   { path: '/natureos/mycobrain', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MycoBrain Console' },
   { path: '/natureos/sporebase', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'SporeBase Monitor' },
   { path: '/natureos/fci', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FCI Monitor' },
-  { path: '/natureos/crep', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'CREP Dashboard' },
   { path: '/natureos/fusarium', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'FUSARIUM' },
   { path: '/natureos/mindex', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'MINDEX' },
+  { path: '/natureos/crep', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'CREP Dashboard' },
   { path: '/natureos/storage', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Storage' },
   { path: '/natureos/containers', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Containers' },
   { path: '/natureos/monitoring', gate: AccessGate.COMPANY, config: { gate: AccessGate.COMPANY, minimumRole: UserRole.USER }, description: 'Monitoring' },
@@ -128,16 +153,7 @@ export const PREMIUM_ROUTES: RouteAccess[] = [
     }, 
     description: 'MYCA AI' 
   },
-  { 
-    path: '/ancestry/explorer', 
-    gate: AccessGate.PREMIUM, 
-    config: { 
-      gate: AccessGate.PREMIUM, 
-      minimumRole: UserRole.PREMIUM,
-      subscriptionRequired: SubscriptionTier.PRO
-    }, 
-    description: 'Ancestry Explorer' 
-  },
+
   { 
     path: '/ancestry/tools', 
     gate: AccessGate.PREMIUM, 
@@ -320,12 +336,20 @@ const AUTH_REQUIRED_PREFIXES: string[] = [
 ].filter((p, i, a) => a.indexOf(p) === i)
 
 const COMPANY_REQUIRED_PREFIXES: string[] = [
-  ...COMPANY_ROUTES.map(r => r.path),
   ...PLATFORM_ROUTES.map(r => r.path),
 ].filter((p, i, a) => a.indexOf(p) === i)
 
+const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
+  '/natureos/mindex/explorer',
+  '/ancestry/explorer',
+  '/apps/earth-simulator',
+  '/apps/petri-dish-sim',
+  '/apps/compound-sim'
+]
+
 /** True if path requires any authenticated user (middleware use). */
 export function pathRequiresAuth(pathname: string): boolean {
+  if (MIDDLEWARE_PUBLIC_EXCEPTIONS.some(p => pathname === p || pathname.startsWith(p + '/'))) return false;
   return AUTH_REQUIRED_PREFIXES.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
@@ -333,6 +357,7 @@ export function pathRequiresAuth(pathname: string): boolean {
 
 /** True if path requires company email (middleware use). */
 export function pathRequiresCompanyEmail(pathname: string): boolean {
+  if (MIDDLEWARE_PUBLIC_EXCEPTIONS.some(p => pathname === p || pathname.startsWith(p + '/'))) return false;
   return COMPANY_REQUIRED_PREFIXES.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )

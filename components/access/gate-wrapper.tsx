@@ -53,7 +53,15 @@ export function GateWrapper({
         setHasAccess(!!user)
         break
       case AccessGate.COMPANY:
-        setHasAccess(!!user && isCompanyEmail(user.email))
+        setHasAccess(
+          !!user && (
+            isCompanyEmail(user.email) ||
+            profile?.subscription_tier === 'pro' ||
+            profile?.subscription_tier === 'enterprise' ||
+            profile?.role === 'admin' ||
+            profile?.role === 'super_admin'
+          )
+        )
         break
       case AccessGate.PREMIUM:
         setHasAccess(
@@ -239,7 +247,15 @@ export function useGateAccess(gate: AccessGate): {
         setHasAccess(!!user)
         break
       case AccessGate.COMPANY:
-        setHasAccess(!!user && isCompanyEmail(user.email))
+        setHasAccess(
+          !!user && (
+            isCompanyEmail(user.email) ||
+            profile?.subscription_tier === 'pro' ||
+            profile?.subscription_tier === 'enterprise' ||
+            profile?.role === 'admin' ||
+            profile?.role === 'super_admin'
+          )
+        )
         break
       case AccessGate.PREMIUM:
         setHasAccess(

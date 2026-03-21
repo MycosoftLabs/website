@@ -118,7 +118,7 @@ Garret brings 30 years of experience across IT consulting, embedded/IoT developm
   },
   {
     name: "RJ Ricasata",
-    role: "Co-Founder · Board Member & MYCA 2nd Key",
+    role: "Founder & CFO",
     slug: "rj-ricasata",
     bio: "Co-Founder, Board Member of Mycosoft Inc., and MYCA 2nd Key — secondary authorized keyholder for MYCA systems. Brings governance, strategic insight, and multidisciplinary expertise from technology, finance, and quality assurance.",
     description: `Raljoseph "RJ" Ricasata is a Co-Founder of Mycosoft Inc., Board Member, and serves as MYCA 2nd Key — the secondary authorized keyholder for MYCA systems. He brings governance, strategic insight, and a multidisciplinary background spanning technology, finance, quality assurance, and entrepreneurship.

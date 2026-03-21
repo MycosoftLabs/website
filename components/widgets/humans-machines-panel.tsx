@@ -159,197 +159,214 @@ export function HumansMachinesPanel({ className }: HumansMachinesPanelProps) {
       <CardHeader className="p-3 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Users className="h-4 w-4 text-cyan-400" />
+            <Users className="h-6 w-6 text-cyan-400" />
             Humans & Machines
           </CardTitle>
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-cyan-500/30 text-cyan-400">
-            <Activity className="h-2.5 w-2.5 mr-1" />
+          <Badge variant="outline" className="text-sm px-1.5 py-0 h-4 border-cyan-500/30 text-cyan-400">
+            <Activity className="h-4 w-4 mr-1" />
             Live
           </Badge>
         </div>
       </CardHeader>
       
       <CardContent className="p-3 pt-0 space-y-2">
-        {/* Human Population */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Users className="h-3 w-3 text-blue-400" />
-              World Population
+        {/* Human Demographics */}
+        <div className="p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-base text-muted-foreground flex items-center gap-1">
+              <Users className="h-5 w-5 text-blue-400" />
+              Human Demographics
             </span>
-            <span className="text-[9px] text-green-400">+{formatCompact(Math.floor(birthsToday - deathsToday))} today</span>
+            <span className="text-sm text-blue-400 font-medium tracking-tight">
+              ~{formatCompact(BASELINE_DATA.population.total)} <span className="text-xs text-muted-foreground ml-1">across 195 Nations</span>
+            </span>
           </div>
-          <p className="text-lg font-bold text-blue-400 tabular-nums tracking-tight">
-            {formatNumber(Math.floor(population))}
-          </p>
-          <div className="flex items-center gap-3 mt-1 text-[9px]">
-            <span className="flex items-center gap-1 text-green-400">
-              <Baby className="h-2.5 w-2.5" />
-              {formatCompact(Math.floor(birthsToday))}/day
-            </span>
-            <span className="flex items-center gap-1 text-red-400">
-              <Skull className="h-2.5 w-2.5" />
-              {formatCompact(Math.floor(deathsToday))}/day
-            </span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mt-3">
+            <div className="p-2 rounded bg-black/20">
+              <span className="text-xs text-muted-foreground block mb-1">Gender</span>
+              <div className="flex justify-center gap-2 items-end mb-1">
+                 <span className="font-bold text-sky-300 text-sm">~50.4%</span>
+                 <span className="font-bold text-pink-300 text-sm">~49.6%</span>
+              </div>
+              <span className="text-xs text-muted-foreground block opacity-70">Men / Women</span>
+            </div>
+            <div className="p-2 rounded bg-black/20">
+               <span className="text-xs text-muted-foreground block mb-1">Youth 0-14</span>
+               <span className="font-bold text-purple-300 text-base">{formatCompact(2_050_000_000)}</span>
+               <span className="text-xs text-muted-foreground block mt-1 opacity-70">~25.3% globally</span>
+            </div>
+            <div className="p-2 rounded bg-black/20">
+               <span className="text-xs text-muted-foreground block mb-1">Adult 15-64</span>
+               <span className="font-bold text-blue-300 text-base">{formatCompact(5_300_000_000)}</span>
+               <span className="text-xs text-muted-foreground block mt-1 opacity-70">~65.2% globally</span>
+            </div>
+            <div className="p-2 rounded bg-black/20 flex flex-col justify-center">
+               <span className="text-xs text-muted-foreground flex items-center justify-center gap-1 mb-1">
+                 <Plane className="h-3 w-3 text-cyan-400" />
+                 In Transit
+               </span>
+               <span className="font-bold text-cyan-300 text-base animate-pulse">~46M</span>
+               <span className="text-xs text-muted-foreground block mt-1 opacity-70">Traveling Now</span>
+            </div>
           </div>
         </div>
 
         {/* Vehicles Section */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+        <div className="p-4 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Car className="h-3 w-3 text-orange-400" />
+            <span className="text-base text-muted-foreground flex items-center gap-1">
+              <Car className="h-5 w-5 text-orange-400" />
               Land Vehicles
             </span>
-            <span className="text-[9px] text-orange-400">{formatCompact(activeData.vehicles)} active</span>
+            <span className="text-sm text-orange-400">{formatCompact(activeData.vehicles)} active</span>
           </div>
-          <div className="grid grid-cols-3 gap-1 text-center text-[9px]">
-            <div className="p-1 rounded bg-black/20">
-              <Car className="h-3 w-3 mx-auto text-orange-300" />
+          <div className="grid grid-cols-3 gap-3 text-center text-sm">
+            <div className="p-3 rounded bg-black/20">
+              <Car className="h-5 w-5 mx-auto text-orange-300" />
               <span className="font-bold text-orange-300">{formatCompact(BASELINE_DATA.vehicles.cars)}</span>
-              <span className="text-muted-foreground block text-[8px]">cars</span>
+              <span className="text-muted-foreground block text-xs">cars</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <Truck className="h-3 w-3 mx-auto text-amber-300" />
+            <div className="p-3 rounded bg-black/20">
+              <Truck className="h-5 w-5 mx-auto text-amber-300" />
               <span className="font-bold text-amber-300">{formatCompact(BASELINE_DATA.vehicles.trucks)}</span>
-              <span className="text-muted-foreground block text-[8px]">trucks</span>
+              <span className="text-muted-foreground block text-xs">trucks</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <Bike className="h-3 w-3 mx-auto text-yellow-300" />
+            <div className="p-3 rounded bg-black/20">
+              <Bike className="h-5 w-5 mx-auto text-yellow-300" />
               <span className="font-bold text-yellow-300">{formatCompact(BASELINE_DATA.vehicles.motorcycles)}</span>
-              <span className="text-muted-foreground block text-[8px]">motorcycles</span>
+              <span className="text-muted-foreground block text-xs">motorcycles</span>
             </div>
           </div>
         </div>
 
         {/* Aircraft Section */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-sky-500/10 to-cyan-500/10 border border-sky-500/20">
+        <div className="p-4 rounded-xl bg-gradient-to-r from-sky-500/10 to-cyan-500/10 border border-sky-500/20">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Plane className="h-3 w-3 text-sky-400" />
+            <span className="text-base text-muted-foreground flex items-center gap-1">
+              <Plane className="h-5 w-5 text-sky-400" />
               Aircraft (OpenSky)
             </span>
-            <span className="text-[9px] text-sky-400">{formatCompact(activeData.aircraft)} in flight</span>
+            <span className="text-sm text-sky-400">{formatCompact(activeData.aircraft)} in flight</span>
           </div>
-          <div className="grid grid-cols-4 gap-1 text-center text-[8px]">
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-sky-300 text-[10px]">{formatCompact(BASELINE_DATA.aircraft.commercial)}</span>
+          <div className="grid grid-cols-4 gap-3 text-center text-xs">
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-sky-300 text-base">{formatCompact(BASELINE_DATA.aircraft.commercial)}</span>
               <span className="text-muted-foreground block">commercial</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-cyan-300 text-[10px]">{formatCompact(BASELINE_DATA.aircraft.private)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-cyan-300 text-base">{formatCompact(BASELINE_DATA.aircraft.private)}</span>
               <span className="text-muted-foreground block">private</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-blue-300 text-[10px]">{formatCompact(BASELINE_DATA.aircraft.cargo)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-blue-300 text-base">{formatCompact(BASELINE_DATA.aircraft.cargo)}</span>
               <span className="text-muted-foreground block">cargo</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-indigo-300 text-[10px]">{formatCompact(BASELINE_DATA.aircraft.military)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-indigo-300 text-base">{formatCompact(BASELINE_DATA.aircraft.military)}</span>
               <span className="text-muted-foreground block">military</span>
             </div>
           </div>
-          <div className="flex items-center justify-between mt-1 text-[8px] text-muted-foreground">
+          <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
             <span>📡 {formatCompact(BASELINE_DATA.aircraft.flightsPerDay)} flights/day</span>
             <span className="text-red-400">{formatCompact(BASELINE_DATA.aircraft.co2PerDay)}t CO₂/d</span>
           </div>
         </div>
 
         {/* Ships & Vessels Section */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/20">
+        <div className="p-4 rounded-xl bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/20">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Ship className="h-3 w-3 text-teal-400" />
+            <span className="text-base text-muted-foreground flex items-center gap-1">
+              <Ship className="h-5 w-5 text-teal-400" />
               Ships & Vessels (AIS)
             </span>
-            <span className="text-[9px] text-teal-400">{formatCompact(activeData.ships)} at sea</span>
+            <span className="text-sm text-teal-400">{formatCompact(activeData.ships)} at sea</span>
           </div>
-          <div className="grid grid-cols-4 gap-1 text-center text-[8px]">
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-teal-300 text-[10px]">{formatCompact(BASELINE_DATA.ships.cargo)}</span>
+          <div className="grid grid-cols-4 gap-3 text-center text-xs">
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-teal-300 text-base">{formatCompact(BASELINE_DATA.ships.cargo)}</span>
               <span className="text-muted-foreground block">cargo</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-emerald-300 text-[10px]">{formatCompact(BASELINE_DATA.ships.tankers)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-emerald-300 text-base">{formatCompact(BASELINE_DATA.ships.tankers)}</span>
               <span className="text-muted-foreground block">tankers</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-green-300 text-[10px]">{formatCompact(BASELINE_DATA.ships.container)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-green-300 text-base">{formatCompact(BASELINE_DATA.ships.container)}</span>
               <span className="text-muted-foreground block">container</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-cyan-300 text-[10px]">{formatCompact(BASELINE_DATA.ships.fishing)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-cyan-300 text-base">{formatCompact(BASELINE_DATA.ships.fishing)}</span>
               <span className="text-muted-foreground block">fishing</span>
             </div>
           </div>
-          <div className="flex items-center justify-between mt-1 text-[8px] text-muted-foreground">
+          <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
             <span>🌊 Global Fishing Watch integrated</span>
             <span className="text-red-400">{formatCompact(BASELINE_DATA.ships.co2PerDay)}t CO₂/d</span>
           </div>
         </div>
 
         {/* Drones & UAVs Section */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+        <div className="p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Radio className="h-3 w-3 text-purple-400" />
+            <span className="text-base text-muted-foreground flex items-center gap-1">
+              <Radio className="h-5 w-5 text-purple-400" />
               Drones & UAVs
             </span>
-            <span className="text-[9px] text-purple-400">{formatCompact(activeData.drones)} active</span>
+            <span className="text-sm text-purple-400">{formatCompact(activeData.drones)} active</span>
           </div>
-          <div className="grid grid-cols-3 gap-1 text-center text-[8px]">
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-purple-300 text-[10px]">{formatCompact(BASELINE_DATA.drones.commercial)}</span>
+          <div className="grid grid-cols-3 gap-3 text-center text-xs">
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-purple-300 text-base">{formatCompact(BASELINE_DATA.drones.commercial)}</span>
               <span className="text-muted-foreground block">commercial</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-pink-300 text-[10px]">{formatCompact(BASELINE_DATA.drones.consumer)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-pink-300 text-base">{formatCompact(BASELINE_DATA.drones.consumer)}</span>
               <span className="text-muted-foreground block">consumer</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <span className="font-bold text-rose-300 text-[10px]">{formatCompact(BASELINE_DATA.drones.military)}</span>
+            <div className="p-3 rounded bg-black/20">
+              <span className="font-bold text-rose-300 text-base">{formatCompact(BASELINE_DATA.drones.military)}</span>
               <span className="text-muted-foreground block">military</span>
             </div>
           </div>
         </div>
 
         {/* Environmental Impact */}
-        <div className="p-2 rounded-md bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20">
-          <p className="text-[9px] text-muted-foreground mb-1 flex items-center gap-1">
-            <Cloud className="h-3 w-3 text-red-400" />
+        <div className="p-4 rounded-xl bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20">
+          <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
+            <Cloud className="h-5 w-5 text-red-400" />
             Human & Machine Environmental Impact
           </p>
-          <div className="grid grid-cols-4 gap-1 text-center text-[8px]">
-            <div className="p-1 rounded bg-black/20">
-              <Cloud className="h-3 w-3 mx-auto text-red-400" />
-              <span className="font-bold text-red-400 text-[9px]">{formatCompact(BASELINE_DATA.environmental.totalCO2PerDay)}</span>
-              <span className="text-muted-foreground block text-[7px]">t CO₂/d</span>
+          <div className="grid grid-cols-4 gap-3 text-center text-xs">
+            <div className="p-3 rounded bg-black/20">
+              <Cloud className="h-5 w-5 mx-auto text-red-400" />
+              <span className="font-bold text-red-400 text-sm">{formatCompact(BASELINE_DATA.environmental.totalCO2PerDay)}</span>
+              <span className="text-muted-foreground block text-[10px]">t CO₂/d</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <CircleDot className="h-3 w-3 mx-auto text-amber-400" />
-              <span className="font-bold text-amber-400 text-[9px]">{formatCompact(BASELINE_DATA.environmental.totalMethanePerDay)}</span>
-              <span className="text-muted-foreground block text-[7px]">t CH₄/d</span>
+            <div className="p-3 rounded bg-black/20">
+              <CircleDot className="h-5 w-5 mx-auto text-amber-400" />
+              <span className="font-bold text-amber-400 text-sm">{formatCompact(BASELINE_DATA.environmental.totalMethanePerDay)}</span>
+              <span className="text-muted-foreground block text-[10px]">t CH₄/d</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <Fuel className="h-3 w-3 mx-auto text-orange-400" />
-              <span className="font-bold text-orange-400 text-[9px]">{formatCompact(BASELINE_DATA.environmental.fuelConsumptionPerDay)}</span>
-              <span className="text-muted-foreground block text-[7px]">bbl/d</span>
+            <div className="p-3 rounded bg-black/20">
+              <Fuel className="h-5 w-5 mx-auto text-orange-400" />
+              <span className="font-bold text-orange-400 text-sm">{formatCompact(BASELINE_DATA.environmental.fuelConsumptionPerDay)}</span>
+              <span className="text-muted-foreground block text-[10px]">bbl/d</span>
             </div>
-            <div className="p-1 rounded bg-black/20">
-              <Droplets className="h-3 w-3 mx-auto text-blue-400" />
-              <span className="font-bold text-blue-400 text-[9px]">{BASELINE_DATA.environmental.waterUsagePerDay.toFixed(1)}K</span>
-              <span className="text-muted-foreground block text-[7px]">km³/d</span>
+            <div className="p-3 rounded bg-black/20">
+              <Droplets className="h-5 w-5 mx-auto text-blue-400" />
+              <span className="font-bold text-blue-400 text-sm">{BASELINE_DATA.environmental.waterUsagePerDay.toFixed(1)}K</span>
+              <span className="text-muted-foreground block text-[10px]">km³/d</span>
             </div>
           </div>
         </div>
 
         {/* Data Sources & Live Indicator */}
-        <div className="pt-1 border-t border-slate-700/30 text-[8px] text-muted-foreground">
-          <div className="flex flex-wrap gap-1 mb-1">
-            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-sky-500/30 text-sky-400">OpenSky</Badge>
-            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-teal-500/30 text-teal-400">AISstream</Badge>
-            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-green-500/30 text-green-400">GFW</Badge>
-            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-purple-500/30 text-purple-400">OSINT</Badge>
+        <div className="pt-1 border-t border-slate-700/30 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-3 mb-1">
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-3 border-sky-500/30 text-sky-400">OpenSky</Badge>
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-3 border-teal-500/30 text-teal-400">AISstream</Badge>
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-3 border-green-500/30 text-green-400">GFW</Badge>
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-3 border-purple-500/30 text-purple-400">OSINT</Badge>
           </div>
           <div className="flex items-center justify-center gap-2">
             <span className="relative flex h-2 w-2">

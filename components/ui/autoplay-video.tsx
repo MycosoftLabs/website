@@ -17,7 +17,9 @@ interface AutoplayVideoProps {
 
 export function AutoplayVideo({ src, className = "", style, encodeSrc = true }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const safeSrc = encodeSrc && src.startsWith("/") ? encodeURI(src) : src
+  const isDev = process.env.NODE_ENV === "development"
+  const resolvedSrc = isDev && src.startsWith("/assets/") ? `https://mycosoft.com${src}` : src
+  const safeSrc = encodeSrc ? encodeURI(resolvedSrc) : resolvedSrc
 
   useEffect(() => {
     const v = videoRef.current

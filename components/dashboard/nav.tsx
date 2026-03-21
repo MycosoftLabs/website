@@ -46,8 +46,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
-import { isCompanyEmail } from "@/lib/access/types"
+import { useGateAccess } from "@/components/access/gate-wrapper"
+import { AccessGate } from "@/lib/access/types"
 
 interface NavItem {
   title: string
@@ -75,11 +75,11 @@ const navSections: NavSection[] = [
       { title: "Fungi Compute", href: "/natureos/fungi-compute", icon: Brain },
       { title: "Earth Simulator", href: "/natureos/tools/earth-simulator", icon: Globe },
       { title: "Petri Dish Simulator", href: "/natureos/tools/petri-dish", icon: PipetteIcon },
-      { title: "Mushroom Simulator", href: "/natureos/tools/mushroom-sim", icon: Microscope },
+      { title: "Mushroom Simulator", href: "/natureos/tools/mushroom-sim", icon: Microscope, companyOnly: true },
       { title: "Compound Analyzer", href: "/natureos/tools/compound-sim", icon: FlaskConical },
-      { title: "Spore Tracker", href: "/natureos/tools/spore-tracker", icon: Globe },
+      { title: "Spore Tracker", href: "/natureos/tools/spore-tracker", icon: Globe, companyOnly: true },
       { title: "Ancestry Database", href: "/ancestry", icon: Database },
-      { title: "Growth Analytics", href: "/natureos/tools/growth-analytics", icon: LineChart },
+      { title: "Growth Analytics", href: "/natureos/tools/growth-analytics", icon: LineChart, companyOnly: true },
     ],
   },
   {
@@ -87,9 +87,9 @@ const navSections: NavSection[] = [
     key: "ai",
     defaultOpen: true,
     items: [
-      { title: "Myca AI Studio", href: "/natureos/ai-studio", icon: Bot },
+      { title: "Myca AI Studio", href: "/natureos/ai-studio", icon: Bot, companyOnly: true },
       { title: "NLM Training Dashboard", href: "/natureos/model-training", icon: Cpu },
-      { title: "Workflows", href: "/natureos/workflows", icon: Workflow },
+      { title: "Workflows", href: "/natureos/workflows", icon: Workflow, companyOnly: true },
     ],
   },
   {
@@ -123,13 +123,12 @@ const navSections: NavSection[] = [
     title: "Infrastructure",
     key: "infrastructure",
     defaultOpen: false,
-    companyOnly: true,
     items: [
       { title: "Device Network", href: "/natureos/devices", icon: Network, companyOnly: true },
       { title: "MycoBrain Console", href: "/natureos/mycobrain", icon: Cpu, companyOnly: true },
       { title: "SporeBase Monitor", href: "/natureos/sporebase", icon: Droplets, companyOnly: true },
       { title: "FCI Monitor", href: "/natureos/fci", icon: Brain, companyOnly: true },
-      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity, companyOnly: true },
+      { title: "CREP Dashboard", href: "/natureos/crep", icon: Activity },
       { title: "FUSARIUM", href: "/natureos/fusarium", icon: Shield, companyOnly: true },
       { title: "MINDEX", href: "/natureos/mindex", icon: Database, companyOnly: true },
       { title: "Storage", href: "/natureos/storage", icon: Layers, companyOnly: true },
@@ -142,16 +141,24 @@ const navSections: NavSection[] = [
     key: "platform",
     defaultOpen: false,
     items: [
-      { title: "Cloud Services", href: "/natureos/cloud", icon: Cloud },
-      { title: "Integration Hub", href: "/natureos/integrations", icon: Layers },
+      { title: "Cloud Services", href: "/natureos/cloud", icon: Cloud, companyOnly: true },
+      { title: "Integration Hub", href: "/natureos/integrations", icon: Layers, companyOnly: true },
       { title: "Settings", href: "/natureos/settings", icon: Settings },
     ],
   },
 ]
 
 function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyUser }: { section: NavSection; pathname: string; isOpen: boolean; isCompanyUser: boolean }) {
-  // Check if any item in this section is active
-  const hasActiveItem = section.items.some(item => pathname === item.href || pathname.startsWith(item.href + "/"))
+  // Filter items based on company user access
+  const visibleItems = section.items.filter(item => !item.companyOnly || isCompanyUser)
+
+  // Hide entire section from non-company users if it's company-only, or if no items are visible
+  if ((section.companyOnly && !isCompanyUser) || visibleItems.length === 0) {
+    return null
+  }
+
+  // Check if any visible item in this section is active
+  const hasActiveItem = visibleItems.some(item => pathname === item.href || pathname.startsWith(item.href + "/"))
 
   // Open by default if section has active item or if defaultOpen is true
   const [isExpanded, setIsExpanded] = useState(section.defaultOpen || hasActiveItem)
@@ -160,11 +167,6 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyU
     if (sidebarOpen) {
       setIsExpanded(!isExpanded)
     }
-  }
-
-  // Hide entire section from non-company users if it's company-only
-  if (section.companyOnly && !isCompanyUser) {
-    return null
   }
 
   return (
@@ -198,7 +200,7 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyU
       >
         <SidebarGroupContent>
           <SidebarMenu>
-            {section.items.map((item) => {
+            {visibleItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
               return (
                 <SidebarMenuItem key={item.href}>
@@ -221,8 +223,7 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyU
 export function DashboardNav() {
   const pathname = usePathname()
   const { isOpen } = useSidebar()
-  const { user } = useAuth()
-  const companyUser = isCompanyEmail(user?.email)
+  const { hasAccess: companyUser } = useGateAccess(AccessGate.COMPANY)
 
   return (
     <div className="h-full py-2">

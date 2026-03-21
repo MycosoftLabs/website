@@ -1,5 +1,10 @@
-import { put } from "@vercel/blob"
+import { createClient } from "@supabase/supabase-js"
 import { cache } from "react"
+
+// Create a single supabase client for interacting with your database
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Function to fetch image from Wikipedia
 const imageCache = new Map<string, string | null>()
@@ -79,7 +84,7 @@ export const getWikipediaImage = cache(async (speciesName: string): Promise<stri
   }
 })
 
-// Function to download and save image to Vercel Blob
+// Function to download and save image to Supabase Storage
 export async function saveImageFromUrl(url: string, fileName: string): Promise<string | null> {
   try {
     const response = await fetch(url)
@@ -88,14 +93,25 @@ export async function saveImageFromUrl(url: string, fileName: string): Promise<s
     }
 
     const buffer = await response.arrayBuffer()
-    const blob = await put(fileName, buffer, {
-      access: "public",
-      contentType: response.headers.get("content-type") || "image/jpeg",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    })
+    
+    // Upload image to Supabase Storage bucket named 'species-images'
+    const { data, error } = await supabase.storage
+      .from('species-images')
+      .upload(fileName, buffer, {
+        contentType: response.headers.get("content-type") || "image/jpeg",
+        upsert: true,
+      })
 
-    return blob.url
+    if (error) {
+      throw error
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('species-images')
+      .getPublicUrl(fileName)
+
+    return publicUrl
   } catch (error) {
     console.error(`Error saving image ${fileName}:`, error)
     return null

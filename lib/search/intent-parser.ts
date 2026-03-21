@@ -12,6 +12,7 @@ export type EntityType =
   | "species" | "compound" | "media" | "research" | "location" | "crep" | "general"
   | "event" | "aircraft" | "vessel" | "satellite" | "weather"
   | "emissions" | "infrastructure" | "device" | "space_weather"
+  | "cameras"
 
 export type ToxicityFilter = "poisonous" | "toxic" | "deadly" | "edible" | "medicinal" | "psychedelic" | "hallucinogenic"
 
@@ -215,6 +216,11 @@ const SPACE_WEATHER_KEYWORDS = [
   "solar storm", "sunspot", "soho", "stereo",
 ]
 
+// Cameras keywords
+const CAMERAS_KEYWORDS = [
+  "camera", "webcam", "cctv", "stream", "live stream", "traffic cam", "live feed",
+]
+
 // Research keywords
 const RESEARCH_KEYWORDS = [
   "research", "study", "studies", "paper", "papers", "journal",
@@ -334,6 +340,9 @@ export function parseSearchIntent(query: string): SearchIntent {
   } else if (matchesDomain(DEVICE_KEYWORDS)) {
     type = "device"
     confidence = 0.85
+  } else if (matchesDomain(CAMERAS_KEYWORDS)) { // Added cameras detection
+    type = "cameras"
+    confidence = 0.9
   } else if (matchesDomain(CREP_KEYWORDS)) {
     type = "crep"
     confidence = 0.85

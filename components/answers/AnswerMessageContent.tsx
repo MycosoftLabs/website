@@ -131,8 +131,19 @@ function parseEmbedBlocks(content: string): { markdown: string; embeds: AnswerEm
 }
 
 export function AnswerMessageContent({ content, className, onFocusWidget }: AnswerMessageContentProps) {
-  if (!content?.trim()) return null
-  const { markdown, embeds } = parseEmbedBlocks(content)
+  let textContent = content as any;
+  if (typeof textContent !== "string") {
+    if (Array.isArray(textContent)) {
+      textContent = textContent.map((p: any) => p?.text || "").join("\\n");
+    } else if (textContent && typeof textContent === "object") {
+      textContent = textContent.text || JSON.stringify(textContent);
+    } else {
+      return null;
+    }
+  }
+
+  if (typeof textContent !== "string" || !textContent.trim()) return null;
+  const { markdown, embeds } = parseEmbedBlocks(textContent);
 
   return (
     <div className={cn("text-sm leading-relaxed [&_a]:text-violet-400 [&_a]:underline [&_pre]:my-2 [&_ul]:my-2 [&_ol]:my-2", className)}>

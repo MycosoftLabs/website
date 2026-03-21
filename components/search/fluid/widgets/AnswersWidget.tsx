@@ -8,7 +8,7 @@
 
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,8 +16,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMYCA } from "@/contexts/myca-context"
+import { useAuth } from "@/contexts/auth-context"
+import Link from "next/link"
 import { AnswerMessageContent } from "@/components/answers/AnswerMessageContent"
-import { MessageCircle, Loader2, Play, Send, Trash2, Search } from "lucide-react"
+import { MessageCircle, Loader2, Play, Send, Trash2, Search, Sparkles } from "lucide-react"
 
 export interface AnswersSearchContext {
   species?: string[]
@@ -64,6 +66,8 @@ export function AnswersWidget({
     confirmAction,
     consciousness,
   } = useMYCA()
+  
+  const { user } = useAuth()
 
   const [input, setInput] = useState("")
   const [confirmationInput, setConfirmationInput] = useState("")
@@ -73,6 +77,18 @@ export function AnswersWidget({
     () => messages.filter((m) => m.role !== "system"),
     [messages]
   )
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      const scrollElement = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]') || scrollRef.current
+      scrollElement.scrollTo({
+        top: scrollElement.scrollHeight,
+        behavior: "smooth",
+      })
+    }
+  }, [visibleMessages.length, pendingConfirmationId])
 
   const handleSend = async () => {
     const message = input.trim()
@@ -151,6 +167,27 @@ export function AnswersWidget({
               Ask a question. Answers uses MYCA to converse and show related search results.
             </div>
           )}
+
+          {/* Advertisement for unauthenticated users */}
+          {!user && (
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3 mb-2 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-500/20 rounded-md shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                </div>
+                <span className="text-xs font-semibold text-blue-300">Sign in to unlock Memory & Notepad</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed pl-8">
+                Your chat is currently saved in local cache. Create a free account or log in to enable persistent tracking, notepad saving, and cross-device syncing.
+              </p>
+              <div className="pl-8">
+                <Link href="/login?redirectTo=/search" className="text-[10px] font-medium text-emerald-400 hover:text-emerald-300 hover:underline">
+                  Log in or Create Account →
+                </Link>
+              </div>
+            </div>
+          )}
+
           {visibleMessages.map((message) => (
             <div
               key={message.id}

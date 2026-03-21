@@ -105,10 +105,13 @@ export class MapWebSocketClient {
         }
       }
       
-      this.ws.onerror = (event) => {
+      this.ws.onerror = () => {
         this.isConnecting = false
-        const error = new Error("WebSocket error")
-        console.error("[MapWS] Error:", event)
+        // Suppressing the raw event dump which spams the console when backend is offline
+        if (this.reconnectAttempts === 0) {
+          console.error("[MapWS] Connection failed. Will retry in background.")
+        }
+        const error = new Error("WebSocket connection failed")
         this.onError?.(error)
       }
       

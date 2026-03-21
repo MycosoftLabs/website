@@ -13,6 +13,7 @@ import { RefreshCw, Map, Monitor, Tablet } from "lucide-react"
 import Link from "next/link"
 import { MYCAProvider } from "@/contexts/myca-context"
 import { CREPProvider } from "@/contexts/crep-context"
+import { GroundStationProvider } from "@/lib/ground-station/context"
 import { CREPErrorBoundary } from "@/components/crep/crep-error-boundary"
 
 const CREPDashboardClient = nextDynamic(
@@ -77,9 +78,11 @@ export default function CREPDashboardLoader() {
       <div className="hidden md:block">
         <MYCAProvider>
           <CREPProvider>
-            <CREPErrorBoundary componentName="CREP Dashboard">
-              <CREPDashboardClient />
-            </CREPErrorBoundary>
+            <GroundStationProvider>
+              <CREPErrorBoundary componentName="CREP Dashboard">
+                <CREPDashboardClient />
+              </CREPErrorBoundary>
+            </GroundStationProvider>
           </CREPProvider>
         </MYCAProvider>
       </div>

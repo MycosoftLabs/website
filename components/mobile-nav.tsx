@@ -12,9 +12,10 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Chat } from "@/components/chat/chat"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useAuth } from "@/contexts/auth-context"
-import Image from "next/image"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
+import { useGateAccess } from "@/components/access/gate-wrapper"
+import { AccessGate } from "@/lib/access/types"
 
 // Navigation items configuration (same as header.tsx)
 const defenseItems = [
@@ -25,8 +26,8 @@ const defenseItems = [
 
 const natureOSItems = [
   { title: "CREP Dashboard", href: "/dashboard/crep", icon: Map },
-  { title: "Device Network", href: "/natureos/devices", icon: Network },
-  { title: "MINDEX", href: "/mindex", icon: Database },
+  { title: "Device Network", href: "/natureos/devices", icon: Network, companyOnly: true },
+  { title: "MINDEX", href: "/mindex", icon: Database, companyOnly: true },
   { title: "Earth Simulator", href: "/apps/earth-simulator", icon: Globe },
 ]
 
@@ -40,18 +41,18 @@ const devicesItems = [
 
 const appsItems = [
   { title: "Petri Dish Simulator", href: "/apps/petri-dish-sim", icon: FlaskConical },
-  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope },
+  { title: "Mushroom Simulator", href: "/apps/mushroom-sim", icon: Microscope, companyOnly: true },
   { title: "Compound Analyzer", href: "/apps/compound-sim", icon: FlaskConical },
-  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass },
+  { title: "Spore Tracker", href: "/apps/spore-tracker", icon: Compass, companyOnly: true },
   { title: "Ancestry Database", href: "/ancestry", icon: TreeDeciduous },
-  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3 },
+  { title: "Growth Analytics", href: "/apps/growth-analytics", icon: BarChart3, companyOnly: true },
 ]
 
 interface ExpandableSectionProps {
   title: string
   href: string // Main section link
   icon: React.ElementType
-  items: { title: string; href: string; icon: React.ElementType }[]
+  items: { title: string; href: string; icon: React.ElementType; companyOnly?: boolean }[]
   closeMenu: () => void
   isOpen: boolean
   onToggle: () => void
@@ -121,6 +122,7 @@ export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { user, signOut } = useAuth()
+  const { hasAccess: isCompanyUser } = useGateAccess(AccessGate.COMPANY)
   
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -276,7 +278,7 @@ export function MobileNav() {
                   title="NatureOS"
                   href="/natureos"
                   icon={Cloud}
-                  items={natureOSItems}
+                  items={natureOSItems.filter(item => !item.companyOnly || isCompanyUser)}
                   closeMenu={closeMenu}
                   isOpen={expandedSections.natureos || false}
                   onToggle={() => toggleSection("natureos")}
@@ -298,7 +300,7 @@ export function MobileNav() {
                   title="Apps"
                   href="/apps"
                   icon={Apps}
-                  items={appsItems}
+                  items={appsItems.filter(item => !item.companyOnly || isCompanyUser)}
                   closeMenu={closeMenu}
                   isOpen={expandedSections.apps || false}
                   onToggle={() => toggleSection("apps")}

@@ -157,7 +157,11 @@ const SearchContext = createContext<SearchContextValue | null>(null)
 // Provider
 // ---------------------------------------------------------------------------
 
-const CHAT_STORAGE_KEY = "search-chat-history"
+const CHAT_STORAGE_KEY_PREFIX = "search-chat-history-"
+
+function getChatStorageKey(userId: string | undefined): string | null {
+  return userId ? `${CHAT_STORAGE_KEY_PREFIX}${userId}` : null
+}
 
 /** Notepad storage key is user-scoped; no persistence when not logged in (Mar 14, 2026). */
 function getNotepadStorageKey(userId: string | undefined): string | null {
@@ -167,6 +171,7 @@ function getNotepadStorageKey(userId: string | undefined): string | null {
 export function SearchContextProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const notepadStorageKey = getNotepadStorageKey(user?.id)
+  const chatStorageKey = getChatStorageKey(user?.id)
 
   // Track if we're mounted (client-side)
   const [mounted, setMounted] = useState(false)
@@ -196,16 +201,24 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
   // MYCA Chat - start empty, hydrate from storage after mount
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
-  // Hydrate chat from sessionStorage after mount
+  // Hydrate chat from sessionStorage after mount, gated to user
   useEffect(() => {
     setMounted(true)
+    if (!chatStorageKey) {
+      setChatMessages([])
+      return
+    }
     try {
-      const saved = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      const saved = sessionStorage.getItem(chatStorageKey)
       if (saved) {
         setChatMessages(JSON.parse(saved))
+      } else {
+        setChatMessages([])
       }
-    } catch {}
-  }, [])
+    } catch {
+      setChatMessages([])
+    }
+  }, [chatStorageKey])
 
   const addChatMessage = useCallback(
     (role: ChatMessage["role"], content: string, context?: string) => {
@@ -218,21 +231,25 @@ export function SearchContextProvider({ children }: { children: ReactNode }) {
       }
       setChatMessages((prev) => {
         const next = [...prev, msg]
-        try {
-          sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(next.slice(-100)))
-        } catch {}
+        if (chatStorageKey) {
+          try {
+            sessionStorage.setItem(chatStorageKey, JSON.stringify(next.slice(-100)))
+          } catch {}
+        }
         return next
       })
     },
-    []
+    [chatStorageKey]
   )
 
   const clearChat = useCallback(() => {
     setChatMessages([])
-    try {
-      sessionStorage.removeItem(CHAT_STORAGE_KEY)
-    } catch {}
-  }, [])
+    if (chatStorageKey) {
+      try {
+        sessionStorage.removeItem(chatStorageKey)
+      } catch {}
+    }
+  }, [chatStorageKey])
 
   // Notepad - auth-gated: only hydrate/persist when logged in (Mar 14, 2026)
   const [notepadItems, setNotepadItems] = useState<NotepadItem[]>([])

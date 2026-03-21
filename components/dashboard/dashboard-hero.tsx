@@ -131,11 +131,7 @@ export function DashboardHero({ displayName, isSuperAdmin }: DashboardHeroProps)
 
         {/* Description */}
         <p className="text-slate-300 leading-relaxed max-w-4xl">
-          NatureOS is Mycosoft&apos;s environmental intelligence platform — your unified command center for monitoring
-          real-time global events including earthquakes, weather systems, wildfires, and volcanic activity.
-          Interface with living mycelial fungal networks, manage IoT sensor fleets, deploy AI agents,
-          and access the world&apos;s most comprehensive fungal species database. From biosurveillance to
-          precision agriculture, NatureOS transforms raw environmental signals into actionable intelligence.
+          NatureOS is Mycosoft&apos;s environmental operating system — your unified command center for real-time planetary events, living systems, sensor fleets, and AI-driven action. Monitor earthquakes, weather systems, wildfires, volcanic activity, air, soil, biodiversity, spores, and mycelial networks; manage IoT devices, lab infrastructure, robotics, and autonomous agents; and turn raw environmental and biological signals into a live, queryable model of the world. From biosurveillance and ecological forecasting to precision agriculture, remediation, and autonomous science, NatureOS transforms nature data into actionable intelligence.
         </p>
 
         {isSuperAdmin && (

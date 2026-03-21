@@ -17,6 +17,8 @@ import React, {
   useReducer,
   useRef,
 } from "react"
+import * as satellite from "satellite.js"
+import { pushPositionsToMindex, pushTrackingToWorldview } from "./mindex-bridge"
 import type {
   GSSatellite,
   GSGroup,
@@ -353,6 +355,100 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [checkConnection])
+
+  const positionsRef = useRef<Record<number, GSSatellitePosition>>({})
+
+  // Orbit Propagation & MINDEX Sync Loop
+  useEffect(() => {
+    if (state.satellites.length === 0) return
+
+    let lastSyncTime = Date.now()
+    const MINDEX_SYNC_INTERVAL = 10000 // 10 seconds
+
+    const propInterval = setInterval(() => {
+      const now = new Date()
+      const newPositions: Record<number, GSSatellitePosition> = {}
+
+      const observerLat = state.activeLocation?.lat || 0
+      const observerLon = state.activeLocation?.lon || 0
+      const observerAlt = state.activeLocation?.alt || 0 // meters
+      
+      const observerGd = {
+        longitude: satellite.degreesToRadians(observerLon),
+        latitude: satellite.degreesToRadians(observerLat),
+        height: observerAlt / 1000 // km
+      }
+
+      for (const sat of state.satellites) {
+        if (!sat.tle1 || !sat.tle2) continue
+
+        try {
+          const satrec = satellite.twoline2satrec(sat.tle1, sat.tle2)
+          const positionAndVelocity = satellite.propagate(satrec, now)
+          const positionEci = positionAndVelocity.position
+          const velocityEci = positionAndVelocity.velocity
+
+          if (typeof positionEci !== 'boolean' && positionEci !== undefined && typeof velocityEci !== 'boolean') {
+            const gmst = satellite.gcostheta(satellite.jday(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
+            const positionGd = satellite.eciToGeodetic(positionEci, gmst)
+            const lookAngles = satellite.ecfToLookAngles(observerGd, satellite.eciToEcf(positionEci, gmst))
+
+            const lat = satellite.radiansToDegrees(positionGd.latitude)
+            const lon = satellite.radiansToDegrees(positionGd.longitude)
+            const alt = positionGd.height
+            
+            const velocityKmS = Math.sqrt(
+              velocityEci.x * velocityEci.x + 
+              velocityEci.y * velocityEci.y + 
+              velocityEci.z * velocityEci.z
+            )
+
+            const az = satellite.radiansToDegrees(lookAngles.azimuth)
+            const el = satellite.radiansToDegrees(lookAngles.elevation)
+            const range = lookAngles.rangeSat
+
+            const is_visible = el > 0
+
+            const oldPos = positionsRef.current[sat.norad_id]
+            let trend: "rising" | "falling" | "stable" | "peak" = "stable"
+            let el_rate = 0
+            if (oldPos) {
+              const dt = 1 // 1 second approx
+              el_rate = (el - oldPos.el) / dt
+              if (Math.abs(el_rate) < 0.001) trend = "peak"
+              else if (el_rate > 0) trend = "rising"
+              else trend = "falling"
+            }
+
+            newPositions[sat.norad_id] = {
+              norad_id: sat.norad_id,
+              lat, lon, alt,
+              velocity: velocityKmS,
+              az, el, range,
+              trend,
+              el_rate,
+              is_visible,
+            }
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+
+      positionsRef.current = newPositions
+      dispatch({ type: "SET_POSITIONS", positions: newPositions })
+
+      const msSinceEpoch = now.getTime()
+      if (msSinceEpoch - lastSyncTime >= MINDEX_SYNC_INTERVAL) {
+        lastSyncTime = msSinceEpoch
+        pushPositionsToMindex(state.satellites, newPositions).catch(() => {})
+        pushTrackingToWorldview(state.satellites, newPositions, state.trackingState?.norad_id).catch(() => {})
+      }
+
+    }, 1000)
+
+    return () => clearInterval(propInterval)
+  }, [state.satellites, state.activeLocation, state.trackingState?.norad_id])
 
   const value = useMemo(
     () => ({

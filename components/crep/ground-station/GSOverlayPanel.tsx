@@ -40,68 +40,55 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface GSSatelliteDisplay {
-  norad_id: number
-  name: string
-  az: number
-  el: number
-  range: number
-  alt: number
-  trend: "rising" | "falling" | "stable" | "peak"
-  is_visible: boolean
-  is_tracking: boolean
-}
-
-interface GSGroupDisplay {
-  id: string
-  name: string
-  satellite_count: number
-}
-
-interface GSHardwareStatus {
-  rotator_connected: boolean
-  rig_connected: boolean
-  sdr_connected: boolean
-}
+import { useGroundStation } from "@/lib/ground-station/context"
 
 interface GSOverlayPanelProps {
   visible: boolean
   onToggle: () => void
-  connected: boolean
-  satellites: GSSatelliteDisplay[]
-  groups: GSGroupDisplay[]
-  selectedGroupId: string | null
-  onSelectGroup: (id: string) => void
-  onSelectSatellite: (noradId: number) => void
-  onTrackSatellite: (noradId: number) => void
-  onStopTracking: () => void
-  trackingNoradId?: number
-  hardwareStatus: GSHardwareStatus
-  passCount: number
-  nextPassTime?: string
   className?: string
 }
 
 export function GSOverlayPanel({
   visible,
   onToggle,
-  connected,
-  satellites,
-  groups,
-  selectedGroupId,
-  onSelectGroup,
-  onSelectSatellite,
-  onTrackSatellite,
-  onStopTracking,
-  trackingNoradId,
-  hardwareStatus,
-  passCount,
-  nextPassTime,
   className,
 }: GSOverlayPanelProps) {
   const [expanded, setExpanded] = useState(true)
   const [showSatList, setShowSatList] = useState(true)
   const [filter, setFilter] = useState<"all" | "visible" | "tracking">("all")
+
+  const { state, selectGroup, selectSatellite, trackSatellite, stopTracking } = useGroundStation()
+
+  const connected = state.systemStatus === "connected"
+  const groups = state.groups.map(g => ({ id: g.id, name: g.name, satellite_count: g.satellite_ids?.length || 0 }))
+  const selectedGroupId = state.selectedGroupId
+  const satellites = state.satellites.map(sat => {
+    const pos = state.positions[sat.norad_id]
+    return {
+      norad_id: sat.norad_id,
+      name: sat.name,
+      az: pos?.az || 0,
+      el: pos?.el || 0,
+      range: pos?.range || 0,
+      alt: pos?.alt || 0,
+      trend: pos?.trend || "stable",
+      is_visible: pos?.is_visible || false,
+      is_tracking: state.trackingState?.norad_id === sat.norad_id
+    }
+  })
+  const trackingNoradId = state.trackingState?.norad_id
+  const hardwareStatus = {
+    rotator_connected: state.hardware.rotator?.status === "connected",
+    rig_connected: state.hardware.rig?.status === "connected",
+    sdr_connected: state.hardware.sdr?.status === "connected",
+  }
+  const passCount = state.passes.length
+  const nextPassTime = state.passes[0]?.aos_time
+
+  const onSelectGroup = selectGroup;
+  const onSelectSatellite = selectSatellite;
+  const onTrackSatellite = trackSatellite;
+  const onStopTracking = stopTracking;
 
   const filteredSatellites = satellites.filter((sat) => {
     if (filter === "visible") return sat.is_visible

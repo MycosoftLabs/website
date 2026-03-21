@@ -407,26 +407,7 @@ export default function ExplorerPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Status Banner - No data available */}
-        {!loading && species.length === 0 && dataSource === "none" && (
-          <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium text-amber-700 dark:text-amber-400">No Species Data Available</p>
-                <p className="text-sm text-muted-foreground">
-                  MINDEX service may not be running or synced. Start MINDEX with: docker-compose -f docker-compose.mindex.yml up -d
-                </p>
-              </div>
-              <Button variant="outline" size="sm" className="shrink-0" asChild>
-                <Link href="/natureos/mindex">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync MINDEX
-                </Link>
-              </Button>
-            </div>
-          </div>
-        )}
+
 
         {/* Featured Species Carousel */}
         {featuredSpecies.length > 0 && selectedCategory === "all" && !searchQuery && (

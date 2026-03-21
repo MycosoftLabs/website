@@ -12,6 +12,8 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { cn } from "@/lib/utils"
+import { motion, AnimatePresence } from "framer-motion"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -126,7 +128,7 @@ export function ActivityStreamPanel() {
 
             const newEvent: ActivityEvent = {
               id: data.id || `sse-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: data.event_type || data.type || "agent",
+              type: (data.event_type || data.type || "agent") as ActivityEvent["type"],
               title: data.title || data.message || "Activity",
               summary: data.summary || data.detail,
               timestamp: data.timestamp || new Date().toISOString(),
@@ -143,7 +145,7 @@ export function ActivityStreamPanel() {
             const data = JSON.parse((event as MessageEvent).data)
             setEvents(prev => [{
               id: `think-${Date.now()}`,
-              type: "thinking",
+              type: "thinking" as ActivityEvent["type"],
               title: "Myca is thinking...",
               summary: data.thought || data.message,
               timestamp: new Date().toISOString(),
@@ -157,7 +159,7 @@ export function ActivityStreamPanel() {
             const data = JSON.parse((event as MessageEvent).data)
             setEvents(prev => [{
               id: `learn-${Date.now()}`,
-              type: "learning",
+              type: "learning" as ActivityEvent["type"],
               title: "Myca learned something",
               summary: data.insight || data.message,
               timestamp: new Date().toISOString(),
@@ -170,7 +172,7 @@ export function ActivityStreamPanel() {
             const data = JSON.parse((event as MessageEvent).data)
             setEvents(prev => [{
               id: `disc-${Date.now()}`,
-              type: "discovery",
+              type: "discovery" as ActivityEvent["type"],
               title: data.title || "New discovery",
               summary: data.summary || data.message,
               timestamp: new Date().toISOString(),
@@ -266,7 +268,7 @@ export function ActivityStreamPanel() {
       // Add thinking event
       setEvents(prev => [{
         id: `search-${Date.now()}`,
-        type: payload.useMycaLLM ? "thinking" : "search",
+        type: (payload.useMycaLLM ? "thinking" : "search") as ActivityEvent["type"],
         title: payload.useMycaLLM
           ? `Reasoning: "${payload.query}"`
           : `Searching: "${payload.query}"`,
@@ -298,7 +300,7 @@ export function ActivityStreamPanel() {
               if (prev[0]?.thinkingStep === data.current_thought) return prev
               return [{
                 id: `conscious-${Date.now()}`,
-                type: "thinking",
+                type: "thinking" as ActivityEvent["type"],
                 title: "Myca's current thought",
                 summary: data.current_thought,
                 timestamp: new Date().toISOString(),
@@ -314,165 +316,98 @@ export function ActivityStreamPanel() {
     return () => clearInterval(interval)
   }, [])
 
-  const isActivityExpanded = expandedSection === "activity" || expandedSection === "both"
-  const isSearchesExpanded = expandedSection === "searches" || expandedSection === "both"
+  const [showDropdown, setShowDropdown] = useState(false)
+  const latestEvent = events[0] || null
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 px-3 py-2 shrink-0">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-medium text-foreground/90">Myca Activity</h3>
-        </div>
-        <div className="flex items-center gap-1">
-          {sseConnected && (
-            <span className="flex items-center gap-1 text-[9px] text-green-500">
-              <Radio className="h-2.5 w-2.5 animate-pulse" />
-              Live
+    <div className="flex flex-col w-full relative z-[50]">
+      {/* Banner */}
+      <div 
+        className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-violet-500/10 to-transparent border-b border-white/5 cursor-pointer hover:bg-white/5 transition-colors"
+        onClick={() => setShowDropdown(!showDropdown)}
+      >
+        <div className="flex items-center gap-3 w-full">
+          <Brain className="h-4 w-4 text-violet-500 animate-pulse shrink-0" />
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-xs font-semibold text-white/90 truncate">
+              {latestEvent ? latestEvent.title : "Myca is idling..."}
             </span>
-          )}
-          <button
-            onClick={fetchActivity}
-            disabled={loading}
-            className="p-1 rounded hover:bg-white/5 transition-colors"
-            title="Refresh"
-          >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+            {latestEvent?.summary && (
+              <span className="text-[10px] text-white/50 truncate">
+                {latestEvent.summary}
+              </span>
             )}
-          </button>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {sseConnected && (
+              <span className="flex items-center gap-1 text-[9px] text-green-500 mr-2">
+                <Radio className="h-2 w-2 animate-pulse" /> Live
+              </span>
+            )}
+            <ChevronDown className={cn("h-4 w-4 text-white/50 transition-transform duration-200", showDropdown && "rotate-180")} />
+          </div>
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
-          {error && (
-            <div className="text-xs text-amber-500/90 py-2 px-2 rounded bg-amber-500/10">
-              {error}
-            </div>
-          )}
-
-          {/* ── Search Hierarchy Section ── */}
-          {searchHistory.length > 0 && (
-            <div className="mb-2">
-              <button
-                onClick={() => setExpandedSection(isSearchesExpanded ? "activity" : "both")}
-                className="flex items-center gap-1 text-[11px] font-medium text-foreground/80 w-full hover:text-foreground transition-colors py-1"
-              >
-                {isSearchesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-                <Search className="h-3 w-3 text-green-500" />
-                Search Trail ({searchHistory.length})
-              </button>
-
-              {isSearchesExpanded && (
-                <div className="space-y-1 mt-1">
-                  {searchHistory.slice(0, 8).map((node, i) => (
-                    <div
-                      key={`${node.query}-${i}`}
-                      className="pl-4 border-l-2 border-green-500/20 ml-1"
-                    >
-                      <div className="flex items-start gap-1.5 py-1">
-                        <Search className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-medium text-foreground/90 truncate">
-                            {node.query}
-                          </p>
-                          {node.mycaInsight && (
-                            <p className="text-[10px] text-violet-400/80 truncate mt-0.5">
-                              {node.mycaInsight}
-                            </p>
-                          )}
+      {/* Dropdown container */}
+      <div className="absolute top-full left-0 right-0 overflow-hidden shadow-2xl">
+      <AnimatePresence>
+        {showDropdown && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b border-white/5 bg-black/80 backdrop-blur-xl"
+          >
+            <ScrollArea className="max-h-[350px]">
+              <div className="p-3 space-y-4">
+                {/* Search History */}
+                {searchHistory.length > 0 && (
+                  <div>
+                    <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
+                      <Search className="w-3 h-3" />
+                      Search Hierarchy
+                    </h4>
+                    <div className="space-y-1.5 pl-2 border-l-2 border-green-500/20">
+                      {searchHistory.slice(0, 5).map((node, i) => (
+                        <div key={i} className="flex flex-col">
+                          <span className="text-[11px] font-medium text-foreground/80">{node.query}</span>
                           {node.associations.length > 0 && (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Link2 className="h-2.5 w-2.5 text-muted-foreground/50" />
-                              <span className="text-[9px] text-muted-foreground/70 truncate">
-                                Related: {node.associations.slice(0, 3).join(", ")}
-                              </span>
-                            </div>
+                            <span className="text-[9px] text-muted-foreground/50 truncate">
+                              Related: {node.associations.join(", ")}
+                            </span>
                           )}
-                          <span className="text-[9px] text-muted-foreground/50">{formatTimeAgo(node.timestamp)}</span>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Activity Stream Section ── */}
-          <div>
-            <button
-              onClick={() => setExpandedSection(isActivityExpanded ? "searches" : "both")}
-              className="flex items-center gap-1 text-[11px] font-medium text-foreground/80 w-full hover:text-foreground transition-colors py-1"
-            >
-              {isActivityExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-              <Eye className="h-3 w-3 text-violet-500" />
-              Myca Consciousness ({events.length})
-            </button>
-
-            {isActivityExpanded && (
-              <div className="space-y-1 mt-1">
-                {!loading && events.length === 0 && !error && (
-                  <div className="text-xs text-muted-foreground py-4 text-center">
-                    No activity yet. Start a search to see Myca think.
                   </div>
                 )}
-                {events.map((ev) => {
-                  const consciousnessMeta = ev.metadata as { is_conscious?: boolean; emotional_state?: string } | undefined
-                  const isConscious = !!consciousnessMeta?.is_conscious
-                  return (
-                    <div
-                      key={ev.id}
-                      className="flex gap-2 p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                    >
-                      <div className="mt-0.5 shrink-0">
-                        <EventIcon type={ev.type} />
+
+                {/* Event Stream */}
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-2">
+                    <Zap className="w-3 h-3" />
+                    Consciousness Trail
+                  </h4>
+                  <div className="space-y-1.5">
+                    {events.slice(0, 20).map((ev) => (
+                      <div key={ev.id} className="flex gap-2 p-1.5 rounded-md hover:bg-white/5 transition-colors">
+                        <div className="mt-0.5 shrink-0"><EventIcon type={ev.type} /></div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-foreground/80 truncate">{ev.title}</p>
+                          {ev.summary && <p className="text-[9px] text-muted-foreground line-clamp-1 mt-0.5">{ev.summary}</p>}
+                        </div>
+                        <span className="text-[9px] text-muted-foreground/40 shrink-0">{formatTimeAgo(ev.timestamp)}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-medium text-foreground/90 truncate">{ev.title}</p>
-                        {ev.summary && (
-                          <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{ev.summary}</p>
-                        )}
-                        {ev.relatedSearches && ev.relatedSearches.length > 0 && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Link2 className="h-2 w-2 text-muted-foreground/40" />
-                            <span className="text-[9px] text-muted-foreground/60 truncate">
-                              {ev.relatedSearches.slice(0, 2).join(", ")}
-                            </span>
-                          </div>
-                        )}
-                        <p className="text-[9px] text-muted-foreground/50 mt-0.5">{formatTimeAgo(ev.timestamp)}</p>
-                      </div>
-                      {ev.type === "consciousness" && (
-                        <Badge
-                          variant={isConscious ? "default" : "secondary"}
-                          className="shrink-0 text-[9px] h-4"
-                        >
-                          {isConscious ? "Awake" : "Dormant"}
-                        </Badge>
-                      )}
-                      {ev.type === "thinking" && (
-                        <Badge variant="outline" className="shrink-0 text-[9px] h-4 border-yellow-500/30 text-yellow-400">
-                          Thinking
-                        </Badge>
-                      )}
-                      {ev.type === "learning" && (
-                        <Badge variant="outline" className="shrink-0 text-[9px] h-4 border-cyan-500/30 text-cyan-400">
-                          Learned
-                        </Badge>
-                      )}
-                    </div>
-                  )
-                })}
+                    ))}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      </ScrollArea>
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </div>
     </div>
   )
 }
