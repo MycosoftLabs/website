@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.agent_temp_keys (
   raw_key         TEXT NOT NULL,
   profile_id      UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at      TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '15 minutes')
+  expires_at      TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '72 hours')
 );
 
 CREATE INDEX IF NOT EXISTS idx_temp_keys_session ON public.agent_temp_keys(session_id);
