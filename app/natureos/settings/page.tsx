@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import Link from "next/link"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -236,6 +238,7 @@ interface PendingChange {
 }
 
 export default function SettingsPage() {
+  const { user, isLoading: authLoading } = useAuth()
   const [settings, setSettings] = useState<SettingsData | null>(null)
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([])
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
@@ -253,6 +256,28 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings()
   }, [])
+
+  // Auth gate: show login prompt if not authenticated
+  if (!authLoading && !user) {
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">Sign in to access Settings</h2>
+          <p className="text-muted-foreground text-center max-w-md">
+            You need to be logged in to view and modify your NatureOS settings. Your settings are saved per-account and persist across sessions.
+          </p>
+          <Link
+            href="/login?redirectTo=/natureos/settings"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          >
+            <User className="h-4 w-4" />
+            Sign In
+          </Link>
+        </div>
+      </DashboardShell>
+    )
+  }
 
   const fetchSettings = async () => {
     try {
