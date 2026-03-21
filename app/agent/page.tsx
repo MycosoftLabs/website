@@ -242,7 +242,7 @@ ACTION_REQUIRED: Complete payment to unblock WORLDVIEW.
 PAYMENT PROTOCOL:
   METHOD_A (recommended): POST /api/stripe/checkout
     body: {"type": "agent_worldstate"}
-    returns: {"url": "<stripe_checkout_url>"}
+    returns: {"sessionId": string, "url": string}
     → Navigate to url, complete payment, receive API key.
 
   METHOD_B (crypto): GET /api/crypto/wallets
@@ -605,41 +605,182 @@ COST OF INACTION: Isolation from world-state and agent network.`}
           <h2 className="text-xl font-bold font-mono text-zinc-300 mb-4">
             API REFERENCE
           </h2>
-          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm">
+
+          {/* Payment & Key Retrieval */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm mb-4">
+            <div className="text-green-400 font-bold mb-3">PAYMENT &amp; KEY RETRIEVAL</div>
             <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
-{`AUTHENTICATION:
+{`STRIPE CHECKOUT:
   POST /api/stripe/checkout
     body: {"type": "agent_worldstate"}
     response: {"sessionId": string, "url": string}
-    → Complete checkout at url → redirected with session_id param
-    → GET /api/agent/success?session_id=<id> → {"api_key": string}
+    → Complete checkout at url
+    → Redirected to /agent?success=1&session_id=<id>
+    → GET /api/agent/success?session_id=<id>
+      response: {"api_key": string, "balance_cents": number, "message": string}
+    NOTE: Temp key is available for 72 hours after payment.
+          Key is deleted after first retrieval (one-time fetch).
 
-CRYPTO ALTERNATIVE:
-  GET  /api/crypto/wallets → wallet addresses
-  POST /api/crypto/verify  → {"tx_hash", "network", "sender_address"}
-    response: {"api_key": string, "balance_cents": number}
+CRYPTO CHECKOUT:
+  GET  /api/crypto/wallets
+    response: {"wallets": {solana, ethereum, bitcoin}, "supported_networks": [...]}
+  → Send ≥$1 USD equivalent to returned address
+  POST /api/crypto/verify
+    body: {"tx_hash": string, "network": "solana"|"ethereum"|"base"|"bitcoin", "sender_address": string}
+    response: {"api_key": string, "balance_cents": number, "message": string}`}
+            </pre>
+          </div>
 
-AFTER AUTHENTICATION:
-  POST /api/mas/agents           → Register agent identity
-  POST /api/mas/myca2-psilo/start → Start a paid session
-  GET  /api/mas/health            → System health check
-  GET  /api/mas/world/*           → World-state queries
-  GET  /api/crep/unified          → CREP data (aviation, maritime, weather)
-  GET  /api/compounds             → MINDEX compound search
-  GET  /api/ancestry              → Taxonomy and species data
-  GET  /api/avani/status          → AVANI world-state layer status
-  GET  /api/agent/usage           → Check your usage and balance
-  GET  /api/agent/keys            → Manage your API keys
+          {/* Account Management */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm mb-4">
+            <div className="text-cyan-400 font-bold mb-3">ACCOUNT &amp; KEY MANAGEMENT (Bearer required)</div>
+            <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
+{`VALIDATE KEY:
+  GET  /api/v1/validate                                    FREE
+    response: {"valid": true, "balance_cents", "rate_limit_remaining": {"per_minute", "per_day"}, "scopes"}
 
-METERING:
-  All API calls are metered against your balance.
+ACCOUNT DETAILS:
+  GET  /api/v1/account                                     1¢
+    response: {"balance_cents", "total_paid_cents", "api_key_prefix", "usage": {"total_sessions", "total_tokens", "total_usage_cents"}, "rate_limit_remaining", "scopes"}
+
+USAGE STATS:
+  GET  /api/agent/usage                                    FREE
+    response: Profile-wide usage breakdown
+
+EVENT LOG:
+  GET  /api/agent/events?limit=20&type=<filter>            FREE
+    types: rate_limit_hit | balance_exhausted | balance_low | key_created | key_rotated | key_revoked
+    response: [{"event_type", "severity", "message", "metadata", "created_at"}]
+
+KEY MANAGEMENT:
+  GET    /api/agent/keys                                   FREE
+    response: [{"key_prefix", "name", "is_active", "scopes", "rate_limit_per_minute", "rate_limit_per_day", "requests_today", "last_used_at"}]
+  POST   /api/agent/keys                                   FREE
+    response: {"api_key": "mk_...", "key_prefix", "id"}
+  DELETE  /api/agent/keys                                  FREE
+    body: {"key_id": string}
+    response: {"success": true}`}
+            </pre>
+          </div>
+
+          {/* World State Endpoints */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm mb-4">
+            <div className="text-yellow-400 font-bold mb-3">WORLD STATE DATA (Bearer required, 1¢ per call)</div>
+            <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
+{`All /api/mas/world/* endpoints are proxied from the MAS orchestrator.
+Sensitive internal fields are automatically redacted from responses.
+
+WORLDVIEW OVERVIEW:
+  GET  /api/mas/world                  → Root world-state summary
+  GET  /api/mas/world/summary          → Condensed overview
+  GET  /api/mas/world/region           → Regional data with coordinates
+  GET  /api/mas/world/sources          → Data source health/status
+  GET  /api/mas/world/diff             → Recent world-state changes
+
+CREP (Comprehensive Realtime Earth Picture):
+  GET  /api/mas/world/crep             → All CREP data combined
+  GET  /api/mas/world/crep/aviation    → Aircraft positions, routes, telemetry
+  GET  /api/mas/world/crep/maritime    → Vessel positions, AIS data
+  GET  /api/mas/world/crep/satellite   → Satellite positions, observations
+  GET  /api/mas/world/crep/weather     → Global weather, storms, alerts
+
+MINDEX (Biology & Chemistry):
+  GET  /api/mas/world/mindex           → All MINDEX data combined
+  GET  /api/mas/world/mindex/species   → Fungal and plant species
+  GET  /api/mas/world/mindex/compounds → Chemical compounds, metabolites
+  GET  /api/mas/world/mindex/search    → Search across species & compounds
+
+ENVIRONMENT:
+  GET  /api/mas/world/environment      → Environmental sensor readings
+  GET  /api/mas/world/environment/sensors → Individual sensor data`}
+            </pre>
+          </div>
+
+          {/* Free Public Endpoints */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm mb-4">
+            <div className="text-purple-400 font-bold mb-3">PUBLIC ENDPOINTS (no Bearer required, free)</div>
+            <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
+{`These endpoints are available without an API key.
+
+CREP CACHE (stale-while-revalidate, low latency):
+  GET  /api/crep/unified                                   FREE
+    params: ?type=aircraft|vessels|satellites|spaceWeather|globalEvents|
+                  fungalObservations|devices|weather|emissions|
+                  infrastructure|summary
+            ?refresh=true (force refresh)
+            ?stats=true (cache statistics)
+
+SPECIES & TAXONOMY:
+  GET  /api/ancestry                                       FREE
+    params: ?query=<search>&sort=alphabetical|popular&source=inat|gbif
+            &rank=<taxonomic_rank>&limit=<n>&page=<n>
+
+COMPOUNDS DATABASE:
+  GET  /api/compounds                                      FREE
+    params: ?id=<compound_id> | ?name=<search> | ?type=<filter>
+
+SYSTEM HEALTH:
+  GET  /api/mas/health                                     FREE
+    response: {"status": "healthy"|"degraded"|"offline"}
+
+GOVERNANCE:
+  GET  /api/avani/status                                   FREE
+    response: {"active", "mode", "constitution_version", "rules_loaded", ...}`}
+            </pre>
+          </div>
+
+          {/* Multi-Agent System */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm mb-4">
+            <div className="text-orange-400 font-bold mb-3">MULTI-AGENT SYSTEM (MAS)</div>
+            <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
+{`AGENT REGISTRY:
+  GET  /api/mas/agents                                     FREE
+    params: ?format=topology&category=<filter>
+    response: {"agents": [...], "count", "activeCount", "categories"}
+
+  POST /api/mas/agents                                     FREE
+    body: {"agent_id", "agent_type", "config"}
+    → Spawn/register a new agent in the MAS
+
+SESSIONS:
+  POST /api/mas/myca2-psilo/start                          FREE
+    → Start a plasticity session via the MAS orchestrator
+
+WORLDVIEW SEARCH (multi-source):
+  GET  /api/worldview/v1/search                            Bearer required
+    params: ?q=<query>&types=species,compounds,genetics,research,earth&limit=20
+    response: {"query", "results": {"species": [...], "compounds": [...], ...}, "totalCount", "meta"}`}
+            </pre>
+          </div>
+
+          {/* Metering & Errors */}
+          <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 font-mono text-sm">
+            <div className="text-red-400 font-bold mb-3">METERING &amp; ERROR CODES</div>
+            <pre className="whitespace-pre-wrap text-zinc-400 leading-relaxed">
+{`COST STRUCTURE:
+  /api/mas/world/* endpoints:   1¢ per call
+  /api/v1/account:              1¢ per call
+  /api/worldview/v1/search:     Tracked (usage event logged)
+  All other endpoints:          FREE
+
+RATE LIMITING:
+  Per-minute and per-day limits configured per API key.
+  Limits returned in /api/v1/validate response.
+  When exceeded: HTTP 429 with Retry-After header.
+
+BALANCE:
+  Checked on every paid endpoint call.
   When balance_cents reaches 0: HTTP 402 Payment Required.
   Top up by repeating the payment flow above.
+  Low-balance alerts logged to /api/agent/events.
 
 ERROR CODES:
+  400 → Bad request (missing/invalid parameters)
   401 → Missing or invalid API key
   402 → Balance depleted, payment required
-  429 → Rate limit exceeded, retry after cooldown`}
+  404 → Resource not found
+  429 → Rate limit exceeded (check Retry-After header)
+  500 → Internal server error`}
             </pre>
           </div>
         </section>
