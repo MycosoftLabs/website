@@ -32,6 +32,7 @@ import {
   type InfrastructureResult,
   type DeviceResult,
   type SpaceWeatherResult,
+  type CameraResult,
 } from "@/lib/search/unified-search-sdk"
 
 // Re-export types for convenience
@@ -175,6 +176,7 @@ export function useUnifiedSearch(
   const infrastructure = useMemo(() => results.infrastructure || [], [results.infrastructure])
   const devices = useMemo(() => results.devices || [], [results.devices])
   const spaceWeather = useMemo(() => results.space_weather || [], [results.space_weather])
+  const cameras = useMemo(() => results.cameras || [], [results.cameras])
 
   const totalCount = data?.totalCount || 0
   const liveResults = data?.live_results || []
