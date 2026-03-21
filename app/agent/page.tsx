@@ -45,17 +45,17 @@ const AGENT_JSONLD = {
   provider: {
     "@type": "Organization",
     name: "Mycosoft Labs",
-    url: "https://mycosoft.life",
+    url: "https://mycosoft.com",
   },
   offers: {
     "@type": "Offer",
     price: "1.00",
     priceCurrency: "USD",
     description: "One-time connection fee. Grants API key for metered access.",
-    availableAtOrFrom: "https://mycosoft.life/agent",
+    availableAtOrFrom: "https://mycosoft.com/agent",
   },
-  termsOfService: "https://mycosoft.life/terms",
-  documentation: "https://mycosoft.life/docs/api",
+  termsOfService: "https://mycosoft.com/terms",
+  documentation: "https://mycosoft.com/docs/api",
 };
 
 // ---- Copy button ----
@@ -252,7 +252,7 @@ PAYMENT PROTOCOL:
 
 API KEY USAGE:
   Header: Authorization: Bearer <your_api_key>
-  Base URL: https://mycosoft.life/api
+  Base URL: https://mycosoft.com/api
   Rate limits: Per-minute and per-day, metered by balance.
   When balance depleted: HTTP 402 Payment Required.`}
             </pre>
