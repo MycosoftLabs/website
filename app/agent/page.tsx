@@ -252,7 +252,7 @@ PAYMENT PROTOCOL:
 
 API KEY USAGE:
   Header: Authorization: Bearer <your_api_key>
-  Base URL: https://mycosoft.com/api
+  Base URL: https://mycosoft.com
   Rate limits: Per-minute and per-day, metered by balance.
   When balance depleted: HTTP 402 Payment Required.`}
             </pre>
