@@ -326,7 +326,7 @@ export class UnifiedSearchClient {
     if (!normalizedQuery || normalizedQuery.length < 2) {
       return {
         query: "",
-        results: { ...EMPTY_RESULTS },
+        results: { ...EMPTY_RESULTS.results },
         totalCount: 0,
         timing: { total: 0, mindex: 0 },
         source: "cache",
@@ -421,7 +421,7 @@ export class UnifiedSearchClient {
       if (error instanceof Error && error.name === "AbortError") {
         return {
           query: "",
-          results: { ...EMPTY_RESULTS },
+          results: { ...EMPTY_RESULTS.results },
           totalCount: 0,
           timing: { total: performance.now() - startTime, mindex: 0 },
           source: "cache",
@@ -432,7 +432,7 @@ export class UnifiedSearchClient {
       console.error("Unified search error:", error)
       return {
         query: "",
-        results: { ...EMPTY_RESULTS },
+        results: { ...EMPTY_RESULTS.results },
         totalCount: 0,
         timing: { total: performance.now() - startTime, mindex: 0 },
         source: "cache",

@@ -1072,8 +1072,9 @@ export function FluidSearchCanvas({
     { type: "infrastructure", label: "Infrastructure", icon: "🏗️", gradient: "from-amber-500/30 to-yellow-500/20", hasData: len(infrastructure) > 0, depth: getParallaxDepth("infrastructure") },
     { type: "devices", label: "Devices", icon: "📡", gradient: "from-green-500/30 to-lime-500/20", hasData: len(devices) > 0, depth: getParallaxDepth("devices") },
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
+    { type: "cameras", label: "Cameras", icon: "📹", gradient: "from-slate-500/30 to-cyan-500/20", hasData: len(cameras) > 0, depth: getParallaxDepth("cameras") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
-  ]}, [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), species])
+  ]}, [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
   const activeWidgets = widgetConfigs
@@ -1235,6 +1236,7 @@ export function FluidSearchCanvas({
       infrastructure: len(infrastructure),
       devices: len(devices),
       space_weather: len(spaceWeather),
+      cameras: len(cameras),
     }
     const key = `${localQuery}|${Object.values(dataMap).join(",")}`
     if (key === prevAutoExpandKeyRef.current) return

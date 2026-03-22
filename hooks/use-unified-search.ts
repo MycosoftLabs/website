@@ -158,8 +158,8 @@ export function useUnifiedSearch(
 
   // Extract results with memoization
   const results = useMemo(() => {
-    if (!data?.results) return EMPTY_RESULTS
-    return { ...EMPTY_RESULTS, ...data.results }
+    if (!data?.results) return EMPTY_RESULTS.results
+    return { ...EMPTY_RESULTS.results, ...data.results }
   }, [data])
 
   const species = useMemo(() => results.species || [], [results.species])
