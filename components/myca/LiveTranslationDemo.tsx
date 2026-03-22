@@ -82,7 +82,9 @@ export function LiveTranslationDemo() {
   "confidence": 0.82,
   "evidence": ["token_17_burst", "soil_moisture_drop", "CO2_rise"],
   "predicted_next": ["growth_direction_change", "resource_allocation_shift"],
-  "recommended_action": ["increase_sampling_rate"]
+  "recommended_action": ["increase_sampling_rate"],
+  "nmf_version": "0.2",
+  "provenance": "fci_v2_lab_alpha"
 }`}</pre>
                 </div>
               </div>
@@ -126,7 +128,9 @@ export function LiveTranslationDemo() {
   "confidence": 0.82,
   "evidence": ["token_17_burst", "soil_moisture_drop", "CO2_rise"],
   "predicted_next": ["growth_direction_change", "resource_allocation_shift"],
-  "recommended_action": ["increase_sampling_rate"]
+  "recommended_action": ["increase_sampling_rate"],
+  "nmf_version": "0.2",
+  "provenance": "fci_v2_lab_alpha"
 }`}</pre>
               </div>
             </div>

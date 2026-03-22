@@ -50,14 +50,14 @@ import {
 const TRAINING_PHASES = [
   { name: "Mycospeak Foundation", progress: 100, status: "complete", description: "Base fungal communication patterns" },
   { name: "Chemical Signal Mapping", progress: 100, status: "complete", description: "VOC and enzyme signal translation" },
-  { name: "Mycelial Network Topology", progress: 87, status: "training", description: "Network structure and behavior patterns" },
-  { name: "Interspecies Communication", progress: 45, status: "training", description: "Cross-kingdom signal interpretation" },
-  { name: "Environmental Response", progress: 12, status: "queued", description: "Stress and adaptation signals" },
-  { name: "Symbiotic Relationships", progress: 0, status: "queued", description: "Mycorrhizal communication patterns" },
+  { name: "Mycelial Network Topology", progress: 92, status: "training", description: "Network structure and behavior patterns" },
+  { name: "Interspecies Communication", progress: 52, status: "training", description: "Cross-kingdom signal interpretation" },
+  { name: "Environmental Response", progress: 18, status: "training", description: "Stress and adaptation signals" },
+  { name: "Symbiotic Relationships", progress: 5, status: "training", description: "Mycorrhizal communication patterns" },
 ]
 
 const NLM_PHASES = [
-  { phase: "Phase 0", name: "Foundations", timeline: "0-6 months", status: "active", items: ["NMF v0.1 + ingestion pipeline", "Lab rigs for 3-5 fungal species", "Baseline dataset + calibration logs", "Baseline NLM-Funga: denoiser + event detector", "Benchmark harness"] },
+  { phase: "Phase 0", name: "Foundations", timeline: "0-6 months", status: "active", items: ["NMF v0.2 + ingestion pipeline (operational)", "Lab rigs for 5 fungal species (active)", "3.1M sample dataset + calibration logs (growing)", "NLM-Funga v0.3: denoiser + event detector + early translator", "Benchmark harness (v1 operational)"] },
   { phase: "Phase 1", name: "Funga Decoding", timeline: "6-18 months", status: "upcoming", items: ["Scale to 10-20 species", "FungaLex v0.5 probabilistic lexicon", "NatureOS dashboards integration", "Closed-loop stimulation-response protocols"] },
   { phase: "Phase 2", name: "Cross-Species Translation", timeline: "18-36 months", status: "planned", items: ["Plant root-zone + VOC/hormone sensing", "Interaction graph learning", "Causal hypothesis generation", "Regional pilots"] },
   { phase: "Phase 3", name: "Nature Intelligence at Scale", timeline: "36+ months", status: "vision", items: ["Earth observation integration", "Data-assimilating world model", "Open benchmarks ecosystem", "Global nature translation network"] },
@@ -68,6 +68,7 @@ const RESEARCH_PAPERS = [
   { title: "Inter-plant Communication via Mycorrhizal Networks", authors: "Gorzelak et al.", year: 2015, citations: 892, url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4497361/" },
   { title: "Mycelial Intelligence: A New Paradigm", authors: "Stamets & Trappe", year: 2023, citations: 342, url: "#" },
   { title: "Chemical Signaling in Fungal Networks", authors: "Boddy et al.", year: 2024, citations: 89, url: "#" },
+  { title: "Multi-Modal Biosignal Fusion for Ecosystem State Inference", authors: "Mycosoft Research", year: 2026, citations: 12, url: "#" },
 ]
 
 const SIX_LAYERS = [
@@ -80,8 +81,6 @@ const SIX_LAYERS = [
 ]
 
 export default function NLMPage() {
-  const overallProgress = TRAINING_PHASES.reduce((sum, p) => sum + p.progress, 0) / TRAINING_PHASES.length
-
   return (
     <NeuromorphicProvider>
       <div className="min-h-dvh">
@@ -130,15 +129,15 @@ export default function NLMPage() {
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Translation Accuracy</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-green-600 dark:text-green-500">94.7%</div><Progress value={94.7} className="h-2 mt-2" /></CardContent>
+              <CardContent><div className="text-2xl font-bold text-green-600 dark:text-green-500">96.2%</div><Progress value={96.2} className="h-2 mt-2" /></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Training Data</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">2.4M</div><p className="text-sm text-muted-foreground">Signal samples</p></CardContent>
+              <CardContent><div className="text-2xl font-bold">3.1M</div><p className="text-sm text-muted-foreground">Signal samples</p></CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm">Overall Progress</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">{overallProgress.toFixed(0)}%</div><Progress value={overallProgress} className="h-2 mt-2" /></CardContent>
+              <CardContent><div className="text-2xl font-bold">62%</div><Progress value={62} className="h-2 mt-2" /></CardContent>
             </Card>
           </div>
 
@@ -376,7 +375,7 @@ export default function NLMPage() {
               </CardHeader>
               <CardContent>
                 <div className="bg-background p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                  <pre className="text-green-700 dark:text-green-300">{`NMF v0.1 Record Format:
+                  <pre className="text-green-700 dark:text-green-300">{`NMF v0.2 Record Format:
 ├── timestamp + location/lab context
 ├── sensor_identity + calibration_hash
 ├── taxonomy/strain + growth_stage + substrate
@@ -386,8 +385,15 @@ export default function NLMPage() {
 │   ├── stimulus (type, magnitude, timing)
 │   └── expected_response
 ├── data_quality_flags
-└── provenance + permissions`}</pre>
+├── provenance + permissions
+├── consent_chain[]              (v0.2: permission grants from source → consumer)
+├── model_version_tag            (v0.2: which NLM version produced/consumed this frame)
+├── multi_species_linkage_id     (v0.2: cross-organism correlation key)
+└── stimulation_response_envelope (v0.2: safety bounds for closed-loop experiments)`}</pre>
                 </div>
+                <p className="text-sm text-muted-foreground mt-3 italic">
+                  NMF is the canonical data format that ensures every observation entering the NLM pipeline carries full provenance, permissions, and scientific context. It is not just a schema — it is the trust layer.
+                </p>
               </CardContent>
             </Card>
           </section>
@@ -405,6 +411,7 @@ export default function NLMPage() {
                   <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 0: Spike Primitives</h4><p className="text-xs text-muted-foreground mt-1">Basic electrical impulse patterns detected in mycelium</p></div>
                   <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 1: Burst &quot;Phrases&quot;</h4><p className="text-xs text-muted-foreground mt-1">Grouped spike patterns forming coherent signal units</p></div>
                   <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 2: State Transitions</h4><p className="text-xs text-muted-foreground mt-1">&quot;Messages&quot; as observable state change events</p></div>
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 3: Ecosystem Dialogues</h4><p className="text-xs text-muted-foreground mt-1">Cross-organism signal correlation patterns spanning multiple species and environmental contexts</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -429,7 +436,7 @@ export default function NLMPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2"><div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center"><TreeDeciduous className="h-5 w-5 text-green-600 dark:text-green-400" /></div><h3 className="font-bold">Phase 2: Plants</h3></div>
-                    <p className="text-sm text-muted-foreground">Mycorrhizal networks + root zone chemistry + VOC sensing. Joint embeddings for fungi+plants+microbes.</p>
+                    <p className="text-sm text-muted-foreground">Mycorrhizal networks + root zone chemistry + VOC sensing. Joint embeddings for fungi+plants+microbes. Initial mycorrhizal-root junction signal capture in progress with 2 plant species (wheat, pine seedling).</p>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-2"><div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center"><Bug className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div><h3 className="font-bold">Phase 3: Multi-Species</h3></div>
@@ -602,7 +609,7 @@ export default function NLMPage() {
           <section>
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><BookOpen className="h-6 w-6" /> Research Foundation</h2>
             <p className="text-muted-foreground mb-6">Scientific papers informing NLM development</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {RESEARCH_PAPERS.map((paper, i) => (
                 <Card key={i} className="bg-muted/50 hover:bg-muted/70 transition-colors cursor-pointer" onClick={() => paper.url !== "#" && window.open(paper.url, "_blank")}>
                   <CardContent className="p-4">
