@@ -187,6 +187,9 @@ All notable changes to this project will be documented in this file.
 - Add DashboardHero to /natureos page
 - Resolve MAS orchestrator connection 500 crashes and eradicate search context leakage
 - Make NatureOS core features functional (search, notifications, nav, terminal, settings)
+- Add missing cameras extraction in useUnifiedSearch hook
+- Add missing CameraResult import in useUnifiedSearch
+- Add missing cameras widget config and fix EMPTY_RESULTS spread
 
 ### CREP
 
@@ -217,6 +220,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
