@@ -1663,6 +1663,7 @@ export function FluidSearchCanvas({
                         }}
                         media={mediaResults} mediaError={mediaError} location={locationResults} news={newsResults} newsError={newsError} newsQueryUsed={newsQueryUsed}
                         crep={mergedCrepData} earth2={earth2Data} mapObservations={mapObservations} eventObservations={eventObservations}
+                        events={events} aircraft={aircraft} vessels={vessels} satellites={satellites} weather={weather} emissions={emissions} infrastructure={infrastructure} devices={devices} spaceWeather={spaceWeather} cameras={cameras}
                         mycaSuggestions={suggestions}
                         onSelectSuggestionWidget={(w) => handleFocusWidget({ type: w })}
                         onSelectSuggestionQuery={(q) => {
@@ -1853,7 +1854,7 @@ function WidgetContent({
   searchContext,
   media, mediaError, location, news, newsError, newsQueryUsed,
   crep, earth2, mapObservations, eventObservations,
-  events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, spaceWeather,
+  events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, spaceWeather, cameras,
   mycaSuggestions,
   onSelectSuggestionWidget,
   onSelectSuggestionQuery,
