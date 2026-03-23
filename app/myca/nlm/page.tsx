@@ -91,7 +91,7 @@ export default function NLMPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Badge variant="outline" className="bg-purple-500/20 border-purple-500/50 text-purple-700 dark:text-purple-300">
+                  <Badge variant="outline" className="bg-purple-500/20 border-purple-500/50 text-purple-700 dark:text-purple-700 dark:text-purple-300">
                     <Sparkles className="h-3 w-3 mr-1" /> Foundation Model
                   </Badge>
                   <Badge variant="outline" className="bg-green-500/20 border-green-500/50 text-green-700 dark:text-green-300">
@@ -277,7 +277,7 @@ export default function NLMPage() {
           <section>
             <Card>
               <CardHeader><CardTitle className="text-xl">Abstract</CardTitle></CardHeader>
-              <CardContent className="prose prose-invert max-w-none space-y-3">
+              <CardContent className="prose dark:prose-invert max-w-none space-y-3">
                 <p>
                   The <strong>Nature Learning Model (NLM)</strong> is a proposed class of multi-modal foundation models that learn the
                   <strong> information-bearing signals of living and non-living Earth systems</strong> and translate them into
@@ -408,10 +408,10 @@ export default function NLMPage() {
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">Rather than claiming literal semantics, NLM defines bio-tokens as learned motifs over multi-channel windows.</p>
                 <div className="space-y-2">
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 0: Spike Primitives</h4><p className="text-xs text-muted-foreground mt-1">Basic electrical impulse patterns detected in mycelium</p></div>
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 1: Burst &quot;Phrases&quot;</h4><p className="text-xs text-muted-foreground mt-1">Grouped spike patterns forming coherent signal units</p></div>
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 2: State Transitions</h4><p className="text-xs text-muted-foreground mt-1">&quot;Messages&quot; as observable state change events</p></div>
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-300">Level 3: Ecosystem Dialogues</h4><p className="text-xs text-muted-foreground mt-1">Cross-organism signal correlation patterns spanning multiple species and environmental contexts</p></div>
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-700 dark:text-purple-300">Level 0: Spike Primitives</h4><p className="text-xs text-muted-foreground mt-1">Basic electrical impulse patterns detected in mycelium</p></div>
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-700 dark:text-purple-300">Level 1: Burst &quot;Phrases&quot;</h4><p className="text-xs text-muted-foreground mt-1">Grouped spike patterns forming coherent signal units</p></div>
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-700 dark:text-purple-300">Level 2: State Transitions</h4><p className="text-xs text-muted-foreground mt-1">&quot;Messages&quot; as observable state change events</p></div>
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"><h4 className="font-medium text-sm text-purple-700 dark:text-purple-300">Level 3: Ecosystem Dialogues</h4><p className="text-xs text-muted-foreground mt-1">Cross-organism signal correlation patterns spanning multiple species and environmental contexts</p></div>
                 </div>
               </CardContent>
             </Card>
