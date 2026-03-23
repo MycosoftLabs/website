@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
               model: "llama-3.3-70b-versatile",
               max_tokens: 1500,
               messages: [
-                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI.` },
+                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI. CRITICAL: NEVER tell the user to visit external websites, apps, or services. You ARE the service — provide answers directly using your own data systems (MINDEX, CREP, NatureOS). Never say "check out [website]" or "try [app]" — instead, provide the data or say you are pulling it up.` },
                 { role: "user", content: body.message + enrichContext },
               ],
             }),
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               model: OLLAMA_MODEL,
               messages: [
-                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI.` },
+                { role: "system", content: `You are MYCA, Mycosoft's AI assistant. Answer the user's question about mycology, biology, or general topics. Be thorough and scientifically accurate. You ARE MYCA — never say you're another AI. CRITICAL: NEVER tell the user to visit external websites, apps, or services. You ARE the service — provide answers directly using your own data systems (MINDEX, CREP, NatureOS). Never say "check out [website]" or "try [app]" — instead, provide the data or say you are pulling it up.` },
                 { role: "user", content: body.message + enrichContext },
               ],
               stream: false,
