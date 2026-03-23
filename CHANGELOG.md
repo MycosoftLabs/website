@@ -191,6 +191,7 @@ All notable changes to this project will be documented in this file.
 - Add missing CameraResult import in useUnifiedSearch
 - Add missing cameras widget config and fix EMPTY_RESULTS spread
 - Wire cameras + Earth Intelligence data through to WidgetContent
+- Prevent Myca from redirecting users to external websites
 
 ### CREP
 
@@ -221,6 +222,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
