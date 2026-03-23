@@ -31,6 +31,7 @@ export const PUBLIC_ROUTES: RouteAccess[] = [
   { path: '/apps/petri-dish-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Petri Dish Simulator' },
   { path: '/apps/compound-sim', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'Compound Analyzer' },
   { path: '/natureos/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard' },
+  { path: '/dashboard/crep', gate: AccessGate.PUBLIC, config: { gate: AccessGate.PUBLIC, minimumRole: UserRole.ANONYMOUS }, description: 'CREP Dashboard (public)' },
 ]
 
 // Freemium routes - public with limits
@@ -342,6 +343,7 @@ const COMPANY_REQUIRED_PREFIXES: string[] = [
 const MIDDLEWARE_PUBLIC_EXCEPTIONS = [
   '/natureos/mindex/explorer',
   '/natureos/crep',
+  '/dashboard/crep',
   '/ancestry/explorer',
   '/apps/earth-simulator',
   '/apps/petri-dish-sim',
