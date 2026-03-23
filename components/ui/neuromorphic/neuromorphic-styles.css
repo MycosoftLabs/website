@@ -5,9 +5,9 @@
  */
 
 .neuromorphic-page {
-  --neu-bg-primary: #e6e9ef;
-  --neu-bg-secondary: #d1d5db;
-  --neu-shadow-dark: #b8bcc2;
+  --neu-bg-primary: #f0f2f7;
+  --neu-bg-secondary: #e2e6ed;
+  --neu-shadow-dark: #c8ccd4;
   --neu-shadow-light: #ffffff;
   --neu-primary: #7c3aed;
   --neu-primary-dark: #6d28d9;
@@ -16,10 +16,10 @@
 }
 
 .neuromorphic-page.neuromorphic-dark {
-  --neu-bg-primary: #374151;
-  --neu-bg-secondary: #1f2937;
-  --neu-shadow-dark: #111827;
-  --neu-shadow-light: #4b5563;
+  --neu-bg-primary: #1a2030;
+  --neu-bg-secondary: #141a27;
+  --neu-shadow-dark: #0d1117;
+  --neu-shadow-light: #243045;
 }
 
 .neuromorphic-page {
@@ -27,7 +27,7 @@
   background: linear-gradient(145deg, var(--neu-bg-primary), var(--neu-bg-secondary));
   min-height: 100%;
   transition: background 0.5s ease;
-  color: #374151;
+  color: #1f2937;
 }
 
 .neuromorphic-page.neuromorphic-dark {
@@ -1111,6 +1111,119 @@
 /* Suggested prompts pills, agent chips (LiveDemo) */
 .neuromorphic-page.neuromorphic-dark .myca-page .rounded-lg[class*="bg-muted"] {
   background-color: #374151 !important;
+}
+
+/* ─── NLM page: ensure Cards, text, and prose are readable in both modes ─── */
+
+/* Light mode: Shadcn Cards on the NLM page need opaque light bg for contrast */
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(4px);
+}
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] h1,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] h2,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] h3,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] h4,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] p,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] span,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] li,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] td,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] th,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] label {
+  color: #1f2937;
+}
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] .text-muted-foreground,
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card"] [class*="text-muted"] {
+  color: #4b5563 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) [data-slot="card-description"] {
+  color: #4b5563 !important;
+}
+/* Light mode: section headings outside cards */
+.neuromorphic-page:not(.neuromorphic-dark) h1,
+.neuromorphic-page:not(.neuromorphic-dark) h2,
+.neuromorphic-page:not(.neuromorphic-dark) h3 {
+  color: #111827;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .text-muted-foreground {
+  color: #4b5563 !important;
+}
+/* Light mode: prose sections */
+.neuromorphic-page:not(.neuromorphic-dark) .prose {
+  color: #1f2937 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .prose strong {
+  color: #111827 !important;
+}
+.neuromorphic-page:not(.neuromorphic-dark) .prose p {
+  color: #1f2937 !important;
+}
+
+/* Dark mode: Shadcn Cards on the NLM page need proper dark bg */
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] {
+  background-color: rgba(20, 26, 39, 0.85) !important;
+  border-color: #2a3345 !important;
+  backdrop-filter: blur(4px);
+}
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] h1,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] h2,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] h3,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] h4,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] label {
+  color: #f3f4f6 !important;
+}
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] p,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] span,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] li,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] td,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] th {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] .text-muted-foreground,
+.neuromorphic-page.neuromorphic-dark [data-slot="card"] [class*="text-muted"] {
+  color: #9ca3af !important;
+}
+.neuromorphic-page.neuromorphic-dark [data-slot="card-description"] {
+  color: #9ca3af !important;
+}
+/* Dark mode: section headings outside cards */
+.neuromorphic-page.neuromorphic-dark h1,
+.neuromorphic-page.neuromorphic-dark h2,
+.neuromorphic-page.neuromorphic-dark h3 {
+  color: #f3f4f6;
+}
+/* Dark mode: prose sections */
+.neuromorphic-page.neuromorphic-dark .prose {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .prose strong {
+  color: #f3f4f6 !important;
+}
+.neuromorphic-page.neuromorphic-dark .prose p {
+  color: #e5e7eb !important;
+}
+/* Dark mode: bg-background inside cards */
+.neuromorphic-page.neuromorphic-dark .bg-background {
+  background-color: #111827 !important;
+}
+/* Dark mode: NeuCard raised elements */
+.neuromorphic-page.neuromorphic-dark .neu-raised h1,
+.neuromorphic-page.neuromorphic-dark .neu-raised h2,
+.neuromorphic-page.neuromorphic-dark .neu-raised h3,
+.neuromorphic-page.neuromorphic-dark .neu-raised h4 {
+  color: #f3f4f6 !important;
+}
+.neuromorphic-page.neuromorphic-dark .neu-raised p,
+.neuromorphic-page.neuromorphic-dark .neu-raised span,
+.neuromorphic-page.neuromorphic-dark .neu-raised li {
+  color: #e5e7eb !important;
+}
+.neuromorphic-page.neuromorphic-dark .neu-raised .text-muted-foreground {
+  color: #9ca3af !important;
+}
+/* Light mode: NeuCard raised text */
+.neuromorphic-page:not(.neuromorphic-dark) .neu-raised .text-muted-foreground {
+  color: #4b5563 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
