@@ -125,6 +125,11 @@ import {
   Cable,
   Power,
   Droplet,
+  Cross,
+  BookOpen,
+  Server,
+  Moon,
+  GraduationCap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -205,6 +210,20 @@ import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
+
+// Phase 2-6: New CREP layers and panels
+const GibsBaseLayers = dynamic(() => import("@/components/crep/layers/gibs-base-layers"), { ssr: false });
+const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-overlay"), { ssr: false });
+const SignalHeatmapLayer = dynamic(() => import("@/components/crep/layers/signal-heatmap-layer"), { ssr: false });
+const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
+import ViewportStats from "@/components/crep/stats/viewport-stats";
+import {
+  useInfrastructureData,
+  INFRA_TYPE_COLORS,
+  INFRA_TYPE_ICONS,
+  getInfraWidgetContent,
+  type InfrastructureFeature,
+} from "@/components/crep/layers/infrastructure-layer";
 
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
@@ -1964,11 +1983,11 @@ export default function CREPDashboardPage() {
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "militaryAir", name: "[DEMO] Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking" },
-    { id: "militaryNavy", name: "[DEMO] Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements" },
-    { id: "militaryBases", name: "[DEMO] Military Bases", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ca8a04", description: "Known military installations" },
-    { id: "tanks", name: "[DEMO] Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
-    { id: "militaryDrones", name: "[DEMO] Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
+    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
+    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
+    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1989,6 +2008,29 @@ export default function CREPDashboardPage() {
     { id: "earth2Wind", name: "âš¡ Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
     { id: "earth2Temp", name: "âš¡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
     { id: "earth2Precip", name: "âš¡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EARTH OBSERVATION IMAGERY (NASA GIBS)
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "gibsModis", name: "MODIS True Color", category: "imagery", icon: <Globe className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#059669", description: "NASA MODIS Terra daily satellite imagery overlay" },
+    { id: "gibsViirs", name: "VIIRS Night Lights", category: "imagery", icon: <Eye className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#fbbf24", description: "VIIRS global night lights composite" },
+    { id: "gibsLandsat", name: "Landsat WELD", category: "imagery", icon: <Map className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#22c55e", description: "Landsat WELD true color historic imagery" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AURORA & SPACE WEATHER VISUAL OVERLAYS
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TELECOM & COMMUNICATIONS INFRASTRUCTURE (real data via Overpass)
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#8b5cf6", description: "Cell/radio tower locations from OSM" },
+    { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "Undersea internet cable routes globally" },
+    { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#7c3aed", description: "Data center locations from OSM" },
+    { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADDITIONAL FACILITIES (real data via Overpass API)
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
+    { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
+    { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -3165,6 +3207,44 @@ export default function CREPDashboardPage() {
   const criticalCount = globalEvents.filter(e => e.severity === "critical" || e.severity === "extreme").length;
   const highCount = globalEvents.filter(e => e.severity === "high").length;
   const onlineDevices = devices.filter(d => d.status === "online").length;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INFRASTRUCTURE DATA — fetched from Overpass API via /api/oei/overpass
+  // ═══════════════════════════════════════════════════════════════════════════
+  const infraEnabledTypes = useMemo(() => {
+    const typeMap: Record<string, string> = {
+      factories: "factory",
+      powerPlants: "power_plant",
+      oilGas: "oil_gas",
+      metalOutput: "mine",
+      waterPollution: "water_treatment",
+      co2Sources: "refinery",
+      militaryBases: "military_base",
+      cellTowers: "cell_tower",
+      dataCenters: "data_center",
+      submarineCables: "submarine_cable",
+      hospitals: "hospital",
+      fireStations: "fire_station",
+      universities: "university",
+    };
+    return Object.entries(typeMap)
+      .filter(([layerId]) => layers.find(l => l.id === layerId)?.enabled)
+      .map(([, overpassType]) => overpassType);
+  }, [layers]);
+
+  const { features: infraFeatures, cables: infraCables, loading: infraLoading } = useInfrastructureData({
+    enabledTypes: infraEnabledTypes,
+    bounds: mapBounds ?? undefined,
+    enabled: infraEnabledTypes.length > 0,
+  });
+
+  // Cell towers for signal heatmap
+  const cellTowerPoints = useMemo(() =>
+    infraFeatures
+      .filter(f => f.type === "cell_tower")
+      .map(f => ({ lat: f.lat, lng: f.lng, type: f.tags?.["tower:type"], height: parseFloat(f.tags?.height || "30") })),
+    [infraFeatures]
+  );
   
   // Map kingdom/iconicTaxon from observations to display keys for all-life support
   const kingdomCounts = useMemo(() => {
@@ -4279,6 +4359,24 @@ export default function CREPDashboardPage() {
               />
             )}
 
+            {/* NASA GIBS Satellite Imagery Base Layers */}
+            <GibsBaseLayers
+              map={mapRef}
+              enabledLayers={{
+                modis: layers.find(l => l.id === "gibsModis")?.enabled ?? false,
+                viirs: layers.find(l => l.id === "gibsViirs")?.enabled ?? false,
+                landsat: layers.find(l => l.id === "gibsLandsat")?.enabled ?? false,
+              }}
+              opacity={0.4}
+            />
+
+            {/* Aurora Forecast Overlay */}
+            <AuroraOverlay
+              map={mapRef}
+              enabled={layers.find(l => l.id === "auroraOverlay")?.enabled ?? false}
+              opacity={0.5}
+            />
+
             {/* Event Markers - Only render if corresponding layer is enabled */}
             {filteredEvents.map(event => {
               // Check if the specific event type layer is enabled
@@ -4436,6 +4534,34 @@ export default function CREPDashboardPage() {
             )}
           </MapComponent>
 
+          {/* Infrastructure Markers from Overpass API */}
+          {infraFeatures.map((feat) => (
+            <MapMarker key={feat.id} latitude={feat.lat} longitude={feat.lng}>
+              <MarkerContent>
+                <button
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] border shadow-md"
+                  style={{
+                    backgroundColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}20`,
+                    borderColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}60`,
+                    color: INFRA_TYPE_COLORS[feat.type] || "#6b7280",
+                  }}
+                  title={`${feat.name || feat.type} (${feat.type.replace(/_/g, " ")})`}
+                >
+                  {INFRA_TYPE_ICONS[feat.type] || "📍"}
+                </button>
+              </MarkerContent>
+            </MapMarker>
+          ))}
+
+          {/* Signal Coverage Heatmap */}
+          <SignalHeatmapLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "signalHeatmap")?.enabled ?? false}
+            towers={cellTowerPoints}
+            opacity={0.4}
+            signalType="cellular"
+          />
+
           {/* Map Overlay - Corner Decorations */}
           <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/40 pointer-events-none" />
           <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-cyan-500/40 pointer-events-none" />
@@ -4517,6 +4643,13 @@ export default function CREPDashboardPage() {
             <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-cyan-400">
               {onlineDevices} DEVICES
             </div>
+            {/* Infrastructure count */}
+            {infraFeatures.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-amber-400" title={`${infraFeatures.length} infrastructure features`}>
+                <Factory className="w-3 h-3 inline-block mr-1" />
+                {infraFeatures.length} INFRA
+              </div>
+            )}
             {/* Transport/Satellite data - SECONDARY (only show if enabled) */}
             {layers.find(l => l.id === "aviation")?.enabled && aircraft.length > 0 && (
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-sky-400" title={`${filteredAircraft.length} shown / ${aircraft.length} total`}>
@@ -4578,7 +4711,7 @@ export default function CREPDashboardPage() {
                 <TabsTrigger 
                   value="earth2" 
                   className="text-[7px] px-0.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 rounded-none"
-                  title="NVIDIA Earth-2 AI Weather"
+                  title="Earth Modeling (NVIDIA Earth-2 + GIBS)"
                 >
                   <Zap className="w-3 h-3" />
                 </TabsTrigger>
@@ -4972,9 +5105,9 @@ export default function CREPDashboardPage() {
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="services" className="h-full m-0 p-3 overflow-auto">
+                <TabsContent value="services" className="h-full m-0 overflow-auto">
                   <ScrollArea className="h-full">
-                    <ServicesPanel />
+                    <ServicesPanelLive />
                   </ScrollArea>
                 </TabsContent>
 
