@@ -2,15 +2,15 @@
  * CREP Observation Data API - PRIMARY DATA ENDPOINT
  *
  * This is the main data source for the CREP dashboard's biodiversity layers.
- * Serves ALL life data (fungi, plants, animals, birds, insects, marine) through MINDEX.
+ * Serves ALL life data (fungi, plants, animals, birds, insects, marine).
  *
- * DATA PRIORITY:
- * 1. MINDEX (local biodiversity database) - PRIMARY, NO LIMIT
- * 2. Fallback to iNaturalist/GBIF only if MINDEX is unavailable
+ * DATA STRATEGY — DUAL-SOURCE + CLONE-ON-DISPLAY:
+ * 1. MINDEX (local DB) + iNaturalist API fetched IN PARALLEL every request
+ * 2. Results merged & deduplicated so the dashboard shows ALL available data
+ * 3. New iNaturalist observations are async-cloned to MINDEX for ETL ingest
  *
- * MINDEX contains all iNaturalist/GBIF data already imported via ETL.
- * This provides instant access to THOUSANDS of observations without
- * external API rate limits.
+ * This ensures users, MYCA, and the Worldview API see live iNaturalist data
+ * at the same time it is being scraped into MINDEX.
  *
  * Supports kingdom filtering via ?kingdom= parameter:
  * - "all" (default) - All life
@@ -617,6 +617,67 @@ async function fetchGBIFObservations(limit: number, kingdom?: string): Promise<F
 }
 
 /**
+ * CLONE-ON-DISPLAY: Async-write live iNaturalist observations to MINDEX
+ *
+ * When the dashboard fetches fresh iNat data, we fire-and-forget a POST
+ * to MINDEX so the ETL layer ingests them. This means the data is
+ * simultaneously visible to the user AND being scraped into MINDEX.
+ *
+ * Deduplication happens server-side in MINDEX (unique on source + source_id).
+ */
+function cloneToMINDEX(observations: FungalObservation[]): void {
+  // Only clone iNaturalist-sourced observations that aren't already from MINDEX
+  const inatObs = observations.filter(
+    (obs) => obs.source === "iNaturalist" && obs.externalId
+  )
+  if (inatObs.length === 0) return
+
+  const payload = inatObs.map((obs) => ({
+    source: "inat",
+    source_id: obs.externalId,
+    observed_at: obs.timestamp,
+    observer: obs.observer,
+    lat: obs.latitude,
+    lng: obs.longitude,
+    taxon_name: obs.scientificName,
+    taxon_common_name: obs.commonName,
+    taxon_inat_id: obs.taxonId,
+    iconic_taxon_name: obs.iconicTaxon || obs.kingdom,
+    photos: obs.imageUrl
+      ? [{ url: obs.imageUrl, attribution: "© iNaturalist", license_code: "CC-BY-NC" }]
+      : [],
+    notes: obs.notes,
+    metadata: {
+      uri: obs.sourceUrl,
+      place_guess: obs.location,
+      quality_grade: obs.verified ? "research" : "needs_id",
+      clone_source: "crep-display",
+    },
+  }))
+
+  // Fire and forget — don't block the response
+  fetch(`${MINDEX_API}/api/mindex/observations/bulk`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": process.env.MINDEX_API_KEY || "local-dev-key",
+    },
+    body: JSON.stringify({ observations: payload }),
+    signal: AbortSignal.timeout(30000),
+  })
+    .then((res) => {
+      if (res.ok) {
+        console.log(`[CREP/Clone] ✅ Cloned ${payload.length} iNat observations to MINDEX`)
+      } else {
+        console.warn(`[CREP/Clone] MINDEX bulk ingest returned ${res.status}`)
+      }
+    })
+    .catch((err) => {
+      console.warn("[CREP/Clone] Failed to clone to MINDEX (non-blocking):", err?.message)
+    })
+}
+
+/**
  * Queue pending observations for geocoding
  */
 async function queuePendingGeocoding(): Promise<number> {
@@ -741,42 +802,49 @@ export async function GET(request: NextRequest) {
 
   try {
     // ═══════════════════════════════════════════════════════════════════════════
-    // MINDEX IS PRIMARY - Get all data from local database first
-    // Only fall back to external APIs if MINDEX fails or is empty
+    // DUAL-SOURCE: MINDEX + iNaturalist fetched IN PARALLEL
+    // Shows ALL available data — ETL'd + live. New live data cloned to MINDEX.
     // ═══════════════════════════════════════════════════════════════════════════
 
+    const fetchPromises: Promise<FungalObservation[]>[] = []
+
+    // Always fetch MINDEX (local DB — fast, no rate limits)
     if (!fallbackOnly && (!source || source === "all" || source === "mindex")) {
-      console.log("[CREP/Fungal] Fetching PRIMARY data from MINDEX...")
-      const mindexObs = await fetchMINDEXObservations(limit, bounds)
-
-      if (mindexObs.length > 0) {
-        console.log(`[CREP/Fungal] ✅ MINDEX returned ${mindexObs.length} observations - using as primary source`)
-        allObservations = mindexObs
-
-        // If we got good data from MINDEX, we don't need external APIs
-        // MINDEX already contains iNaturalist/GBIF data from ETL
-      } else {
-        console.log("[CREP/Fungal] ⚠️ MINDEX returned 0 observations, falling back to external APIs")
-      }
+      fetchPromises.push(
+        fetchMINDEXObservations(limit, bounds).catch((err) => {
+          console.warn("[CREP/Fungal] MINDEX fetch failed:", err?.message)
+          return [] as FungalObservation[]
+        })
+      )
     }
 
-    // Fallback to external APIs only if MINDEX failed or was explicitly disabled
-    if (allObservations.length === 0 || fallbackOnly) {
-      console.log("[CREP/Life] Using external API fallback (iNaturalist + GBIF) for ALL LIFE...")
-
-      const fetchPromises: Promise<FungalObservation[]>[] = []
-
-      if (!source || source === "all" || source === "inat") {
-        fetchPromises.push(fetchINaturalistObservations(limit || 2000, bounds, kingdom))
-      }
-      if (!source || source === "all" || source === "gbif") {
-        fetchPromises.push(fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom))
-      }
-
-      const results = await Promise.all(fetchPromises)
-      allObservations = results.flat()
-      console.log(`[CREP/Life] External APIs returned ${allObservations.length} observations across all kingdoms`)
+    // Always fetch iNaturalist live (unless source=mindex only)
+    if (!source || source === "all" || source === "inat" || fallbackOnly) {
+      fetchPromises.push(
+        fetchINaturalistObservations(limit || 2000, bounds, kingdom).catch((err) => {
+          console.warn("[CREP/Life] iNaturalist fetch failed:", err?.message)
+          return [] as FungalObservation[]
+        })
+      )
     }
+
+    // Optionally include GBIF
+    if (!source || source === "all" || source === "gbif") {
+      fetchPromises.push(
+        fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom).catch((err) => {
+          console.warn("[CREP/Life] GBIF fetch failed:", err?.message)
+          return [] as FungalObservation[]
+        })
+      )
+    }
+
+    const results = await Promise.all(fetchPromises)
+    allObservations = results.flat()
+    console.log(`[CREP/Life] Dual-source total: ${allObservations.length} observations (MINDEX + live APIs merged)`)
+
+    // Clone-on-display: async-write new iNat observations to MINDEX
+    // This runs in the background — does NOT block the response
+    cloneToMINDEX(allObservations)
 
     // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
     if (kingdom !== "all") {
@@ -840,7 +908,7 @@ export async function GET(request: NextRequest) {
 
     // Log to MINDEX
     const latency = Date.now() - startTime
-    const primarySource = sources.mindex > 0 ? "mindex" : sources.iNaturalist > 0 ? "inaturalist" : "gbif"
+    const primarySource = sources.mindex > 0 && sources.iNaturalist > 0 ? "dual-source" : sources.mindex > 0 ? "mindex" : sources.iNaturalist > 0 ? "inaturalist" : "gbif"
     logDataCollection("fungal", primarySource, finalObservations.length, latency, false)
 
     console.log(`[CREP/Life] Returning ${finalObservations.length} observations across ${Object.keys(kingdoms).length} kingdoms`)
@@ -854,9 +922,11 @@ export async function GET(request: NextRequest) {
         pendingGeocode,
         cached: false,
         timestamp: new Date().toISOString(),
-        dataSource: allObservations.length > 0 && finalObservations[0]?.source !== "MINDEX"
-          ? "external_fallback"
-          : "mindex_primary",
+        dataSource: sources.mindex > 0 && (sources.iNaturalist > 0 || sources.gbif > 0)
+          ? "dual_source_merged"
+          : sources.mindex > 0
+          ? "mindex_primary"
+          : "live_api",
       },
     })
   } catch (error) {
