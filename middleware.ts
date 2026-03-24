@@ -20,36 +20,45 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    })
-    const { data: { user } } = await supabase.auth.getUser()
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (pathRequiresAuth(pathname) || pathRequiresCompanyEmail(pathname)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'config_missing')
+      return NextResponse.redirect(url)
+    }
+    return response // Public pages can load normally even if DB is down
+  }
 
-    // Auth gate: any route that requires auth (canonical route map)
-    if (pathRequiresAuth(pathname)) {
-      if (!user) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login'
-        url.searchParams.set('redirectTo', pathname)
-        return NextResponse.redirect(url)
-      }
-      // Company gate: routes that require @mycosoft.org / @mycosoft.com
-      if (pathRequiresCompanyEmail(pathname) && !isCompanyEmail(user.email)) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/natureos'
-        url.searchParams.set('error', 'company_access_required')
-        return NextResponse.redirect(url)
-      }
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options)
+        })
+      },
+    },
+  })
+  
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Auth gate: any route that requires auth (canonical route map)
+  if (pathRequiresAuth(pathname)) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(url)
+    }
+    // Company gate: routes that require @mycosoft.org / @mycosoft.com
+    if (pathRequiresCompanyEmail(pathname) && !isCompanyEmail(user.email)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/natureos'
+      url.searchParams.set('error', 'company_access_required')
+      return NextResponse.redirect(url)
     }
   }
 

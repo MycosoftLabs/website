@@ -151,7 +151,7 @@ export async function loadLayoutFromSupabase(
 export async function getUserLayouts(userId: string): Promise<DashboardLayout[]> {
   try {
     const supabase = createClient()
-    if (!supabase) return null
+    if (!supabase) return []
 
     const { data, error } = await supabase
       .from('dashboard_layouts')

@@ -24,7 +24,7 @@ if (typeof window !== "undefined") {
 }
 
 // Layout configuration for force-directed positioning
-const COLA_LAYOUT_CONFIG: LayoutOptions = {
+const COLA_LAYOUT_CONFIG: any = {
   name: "cola",
   animate: true,
   animationDuration: 1000,
@@ -35,7 +35,6 @@ const COLA_LAYOUT_CONFIG: LayoutOptions = {
   fit: true,
   padding: 50,
   nodeDimensionsIncludeLabels: true,
-  // @ts-expect-error - cola-specific options
   nodeSpacing: 40,
   edgeLengthVal: 120,
   avoidOverlap: true,
@@ -45,11 +44,10 @@ const COLA_LAYOUT_CONFIG: LayoutOptions = {
 }
 
 // Hierarchical layout for clustered view
-const HIERARCHICAL_LAYOUT_CONFIG: LayoutOptions = {
+const HIERARCHICAL_LAYOUT_CONFIG: any = {
   name: "cola",
   animate: true,
   animationDuration: 800,
-  // @ts-expect-error - cola-specific options
   nodeSpacing: 30,
   edgeLengthVal: 80,
   avoidOverlap: true,
@@ -182,7 +180,7 @@ function convertToCytoscapeElements(
 }
 
 // Cytoscape stylesheet
-const cytoscapeStylesheet: cytoscape.Stylesheet[] = [
+const cytoscapeStylesheet: any[] = [
   // Cluster nodes
   {
     selector: ".cluster",
@@ -504,7 +502,7 @@ export function CytoscapeLayout({
     const target = cy.getElementById(toId)
 
     if (source.length && target.length) {
-      const dijkstra = cy.elements().dijkstra(source)
+      const dijkstra = cy.elements().dijkstra({ root: source })
       const path = dijkstra.pathTo(target)
       path.addClass("highlighted")
     }

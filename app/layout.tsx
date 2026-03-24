@@ -6,10 +6,25 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { AppShellProviders } from "@/components/providers/AppShellProviders"
 import "./globals.css"
 
-export const metadata = {
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
   title: "Mycosoft - Building The Earth Intelligence",
   description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
-  generator: 'v0.app'
+  metadataBase: new URL('https://mycosoft.com'),
+  openGraph: {
+    title: "Mycosoft - Building The Earth Intelligence",
+    description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
+    url: "https://mycosoft.com",
+    siteName: "Mycosoft",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mycosoft - Building The Earth Intelligence",
+    description: "Building The Earth Intelligence - AI-powered mycology research, fungal computing, and environmental monitoring platform",
+  },
 }
 
 // viewport export (Next.js App Router) — viewport-fit=cover enables iOS safe-area-inset support
