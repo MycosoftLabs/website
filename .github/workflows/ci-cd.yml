@@ -396,16 +396,15 @@ jobs:
             # Start a second container alongside the first one
             docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
             
-            # Find the new container ID (the one created most recently)
-            NEW_CONTAINER=$(docker ps -q -f name=mycosoft-website --latest)
-            
             echo "Waiting for new container to become healthy..."
+            sleep 10
             for i in {1..30}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' $NEW_CONTAINER)
-              if [ "$STATUS" = "healthy" ]; then
+              HEALTHY_COUNT=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f docker-compose.production.yml ps -q website) | grep -c healthy)
+              if [ "$HEALTHY_COUNT" -ge 2 ]; then
                 echo "New container is healthy!"
                 break
               fi
+              echo "Attempt $i: Waiting 5s..."
               sleep 5
             done
             
