@@ -261,6 +261,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -365,6 +366,8 @@ All notable changes to this project will be documented in this file.
 - Compartmentalized CREP live dashboard in search widget
 - Wire all CREP domains into search widget with live compartmentalized data
 - Self-contained ground station backend with CREP dashboard tab
+- CREP dashboard dual-source — show all iNaturalist data live + clone to MINDEX
+- Rebuild model-training page as interactive NLM training tool
 
 ### Fix
 
