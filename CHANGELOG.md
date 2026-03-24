@@ -198,6 +198,17 @@ All notable changes to this project will be documented in this file.
 - Resolve security, seo and type escalations from npm audit
 - *(ci)* Suppress ssh docker pull pty buffers and safely extend timeout limits to unblock github actions
 - *(ci)* Inject ssh keepalive protocol to prevent broken pipe disconnects during silent headless deployments
+- *(deploy)* Accelerate with instant production build [fast]
+- *(ci)* Restore deploy-production job name in yaml
+- *(deploy)* Force instant deploy [fast]
+- *(deploy)* Instant deploy trigger [fast]
+- *(deploy)* Prevent VM OOM crashes by pulling GHCR image instead of building locally
+- *(docker)* Switch apk to apt-get for debian bookworm base image [fast]
+- *(deploy)* Use github runners to build the site via standard CI/CD pipeline
+- *(ci)* Disable rogue sandbox deploy pipeline that was conflicting with main ci-cd and causing 502s
+- *(docker)* Remove hardcoded website container name to allow zero-downtime scaling
+- *(deploy)* Bulletproof zero downtime healthcheck logic [fast]
+- Final clean zero-downtime deployment after VM reboot
 
 ### CREP
 
@@ -228,6 +239,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -382,6 +394,7 @@ All notable changes to this project will be documented in this file.
 - Provision cross-ecosystem backend data models including CREP avatar and NLM
 - Implement web3 cryptocurrency payload billing deductions across api endpoints
 - Optimize autonomous agent landing UI with viral replication loop and data authenticity grids
+- *(ci)* Impl zero-downtime rolling update via docker scale
 
 ### Fix
 
@@ -427,6 +440,12 @@ All notable changes to this project will be documented in this file.
 - Update tsconfig build info
 - Trigger pipelines with new secrets
 - Update tsconfig build info
+- Add util workflow for fetching vm logs
+- Adhoc cleanup of rogue container
+
+### Performance
+
+- *(docker)* Segregate python services and switch to debian base to prevent c++ compilation [fast]
 
 ### Refactor
 
