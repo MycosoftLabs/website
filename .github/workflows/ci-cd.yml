@@ -302,7 +302,7 @@ jobs:
       packages: read
     environment: production
     continue-on-error: false
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Check deploy secrets
         id: check-secrets
@@ -382,24 +382,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IMAGE_NAME_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="${{ env.REGISTRY }}/${IMAGE_NAME_LC}:production-latest"
-
-          # Authenticate to GHCR on the VM using the CI token
-          echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-          # Pull the pre-built image
-          ssh production docker pull -q "${IMAGE}"
-
-          # Stop old container if it exists, then start fresh
-          ssh production bash -s <<DEPLOY
+          ssh production bash -s <<'BUILD'
             set -e
             cd /opt/mycosoft/website
-            export WEBSITE_IMAGE="${IMAGE}"
-            # Remove stale container that blocks the name
+            
+            echo "=== Syncing source code to VM ==="
+            git fetch origin main || echo "Git fetch failed, but proceeding"
+            git reset --hard origin/main || echo "Git reset failed, but proceeding"
+            
+            echo "=== Building Docker image locally (Instant Mode) ==="
+            docker build \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
+              -f Dockerfile.production \
+              -t mycosoft-website:production-latest \
+              .
+
+            echo "=== Restarting website container ==="
+            export WEBSITE_IMAGE="mycosoft-website:production-latest"
             docker rm -f mycosoft-website 2>/dev/null || true
             docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
-          DEPLOY
+          BUILD
 
       - name: Run database migrations
         continue-on-error: true
