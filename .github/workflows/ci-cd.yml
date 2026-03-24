@@ -636,3 +636,4 @@ jobs:
         with:
           commit_message: "docs: update changelog [skip ci]"
           file_pattern: CHANGELOG.md
+
