@@ -88,49 +88,12 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick, onClos
     }
   }, [baseLng, baseLat, isValidCoordinates]);
   
-  // Animate satellite position based on orbital period
-  useEffect(() => {
-    if (!isValidCoordinates) return;
-    
-    // Calculate orbital velocity from period or use default for LEO
-    const periodMinutes = satellite?.orbitalParams?.period || 90;
-    
-    // Angular velocity in degrees per second
-    const angularVelocityDegPerSec = 360 / (periodMinutes * 60);
-    
-    // Inclination for latitude oscillation
-    const inclination = satellite?.orbitalParams?.inclination || 45;
-    
-    const animate = () => {
-      const elapsed = (Date.now() - animationStartTime.current) / 1000;
-      
-      // Calculate longitude displacement
-      const dLon = angularVelocityDegPerSec * elapsed;
-      
-      // Calculate latitude oscillation
-      const oscillationPeriod = periodMinutes * 60;
-      const phase = (elapsed / oscillationPeriod) * 2 * Math.PI;
-      const dLat = Math.sin(phase) * inclination * 0.1;
-      
-      // Wrap longitude
-      let newLng = baseLng + dLon;
-      while (newLng > 180) newLng -= 360;
-      while (newLng < -180) newLng += 360;
-      
-      // Clamp latitude
-      const newLat = Math.max(-85, Math.min(85, baseLat + dLat));
-      
-      setAnimatedPosition({
-        lng: newLng,
-        lat: newLat
-      });
-    };
-    
-    const intervalId = setInterval(animate, ANIMATION_INTERVAL_MS);
-    animate();
-    
-    return () => clearInterval(intervalId);
-  }, [baseLng, baseLat, satellite?.orbitalParams?.period, satellite?.orbitalParams?.inclination, isValidCoordinates]);
+  // NO client-side orbital animation — use real positions from API/extrapolation only.
+  // Previously this used a simplified sinusoidal model with default values (90min period,
+  // 45° inclination) which produced hallucinated positions. Real satellite positions come
+  // from the dashboard's extrapolation engine (CelesTrak TLE data + velocity vectors) or
+  // the ground station's SGP4 propagation via satellite.js.
+  // The animatedPosition state is kept in sync via the reset effect above.
   
   // EARLY RETURNS AFTER ALL HOOKS
   if (!satellite || !isValidCoordinates) {

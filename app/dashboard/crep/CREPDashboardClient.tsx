@@ -1120,6 +1120,10 @@ function DeviceMarker({ device, isSelected, onClick }: {
 }
 
 // Human & Machines Baseline Data
+// STATIC REFERENCE ESTIMATES — not live data. These are approximate global totals
+// sourced from public statistics (World Bank, ICAO, IMO, FAA, IEA). The "active"
+// counters below use random jitter to simulate variation but are NOT real-time feeds.
+// TODO: Replace with real API data (WorldPop, FlightAware stats, IMO/AIS global count).
 const HUMAN_MACHINE_DATA = {
   population: { total: 8_123_456_789, birthsPerSec: 4.3, deathsPerSec: 1.8 },
   vehicles: { total: 1_446_000_000, active: 312_000_000, co2PerDay: 18_500_000 },
@@ -1737,7 +1741,7 @@ export default function CREPDashboardPage() {
   // Position extrapolation so planes/vessels/satellites move smoothly between API fetches
   const [extrapolatedCoords, setExtrapolatedCoords] = useState<Record<string, [number, number]>>({});
   const lastKnownRef = useRef<Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }>>({});
-  const MAX_EXTRAPOLATION_MS = 60000; // cap at 60s so we don't drift forever
+  const MAX_EXTRAPOLATION_MS = 30000; // cap at 30s — positions older than this use API data directly
   
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -3464,20 +3468,11 @@ export default function CREPDashboardPage() {
         const degPerSec = velKmS / 111; // ~111 km per degree at equator
         const velLng = Math.sin(h) * degPerSec;
         const velLat = Math.cos(h) * degPerSec;
-        const prev = lastKnownRef.current[s.id];
-        // Only accept new position if we don't have one yet, or if API position is ahead along velocity (avoids resetting to short segment)
-        let lng = apiLng;
-        let lat = apiLat;
-        if (prev) {
-          const dot = (apiLng - prev.lng) * prev.velLng + (apiLat - prev.lat) * prev.velLat;
-          if (dot < 0) {
-            lng = prev.lng;
-            lat = prev.lat;
-          }
-        }
+        // ALWAYS accept the API position — never reject corrections
+        // (was: velocity-lock rejected API positions behind the velocity vector, causing stale data)
         next[s.id] = {
-          lng,
-          lat,
+          lng: apiLng,
+          lat: apiLat,
           velLng,
           velLat,
           ts: now,

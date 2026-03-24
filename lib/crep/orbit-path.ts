@@ -1,9 +1,14 @@
 /**
  * Full-orbit ground track for satellites – Feb 18, 2026
  *
- * Computes a closed ground-track path (wraps around the planet) from
- * orbital period, inclination, and current position. Used for satellite
- * trajectory lines so the line is the full orbit, not a short segment.
+ * APPROXIMATE visualization-only ground track from orbital period and inclination.
+ * This is a simplified circular-orbit model for rendering trajectory LINES on the map.
+ * It does NOT compute actual satellite positions — those come from:
+ * - CelesTrak TLE data + velocity extrapolation (dashboard)
+ * - satellite.js SGP4 propagation (ground station context)
+ *
+ * Limitations: assumes circular orbit, no precession/drag/perturbations.
+ * Earth rotation rate: 0.25°/min (15°/hr) — simplified constant.
  */
 
 const TWO_PI = 2 * Math.PI;

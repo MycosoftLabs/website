@@ -83,40 +83,11 @@ export function AircraftMarker({ aircraft, isSelected = false, onClick, onClose 
     }
   }, [baseLongitude, baseLatitude, hasValidCoords]);
   
-  // Animate position based on velocity and heading
-  useEffect(() => {
-    if (!hasValidCoords) return;
-    if (!aircraft.velocity || !aircraft.heading || aircraft.onGround) {
-      return; // Don't animate if no velocity/heading or on ground
-    }
-    
-    const velocityKnots = aircraft.velocity;
-    const headingDeg = aircraft.heading;
-    
-    // Convert heading to radians
-    const headingRad = (headingDeg * Math.PI) / 180;
-    
-    // Calculate speed in degrees per second (approximate)
-    const speedDegPerSecond = (velocityKnots / 3600) / 60;
-    
-    const animate = () => {
-      const elapsed = (Date.now() - animationStartTime.current) / 1000; // seconds
-      
-      // Calculate displacement
-      const dLon = Math.sin(headingRad) * speedDegPerSecond * elapsed;
-      const dLat = Math.cos(headingRad) * speedDegPerSecond * elapsed;
-      
-      setAnimatedPosition({
-        longitude: (baseLongitude ?? 0) + dLon,
-        latitude: (baseLatitude ?? 0) + dLat
-      });
-    };
-    
-    const intervalId = setInterval(animate, ANIMATION_INTERVAL_MS);
-    animate(); // Run immediately
-    
-    return () => clearInterval(intervalId);
-  }, [baseLongitude, baseLatitude, aircraft.velocity, aircraft.heading, aircraft.onGround, hasValidCoords]);
+  // NO component-level position animation — use real positions only.
+  // The dashboard's extrapolation engine (CREPDashboardClient.tsx) already handles
+  // smooth position interpolation between API refreshes using velocity vectors.
+  // Adding a SECOND extrapolation layer here caused 2x position drift.
+  // The animatedPosition state is kept in sync via the reset effect above.
   
   // Compute derived values unconditionally
   const altitudeColor = getAltitudeColor(aircraft.altitude ?? null);
