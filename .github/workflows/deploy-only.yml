@@ -22,7 +22,7 @@ jobs:
     permissions:
       packages: read
     environment: production
-    timeout-minutes: 5
+    timeout-minutes: 30
     steps:
       - name: Checkout (for compose file sync)
         uses: actions/checkout@v4
@@ -79,7 +79,7 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${IMAGE_NAME_LC}:${{ github.event.inputs.image_tag }}"
 
           echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          ssh production docker pull "${IMAGE}"
+          ssh production docker pull -q "${IMAGE}"
 
           ssh production bash -s <<DEPLOY
             set -e

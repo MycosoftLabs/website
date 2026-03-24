@@ -278,7 +278,7 @@ jobs:
           script: |
             IMAGE_NAME_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
             echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            docker pull ${{ env.REGISTRY }}/${IMAGE_NAME_LC}:staging-latest
+            docker pull -q ${{ env.REGISTRY }}/${IMAGE_NAME_LC}:staging-latest
             cd /opt/mycosoft-staging
             docker compose up -d --no-build --remove-orphans
             docker compose exec -T website npm run db:migrate --if-present
@@ -302,7 +302,7 @@ jobs:
       packages: read
     environment: production
     continue-on-error: false
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Check deploy secrets
         id: check-secrets
@@ -387,7 +387,7 @@ jobs:
           echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
           # Pull the pre-built image
-          ssh production docker pull "${IMAGE}"
+          ssh production docker pull -q "${IMAGE}"
 
           # Stop old container if it exists, then start fresh
           ssh production bash -s <<DEPLOY
