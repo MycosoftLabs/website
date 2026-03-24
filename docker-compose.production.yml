@@ -63,8 +63,6 @@ services:
 
   website:
     image: ${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}
-    # To build locally instead: WEBSITE_IMAGE= docker compose -f docker-compose.production.yml build website
-    container_name: mycosoft-website
     ports:
       - "3000:3000"
     env_file:
