@@ -58,14 +58,32 @@ export async function recordUsageFromRequest({
       console.error("API usage insert error:", usageError)
     }
 
+    // Determine cost in cents (fallback to 1 cent per request if undefined)
+    const costCents = (API_USAGE_PRICING[usageType]?.pricePerCall || 0.01) * 100 * quantity;
+
     const { data: profile } = await admin
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, balance_cents, is_agent")
       .eq("id", userId)
       .single()
 
     if (profile?.stripe_customer_id) {
+      // Traditional Fiat Billing
       await recordApiUsage(profile.stripe_customer_id, usageType, quantity)
+    } else if (profile?.is_agent && profile.balance_cents >= costCents) {
+      // Web3 Cryptocurrency / Token Deduction
+      const newBalance = profile.balance_cents - costCents;
+      await admin.from("profiles").update({ balance_cents: newBalance }).eq("id", userId);
+      
+      // Also log the cost to the agent's current active session if one exists
+      const { error: rpcErr } = await admin.rpc('increment_agent_session_cost', { 
+        p_profile_id: userId, 
+        p_cost_cents: costCents, 
+        p_tokens_used: quantity 
+      });
+      if (rpcErr) console.warn('Could not increment agent session cost', rpcErr);
+    } else if (profile?.is_agent && profile.balance_cents < costCents) {
+      console.error(`INSUFFICIENT_FUNDS: Agent ${userId} attempted API usage but lacks sufficient crypto balance.`);
     }
   } catch (error) {
     console.error("Usage metering error:", error)
