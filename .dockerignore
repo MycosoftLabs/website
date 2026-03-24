@@ -38,3 +38,12 @@ coverage
 .DS_Store
 Thumbs.db
 *.log
+
+# Heavy components to segregate
+services
+videos
+screenshots
+tests
+e2e
+python-services
+
