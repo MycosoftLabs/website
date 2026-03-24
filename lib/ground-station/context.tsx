@@ -416,7 +416,7 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
           const velocityEci = positionAndVelocity.velocity
 
           if (typeof positionEci !== 'boolean' && positionEci !== undefined && typeof velocityEci !== 'boolean') {
-            const gmst = satellite.gcostheta(satellite.jday(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
+            const gmst = satellite.gstime(satellite.jday(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
             const positionGd = satellite.eciToGeodetic(positionEci, gmst)
             const lookAngles = satellite.ecfToLookAngles(observerGd, satellite.eciToEcf(positionEci, gmst))
 
