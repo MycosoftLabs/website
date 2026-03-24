@@ -18,6 +18,7 @@ import {
   Maximize2, Minimize2, SlidersHorizontal, Box, Workflow, Monitor
 } from "lucide-react"
 import Link from "next/link"
+import FungaNetwork3D from "@/components/visualizers/FungaNetwork3D"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -451,24 +452,7 @@ export default function ModelTrainingToolPage() {
                 </CardHeader>
                 <CardContent>
                   {vizMode === "network" && (
-                    <div className="space-y-1">
-                      {layers.map((layer, i) => {
-                        const isSelected = selectedLayer === i
-                        const activity = neuronActivity[i % neuronActivity.length] ?? 0.5
-                        const barColor = layer.type === "attention" ? "bg-purple-500" : layer.type === "ffn" ? "bg-blue-500" : layer.type === "norm" ? "bg-cyan-500" : layer.type === "embedding" ? "bg-green-500" : "bg-amber-500"
-                        return (
-                          <div key={i} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected ? "bg-purple-500/20 border border-purple-500/40" : "hover:bg-muted/50"}`} onClick={() => setSelectedLayer(isSelected ? null : i)}>
-                            <div className="w-6 text-xs text-muted-foreground text-right">{i}</div>
-                            <Badge variant="outline" className="text-[10px] w-16 justify-center">{layer.type}</Badge>
-                            <div className="flex-1 relative h-6 bg-muted/30 rounded overflow-hidden">
-                              <div className={`absolute inset-y-0 left-0 ${barColor} rounded transition-all duration-500`} style={{ width: `${activity * 100}%`, opacity: 0.4 + activity * 0.6 }} />
-                              <div className="absolute inset-0 flex items-center px-2 text-xs font-medium">{layer.name}</div>
-                            </div>
-                            <div className="text-xs text-muted-foreground w-12 text-right">{layer.neurons}n</div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <FungaNetwork3D status={trainingStatus === "training" ? "live" : trainingStatus === "paused" ? "degraded" : "loading"} loss={metrics.loss} />
                   )}
 
                   {vizMode === "weights" && (
