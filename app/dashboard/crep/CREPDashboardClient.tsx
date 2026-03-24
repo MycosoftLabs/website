@@ -1672,11 +1672,15 @@ export default function CREPDashboardPage() {
   
   // Data states
   const [globalEvents, setGlobalEvents] = useState<GlobalEvent[]>([]);
+  // Persistent event store — merge incoming, never fully replace (prevents blink)
+  const eventStoreRef = useRef<Map<string, GlobalEvent>>(new Map());
   const [devices, setDevices] = useState<Device[]>([]);
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
   const [vessels, setVessels] = useState<VesselEntity[]>([]);
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
+  // Persistent observation store — merge incoming data, never fully replace (prevents blink)
+  const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   
   // Conservation Demo widget data (fence/presence - empty until real MAS devices exist)
@@ -1992,8 +1996,8 @@ export default function CREPDashboardPage() {
   // Earth-2 AI Weather state - use complete default filter with temperature enabled
   const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
     ...DEFAULT_EARTH2_FILTER,
-    showTemperature: true, // Enable temperature layer by default for visibility
-    forecastHours: 24,     // Start at 24 hours forecast
+    showTemperature: false, // All Earth2 layers off by default — user opts in
+    forecastHours: 24,
   });
   
   // Use Earth-2 alerts hook for automatic updates
@@ -2149,7 +2153,9 @@ export default function CREPDashboardPage() {
               );
             }
             
-            setGlobalEvents(formattedEvents);
+            // Merge into persistent event store (prevents blink on refresh)
+            for (const ev of formattedEvents) eventStoreRef.current.set(ev.id, ev);
+            setGlobalEvents(Array.from(eventStoreRef.current.values()));
             // Capture IDs at first load so we can detect "new" events on later refreshes
             if (initialEventIdsRef.current === null) {
               initialEventIdsRef.current = new Set(formattedEvents.map((e: GlobalEvent) => e.id));
@@ -2318,8 +2324,8 @@ export default function CREPDashboardPage() {
     const { north, south, east, west } = mapBounds;
     if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
 
-    // Server-side LOD: request only what we need based on zoom (reduces latency, matches visibleFungalObservations tiers)
-    const zoomLimit = mapZoom < 2 ? 100 : mapZoom < 3 ? 300 : mapZoom < 4 ? 600 : mapZoom < 5 ? 2000 : mapZoom < 6 ? 4000 : mapZoom < 7 ? 8000 : 16000;
+    // Server-side LOD: request more data at every zoom level to fill the map
+    const zoomLimit = mapZoom < 2 ? 2000 : mapZoom < 3 ? 5000 : mapZoom < 4 ? 10000 : mapZoom < 5 ? 20000 : undefined; // zoom 5+: no limit
 
     const ctrl = new AbortController();
     const formatObs = (obs: Record<string, unknown>): FungalObservation => {
@@ -2367,16 +2373,27 @@ export default function CREPDashboardPage() {
           south: String(south),
           east: String(east),
           west: String(west),
-          limit: String(zoomLimit),
           nocache: "true",
         });
+        if (zoomLimit) q.set("limit", String(zoomLimit));
         const res = await fetch(`/api/crep/fungal?${q}`, { signal: ctrl.signal });
         if (!res.ok) return;
         const data = await res.json();
         const raw = data.observations && Array.isArray(data.observations) ? data.observations : [];
         const formatted = raw.map((o: Record<string, unknown>) => formatObs(o));
-        setFungalObservations(formatted);
-        console.log(`[CREP] Viewport fungal: ${formatted.length} observations`);
+        // MERGE into persistent store — never fully replace (prevents data blink)
+        const store = fungalStoreRef.current;
+        for (const obs of formatted) {
+          store.set(obs.id, obs);
+        }
+        // TTL cleanup: remove observations older than 24h to prevent unbounded growth
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+        for (const [id, obs] of store) {
+          const ts = new Date(obs.observed_on || 0).getTime();
+          if (ts > 0 && ts < cutoff) store.delete(id);
+        }
+        setFungalObservations(Array.from(store.values()));
+        console.log(`[CREP] Viewport fungal: ${formatted.length} new, ${store.size} total persisted`);
       } catch (e) {
         if ((e as Error).name !== "AbortError") console.warn("[CREP] Bounds fungal fetch failed:", e);
       } finally {
@@ -2427,7 +2444,9 @@ export default function CREPDashboardPage() {
           setNewEventIds((prev) => new Set([...prev, ...newlySeen]));
           knownIds && newlySeen.forEach((id: string) => knownIds.add(id));
         }
-        setGlobalEvents(formattedEvents);
+        // Merge into persistent event store (prevents blink on live refresh)
+        for (const ev of formattedEvents) eventStoreRef.current.set(ev.id, ev);
+        setGlobalEvents(Array.from(eventStoreRef.current.values()));
       } catch (e) {
         console.warn("[CREP] Live events refresh failed:", e);
       }
@@ -2769,26 +2788,23 @@ export default function CREPDashboardPage() {
     let maxMarkers: number;
     let lodLevel: string;
     if (mapZoom < 2) {
-      maxMarkers = 50;
+      maxMarkers = 2000;
       lodLevel = "world";
     } else if (mapZoom < 3) {
-      maxMarkers = 200;
+      maxMarkers = 5000;
       lodLevel = "multi-continent";
     } else if (mapZoom < 4) {
-      maxMarkers = 500;
+      maxMarkers = 10000;
       lodLevel = "continent";
     } else if (mapZoom < 5) {
-      maxMarkers = 1500;
+      maxMarkers = 20000;
       lodLevel = "large-country";
     } else if (mapZoom < 6) {
-      maxMarkers = 3000;
+      maxMarkers = 30000;
       lodLevel = "country";
-    } else if (mapZoom < 7) {
-      maxMarkers = 6000;
-      lodLevel = "state";
     } else {
-      // At high zoom, show everything (with performance cap)
-      maxMarkers = 15000;
+      // At zoom 6+, show everything in viewport
+      maxMarkers = Infinity;
       lodLevel = "local";
     }
     
@@ -3111,17 +3127,13 @@ export default function CREPDashboardPage() {
     // so limits are more conservative
     let maxEvents: number;
     if (mapZoom < 2) {
-      maxEvents = 20;  // World view - only most critical events
+      maxEvents = 200;  // World view - show all significant events
     } else if (mapZoom < 3) {
-      maxEvents = 50;
+      maxEvents = 500;
     } else if (mapZoom < 4) {
-      maxEvents = 100;
-    } else if (mapZoom < 5) {
-      maxEvents = 150;
-    } else if (mapZoom < 6) {
-      maxEvents = 200;
+      maxEvents = 1000;
     } else {
-      maxEvents = 500; // Show all at high zoom
+      maxEvents = Infinity; // Show all at zoom 4+
     }
     
     // Step 3: If within limit, show ALL in viewport
