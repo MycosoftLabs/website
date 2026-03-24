@@ -398,10 +398,27 @@ jobs:
               -t mycosoft-website:production-latest \
               .
 
-            echo "=== Restarting website container ==="
+            echo "=== Performing Zero-Downtime Rolling Update ==="
             export WEBSITE_IMAGE="mycosoft-website:production-latest"
-            docker rm -f mycosoft-website 2>/dev/null || true
-            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+            
+            # Start a second container alongside the first one
+            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
+            
+            # Find the new container ID (the one created most recently)
+            NEW_CONTAINER=$(docker ps -q -f name=mycosoft-website --latest)
+            
+            echo "Waiting for new container to become healthy..."
+            for i in {1..30}; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' $NEW_CONTAINER)
+              if [ "$STATUS" = "healthy" ]; then
+                echo "New container is healthy!"
+                break
+              fi
+              sleep 5
+            done
+            
+            # Now scale back to 1, which will kill the old container and leave the new one
+            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
           BUILD
 
       - name: Run database migrations
@@ -546,10 +563,26 @@ jobs:
               -t mycosoft-website:local \
               .
 
-            echo "=== Restarting website container ==="
+            echo "=== Performing Zero-Downtime Rolling Update ==="
             export WEBSITE_IMAGE="mycosoft-website:local"
-            docker rm -f mycosoft-website 2>/dev/null || true
-            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+            
+            # Start a second container alongside the first one
+            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
+            
+            NEW_CONTAINER=$(docker inspect --format='{{.Id}}' $(docker compose -f docker-compose.production.yml ps -q website | head -n 1))
+            
+            echo "Waiting for new container to become healthy..."
+            for i in {1..30}; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' $NEW_CONTAINER)
+              if [ "$STATUS" = "healthy" ]; then
+                echo "New container is healthy!"
+                break
+              fi
+              sleep 5
+            done
+            
+            # Now scale back to 1, which kills the older container
+            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
 
             echo "=== Instant deploy complete at $(date) ==="
           BUILD
