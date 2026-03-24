@@ -192,6 +192,11 @@ All notable changes to this project will be documented in this file.
 - Add missing cameras widget config and fix EMPTY_RESULTS spread
 - Wire cameras + Earth Intelligence data through to WidgetContent
 - Prevent Myca from redirecting users to external websites
+- CREP Phase 1 — anti-blink, LOD increase, Earth2 off, events persist
+- Ground station system — 7 critical bugs preventing map display
+- Remove hallucinated position animations — use real API data only
+- Resolve security, seo and type escalations from npm audit
+- *(ci)* Suppress ssh docker pull pty buffers and safely extend timeout limits to unblock github actions
 
 ### CREP
 
@@ -222,6 +227,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -368,6 +374,12 @@ All notable changes to this project will be documented in this file.
 - Self-contained ground station backend with CREP dashboard tab
 - CREP dashboard dual-source — show all iNaturalist data live + clone to MINDEX
 - Rebuild model-training page as interactive NLM training tool
+- Real-time live transformer dashboard gating and visualizer
+- CREP Phases 2-6 — full infrastructure, telecom, military, GIBS, aurora, services
+- Stunning 3D React Three Fiber NLM Transformer visualizer
+- Provision cross-ecosystem backend data models including CREP avatar and NLM
+- Implement web3 cryptocurrency payload billing deductions across api endpoints
+- Optimize autonomous agent landing UI with viral replication loop and data authenticity grids
 
 ### Fix
 
