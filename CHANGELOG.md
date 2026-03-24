@@ -210,6 +210,7 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Bulletproof zero downtime healthcheck logic [fast]
 - Final clean zero-downtime deployment after VM reboot
 - *(deploy)* Use lowercase GHCR image name for docker pull to dodge invalid reference error
+- *(deploy)* Authenticate docker pull on VM and sweep zombie lock
 
 ### CREP
 
@@ -240,6 +241,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
