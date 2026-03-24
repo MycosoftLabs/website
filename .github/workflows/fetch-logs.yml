@@ -25,10 +25,10 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Get Docker Logs
+      - name: Cleanup Rogue Container
         run: |
-          echo "=== DOCKER LOGS ==="
-          ssh production docker logs --tail 500 mycosoft-website
+          echo "=== PURGING PORT CONFLICTS ==="
+          ssh production docker rm -f mycosoft-website || true
           
           echo "=== DOCKER PS ==="
           ssh production docker ps -a
