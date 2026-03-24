@@ -210,6 +210,7 @@ import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
+import { useGroundStation } from "@/lib/ground-station/context";
 
 // Phase 2-6: New CREP layers and panels
 const GibsBaseLayers = dynamic(() => import("@/components/crep/layers/gibs-base-layers"), { ssr: false });
@@ -1711,7 +1712,7 @@ export default function CREPDashboardPage() {
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
 
   // Ground Station overlay state (Mar 2026)
-  const [showGroundStation, setShowGroundStation] = useState(false);
+  const [showGroundStation, setShowGroundStation] = useState(true); // Enabled by default — ground station is core CREP functionality
 
   
   // Selected entity states for map interaction
@@ -1857,7 +1858,8 @@ export default function CREPDashboardPage() {
   const [currentMission, setCurrentMission] = useState<MissionContext | null>(null);
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
 
-  // Ground Station UI handled via components using GroundStationProvider context
+  // Ground Station — consume context to render satellite positions + station on map
+  const { state: gsState } = useGroundStation();
 
   // Check for existing mission in localStorage on mount
   useEffect(() => {
@@ -4533,6 +4535,46 @@ export default function CREPDashboardPage() {
               </MapMarker>
             )}
           </MapComponent>
+
+          {/* Ground Station Location Marker */}
+          {showGroundStation && gsState.activeLocation && (
+            <MapMarker
+              latitude={gsState.activeLocation.lat}
+              longitude={gsState.activeLocation.lon || gsState.activeLocation.lng || 0}
+            >
+              <MarkerContent>
+                <div className="w-6 h-6 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center animate-pulse" title={`Ground Station: ${gsState.activeLocation.name || "Active"}`}>
+                  <Radio className="w-3 h-3 text-cyan-300" />
+                </div>
+              </MarkerContent>
+            </MapMarker>
+          )}
+
+          {/* Ground Station Tracked Satellite Positions */}
+          {showGroundStation && Object.values(gsState.positions).map((pos) => {
+            if (!pos.lat || !pos.lon) return null;
+            const sat = gsState.satellites.find(s => s.norad_id === pos.norad_id);
+            const isTracking = gsState.trackingState?.norad_id === pos.norad_id;
+            return (
+              <MapMarker key={`gs-sat-${pos.norad_id}`} latitude={pos.lat} longitude={pos.lon}>
+                <MarkerContent>
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full flex items-center justify-center text-[8px] border",
+                      isTracking
+                        ? "bg-green-500/40 border-green-400 text-green-300 animate-pulse"
+                        : pos.is_visible
+                        ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300"
+                        : "bg-gray-500/20 border-gray-500/40 text-gray-400"
+                    )}
+                    title={`${sat?.name || `NORAD ${pos.norad_id}`} — Alt: ${pos.alt?.toFixed(0)}km, Az: ${pos.az?.toFixed(1)}°, El: ${pos.el?.toFixed(1)}°`}
+                  >
+                    <Satellite className="w-2.5 h-2.5" />
+                  </div>
+                </MarkerContent>
+              </MapMarker>
+            );
+          })}
 
           {/* Infrastructure Markers from Overpass API */}
           {infraFeatures.map((feat) => (

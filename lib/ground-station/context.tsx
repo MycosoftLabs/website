@@ -325,15 +325,42 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
   // Initial data load
   useEffect(() => {
     checkConnection()
+
+    // Load locations and auto-select first one
+    const loadLocations = async () => {
+      try {
+        const res = await fetch("/api/ground-station/system?action=locations")
+        if (res.ok) {
+          const data = await res.json()
+          const locs: GSLocation[] = Array.isArray(data) ? data : data.locations || []
+          const active = locs.length > 0 ? locs[0] : null
+          dispatch({ type: "SET_LOCATIONS", locations: locs, active: active || undefined })
+          if (active) {
+            console.log(`[GS] Auto-selected location: ${active.name || "default"} (${active.lat}, ${active.lon})`)
+          }
+        }
+      } catch (e) {
+        console.warn("[GS] Failed to load locations:", e)
+      }
+    }
+    loadLocations()
+
+    // Load groups and auto-select first one
     const loadGroups = async () => {
       try {
         const res = await fetch("/api/ground-station/groups")
         if (res.ok) {
           const data = await res.json()
-          dispatch({ type: "SET_GROUPS", groups: Array.isArray(data) ? data : data.groups || [] })
+          const groups: GSGroup[] = Array.isArray(data) ? data : data.groups || []
+          dispatch({ type: "SET_GROUPS", groups })
+          // Auto-select first group so satellites load immediately
+          if (groups.length > 0 && !state.selectedGroupId) {
+            dispatch({ type: "SELECT_GROUP", groupId: groups[0].id })
+            console.log(`[GS] Auto-selected group: ${groups[0].name}`)
+          }
         }
-      } catch {
-        // silent
+      } catch (e) {
+        console.warn("[GS] Failed to load groups:", e)
       }
     }
     loadGroups()
@@ -431,7 +458,7 @@ export function GroundStationProvider({ children }: { children: React.ReactNode 
             }
           }
         } catch (e) {
-          // ignore parse errors
+          console.warn(`[GS] TLE propagation error for ${sat.name} (NORAD ${sat.norad_id}):`, (e as Error).message)
         }
       }
 

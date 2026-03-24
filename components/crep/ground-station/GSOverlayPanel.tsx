@@ -59,7 +59,7 @@ export function GSOverlayPanel({
 
   const { state, selectGroup, selectSatellite, trackSatellite, stopTracking } = useGroundStation()
 
-  const connected = state.systemStatus === "connected"
+  const connected = state.connected // was state.systemStatus which doesn't exist
   const groups = state.groups.map(g => ({ id: g.id, name: g.name, satellite_count: g.satellite_ids?.length || 0 }))
   const selectedGroupId = state.selectedGroupId
   const satellites = state.satellites.map(sat => {
@@ -77,10 +77,11 @@ export function GSOverlayPanel({
     }
   })
   const trackingNoradId = state.trackingState?.norad_id
+  // Hardware state comes from separate arrays, not a single hardware object
   const hardwareStatus = {
-    rotator_connected: state.hardware.rotator?.status === "connected",
-    rig_connected: state.hardware.rig?.status === "connected",
-    sdr_connected: state.hardware.sdr?.status === "connected",
+    rotator_connected: (state.rotators?.length ?? 0) > 0 && state.rotators[0]?.status === "connected",
+    rig_connected: (state.rigs?.length ?? 0) > 0 && state.rigs[0]?.status === "connected",
+    sdr_connected: (state.sdrs?.length ?? 0) > 0 && state.sdrs[0]?.status === "connected",
   }
   const passCount = state.passes.length
   const nextPassTime = state.passes[0]?.aos_time
