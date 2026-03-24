@@ -102,6 +102,8 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ProxyCommand cloudflared access ssh --hostname %h
+            ServerAliveInterval 60
+            ServerAliveCountMax 120
           EOF
           chmod 600 ~/.ssh/config
 
