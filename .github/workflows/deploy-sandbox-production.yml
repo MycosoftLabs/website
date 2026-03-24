@@ -16,7 +16,7 @@ name: Deploy to Sandbox (Production)
 
 on:
   push:
-    branches: [main]
+    branches: ["disabled-to-prevent-conflict"]
     paths:
       - 'app/**'
       - 'components/**'
