@@ -387,11 +387,12 @@ jobs:
             cd /opt/mycosoft/website
             
             echo "=== Pulling Pre-Built Docker Image from GHCR ==="
-            docker pull ghcr.io/${{ github.repository }}:production-latest || echo "Pull failed, but continuing"
+            IMAGE_NAME_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            docker pull ghcr.io/${IMAGE_NAME_LC}:production-latest || echo "Pull failed, but continuing"
 
 
             echo "=== Performing Zero-Downtime Rolling Update ==="
-            export WEBSITE_IMAGE="mycosoft-website:production-latest"
+            export WEBSITE_IMAGE="ghcr.io/${IMAGE_NAME_LC}:production-latest"
             
             # Start a second container alongside the first one
             docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
