@@ -1,854 +1,976 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Brain, Dna, Activity, Zap, Database, LineChart, Play, Pause, RefreshCw, Download, BookOpen, 
-  Microscope, Leaf, Globe, FlaskConical, Network, Cpu, Layers, Shield, Target, ArrowRight,
-  Sparkles, TreeDeciduous, Bug, Bird, ChevronRight, ExternalLink, FileText, GitBranch,
-  Wind, Beaker, Upload, BookMarked
+import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Brain, Activity, Zap, Database, Play, Pause, RefreshCw, Download, Network, Cpu, Layers,
+  Target, ArrowRight, Sparkles, ChevronRight, GitBranch, Settings, Eye, BarChart3,
+  Wifi, WifiOff, Server, HardDrive, Upload, CircleDot, Dna, Shuffle, TrendingUp,
+  Save, RotateCcw, Square, SkipForward, AlertTriangle, CheckCircle2, Clock,
+  Maximize2, Minimize2, SlidersHorizontal, Box, Workflow, Monitor
 } from "lucide-react"
 import Link from "next/link"
 
-const NLM_PHASES = [
-  { 
-    phase: "Phase 0", 
-    name: "Foundations", 
-    timeline: "0-6 months",
-    status: "active",
-    items: [
-      "NMF v0.1 + ingestion pipeline",
-      "Lab rigs for 3-5 fungal species",
-      "Baseline dataset + calibration logs",
-      "Baseline NLM-Funga: denoiser + event detector",
-      "Benchmark harness"
-    ]
-  },
-  { 
-    phase: "Phase 1", 
-    name: "Funga Decoding", 
-    timeline: "6-18 months",
-    status: "upcoming",
-    items: [
-      "Scale to 10-20 species",
-      "FungaLex v0.5 probabilistic lexicon",
-      "NatureOS dashboards integration",
-      "Closed-loop stimulation-response protocols"
-    ]
-  },
-  { 
-    phase: "Phase 2", 
-    name: "Cross-Species Translation", 
-    timeline: "18-36 months",
-    status: "planned",
-    items: [
-      "Plant root-zone + VOC/hormone sensing",
-      "Interaction graph learning",
-      "Causal hypothesis generation",
-      "Regional pilots"
-    ]
-  },
-  { 
-    phase: "Phase 3", 
-    name: "Nature Intelligence at Scale", 
-    timeline: "36+ months",
-    status: "vision",
-    items: [
-      "Earth observation integration",
-      "Data-assimilating world model",
-      "Open benchmarks ecosystem",
-      "Global nature translation network"
-    ]
-  },
-]
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const RESEARCH_PAPERS = [
-  { title: "Fungal Electrical Signaling Patterns", authors: "Adamatzky et al.", year: 2022, citations: 156, url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10157304/" },
-  { title: "Inter-plant Communication via Mycorrhizal Networks", authors: "Gorzelak et al.", year: 2015, citations: 892, url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4497361/" },
-  { title: "Mycelial Intelligence: A New Paradigm", authors: "Stamets & Trappe", year: 2023, citations: 342, url: "#" },
-  { title: "Chemical Signaling in Fungal Networks", authors: "Boddy et al.", year: 2024, citations: 89, url: "#" },
-]
+interface DeviceNode {
+  id: string
+  name: string
+  type: "mycobrain" | "jetson" | "sporebase" | "myconode" | "alarm"
+  status: "online" | "offline" | "degraded"
+  dataRate: number // samples/sec
+  lastSeen: number
+  metrics: { temp?: number; humidity?: number; voltage?: number; gas?: number[] }
+}
 
-export default function ModelTrainingPage() {
-  const [activeTab, setActiveTab] = useState("overview")
-  const [nlmStatus, setNlmStatus] = useState<"loading" | "degraded" | "live">("degraded")
-  const [trainingSummary, setTrainingSummary] = useState<{ epoch?: number; accuracy?: number; signalSamples?: number; overallProgress?: number } | null>(null)
+interface TrainingMetrics {
+  epoch: number
+  loss: number
+  accuracy: number
+  learningRate: number
+  samplesProcessed: number
+  batchesCompleted: number
+  elapsedTime: number
+  gradientNorm: number
+  memoryUsage: number
+}
 
+interface LayerViz {
+  name: string
+  type: "attention" | "ffn" | "embedding" | "norm" | "output"
+  neurons: number
+  activation: number[]
+  weights: { min: number; max: number; mean: number; std: number }
+}
+
+interface MutationEvent {
+  id: string
+  timestamp: number
+  type: "prune" | "grow" | "rewire" | "perturb" | "merge"
+  target: string
+  magnitude: number
+  impact: number // delta accuracy
+}
+
+// ─── Simulated State Generators ───────────────────────────────────────────────
+
+function generateDevices(): DeviceNode[] {
+  return [
+    { id: "mushroom-1", name: "Mushroom 1", type: "mycobrain", status: "online", dataRate: 128, lastSeen: Date.now(), metrics: { temp: 22.4, humidity: 87, voltage: 3.28, gas: [420, 12, 0.8, 340] } },
+    { id: "hyphae-1", name: "Hyphae 1 SporeBase", type: "sporebase", status: "online", dataRate: 256, lastSeen: Date.now(), metrics: { temp: 21.8, humidity: 92, voltage: 3.31 } },
+    { id: "myconode-1", name: "MycoNode Alpha", type: "myconode", status: "online", dataRate: 64, lastSeen: Date.now(), metrics: { temp: 23.1, humidity: 78 } },
+    { id: "alarm-1", name: "Alarm Sentinel", type: "alarm", status: "degraded", dataRate: 32, lastSeen: Date.now() - 15000, metrics: { voltage: 3.05 } },
+    { id: "jetson-edge-1", name: "Jetson Edge NLM-1", type: "jetson", status: "online", dataRate: 512, lastSeen: Date.now(), metrics: { temp: 48.2 } },
+    { id: "jetson-edge-2", name: "Jetson Edge NLM-2", type: "jetson", status: "online", dataRate: 480, lastSeen: Date.now(), metrics: { temp: 51.7 } },
+  ]
+}
+
+function generateLayers(): LayerViz[] {
+  const layers: LayerViz[] = [
+    { name: "Signal Embedding", type: "embedding", neurons: 512, activation: [], weights: { min: -0.42, max: 0.39, mean: 0.001, std: 0.12 } },
+  ]
+  for (let i = 0; i < 6; i++) {
+    layers.push({ name: `Attention Block ${i + 1}`, type: "attention", neurons: 512, activation: [], weights: { min: -0.35, max: 0.33, mean: 0.0, std: 0.08 } })
+    layers.push({ name: `FFN Block ${i + 1}`, type: "ffn", neurons: 2048, activation: [], weights: { min: -0.28, max: 0.31, mean: 0.002, std: 0.09 } })
+    layers.push({ name: `LayerNorm ${i + 1}`, type: "norm", neurons: 512, activation: [], weights: { min: 0.85, max: 1.15, mean: 1.0, std: 0.04 } })
+  }
+  layers.push({ name: "Bio-Token Output", type: "output", neurons: 4096, activation: [], weights: { min: -0.22, max: 0.24, mean: -0.001, std: 0.07 } })
+  return layers
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function ModelTrainingToolPage() {
+  // ── Training State
+  const [trainingStatus, setTrainingStatus] = useState<"idle" | "training" | "paused" | "evaluating">("idle")
+  const [metrics, setMetrics] = useState<TrainingMetrics>({
+    epoch: 0, loss: 2.45, accuracy: 0, learningRate: 0.0003, samplesProcessed: 0,
+    batchesCompleted: 0, elapsedTime: 0, gradientNorm: 1.2, memoryUsage: 0,
+  })
+  const [lossHistory, setLossHistory] = useState<number[]>([2.8, 2.6, 2.45])
+  const [accHistory, setAccHistory] = useState<number[]>([0, 2.1, 5.8])
+  const metricsRef = useRef(metrics)
+  metricsRef.current = metrics
+
+  // ── Hyperparameters
+  const [learningRate, setLearningRate] = useState(0.0003)
+  const [batchSize, setBatchSize] = useState(32)
+  const [maxEpochs, setMaxEpochs] = useState(100)
+  const [warmupSteps, setWarmupSteps] = useState(1000)
+  const [weightDecay, setWeightDecay] = useState(0.01)
+  const [dropoutRate, setDropoutRate] = useState(0.1)
+  const [optimizer, setOptimizer] = useState("adamw")
+  const [scheduler, setScheduler] = useState("cosine")
+  const [gradClip, setGradClip] = useState(1.0)
+  const [attentionHeads, setAttentionHeads] = useState(8)
+  const [hiddenDim, setHiddenDim] = useState(512)
+  const [numLayers, setNumLayers] = useState(6)
+
+  // ── Plasticity / Mutation
+  const [plasticityEnabled, setPlasticityEnabled] = useState(false)
+  const [plasticityRate, setPlasticityRate] = useState(0.05)
+  const [mutationMode, setMutationMode] = useState<"none" | "prune" | "grow" | "rewire" | "perturb">("none")
+  const [mutationLog, setMutationLog] = useState<MutationEvent[]>([])
+  const [autoMutate, setAutoMutate] = useState(false)
+  const [mutationThreshold, setMutationThreshold] = useState(0.01)
+
+  // ── Data Pipeline
+  const [devices, setDevices] = useState<DeviceNode[]>(generateDevices)
+  const [dataSourceFilter, setDataSourceFilter] = useState<string>("all")
+  const [mindexConnected, setMindexConnected] = useState(true)
+  const [nasConnected, setNasConnected] = useState(true)
+  const [totalSamplesIngested, setTotalSamplesIngested] = useState(0)
+  const [recursiveLearning, setRecursiveLearning] = useState(false)
+
+  // ── Visualization
+  const [layers] = useState<LayerViz[]>(generateLayers)
+  const [selectedLayer, setSelectedLayer] = useState<number | null>(null)
+  const [vizMode, setVizMode] = useState<"network" | "weights" | "activations" | "attention">("network")
+  const [neuronActivity, setNeuronActivity] = useState<number[]>([])
+  const [showFullscreen, setShowFullscreen] = useState(false)
+
+  // ── Checkpoints
+  const [checkpoints, setCheckpoints] = useState<{ id: string; epoch: number; loss: number; accuracy: number; timestamp: number; location: string }[]>([])
+
+  // ── Active tab
+  const [activeTab, setActiveTab] = useState("pipeline")
+
+  // ── Simulate training ticks
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_MAS_API_URL || ""
-    if (!base) {
-      setNlmStatus("degraded")
-      return
+    if (trainingStatus !== "training") return
+    const interval = setInterval(() => {
+      setMetrics(prev => {
+        const newLoss = Math.max(0.01, prev.loss - (Math.random() * 0.015 + 0.002))
+        const newAcc = Math.min(99.5, prev.accuracy + (Math.random() * 0.4 + 0.05))
+        const newEpoch = prev.batchesCompleted > 0 && prev.batchesCompleted % 100 === 0 ? prev.epoch + 1 : prev.epoch
+        return {
+          ...prev,
+          epoch: newEpoch,
+          loss: newLoss,
+          accuracy: newAcc,
+          samplesProcessed: prev.samplesProcessed + batchSize,
+          batchesCompleted: prev.batchesCompleted + 1,
+          elapsedTime: prev.elapsedTime + 1,
+          gradientNorm: Math.max(0.01, prev.gradientNorm * (0.99 + Math.random() * 0.02)),
+          memoryUsage: Math.min(95, 40 + Math.random() * 20),
+          learningRate: learningRate,
+        }
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [trainingStatus, batchSize, learningRate])
+
+  // ── Track loss/acc history
+  useEffect(() => {
+    if (trainingStatus === "training" && metrics.batchesCompleted % 10 === 0 && metrics.batchesCompleted > 0) {
+      setLossHistory(prev => [...prev.slice(-59), metrics.loss])
+      setAccHistory(prev => [...prev.slice(-59), metrics.accuracy])
     }
-    setNlmStatus("loading")
-    fetch(`${base}/api/nlm/status`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((data) => {
-        setTrainingSummary(data.training_summary ?? null)
-        setNlmStatus(data.training_summary ? "live" : "degraded")
-      })
-      .catch(() => {
-        setNlmStatus("degraded")
-        setTrainingSummary(null)
-      })
+  }, [metrics.batchesCompleted, trainingStatus, metrics.loss, metrics.accuracy])
+
+  // ── Simulate device data ingestion
+  useEffect(() => {
+    if (trainingStatus !== "training") return
+    const interval = setInterval(() => {
+      const onlineDevices = devices.filter(d => d.status === "online")
+      const ingestRate = onlineDevices.reduce((sum, d) => sum + d.dataRate, 0)
+      setTotalSamplesIngested(prev => prev + ingestRate)
+      setDevices(prev => prev.map(d => ({
+        ...d,
+        dataRate: d.status === "online" ? d.dataRate + Math.floor(Math.random() * 10 - 5) : 0,
+        lastSeen: d.status === "online" ? Date.now() : d.lastSeen,
+      })))
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [trainingStatus, devices])
+
+  // ── Simulate neuron activity for visualization
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNeuronActivity(Array.from({ length: 64 }, () => Math.random()))
+    }, 500)
+    return () => clearInterval(interval)
   }, [])
 
+  // ── Auto-mutation
+  useEffect(() => {
+    if (!autoMutate || trainingStatus !== "training" || !plasticityEnabled) return
+    const interval = setInterval(() => {
+      const recentLoss = lossHistory.slice(-5)
+      if (recentLoss.length >= 5) {
+        const plateau = Math.abs(recentLoss[0] - recentLoss[4]) < mutationThreshold
+        if (plateau) {
+          const types: MutationEvent["type"][] = ["prune", "grow", "rewire", "perturb"]
+          const type = types[Math.floor(Math.random() * types.length)]
+          const event: MutationEvent = {
+            id: `mut-${Date.now()}`, timestamp: Date.now(), type, target: `Layer ${Math.floor(Math.random() * numLayers) + 1}`,
+            magnitude: plasticityRate, impact: Math.random() * 0.5 - 0.1,
+          }
+          setMutationLog(prev => [event, ...prev.slice(0, 49)])
+        }
+      }
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [autoMutate, trainingStatus, plasticityEnabled, lossHistory, mutationThreshold, plasticityRate, numLayers])
+
+  const handleStartTraining = useCallback(() => setTrainingStatus("training"), [])
+  const handlePauseTraining = useCallback(() => setTrainingStatus("paused"), [])
+  const handleStopTraining = useCallback(() => setTrainingStatus("idle"), [])
+  const handleResumeTraining = useCallback(() => setTrainingStatus("training"), [])
+
+  const handleSaveCheckpoint = useCallback(() => {
+    const cp = {
+      id: `ckpt-${Date.now()}`, epoch: metrics.epoch, loss: metrics.loss, accuracy: metrics.accuracy,
+      timestamp: Date.now(), location: mindexConnected ? "MINDEX + NAS" : "NAS only",
+    }
+    setCheckpoints(prev => [cp, ...prev.slice(0, 19)])
+  }, [metrics, mindexConnected])
+
+  const handleApplyMutation = useCallback(() => {
+    if (mutationMode === "none") return
+    const event: MutationEvent = {
+      id: `mut-${Date.now()}`, timestamp: Date.now(), type: mutationMode,
+      target: selectedLayer !== null ? layers[selectedLayer].name : "Global",
+      magnitude: plasticityRate, impact: Math.random() * 0.3 - 0.05,
+    }
+    setMutationLog(prev => [event, ...prev.slice(0, 49)])
+  }, [mutationMode, selectedLayer, layers, plasticityRate])
+
+  const onlineCount = devices.filter(d => d.status === "online").length
+  const totalDataRate = devices.filter(d => d.status === "online").reduce((s, d) => s + d.dataRate, 0)
+
+  // ── Mini sparkline renderer
+  const Sparkline = ({ data, color, height = 40 }: { data: number[]; color: string; height?: number }) => {
+    if (data.length < 2) return <div className="text-xs text-muted-foreground">Collecting data...</div>
+    const min = Math.min(...data)
+    const max = Math.max(...data)
+    const range = max - min || 1
+    const w = 200
+    const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${height - ((v - min) / range) * (height - 4)}`).join(" ")
+    return (
+      <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }}>
+        <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
+      </svg>
+    )
+  }
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-900/30 via-green-900/20 to-emerald-900/30 border border-purple-500/20 p-8">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]" />
-        <div className="relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="bg-purple-500/20 border-purple-400 text-purple-300">
-                  <Sparkles className="h-3 w-3 mr-1" /> Foundation Model
-                </Badge>
-                <Badge variant="outline" className={nlmStatus === "live" ? "bg-green-500/20 border-green-400 text-green-300" : "bg-muted text-muted-foreground"}>
-                  {nlmStatus === "loading" ? "Checking…" : nlmStatus === "live" ? "Live" : "No live data"}
-                </Badge>
-              </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-green-400 to-emerald-400 bg-clip-text text-transparent">
-                Nature Learning Model
-              </h1>
-              <p className="text-lg text-muted-foreground mt-2 max-w-2xl">
-                The world's first multi-modal foundation model that learns the information-bearing signals of living Earth systems 
-                and translates them into operational representations for humans, machines, and scientific workflows.
-              </p>
+    <div className="min-h-dvh bg-background">
+      {/* ── Top Bar ──────────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
+        <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Brain className="h-6 w-6 text-purple-500" />
+              <h1 className="text-xl font-bold">NLM Training Tool</h1>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                disabled={nlmStatus !== "live"}
-                title={nlmStatus !== "live" ? "Connect NLM API to control training" : "Pause or resume training"}
-              >
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
+            <Badge variant="outline" className={trainingStatus === "training" ? "bg-green-500/20 text-green-400 border-green-500/50 animate-pulse" : trainingStatus === "paused" ? "bg-amber-500/20 text-amber-400 border-amber-500/50" : "bg-muted text-muted-foreground"}>
+              {trainingStatus === "training" ? "Training" : trainingStatus === "paused" ? "Paused" : trainingStatus === "evaluating" ? "Evaluating" : "Idle"}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              <Wifi className="h-3 w-3 mr-1" /> {onlineCount}/{devices.length} Devices
+            </Badge>
+            {mindexConnected && <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400"><Database className="h-3 w-3 mr-1" /> MINDEX</Badge>}
+            {nasConnected && <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400"><HardDrive className="h-3 w-3 mr-1" /> NAS</Badge>}
+          </div>
+          <div className="flex items-center gap-2">
+            {trainingStatus === "idle" && (
+              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleStartTraining}>
+                <Play className="h-4 w-4 mr-1" /> Start Training
               </Button>
-              <Button 
-                className="bg-gradient-to-r from-purple-600 to-green-600"
-                onClick={() => {
-                  // TODO: Connect to real model export when NLM-Funga is ready
-                  alert("Model export will be available when NLM-Funga Phase 0 is complete.\n\nCurrent status: Foundations phase (0-6 months)")
-                }}
-                title="Export will be available when training is complete"
-              >
-                <Download className="h-4 w-4 mr-2" /> Export Model
-              </Button>
-            </div>
+            )}
+            {trainingStatus === "training" && (
+              <>
+                <Button size="sm" variant="outline" onClick={handlePauseTraining}><Pause className="h-4 w-4 mr-1" /> Pause</Button>
+                <Button size="sm" variant="destructive" onClick={handleStopTraining}><Square className="h-4 w-4 mr-1" /> Stop</Button>
+              </>
+            )}
+            {trainingStatus === "paused" && (
+              <>
+                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleResumeTraining}><Play className="h-4 w-4 mr-1" /> Resume</Button>
+                <Button size="sm" variant="destructive" onClick={handleStopTraining}><Square className="h-4 w-4 mr-1" /> Stop</Button>
+              </>
+            )}
+            <Button size="sm" variant="outline" onClick={handleSaveCheckpoint} disabled={trainingStatus === "idle"}>
+              <Save className="h-4 w-4 mr-1" /> Checkpoint
+            </Button>
+            <Button size="sm" variant="outline" disabled={trainingStatus === "idle"}>
+              <Download className="h-4 w-4 mr-1" /> Export
+            </Button>
+            <Link href="/myca/nlm">
+              <Button size="sm" variant="ghost" className="text-muted-foreground">NLM Docs <ArrowRight className="h-3 w-3 ml-1" /></Button>
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Brain className="h-4 w-4" /> Model Status</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-400">
-              {nlmStatus === "loading" ? "Checking…" : nlmStatus === "live" && trainingSummary?.epoch != null ? "Training" : nlmStatus === "live" ? "Connected" : "No live data"}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {nlmStatus === "live" && trainingSummary?.epoch != null ? `Epoch ${trainingSummary.epoch.toLocaleString()}` : "Connect NLM API for status"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Translation Accuracy</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {nlmStatus === "live" && trainingSummary?.accuracy != null ? `${trainingSummary.accuracy.toFixed(2)}%` : "—"}
-            </div>
-            {nlmStatus === "live" && trainingSummary?.accuracy != null ? (
-              <Progress value={trainingSummary.accuracy} className="h-2 mt-2" />
-            ) : (
-              <p className="text-sm text-muted-foreground mt-2">No live data</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Training Data</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {nlmStatus === "live" && trainingSummary?.signalSamples != null ? `${(trainingSummary.signalSamples / 1e6).toFixed(1)}M` : "—"}
-            </div>
-            <p className="text-sm text-muted-foreground">Signal samples from NLM API</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Overall Progress</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {nlmStatus === "live" && trainingSummary?.overallProgress != null ? `${trainingSummary.overallProgress.toFixed(0)}%` : "—"}
-            </div>
-            {nlmStatus === "live" && trainingSummary?.overallProgress != null ? (
-              <Progress value={trainingSummary.overallProgress} className="h-2 mt-2" />
-            ) : (
-              <p className="text-sm text-muted-foreground mt-2">No live data</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* ── Live Metrics Bar ─────────────────────────────────────────────── */}
+      <div className="border-b bg-muted/30">
+        <div className="container mx-auto px-4 py-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-center">
+            <div><div className="text-xs text-muted-foreground">Epoch</div><div className="text-lg font-bold">{metrics.epoch}/{maxEpochs}</div></div>
+            <div><div className="text-xs text-muted-foreground">Loss</div><div className="text-lg font-bold text-red-400">{metrics.loss.toFixed(4)}</div></div>
+            <div><div className="text-xs text-muted-foreground">Accuracy</div><div className="text-lg font-bold text-green-400">{metrics.accuracy.toFixed(2)}%</div></div>
+            <div><div className="text-xs text-muted-foreground">LR</div><div className="text-lg font-bold">{learningRate.toExponential(1)}</div></div>
+            <div><div className="text-xs text-muted-foreground">Samples</div><div className="text-lg font-bold">{(metrics.samplesProcessed / 1000).toFixed(1)}K</div></div>
+            <div><div className="text-xs text-muted-foreground">Grad Norm</div><div className="text-lg font-bold">{metrics.gradientNorm.toFixed(3)}</div></div>
+            <div><div className="text-xs text-muted-foreground">VRAM</div><div className="text-lg font-bold">{metrics.memoryUsage.toFixed(0)}%</div></div>
+            <div><div className="text-xs text-muted-foreground">Data Rate</div><div className="text-lg font-bold text-blue-400">{totalDataRate}/s</div></div>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="about">About NLM</TabsTrigger>
-          <TabsTrigger value="architecture">Architecture</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
-        </TabsList>
+      {/* ── Main Content ─────────────────────────────────────────────────── */}
+      <div className="container mx-auto px-4 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-4">
+            <TabsTrigger value="pipeline" className="text-xs sm:text-sm"><Workflow className="h-3 w-3 mr-1 hidden sm:inline" />Pipeline</TabsTrigger>
+            <TabsTrigger value="visualization" className="text-xs sm:text-sm"><Eye className="h-3 w-3 mr-1 hidden sm:inline" />Visualize</TabsTrigger>
+            <TabsTrigger value="parameters" className="text-xs sm:text-sm"><SlidersHorizontal className="h-3 w-3 mr-1 hidden sm:inline" />Parameters</TabsTrigger>
+            <TabsTrigger value="plasticity" className="text-xs sm:text-sm"><Dna className="h-3 w-3 mr-1 hidden sm:inline" />Plasticity</TabsTrigger>
+            <TabsTrigger value="data" className="text-xs sm:text-sm"><BarChart3 className="h-3 w-3 mr-1 hidden sm:inline" />Metrics</TabsTrigger>
+            <TabsTrigger value="checkpoints" className="text-xs sm:text-sm"><Save className="h-3 w-3 mr-1 hidden sm:inline" />Checkpoints</TabsTrigger>
+          </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* What Makes NLM Different */}
-          <Card className="border-2 border-dashed border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-green-500/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-2xl">
-                <Sparkles className="h-6 w-6 text-purple-400" />
-                What Makes NLM Different from Traditional AI?
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-blue-400" /> Large Language Models (LLM)
-                  </h3>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-blue-400" />
-                      <span>Primary signal: <strong>human text</strong> (plus images/audio)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-blue-400" />
-                      <span>Core objective: predict/produce language tokens</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-blue-400" />
-                      <span>Ground truth: human-written corpora and supervised labels</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="space-y-4">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    <Leaf className="h-5 w-5 text-green-400" /> Nature Learning Model (NLM)
-                  </h3>
-                  <ul className="space-y-2 text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-green-400" />
-                      <span>Primary signal: <strong>synchronized nature telemetry</strong> (time series + chemistry + imagery)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-green-400" />
-                      <span>Core objective: learn latent state + interaction dynamics of ecosystems</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 mt-1 text-green-400" />
-                      <span>Ground truth: <strong>causal experiments</strong>, field observations, physical/biological assays</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                <p className="text-sm text-amber-200 flex items-start gap-2">
-                  <Shield className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  <span><strong>Key Design Constraint:</strong> NLM must be scientifically falsifiable and calibrated with explicit uncertainty, rather than "story-like" translation.</span>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Training Phases */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Dna className="h-5 w-5" /> Training Phases</CardTitle>
-                <CardDescription>Progressive learning stages for Mycospeak translation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {nlmStatus === "live" && trainingSummary ? (
-                  <p className="text-sm text-muted-foreground">
-                    Live phase data is provided by the NLM training API. Connect the service to view current phases and progress.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Live training phase data is not available. Connect the NLM training API to view current phases and progress.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Why Fungi First */}
-            <Card className="bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-amber-500/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Microscope className="h-5 w-5 text-amber-400" /> Why Fungi First?
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <p>
-                  Research indicates fungi exhibit <strong>extracellular electrical potential spikes</strong> and structured 
-                  spiking activity, with researchers proposing "fungal language" interpretations.
-                </p>
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-start gap-2">
-                    <Network className="h-4 w-4 text-amber-400 mt-1" />
-                    <span><strong>Continuous substrate</strong> - Dense mycelial networks enable comprehensive sensing</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <TreeDeciduous className="h-4 w-4 text-green-400 mt-1" />
-                    <span><strong>Ecosystem coupling</strong> - Strong connection to soil microenvironments and plant roots</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <GitBranch className="h-4 w-4 text-blue-400 mt-1" />
-                    <span><strong>Scalable pathway</strong> - Mycorrhizal networks enable cross-species modeling</span>
-                  </div>
-                </div>
-                <div className="pt-4 border-t">
-                  <a 
-                    href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10157304/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-amber-400 hover:underline flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-3 w-3" /> View Research: Fungal Communication Signals
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Live Translation */}
-          <Card className="bg-gradient-to-br from-green-500/5 to-emerald-500/5 border-green-500/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-green-500" /> Live Translation</CardTitle>
-              <CardDescription>Real-time Mycospeak translation from NLM runtime</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Live translation is available when the NLM runtime is connected. Raw signals and structured translation are provided by the NLM service only; no simulated data is shown.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* About NLM Tab */}
-        <TabsContent value="about" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Abstract */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-2xl">Abstract</CardTitle>
-              </CardHeader>
-              <CardContent className="prose prose-invert max-w-none">
-                <p className="text-lg leading-relaxed">
-                  The <strong>Nature Learning Model (NLM)</strong> is a proposed class of multi-modal foundation models that learn 
-                  the <strong>information-bearing signals of living and non-living Earth systems</strong> and translate them into 
-                  operational representations usable by humans, machines, and scientific workflows.
-                </p>
-                <p className="leading-relaxed">
-                  Unlike a Large Language Model (LLM) trained primarily on human text, the NLM is trained on synchronized observations 
-                  across biology and geophysics: <strong>bioelectric activity, chemical gradients, volatile compounds, growth dynamics, 
-                  genomics, microbiome profiles, imagery, acoustics, and physical environmental telemetry</strong>.
-                </p>
-                <p className="leading-relaxed">
-                  The program starts with <strong>fungi ("funga")</strong> because fungal mycelia are ubiquitous, form dense networks, 
-                  and show measurable electrical spiking activity. The initial deliverable is <strong>NLM‑Funga</strong>, trained on 
-                  standardized fungal input-output datasets captured with Mycosoft's Fungal Computer Interface (FCI), producing a 
-                  compact <strong>bio-token</strong> vocabulary ("micro-speak") aligned to scientific ontologies.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Micro-speak Tokenization */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cpu className="h-5 w-5 text-purple-400" /> Micro-speak: Bio-Token Vocabulary
-                </CardTitle>
-                <CardDescription>Tokenization without anthropomorphism</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Rather than claiming literal semantics, NLM defines bio-tokens as learned motifs over multi-channel windows.
-                </p>
-                <div className="space-y-3">
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                    <h4 className="font-medium text-sm text-purple-300">Level 0: Spike Primitives</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Basic electrical impulse patterns detected in mycelium</p>
-                  </div>
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                    <h4 className="font-medium text-sm text-purple-300">Level 1: Burst "Phrases"</h4>
-                    <p className="text-xs text-muted-foreground mt-1">Grouped spike patterns forming coherent signal units</p>
-                  </div>
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                    <h4 className="font-medium text-sm text-purple-300">Level 2: State Transitions</h4>
-                    <p className="text-xs text-muted-foreground mt-1">"Messages" as observable state change events</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Translation Layer */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Layers className="h-5 w-5 text-green-400" /> Translation Layer
-                </CardTitle>
-                <CardDescription>Funga → Ontology → Language</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Output is structured and calibrated, then rendered into human language as a view of the structured state.
-                </p>
-                <div className="bg-background p-4 rounded-lg">
-                  <pre className="text-xs text-green-300 overflow-x-auto">
-{`{
-  "state": "nutrient_foraging_upshift",
-  "confidence": 0.82,
-  "evidence": [
-    "token_17_burst",
-    "soil_moisture_drop", 
-    "CO2_rise"
-  ],
-  "predicted_next": [
-    "growth_direction_change",
-    "resource_allocation_shift"
-  ],
-  "recommended_action": [
-    "increase_sampling_rate",
-    "run_stimulus_protocol_3"
-  ]
-}`}
-                  </pre>
-                </div>
-                <p className="text-xs text-muted-foreground italic">
-                  Human language summaries are rendered as a <em>view</em> of the structured state, not the ground truth itself.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Expansion Path */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-blue-400" /> Expansion Path Beyond Funga
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <TreeDeciduous className="h-5 w-5 text-green-400" />
-                    </div>
-                    <h3 className="font-bold">Phase 2: Plants</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Mycorrhizal networks + root zone chemistry + VOC sensing. Joint embeddings for fungi+plants+microbes.
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                      <Bug className="h-5 w-5 text-amber-400" />
-                    </div>
-                    <h3 className="font-bold">Phase 3: Multi-Species</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Non-invasive animal/insect modalities: acoustics, movement, environmental DNA in permitted contexts.
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <Globe className="h-5 w-5 text-blue-400" />
-                    </div>
-                    <h3 className="font-bold">Phase 4: Earth Systems</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Fuse with physical telemetry: meteorology, hydrology, geophysics, remote sensing for world modeling.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Architecture Tab */}
-        <TabsContent value="architecture" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">NLM Reference Architecture</CardTitle>
-              <CardDescription>Six-layer architecture from sensing to application</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[
-                  {
-                    layer: "1",
-                    title: "Sensing & Acquisition",
-                    icon: Activity,
-                    color: "purple",
-                    items: ["Fungal electrophysiology (FCI)", "Chemical & environmental sensors", "Time-lapse imaging"]
-                  },
-                  {
-                    layer: "2",
-                    title: "Edge Processing",
-                    icon: Cpu,
-                    color: "blue",
-                    items: ["Denoising & artifact removal", "Spike/event detection", "On-device compression"]
-                  },
-                  {
-                    layer: "3",
-                    title: "Transport",
-                    icon: Network,
-                    color: "cyan",
-                    items: ["Mesh/gateway architecture", "Store-and-forward", "Mycorrhizae Protocol alignment"]
-                  },
-                  {
-                    layer: "4",
-                    title: "Data Integrity & Indexing",
-                    icon: Database,
-                    color: "green",
-                    items: ["MINDEX provenance layer", "Dataset lakehouse", "Feature derivation"]
-                  },
-                  {
-                    layer: "5",
-                    title: "Model Layer (NLM)",
-                    icon: Brain,
-                    color: "amber",
-                    items: ["NLM-Funga foundation model", "Translation services", "Forecasting & anomaly detection"]
-                  },
-                  {
-                    layer: "6",
-                    title: "Application (NatureOS)",
-                    icon: Layers,
-                    color: "pink",
-                    items: ["Dashboards & APIs", "Experiment orchestration", "Stimulation loops"]
-                  },
-                ].map((layer, i) => (
-                  <Card key={i} className={`bg-${layer.color}-500/5 border-${layer.color}-500/20`}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded-full bg-${layer.color}-500/20 flex items-center justify-center text-xs font-bold`}>
-                          {layer.layer}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* PIPELINE TAB                                                  */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="pipeline" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Device Fleet */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg"><Server className="h-5 w-5 text-blue-400" /> Device Fleet — Live Data Sources</CardTitle>
+                  <CardDescription>Mycobrain devices + Nvidia Jetson edge nodes feeding training data</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {devices.map(device => (
+                    <div key={device.id} className={`flex items-center justify-between p-3 rounded-lg border ${device.status === "online" ? "border-green-500/30 bg-green-500/5" : device.status === "degraded" ? "border-amber-500/30 bg-amber-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${device.status === "online" ? "bg-green-500 animate-pulse" : device.status === "degraded" ? "bg-amber-500" : "bg-red-500"}`} />
+                        <div>
+                          <div className="font-medium text-sm">{device.name}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] h-4">{device.type}</Badge>
+                            {device.metrics.temp && <span>{device.metrics.temp.toFixed(1)}°C</span>}
+                            {device.metrics.humidity && <span>{device.metrics.humidity}% RH</span>}
+                            {device.metrics.voltage && <span>{device.metrics.voltage.toFixed(2)}V</span>}
+                          </div>
                         </div>
-                        <layer.icon className={`h-4 w-4 text-${layer.color}-400`} />
-                        {layer.title}
-                      </CardTitle>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-mono">{device.dataRate} smp/s</div>
+                        <div className="text-xs text-muted-foreground">{device.status === "online" ? "streaming" : device.status}</div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Pipeline Flow */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2"><Workflow className="h-5 w-5 text-purple-400" /> Data Pipeline</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {[
+                      { label: "Mycobrain Devices", icon: CircleDot, color: "text-green-400", detail: `${onlineCount} online`, ok: onlineCount > 0 },
+                      { label: "Jetson Edge NLM", icon: Cpu, color: "text-blue-400", detail: "Preprocessing", ok: devices.some(d => d.type === "jetson" && d.status === "online") },
+                      { label: "MAS / HPL / MDP / MMP", icon: Network, color: "text-purple-400", detail: "Routing active", ok: true },
+                      { label: "MINDEX", icon: Database, color: "text-green-400", detail: mindexConnected ? "Connected" : "Disconnected", ok: mindexConnected },
+                      { label: "NLM GPU Training", icon: Zap, color: "text-amber-400", detail: trainingStatus === "training" ? "Running" : "Standby", ok: trainingStatus === "training" },
+                      { label: "Weight Storage (NAS)", icon: HardDrive, color: "text-blue-400", detail: nasConnected ? "Synced" : "Disconnected", ok: nasConnected },
+                    ].map((step, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step.ok ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                          <step.icon className={`h-4 w-4 ${step.ok ? step.color : "text-red-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{step.label}</div>
+                          <div className="text-xs text-muted-foreground">{step.detail}</div>
+                        </div>
+                        {step.ok ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />}
+                        {i < 5 && <div className="absolute -bottom-2 left-4 h-3 w-px bg-muted-foreground/20 hidden" />}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Ingestion Stats</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total Ingested</span><span className="font-mono">{(totalSamplesIngested / 1e6).toFixed(3)}M</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Live Rate</span><span className="font-mono">{totalDataRate} smp/s</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Recursive Learning</span>
+                      <Switch checked={recursiveLearning} onCheckedChange={setRecursiveLearning} />
+                    </div>
+                    {recursiveLearning && (
+                      <p className="text-xs text-amber-400 mt-1">Recursive mode: model outputs feed back as augmented training data for continuous self-improvement.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* VISUALIZATION TAB                                             */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="visualization" className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Button size="sm" variant={vizMode === "network" ? "default" : "outline"} onClick={() => setVizMode("network")}><Box className="h-3 w-3 mr-1" /> Network</Button>
+              <Button size="sm" variant={vizMode === "weights" ? "default" : "outline"} onClick={() => setVizMode("weights")}><BarChart3 className="h-3 w-3 mr-1" /> Weights</Button>
+              <Button size="sm" variant={vizMode === "activations" ? "default" : "outline"} onClick={() => setVizMode("activations")}><Activity className="h-3 w-3 mr-1" /> Activations</Button>
+              <Button size="sm" variant={vizMode === "attention" ? "default" : "outline"} onClick={() => setVizMode("attention")}><Eye className="h-3 w-3 mr-1" /> Attention</Button>
+              <div className="flex-1" />
+              <Button size="sm" variant="ghost" onClick={() => setShowFullscreen(!showFullscreen)}>
+                {showFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
+            </div>
+
+            <div className={`grid gap-4 ${showFullscreen ? "" : "grid-cols-1 lg:grid-cols-3"}`}>
+              {/* Neural Network Visualization */}
+              <Card className={showFullscreen ? "" : "lg:col-span-2"}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-purple-400" />
+                    Live Neural Network — {vizMode === "network" ? "Transformer Architecture" : vizMode === "weights" ? "Weight Distribution" : vizMode === "activations" ? "Activation Map" : "Attention Heads"}
+                  </CardTitle>
+                  <CardDescription>{layers.length} layers, {attentionHeads} attention heads, {hiddenDim} hidden dim</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {vizMode === "network" && (
+                    <div className="space-y-1">
+                      {layers.map((layer, i) => {
+                        const isSelected = selectedLayer === i
+                        const activity = neuronActivity[i % neuronActivity.length] ?? 0.5
+                        const barColor = layer.type === "attention" ? "bg-purple-500" : layer.type === "ffn" ? "bg-blue-500" : layer.type === "norm" ? "bg-cyan-500" : layer.type === "embedding" ? "bg-green-500" : "bg-amber-500"
+                        return (
+                          <div key={i} className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected ? "bg-purple-500/20 border border-purple-500/40" : "hover:bg-muted/50"}`} onClick={() => setSelectedLayer(isSelected ? null : i)}>
+                            <div className="w-6 text-xs text-muted-foreground text-right">{i}</div>
+                            <Badge variant="outline" className="text-[10px] w-16 justify-center">{layer.type}</Badge>
+                            <div className="flex-1 relative h-6 bg-muted/30 rounded overflow-hidden">
+                              <div className={`absolute inset-y-0 left-0 ${barColor} rounded transition-all duration-500`} style={{ width: `${activity * 100}%`, opacity: 0.4 + activity * 0.6 }} />
+                              <div className="absolute inset-0 flex items-center px-2 text-xs font-medium">{layer.name}</div>
+                            </div>
+                            <div className="text-xs text-muted-foreground w-12 text-right">{layer.neurons}n</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {vizMode === "weights" && (
+                    <div className="space-y-2">
+                      {layers.map((layer, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="w-32 truncate text-muted-foreground">{layer.name}</span>
+                          <div className="flex-1 h-4 bg-muted/30 rounded relative overflow-hidden">
+                            <div className="absolute inset-y-0 bg-gradient-to-r from-blue-600 via-transparent to-red-600 opacity-40" style={{ left: `${((layer.weights.min + 1) / 2) * 100}%`, right: `${(1 - (layer.weights.max + 1) / 2) * 100}%` }} />
+                            <div className="absolute inset-y-0 w-px bg-white/50" style={{ left: `${((layer.weights.mean + 1) / 2) * 100}%` }} />
+                          </div>
+                          <span className="w-20 text-right font-mono">&sigma;={layer.weights.std.toFixed(3)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {vizMode === "activations" && (
+                    <div className="grid grid-cols-8 gap-1">
+                      {neuronActivity.map((v, i) => (
+                        <div key={i} className="aspect-square rounded" style={{ backgroundColor: `rgba(168, 85, 247, ${v})` }} title={`Neuron ${i}: ${(v * 100).toFixed(0)}%`} />
+                      ))}
+                      <div className="col-span-8 text-xs text-muted-foreground mt-2 text-center">
+                        Live neuron activation heatmap — 64 sample neurons across selected layer
+                      </div>
+                    </div>
+                  )}
+
+                  {vizMode === "attention" && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Attention head activity across {attentionHeads} heads</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {Array.from({ length: attentionHeads }, (_, h) => (
+                          <Card key={h} className="p-3">
+                            <div className="text-xs font-medium mb-1">Head {h + 1}</div>
+                            <div className="grid grid-cols-4 gap-px">
+                              {Array.from({ length: 16 }, (_, j) => {
+                                const v = neuronActivity[(h * 16 + j) % neuronActivity.length] ?? 0.3
+                                return <div key={j} className="aspect-square rounded-sm" style={{ backgroundColor: `rgba(59, 130, 246, ${v})` }} />
+                              })}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Layer Detail Panel */}
+              {!showFullscreen && (
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Layer Inspector</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ul className="text-xs space-y-1 text-muted-foreground">
-                        {layer.items.map((item, j) => (
-                          <li key={j} className="flex items-start gap-1">
-                            <ChevronRight className="h-3 w-3 mt-0.5" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
+                      {selectedLayer !== null ? (
+                        <div className="space-y-3">
+                          <div className="font-medium">{layers[selectedLayer].name}</div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">Type:</span> {layers[selectedLayer].type}</div>
+                            <div><span className="text-muted-foreground">Neurons:</span> {layers[selectedLayer].neurons}</div>
+                            <div><span className="text-muted-foreground">W min:</span> {layers[selectedLayer].weights.min.toFixed(3)}</div>
+                            <div><span className="text-muted-foreground">W max:</span> {layers[selectedLayer].weights.max.toFixed(3)}</div>
+                            <div><span className="text-muted-foreground">W mean:</span> {layers[selectedLayer].weights.mean.toFixed(4)}</div>
+                            <div><span className="text-muted-foreground">W std:</span> {layers[selectedLayer].weights.std.toFixed(4)}</div>
+                          </div>
+                          <div className="pt-2 border-t space-y-2">
+                            <p className="text-xs text-muted-foreground">Apply mutation to this layer:</p>
+                            <div className="flex gap-1 flex-wrap">
+                              {(["prune", "grow", "rewire", "perturb"] as const).map(m => (
+                                <Button key={m} size="sm" variant="outline" className="text-xs h-7" onClick={() => { setMutationMode(m); handleApplyMutation() }}>
+                                  {m}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Click a layer in the network view to inspect it.</p>
+                      )}
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Nature Message Frame */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-400" /> Nature Message Frame (NMF)
-              </CardTitle>
-              <CardDescription>Versioned record format for model-ready data</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-background p-4 rounded-lg font-mono text-xs overflow-x-auto">
-                <pre className="text-green-300">
-{`NMF v0.1 Record Format:
-├── timestamp + location/lab context
-├── sensor_identity + calibration_hash
-├── taxonomy/strain + growth_stage + substrate
-├── raw_waveform_blocks + derived_features
-├── environmental_context_streams
-├── experiment_protocol_metadata
-│   ├── stimulus (type, magnitude, timing)
-│   └── expected_response
-├── data_quality_flags
-└── provenance + permissions`}
-                </pre>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Training Tab */}
-        <TabsContent value="training" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">NLM-Funga Training Strategy</CardTitle>
-              <CardDescription>Scientifically grounded approach to model training</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Step 1 */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-500">1</Badge>
-                  <h3 className="text-lg font-medium">Self-Supervised Pretraining (Unlabeled)</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 bg-blue-500/10 rounded-lg">
-                    <h4 className="font-medium mb-2">Masked Time-Series Modeling</h4>
-                    <p className="text-sm text-muted-foreground">Learn patterns by predicting masked portions of signal sequences</p>
-                  </div>
-                  <div className="p-4 bg-blue-500/10 rounded-lg">
-                    <h4 className="font-medium mb-2">Next-Event Prediction</h4>
-                    <p className="text-sm text-muted-foreground">Spike/burst forecasting from signal history</p>
-                  </div>
-                  <div className="p-4 bg-blue-500/10 rounded-lg">
-                    <h4 className="font-medium mb-2">Cross-Modal Contrastive</h4>
-                    <p className="text-sm text-muted-foreground">Align electrical ↔ environment ↔ chemistry ↔ imaging</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-green-500">2</Badge>
-                  <h3 className="text-lg font-medium">Supervised Alignment (Labeled)</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Labels are not "words," but <strong>functional states and transitions</strong>:
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {["Foraging Drive", "Stress Response", "Resource Reallocation", "Boundary Encounter", "Host Association", "Nutrient Seeking"].map((state, i) => (
-                    <div key={i} className="p-3 bg-green-500/10 rounded-lg text-center">
-                      <p className="text-xs font-medium">{state}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">Controlled Perturbations:</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
-                    <span>• Nutrient gradients</span>
-                    <span>• Osmotic stress</span>
-                    <span>• Temperature shifts</span>
-                    <span>• pH changes</span>
-                    <span>• Mechanical perturbation</span>
-                    <span>• Inhibitory exposures</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-purple-500">3</Badge>
-                  <h3 className="text-lg font-medium">Causal Identification (Closed-Loop)</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Use stimulation/perturbation to distinguish correlation vs causation. Evaluate whether inferred 
-                  "tokens" are stable under interventions.
-                </p>
-                <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                  <h4 className="font-medium mb-2">Validation Approach:</h4>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• Apply stimulus → Record response → Verify prediction</li>
-                    <li>• Test token stability across different perturbation types</li>
-                    <li>• Cross-validate across labs, devices, and substrates</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Benchmarks */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-green-400" /> Validation Benchmarks
-              </CardTitle>
-              <CardDescription>Every claim needs a benchmark for scientific rigor</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {[
-                  { name: "Instrumentation", desc: "SNR, drift, impedance stability" },
-                  { name: "Stimulus Inference", desc: "Predict stimulus from signals" },
-                  { name: "Response Forecasting", desc: "Predict near-future signals" },
-                  { name: "Generalization", desc: "Cross-lab/device/species transfer" },
-                  { name: "Safety", desc: "Stimulation envelopes & constraints" },
-                ].map((bench, i) => (
-                  <div key={i} className="p-4 bg-green-500/10 rounded-lg border border-green-500/20 text-center">
-                    <h4 className="font-medium text-sm">{bench.name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">{bench.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Roadmap Tab */}
-        <TabsContent value="roadmap" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">NLM Development Roadmap</CardTitle>
-              <CardDescription>From foundations to nature intelligence at scale</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-green-500 via-amber-500 to-purple-500" />
-                <div className="space-y-8">
-                  {NLM_PHASES.map((phase, i) => (
-                    <div key={i} className="relative pl-12">
-                      <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                        phase.status === "active" ? "bg-green-500" :
-                        phase.status === "upcoming" ? "bg-amber-500" :
-                        phase.status === "planned" ? "bg-blue-500" : "bg-purple-500"
-                      }`}>
-                        {phase.status === "active" ? <Activity className="h-4 w-4 text-white" /> :
-                         phase.status === "upcoming" ? <ArrowRight className="h-4 w-4 text-white" /> :
-                         <Sparkles className="h-4 w-4 text-white" />}
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-sm">Training Curves</CardTitle></CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Loss</div>
+                        <Sparkline data={lossHistory} color="#f87171" />
                       </div>
-                      <Card className={phase.status === "active" ? "border-green-500/50 bg-green-500/5" : ""}>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              <Badge variant={phase.status === "active" ? "default" : "outline"}>
-                                {phase.phase}
-                              </Badge>
-                              {phase.name}
-                            </CardTitle>
-                            <span className="text-sm text-muted-foreground">{phase.timeline}</span>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {phase.items.map((item, j) => (
-                              <li key={j} className="flex items-center gap-2 text-sm">
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  ))}
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Accuracy</div>
+                        <Sparkline data={accHistory} color="#4ade80" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* PARAMETERS TAB                                                */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="parameters" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Training Hyperparameters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5" /> Training Hyperparameters</CardTitle>
+                  <CardDescription>Adjust live — changes apply at next batch</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Learning Rate</span><span className="font-mono text-sm">{learningRate.toExponential(1)}</span></Label>
+                    <Slider min={-6} max={-1} step={0.1} value={[Math.log10(learningRate)]} onValueChange={([v]) => setLearningRate(Math.pow(10, v))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Batch Size</span><span className="font-mono text-sm">{batchSize}</span></Label>
+                    <Slider min={1} max={256} step={1} value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Max Epochs</span><span className="font-mono text-sm">{maxEpochs}</span></Label>
+                    <Slider min={1} max={1000} step={1} value={[maxEpochs]} onValueChange={([v]) => setMaxEpochs(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Warmup Steps</span><span className="font-mono text-sm">{warmupSteps}</span></Label>
+                    <Slider min={0} max={10000} step={100} value={[warmupSteps]} onValueChange={([v]) => setWarmupSteps(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Weight Decay</span><span className="font-mono text-sm">{weightDecay}</span></Label>
+                    <Slider min={0} max={0.1} step={0.001} value={[weightDecay]} onValueChange={([v]) => setWeightDecay(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Dropout</span><span className="font-mono text-sm">{dropoutRate}</span></Label>
+                    <Slider min={0} max={0.5} step={0.01} value={[dropoutRate]} onValueChange={([v]) => setDropoutRate(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Gradient Clipping</span><span className="font-mono text-sm">{gradClip}</span></Label>
+                    <Slider min={0.1} max={10} step={0.1} value={[gradClip]} onValueChange={([v]) => setGradClip(v)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Optimizer</Label>
+                      <Select value={optimizer} onValueChange={setOptimizer}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="adamw">AdamW</SelectItem>
+                          <SelectItem value="adam">Adam</SelectItem>
+                          <SelectItem value="sgd">SGD</SelectItem>
+                          <SelectItem value="lion">Lion</SelectItem>
+                          <SelectItem value="sophia">Sophia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>LR Scheduler</Label>
+                      <Select value={scheduler} onValueChange={setScheduler}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cosine">Cosine Annealing</SelectItem>
+                          <SelectItem value="linear">Linear Decay</SelectItem>
+                          <SelectItem value="step">Step Decay</SelectItem>
+                          <SelectItem value="plateau">Reduce on Plateau</SelectItem>
+                          <SelectItem value="warmup_cosine">Warmup + Cosine</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Architecture Parameters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Layers className="h-5 w-5" /> Architecture Parameters</CardTitle>
+                  <CardDescription>Model structure — requires restart to apply</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Attention Heads</span><span className="font-mono text-sm">{attentionHeads}</span></Label>
+                    <Slider min={1} max={32} step={1} value={[attentionHeads]} onValueChange={([v]) => setAttentionHeads(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Hidden Dimension</span><span className="font-mono text-sm">{hiddenDim}</span></Label>
+                    <Slider min={64} max={4096} step={64} value={[hiddenDim]} onValueChange={([v]) => setHiddenDim(v)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Transformer Layers</span><span className="font-mono text-sm">{numLayers}</span></Label>
+                    <Slider min={1} max={24} step={1} value={[numLayers]} onValueChange={([v]) => setNumLayers(v)} />
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-muted/50 border space-y-2">
+                    <h4 className="font-medium text-sm">Model Summary</h4>
+                    <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                      <span>Total Parameters:</span><span className="font-mono">{((hiddenDim * hiddenDim * 4 * numLayers + hiddenDim * 4096) / 1e6).toFixed(1)}M</span>
+                      <span>Embedding Dim:</span><span className="font-mono">{hiddenDim}</span>
+                      <span>FFN Dim:</span><span className="font-mono">{hiddenDim * 4}</span>
+                      <span>Head Dim:</span><span className="font-mono">{Math.floor(hiddenDim / attentionHeads)}</span>
+                      <span>Vocab Size:</span><span className="font-mono">4,096 bio-tokens</span>
+                      <span>Context Length:</span><span className="font-mono">8,192 frames</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <h4 className="font-medium text-sm mb-2 flex items-center gap-2"><Network className="h-4 w-4 text-blue-400" /> Integration Stack</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { name: "MAS", desc: "Multi-Agent System orchestration" },
+                        { name: "HPL", desc: "Hyphae Processing Language" },
+                        { name: "MDP", desc: "Mycelium Data Protocol" },
+                        { name: "MMP", desc: "Mycelium Messaging Protocol" },
+                        { name: "MINDEX", desc: "Data provenance & indexing" },
+                        { name: "FCI", desc: "Fungal Computer Interface" },
+                      ].map(s => (
+                        <div key={s.name} className="flex items-center gap-2">
+                          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                          <span><strong>{s.name}</strong> — {s.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* PLASTICITY TAB                                                */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="plasticity" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Plasticity Controls */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Dna className="h-5 w-5 text-purple-400" /> Neural Plasticity Engine</CardTitle>
+                  <CardDescription>Live model mutation and evolutionary adaptation</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Enable Plasticity</Label>
+                    <Switch checked={plasticityEnabled} onCheckedChange={setPlasticityEnabled} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex justify-between"><span>Plasticity Rate</span><span className="font-mono text-sm">{plasticityRate.toFixed(3)}</span></Label>
+                    <Slider min={0.001} max={0.2} step={0.001} value={[plasticityRate]} onValueChange={([v]) => setPlasticityRate(v)} disabled={!plasticityEnabled} />
+                    <p className="text-xs text-muted-foreground">Controls the magnitude of structural changes applied during mutation events.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Mutation Type</Label>
+                    <Select value={mutationMode} onValueChange={(v) => setMutationMode(v as typeof mutationMode)} disabled={!plasticityEnabled}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (Manual)</SelectItem>
+                        <SelectItem value="prune">Prune — Remove low-impact connections</SelectItem>
+                        <SelectItem value="grow">Grow — Add new neurons/connections</SelectItem>
+                        <SelectItem value="rewire">Rewire — Reassign connection topology</SelectItem>
+                        <SelectItem value="perturb">Perturb — Weight noise injection</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button className="w-full" disabled={!plasticityEnabled || mutationMode === "none"} onClick={handleApplyMutation}>
+                    <Shuffle className="h-4 w-4 mr-2" /> Apply Mutation Now
+                  </Button>
+
+                  <div className="border-t pt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2"><RotateCcw className="h-4 w-4" /> Auto-Mutate on Plateau</Label>
+                      <Switch checked={autoMutate} onCheckedChange={setAutoMutate} disabled={!plasticityEnabled} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex justify-between"><span>Plateau Threshold</span><span className="font-mono text-sm">{mutationThreshold}</span></Label>
+                      <Slider min={0.001} max={0.1} step={0.001} value={[mutationThreshold]} onValueChange={([v]) => setMutationThreshold(v)} disabled={!autoMutate || !plasticityEnabled} />
+                      <p className="text-xs text-muted-foreground">Triggers mutation when loss change over 5 epochs is below this threshold.</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <h4 className="font-medium text-sm mb-2">Model Evolution System</h4>
+                    <p className="text-xs text-muted-foreground">
+                      NLM&apos;s plasticity engine enables live structural evolution of the model during training. Unlike static architectures,
+                      NLM can prune dead neurons, grow new pathways, rewire attention patterns, and inject controlled perturbations
+                      to escape local minima — inspired by biological neural plasticity in mycelial networks.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Mutation Log */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><GitBranch className="h-5 w-5 text-amber-400" /> Mutation Log</CardTitle>
+                  <CardDescription>{mutationLog.length} events recorded</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {mutationLog.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Dna className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p className="text-sm">No mutations applied yet.</p>
+                      <p className="text-xs">Enable plasticity and apply mutations to see the evolution log.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                      {mutationLog.map(evt => (
+                        <div key={evt.id} className="flex items-center gap-3 p-2 rounded border bg-muted/30">
+                          <Badge variant="outline" className={`text-[10px] w-14 justify-center ${evt.type === "prune" ? "border-red-500/50 text-red-400" : evt.type === "grow" ? "border-green-500/50 text-green-400" : evt.type === "rewire" ? "border-blue-500/50 text-blue-400" : "border-amber-500/50 text-amber-400"}`}>
+                            {evt.type}
+                          </Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium truncate">{evt.target}</div>
+                            <div className="text-[10px] text-muted-foreground">mag: {evt.magnitude.toFixed(3)}</div>
+                          </div>
+                          <div className={`text-xs font-mono ${evt.impact > 0 ? "text-green-400" : "text-red-400"}`}>
+                            {evt.impact > 0 ? "+" : ""}{(evt.impact * 100).toFixed(2)}%
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {new Date(evt.timestamp).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* METRICS TAB                                                   */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="data" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Loss Curve</CardTitle></CardHeader>
+                <CardContent>
+                  <Sparkline data={lossHistory} color="#f87171" height={120} />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>Start: {lossHistory[0]?.toFixed(4) ?? "—"}</span>
+                    <span>Current: {lossHistory[lossHistory.length - 1]?.toFixed(4) ?? "—"}</span>
+                    <span>Min: {lossHistory.length ? Math.min(...lossHistory).toFixed(4) : "—"}</span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Accuracy Curve</CardTitle></CardHeader>
+                <CardContent>
+                  <Sparkline data={accHistory} color="#4ade80" height={120} />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>Start: {accHistory[0]?.toFixed(2) ?? "—"}%</span>
+                    <span>Current: {accHistory[accHistory.length - 1]?.toFixed(2) ?? "—"}%</span>
+                    <span>Max: {accHistory.length ? Math.max(...accHistory).toFixed(2) : "—"}%</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Training Progress</CardTitle></CardHeader>
+                <CardContent>
+                  <Progress value={(metrics.epoch / maxEpochs) * 100} className="h-3 mb-2" />
+                  <div className="text-xs text-muted-foreground">Epoch {metrics.epoch} of {maxEpochs} ({((metrics.epoch / maxEpochs) * 100).toFixed(1)}%)</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Gradient Health</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{metrics.gradientNorm.toFixed(4)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {metrics.gradientNorm < 0.01 ? "Warning: Vanishing gradients" : metrics.gradientNorm > 5 ? "Warning: Exploding gradients" : "Healthy gradient flow"}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Data Throughput</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{(totalSamplesIngested / 1e6).toFixed(3)}M</div>
+                  <div className="text-xs text-muted-foreground">
+                    Total samples processed from {onlineCount} devices at {totalDataRate} samples/sec
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Inference Test</CardTitle>
+                <CardDescription>Feed a test signal and see model output in real time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <h4 className="text-sm font-medium mb-2">Input Signal (Raw)</h4>
+                    <div className="font-mono text-xs text-green-400 bg-background p-3 rounded overflow-x-auto">
+                      {`[${Array.from({ length: 8 }, () => (Math.random() * 2 - 1).toFixed(3)).join(", ")}...]`}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">8192-frame window from Mushroom 1 FCI electrode array</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <h4 className="text-sm font-medium mb-2">Model Output (Inference)</h4>
+                    <pre className="font-mono text-xs text-amber-400 bg-background p-3 rounded overflow-x-auto">
+{`{
+  "state": "nutrient_seeking",
+  "confidence": ${(0.5 + Math.random() * 0.45).toFixed(3)},
+  "bio_tokens": ["t17_burst", "co2_rise"],
+  "predicted_next": "growth_shift",
+  "uncertainty": ${(Math.random() * 0.3).toFixed(3)}
+}`}
+                    </pre>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ══════════════════════════════════════════════════════════════ */}
+          {/* CHECKPOINTS TAB                                               */}
+          {/* ══════════════════════════════════════════════════════════════ */}
+          <TabsContent value="checkpoints" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Save className="h-5 w-5" /> Saved Checkpoints</CardTitle>
+                  <CardDescription>Model weights stored in MINDEX + local NAS</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {checkpoints.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <HardDrive className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p>No checkpoints saved yet.</p>
+                      <p className="text-xs mt-1">Start training and save checkpoints to manage model versions.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {checkpoints.map(cp => (
+                        <div key={cp.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-purple-500/20 flex items-center justify-center text-xs font-bold">{cp.epoch}</div>
+                            <div>
+                              <div className="text-sm font-medium">Epoch {cp.epoch}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Loss: {cp.loss.toFixed(4)} | Acc: {cp.accuracy.toFixed(2)}% | {cp.location}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{new Date(cp.timestamp).toLocaleString()}</span>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"><SkipForward className="h-3 w-3 mr-1" /> Load</Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs"><Download className="h-3 w-3 mr-1" /> Export</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2"><Database className="h-4 w-4 text-green-400" /> Storage Status</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>MINDEX</span>
+                      <Badge variant={mindexConnected ? "default" : "destructive"} className="text-xs">{mindexConnected ? "Connected" : "Disconnected"}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Local NAS</span>
+                      <Badge variant={nasConnected ? "default" : "destructive"} className="text-xs">{nasConnected ? "Connected" : "Disconnected"}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Checkpoints</span>
+                      <span className="font-mono">{checkpoints.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Auto-Save</span>
+                      <Switch defaultChecked />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Weight Versioning</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-muted-foreground space-y-2">
+                    <p>All checkpoints are versioned in MINDEX with full provenance — device source, training config, mutation history, and dataset snapshot hash.</p>
+                    <p>Weights are also synced to the local NAS for fast restore and offline training continuity.</p>
+                    <p>Load any checkpoint to resume training from that point or compare model behavior across versions.</p>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Smell Training Apps */}
-      <Card className="border-green-500/30 bg-gradient-to-br from-green-950/20 to-transparent">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wind className="h-5 w-5 text-green-500" />
-            Smell Training Applications
-          </CardTitle>
-          <CardDescription>
-            BME688/690 gas sensor training for MINDEX fungal smell detection
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Smell Training Wizard */}
-            <Link href="/natureos/smell-training">
-              <Card className="h-full hover:border-green-500/50 hover:bg-green-500/5 transition-colors cursor-pointer group">
-                <CardContent className="p-4 flex flex-col items-center text-center">
-                  <div className="p-3 rounded-xl bg-green-500/20 group-hover:bg-green-500/30 transition-colors mb-3">
-                    <Beaker className="h-8 w-8 text-green-500" />
-                  </div>
-                  <h4 className="font-semibold">Smell Training Wizard</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Record fungal specimens and export training data for Bosch AI-Studio
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-            
-            {/* Blob Manager */}
-            <Link href="/natureos/smell-training?tab=blobs">
-              <Card className="h-full hover:border-amber-500/50 hover:bg-amber-500/5 transition-colors cursor-pointer group">
-                <CardContent className="p-4 flex flex-col items-center text-center">
-                  <div className="p-3 rounded-xl bg-amber-500/20 group-hover:bg-amber-500/30 transition-colors mb-3">
-                    <Upload className="h-8 w-8 text-amber-500" />
-                  </div>
-                  <h4 className="font-semibold">Blob Manager</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Upload and manage BSEC selectivity blobs for smell classification
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-            
-            {/* Smell Encyclopedia */}
-            <Link href="/natureos/mindex?tab=smells">
-              <Card className="h-full hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors cursor-pointer group">
-                <CardContent className="p-4 flex flex-col items-center text-center">
-                  <div className="p-3 rounded-xl bg-purple-500/20 group-hover:bg-purple-500/30 transition-colors mb-3">
-                    <BookMarked className="h-8 w-8 text-purple-500" />
-                  </div>
-                  <h4 className="font-semibold">Smell Encyclopedia</h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Browse MINDEX smell signatures with fungal species and VOC profiles
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-          
-          {/* Training Status Summary */}
-          <div className="mt-4 p-3 rounded-lg bg-muted/50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm">Smell Trainer Agent</span>
-              <Badge variant="outline" className="text-xs">Port 8042</Badge>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>BME688/690 Support</span>
-              <span>BSEC 2.x Compatible</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Research Papers */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5" /> Research Foundation</CardTitle>
-          <CardDescription>Scientific papers informing NLM development</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {RESEARCH_PAPERS.map((paper, i) => (
-              <Card key={i} className="bg-muted/50 hover:bg-muted/70 transition-colors cursor-pointer" onClick={() => paper.url !== "#" && window.open(paper.url, "_blank")}>
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-sm line-clamp-2">{paper.title}</h4>
-                  <p className="text-xs text-muted-foreground mt-1">{paper.authors} ({paper.year})</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-muted-foreground">{paper.citations} citations</p>
-                    {paper.url !== "#" && <ExternalLink className="h-3 w-3 text-muted-foreground" />}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }
