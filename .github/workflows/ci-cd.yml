@@ -386,17 +386,9 @@ jobs:
             set -e
             cd /opt/mycosoft/website
             
-            echo "=== Syncing source code to VM ==="
-            git fetch origin main || echo "Git fetch failed, but proceeding"
-            git reset --hard origin/main || echo "Git reset failed, but proceeding"
-            
-            echo "=== Building Docker image locally (Instant Mode) ==="
-            docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL="$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
-              -f Dockerfile.production \
-              -t mycosoft-website:production-latest \
-              .
+            echo "=== Pulling Pre-Built Docker Image from GHCR ==="
+            docker pull ghcr.io/${{ github.repository }}:production-latest || echo "Pull failed, but continuing"
+
 
             echo "=== Performing Zero-Downtime Rolling Update ==="
             export WEBSITE_IMAGE="mycosoft-website:production-latest"
