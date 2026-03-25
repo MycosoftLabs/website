@@ -559,6 +559,9 @@ jobs:
             export WEBSITE_IMAGE="mycosoft-website:local"
             docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
 
+            echo "=== Running Database Migrations ==="
+            docker compose -f docker-compose.production.yml exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped"
+
             echo "=== Instant deploy complete at $(date) ==="
           BUILD
 
