@@ -102,10 +102,34 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ProxyCommand cloudflared access ssh --hostname %h
-            ServerAliveInterval 60
-            ServerAliveCountMax 120
+            ConnectTimeout 30
+            ConnectionAttempts 3
+            ServerAliveInterval 30
+            ServerAliveCountMax 6
           EOF
           chmod 600 ~/.ssh/config
+
+          # Create retry wrapper for SSH commands through flaky tunnels
+          cat > /usr/local/bin/ssh-retry <<'RETRYSCRIPT'
+          #!/usr/bin/env bash
+          MAX_ATTEMPTS=3
+          DELAY=15
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
+            if ssh "$@"; then
+              exit 0
+            fi
+            rc=$?
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+              echo "SSH failed (exit $rc), retrying in ${DELAY}s..."
+              sleep $DELAY
+              DELAY=$((DELAY * 2))
+            fi
+          done
+          echo "::error::SSH failed after $MAX_ATTEMPTS attempts"
+          exit 1
+          RETRYSCRIPT
+          chmod +x /usr/local/bin/ssh-retry
 
       - name: Deploy to Sandbox VM
         env:
@@ -115,9 +139,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          echo "${GH_TOKEN}" | ssh production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${GH_TOKEN}" | ssh-retry production docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-          ssh production bash -s <<DEPLOY
+          ssh-retry production bash -s <<DEPLOY
             set -e
             BASE_URL="https://mycosoft.com"
 
