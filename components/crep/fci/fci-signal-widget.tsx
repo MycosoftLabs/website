@@ -317,7 +317,7 @@ function ChannelDetail({ channel, index }: { channel: FCIChannel; index: number 
 // ============================================================================
 
 export function FCISignalWidget({ 
-  devices, 
+  devices = [],
   onDeviceSelect,
   refreshInterval = 5000,
   onRefresh,

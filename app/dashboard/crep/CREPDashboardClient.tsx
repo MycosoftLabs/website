@@ -1583,8 +1583,8 @@ function CREPMycaPanel({
   toggleLayer,
   groundFilter,
   onGroundFilterChange,
-  fungalObservations,
-  globalEvents,
+  fungalObservations = [],
+  globalEvents = [],
   onSelectFungal,
   mission,
 }: {
