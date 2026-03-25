@@ -223,6 +223,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Default passes prop to [] in GSPassTimeline to prevent crash
 - Harden all deployment workflows for SSH tunnel reliability
 - Centralize SSH setup, add SSH_KEY_B64 support, add network diagnostics
+- *(crep)* Add default values to all undefined-prone array props
+- *(deploy)* Bind Next.js to 0.0.0.0 so Docker healthcheck works
 
 ### CREP
 
@@ -253,6 +255,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
