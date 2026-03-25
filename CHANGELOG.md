@@ -296,6 +296,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -409,6 +410,7 @@ All notable changes to this project will be documented in this file.
 - Implement web3 cryptocurrency payload billing deductions across api endpoints
 - Optimize autonomous agent landing UI with viral replication loop and data authenticity grids
 - *(ci)* Impl zero-downtime rolling update via docker scale
+- *(nlm-training)* Replace all mock data with real MAS/GPU/MINDEX API integration
 
 ### Fix
 
