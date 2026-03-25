@@ -125,8 +125,9 @@ jobs:
             docker pull "$IMAGE_FULL"
 
             echo "=== Replacing container ==="
-            docker stop mycosoft-website 2>/dev/null || true
-            docker rm mycosoft-website 2>/dev/null || true
+            docker rm -f mycosoft-website website-website-1 website-website-2 2>/dev/null || true
+            CONFLICTING=$(docker ps -q --filter "publish=3000")
+            if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
 
             WEBSITE_DIR="/opt/mycosoft/website"
             ENV_FILE_OPT=""
