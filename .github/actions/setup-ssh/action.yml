@@ -156,55 +156,56 @@ runs:
           echo "::warning::CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET not set. If this host uses Cloudflare Access in front of SSH, add both secrets (Service Auth token) or the tunnel test will time out at banner exchange."
         fi
 
-        # No leading whitespace — ssh_config requires Host at column 0
-        cat > ~/.ssh/config <<SSHEOF
-Host production
-  HostName ${PRODUCTION_HOST}
-  User ${SSH_USER}
-  IdentityFile ~/.ssh/deploy_key
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-  ProxyCommand ${PROXY_CMD}
-  ConnectTimeout 60
-  ConnectionAttempts 3
-  ServerAliveInterval 30
-  ServerAliveCountMax 6
-SSHEOF
+        # Write ssh_config via echo — heredoc body at column 0 breaks YAML in composite actions
+        {
+          echo "Host production"
+          echo "  HostName ${PRODUCTION_HOST}"
+          echo "  User ${SSH_USER}"
+          echo "  IdentityFile ~/.ssh/deploy_key"
+          echo "  StrictHostKeyChecking no"
+          echo "  UserKnownHostsFile /dev/null"
+          echo "  ProxyCommand ${PROXY_CMD}"
+          echo "  ConnectTimeout 60"
+          echo "  ConnectionAttempts 3"
+          echo "  ServerAliveInterval 30"
+          echo "  ServerAliveCountMax 6"
+        } > ~/.ssh/config
         chmod 600 ~/.ssh/config
         echo "SSH config written for host: ${PRODUCTION_HOST}"
 
     - name: Install ssh-retry wrapper
       shell: bash
       run: |
-        cat > /usr/local/bin/ssh-retry <<'RETRYSCRIPT'
-        #!/usr/bin/env bash
-        # SSH retry wrapper with exponential backoff for Cloudflare Tunnel connections.
-        # Tunnels can take 30-90s to re-establish after network disruptions.
-        MAX_ATTEMPTS=5
-        DELAY=20
-        last_rc=255
-        for attempt in $(seq 1 $MAX_ATTEMPTS); do
-          echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
-          ssh "$@"
-          last_rc=$?
-          if [ "$last_rc" -eq 0 ]; then
-            exit 0
-          fi
-          if [ "$attempt" -lt $MAX_ATTEMPTS ]; then
-            echo "SSH failed (exit $last_rc), retrying in ${DELAY}s..."
-            sleep "$DELAY"
-            DELAY=$((DELAY * 2))
-          fi
-        done
-        echo "::error::SSH failed after $MAX_ATTEMPTS attempts (last exit code: $last_rc)"
-        echo "::error::Possible causes:"
-        echo "::error::  1. Cloudflare Tunnel not running on VM — SSH to VM directly and run: sudo systemctl restart cloudflared"
-        echo "::error::  2. PRODUCTION_HOST / STAGING_HOST secret is wrong — verify it matches your Cloudflare Tunnel hostname"
-        echo "::error::  3. SSH_KEY is invalid or doesn't match the VM's authorized_keys"
-        echo "::error::  4. VM is powered off or unreachable on the network"
-        echo "::error::  5. SSH behind Cloudflare Access — set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (Service Auth token) in repo secrets"
-        exit 1
-        RETRYSCRIPT
+        # Write script with echo (heredoc + YAML indent breaks manifest parse; indented EOF breaks bash)
+        {
+          echo '#!/usr/bin/env bash'
+          echo '# SSH retry wrapper with exponential backoff for Cloudflare Tunnel connections.'
+          echo '# Tunnels can take 30-90s to re-establish after network disruptions.'
+          echo 'MAX_ATTEMPTS=5'
+          echo 'DELAY=20'
+          echo 'last_rc=255'
+          echo 'for attempt in $(seq 1 $MAX_ATTEMPTS); do'
+          echo '  echo "SSH attempt $attempt/$MAX_ATTEMPTS..."'
+          echo '  ssh "$@"'
+          echo '  last_rc=$?'
+          echo '  if [ "$last_rc" -eq 0 ]; then'
+          echo '    exit 0'
+          echo '  fi'
+          echo '  if [ "$attempt" -lt $MAX_ATTEMPTS ]; then'
+          echo '    echo "SSH failed (exit $last_rc), retrying in ${DELAY}s..."'
+          echo '    sleep "$DELAY"'
+          echo '    DELAY=$((DELAY * 2))'
+          echo '  fi'
+          echo 'done'
+          echo 'echo "::error::SSH failed after $MAX_ATTEMPTS attempts (last exit code: $last_rc)"'
+          echo 'echo "::error::Possible causes:"'
+          echo 'echo "::error::  1. Cloudflare Tunnel not running on VM — SSH to VM directly and run: sudo systemctl restart cloudflared"'
+          echo 'echo "::error::  2. PRODUCTION_HOST / STAGING_HOST secret is wrong — verify it matches your Cloudflare Tunnel hostname"'
+          echo 'echo "::error::  3. SSH_KEY is invalid or does not match the VM authorized_keys"'
+          echo 'echo "::error::  4. VM is powered off or unreachable on the network"'
+          echo 'echo "::error::  5. SSH behind Cloudflare Access — set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (Service Auth token) in repo secrets"'
+          echo 'exit 1'
+        } | sudo tee /usr/local/bin/ssh-retry > /dev/null
         chmod +x /usr/local/bin/ssh-retry
 
     - name: Verify tunnel connectivity
