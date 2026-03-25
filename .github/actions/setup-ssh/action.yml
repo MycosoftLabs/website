@@ -15,6 +15,13 @@
 #       ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
 #       production-host: ${{ secrets.PRODUCTION_HOST }}
 #       ssh-user: ${{ secrets.SSH_USER }}
+#       cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+#       cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+#
+# If SSH is behind Cloudflare Zero Trust Access, CI must use a Service Token:
+# Zero Trust → Access → Applications → your SSH app → Service Auth policy, then
+# store the token's Client ID and Client Secret as the two secrets above.
+# Without them, cloudflared access ssh cannot authenticate and times out at banner.
 # =============================================================================
 
 name: 'Setup SSH via Cloudflare Tunnel'
@@ -34,6 +41,12 @@ inputs:
     description: 'SSH username on production VM'
     required: false
     default: 'mycosoft'
+  cf-access-client-id:
+    description: 'Cloudflare Access service token Client ID (for cloudflared access ssh in CI)'
+    required: false
+  cf-access-client-secret:
+    description: 'Cloudflare Access service token Client Secret (pair with cf-access-client-id)'
+    required: false
 
 outputs:
   ssh-user:
@@ -105,6 +118,8 @@ runs:
         PRODUCTION_HOST: ${{ inputs.production-host }}
         SSH_USER: ${{ steps.validate.outputs.user }}
         KEY_SOURCE: ${{ steps.validate.outputs.key_source }}
+        CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
       run: |
         mkdir -p ~/.ssh
 
@@ -129,20 +144,32 @@ runs:
         fi
         echo "SSH key fingerprint: $(ssh-keygen -l -f ~/.ssh/deploy_key)"
 
-        # Write SSH config
+        # ProxyCommand: Access-protected SSH needs service token in non-interactive CI
+        # (see https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-cloudflared-authentication/ )
+        if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
+          ID_Q=$(printf '%q' "${CF_ACCESS_CLIENT_ID}")
+          SEC_Q=$(printf '%q' "${CF_ACCESS_CLIENT_SECRET}")
+          PROXY_CMD="cloudflared access ssh --hostname %h --id ${ID_Q} --secret ${SEC_Q}"
+          echo "Using Cloudflare Access service token for cloudflared access ssh."
+        else
+          PROXY_CMD="cloudflared access ssh --hostname %h"
+          echo "::warning::CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET not set. If this host uses Cloudflare Access in front of SSH, add both secrets (Service Auth token) or the tunnel test will time out at banner exchange."
+        fi
+
+        # No leading whitespace — ssh_config requires Host at column 0
         cat > ~/.ssh/config <<SSHEOF
-        Host production
-          HostName ${PRODUCTION_HOST}
-          User ${SSH_USER}
-          IdentityFile ~/.ssh/deploy_key
-          StrictHostKeyChecking no
-          UserKnownHostsFile /dev/null
-          ProxyCommand cloudflared access ssh --hostname %h
-          ConnectTimeout 60
-          ConnectionAttempts 3
-          ServerAliveInterval 30
-          ServerAliveCountMax 6
-        SSHEOF
+Host production
+  HostName ${PRODUCTION_HOST}
+  User ${SSH_USER}
+  IdentityFile ~/.ssh/deploy_key
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  ProxyCommand ${PROXY_CMD}
+  ConnectTimeout 60
+  ConnectionAttempts 3
+  ServerAliveInterval 30
+  ServerAliveCountMax 6
+SSHEOF
         chmod 600 ~/.ssh/config
         echo "SSH config written for host: ${PRODUCTION_HOST}"
 
@@ -155,24 +182,27 @@ runs:
         # Tunnels can take 30-90s to re-establish after network disruptions.
         MAX_ATTEMPTS=5
         DELAY=20
+        last_rc=255
         for attempt in $(seq 1 $MAX_ATTEMPTS); do
           echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
-          if ssh "$@"; then
+          ssh "$@"
+          last_rc=$?
+          if [ "$last_rc" -eq 0 ]; then
             exit 0
           fi
-          rc=$?
-          if [ $attempt -lt $MAX_ATTEMPTS ]; then
-            echo "SSH failed (exit $rc), retrying in ${DELAY}s..."
-            sleep $DELAY
+          if [ "$attempt" -lt $MAX_ATTEMPTS ]; then
+            echo "SSH failed (exit $last_rc), retrying in ${DELAY}s..."
+            sleep "$DELAY"
             DELAY=$((DELAY * 2))
           fi
         done
-        echo "::error::SSH failed after $MAX_ATTEMPTS attempts (last exit code: $rc)"
+        echo "::error::SSH failed after $MAX_ATTEMPTS attempts (last exit code: $last_rc)"
         echo "::error::Possible causes:"
         echo "::error::  1. Cloudflare Tunnel not running on VM — SSH to VM directly and run: sudo systemctl restart cloudflared"
-        echo "::error::  2. PRODUCTION_HOST secret is wrong — verify it matches your Cloudflare Tunnel hostname"
+        echo "::error::  2. PRODUCTION_HOST / STAGING_HOST secret is wrong — verify it matches your Cloudflare Tunnel hostname"
         echo "::error::  3. SSH_KEY is invalid or doesn't match the VM's authorized_keys"
         echo "::error::  4. VM is powered off or unreachable on the network"
+        echo "::error::  5. SSH behind Cloudflare Access — set CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (Service Auth token) in repo secrets"
         exit 1
         RETRYSCRIPT
         chmod +x /usr/local/bin/ssh-retry
