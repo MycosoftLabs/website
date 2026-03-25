@@ -129,6 +129,9 @@ jobs:
             CONFLICTING=$(docker ps -q --filter "publish=3000")
             if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
 
+            echo "=== Mounting NAS ==="
+            sudo mount -a 2>/dev/null || true
+
             WEBSITE_DIR="/opt/mycosoft/website"
             ENV_FILE_OPT=""
             [ -f "\$WEBSITE_DIR/.env" ] && ENV_FILE_OPT="--env-file \$WEBSITE_DIR/.env"
