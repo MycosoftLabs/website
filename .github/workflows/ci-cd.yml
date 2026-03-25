@@ -396,26 +396,11 @@ jobs:
             echo "=== Cleaning Up Zombie Containers ==="
             docker rm -f $(docker ps -aq --filter status=dead --filter status=exited) 2>/dev/null || true
             docker rm -f website-website-1 website-website-2 mycosoft-website 2>/dev/null || true
+            CONFLICTING=$(docker ps -q --filter "publish=3000")
+            if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
 
-            echo "=== Performing Safe Rolling Update ==="
+            echo "=== Starting Container ==="
             export WEBSITE_IMAGE="ghcr.io/${IMAGE_NAME_LC}:production-latest"
-            
-            # Start a second container alongside the first one
-            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
-            
-            echo "Waiting for new container to become healthy..."
-            sleep 10
-            for i in {1..20}; do
-              HEALTHY_COUNT=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f docker-compose.production.yml ps -q website) | grep -c healthy)
-              if [ "$HEALTHY_COUNT" -ge 1 ]; then
-                echo "At least one container is healthy!"
-                break
-              fi
-              echo "Attempt $i: Waiting 5s..."
-              sleep 5
-            done
-            
-            # Now scale back to 1, cleanly killing the older container
             docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
           BUILD
 
@@ -564,25 +549,14 @@ jobs:
             echo "=== Ensuring NAS is mounted ==="
             sudo mount -a 2>/dev/null || true
 
-            echo "=== Performing Zero-Downtime Rolling Update ==="
+            echo "=== Cleaning Up Zombie Containers ==="
+            docker rm -f $(docker ps -aq --filter status=dead --filter status=exited) 2>/dev/null || true
+            docker rm -f website-website-1 website-website-2 mycosoft-website 2>/dev/null || true
+            CONFLICTING=$(docker ps -q --filter "publish=3000")
+            if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
+
+            echo "=== Starting Container ==="
             export WEBSITE_IMAGE="mycosoft-website:local"
-            
-            # Start a second container alongside the first one
-            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=2 --no-recreate website
-            
-            NEW_CONTAINER=$(docker inspect --format='{{.Id}}' $(docker compose -f docker-compose.production.yml ps -q website | head -n 1))
-            
-            echo "Waiting for new container to become healthy..."
-            for i in {1..30}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' $NEW_CONTAINER)
-              if [ "$STATUS" = "healthy" ]; then
-                echo "New container is healthy!"
-                break
-              fi
-              sleep 5
-            done
-            
-            # Now scale back to 1, which kills the older container
             docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
 
             echo "=== Instant deploy complete at $(date) ==="
