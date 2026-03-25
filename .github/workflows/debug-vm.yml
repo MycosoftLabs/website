@@ -4,72 +4,60 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - name: Install cloudflared and configure SSH
-        run: |
-          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
-          sudo dpkg -i cloudflared.deb
-          rm cloudflared.deb
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          cat >> ~/.ssh/config <<EOF
-          Host production
-            HostName ${{ secrets.PRODUCTION_HOST }}
-            User ${{ secrets.SSH_USER }}
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-            ProxyCommand cloudflared access ssh --hostname %h
-            ConnectTimeout 60
-            ConnectionAttempts 3
-            ServerAliveInterval 30
-            ServerAliveCountMax 6
-          EOF
-          chmod 600 ~/.ssh/config
+      - name: Checkout (for composite action)
+        uses: actions/checkout@v4
 
-          # Create retry wrapper for SSH commands through flaky tunnels
-          cat > /usr/local/bin/ssh-retry <<'RETRYSCRIPT'
-          #!/usr/bin/env bash
-          MAX_ATTEMPTS=5
-          DELAY=20
-          for attempt in $(seq 1 $MAX_ATTEMPTS); do
-            echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
-            if ssh "$@"; then
-              exit 0
-            fi
-            rc=$?
-            if [ $attempt -lt $MAX_ATTEMPTS ]; then
-              echo "SSH failed (exit $rc), retrying in ${DELAY}s..."
-              sleep $DELAY
-              DELAY=$((DELAY * 2))
-            fi
-          done
-          echo "::error::SSH failed after $MAX_ATTEMPTS attempts"
-          exit 1
-          RETRYSCRIPT
-          chmod +x /usr/local/bin/ssh-retry
-
-      - name: Verify tunnel connectivity
-        run: |
-          echo "Testing Cloudflare tunnel connectivity..."
-          ssh-retry production 'echo "Tunnel OK — $(hostname) — $(date)"'
+      - name: Setup SSH via Cloudflare Tunnel
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
 
       - name: Debug NAS and VM state
         run: |
           ssh-retry production bash -s <<'SCRIPT'
+            echo "--- SYSTEM ---"
+            echo "Hostname: $(hostname)"
+            echo "IP: $(hostname -I)"
+            echo "Uptime: $(uptime)"
+            echo ""
+
             echo "--- FSTAB ---"
             cat /etc/fstab
+            echo ""
+
             echo "--- MOUNTS ---"
-            mount | grep nfs || echo "No NFS mounts active"
+            mount | grep -E "nfs|cifs" || echo "No NFS/CIFS mounts active"
+            echo ""
+
             echo "--- DF ---"
             df -h
+            echo ""
+
             echo "--- PINGING NAS (if found in fstab) ---"
             NAS_IP=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' /etc/fstab | head -n 1)
             if [ -n "$NAS_IP" ]; then
               ping -c 3 $NAS_IP || echo "NAS unreachable at $NAS_IP"
             fi
+            echo ""
+
             echo "--- CLOUDFLARED STATUS ---"
-            systemctl status cloudflared 2>/dev/null || echo "cloudflared service not found"
-            echo "--- DOCKER STATUS ---"
-            docker ps -a
+            systemctl status cloudflared --no-pager 2>/dev/null || echo "cloudflared not running as systemd service"
+            docker ps --filter "name=tunnel" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || true
+            echo ""
+
+            echo "--- DOCKER CONTAINERS ---"
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo ""
+
+            echo "--- LAN PING CHECK ---"
+            for ip in 192.168.0.1 192.168.0.105 192.168.0.188 192.168.0.189; do
+              if ping -c 1 -W 2 "$ip" > /dev/null 2>&1; then
+                echo "  $ip: REACHABLE"
+              else
+                echo "  $ip: UNREACHABLE"
+              fi
+            done
           SCRIPT

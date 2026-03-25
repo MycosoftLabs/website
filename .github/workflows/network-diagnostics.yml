@@ -1,0 +1,262 @@
+# =============================================================================
+# Network Diagnostics — Full infrastructure connectivity check
+# =============================================================================
+# Run this when deployments are failing to diagnose:
+#   - Cloudflare Tunnel status
+#   - SSH key validity
+#   - VM reachability
+#   - All service IPs and ports
+#   - Docker container health
+#   - NAS mounts
+#   - Cloudflared service status on VM
+#
+# Network topology (192.168.0.0/24):
+#   192.168.0.1    — UniFi Gateway
+#   192.168.0.100  — Proxmox Host (fallback)
+#   192.168.0.105  — NAS Storage
+#   192.168.0.123  — NemoClaw Jetson (NVIDIA Nemotron)
+#   192.168.0.172  — Windows Dev PC (RTX 5090)
+#   192.168.0.187  — Sandbox VM (Production website) — VMID 103
+#   192.168.0.188  — MAS VM (Multi-Agent System)
+#   192.168.0.189  — MINDEX VM (Data integrity DB)
+#   192.168.0.202  — Proxmox Host (primary)
+# =============================================================================
+
+name: Network Diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_services:
+        description: 'Also check all service ports (MAS, MINDEX, etc.)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  diagnose:
+    name: Full Network Diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH via Cloudflare Tunnel
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
+
+      - name: VM system info
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== SYSTEM INFO ==="
+            echo "Hostname:    $(hostname)"
+            echo "IP:          $(hostname -I)"
+            echo "Uptime:      $(uptime)"
+            echo "OS:          $(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2)"
+            echo "Kernel:      $(uname -r)"
+            echo "Disk:        $(df -h / | tail -1)"
+            echo "Memory:      $(free -h | grep Mem | awk '{print $3 "/" $2}')"
+            echo ""
+
+            echo "=== NETWORK INTERFACES ==="
+            ip -4 addr show | grep -E "inet |^[0-9]"
+            echo ""
+
+            echo "=== DEFAULT ROUTE ==="
+            ip route show default
+            echo ""
+
+            echo "=== DNS RESOLUTION ==="
+            cat /etc/resolv.conf | grep -v "^#"
+            echo ""
+            echo "Google DNS test: $(ping -c 1 -W 3 8.8.8.8 2>&1 | tail -1)"
+            echo "Domain test:     $(ping -c 1 -W 3 mycosoft.com 2>&1 | tail -1)"
+          SCRIPT
+
+      - name: Cloudflared service status
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== CLOUDFLARED SERVICE ==="
+            if systemctl is-active --quiet cloudflared 2>/dev/null; then
+              echo "Status:  RUNNING (systemd)"
+              systemctl status cloudflared --no-pager -l 2>/dev/null | head -20
+            elif docker ps --format '{{.Names}}' | grep -q tunnel; then
+              echo "Status:  RUNNING (Docker container)"
+              docker ps --filter "name=tunnel" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            else
+              echo "Status:  NOT RUNNING"
+              echo "::error::cloudflared is not running! This is likely why deployments fail."
+              echo ""
+              echo "To fix, run ONE of:"
+              echo "  sudo systemctl start cloudflared   (if installed as systemd service)"
+              echo "  cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml up -d cloudflared"
+            fi
+            echo ""
+
+            echo "=== CLOUDFLARED VERSION ==="
+            cloudflared --version 2>/dev/null || echo "cloudflared binary not found in PATH"
+            echo ""
+
+            echo "=== TUNNEL METRICS ==="
+            curl -sf http://localhost:2000/ready 2>/dev/null && echo "Tunnel metrics: HEALTHY" || echo "Tunnel metrics: UNREACHABLE (port 2000)"
+          SCRIPT
+
+      - name: Docker containers
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== ALL DOCKER CONTAINERS ==="
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}" 2>/dev/null || echo "Docker not running or not accessible"
+            echo ""
+
+            echo "=== DOCKER NETWORKS ==="
+            docker network ls --format "table {{.Name}}\t{{.Driver}}\t{{.Scope}}" 2>/dev/null
+            echo ""
+
+            echo "=== PORT LISTENERS (key ports) ==="
+            for port in 22 2000 3000 5432 6379 8001 8000 11434 5678 9090 3030; do
+              if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+                PROC=$(ss -tlnp 2>/dev/null | grep ":${port} " | head -1 | grep -oP 'users:\(\("\K[^"]+' || echo "unknown")
+                echo "  Port $port: LISTENING ($PROC)"
+              else
+                echo "  Port $port: NOT LISTENING"
+              fi
+            done
+          SCRIPT
+
+      - name: LAN connectivity (all VMs)
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== LAN CONNECTIVITY CHECK ==="
+            echo "Pinging all known infrastructure IPs..."
+            echo ""
+
+            declare -A HOSTS
+            HOSTS[192.168.0.1]="UniFi Gateway"
+            HOSTS[192.168.0.100]="Proxmox (fallback)"
+            HOSTS[192.168.0.105]="NAS Storage"
+            HOSTS[192.168.0.123]="NemoClaw Jetson"
+            HOSTS[192.168.0.172]="Windows Dev PC"
+            HOSTS[192.168.0.187]="Sandbox VM (this host)"
+            HOSTS[192.168.0.188]="MAS VM"
+            HOSTS[192.168.0.189]="MINDEX VM"
+            HOSTS[192.168.0.202]="Proxmox Host"
+
+            for ip in 192.168.0.1 192.168.0.100 192.168.0.105 192.168.0.123 192.168.0.172 192.168.0.187 192.168.0.188 192.168.0.189 192.168.0.202; do
+              if ping -c 1 -W 2 "$ip" > /dev/null 2>&1; then
+                # Try to get MAC address
+                MAC=$(ip neigh show "$ip" 2>/dev/null | awk '{print $5}' | head -1)
+                echo "  $ip (${HOSTS[$ip]}): REACHABLE  MAC=${MAC:-unknown}"
+              else
+                echo "  $ip (${HOSTS[$ip]}): UNREACHABLE"
+              fi
+            done
+          SCRIPT
+
+      - name: Service health checks
+        if: inputs.check_services == 'true'
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== SERVICE HEALTH CHECKS ==="
+            echo ""
+
+            check_http() {
+              local name="$1" url="$2"
+              STATUS=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null || echo "000")
+              if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ] 2>/dev/null; then
+                echo "  $name ($url): OK (HTTP $STATUS)"
+              else
+                echo "  $name ($url): FAILED (HTTP $STATUS)"
+              fi
+            }
+
+            echo "--- Website (localhost) ---"
+            check_http "Website"          "http://localhost:3000"
+            check_http "Health API"       "http://localhost:3000/api/health"
+            check_http "Providers API"    "http://localhost:3000/api/health/providers"
+            echo ""
+
+            echo "--- MAS VM (192.168.0.188) ---"
+            check_http "MAS Orchestrator" "http://192.168.0.188:8001"
+            check_http "MAS Health"       "http://192.168.0.188:8001/health"
+            echo ""
+
+            echo "--- MINDEX VM (192.168.0.189) ---"
+            check_http "MINDEX API"       "http://192.168.0.189:8000"
+            check_http "MINDEX Health"    "http://192.168.0.189:8000/health"
+            echo ""
+
+            echo "--- In-Stack Services ---"
+            check_http "Ollama"           "http://localhost:11434/api/tags"
+            check_http "Prometheus"       "http://localhost:9090/-/healthy"
+            check_http "Grafana"          "http://localhost:3030/api/health"
+            check_http "N8N"              "http://localhost:5678/healthz"
+            check_http "Tunnel Metrics"   "http://localhost:2000/ready"
+            echo ""
+
+            echo "--- Database & Cache ---"
+            if docker exec mycosoft-postgres pg_isready -U mycosoft 2>/dev/null; then
+              echo "  PostgreSQL: READY"
+            else
+              echo "  PostgreSQL: NOT READY"
+            fi
+            if docker exec mycosoft-redis redis-cli ping 2>/dev/null | grep -q PONG; then
+              echo "  Redis: PONG (healthy)"
+            else
+              echo "  Redis: NOT RESPONDING"
+            fi
+          SCRIPT
+
+      - name: NAS and storage
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== STORAGE & NAS ==="
+            echo ""
+
+            echo "--- Disk Usage ---"
+            df -h | grep -E "^/|Filesystem"
+            echo ""
+
+            echo "--- NFS/CIFS Mounts ---"
+            mount | grep -E "nfs|cifs|smb" || echo "No NFS/CIFS mounts active"
+            echo ""
+
+            echo "--- FSTAB NAS Entries ---"
+            grep -E "192.168.0.105|nfs|cifs" /etc/fstab 2>/dev/null || echo "No NAS entries in fstab"
+            echo ""
+
+            echo "--- Media Assets Directory ---"
+            if [ -d /opt/mycosoft/media/website/assets ]; then
+              echo "  Path exists: /opt/mycosoft/media/website/assets"
+              echo "  Contents: $(ls /opt/mycosoft/media/website/assets 2>/dev/null | wc -l) items"
+              ls -la /opt/mycosoft/media/website/assets/ 2>/dev/null | head -10
+            else
+              echo "  Path MISSING: /opt/mycosoft/media/website/assets"
+            fi
+          SCRIPT
+
+      - name: Firewall rules
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== FIREWALL (UFW) ==="
+            sudo ufw status verbose 2>/dev/null || echo "UFW not available"
+          SCRIPT
+
+      - name: Recent deployment logs
+        continue-on-error: true
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "=== RECENT DEPLOYMENTS ==="
+            tail -20 /var/log/mycosoft-deployments.log 2>/dev/null || echo "No deployment log found"
+            echo ""
+
+            echo "=== RECENT DOCKER EVENTS (last 1h) ==="
+            docker events --since "1h" --until "0s" --format '{{.Time}} {{.Action}} {{.Actor.Attributes.name}}' 2>/dev/null | tail -20 || true
+          SCRIPT
