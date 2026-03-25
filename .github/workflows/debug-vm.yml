@@ -14,6 +14,8 @@ jobs:
           ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
           production-host: ${{ secrets.PRODUCTION_HOST }}
           ssh-user: ${{ secrets.SSH_USER }}
+          cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
       - name: Debug NAS and VM state
         run: |

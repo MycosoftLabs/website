@@ -562,6 +562,51 @@ function resolveScientificName(query: string): string | null {
   return null
 }
 
+/** Remove trailing English fungus words so "amanita mushroom" → "amanita". */
+function stripFungalEnglishNoise(q: string): string {
+  return q
+    .trim()
+    .replace(/\b(mushrooms?|fungi|fungal|fungus)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+const ENGLISH_TAXON_PREFIXES = new Set([
+  "fly", "red", "white", "black", "yellow", "dead", "wood", "horse", "field", "false", "true",
+  "common", "wild", "king", "golden", "brown", "blue", "green", "devil", "little", "big",
+])
+
+/**
+ * Derive a genus or binomial for NCBI [Organism] / iNat when the user typed English + "mushroom".
+ * Does not replace resolveScientificName (callers merge). Returns null when no safe hint.
+ */
+function derivedTaxonHintForFungiQuery(query: string, fungiIntent: boolean): string | null {
+  const raw = query.trim()
+  if (!raw) return null
+  const stripped = stripFungalEnglishNoise(raw)
+  if (!stripped) return null
+  const hadNoiseRemoved = /\b(mushrooms?|fungi|fungal|fungus)\b/i.test(raw)
+  const words = stripped.split(/\s+/).filter(Boolean)
+  const latinToken = /^[A-Za-z][A-Za-z\-]*$/
+
+  if (words.length === 1 && latinToken.test(words[0])) {
+    const w = words[0]
+    if (w.length < 4 && !hadNoiseRemoved) return null
+    if (!hadNoiseRemoved && !(fungiIntent && w.length >= 5)) return null
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+  }
+
+  if (words.length === 2 && latinToken.test(words[0]) && latinToken.test(words[1])) {
+    const [a, b] = words
+    if (a.length < 2 || b.length < 2) return null
+    if (ENGLISH_TAXON_PREFIXES.has(a.toLowerCase())) return null
+    if (!hadNoiseRemoved && !fungiIntent) return null
+    return `${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()} ${b.toLowerCase()}`
+  }
+
+  return null
+}
+
 /**
  * Get key bioactive compounds for a species query.
  * Returns compound names to fetch from PubChem.
@@ -1182,6 +1227,11 @@ export async function GET(request: NextRequest) {
 
     // Resolve scientific name + detect compound queries
     const scientificName = resolveScientificName(baseQuery)
+    const derivedTaxon =
+      fungiIntent ? derivedTaxonHintForFungiQuery(baseQuery, fungiIntent) : null
+    /** NCBI [Organism] + fungal iNat taxa: strip "mushroom" → genus (e.g. Amanita). */
+    const bioOrganismLabel = scientificName || derivedTaxon || baseQuery.trim()
+    const geneticsTargetTaxon = scientificName || derivedTaxon
     const queryLower = baseQuery.toLowerCase()
     const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
 
@@ -1205,16 +1255,22 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       (!skipBio) ? searchMindexUnified(baseQuery, limit).catch(() => ({ taxa: [], compounds: [], genetics: [] })) : Promise.resolve({ taxa: [], compounds: [], genetics: [] }),
       types.includes("research") ? searchMindexResearch(baseQuery, limit, origin).catch(() => []) : Promise.resolve([]),
-      (types.includes("species") && !skipBio) ? searchINaturalist(baseQuery, Math.min(limit, 10), fungiIntent).catch(() => []) : Promise.resolve([]),
-      (types.includes("species") && !skipBio) ? searchINaturalistLiveObservations(baseQuery, Math.min(limit, 12), lat, lng).catch(() => []) : Promise.resolve([]),
+      (types.includes("species") && !skipBio)
+        ? searchINaturalist(bioOrganismLabel, Math.min(limit, 10), fungiIntent).catch(() => [])
+        : Promise.resolve([]),
+      (types.includes("species") && !skipBio)
+        ? searchINaturalistLiveObservations(bioOrganismLabel, Math.min(limit, 12), lat, lng).catch(() => [])
+        : Promise.resolve([]),
       types.includes("research") ? searchCrossRefResearch(baseQuery, limit, fungiIntent).catch(() => []) : Promise.resolve([]),
       types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), fungiIntent).catch(() => []) : Promise.resolve([]),
       types.includes("research") && includeWeb ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => []) : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
-      (types.includes("genetics") && !skipBio) ? searchNCBIGenetics(baseQuery, Math.min(limit, 8), fungiIntent).catch(() => []) : Promise.resolve([]),
-      // Targeted genetics: when "Reishi" → search "Ganoderma lucidum[Organism] AND ITS[Gene]"
-      (types.includes("genetics") && scientificName && !skipBio)
-        ? searchGeneticsForSpecies(scientificName, Math.min(limit, 8)).catch(() => [])
+      (types.includes("genetics") && !skipBio)
+        ? searchNCBIGenetics(bioOrganismLabel, Math.min(limit, 8), fungiIntent).catch(() => [])
+        : Promise.resolve([]),
+      // Targeted genetics: resolved scientific name or derived genus/binomial (e.g. "amanita mushroom" → Amanita)
+      (types.includes("genetics") && geneticsTargetTaxon && !skipBio)
+        ? searchGeneticsForSpecies(geneticsTargetTaxon, Math.min(limit, 8)).catch(() => [])
         : Promise.resolve([]),
       // Species-specific compounds: "Reishi" → ganoderic acid, lucidenic acid from PubChem
       (types.includes("compounds") && (scientificName || getCompoundNamesForSpecies(baseQuery).length > 0) && !skipBio)
