@@ -1,0 +1,23 @@
+name: Debug VM NAS
+on: [workflow_dispatch]
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: mycosoft
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "--- FSTAB ---"
+            cat /etc/fstab
+            echo "--- MOUNTS ---"
+            mount | grep nfs || echo "No NFS mounts active"
+            echo "--- DF ---"
+            df -h
+            echo "--- PINGING NAS (if found in fstab) ---"
+            NAS_IP=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' /etc/fstab | head -n 1)
+            if [ -n "$NAS_IP" ]; then
+              ping -c 3 $NAS_IP || echo "NAS unreachable at $NAS_IP"
+            fi
