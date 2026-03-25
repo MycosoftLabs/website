@@ -32,7 +32,7 @@ interface GSPassTimelineProps {
 }
 
 export function GSPassTimeline({
-  passes,
+  passes = [],
   hoursWindow = 24,
   onSelectPass,
   onTrackSatellite,
