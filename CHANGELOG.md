@@ -219,6 +219,8 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Aggressively clean containers to prevent port conflicts [fast]
 - *(deploy)* Run db migrations to prevent undefined hardware context [fast]
 - *(nas)* Inject fstab dumps and db url generator for VM pipeline [fast]
+- *(ci)* Add SSH retry logic for flaky Cloudflare tunnel deploys
+- *(crep)* Default passes prop to [] in GSPassTimeline to prevent crash
 
 ### CREP
 
@@ -249,6 +251,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
