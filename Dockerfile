@@ -90,6 +90,9 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
+# Install security tools for the integrated SOC dashboard
+RUN apk add --no-cache nmap nmap-scripts bind-tools curl jq iproute2
+
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

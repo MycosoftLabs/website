@@ -318,7 +318,7 @@ async function resolveTestIncident(
         agent_name: agent.name,
         agent_category: agent.category,
         incident_id: incidentId,
-        action_type: status === 'resolved' ? 'resolved' : 'updated',
+        action_type: status === 'resolved' ? 'resolved' : 'logged',
         action_data: { new_status: status, test: true },
         severity: 'medium',
       });
@@ -470,7 +470,7 @@ async function createTestIncident(type: string, withChain: boolean = true) {
     await logAgentAction({
       agent_id: agent.id,
       agent_name: agent.name,
-      agent_category: agent.category,
+      agent_category: agent.category as any,
       incident_id: incident.id,
       action_type: 'detected',
       action_data: { category, source_ip: sourceIP },

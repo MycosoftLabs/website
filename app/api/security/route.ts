@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { requireAdmin } from '@/lib/auth/api-auth';
+import { incidentLedger } from '@/lib/security/ledger';
 
 // Legacy imports (for backwards compatibility)
 import { 
@@ -501,12 +502,24 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(stats);
       
       case 'incidents':
-        // Incident management
+        // Incident management with Blockchain Ledger
         const incStatus = searchParams.get('status') || undefined;
-        const incSeverity = searchParams.get('severity') || undefined;
-        const incLimit = parseInt(searchParams.get('limit') || '50');
-        const incidents = await dbGetIncidents({ status: incStatus, severity: incSeverity, limit: incLimit });
-        return NextResponse.json({ incidents });
+        let chainHistory = incidentLedger.getFullHistory(true);
+        if (incStatus) {
+            chainHistory = chainHistory.filter(b => b.data && b.data.status === incStatus);
+        }
+        const incidents = chainHistory.map(b => ({
+          id: b.data?.incident_id || 'UNKNOWN',
+          title: b.data?.title || 'System Block',
+          description: b.data?.description || '',
+          severity: b.data?.severity || 'info',
+          status: b.data?.status || 'system',
+          created_at: b.timestamp,
+          ledger_hash: b.hash,
+          ledger_signature: b.signature,
+          ledger_previous_hash: b.previousHash
+        }));
+        return NextResponse.json({ incidents, ledger_valid: incidentLedger.isChainValid() });
       
       case 'scan-schedules':
         // Get all scan schedules
@@ -731,79 +744,69 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, event: newEvent });
       
       case 'create_incident':
-        // Create incident
-        const incident = await dbCreateIncident({
+        // Create incident on the internal blockchain ledger
+        const incidentPayload = {
+          incident_id: 'INC-' + Date.now(),
           title: data.title,
           description: data.description,
           severity: data.severity,
           status: data.status || 'open',
-          assigned_to: data.assigned_to || null,
-          resolved_at: null,
-          events: data.events || [],
-          tags: data.tags || [],
-          timeline: [{
-            timestamp: new Date().toISOString(),
-            action: 'created',
-            actor: data.created_by || 'system',
-            details: 'Incident created',
-          }],
-        });
+          action: 'created',
+          actor: data.created_by || 'system',
+          timestamp: new Date().toISOString()
+        };
+        const block = incidentLedger.addIncident(incidentPayload);
         broadcastIncidentAlert({
-          incident_id: incident.id,
-          title: incident.title,
-          severity: incident.severity,
-          status: incident.status,
+          incident_id: incidentPayload.incident_id,
+          title: incidentPayload.title,
+          severity: incidentPayload.severity,
+          status: incidentPayload.status,
           action: 'created',
         });
         await sendIncidentAlert({
-          title: incident.title,
-          description: incident.description,
-          severity: incident.severity,
-          status: incident.status,
-          assigned_to: incident.assigned_to || undefined,
+          title: incidentPayload.title,
+          description: incidentPayload.description,
+          severity: incidentPayload.severity,
+          status: incidentPayload.status,
+          assigned_to: undefined,
         });
-        return NextResponse.json({ success: true, incident });
+        return NextResponse.json({ success: true, incident: incidentPayload, ledger_block: block.hash });
       
       case 'update_incident':
-        // Update incident
-        const updatedIncident = await dbUpdateIncident(data.incident_id, {
-          ...data.updates,
-          timeline: data.timeline_entry ? [...(data.existing_timeline || []), data.timeline_entry] : undefined,
-        });
-        if (updatedIncident) {
-          // Broadcast real-time alert
+        // Update incident using Ledger append
+        const history = incidentLedger.getFullHistory(true);
+        const existingBlock = history.slice().reverse().find(b => b.data && b.data.incident_id === data.incident_id);
+        
+        let updatedPayload = null;
+        if (existingBlock && existingBlock.data) {
+          updatedPayload = {
+            ...existingBlock.data,
+            ...data.updates,
+            action: 'updated',
+            actor: data.timeline_entry?.actor || 'system',
+            timestamp: new Date().toISOString()
+          };
+          const updateBlock = incidentLedger.addIncident(updatedPayload);
+          
           broadcastIncidentAlert({
-            incident_id: updatedIncident.id,
-            title: updatedIncident.title,
-            severity: updatedIncident.severity,
-            status: updatedIncident.status,
-            action: data.updates?.status === 'resolved' ? 'resolved' : 
-                   data.updates?.status ? 'updated' : 'updated',
+            incident_id: updatedPayload.incident_id,
+            title: updatedPayload.title,
+            severity: updatedPayload.severity,
+            status: updatedPayload.status,
+            action: data.updates?.status === 'resolved' ? 'resolved' : 'updated',
           });
           
-          // Send email notification for status changes
           if (data.updates?.status) {
             sendIncidentAlert({
-              title: `[${data.updates.status.toUpperCase()}] ${updatedIncident.title}`,
+              title: `[${data.updates.status.toUpperCase()}] ${updatedPayload.title}`,
               description: `Incident status changed to ${data.updates.status}. Updated by ${data.timeline_entry?.actor || 'System'}.`,
-              severity: updatedIncident.severity,
-              status: updatedIncident.status,
-              assigned_to: updatedIncident.assigned_to || undefined,
+              severity: updatedPayload.severity,
+              status: updatedPayload.status,
+              assigned_to: undefined,
             }).catch(err => console.error('[Security] Failed to send status update email:', err));
           }
-          
-          // Log the action
-          await createAuditLog({
-            timestamp: new Date().toISOString(),
-            action: 'incident_updated',
-            actor: data.timeline_entry?.actor || 'Unknown',
-            target_type: 'incident',
-            target_id: updatedIncident.id,
-            details: { updates: data.updates },
-            ip_address: null,
-          });
         }
-        return NextResponse.json({ success: true, incident: updatedIncident });
+        return NextResponse.json({ success: true, incident: updatedPayload });
       
       case 'queue_scan':
         // Queue a network scan
