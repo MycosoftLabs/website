@@ -306,6 +306,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -468,6 +469,7 @@ All notable changes to this project will be documented in this file.
 - Add util workflow for fetching vm logs
 - Adhoc cleanup of rogue container
 - Add vm debugger
+- *(deploy)* Cloudflare Access headers, SSH retries, unified search fix
 
 ### Performance
 
