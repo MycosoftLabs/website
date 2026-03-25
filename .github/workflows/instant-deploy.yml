@@ -22,30 +22,20 @@ jobs:
     timeout-minutes: 15
     environment: production
     steps:
-      - name: Install cloudflared and configure SSH
-        run: |
-          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
-          sudo dpkg -i cloudflared.deb
-          rm cloudflared.deb
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          cat >> ~/.ssh/config <<EOF
-          Host production
-            HostName ${{ secrets.PRODUCTION_HOST }}
-            User ${{ secrets.SSH_USER }}
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no
-            UserKnownHostsFile /dev/null
-            ProxyCommand cloudflared access ssh --hostname %h
-            ServerAliveInterval 60
-            ServerAliveCountMax 120
-          EOF
-          chmod 600 ~/.ssh/config
+      - name: Checkout (for composite action)
+        uses: actions/checkout@v4
+
+      - name: Setup SSH via Cloudflare Tunnel
+        uses: ./.github/actions/setup-ssh
+        with:
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
 
       - name: Pull latest code on VM
         run: |
-          ssh production bash -s <<'SCRIPT'
+          ssh-retry production bash -s <<'SCRIPT'
             set -e
             cd /opt/mycosoft/website
             git fetch origin main
@@ -55,7 +45,7 @@ jobs:
 
       - name: Inject environment variables
         run: |
-          ssh production bash -s <<'ENVSCRIPT'
+          ssh-retry production bash -s <<'ENVSCRIPT'
             set -e
             cd /opt/mycosoft/website
             touch .env
@@ -63,7 +53,7 @@ jobs:
               sed -i "/^${var}=/d" .env
             done
           ENVSCRIPT
-          ssh production bash -s <<ENVSCRIPT2
+          ssh-retry production bash -s <<ENVSCRIPT2
             cd /opt/mycosoft/website
             echo 'NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}' >> .env
             echo 'NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}' >> .env
@@ -76,7 +66,7 @@ jobs:
       - name: Build and deploy on VM
         if: inputs.skip_build != 'true'
         run: |
-          ssh production bash -s <<'BUILD'
+          ssh-retry production bash -s <<'BUILD'
             set -e
             cd /opt/mycosoft/website
 
@@ -99,7 +89,7 @@ jobs:
       - name: Restart only (no build)
         if: inputs.skip_build == 'true'
         run: |
-          ssh production bash -s <<'RESTART'
+          ssh-retry production bash -s <<'RESTART'
             set -e
             cd /opt/mycosoft/website
             docker rm -f mycosoft-website 2>/dev/null || true
@@ -109,7 +99,7 @@ jobs:
 
       - name: Health check
         run: |
-          ssh production bash -s <<'SCRIPT'
+          ssh-retry production bash -s <<'SCRIPT'
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""

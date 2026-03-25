@@ -4,20 +4,60 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.0.3
+      - name: Checkout (for composite action)
+        uses: actions/checkout@v4
+
+      - name: Setup SSH via Cloudflare Tunnel
+        uses: ./.github/actions/setup-ssh
         with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: mycosoft
-          key: ${{ secrets.SSH_KEY }}
-          script: |
+          ssh-key: ${{ secrets.SSH_KEY }}
+          ssh-key-b64: ${{ secrets.SSH_KEY_B64 }}
+          production-host: ${{ secrets.PRODUCTION_HOST }}
+          ssh-user: ${{ secrets.SSH_USER }}
+
+      - name: Debug NAS and VM state
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+            echo "--- SYSTEM ---"
+            echo "Hostname: $(hostname)"
+            echo "IP: $(hostname -I)"
+            echo "Uptime: $(uptime)"
+            echo ""
+
             echo "--- FSTAB ---"
             cat /etc/fstab
+            echo ""
+
             echo "--- MOUNTS ---"
-            mount | grep nfs || echo "No NFS mounts active"
+            mount | grep -E "nfs|cifs" || echo "No NFS/CIFS mounts active"
+            echo ""
+
             echo "--- DF ---"
             df -h
+            echo ""
+
             echo "--- PINGING NAS (if found in fstab) ---"
             NAS_IP=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' /etc/fstab | head -n 1)
             if [ -n "$NAS_IP" ]; then
               ping -c 3 $NAS_IP || echo "NAS unreachable at $NAS_IP"
             fi
+            echo ""
+
+            echo "--- CLOUDFLARED STATUS ---"
+            systemctl status cloudflared --no-pager 2>/dev/null || echo "cloudflared not running as systemd service"
+            docker ps --filter "name=tunnel" --format "table {{.Names}}\t{{.Status}}" 2>/dev/null || true
+            echo ""
+
+            echo "--- DOCKER CONTAINERS ---"
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo ""
+
+            echo "--- LAN PING CHECK ---"
+            for ip in 192.168.0.1 192.168.0.105 192.168.0.188 192.168.0.189; do
+              if ping -c 1 -W 2 "$ip" > /dev/null 2>&1; then
+                echo "  $ip: REACHABLE"
+              else
+                echo "  $ip: UNREACHABLE"
+              fi
+            done
+          SCRIPT
