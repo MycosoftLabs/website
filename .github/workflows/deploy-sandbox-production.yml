@@ -102,7 +102,7 @@ jobs:
             StrictHostKeyChecking no
             UserKnownHostsFile /dev/null
             ProxyCommand cloudflared access ssh --hostname %h
-            ConnectTimeout 30
+            ConnectTimeout 60
             ConnectionAttempts 3
             ServerAliveInterval 30
             ServerAliveCountMax 6
@@ -112,8 +112,8 @@ jobs:
           # Create retry wrapper for SSH commands through flaky tunnels
           cat > /usr/local/bin/ssh-retry <<'RETRYSCRIPT'
           #!/usr/bin/env bash
-          MAX_ATTEMPTS=3
-          DELAY=15
+          MAX_ATTEMPTS=5
+          DELAY=20
           for attempt in $(seq 1 $MAX_ATTEMPTS); do
             echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
             if ssh "$@"; then
@@ -130,6 +130,11 @@ jobs:
           exit 1
           RETRYSCRIPT
           chmod +x /usr/local/bin/ssh-retry
+
+      - name: Verify tunnel connectivity
+        run: |
+          echo "Testing Cloudflare tunnel connectivity..."
+          ssh-retry production 'echo "Tunnel OK — $(hostname) — $(date)"'
 
       - name: Deploy to Sandbox VM
         env:

@@ -4,12 +4,59 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: mycosoft
-          key: ${{ secrets.SSH_KEY }}
-          script: |
+      - name: Install cloudflared and configure SSH
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+          rm cloudflared.deb
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config <<EOF
+          Host production
+            HostName ${{ secrets.PRODUCTION_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ProxyCommand cloudflared access ssh --hostname %h
+            ConnectTimeout 60
+            ConnectionAttempts 3
+            ServerAliveInterval 30
+            ServerAliveCountMax 6
+          EOF
+          chmod 600 ~/.ssh/config
+
+          # Create retry wrapper for SSH commands through flaky tunnels
+          cat > /usr/local/bin/ssh-retry <<'RETRYSCRIPT'
+          #!/usr/bin/env bash
+          MAX_ATTEMPTS=5
+          DELAY=20
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "SSH attempt $attempt/$MAX_ATTEMPTS..."
+            if ssh "$@"; then
+              exit 0
+            fi
+            rc=$?
+            if [ $attempt -lt $MAX_ATTEMPTS ]; then
+              echo "SSH failed (exit $rc), retrying in ${DELAY}s..."
+              sleep $DELAY
+              DELAY=$((DELAY * 2))
+            fi
+          done
+          echo "::error::SSH failed after $MAX_ATTEMPTS attempts"
+          exit 1
+          RETRYSCRIPT
+          chmod +x /usr/local/bin/ssh-retry
+
+      - name: Verify tunnel connectivity
+        run: |
+          echo "Testing Cloudflare tunnel connectivity..."
+          ssh-retry production 'echo "Tunnel OK — $(hostname) — $(date)"'
+
+      - name: Debug NAS and VM state
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
             echo "--- FSTAB ---"
             cat /etc/fstab
             echo "--- MOUNTS ---"
@@ -21,3 +68,8 @@ jobs:
             if [ -n "$NAS_IP" ]; then
               ping -c 3 $NAS_IP || echo "NAS unreachable at $NAS_IP"
             fi
+            echo "--- CLOUDFLARED STATUS ---"
+            systemctl status cloudflared 2>/dev/null || echo "cloudflared service not found"
+            echo "--- DOCKER STATUS ---"
+            docker ps -a
+          SCRIPT
