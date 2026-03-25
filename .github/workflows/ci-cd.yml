@@ -375,6 +375,7 @@ jobs:
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
             echo "Env vars injected"
           ENVSCRIPT2
 
@@ -530,6 +531,7 @@ jobs:
             echo 'MAS_API_URL=${{ secrets.MAS_API_URL }}' >> .env
             echo 'MINDEX_API_URL=${{ secrets.MINDEX_API_URL }}' >> .env
             echo 'OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}' >> .env
+            echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 
       - name: Build and deploy on VM
@@ -548,6 +550,10 @@ jobs:
 
             echo "=== Ensuring NAS is mounted ==="
             sudo mount -a 2>/dev/null || true
+            echo "--- FSTAB DUMP ---"
+            cat /etc/fstab
+            echo "--- MOUNTS ---"
+            df -h
 
             echo "=== Cleaning Up Zombie Containers ==="
             docker rm -f $(docker ps -aq --filter status=dead --filter status=exited) 2>/dev/null || true
