@@ -212,6 +212,13 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Use lowercase GHCR image name for docker pull to dodge invalid reference error
 - *(deploy)* Authenticate docker pull on VM and sweep zombie lock
 - Resolve satellite.js gcostheta error
+- *(deploy)* Allow port range for rolling updates [fast]
+- *(deploy)* Aggressively clean up port 3000 conflicts [fast]
+- *(media)* Remount NAS before deploy to fix missing videos [fast]
+- *(media)* Remount NAS before deploy to fix missing videos on standard deploy [fast]
+- *(deploy)* Aggressively clean containers to prevent port conflicts [fast]
+- *(deploy)* Run db migrations to prevent undefined hardware context [fast]
+- *(nas)* Inject fstab dumps and db url generator for VM pipeline [fast]
 
 ### CREP
 
@@ -242,6 +249,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -448,6 +456,7 @@ All notable changes to this project will be documented in this file.
 - Update tsconfig build info
 - Add util workflow for fetching vm logs
 - Adhoc cleanup of rogue container
+- Add vm debugger
 
 ### Performance
 
