@@ -561,6 +561,9 @@ jobs:
               -t mycosoft-website:local \
               .
 
+            echo "=== Ensuring NAS is mounted ==="
+            sudo mount -a 2>/dev/null || true
+
             echo "=== Performing Zero-Downtime Rolling Update ==="
             export WEBSITE_IMAGE="mycosoft-website:local"
             
