@@ -64,7 +64,7 @@ interface AlertPanelProps {
 // =============================================================================
 
 export function AlertPanel({
-  alerts,
+  alerts = [],
   onAlertClick,
   onDismiss,
   maxHeight = 300,

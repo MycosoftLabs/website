@@ -60,7 +60,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 // MINI BAR CHART
 // ============================================================================
 
-function PatternBarChart({ data }: { data: PatternOccurrence[] }) {
+function PatternBarChart({ data = [] }: { data: PatternOccurrence[] }) {
+  if (!data.length) return null
   const maxCount = Math.max(...data.map(d => d.occurrence_count), 1)
   
   return (
@@ -187,7 +188,7 @@ function PatternTimeline({ data }: { data: PatternOccurrence[] }) {
 // MAIN COMPONENT
 // ============================================================================
 
-export function FCIPatternChart({ data, deviceId, hours }: FCIPatternChartProps) {
+export function FCIPatternChart({ data = [], deviceId, hours }: FCIPatternChartProps) {
   const totalOccurrences = data.reduce((sum, d) => sum + d.occurrence_count, 0)
   const avgConfidence = data.length > 0
     ? data.reduce((sum, d) => sum + d.avg_confidence * d.occurrence_count, 0) / totalOccurrences

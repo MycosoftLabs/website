@@ -47,7 +47,7 @@ export function CrepMapPreferencesPanel({
   mapRef,
   mapBounds,
   mapZoom,
-  layers,
+  layers = [],
   groundFilter,
   eoImageryFilter,
   basemap,

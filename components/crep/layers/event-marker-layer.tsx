@@ -59,7 +59,7 @@ const typeColors: Record<string, string> = {
 }
 
 export function EventMarkerLayer({
-  events,
+  events = [],
   currentTime = Date.now(),
   timeWindowMs = 24 * 60 * 60 * 1000,
   entityType = "earthquake",
