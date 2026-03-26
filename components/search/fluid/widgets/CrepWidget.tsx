@@ -194,12 +194,14 @@ function AircraftCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-sky-200 truncate">{String(p.callsign || item.title)}</span>
-          {p.aircraftType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400">{String(p.aircraftType)}</span>}
+          {p.aircraftType != null && String(p.aircraftType) !== "" ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400">{String(p.aircraftType)}</span>
+          ) : null}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-          {(p.origin || p.destination) && (
+          {(p.origin != null && String(p.origin) !== "") || (p.destination != null && String(p.destination) !== "") ? (
             <span className="truncate">{p.origin ? String(p.origin) : "?"} → {p.destination ? String(p.destination) : "?"}</span>
-          )}
+          ) : null}
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
@@ -235,11 +237,15 @@ function VesselCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-teal-200 truncate">{item.title}</span>
-          {p.shipType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-400">{String(p.shipType)}</span>}
+          {p.shipType != null && String(p.shipType) !== "" ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-400">{String(p.shipType)}</span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          {p.destination && <span className="truncate">→ {String(p.destination)}</span>}
-          {p.flag && <span>{String(p.flag)}</span>}
+          {p.destination != null && String(p.destination) !== "" ? (
+            <span className="truncate">→ {String(p.destination)}</span>
+          ) : null}
+          {p.flag != null && String(p.flag) !== "" ? <span>{String(p.flag)}</span> : null}
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -248,7 +254,9 @@ function VesselCard({ item }: { item: CrepSearchResult }) {
             <Waves className="h-3 w-3" />{String(Number(p.speed).toFixed(1))}kts
           </span>
         )}
-        {p.mmsi && <span className="text-[10px] font-mono text-teal-400/50">MMSI {String(p.mmsi)}</span>}
+        {p.mmsi != null && String(p.mmsi) !== "" ? (
+          <span className="text-[10px] font-mono text-teal-400/50">MMSI {String(p.mmsi)}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -264,7 +272,7 @@ function SatelliteCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <span className="text-sm font-semibold text-violet-200 truncate block">{item.title}</span>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          {p.orbitType && <span>{String(p.orbitType)}</span>}
+          {p.orbitType != null && String(p.orbitType) !== "" ? <span>{String(p.orbitType)}</span> : null}
           {p.inclination != null && <span>{String(Number(p.inclination).toFixed(1))}° inc</span>}
         </div>
       </div>
@@ -272,7 +280,9 @@ function SatelliteCard({ item }: { item: CrepSearchResult }) {
         {p.velocity != null && (
           <span className="text-[11px] font-mono text-violet-300">{String(Number(p.velocity).toFixed(1))} km/s</span>
         )}
-        {p.noradId && <span className="text-[10px] font-mono text-violet-400/50">NORAD {String(p.noradId)}</span>}
+        {p.noradId != null && String(p.noradId) !== "" ? (
+          <span className="text-[10px] font-mono text-violet-400/50">NORAD {String(p.noradId)}</span>
+        ) : null}
       </div>
     </div>
   )
@@ -295,7 +305,9 @@ function EventCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <span className="text-sm font-semibold text-amber-200 truncate block">{item.title}</span>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          {p.eventType && <span className="capitalize">{String(p.eventType)}</span>}
+          {p.eventType != null && String(p.eventType) !== "" ? (
+            <span className="capitalize">{String(p.eventType)}</span>
+          ) : null}
           {p.magnitude != null && <span>M{String(Number(p.magnitude).toFixed(1))}</span>}
           <span className="truncate">{item.description}</span>
         </div>
@@ -311,9 +323,13 @@ function FungalCard({ item }: { item: CrepSearchResult }) {
   const p = item.properties || {}
   return (
     <div className="flex items-center gap-3 p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15 hover:border-emerald-500/30 transition-colors">
-      {p.thumbnailUrl || p.imageUrl ? (
+      {(p.thumbnailUrl != null && String(p.thumbnailUrl) !== "") || (p.imageUrl != null && String(p.imageUrl) !== "") ? (
         <img
-          src={String(p.thumbnailUrl || p.imageUrl)}
+          src={
+            p.thumbnailUrl != null && String(p.thumbnailUrl) !== ""
+              ? String(p.thumbnailUrl)
+              : String(p.imageUrl)
+          }
           alt={item.title}
           className="w-9 h-9 rounded-lg object-cover shrink-0"
         />
@@ -325,11 +341,15 @@ function FungalCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-emerald-200 truncate">{String(p.commonName || item.title)}</span>
-          {p.isToxic && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">Toxic</span>}
+          {p.isToxic === true ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">Toxic</span>
+          ) : null}
           {p.qualityGrade === "research" && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Verified</span>}
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          {p.scientificName && <span className="italic truncate">{String(p.scientificName)}</span>}
+          {p.scientificName != null && String(p.scientificName) !== "" ? (
+            <span className="italic truncate">{String(p.scientificName)}</span>
+          ) : null}
           <span>{item.source}</span>
         </div>
       </div>
@@ -381,7 +401,9 @@ function SpaceWeatherCard({ item }: { item: CrepSearchResult }) {
         <span className="text-sm font-semibold text-yellow-200 truncate block">{item.title}</span>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
           {p.kpIndex != null && <span>Kp {String(p.kpIndex)}</span>}
-          {p.flareClass && <span>Class {String(p.flareClass)}</span>}
+          {p.flareClass != null && String(p.flareClass) !== "" ? (
+            <span>Class {String(p.flareClass)}</span>
+          ) : null}
           {p.solarWindSpeed != null && <span>{String(Math.round(Number(p.solarWindSpeed)))} km/s</span>}
           {item.description && <span className="truncate">{item.description}</span>}
         </div>
@@ -403,8 +425,10 @@ function EmissionsCard({ item }: { item: CrepSearchResult }) {
       <div className="flex-1 min-w-0">
         <span className="text-sm font-semibold text-slate-200 truncate block">{item.title}</span>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-          {p.date ? <span>{String(p.date)}</span> : <span>Live</span>}
-          {p.source && <span className="uppercase">{String(p.source)}</span>}
+          {p.date != null && String(p.date) !== "" ? <span>{String(p.date)}</span> : <span>Live</span>}
+          {p.source != null && String(p.source) !== "" ? (
+            <span className="uppercase">{String(p.source)}</span>
+          ) : null}
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -531,7 +555,7 @@ export function CrepWidget({
 }: CrepWidgetProps) {
   const [lastRefresh, setLastRefresh] = useState(Date.now())
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval>>()
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   // Group data by domain type
   const groups = useMemo<CrepDomainGroups>(() => {

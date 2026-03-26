@@ -252,44 +252,17 @@ export default function SettingsPage() {
   const [showChangeLog, setShowChangeLog] = useState(false)
   const [mycaMessage, setMycaMessage] = useState<string | null>(null)
 
-  // Fetch settings on mount
-  useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  // Auth gate: show login prompt if not authenticated
-  if (!authLoading && !user) {
-    return (
-      <DashboardShell>
-        <div className="flex flex-col items-center justify-center h-96 gap-4">
-          <Lock className="h-12 w-12 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">Sign in to access Settings</h2>
-          <p className="text-muted-foreground text-center max-w-md">
-            You need to be logged in to view and modify your NatureOS settings. Your settings are saved per-account and persist across sessions.
-          </p>
-          <Link
-            href="/login?redirectTo=/natureos/settings"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-          >
-            <User className="h-4 w-4" />
-            Sign In
-          </Link>
-        </div>
-      </DashboardShell>
-    )
-  }
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true)
       const [settingsRes, logRes] = await Promise.all([
         fetch("/api/natureos/settings?includeLog=true&logLimit=50"),
         fetch("/api/natureos/settings/changelog?limit=20"),
       ])
-      
+
       const settingsData = await settingsRes.json()
       const logData = await logRes.json()
-      
+
       setSettings(settingsData.settings)
       setPendingChanges(settingsData.pendingChanges || [])
       setChangeLog(logData.changes || [])
@@ -298,7 +271,7 @@ export default function SettingsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const updateSetting = useCallback(async (
     category: string,
@@ -366,7 +339,34 @@ export default function SettingsPage() {
     } finally {
       setSaving(false)
     }
-  }, [])
+  }, [fetchSettings])
+
+  useEffect(() => {
+    if (authLoading || !user) return
+    fetchSettings()
+  }, [fetchSettings, authLoading, user])
+
+  // Auth gate: show login prompt if not authenticated
+  if (!authLoading && !user) {
+    return (
+      <DashboardShell>
+        <div className="flex flex-col items-center justify-center h-96 gap-4">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">Sign in to access Settings</h2>
+          <p className="text-muted-foreground text-center max-w-md">
+            You need to be logged in to view and modify your NatureOS settings. Your settings are saved per-account and persist across sessions.
+          </p>
+          <Link
+            href="/login?redirectTo=/natureos/settings"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          >
+            <User className="h-4 w-4" />
+            Sign In
+          </Link>
+        </div>
+      </DashboardShell>
+    )
+  }
 
   const approveChange = async (changeId: string, action: "approve" | "reject") => {
     try {

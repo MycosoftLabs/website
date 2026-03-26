@@ -325,7 +325,7 @@ type LayerDataStatus = "real" | "planned_real" | "mock";
 interface LayerConfig {
   id: string;
   name: string;
-  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution";
+  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities";
   icon: React.ReactNode;
   enabled: boolean;
   opacity: number;
@@ -548,6 +548,9 @@ const layerCategories = {
   human: { label: "Human Activity", icon: <Users className="w-3.5 h-3.5" />, color: "text-blue-400" },
   military: { label: "[DEMO] Military & Defense", icon: <Shield className="w-3.5 h-3.5" />, color: "text-amber-400" },
   pollution: { label: "Pollution & Industry", icon: <Factory className="w-3.5 h-3.5" />, color: "text-orange-400" },
+  imagery: { label: "Earth Observation", icon: <Globe className="w-3.5 h-3.5" />, color: "text-teal-400" },
+  telecom: { label: "Telecom & Infrastructure", icon: <Radio className="w-3.5 h-3.5" />, color: "text-violet-400" },
+  facilities: { label: "Facilities", icon: <MapPin className="w-3.5 h-3.5" />, color: "text-pink-400" },
 };
 
 // Event marker component with detailed popup
@@ -1422,6 +1425,9 @@ function LayerControlPanel({
       infrastructure: [],
       military: [],
       pollution: [],
+      imagery: [],
+      telecom: [],
+      facilities: [],
     };
     layers.forEach(layer => {
       groups[layer.category]?.push(layer);
@@ -1863,7 +1869,7 @@ export default function CREPDashboardPage() {
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
 
   // Ground Station — consume context to render satellite positions + station on map
-  const { state: gsState } = useGroundStation();
+  const { state: gsState, selectGroup } = useGroundStation();
 
   // Check for existing mission in localStorage on mount
   useEffect(() => {
@@ -2019,7 +2025,7 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     { id: "gibsModis", name: "MODIS True Color", category: "imagery", icon: <Globe className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#059669", description: "NASA MODIS Terra daily satellite imagery overlay" },
     { id: "gibsViirs", name: "VIIRS Night Lights", category: "imagery", icon: <Eye className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#fbbf24", description: "VIIRS global night lights composite" },
-    { id: "gibsLandsat", name: "Landsat WELD", category: "imagery", icon: <Map className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#22c55e", description: "Landsat WELD true color historic imagery" },
+    { id: "gibsLandsat", name: "Landsat WELD", category: "imagery", icon: <MapIcon className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#22c55e", description: "Landsat WELD true color historic imagery" },
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -4535,7 +4541,7 @@ export default function CREPDashboardPage() {
           {showGroundStation && gsState.activeLocation && (
             <MapMarker
               latitude={gsState.activeLocation.lat}
-              longitude={gsState.activeLocation.lon || gsState.activeLocation.lng || 0}
+              longitude={gsState.activeLocation.lon ?? 0}
             >
               <MarkerContent>
                 <div className="w-6 h-6 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center animate-pulse" title={`Ground Station: ${gsState.activeLocation.name || "Active"}`}>
@@ -4855,23 +4861,23 @@ export default function CREPDashboardPage() {
                                 <div className="flex items-center gap-2">
                                   <Radio className="w-3.5 h-3.5 text-cyan-400" />
                                   <span className="text-[10px] font-bold text-white">GROUND STATION</span>
-                                  <div className={cn("w-1.5 h-1.5 rounded-full", gsConnected ? "bg-green-400" : "bg-red-500")} />
+                                  <div className={cn("w-1.5 h-1.5 rounded-full", gsState.connected ? "bg-green-400" : "bg-red-500")} />
                                 </div>
-                                <span className="text-[8px] text-gray-500">{gsSatellites.length} sats</span>
+                                <span className="text-[8px] text-gray-500">{gsState.satellites.length} sats</span>
                               </div>
                               <select
-                                value={gsSelectedGroupId || ""}
-                                onChange={(e) => setGsSelectedGroupId(e.target.value || null)}
+                                value={gsState.selectedGroupId || ""}
+                                onChange={(e) => selectGroup(e.target.value || null)}
                                 className="w-full h-6 text-[10px] bg-black/40 border border-gray-700/50 rounded px-1.5 text-white"
                               >
                                 <option value="">Select group...</option>
-                                {gsGroups.map((g) => (
-                                  <option key={g.id} value={g.id}>{g.name} ({g.satellite_count})</option>
+                                {gsState.groups.map((g) => (
+                                  <option key={g.id} value={g.id}>{g.name} ({g.satellite_ids?.length ?? 0})</option>
                                 ))}
                               </select>
-                              {gsPasses.length > 0 && (
+                              {gsState.passes.length > 0 && (
                                 <div className="space-y-0.5">
-                                  {gsPasses.slice(0, 3).map((p, i) => (
+                                  {gsState.passes.slice(0, 3).map((p, i) => (
                                     <div key={i} className="flex justify-between text-[8px]">
                                       <span className="text-gray-300 truncate">{p.satellite_name}</span>
                                       <span className="text-cyan-400">{p.max_elevation.toFixed(0)}°</span>
@@ -5209,7 +5215,10 @@ export default function CREPDashboardPage() {
           />
           {/* Pass Timeline at bottom of map */}
           <div className="fixed bottom-8 left-0 right-0 z-40">
-            <GSPassTimeline />
+            <GSPassTimeline
+              passes={gsState.passes}
+              trackingNoradId={gsState.trackingState?.norad_id ?? undefined}
+            />
           </div>
         </>
       )}

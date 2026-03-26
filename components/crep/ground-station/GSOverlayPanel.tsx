@@ -79,9 +79,9 @@ export function GSOverlayPanel({
   const trackingNoradId = state.trackingState?.norad_id
   // Hardware state comes from separate arrays, not a single hardware object
   const hardwareStatus = {
-    rotator_connected: (state.rotators?.length ?? 0) > 0 && state.rotators[0]?.status === "connected",
-    rig_connected: (state.rigs?.length ?? 0) > 0 && state.rigs[0]?.status === "connected",
-    sdr_connected: (state.sdrs?.length ?? 0) > 0 && state.sdrs[0]?.status === "connected",
+    rotator_connected: (state.rotators?.length ?? 0) > 0,
+    rig_connected: (state.rigs?.length ?? 0) > 0,
+    sdr_connected: (state.sdrs?.length ?? 0) > 0,
   }
   const passCount = state.passes.length
   const nextPassTime = state.passes[0]?.aos_time

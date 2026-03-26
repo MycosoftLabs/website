@@ -22,21 +22,40 @@ import { useMapWebSocket, MapCommandHandlers } from "@/hooks/useMapWebSocket"
 // ---------------------------------------------------------------------------
 // Interim Web Speech API bridge (fallback when PersonaPlex is unavailable)
 // ---------------------------------------------------------------------------
+// lib.dom types `SpeechRecognition` as a constructor (value); use a structural
+// instance type for refs so `useRef<SpeechRecognition>` does not error (TS2749).
+
+interface WebSpeechRecognition {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start(): void
+  stop(): void
+  abort(): void
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+}
+
+type SpeechRecognitionCtor = new () => WebSpeechRecognition
 
 function useWebSpeechBridge() {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [lastTranscript, setLastTranscript] = useState("")
   const [isSupported, setIsSupported] = useState(false)
-  const recognitionRef = useRef<unknown>(null)
+  const recognitionRef = useRef<WebSpeechRecognition | null>(null)
 
   useEffect(() => {
-    const SpeechRecognition = (window as unknown as Record<string, unknown>).SpeechRecognition
-      || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-    setIsSupported(!!SpeechRecognition && "speechSynthesis" in window)
+    const w = window as Window & {
+      SpeechRecognition?: SpeechRecognitionCtor
+      webkitSpeechRecognition?: SpeechRecognitionCtor
+    }
+    const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
+    setIsSupported(!!Ctor && "speechSynthesis" in window)
 
-    if (SpeechRecognition) {
-      const recognition = new (SpeechRecognition as new () => SpeechRecognition)()
+    if (Ctor) {
+      const recognition = new Ctor()
       recognition.continuous = false
       recognition.interimResults = false
       recognition.lang = "en-US"
@@ -64,7 +83,7 @@ function useWebSpeechBridge() {
   const startListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
-        (recognitionRef.current as SpeechRecognition).start()
+        recognitionRef.current.start()
         setIsListening(true)
       } catch {
         // Already started or not supported
@@ -75,7 +94,7 @@ function useWebSpeechBridge() {
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
-        (recognitionRef.current as SpeechRecognition).stop()
+        recognitionRef.current.stop()
       } catch {
         // Already stopped
       }

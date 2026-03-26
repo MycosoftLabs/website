@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { Canvas, useFrame } from "@react-three/fiber"
-import { OrbitControls, Text } from "@react-three/drei"
+import { OrbitControls, Text, Html as DreiHtml } from "@react-three/drei"
+import type { Group } from "three"
 import { Suspense, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 
@@ -32,17 +33,17 @@ const FungalNode = ({ name, level, x, y, z }: { name: string; level: number; x: 
           <FungalNode name={`${name}-child2`} level={level + 1} x={x - 1} y={y - 1} z={z} />
         </>
       )}
-      <Html distanceFactor={5}>
+      <ScaledHtmlOverlay distanceFactor={5}>
         <Button variant="outline" size="xs" onClick={() => setIsExpanded(!isExpanded)}>
           {isExpanded ? "Collapse" : "Expand"}
         </Button>
-      </Html>
+      </ScaledHtmlOverlay>
     </group>
   )
 }
 
-const Html = ({ children, distanceFactor }: { children: React.ReactNode; distanceFactor: number }) => {
-  const ref = useRef<HTMLDivElement>(null)
+function ScaledHtmlOverlay({ children, distanceFactor }: { children: React.ReactNode; distanceFactor: number }) {
+  const ref = useRef<Group>(null)
   useFrame((state) => {
     if (!ref.current) return
     const distance = ref.current.position.distanceTo(state.camera.position)
@@ -54,9 +55,9 @@ const Html = ({ children, distanceFactor }: { children: React.ReactNode; distanc
         <sphereGeometry args={[0.2, 32, 32]} />
         <meshStandardMaterial visible={false} />
       </mesh>
-      <Html transform occlude>
+      <DreiHtml transform occlude>
         <div className=" pointer-events-auto">{children}</div>
-      </Html>
+      </DreiHtml>
     </group>
   )
 }

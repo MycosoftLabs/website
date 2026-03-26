@@ -152,16 +152,15 @@ function CollapsibleSection({ section, pathname, isOpen: sidebarOpen, isCompanyU
   // Filter items based on company user access
   const visibleItems = section.items.filter(item => !item.companyOnly || isCompanyUser)
 
+  // Check if any visible item in this section is active (hooks must run before any return)
+  const hasActiveItem = visibleItems.some(item => pathname === item.href || pathname.startsWith(item.href + "/"))
+
+  const [isExpanded, setIsExpanded] = useState(section.defaultOpen || hasActiveItem)
+
   // Hide entire section from non-company users if it's company-only, or if no items are visible
   if ((section.companyOnly && !isCompanyUser) || visibleItems.length === 0) {
     return null
   }
-
-  // Check if any visible item in this section is active
-  const hasActiveItem = visibleItems.some(item => pathname === item.href || pathname.startsWith(item.href + "/"))
-
-  // Open by default if section has active item or if defaultOpen is true
-  const [isExpanded, setIsExpanded] = useState(section.defaultOpen || hasActiveItem)
 
   const handleToggle = () => {
     if (sidebarOpen) {
