@@ -4,7 +4,7 @@ import { NeuCard, NeuromorphicProvider } from "@/components/ui/neuromorphic"
 import { ExternalLink } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "Science & Research - Mycosoft",
+  title: "Science & Research | Mycosoft",
   description: "Explore Mycosoft's scientific research and publications in mycology",
 }
 

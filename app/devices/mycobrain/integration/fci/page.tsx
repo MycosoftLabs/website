@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "FCI Integration - Fungal Computer Interface | Mycosoft",
+  title: "FCI Integration | Fungal Computer Interface | Mycosoft",
   description: "Connect MycoBrain to the Fungal Computer Interface (FCI) for bioelectric signal acquisition from mycelium networks",
 }
 

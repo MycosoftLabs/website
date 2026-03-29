@@ -10,7 +10,7 @@ import {
 } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "Genomics Capabilities - Mycosoft",
+  title: "Genomics Capabilities | Mycosoft",
   description: "Advanced genomics visualization and analysis tools for fungal species research, biosecurity, and environmental intelligence",
 }
 

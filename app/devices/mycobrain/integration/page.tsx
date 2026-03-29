@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BookOpen, Brain, Database, Layers, Network } from "lucide-react"
 
 export const metadata: Metadata = {
-  title: "MycoBrain Integration Guide - Mycosoft",
+  title: "MycoBrain Integration Guide | Mycosoft",
   description: "Integrate MycoBrain V1 with MINDEX, NatureOS, MAS, FCI, and the Mycorrhizae Protocol",
 }
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { MushroomDirectory } from "@/components/mushrooms/mushroom-directory"
 
 export const metadata: Metadata = {
-  title: "Mushroom Species Database - Mycosoft",
+  title: "Mushroom Species Database | Mycosoft",
   description: "Explore our comprehensive database of over 10,000 mushroom species and their properties",
 }
 

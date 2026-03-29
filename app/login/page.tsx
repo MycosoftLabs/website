@@ -1,4 +1,22 @@
+import type { Metadata } from 'next'
 import { LoginForm } from "./LoginForm"
+
+export const metadata: Metadata = {
+  title: 'Sign In | Mycosoft',
+  description: 'Sign in to your Mycosoft account.',
+  alternates: {
+    canonical: '/login',
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
+  openGraph: {
+    title: 'Sign In | Mycosoft',
+    description: 'Sign in to your Mycosoft account.',
+    url: '/login',
+  },
+}
 
 export default async function LoginPage({
   searchParams,

@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const metadata: Metadata = {
-  title: "Device Specifications - Hardware Technical Details | Mycosoft",
+  title: "Device Specifications | Hardware Technical Details | Mycosoft",
   description: "Detailed technical specifications, 3D renderings, and component breakdowns for all Mycosoft environmental sensing devices.",
 }
 

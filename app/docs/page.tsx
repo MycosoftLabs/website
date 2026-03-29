@@ -1,7 +1,21 @@
+import type { Metadata } from 'next'
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileText, Cpu, Shield, Zap } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: 'Documentation | Mycosoft',
+  description: 'Mycosoft developer documentation, API references, and integration guides.',
+  alternates: {
+    canonical: '/docs',
+  },
+  openGraph: {
+    title: 'Documentation | Mycosoft',
+    description: 'Mycosoft developer documentation, API references, and integration guides.',
+    url: '/docs',
+  },
+}
 
 export default function DocsPage() {
   return (

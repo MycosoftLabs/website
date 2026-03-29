@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export const metadata: Metadata = {
-  title: "MycoBrain â†’ MINDEX Integration - Mycosoft",
+  title: "MycoBrain â†’ MINDEX Integration | Mycosoft",
   description: "MycoBrain device schema + ingestion agent flow for MINDEX",
 }
 
