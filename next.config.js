@@ -42,6 +42,8 @@ for (const envFile of ['.env.local', '.env']) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Disable X-Powered-By header for security
+  poweredByHeader: false,
   // Enable standalone output for Docker deployment
   output: 'standalone',
   // Skip TypeScript errors during build (pre-existing Next.js 15 type issues)
@@ -128,6 +130,10 @@ const nextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https: wss:; frame-src 'self' https:; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
           },
         ],
       },

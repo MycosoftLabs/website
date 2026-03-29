@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export const metadata: Metadata = {
-  title: "Mycorrhizae Protocol - Mycosoft",
+  title: "Mycorrhizae Protocol | Mycosoft",
   description: "Schema + channel layer bridging MINDEX and NatureOS (via MAS)",
 }
 

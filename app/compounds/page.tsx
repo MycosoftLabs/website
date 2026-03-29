@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 import { COMPOUND_MAPPING } from "@/lib/data/compounds"
 
 export const metadata: Metadata = {
-  title: "Compounds - Mycosoft",
+  title: "Compounds | Mycosoft",
   description: "Explore fungal compounds in the Mycosoft database",
 }
 

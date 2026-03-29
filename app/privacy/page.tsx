@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Mycosoft",
+  title: "Privacy Policy | Mycosoft",
   description: "Learn how Mycosoft protects and handles your data",
 }
 
