@@ -227,6 +227,7 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Bind Next.js to 0.0.0.0 so Docker healthcheck works
 - *(ci)* Repair setup-ssh composite action YAML for deploy
 - ESLint hooks in nav; Drei Html overlay in ancestry-db; CREP and NatureOS UI fixes
+- SEO audit remediation — metadata, sitemap, security headers, schema
 
 ### CREP
 
@@ -257,6 +258,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
