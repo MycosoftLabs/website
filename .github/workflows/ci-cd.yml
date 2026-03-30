@@ -280,6 +280,7 @@ jobs:
           ssh-user: ${{ secrets.SSH_USER }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
 
       - name: Deploy to staging
         run: |
@@ -324,6 +325,7 @@ jobs:
           ssh-user: ${{ secrets.SSH_USER }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
 
       - name: Backup database
         continue-on-error: true
@@ -471,6 +473,7 @@ jobs:
           ssh-user: ${{ secrets.SSH_USER }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
 
       - name: Pull latest code on VM
         run: |

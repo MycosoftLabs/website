@@ -17,6 +17,7 @@
 #       ssh-user: ${{ secrets.SSH_USER }}
 #       cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
 #       cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+#       require-cloudflare-access: true   # fail fast if Access secrets missing (recommended for deploy jobs)
 #
 # If SSH is behind Cloudflare Zero Trust Access, CI must use a Service Token:
 # Zero Trust → Access → Applications → your SSH app → Service Auth policy, then
@@ -47,6 +48,10 @@ inputs:
   cf-access-client-secret:
     description: 'Cloudflare Access service token Client Secret (pair with cf-access-client-id)'
     required: false
+  require-cloudflare-access:
+    description: 'If true, fail validation when CF_ACCESS_CLIENT_ID or CF_ACCESS_CLIENT_SECRET is empty (avoids long SSH banner timeouts)'
+    required: false
+    default: 'false'
 
 outputs:
   ssh-user:
@@ -64,6 +69,9 @@ runs:
         SSH_KEY_B64: ${{ inputs.ssh-key-b64 }}
         PRODUCTION_HOST: ${{ inputs.production-host }}
         SSH_USER: ${{ inputs.ssh-user }}
+        CF_ACCESS_CLIENT_ID: ${{ inputs.cf-access-client-id }}
+        CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
+        REQUIRE_CF_ACCESS: ${{ inputs.require-cloudflare-access }}
       run: |
         ERRORS=0
 
@@ -94,6 +102,18 @@ runs:
         fi
 
         echo "user=${SSH_USER:-mycosoft}" >> "$GITHUB_OUTPUT"
+
+        if [ "${REQUIRE_CF_ACCESS}" = "true" ]; then
+          if [ -z "${CF_ACCESS_CLIENT_ID}" ] || [ -z "${CF_ACCESS_CLIENT_SECRET}" ]; then
+            echo "::error::CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET are required for this job but one or both are empty."
+            echo "::error::They are not the VM SSH password — create a Cloudflare Zero Trust Service Auth token and add both values as GitHub Actions secrets."
+            echo "::error::Zero Trust → Access → Applications → (SSH/tunnel app) → Policies → allow Service Auth, or Access → Service Auth."
+            echo "::error::If the job uses environment: production or staging, add the secrets under that environment too (not only repository secrets)."
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "Cloudflare Access service token: both Client ID and Secret are set"
+          fi
+        fi
 
         if [ $ERRORS -gt 0 ]; then
           echo "::error::${ERRORS} secret(s) missing or invalid — cannot deploy. Check GitHub Settings → Secrets and variables → Actions."
@@ -144,16 +164,34 @@ runs:
         fi
         echo "SSH key fingerprint: $(ssh-keygen -l -f ~/.ssh/deploy_key)"
 
-        # ProxyCommand: Access-protected SSH needs service token in non-interactive CI
-        # (see https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-cloudflared-authentication/ )
+        # ProxyCommand: Access-protected SSH needs a Service Auth token in CI.
+        # Docs: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-cloudflared-authentication/
+        # Use a wrapper script + sidecar files so secrets with special chars never break ssh_config / sh -c parsing.
+        CF_PROXY="${HOME}/.ssh/cf-access-ssh-proxy.sh"
         if [ -n "${CF_ACCESS_CLIENT_ID:-}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
-          ID_Q=$(printf '%q' "${CF_ACCESS_CLIENT_ID}")
-          SEC_Q=$(printf '%q' "${CF_ACCESS_CLIENT_SECRET}")
-          PROXY_CMD="cloudflared access ssh --hostname %h --id ${ID_Q} --secret ${SEC_Q}"
-          echo "Using Cloudflare Access service token for cloudflared access ssh."
+          printf '%s' "${CF_ACCESS_CLIENT_ID}" > ~/.ssh/cf_access_client_id
+          printf '%s' "${CF_ACCESS_CLIENT_SECRET}" > ~/.ssh/cf_access_client_secret
+          chmod 600 ~/.ssh/cf_access_client_id ~/.ssh/cf_access_client_secret
+          {
+            echo '#!/usr/bin/env bash'
+            echo 'set -euo pipefail'
+            echo 'H="${1:-}"'
+            echo 'ID="$(cat "${HOME}/.ssh/cf_access_client_id")"'
+            echo 'SEC="$(cat "${HOME}/.ssh/cf_access_client_secret")"'
+            echo 'export CLOUDFLARE_ACCESS_CLIENT_ID="${ID}" CLOUDFLARE_ACCESS_CLIENT_SECRET="${SEC}"'
+            echo 'exec cloudflared access ssh --hostname "$H" --id "${ID}" --secret "${SEC}"'
+          } > "${CF_PROXY}"
+          chmod 700 "${CF_PROXY}"
+          echo "Using Cloudflare Access service token (proxy script + --id/--secret from files)."
         else
-          PROXY_CMD="cloudflared access ssh --hostname %h"
-          echo "::warning::CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET not set. If this host uses Cloudflare Access in front of SSH, add both secrets (Service Auth token) or the tunnel test will time out at banner exchange."
+          rm -f ~/.ssh/cf_access_client_id ~/.ssh/cf_access_client_secret 2>/dev/null || true
+          {
+            echo '#!/usr/bin/env bash'
+            echo 'set -euo pipefail'
+            echo 'exec cloudflared access ssh --hostname "${1:-}"'
+          } > "${CF_PROXY}"
+          chmod 700 "${CF_PROXY}"
+          echo "::warning::CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET not set. If this host uses Cloudflare Access in front of SSH, add both as GitHub Actions secrets (Zero Trust → Access → Service Auth). Without them, SSH often times out at banner exchange."
         fi
 
         # Write ssh_config via echo — heredoc body at column 0 breaks YAML in composite actions
@@ -164,7 +202,7 @@ runs:
           echo "  IdentityFile ~/.ssh/deploy_key"
           echo "  StrictHostKeyChecking no"
           echo "  UserKnownHostsFile /dev/null"
-          echo "  ProxyCommand ${PROXY_CMD}"
+          echo "  ProxyCommand ${CF_PROXY} %h"
           echo "  ConnectTimeout 60"
           echo "  ConnectionAttempts 3"
           echo "  ServerAliveInterval 30"

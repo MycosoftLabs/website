@@ -16,6 +16,7 @@ jobs:
           ssh-user: ${{ secrets.SSH_USER }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          require-cloudflare-access: true
 
       - name: Debug NAS and VM state
         run: |

@@ -1,8 +1,9 @@
 # CI/CD SSH Key Setup (Mar 15, 2026)
 
 **Status:** Current  
+**Last updated:** Mar 29, 2026 (Cloudflare Access for tunnel SSH)  
 **Repo:** website  
-**Workflow:** `.github/workflows/ci-cd.yml`
+**Workflow:** `.github/workflows/ci-cd.yml`, `.github/workflows/deploy-sandbox-production.yml`
 
 ## Overview
 
@@ -43,6 +44,23 @@ The workflow decodes it and writes the key to a file, then uses **key_path** for
 - **`PRODUCTION_HOST`** — Hostname or IP for production (e.g. `192.168.0.187` or `sandbox.mycosoft.com`).
 - **`STAGING_HOST`** — Hostname or IP for staging (for deploy-staging).
 - **`SSH_USER`** — SSH username (e.g. `mycosoft`). Defaults to `mycosoft` if unset.
+
+### Cloudflare Tunnel + Access (required when SSH hostname is behind Access)
+
+If **`PRODUCTION_HOST`** / **`STAGING_HOST`** is a **Cloudflare Tunnel** hostname and that hostname is protected by **Cloudflare Zero Trust Access**, GitHub Actions must authenticate as a **service** before SSH can complete the banner exchange. Without these secrets, the job fails with **“Connection timed out during banner exchange”** and logs **“CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET not set”**.
+
+Add **both** repository secrets (same names in **Settings → Secrets and variables → Actions**; if you use a **`production`** environment, add them there too):
+
+| Secret | Source |
+|--------|--------|
+| **`CF_ACCESS_CLIENT_ID`** | Cloudflare Zero Trust → **Access** → **Service Auth** → create a **Client ID** for a service token allowed to reach your SSH application. |
+| **`CF_ACCESS_CLIENT_SECRET`** | The matching **Client Secret** for that token. |
+
+Ensure an **Access policy** on the SSH (or catch-all) application allows **Service Auth** for that token. The composite action **`.github/actions/setup-ssh`** passes these into `cloudflared access ssh` via a small proxy script (see `action.yml`).
+
+**Do not** commit these values; they are not the same as VM passwords in `.credentials.local`.
+
+Deploy and VM diagnostic workflows pass **`require-cloudflare-access: true`** into **`.github/actions/setup-ssh`**, so the job fails immediately with a clear error if either Access secret is missing (instead of timing out during the SSH banner).
 
 ## Workflow behavior
 
