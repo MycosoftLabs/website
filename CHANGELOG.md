@@ -312,6 +312,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -475,6 +476,7 @@ All notable changes to this project will be documented in this file.
 - Adhoc cleanup of rogue container
 - Add vm debugger
 - *(deploy)* Cloudflare Access headers, SSH retries, unified search fix
+- *(setup-ssh)* Require Cloudflare Access secrets on deploy workflows
 
 ### Performance
 
