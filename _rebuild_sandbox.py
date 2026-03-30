@@ -89,6 +89,8 @@ def main():
         return client
 
     ssh = _connect_ssh()
+    # VM Next.js --no-cache builds often exceed 2h; override with REBUILD_BUILD_TIMEOUT_SEC
+    build_timeout_sec = int(os.environ.get("REBUILD_BUILD_TIMEOUT_SEC", "14400"))
 
     def _run(cmd: str, timeout: int = 90) -> tuple[int, str, str]:
         """Run a remote command and return (exit_code, stdout, stderr)."""
@@ -209,16 +211,17 @@ else:
     build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
     build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
 
+    print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
     print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
     pid = _start_background_build(build_cmd_legacy)
-    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=7200)
+    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
     print(f"   Last 50 lines:\n{out}")
 
     if code != 0:
         print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
         for attempt in (1, 2):
             pid = _start_background_build(build_cmd_buildkit)
-            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=7200)
+            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
             print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
             if code == 0:
                 break
