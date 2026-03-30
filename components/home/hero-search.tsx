@@ -22,6 +22,7 @@ import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import {
   Search,
   Mic,
@@ -32,6 +33,9 @@ import {
   Command,
   Brain,
 } from "lucide-react"
+
+const HOME_HERO_MP4 = "/assets/homepage/Mycosoft Background.mp4"
+const HOME_HERO_SOURCES = assetMp4Sources(HOME_HERO_MP4)
 
 export function HeroSearch() {
   const router = useRouter()
@@ -222,7 +226,8 @@ export function HeroSearch() {
       {/* Full-screen video — fixed to viewport so always covers entire screen on desktop, tablet, mobile */}
       <div className="fixed inset-0 z-0 overflow-hidden">
         <AutoplayVideo
-          src="/assets/homepage/Mycosoft Background.mp4"
+          src={HOME_HERO_SOURCES[0]}
+          sources={HOME_HERO_SOURCES}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
           encodeSrc

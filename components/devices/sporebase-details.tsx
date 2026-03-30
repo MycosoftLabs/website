@@ -16,6 +16,7 @@ import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
 import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -47,6 +48,8 @@ const SPOREBASE_ASSETS = {
   // Hero video (add when available)
   heroVideo: "/assets/sporebase/Sporebase1publish.mp4",
 }
+
+const SPOREBASE_HERO_SOURCES = assetMp4Sources(SPOREBASE_ASSETS.heroVideo)
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 interface DeviceComponent {
@@ -232,7 +235,8 @@ export function SporeBaseDetails() {
           className="absolute inset-0"
         >
           <AutoplayVideo
-            src={SPOREBASE_ASSETS.heroVideo}
+            src={SPOREBASE_HERO_SOURCES[0]}
+            sources={SPOREBASE_HERO_SOURCES}
             encodeSrc
             className="absolute inset-0 h-full w-full object-cover"
           />

@@ -11,6 +11,8 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
 import { teamMembers } from "@/lib/team-data"
@@ -36,6 +38,9 @@ import {
 
 // NAS video — mounted at /assets/ in the production Docker container
 const HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
+const HERO_VIDEO_SOURCES = assetMp4Sources(HERO_VIDEO_SRC)
+const CLOSING_VIDEO_SRC = "/assets/about us/10343918-hd_1920_1080_24fps.mp4"
+const CLOSING_VIDEO_SOURCES = assetMp4Sources(CLOSING_VIDEO_SRC)
 
 // Technology Pillars - AI, Defense, Biological Compute
 const technologyPillars = [
@@ -377,7 +382,7 @@ export default function AboutPage() {
                   <div className="grid md:grid-cols-2 h-full items-start">
                     <div className="relative aspect-square w-full bg-slate-100 overflow-hidden shrink-0">
                       <Image
-                        src={morgan.image.startsWith("/") ? encodeURI(morgan.image) : morgan.image}
+                        src={morgan.image.startsWith("/") ? encodeAssetUrl(morgan.image) : morgan.image}
                         alt={morgan.name}
                         fill
                         className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
@@ -618,7 +623,7 @@ export default function AboutPage() {
                 <NeuCard className="about-device-card group transition-all cursor-pointer h-full bg-black/50 backdrop-blur-sm">
                   <div className="relative aspect-square overflow-hidden rounded-t-lg">
                     <Image
-                      src={device.image.startsWith("/") ? encodeURI(device.image) : device.image}
+                      src={device.image.startsWith("/") ? encodeAssetUrl(device.image) : device.image}
                       alt={device.name}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -686,7 +691,8 @@ export default function AboutPage() {
       {/* Why Mycosoft - Closing Statement — data-over-video */}
       <section className="relative py-16 md:py-24 overflow-hidden min-h-[60vh] flex items-center" data-over-video>
         <AutoplayVideo
-          src="/assets/about us/10343918-hd_1920_1080_24fps.mp4"
+          src={CLOSING_VIDEO_SOURCES[0]}
+          sources={CLOSING_VIDEO_SOURCES}
           className="absolute inset-0 w-full h-full object-cover"
           encodeSrc
         />

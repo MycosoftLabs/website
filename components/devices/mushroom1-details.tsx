@@ -22,6 +22,8 @@ import {
 import type { LucideIcon } from "lucide-react"
 import { PreOrderModal } from "./pre-order-modal"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
 import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
 import { NetworkCanvas } from "@/components/effects/network-canvas"
@@ -79,8 +81,8 @@ const MUSHROOM1_ASSETS = {
     background: "/assets/mushroom1/PXL_20250404_210633484.VB-02.MAIN.mp4",
     walking: "/assets/mushroom1/mushroom 1 walking.mp4",
     waterfall: "/assets/mushroom1/waterfall 1.mp4",
-    demo: "/assets/mushroom1/2025-04-05-160513069.mp4",
-    promo: "/assets/mushroom1/grok_video_2026-01-12-01-28-34.mp4",
+  demo: "/assets/mushroom1/mushroom 1 walking.mp4",
+  promo: "/assets/mushroom1/waterfall 1.mp4",
   },
   useCaseVideos: [
     "/assets/mushroom1/a.mp4",
@@ -258,6 +260,11 @@ export function Mushroom1Details() {
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
   const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
+  const heroSources = mergeVideoSources(
+    assetMp4Sources(heroVideoSrc),
+    assetMp4Sources(isMobile ? MUSHROOM1_ASSETS.videos.background : MUSHROOM1_ASSETS.videos.waterfall),
+    assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)
+  )
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -302,7 +309,8 @@ export function Mushroom1Details() {
         {/* Background Video — AutoplayVideo for reliable autoplay (iOS/mobile) */}
         <motion.div className="absolute inset-0" style={{ scale: heroScale }}>
           <AutoplayVideo
-            src={heroVideoSrc}
+            src={heroSources[0]}
+            sources={heroSources}
             encodeSrc
             className="absolute inset-0 w-full h-full object-cover"
           />
@@ -459,7 +467,7 @@ export function Mushroom1Details() {
                   preload="metadata"
                   className="absolute inset-0 w-full h-full object-cover object-center"
                 >
-                  <source src={encodeURI(MUSHROOM1_ASSETS.videos.waterfall)} type="video/mp4" />
+                  <source src={encodeAssetUrl(MUSHROOM1_ASSETS.videos.waterfall)} type="video/mp4" />
                 </video>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               </div>
@@ -593,7 +601,7 @@ export function Mushroom1Details() {
                   className="absolute inset-0"
                 >
                   <Image
-                    src={MUSHROOM1_ASSETS.images[currentSlide].src}
+                    src={encodeAssetUrl(MUSHROOM1_ASSETS.images[currentSlide].src)}
                     alt={MUSHROOM1_ASSETS.images[currentSlide].alt}
                     fill
                     className="object-cover"
@@ -635,7 +643,7 @@ export function Mushroom1Details() {
                     currentSlide === i ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-50 hover:opacity-80'
                   }`}
                 >
-                  <Image src={img.src} alt={img.alt} fill className="object-cover" />
+                  <Image src={encodeAssetUrl(img.src)} alt={img.alt} fill className="object-cover" />
                 </button>
               ))}
             </div>
@@ -735,7 +743,7 @@ export function Mushroom1Details() {
                 preload="metadata"
                 className="absolute inset-0 w-full h-full object-cover"
               >
-                <source src={encodeURI(USE_CASES[activeUseCase].video)} type="video/mp4" />
+                <source src={encodeAssetUrl(USE_CASES[activeUseCase].video)} type="video/mp4" />
               </video>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
@@ -938,7 +946,7 @@ export function Mushroom1Details() {
                   <div className="absolute inset-0 flex items-center justify-center pt-10">
                     <div className="relative h-[90%] aspect-[3/5] max-w-full">
                     <Image
-                      src={MUSHROOM1_ASSETS.mainImage}
+                      src={encodeAssetUrl(MUSHROOM1_ASSETS.mainImage)}
                       alt="Mushroom 1 Blueprint"
                         fill
                         className="opacity-40 filter grayscale object-contain"
@@ -1050,7 +1058,7 @@ export function Mushroom1Details() {
 
           <div className="relative aspect-video rounded-2xl overflow-hidden border border-emerald-500/20">
             <Image
-              src="/assets/mushroom1/hill 1.jpg"
+              src={encodeAssetUrl("/assets/mushroom1/hill 1.jpg")}
               alt="Mushroom 1 Mesh Network Deployment"
               fill
               className="object-cover"
@@ -1186,7 +1194,7 @@ export function Mushroom1Details() {
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
           >
-            <source src={encodeURI(MUSHROOM1_ASSETS.videos.walking)} type="video/mp4" />
+            <source src={encodeAssetUrl(MUSHROOM1_ASSETS.videos.walking)} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/20" />
         </div>
@@ -1250,7 +1258,7 @@ export function Mushroom1Details() {
                 />
               ) : (
                 <video autoPlay muted controls playsInline className="w-full h-full rounded-xl bg-black">
-                  <source src={selectedVideo.src} type="video/mp4" />
+                  <source src={encodeAssetUrl(selectedVideo.src)} type="video/mp4" />
                 </video>
               )}
               <button

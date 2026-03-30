@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { 
   PipetteIcon as PetriDish, 
   Microscope, 
@@ -398,6 +399,10 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
   )
 }
 
+const APPS_PORTAL_HERO_WALK_SOURCES = assetMp4Sources("/assets/mushroom1/mushroom 1 walking.mp4")
+const APPS_FEATURED_MYCONODE_DEPLOY_SOURCES = assetMp4Sources("/assets/myconode/myconode deploy1.mp4")
+const APPS_INTEGRATION_MYCONODE_MYCELIUM_SOURCES = assetMp4Sources("/assets/myconode/myconode mycelium.mp4")
+
 export function AppsPortal() {
   const [appTabIndex, setAppTabIndex] = useState(0)
 
@@ -408,9 +413,11 @@ export function AppsPortal() {
       <section className="relative py-24 overflow-hidden" data-over-video>
         {/* Background Video */}
         <AutoplayVideo
-          src="/assets/backgrounds/apps-hero.mp4"
+          src={APPS_PORTAL_HERO_WALK_SOURCES[0]}
+          sources={APPS_PORTAL_HERO_WALK_SOURCES}
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.25)" }}
+          encodeSrc
         />
         
         {/* Overlay */}
@@ -568,9 +575,11 @@ export function AppsPortal() {
               <div className="aspect-video bg-gradient-to-br from-primary/10 via-muted to-green-500/10 rounded-2xl border overflow-hidden">
                 {/* Video Placeholder */}
                 <AutoplayVideo
-                  src="/assets/backgrounds/natureos-demo.mp4"
+                  src={APPS_FEATURED_MYCONODE_DEPLOY_SOURCES[0]}
+                  sources={APPS_FEATURED_MYCONODE_DEPLOY_SOURCES}
                   className="absolute inset-0 w-full h-full object-cover opacity-60"
                   style={{ filter: "brightness(0.8)" }}
+                  encodeSrc
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -594,8 +603,10 @@ export function AppsPortal() {
       <section className="py-24 bg-muted/30 relative overflow-hidden">
         {/* Background Video */}
         <AutoplayVideo
-          src="/assets/backgrounds/nature-compute.mp4"
+          src={APPS_INTEGRATION_MYCONODE_MYCELIUM_SOURCES[0]}
+          sources={APPS_INTEGRATION_MYCONODE_MYCELIUM_SOURCES}
           className="absolute inset-0 w-full h-full object-cover opacity-10"
+          encodeSrc
         />
         <div className="absolute inset-0 bg-gradient-to-b from-muted/90 to-muted/95" />
         
