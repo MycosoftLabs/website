@@ -39,6 +39,7 @@ node_modules
 
 # Local data/cache (do not commit)
 .data/
+data/
 __pycache__/
 videos/
 Mushroom1/

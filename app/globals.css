@@ -744,3 +744,53 @@ body.dashboard-fullscreen main {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* NLM² /myca/nlm2 — backdrop depth + spores (motion-safe wrappers in component) */
+@keyframes nlm2-backdrop-sway {
+  0%,
+  100% {
+    transform: translateZ(-40px) scale(1.06) rotateX(0deg);
+  }
+  50% {
+    transform: translateZ(-36px) scale(1.055) rotateX(0.35deg);
+  }
+}
+@keyframes nlm2-backdrop-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+@keyframes nlm2-spore-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate3d(6px, -14px, 0);
+    opacity: 0.5;
+  }
+}
+.nlm2-backdrop-sway {
+  animation: nlm2-backdrop-sway 22s ease-in-out infinite;
+}
+.nlm2-backdrop-breathe {
+  animation: nlm2-backdrop-breathe 14s ease-in-out infinite;
+}
+.nlm2-spore-float {
+  animation: nlm2-spore-float 11s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nlm2-backdrop-sway,
+  .nlm2-backdrop-breathe,
+  .nlm2-spore-float {
+    animation: none !important;
+  }
+  .nlm2-backdrop-sway {
+    transform: translateZ(-40px) scale(1.06);
+  }
+}

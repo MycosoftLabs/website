@@ -15,7 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { NLMTechnicalArchitecture } from "@/components/myca/NLMTechnicalArchitecture"
 import { LiveTranslationDemo } from "@/components/myca/LiveTranslationDemo"
 import { Nlm2MycelialBackdrop } from "@/components/myca/nlm2/Nlm2MycelialBackdrop"
+import { Nlm2OrganicHeroScene } from "@/components/myca/nlm2/Nlm2OrganicHeroScene"
 import { NeuromorphicProvider } from "@/components/ui/neuromorphic"
+import { cn } from "@/lib/utils"
 import {
   Brain,
   Shield,
@@ -232,6 +234,13 @@ function stageBadge(status: (typeof PROGRAM_STAGES)[number]["status"]) {
   )
 }
 
+/** Material-style elevation: layered shadow, top highlight, hover lift (static when reduced motion). */
+const NLM2_CARD_DEPTH =
+  "backdrop-blur-sm shadow-[0_12px_48px_-12px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] transition-[transform,box-shadow] duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 hover:-translate-y-0.5 hover:shadow-[0_22px_56px_-14px_rgba(0,0,0,0.62),0_0_0_1px_rgba(255,255,255,0.06)]"
+
+const NLM2_PANEL_DEPTH =
+  "shadow-[0_16px_48px_-16px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm"
+
 export default function NLM2Page() {
   return (
     <NeuromorphicProvider>
@@ -240,21 +249,21 @@ export default function NLM2Page() {
 
         <div className="relative z-10">
           {/* 1 — Hero: living substrate */}
-          <header className="border-b border-emerald-950/60">
+          <header className="relative overflow-hidden border-b border-emerald-950/60 [perspective:1400px]">
             <div className="container mx-auto max-w-6xl px-4 py-12 md:px-6 md:py-20">
-              <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
-                <div className="max-w-3xl space-y-4">
+              <div className="grid items-stretch gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(260px,400px)] lg:gap-12 xl:gap-14">
+                <div className="flex min-w-0 flex-col justify-center space-y-4 [transform-style:preserve-3d]">
                   <div className="flex flex-wrap gap-2">
                     <Badge
                       variant="outline"
-                      className="border-amber-600/40 bg-amber-950/30 text-amber-200"
+                      className="border-amber-600/40 bg-amber-950/30 text-amber-200 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.2)]"
                     >
                       <Sparkles className="mr-1 h-3 w-3" />
                       Foundation model
                     </Badge>
                     <Badge
                       variant="outline"
-                      className="border-teal-600/40 bg-teal-950/30 text-teal-200"
+                      className="border-teal-600/40 bg-teal-950/30 text-teal-200 shadow-[0_4px_20px_-4px_rgba(20,184,166,0.18)]"
                     >
                       <FlaskConical className="mr-1 h-3 w-3" />
                       NLM-Funga
@@ -266,7 +275,7 @@ export default function NLM2Page() {
                       Scientific instrument
                     </Badge>
                   </div>
-                  <h1 className="font-serif text-4xl font-semibold tracking-tight text-[#f2f5ec] sm:text-5xl md:text-6xl">
+                  <h1 className="font-serif text-4xl font-semibold tracking-tight text-[#f2f5ec] sm:text-5xl md:text-6xl md:drop-shadow-[0_2px_24px_rgba(45,212,191,0.08)]">
                     Nature Learning Model
                   </h1>
                   <p className="text-lg leading-relaxed text-stone-400 md:text-xl">
@@ -279,7 +288,7 @@ export default function NLM2Page() {
                     <Link href="/natureos/model-training">
                       <Button
                         size="lg"
-                        className="min-h-[48px] w-full gap-2 bg-teal-800 text-white hover:bg-teal-700 sm:w-auto"
+                        className="min-h-[48px] w-full gap-2 bg-teal-800 text-white shadow-[0_8px_28px_-6px_rgba(15,118,110,0.55)] transition-[transform,box-shadow] hover:-translate-y-0.5 hover:bg-teal-700 hover:shadow-[0_14px_36px_-8px_rgba(15,118,110,0.6)] sm:w-auto"
                       >
                         Open training lab
                         <ArrowRight className="h-4 w-4" />
@@ -289,17 +298,20 @@ export default function NLM2Page() {
                       <Button
                         size="lg"
                         variant="outline"
-                        className="min-h-[48px] w-full border-stone-600 bg-stone-950/40 text-stone-200 hover:bg-stone-900 sm:w-auto"
+                        className="min-h-[48px] w-full border-stone-600 bg-stone-950/50 text-stone-200 shadow-[0_6px_24px_-8px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-[transform,box-shadow] hover:-translate-y-0.5 hover:bg-stone-900 sm:w-auto"
                       >
                         Original NLM page
                       </Button>
                     </Link>
                   </div>
+                  <p className="max-w-xl pt-2 text-sm leading-relaxed text-stone-500">
+                    Hyphal metaphors, honest uncertainty, provenance by design. This page is the narrative home; the
+                    NatureOS lab holds controls, streams, and experiment state.
+                  </p>
                 </div>
-                <p className="max-w-sm text-sm leading-relaxed text-stone-500 md:text-right">
-                  Hyphal metaphors, honest uncertainty, provenance by design. This page is the narrative home; the
-                  NatureOS lab holds controls, streams, and experiment state.
-                </p>
+                <div className="flex min-h-[260px] flex-col justify-center lg:min-h-[320px] lg:[transform:translateZ(12px)]">
+                  <Nlm2OrganicHeroScene />
+                </div>
               </div>
             </div>
           </header>
@@ -335,7 +347,10 @@ export default function NLM2Page() {
                 ].map(({ icon: Icon, title, body }) => (
                   <Card
                     key={title}
-                    className="border-emerald-950/60 bg-[#0c1410]/90 backdrop-blur-sm"
+                    className={cn(
+                      "border-emerald-950/60 bg-[#0c1410]/90 backdrop-blur-sm",
+                      NLM2_CARD_DEPTH,
+                    )}
                   >
                     <CardHeader className="pb-2">
                       <Icon className="mb-2 h-8 w-8 text-cyan-400/90" aria-hidden />
@@ -394,7 +409,7 @@ export default function NLM2Page() {
                     </Button>
                   </Link>
                 </div>
-                <Card className="border-stone-700/60 bg-[#0a100d]/95">
+                <Card className={cn("border-stone-700/60 bg-[#0a100d]/95", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="text-stone-100">Program stages</CardTitle>
                     <CardDescription className="text-stone-500">
@@ -432,7 +447,7 @@ export default function NLM2Page() {
                 AVANI&apos;s live Earth feeds so every agent shares an evolving logical substrate.
               </p>
               <div className="mt-10 grid gap-6 lg:grid-cols-2">
-                <Card className="border-stone-700/60 bg-[#0c1410]/90">
+                <Card className={cn("border-stone-700/60 bg-[#0c1410]/90", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-stone-100">
                       <LineChart className="h-5 w-5 text-stone-400" />
@@ -452,7 +467,7 @@ export default function NLM2Page() {
                     </p>
                   </CardContent>
                 </Card>
-                <Card className="border-teal-900/50 bg-teal-950/20">
+                <Card className={cn("border-teal-900/50 bg-teal-950/20", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-teal-100">
                       <Brain className="h-5 w-5 text-cyan-400" />
@@ -479,7 +494,7 @@ export default function NLM2Page() {
                   </CardContent>
                 </Card>
               </div>
-              <Card className="mt-8 border-emerald-900/40 bg-emerald-950/15">
+              <Card className={cn("mt-8 border-emerald-900/40 bg-emerald-950/15", NLM2_CARD_DEPTH)}>
                 <CardHeader>
                   <CardTitle className="text-stone-100">Abstract</CardTitle>
                 </CardHeader>
@@ -509,7 +524,12 @@ export default function NLM2Page() {
                 language is a <em>view</em> of that state—not the ground truth.
               </p>
               <div className="mt-10 space-y-10">
-                <div className="rounded-xl border border-stone-800 bg-[#0a100d]/80 p-4 md:p-6">
+                <div
+                  className={cn(
+                    "rounded-xl border border-stone-800 bg-[#0a100d]/80 p-4 md:p-6",
+                    NLM2_PANEL_DEPTH,
+                  )}
+                >
                   <LiveTranslationDemo />
                 </div>
                 <div>
@@ -550,13 +570,18 @@ export default function NLM2Page() {
                 MDP, MMP, HPL, FCI, CREP, and MINDEX form the pipeline from device to model—with traceability at every
                 hop.
               </p>
-              <div className="mt-10 rounded-xl border border-stone-800 bg-[#080d0b]/90 p-4 md:p-6">
+              <div
+                className={cn(
+                  "mt-10 rounded-xl border border-stone-800 bg-[#080d0b]/90 p-4 md:p-6",
+                  NLM2_PANEL_DEPTH,
+                )}
+              >
                 <NLMTechnicalArchitecture />
               </div>
               <h3 className="mt-14 text-2xl font-semibold text-stone-100">Six-layer reference</h3>
               <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {SIX_LAYERS.map(({ layer, title, icon: Icon, cardClass, iconClass, items }) => (
-                  <Card key={layer} className={cardClass}>
+                  <Card key={layer} className={cn(cardClass, NLM2_CARD_DEPTH)}>
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="border-stone-600 text-stone-400">
@@ -586,7 +611,7 @@ export default function NLM2Page() {
                 Integrity, deployment, roadmap
               </h2>
               <div className="mt-10 grid gap-8 lg:grid-cols-2">
-                <Card className="border-stone-700/60 bg-[#0c1410]/90">
+                <Card className={cn("border-stone-700/60 bg-[#0c1410]/90", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-stone-100">
                       <Scale className="h-5 w-5 text-amber-400" />
@@ -606,7 +631,7 @@ export default function NLM2Page() {
                     </ul>
                   </CardContent>
                 </Card>
-                <Card className="border-stone-700/60 bg-[#0c1410]/90">
+                <Card className={cn("border-stone-700/60 bg-[#0c1410]/90", NLM2_CARD_DEPTH)}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-stone-100">
                       <Shield className="h-5 w-5 text-teal-400" />
@@ -628,7 +653,7 @@ export default function NLM2Page() {
                 {NLM_PHASES.map((p) => (
                   <Card
                     key={p.phase}
-                    className="border-stone-800 bg-[#0a100d]/90"
+                    className={cn("border-stone-800 bg-[#0a100d]/90", NLM2_CARD_DEPTH)}
                   >
                     <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -661,7 +686,12 @@ export default function NLM2Page() {
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <Link href="/natureos/smell-training">
-                  <Card className="h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60">
+                  <Card
+                    className={cn(
+                      "h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60",
+                      NLM2_CARD_DEPTH,
+                    )}
+                  >
                     <CardHeader>
                       <Beaker className="h-8 w-8 text-emerald-400" />
                       <CardTitle className="text-base text-stone-100">Smell Training Wizard</CardTitle>
@@ -670,7 +700,12 @@ export default function NLM2Page() {
                   </Card>
                 </Link>
                 <Link href="/natureos/smell-training?tab=blobs">
-                  <Card className="h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60">
+                  <Card
+                    className={cn(
+                      "h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60",
+                      NLM2_CARD_DEPTH,
+                    )}
+                  >
                     <CardHeader>
                       <Upload className="h-8 w-8 text-emerald-400" />
                       <CardTitle className="text-base text-stone-100">Blob Manager</CardTitle>
@@ -679,7 +714,12 @@ export default function NLM2Page() {
                   </Card>
                 </Link>
                 <Link href="/natureos/mindex?tab=smells">
-                  <Card className="h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60">
+                  <Card
+                    className={cn(
+                      "h-full border-emerald-900/50 bg-emerald-950/20 transition-colors hover:border-emerald-700/60",
+                      NLM2_CARD_DEPTH,
+                    )}
+                  >
                     <CardHeader>
                       <BookMarked className="h-8 w-8 text-emerald-400" />
                       <CardTitle className="text-base text-stone-100">Smell Encyclopedia</CardTitle>

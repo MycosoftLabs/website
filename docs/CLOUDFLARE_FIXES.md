@@ -34,3 +34,25 @@ Or via Page Rules:
 - URL: `www.mycosoft.com/*`
 - Setting: **Forwarding URL** (301 Permanent Redirect)
 - Destination: `https://mycosoft.com/$1`
+
+---
+
+## Optional: Apply via API (Mar 28, 2026)
+
+From the website repo root, after a **valid** token is set:
+
+```powershell
+Set-Location "C:\Users\admin2\Desktop\MYCOSOFT\CODE\WEBSITE\website"
+python scripts/apply_cloudflare_seo_settings.py
+```
+
+**Environment (same as cache purge):** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` or `CLOUDFLARE_ZONE_ID_PRODUCTION` (mycosoft.com zone). Load from `.env.local` or `.credentials.local` (see `_cloudflare_cache.py`).
+
+**Token permissions (custom token, zone-scoped to mycosoft.com):**
+
+- Zone → SSL and Certificates → Edit (Always Use HTTPS)
+- Zone → Config Rules → Edit, or Zone → Page Rules → Edit (redirect rulesets)
+
+If the script returns **403 Authentication error** or verify returns **401 Invalid API Token**, the token is wrong, revoked, or truncated—create a new token in **My Profile → API Tokens** and update `.env.local` (do not commit).
+
+**Manual dashboard steps above still work** if you prefer not to use the API.

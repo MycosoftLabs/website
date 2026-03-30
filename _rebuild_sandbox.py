@@ -131,7 +131,7 @@ def main():
             raise RuntimeError(f"Could not read build PID from {pid_file}: {out2!r}")
         return (out2 or "").strip()
 
-    def _poll_build_until_done(pid: str, poll_interval: int = 30, timeout_sec: int = 3600) -> tuple[int, str]:
+    def _poll_build_until_done(pid: str, poll_interval: int = 30, timeout_sec: int = 7200) -> tuple[int, str]:
         """Poll until /tmp/rebuild_build.exit exists; return (exit_code, last_50_lines). Kill build on timeout."""
         log = "/tmp/rebuild_build.log"
         exit_file = "/tmp/rebuild_build.exit"
@@ -211,14 +211,14 @@ else:
 
     print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
     pid = _start_background_build(build_cmd_legacy)
-    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=3600)
+    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=7200)
     print(f"   Last 50 lines:\n{out}")
 
     if code != 0:
         print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
         for attempt in (1, 2):
             pid = _start_background_build(build_cmd_buildkit)
-            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=3600)
+            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=7200)
             print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
             if code == 0:
                 break
