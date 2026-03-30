@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { NeuCard, NeuCardContent, NeuBadge } from "@/components/ui/neuromorphic"
 import { teamMembers } from "@/lib/team-data"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
 /** Human team display order: Morgan centered on top, bottom row RJ–Chris–Alberto–Garret */
 const TOP_ROW_SLUGS = ["morgan-rockwell"]
@@ -23,7 +24,7 @@ function MemberCard({
       <NeuCard className="group transition-all cursor-pointer overflow-hidden h-full">
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
           <Image
-            src={member.image.startsWith("/") ? encodeURI(member.image) : member.image}
+            src={member.image.startsWith("/") ? encodeAssetUrl(member.image) : member.image}
             alt={member.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"

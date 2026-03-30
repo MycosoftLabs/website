@@ -47,6 +47,7 @@ import {
   Map,
   Bell
 } from "lucide-react"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import {
   NeuButton,
   NeuCard,
@@ -83,7 +84,7 @@ function DefenseHeroVideo() {
       className="absolute inset-0 w-full h-full object-cover"
       style={{ filter: "brightness(0.3)" }}
     >
-      <source src="/assets/backgrounds/defense-hero.mp4" type="video/mp4" />
+            <source src={encodeAssetUrl("/assets/mushroom1/mushroom 1 walking.mp4")} type="video/mp4" />
     </video>
   )
 }

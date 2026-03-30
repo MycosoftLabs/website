@@ -14,6 +14,7 @@ import {
   NeuBadge,
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
 interface DeviceDetailsProps {
   device: Device
@@ -117,7 +118,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
               className="absolute inset-0 w-full h-full object-cover"
               onError={() => setVideoError(true)}
             >
-              <source src={device.video ? encodeURI(device.video) : ""} type="video/mp4" />
+              <source src={device.video ? encodeAssetUrl(device.video) : ""} type="video/mp4" />
             </video>
             <div className="absolute inset-0 bg-black/50" />
           </>

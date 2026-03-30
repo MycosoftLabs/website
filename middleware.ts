@@ -68,5 +68,8 @@ export async function middleware(request: NextRequest) {
 // Exclude auth/continue and auth/callback - they handle session themselves and redirect immediately.
 // Middleware's getUser() can overwrite response cookies that never get sent when page throws redirect().
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|auth/login|auth/signup|auth/reset|auth/continue|auth/callback).*)'],
+  // Skip static media under /assets/ so Supabase getUser() does not run on large video requests.
+  matcher: [
+    '/((?!_next/static|_next/image|assets/|auth/login|auth/signup|auth/reset|auth/continue|auth/callback).*)',
+  ],
 }

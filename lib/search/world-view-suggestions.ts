@@ -150,6 +150,87 @@ export function detectFungalSearchIntent(query: string): boolean {
   return fungalTriggers.some((t) => q.includes(t) || q === t)
 }
 
+/** Narrow iNat/NCBI/research scoping for kingdom-level behaviour. */
+export type LifeScienceScope = "fungi" | "flora" | "fauna" | "any"
+
+/**
+ * Detect plant-focused search (flora).
+ */
+export function detectFloraSearchIntent(query: string): boolean {
+  if (!query || query.length < 2) return false
+  const q = query.toLowerCase().trim()
+  const floraTriggers = [
+    "plant", "plants", "flora", "floral", "botany", "botanical", "tree", "trees", "shrub",
+    "flower", "flowers", "leaf", "leaves", "grass", "moss", "fern", "ferns", "lichen",
+    "crop", "crops", "agriculture", "forest", "woodland", "vegetation", "vascular plant",
+    "angiosperm", "gymnosperm", "bryophyte", "algae", "seaweed", "kelp", "mangrove",
+  ]
+  return floraTriggers.some((t) => q.includes(t) || q === t)
+}
+
+/**
+ * Detect animal-focused search (fauna). Kept separate from generic "species".
+ */
+export function detectFaunaSearchIntent(query: string): boolean {
+  if (!query || query.length < 2) return false
+  const q = query.toLowerCase().trim()
+  const faunaTriggers = [
+    "animal", "animals", "fauna", "mammal", "mammals", "bird", "birds", "aves",
+    "reptile", "reptiles", "amphibian", "amphibians", "fish", "fishes", "insect",
+    "insects", "arachnid", "crustacean", "mollusk", "mollusc", "cnidarian", "coral",
+    "whale", "dolphin", "shark", "bear", "wolf", "deer", "rodent", "primate",
+    "wildlife", "vertebrate", "invertebrate", "marine life", "zoology",
+  ]
+  return faunaTriggers.some((t) => q.includes(t) || q === t)
+}
+
+/**
+ * Broad biodiversity / taxon signals: keep MINDEX + iNat enabled even when CREP/Earth keywords also match.
+ */
+export function detectBiodiversitySearchIntent(query: string): boolean {
+  if (!query || query.length < 2) return false
+  const q = query.toLowerCase().trim()
+  if (detectFungalSearchIntent(query) || detectFloraSearchIntent(query) || detectFaunaSearchIntent(query)) {
+    return true
+  }
+  const bioTriggers = [
+    "species", "taxon", "taxonomy", "biodiversity", "biota", "organism", "organisms",
+    "habitat", "ecosystem", "ecology", "endemic", "native species", "invasive",
+    "i naturalist", "inaturalist", "gbif", "observation", "specimen", "herbarium",
+    "marine life", "coral reef", "phytoplankton", "zooplankton",
+  ]
+  return bioTriggers.some((t) => q.includes(t) || q === t)
+}
+
+/**
+ * True when unified search should run MINDEX species, iNat, genetics, compounds, etc.
+ * (even if CREP/Earth phrasing is also present).
+ */
+export function hasLifeScienceIntent(query: string): boolean {
+  return (
+    detectFungalSearchIntent(query) ||
+    detectFloraSearchIntent(query) ||
+    detectFaunaSearchIntent(query) ||
+    detectBiodiversitySearchIntent(query)
+  )
+}
+
+/**
+ * Kingdom hint for iNat/NCBI/research augmentation. `any` = no kingdom filter / all life.
+ */
+export function detectLifeScienceScope(query: string): LifeScienceScope {
+  const fungi = detectFungalSearchIntent(query)
+  const flora = detectFloraSearchIntent(query)
+  const fauna = detectFaunaSearchIntent(query)
+  const count = [fungi, flora, fauna].filter(Boolean).length
+  if (count > 1) return "any"
+  if (fungi) return "fungi"
+  if (flora) return "flora"
+  if (fauna) return "fauna"
+  if (detectBiodiversitySearchIntent(query)) return "any"
+  return "any"
+}
+
 /**
  * Detect worldview intent from a search query.
  * Returns which widgets (crep, earth2, map) should be expanded based on query keywords.

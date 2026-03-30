@@ -10,7 +10,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 import { searchFungi, searchTaxa } from "@/lib/services/inaturalist"
-import { detectFungalSearchIntent } from "@/lib/search/world-view-suggestions"
+import {
+  detectLifeScienceScope,
+  hasLifeScienceIntent,
+  type LifeScienceScope,
+} from "@/lib/search/world-view-suggestions"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 import { searchEarthIntelligence, detectEarthDomains } from "@/lib/search/earth-search-connectors"
 
@@ -19,6 +23,72 @@ export const dynamic = "force-dynamic"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY
+
+/** iNaturalist kingdom roots for scoped taxon search */
+const INAT_PLANTAE_ID = 47126
+const INAT_ANIMALIA_ID = 1
+const INAT_FUNGI_ID = 47170
+
+function inatTaxonIdForLifeScope(scope: LifeScienceScope): string | undefined {
+  if (scope === "fungi") return String(INAT_FUNGI_ID)
+  if (scope === "flora") return String(INAT_PLANTAE_ID)
+  if (scope === "fauna") return String(INAT_ANIMALIA_ID)
+  return undefined
+}
+
+function kingdomInScope(r: INaturalistTaxon, scope: LifeScienceScope): boolean {
+  if (scope === "any") return true
+  const anc = r.ancestor_ids || []
+  const iconic = r.iconic_taxon_name || ""
+  if (scope === "fungi") return iconic === "Fungi" || anc.includes(INAT_FUNGI_ID)
+  if (scope === "flora") return iconic === "Plantae" || anc.includes(INAT_PLANTAE_ID)
+  if (scope === "fauna") return iconic === "Animalia" || anc.includes(INAT_ANIMALIA_ID)
+  return true
+}
+
+function kingdomLabelFromTaxon(r: INaturalistTaxon, scope: LifeScienceScope): string {
+  if (r.iconic_taxon_name) return r.iconic_taxon_name
+  if (scope === "fungi") return "Fungi"
+  if (scope === "flora") return "Plantae"
+  if (scope === "fauna") return "Animalia"
+  return ""
+}
+
+function descriptionFallbackForScope(scope: LifeScienceScope, scientificName: string): string {
+  const n = scientificName || "this taxon"
+  if (scope === "fungi") return `A species of fungus (${n})`
+  if (scope === "flora") return `A plant or algal taxon (${n})`
+  if (scope === "fauna") return `An animal taxon (${n})`
+  return `Species: ${n}`
+}
+
+function ncbiFilterClauseForScope(scope: LifeScienceScope): string {
+  if (scope === "fungi") return "fungi[filter]"
+  if (scope === "flora") return "plants[filter]"
+  if (scope === "fauna") return "animals[filter]"
+  return ""
+}
+
+function augmentResearchQuery(base: string, scope: LifeScienceScope): string {
+  const b = base.trim()
+  if (scope === "fungi") return `${b} fungi mycology taxonomy`
+  if (scope === "flora") return `${b} plant botany ecology flora`
+  if (scope === "fauna") return `${b} animal zoology ecology fauna`
+  return `${b} biodiversity ecology taxonomy`
+}
+
+function iconicTaxaParamForLifeScope(scope: LifeScienceScope): string {
+  if (scope === "fungi") return "Fungi"
+  if (scope === "flora") return "Plantae"
+  if (scope === "fauna") return "Animalia"
+  return "Plantae,Fungi,Animalia"
+}
+
+function isGenericLifeSearchQuery(q: string): boolean {
+  const s = q.toLowerCase().trim()
+  if (!s) return true
+  return /^(species|mushrooms?|plants?|animals?|wildlife|biodiversity|flora|fauna|fungi)$/i.test(s)
+}
 
 // ---------------------------------------------------------------------------
 // Shared interfaces for API response shapes
@@ -346,26 +416,23 @@ async function searchMindexResearch(query: string, limit: number, origin?: strin
 // iNaturalist (SECONDARY / additive)
 // ---------------------------------------------------------------------------
 
-async function searchINaturalist(query: string, limit: number, fungiIntent: boolean) {
+async function searchINaturalist(query: string, limit: number, lifeScope: LifeScienceScope) {
   try {
-    const data = fungiIntent
-      ? await searchFungi(query)
-      : await searchTaxa(query)
+    const taxonId = inatTaxonIdForLifeScope(lifeScope)
+    const data =
+      lifeScope === "fungi"
+        ? await searchFungi(query)
+        : await searchTaxa(query, taxonId ? { taxonId } : undefined)
     if (!data?.results) return []
     const results = data.results as INaturalistTaxon[]
-    const filtered = fungiIntent
-      ? results.filter(
-          (r) =>
-            (r.iconic_taxon_name === "Fungi" || r.ancestor_ids?.includes(47170)) &&
-            (r.preferred_common_name || r.name)
-        )
-      : results.filter((r) => r.preferred_common_name || r.name)
+    const filtered = results.filter(
+      (r) => kingdomInScope(r, lifeScope) && (r.preferred_common_name || r.name)
+    )
     return filtered
       .slice(0, limit)
       .map((r) => {
-        // Parse real taxonomy from ancestor array (never hardcode empty strings)
         const taxonomy: Record<string, string> = {
-          kingdom: fungiIntent ? "Fungi" : (r.iconic_taxon_name || ""),
+          kingdom: kingdomLabelFromTaxon(r, lifeScope),
           phylum: "", class: "", order: "", family: "", genus: "",
         }
         for (const a of r.ancestors || []) {
@@ -376,7 +443,6 @@ async function searchINaturalist(query: string, limit: number, fungiIntent: bool
           else if (rank === "family") taxonomy.family = a.name
           else if (rank === "genus") taxonomy.genus = a.name
         }
-        // Infer genus from binomial name if still empty
         if (!taxonomy.genus && r.name?.includes(" ")) taxonomy.genus = r.name.split(" ")[0]
 
         return {
@@ -384,8 +450,9 @@ async function searchINaturalist(query: string, limit: number, fungiIntent: bool
           scientificName: r.name || "",
           commonName: r.preferred_common_name || r.name || "",
           taxonomy,
-          description: r.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-            || (fungiIntent ? `A species of fungus (${r.name})` : `Species: ${r.name || ""}`),
+          description:
+            r.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+            || descriptionFallbackForScope(lifeScope, r.name || ""),
           photos: r.default_photo
             ? [
                 {
@@ -562,13 +629,21 @@ function resolveScientificName(query: string): string | null {
   return null
 }
 
-/** Remove trailing English fungus words so "amanita mushroom" → "amanita". */
-function stripFungalEnglishNoise(q: string): string {
-  return q
-    .trim()
-    .replace(/\b(mushrooms?|fungi|fungal|fungus)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim()
+/** Strip common English life-science noise so "oak tree" → "oak", "eagle bird" → "eagle". */
+function stripLifeScienceEnglishNoise(q: string, lifeScope: LifeScienceScope): string {
+  let s = q.trim()
+  const rawLower = s.toLowerCase()
+  const hasFloraW = /\b(plants?|flora|flowers?|trees?|shrubs?|moss|ferns?|grass|botany|botanical|vegetation)\b/i.test(rawLower)
+  const hasFaunaW = /\b(animals?|fauna|birds?|mammals?|fishes?|fish|insects?|wildlife|zoology|marine\s+life)\b/i.test(rawLower)
+
+  s = s.replace(/\b(mushrooms?|fungi|fungal|fungus)\b/gi, " ")
+  if (lifeScope === "flora" || (lifeScope === "any" && hasFloraW)) {
+    s = s.replace(/\b(plants?|flora|flowers?|trees?|shrubs?|moss|ferns?|grass|botany|botanical|vegetation)\b/gi, " ")
+  }
+  if (lifeScope === "fauna" || (lifeScope === "any" && hasFaunaW)) {
+    s = s.replace(/\b(animals?|fauna|birds?|mammals?|fishes?|fish|insects?|wildlife|zoology|marine\s+life)\b/gi, " ")
+  }
+  return s.replace(/\s+/g, " ").trim()
 }
 
 const ENGLISH_TAXON_PREFIXES = new Set([
@@ -577,22 +652,26 @@ const ENGLISH_TAXON_PREFIXES = new Set([
 ])
 
 /**
- * Derive a genus or binomial for NCBI [Organism] / iNat when the user typed English + "mushroom".
+ * Derive a genus or binomial for NCBI [Organism] / iNat when the user typed English + kingdom noise.
  * Does not replace resolveScientificName (callers merge). Returns null when no safe hint.
  */
-function derivedTaxonHintForFungiQuery(query: string, fungiIntent: boolean): string | null {
+function derivedTaxonHintForLifeQuery(query: string, lifeScope: LifeScienceScope): string | null {
   const raw = query.trim()
   if (!raw) return null
-  const stripped = stripFungalEnglishNoise(raw)
+  const stripped = stripLifeScienceEnglishNoise(raw, lifeScope)
   if (!stripped) return null
-  const hadNoiseRemoved = /\b(mushrooms?|fungi|fungal|fungus)\b/i.test(raw)
+  const rawNorm = raw.replace(/\s+/g, " ").trim()
+  const noisePat =
+    /\b(mushrooms?|fungi|fungal|fungus|plants?|flora|flowers?|trees?|animals?|fauna|birds?|mammals?|wildlife|fish|insects?|shrubs?|moss|ferns?)\b/i
+  const hadNoiseRemoved = noisePat.test(rawNorm) || stripped.length < rawNorm.length
+  const scopedKingdom = lifeScope !== "any"
   const words = stripped.split(/\s+/).filter(Boolean)
   const latinToken = /^[A-Za-z][A-Za-z\-]*$/
 
   if (words.length === 1 && latinToken.test(words[0])) {
     const w = words[0]
-    if (w.length < 4 && !hadNoiseRemoved) return null
-    if (!hadNoiseRemoved && !(fungiIntent && w.length >= 5)) return null
+    if (w.length < 4 && !hadNoiseRemoved && !scopedKingdom) return null
+    if (!hadNoiseRemoved && !scopedKingdom && w.length < 5) return null
     return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
   }
 
@@ -600,7 +679,7 @@ function derivedTaxonHintForFungiQuery(query: string, fungiIntent: boolean): str
     const [a, b] = words
     if (a.length < 2 || b.length < 2) return null
     if (ENGLISH_TAXON_PREFIXES.has(a.toLowerCase())) return null
-    if (!hadNoiseRemoved && !fungiIntent) return null
+    if (!hadNoiseRemoved && !scopedKingdom) return null
     return `${a.charAt(0).toUpperCase()}${a.slice(1).toLowerCase()} ${b.toLowerCase()}`
   }
 
@@ -864,7 +943,13 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
   }
 }
 
-async function searchINaturalistLiveObservations(query: string, limit: number, lat?: string, lng?: string) {
+async function searchINaturalistLiveObservations(
+  query: string,
+  limit: number,
+  lat?: string,
+  lng?: string,
+  lifeScope: LifeScienceScope = "any"
+) {
   try {
     const params = new URLSearchParams({
       "has[]": "geo",
@@ -874,12 +959,11 @@ async function searchINaturalistLiveObservations(query: string, limit: number, l
       photos: "true",
       quality_grade: "research,needs_id",
     })
-    
-    // Avoid literal generic searches, rely on location
-    if (query && query.toLowerCase() !== "species" && query.toLowerCase() !== "mushrooms") {
+
+    if (query && !isGenericLifeSearchQuery(query)) {
       params.set("taxon_name", query)
     } else {
-      params.set("iconic_taxa", "Fungi")
+      params.set("iconic_taxa", iconicTaxaParamForLifeScope(lifeScope))
     }
 
     if (lat && lng) {
@@ -912,9 +996,9 @@ async function searchINaturalistLiveObservations(query: string, limit: number, l
 // ---------------------------------------------------------------------------
 
 // Use CrossRef API (highly reliable, free, no API key needed)
-async function searchCrossRefResearch(query: string, limit: number, fungiIntent: boolean) {
+async function searchCrossRefResearch(query: string, limit: number, lifeScope: LifeScienceScope) {
   try {
-    const searchQuery = fungiIntent ? `${query} fungi mushroom` : query
+    const searchQuery = augmentResearchQuery(query, lifeScope)
     const res = await fetch(
       `https://api.crossref.org/works?query=${encodeURIComponent(searchQuery)}&rows=${limit}&sort=relevance&filter=type:journal-article`,
       { 
@@ -963,9 +1047,10 @@ function _extractGeneRegion(title: string): string {
   return m ? m[1].toUpperCase() : ""
 }
 
-async function searchNCBIGenetics(query: string, limit: number, fungiIntent: boolean): Promise<GeneticsResult[]> {
+async function searchNCBIGenetics(query: string, limit: number, lifeScope: LifeScienceScope): Promise<GeneticsResult[]> {
   try {
-    const term = fungiIntent ? `${query}[Organism] AND fungi[filter]` : `${query}[Organism]`
+    const filter = ncbiFilterClauseForScope(lifeScope)
+    const term = filter ? `${query}[Organism] AND ${filter}` : `${query}[Organism]`
     const esearchRes = await fetch(
       `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nucleotide&term=${encodeURIComponent(term)}&retmax=${limit}&retmode=json`,
       {
@@ -1012,9 +1097,9 @@ async function searchNCBIGenetics(query: string, limit: number, fungiIntent: boo
 }
 
 // Fallback: OpenAlex API (may be slow/blocked in some networks)
-async function searchOpenAlexResearch(query: string, limit: number, fungiIntent: boolean) {
+async function searchOpenAlexResearch(query: string, limit: number, lifeScope: LifeScienceScope) {
   try {
-    const searchQuery = fungiIntent ? `${query} fungi mushroom` : query
+    const searchQuery = augmentResearchQuery(query, lifeScope)
     const res = await fetch(
       `https://api.openalex.org/works?search=${encodeURIComponent(searchQuery)}&per_page=${limit}&sort=cited_by_count:desc`,
       { 
@@ -1111,7 +1196,10 @@ async function searchExaWeb(query: string, limit: number, origin: string) {
 
 async function getAIAnswer(query: string, origin: string) {
   try {
-    const res = await fetch(`${origin}/api/search/ai?q=${encodeURIComponent(query)}`, {
+    const url = new URL(`${origin}/api/search/ai`)
+    url.searchParams.set("q", query)
+    url.searchParams.set("integrated", "true")
+    const res = await fetch(url.toString(), {
       signal: AbortSignal.timeout(12000),
     })
     if (!res.ok) return undefined
@@ -1217,18 +1305,19 @@ export async function GET(request: NextRequest) {
     if (!baseQuery) baseQuery = "species"
   }
 
-  const fungiIntent = detectFungalSearchIntent(baseQuery)
+  const lifeScope = detectLifeScienceScope(baseQuery)
   const earthDomainsObj = detectEarthDomains(baseQuery)
   const isEarthIntent = Object.values(earthDomainsObj).some(Boolean)
-  const skipBio = isEarthIntent && !fungiIntent
+  const skipBio = isEarthIntent && !hasLifeScienceIntent(baseQuery)
 
   try {
     const mindexStart = performance.now()
 
     // Resolve scientific name + detect compound queries
     const scientificName = resolveScientificName(baseQuery)
-    const derivedTaxon =
-      fungiIntent ? derivedTaxonHintForFungiQuery(baseQuery, fungiIntent) : null
+    const derivedTaxon = hasLifeScienceIntent(baseQuery)
+      ? derivedTaxonHintForLifeQuery(baseQuery, lifeScope)
+      : null
     /** NCBI [Organism] + fungal iNat taxa: strip "mushroom" → genus (e.g. Amanita). */
     const bioOrganismLabel = scientificName || derivedTaxon || baseQuery.trim()
     const geneticsTargetTaxon = scientificName || derivedTaxon
@@ -1256,17 +1345,17 @@ export async function GET(request: NextRequest) {
       (!skipBio) ? searchMindexUnified(baseQuery, limit).catch(() => ({ taxa: [], compounds: [], genetics: [] })) : Promise.resolve({ taxa: [], compounds: [], genetics: [] }),
       types.includes("research") ? searchMindexResearch(baseQuery, limit, origin).catch(() => []) : Promise.resolve([]),
       (types.includes("species") && !skipBio)
-        ? searchINaturalist(bioOrganismLabel, Math.min(limit, 10), fungiIntent).catch(() => [])
+        ? searchINaturalist(bioOrganismLabel, Math.min(limit, 10), lifeScope).catch(() => [])
         : Promise.resolve([]),
       (types.includes("species") && !skipBio)
-        ? searchINaturalistLiveObservations(bioOrganismLabel, Math.min(limit, 12), lat, lng).catch(() => [])
+        ? searchINaturalistLiveObservations(bioOrganismLabel, Math.min(limit, 12), lat, lng, lifeScope).catch(() => [])
         : Promise.resolve([]),
-      types.includes("research") ? searchCrossRefResearch(baseQuery, limit, fungiIntent).catch(() => []) : Promise.resolve([]),
-      types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), fungiIntent).catch(() => []) : Promise.resolve([]),
+      types.includes("research") ? searchCrossRefResearch(baseQuery, limit, lifeScope).catch(() => []) : Promise.resolve([]),
+      types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), lifeScope).catch(() => []) : Promise.resolve([]),
       types.includes("research") && includeWeb ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => []) : Promise.resolve([]),
       // Generic NCBI genetics (works for scientific name queries like "Amanita muscaria")
       (types.includes("genetics") && !skipBio)
-        ? searchNCBIGenetics(bioOrganismLabel, Math.min(limit, 8), fungiIntent).catch(() => [])
+        ? searchNCBIGenetics(bioOrganismLabel, Math.min(limit, 8), lifeScope).catch(() => [])
         : Promise.resolve([]),
       // Targeted genetics: resolved scientific name or derived genus/binomial (e.g. "amanita mushroom" → Amanita)
       (types.includes("genetics") && geneticsTargetTaxon && !skipBio)
@@ -1276,8 +1365,8 @@ export async function GET(request: NextRequest) {
       (types.includes("compounds") && (scientificName || getCompoundNamesForSpecies(baseQuery).length > 0) && !skipBio)
         ? searchCompoundsForSpecies(baseQuery, scientificName).catch(() => [])
         : Promise.resolve([]),
-      // Compound→fungi: for "psilocybin" → Psilocybe species
-      (types.includes("species") && !skipBio)
+      // Compound→fungi: only for known bioactive compound keys (avoids wrong taxa for random queries)
+      (types.includes("species") && !skipBio && isKnownCompound)
         ? searchFungiForCompound(baseQuery, Math.min(limit, 8)).catch(() => [])
         : Promise.resolve([]),
       includeAI ? getAIAnswer(baseQuery, origin).catch(() => undefined) : Promise.resolve(undefined),

@@ -51,6 +51,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
 // Mission Critical Application Modal
 interface MissionModalData {
@@ -618,7 +619,7 @@ export function DefensePortal() {
           className="absolute inset-0 w-full h-full object-cover"
           style={{ filter: "brightness(0.3)" }}
         >
-          <source src="/assets/backgrounds/defense-hero.mp4" type="video/mp4" />
+            <source src={encodeAssetUrl("/assets/mushroom1/mushroom 1 walking.mp4")} type="video/mp4" />
           {/* Fallback gradient if video doesn't load */}
         </video>
         
@@ -747,7 +748,7 @@ export function DefensePortal() {
         <div 
           className="absolute inset-0 bg-cover bg-center"
           style={{ 
-            backgroundImage: "url('/assets/backgrounds/environmental-threats.jpg')",
+            backgroundImage: `url("${encodeAssetUrl("/assets/mushroom1/hill 1.jpg")}")`,
             opacity: 0.15
           }}
         />

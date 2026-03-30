@@ -32,6 +32,31 @@ interface SearchAIRequest {
   sessionId?: string
   conversationId?: string
   history?: Array<{ role: "user" | "assistant"; content: string }>
+  /** When true, LLM answers use Overview / Scientific / Ecology sections (unified search). */
+  integrated?: boolean
+}
+
+function buildIntegratedPrompt(userQuery: string): string {
+  return [
+    "Answer using exactly these Markdown section headings (in order):",
+    "### Overview",
+    "Plain-language summary for a general audience.",
+    "",
+    "### Scientific detail",
+    "Taxonomy, relevant anatomy or physiology, and precise terminology when applicable.",
+    "",
+    "### Ecology and relationships",
+    "Habitat, trophic interactions, symbioses, and conservation or population context when relevant.",
+    "",
+    "If the query is not about a living organism, answer helpfully and omit sections that do not apply.",
+    "Do not tell the user to visit external websites or third-party apps.",
+    "",
+    `User query: ${userQuery}`,
+  ].join("\n")
+}
+
+function llmQueryForRequest(rawQuery: string, integrated: boolean): string {
+  return integrated ? buildIntegratedPrompt(rawQuery) : rawQuery
 }
 
 interface SearchContext {
@@ -169,13 +194,16 @@ export async function GET(request: NextRequest) {
   const sessionId = request.nextUrl.searchParams.get("session_id")?.trim()
   const conversationId = request.nextUrl.searchParams.get("conversation_id")?.trim()
 
+  const integrated = request.nextUrl.searchParams.get("integrated") === "true"
+  const llmQuery = llmQueryForRequest(query, integrated)
   const payload: SearchAIRequest = {
-    query,
+    query: llmQuery,
     context,
     modelPreference,
     userId,
     sessionId,
     conversationId,
+    integrated,
   }
 
   let result: { answer: string; source: string; confidence: number } | null = null
@@ -192,12 +220,12 @@ export async function GET(request: NextRequest) {
 
   // Fallback: Direct Groq call when MAS is unreachable
   if (!result) {
-    result = await queryGroqDirect(query)
+    result = await queryGroqDirect(llmQuery)
   }
 
   // Fallback: Local Ollama/Llama
   if (!result) {
-    result = await queryOllamaDirect(query)
+    result = await queryOllamaDirect(llmQuery)
   }
 
   // Final fallback: local knowledge
@@ -345,6 +373,7 @@ export async function POST(request: NextRequest) {
     sessionId?: string
     conversationId?: string
     history?: Array<{ role: "user" | "assistant"; content: string }>
+    integrated?: boolean
   }
   try {
     body = await request.json()
@@ -355,14 +384,17 @@ export async function POST(request: NextRequest) {
   const query = (body.q || body.query)?.trim()
   if (!query) return NextResponse.json({ error: "No query provided" }, { status: 400 })
 
+  const integrated = body.integrated === true
+  const llmQuery = llmQueryForRequest(query, integrated)
   const payload: SearchAIRequest = {
-    query,
+    query: llmQuery,
     context: body.context,
     modelPreference: body.modelPreference || "fast",
     userId: body.userId,
     sessionId: body.sessionId,
     conversationId: body.conversationId,
     history: body.history,
+    integrated,
   }
 
   let result: { answer: string; source: string; confidence: number } | null = null
@@ -383,12 +415,12 @@ export async function POST(request: NextRequest) {
 
   // Fallback: Direct Groq call when MAS is unreachable
   if (!result) {
-    result = await queryGroqDirect(query)
+    result = await queryGroqDirect(llmQuery)
   }
 
   // Fallback: Local Ollama/Llama
   if (!result) {
-    result = await queryOllamaDirect(query)
+    result = await queryOllamaDirect(llmQuery)
   }
 
   // Final fallback: local knowledge

@@ -22,6 +22,7 @@ import { UndergroundFlow } from "@/components/effects/perlin-flow"
 import { MyceliumNetwork } from "@/components/ui/mycelium-network"
 import { ParticleFlow } from "@/components/ui/particle-flow"
 import type { LucideIcon } from "lucide-react"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
 // ============================================================================
 // MYCONODE MEDIA ASSETS
@@ -44,7 +45,7 @@ const MYCONODE_ASSETS = {
   // Lab testing video showing device being built and tested
   labTestVideo: "/assets/myconode/Myconode test1.mp4",
   // Live operation video
-  liveVideo: "/assets/myconode/myconode live1.mp4",
+  liveVideo: "/assets/myconode/myconode deploy1.mp4",
   // Color options for product selector
   colors: [
     { 
@@ -267,7 +268,7 @@ export function MycoNodeDetails() {
             preload="auto"
             className="absolute inset-0 w-full h-full object-cover"
           >
-            <source src={encodeURI(MYCONODE_ASSETS.heroVideo)} type="video/mp4" />
+            <source src={encodeAssetUrl(MYCONODE_ASSETS.heroVideo)} type="video/mp4" />
           </video>
           {/* Dark overlay for text readability */}
           <div className="myconode-hero-overlay absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/70 dark:from-purple-950/70 dark:via-purple-950/50 dark:to-slate-950/90" />
@@ -428,7 +429,7 @@ export function MycoNodeDetails() {
             <div className="relative">
               <div className="aspect-square rounded-3xl overflow-hidden border border-purple-500/20 bg-gradient-to-br from-purple-900/30 to-slate-950">
                 <Image
-                  src={MYCONODE_ASSETS.mainImage}
+                  src={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
                   alt="MycoNode soil probe device"
                   fill
                   className="object-cover"
@@ -535,9 +536,9 @@ export function MycoNodeDetails() {
                   loop
                   playsInline
                   className="w-full h-full object-cover"
-                  poster={MYCONODE_ASSETS.mainImage}
+                  poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
                 >
-                  <source src={encodeURI(MYCONODE_ASSETS.deployVideo)} type="video/mp4" />
+                  <source src={encodeAssetUrl(MYCONODE_ASSETS.deployVideo)} type="video/mp4" />
                 </video>
               </div>
               <div className="absolute -bottom-4 -left-4 p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-xl rounded-2xl border border-emerald-500/30">
@@ -680,9 +681,9 @@ export function MycoNodeDetails() {
             loop
             playsInline
             className="absolute inset-0 w-full h-full object-cover"
-            poster={MYCONODE_ASSETS.mainImage}
+            poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
           >
-            <source src={encodeURI(MYCONODE_ASSETS.myceliumVideo)} type="video/mp4" />
+            <source src={encodeAssetUrl(MYCONODE_ASSETS.myceliumVideo)} type="video/mp4" />
           </video>
           {/* Dark overlay for content readability */}
           <div className="myconode-apps-overlay absolute inset-0 bg-white/70 dark:bg-gradient-to-b dark:from-purple-950/85 dark:via-slate-950/80 dark:to-slate-950/90" />
@@ -837,7 +838,7 @@ export function MycoNodeDetails() {
                   <div className="absolute inset-0 flex items-center justify-center p-8">
                     <div className="relative w-full h-full">
                       <Image
-                        src={MYCONODE_ASSETS.probeImage}
+                        src={encodeAssetUrl(MYCONODE_ASSETS.probeImage)}
                         alt="MycoNode probe device"
                         fill
                         className="object-contain"
@@ -895,7 +896,7 @@ export function MycoNodeDetails() {
                     whileTap={{ scale: 0.98 }}
                   >
                     <Image
-                      src={color.image}
+                      src={encodeAssetUrl(color.image)}
                       alt={`MycoNode ${color.name}`}
                       fill
                       className="object-cover object-top"
@@ -955,7 +956,7 @@ export function MycoNodeDetails() {
                   className="aspect-square rounded-2xl overflow-hidden border-2 border-purple-500/30 bg-gradient-to-br from-purple-900/30 to-slate-950"
                 >
                   <Image
-                    src={MYCONODE_ASSETS.colors[selectedColor].image}
+                    src={encodeAssetUrl(MYCONODE_ASSETS.colors[selectedColor].image)}
                     alt={`MycoNode ${MYCONODE_ASSETS.colors[selectedColor].name}`}
                     fill
                     className="object-cover object-top rounded-2xl"
@@ -1001,9 +1002,9 @@ export function MycoNodeDetails() {
                 controls
                 playsInline
                 className="w-full h-full object-cover"
-                poster={MYCONODE_ASSETS.mainImage}
+                poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
               >
-                <source src={encodeURI(MYCONODE_ASSETS.labTestVideo)} type="video/mp4" />
+                <source src={encodeAssetUrl(MYCONODE_ASSETS.labTestVideo)} type="video/mp4" />
               </video>
             </div>
             

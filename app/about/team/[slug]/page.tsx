@@ -25,6 +25,7 @@ import {
   Video,
 } from "lucide-react"
 import { teamMembers } from "@/lib/team-data"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import type { TeamInterview } from "@/lib/team-data"
 
 // X (Twitter) icon since lucide doesn't have an X icon
@@ -157,7 +158,7 @@ export default function TeamMemberPage() {
             {/* Photo */}
             <div className="relative aspect-square rounded-2xl overflow-hidden border border-green-500/20 w-full max-w-[280px] mx-auto md:mx-0">
               <Image
-                src={member.image.startsWith("/") ? encodeURI(member.image) : member.image}
+                src={member.image.startsWith("/") ? encodeAssetUrl(member.image) : member.image}
                 alt={member.name}
                 fill
                 className="object-cover"
