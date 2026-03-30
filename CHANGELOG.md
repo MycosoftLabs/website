@@ -228,6 +228,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Repair setup-ssh composite action YAML for deploy
 - ESLint hooks in nav; Drei Html overlay in ancestry-db; CREP and NatureOS UI fixes
 - SEO audit remediation — metadata, sitemap, security headers, schema
+- *(website)* AutoplayVideo uses -web.mp4 fallbacks and explicit encodeSrc for spaced paths
 
 ### CREP
 
@@ -258,6 +259,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -427,6 +429,7 @@ All notable changes to this project will be documented in this file.
 - Optimize autonomous agent landing UI with viral replication loop and data authenticity grids
 - *(ci)* Impl zero-downtime rolling update via docker scale
 - *(nlm-training)* Replace all mock data with real MAS/GPU/MINDEX API integration
+- NLM2 page, encode-asset-url, search/team/device/defense updates
 
 ### Fix
 
