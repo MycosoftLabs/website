@@ -59,7 +59,7 @@ export const INFRA_CATEGORIES: InfraCategory[] = [
   {
     id: "energy",
     label: "Energy",
-    types: ["power_plant", "solar_farm", "wind_farm", "substation", "refinery", "oil_gas"],
+    types: ["power_plant", "solar_farm", "wind_farm", "substation", "refinery", "oil_gas", "grid_power_plant"],
     color: "#f59e0b",
     icon: "⚡",
   },
@@ -87,9 +87,16 @@ export const INFRA_CATEGORIES: InfraCategory[] = [
   {
     id: "transport",
     label: "Transport",
-    types: ["pipeline", "power_line"],
+    types: ["pipeline", "power_line", "transmission_line"],
     color: "#6b7280",
     icon: "🔌",
+  },
+  {
+    id: "grid",
+    label: "Power Grid",
+    types: ["transmission_line", "grid_substation", "grid_power_plant"],
+    color: "#eab308",
+    icon: "🔋",
   },
   {
     id: "military",
@@ -136,6 +143,9 @@ export const INFRA_TYPE_COLORS: Record<string, string> = {
   school: "#8b5cf6",
   university: "#6d28d9",
   submarine_cable: "#06b6d4",
+  transmission_line: "#eab308",
+  grid_substation: "#f97316",
+  grid_power_plant: "#ef4444",
 };
 
 export const INFRA_TYPE_ICONS: Record<string, string> = {
@@ -160,6 +170,9 @@ export const INFRA_TYPE_ICONS: Record<string, string> = {
   school: "🏫",
   university: "🎓",
   submarine_cable: "🌊",
+  transmission_line: "🔋",
+  grid_substation: "🏗️",
+  grid_power_plant: "🏭",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -180,6 +193,7 @@ export function useInfrastructureData({ enabledTypes, bounds, enabled = true }: 
   const [features, setFeatures] = useState<InfrastructureFeature[]>([]);
   const [cables, setCables] = useState<SubmarineCable[]>([]);
   const [landingPoints, setLandingPoints] = useState<InfrastructureFeature[]>([]);
+  const [gridFeatures, setGridFeatures] = useState<InfrastructureFeature[]>([]);
   const [loading, setLoading] = useState(false);
   const fetchRef = useRef(0);
 
@@ -190,8 +204,11 @@ export function useInfrastructureData({ enabledTypes, bounds, enabled = true }: 
     const bbox = `${bounds.south},${bounds.west},${bounds.north},${bounds.east}`;
 
     // Filter out cable type — handled separately
-    const overpassTypes = enabledTypes.filter(t => t !== "submarine_cable");
+    const gridTypes = ["transmission_line", "grid_substation", "grid_power_plant"];
+    const overpassTypes = enabledTypes.filter(t => t !== "submarine_cable" && !gridTypes.includes(t));
     const wantCables = enabledTypes.includes("submarine_cable");
+    const gridLayers = enabledTypes.filter(t => gridTypes.includes(t));
+    const wantGrid = gridLayers.length > 0;
 
     setLoading(true);
 
@@ -220,6 +237,98 @@ export function useInfrastructureData({ enabledTypes, bounds, enabled = true }: 
                 }));
                 infraCache.set(cacheKey, { data: feats, ts: Date.now() });
                 if (fetchId === fetchRef.current) setFeatures(feats);
+              })
+              .catch(() => {})
+          );
+        }
+      }
+
+      // Fetch power grid data (HIFLD transmission lines, substations, EIA plants)
+      if (wantGrid) {
+        const gridCacheKey = `grid-${gridLayers.join(",")}-${bbox}`;
+        const cached = infraCache.get(gridCacheKey);
+
+        if (cached && Date.now() - cached.ts < INFRA_CACHE_TTL) {
+          if (fetchId === fetchRef.current) setGridFeatures(cached.data);
+        } else {
+          const layerMap: Record<string, string> = {
+            transmission_line: "tx",
+            grid_substation: "substations",
+            grid_power_plant: "plants",
+          };
+          const apiLayers = gridLayers.map(t => layerMap[t]).filter(Boolean);
+          promises.push(
+            fetch(`/api/oei/power-grid?layers=${apiLayers.join(",")}&bbox=${bbox}`)
+              .then(r => r.ok ? r.json() : {})
+              .then(data => {
+                const feats: InfrastructureFeature[] = [];
+
+                // Transmission lines → path features
+                if (data.transmission_lines?.features) {
+                  for (const tx of data.transmission_lines.features) {
+                    feats.push({
+                      id: tx.id,
+                      type: "transmission_line",
+                      lat: tx.path?.[0]?.[1] ?? 0,
+                      lng: tx.path?.[0]?.[0] ?? 0,
+                      name: tx.owner ? `${tx.owner} (${tx.volt_class || "?"})` : `TX Line ${tx.volt_class || ""}`,
+                      tags: {
+                        voltage: tx.voltage_kv ? String(tx.voltage_kv) : "",
+                        volt_class: tx.volt_class || "",
+                        owner: tx.owner || "",
+                        line_type: tx.line_type || "",
+                        sub_1: tx.sub_1 || "",
+                        sub_2: tx.sub_2 || "",
+                      },
+                      path: tx.path,
+                    });
+                  }
+                }
+
+                // Substations → point features
+                if (data.substations?.features) {
+                  for (const sub of data.substations.features) {
+                    feats.push({
+                      id: sub.id,
+                      type: "grid_substation",
+                      lat: sub.lat,
+                      lng: sub.lng,
+                      name: sub.name,
+                      tags: {
+                        city: sub.city || "",
+                        state: sub.state || "",
+                        sub_type: sub.sub_type || "",
+                        lines: sub.lines ? String(sub.lines) : "",
+                        max_volt: sub.max_volt_kv ? String(sub.max_volt_kv) : "",
+                        min_volt: sub.min_volt_kv ? String(sub.min_volt_kv) : "",
+                      },
+                    });
+                  }
+                }
+
+                // Power plants → point features
+                if (data.power_plants?.features) {
+                  for (const pp of data.power_plants.features) {
+                    feats.push({
+                      id: pp.id,
+                      type: "grid_power_plant",
+                      lat: pp.lat,
+                      lng: pp.lng,
+                      name: pp.name,
+                      tags: {
+                        utility: pp.utility || "",
+                        primary_source: pp.primary_source || "",
+                        total_mw: pp.total_mw ? String(pp.total_mw) : "",
+                        state: pp.state || "",
+                        county: pp.county || "",
+                        sector: pp.sector || "",
+                      },
+                    });
+                  }
+                }
+
+                infraCache.set(gridCacheKey, { data: feats, ts: Date.now() });
+                if (fetchId === fetchRef.current) setGridFeatures(feats);
               })
               .catch(() => {})
           );
@@ -261,7 +370,13 @@ export function useInfrastructureData({ enabledTypes, bounds, enabled = true }: 
     return () => clearTimeout(t);
   }, [fetchInfra]);
 
-  return { features, cables, landingPoints, loading };
+  // Merge overpass features with grid features
+  const allFeatures = useMemo(
+    () => [...features, ...gridFeatures],
+    [features, gridFeatures]
+  );
+
+  return { features: allFeatures, cables, landingPoints, loading };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -316,6 +431,29 @@ export function getInfraWidgetContent(feature: InfrastructureFeature): { label: 
       break;
     case "water_treatment":
       if (t.capacity) items.push({ label: "Capacity", value: t.capacity });
+      break;
+    case "transmission_line":
+      if (t.voltage) items.push({ label: "Voltage", value: `${t.voltage} kV` });
+      if (t.volt_class) items.push({ label: "Voltage Class", value: t.volt_class });
+      if (t.owner) items.push({ label: "Owner", value: t.owner });
+      if (t.line_type) items.push({ label: "Line Type", value: t.line_type });
+      if (t.sub_1) items.push({ label: "From Substation", value: t.sub_1 });
+      if (t.sub_2) items.push({ label: "To Substation", value: t.sub_2 });
+      break;
+    case "grid_substation":
+      if (t.sub_type) items.push({ label: "Substation Type", value: t.sub_type });
+      if (t.city && t.state) items.push({ label: "Location", value: `${t.city}, ${t.state}` });
+      if (t.lines) items.push({ label: "Connected Lines", value: t.lines });
+      if (t.max_volt) items.push({ label: "Max Voltage", value: `${t.max_volt} kV` });
+      if (t.min_volt) items.push({ label: "Min Voltage", value: `${t.min_volt} kV` });
+      break;
+    case "grid_power_plant":
+      if (t.primary_source) items.push({ label: "Primary Source", value: t.primary_source });
+      if (t.total_mw) items.push({ label: "Capacity", value: `${t.total_mw} MW` });
+      if (t.utility) items.push({ label: "Utility", value: t.utility });
+      if (t.state) items.push({ label: "State", value: t.state });
+      if (t.county) items.push({ label: "County", value: t.county });
+      if (t.sector) items.push({ label: "Sector", value: t.sector });
       break;
     case "hospital":
       if (t.beds) items.push({ label: "Beds", value: t.beds });
