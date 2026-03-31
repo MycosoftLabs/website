@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import paramiko
@@ -31,6 +32,56 @@ def load_credentials():
                     os.environ[k.strip()] = v.strip()
             return os.environ.get("VM_SSH_PASSWORD")
     return None
+
+
+def resolve_repo(repo_root: Path) -> str:
+    """Resolve target GitHub repo for `gh secret set`."""
+    if os.environ.get("GH_REPO"):
+        return os.environ["GH_REPO"].strip()
+    if os.environ.get("GITHUB_REPOSITORY"):
+        return os.environ["GITHUB_REPOSITORY"].strip()
+
+    # Fallback to this repo's origin URL (works in local dev).
+    remote = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    remote_url = (remote.stdout or "").strip()
+    if not remote_url:
+        return "MycosoftLabs/website"
+
+    if remote_url.startswith("git@github.com:"):
+        path = remote_url.split("git@github.com:", 1)[1]
+    else:
+        parsed = urlparse(remote_url)
+        path = parsed.path.lstrip("/")
+
+    if path.endswith(".git"):
+        path = path[:-4]
+    return path or "MycosoftLabs/website"
+
+
+def set_secret(repo_root: Path, repo: str, body: str, environment: str | None = None) -> None:
+    """Set SSH_KEY_B64 secret at repo scope or environment scope."""
+    cmd = ["gh", "secret", "set", "SSH_KEY_B64", "--body", body, "-R", repo]
+    scope = "repository"
+    if environment:
+        cmd.extend(["--env", environment])
+        scope = f"environment:{environment}"
+
+    result = subprocess.run(
+        cmd,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed setting {scope} secret:\n{result.stderr or result.stdout}"
+        )
 
 
 def main():
@@ -69,19 +120,18 @@ def main():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".b64", delete=False) as f:
         f.write(b64)
         tmp = f.name
+    repo = resolve_repo(repo_root)
+
     try:
         with open(tmp, "r") as f:
             body = f.read()
-        r = subprocess.run(
-            ["gh", "secret", "set", "SSH_KEY_B64", "--body", body],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-        )
-        if r.returncode != 0:
-            print(r.stderr or r.stdout, file=sys.stderr)
-            sys.exit(1)
-        print("SSH_KEY_B64 secret set successfully. CI/CD deploy can use it.")
+
+        set_secret(repo_root, repo, body)
+        print(f"SSH_KEY_B64 set at repository scope for {repo}.")
+
+        # Deploy jobs run in environment: production; keep env secrets in sync.
+        set_secret(repo_root, repo, body, environment="production")
+        print("SSH_KEY_B64 set for environment:production.")
     finally:
         try:
             os.unlink(tmp)
