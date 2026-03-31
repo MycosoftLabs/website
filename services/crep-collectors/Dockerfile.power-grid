@@ -1,0 +1,21 @@
+# Power Grid Collector Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY base_collector.py .
+COPY power_grid_collector.py .
+
+RUN mkdir -p /app/data
+
+EXPOSE 8207
+
+HEALTHCHECK --interval=120s --timeout=30s --retries=3 \
+    CMD curl -f http://localhost:8207/health || exit 1
+
+CMD ["python", "power_grid_collector.py"]
