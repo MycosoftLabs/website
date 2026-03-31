@@ -317,6 +317,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -432,6 +433,7 @@ All notable changes to this project will be documented in this file.
 - *(ci)* Impl zero-downtime rolling update via docker scale
 - *(nlm-training)* Replace all mock data with real MAS/GPU/MINDEX API integration
 - NLM2 page, encode-asset-url, search/team/device/defense updates
+- Add power grid cables, substations, and plants to CREP
 
 ### Fix
 
