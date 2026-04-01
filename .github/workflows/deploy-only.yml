@@ -78,16 +78,30 @@ jobs:
           ssh-retry production docker pull -q "${IMAGE}"
 
           ssh-retry production bash -s <<DEPLOY
-            set -e
+            set -euo pipefail
+            exec 9>/tmp/mycosoft-prod-deploy.lock
+            flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
+            PREV_IMAGE=\$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
+            echo "\${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
             export WEBSITE_IMAGE="${IMAGE}"
-            docker rm -f mycosoft-website 2>/dev/null || true
-            docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website
+            docker rm -f mycosoft-website website-live website-website-1 website-website-2 2>/dev/null || true
+            if ! docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website; then
+              echo "Compose deploy failed. Attempting rollback container..."
+              if [ -n "\${PREV_IMAGE}" ]; then
+                docker rm -f website-live 2>/dev/null || true
+                docker run -d --name website-live -p 3000:3000 \
+                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                  --restart unless-stopped "\${PREV_IMAGE}" || true
+              fi
+              exit 1
+            fi
           DEPLOY
 
       - name: Health check
         run: |
           ssh-retry production bash -s <<'SCRIPT'
+          set -euo pipefail
           OK=0
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:3000/api/health; then
@@ -101,6 +115,13 @@ jobs:
           done
           if [ "$OK" -ne 1 ]; then
             echo "::error::Health check did not pass within 30s"
+            PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
+            if [ -n "$PREV_IMAGE" ]; then
+              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              docker run -d --name website-live -p 3000:3000 \
+                -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
+            fi
             exit 1
           fi
           SCRIPT
