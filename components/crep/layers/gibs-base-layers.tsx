@@ -95,16 +95,14 @@ export default function GibsBaseLayers({ map, enabledLayers, opacity = 0.4 }: Gi
       }
     };
 
-    // Resilient pattern: try immediately, fall back to styledata listener
-    const tryAdd = () => {
-      if (!map.isStyleLoaded()) return;
+    if (map.isStyleLoaded()) {
       addLayers();
-    };
-    tryAdd();
-    map.on("styledata", tryAdd);
+    } else {
+      map.once("style.load", addLayers);
+    }
 
     return () => {
-      map.off("styledata", tryAdd);
+      // Cleanup on unmount
       for (const config of Object.values(GIBS_LAYER_CONFIGS)) {
         if (map.getLayer(config.layerId)) {
           try { map.removeLayer(config.layerId); } catch {}

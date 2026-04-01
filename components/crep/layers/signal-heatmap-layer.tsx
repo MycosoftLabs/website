@@ -125,16 +125,13 @@ export default function SignalHeatmapLayer({
       }
     };
 
-    // Resilient pattern: try immediately, fall back to styledata listener
-    const tryAdd = () => {
-      if (!map.isStyleLoaded()) return;
+    if (map.isStyleLoaded()) {
       addLayer();
-    };
-    tryAdd();
-    map.on("styledata", tryAdd);
+    } else {
+      map.once("style.load", addLayer);
+    }
 
     return () => {
-      map.off("styledata", tryAdd);
       if (map.getLayer(LAYER_ID)) try { map.removeLayer(LAYER_ID); } catch {}
       if (map.getSource(SOURCE_ID)) try { map.removeSource(SOURCE_ID); } catch {}
       addedRef.current = false;
