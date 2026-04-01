@@ -1,5 +1,5 @@
 ---
-description: Navigate mycosoft.com — header dropdowns, NatureOS sidebar, mobile hamburger nav, footer links, and Ctrl+K search trigger
+description: Navigate mycosoft.com â€” header dropdowns, NatureOS sidebar, mobile hamburger nav, footer links, and Ctrl+K search trigger
 ---
 
 # Platform Navigation
@@ -7,7 +7,7 @@ description: Navigate mycosoft.com — header dropdowns, NatureOS sidebar, mobil
 ## Identity
 - **Category**: platform
 - **Access Tier**: PUBLIC (navigation chrome visible to all; some dropdown items filtered by COMPANY gate)
-- **Depends On**: platform-authentication (user state determines Security link visibility and companyOnly item filtering)
+- **Depends On**: (none — foundation skill; platform-authentication enhances visibility of Security link and companyOnly items)
 - **Route**: all routes (header/footer render on every page); sidebar at `/natureos/*`
 - **Key Components**: `components/header.tsx`, `components/dashboard/nav.tsx`, `components/mobile-nav.tsx`, `components/footer.tsx`, `components/command-search.tsx`
 

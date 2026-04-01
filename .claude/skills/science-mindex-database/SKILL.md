@@ -1,5 +1,5 @@
 ---
-description: Use when navigating or querying the MINDEX cryptographic mycological database at mycosoft.com/natureos/mindex — searching genome records, verifying data provenance, or accessing chain-of-custody audit trails. Requires company login.
+description: Use when navigating or querying the MINDEX cryptographic mycological database at mycosoft.com/natureos/mindex â€” searching genome records, verifying data provenance, or accessing chain-of-custody audit trails. Requires company login.
 ---
 
 # MINDEX Database
@@ -18,10 +18,10 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 - [ ] Audit trail for a selected record is viewable showing timestamped custody events
 
 ## Navigation Path (Computer Use)
-1. Open browser to `mycosoft.com` — you see the homepage. If not logged in, you must authenticate first.
-2. Click your profile icon or "Sign In" in the top-right — log in with company credentials.
+1. Open browser to `mycosoft.com` â€” you see the homepage. If not logged in, you must authenticate first.
+2. Click your profile icon or "Sign In" in the top-right â€” log in with company credentials.
 3. Click **NatureOS** in the top navigation bar.
-4. Click **MINDEX** — you arrive at the MINDEX landing page showing database overview stats.
+4. Click **MINDEX** â€” you arrive at the MINDEX landing page showing database overview stats.
 5. Alternatively, navigate directly to `mycosoft.com/natureos/mindex` (will redirect to login if unauthenticated).
 
 ## Screen Elements Map
@@ -44,15 +44,15 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 **Goal:** Find genomic data for a specific fungal species.
 1. Click the search bar at the top of the MINDEX dashboard.
 2. Type the species name (e.g., "Amanita muscaria") or a genome accession ID.
-3. Press Enter — results appear in the table below.
+3. Press Enter â€” results appear in the table below.
 4. Click the **Genomes** tab to filter to genome records only.
 5. Click a result row to open the full genome record detail.
 
 ### Action 2: Verify Data Integrity
 **Goal:** Confirm a record has not been tampered with.
 1. Open any record by clicking its row in the results table.
-2. Look for the blockchain verification badge — a green shield icon with a checkmark means verified.
-3. If you see a red warning triangle, the record has an integrity concern — read the warning message.
+2. Look for the blockchain verification badge â€” a green shield icon with a checkmark means verified.
+3. If you see a red warning triangle, the record has an integrity concern â€” read the warning message.
 4. Click the badge to see the full verification details: hash, block number, timestamp.
 
 ### Action 3: View Chain-of-Custody
@@ -74,7 +74,7 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 1. Click the "API Access" or "API Documentation" link (footer or sidebar).
 2. The API base URL is `http://${MINDEX_VM_HOST:-localhost}:8000`.
 3. Review available endpoints: `/genomes`, `/traits`, `/observations`, `/verify/{record_id}`.
-4. Use your company auth token in the Authorization header for API requests.
+4. Use your company auth token (`$MINDEX_API_TOKEN`) in the Authorization header for API requests.
 
 ## Common Failure Modes
 | What You See | What Went Wrong | What To Do |
@@ -91,11 +91,11 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 - **Next skills**: science-species-explorer (to visualize observations on a map), science-genetics-tools (to run genomic analysis on retrieved records), science-genomics-visualization (to visualize genome data from MINDEX)
 
 ## Computer Use Notes
-- This page requires company authentication — always verify you are logged in before navigating here.
+- This page requires company authentication â€” always verify you are logged in before navigating here.
 - The API server at ${MINDEX_VM_HOST}:8000 is an internal network address; it is only reachable from within the Mycosoft network or VPN.
-- Blockchain verification checks may take a few seconds per record — watch for a spinning indicator next to the badge.
+- Blockchain verification checks may take a few seconds per record â€” watch for a spinning indicator next to the badge.
 - The audit trail can be long for frequently-updated records; use date filters within the audit panel if available.
-- Record IDs follow a specific format (e.g., "MX-GEN-000001") — use this format in searches for exact matches.
+- Record IDs follow a specific format (e.g., "MX-GEN-000001") â€” use this format in searches for exact matches.
 
 ## Iteration Log
 ### Attempt Log

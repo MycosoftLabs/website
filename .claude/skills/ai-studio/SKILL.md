@@ -1,5 +1,5 @@
 ---
-description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/natureos/ai-studio — multi-agent system orchestration with 227+ agents, 3D topology visualization, real-time activity monitoring, and PersonaPlex voice control.
+description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/natureos/ai-studio â€” multi-agent system orchestration with 227+ agents, 3D topology visualization, real-time activity monitoring, and PersonaPlex voice control.
 ---
 
 # AI Studio (MYCA Command Center)
@@ -16,7 +16,7 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 - [ ] System tab displays MYCA chat widget (left 2/3), notification center (right 1/3), quick action grid (6 buttons), agent category overview with real counts from registry, and full agent grid
 - [ ] Topology tab renders 3D agent topology visualization (AdvancedTopology3D) with Psilo panel sidebar and full-screen toggle
 - [ ] Activity tab shows ActivityTopologyView with circulatory system data (routes, APIs, memory, workflows, devices, DB)
-- [ ] Quick stats bar in header shows Active agents count, Total agents (from COMPLETE_AGENT_REGISTRY), and Tasks queued — all from real MAS API data
+- [ ] Quick stats bar in header shows Active agents count, Total agents (from COMPLETE_AGENT_REGISTRY), and Tasks queued â€” all from real MAS API data
 
 ## Navigation Path (Computer Use)
 1. Navigate to mycosoft.com and log in (company-level access required)
@@ -60,7 +60,7 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 ### Action 2: Explore agent topology in 3D
 **Goal:** Visualize the multi-agent system network and relationships
 1. Click the "Topology" tab
-2. The 3D topology renders in the main area — agents appear as nodes, connections as edges
+2. The 3D topology renders in the main area â€” agents appear as nodes, connections as edges
 3. Use mouse/touch to rotate, zoom, and pan the 3D view
 4. The Psilo Panel on the left shows consciousness-related metrics
 5. Click "Full Screen" for an immersive view; press Escape or the close button to exit
@@ -71,7 +71,7 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 1. Click the "Create Agent" button in the top-right header
 2. The AgentCreator modal opens
 3. Configure the agent properties (name, category, capabilities)
-4. Submit to create — the agent is registered via /api/mas
+4. Submit to create â€” the agent is registered via /api/mas
 5. The stats and grid auto-refresh to show the new agent
 
 ## Common Failure Modes
@@ -79,10 +79,10 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 |---|---|---|
 | Orchestrator status dot is red, stats show "degraded" | MAS VM orchestrator at ${MAS_VM_HOST}:8001 is unreachable | Check that the MAS VM is running; the page falls back to registry data for agent counts |
 | 3D topology is blank or loading spinner persists | WebGL not supported or Three.js failed to initialize | Try a different browser; ensure hardware acceleration is enabled; fall back to Legacy Grid View |
-| Agent counts show 0 Active | /api/mas/agents endpoint returned error | Click Refresh; if persistent, the MAS API may be down — registry total still shows correctly |
+| Agent counts show 0 Active | /api/mas/agents endpoint returned error | Click Refresh; if persistent, the MAS API may be down â€” registry total still shows correctly |
 | "Create Agent" modal submits but no agent appears | MAS API rejected the creation request | Check browser console for error details; ensure company-level access |
 | Voice commands not working | PersonaPlex not connected or on mobile | Voice requires desktop + edge node; check the voice indicator in bottom-right |
-| Quick action links (Proxmox, n8n) fail to load | Local network services not accessible | These link to internal IPs (${PROXMOX_HOST}, localhost:5678) — only work on the local network |
+| Quick action links (Proxmox, n8n) fail to load | Local network services not accessible | These link to internal IPs (${PROXMOX_HOST}, localhost:5678) â€” only work on the local network |
 
 ## Composability
 - **Prerequisite skills**: platform-natureos-dashboard (for sidebar navigation and NatureOS layout)
@@ -91,7 +91,7 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 
 ## Computer Use Notes
 - The page auto-refreshes data every 30 seconds (orchestrator health + stats); during active use the interval runs continuously
-- Agent registry (COMPLETE_AGENT_REGISTRY) provides ground-truth counts — MAS API data augments with live status
+- Agent registry (COMPLETE_AGENT_REGISTRY) provides ground-truth counts â€” MAS API data augments with live status
 - The 3D topology in the Topology tab can be resource-intensive; the legacy grid is a lighter alternative
 - PersonaPlex voice commands recognized: "show command/system", "show topology", "show memory/activity/workflows", "create agent/new agent", "refresh/update"
 - The System tab is the default selected tab on page load

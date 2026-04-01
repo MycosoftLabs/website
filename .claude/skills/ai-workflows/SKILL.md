@@ -1,5 +1,5 @@
 ---
-description: Manage AI workflow automation at mycosoft.com/natureos/workflows — n8n workflow orchestration across local and cloud instances, gateway control plane, platform integrations (Discord, Slack, Notion, etc.), sandbox execution, and MAS repository workflow import.
+description: Manage AI workflow automation at mycosoft.com/natureos/workflows â€” n8n workflow orchestration across local and cloud instances, gateway control plane, platform integrations (Discord, Slack, Notion, etc.), sandbox execution, and MAS repository workflow import.
 ---
 
 # AI Workflows
@@ -12,7 +12,7 @@ description: Manage AI workflow automation at mycosoft.com/natureos/workflows �
 - **Key Components**: app/natureos/workflows/page.tsx, api/natureos/n8n (n8n status API), api/natureos/n8n/workflows-list (known workflows API), api/natureos/n8n/import (workflow import API), api/natureos/gateway (gateway status API)
 
 ## Success Criteria (Eval)
-- [ ] Workflows page loads with "Workflow Automation" heading, instance tabs (Local localhost:5678 and Cloud mycosoft.app.n8n.cloud) with connection status dots, and three summary cards (Status, Total Workflows, Recent Executions)
+- [ ] Workflows page loads with "Workflow Automation" heading, instance tabs (Local $N8N_LOCAL_URL and Cloud mycosoft.app.n8n.cloud) with connection status dots, and three summary cards (Status, Total Workflows, Recent Executions)
 - [ ] Gateway Control Plane card displays tool route counts across builtin, sandbox, workflow, and agent categories
 - [ ] Platform Integrations card shows 7 connected platforms (Discord, Slack, Signal, WhatsApp, Gmail, Asana, Notion) with status indicators
 - [ ] Workflow list displays all workflows from the selected n8n instance with active/inactive badges and last-updated timestamps
@@ -23,7 +23,7 @@ description: Manage AI workflow automation at mycosoft.com/natureos/workflows �
 2. Open the NatureOS dashboard at /natureos
 3. In the sidebar, expand the appropriate section and click "Workflows", or navigate directly to /natureos/workflows
 4. The Workflow Automation page loads with the DashboardShell layout
-5. Two instance tabs at the top: Local (localhost:5678) and Cloud (mycosoft.app.n8n.cloud)
+5. Two instance tabs at the top: Local ($N8N_LOCAL_URL) and Cloud (mycosoft.app.n8n.cloud)
 
 ## Screen Elements Map
 | What You'll See | Where On Screen | What To Do |
@@ -48,7 +48,7 @@ description: Manage AI workflow automation at mycosoft.com/natureos/workflows �
 ### Action 1: Monitor n8n workflow status
 **Goal:** Check which workflows are running and their recent execution history
 1. Navigate to /natureos/workflows
-2. Select the instance tab (Local or Cloud) — check the status dot for connectivity
+2. Select the instance tab (Local or Cloud) â€” check the status dot for connectivity
 3. View the three summary cards: connection status, total/active workflow counts, recent executions
 4. Scroll to the Workflows list to see individual workflows with their active/inactive state
 5. Scroll to Recent Executions to see success/error/running status of latest runs
@@ -57,28 +57,28 @@ description: Manage AI workflow automation at mycosoft.com/natureos/workflows �
 ### Action 2: Import workflows from MAS repository to cloud
 **Goal:** Deploy workflow definitions from the repository to the cloud n8n instance
 1. Switch to the "Cloud" tab
-2. Scroll to the bottom to see "Available Workflows in MAS Repository" — review the category breakdown and individual workflow descriptions
+2. Scroll to the bottom to see "Available Workflows in MAS Repository" â€” review the category breakdown and individual workflow descriptions
 3. Click "Import workflows to cloud" in the top-right
-4. Wait for the import to complete — a status message appears showing created/updated/skipped counts
+4. Wait for the import to complete â€” a status message appears showing created/updated/skipped counts
 5. The workflow list auto-refreshes to show newly imported workflows
 
 ### Action 3: Access n8n directly for workflow editing
 **Goal:** Open the full n8n visual workflow editor
 1. Click "Open n8n" in the top-right to open the selected instance in a new browser tab
-2. Local instance opens at http://localhost:5678 (requires local network access)
+2. Local instance opens at $N8N_LOCAL_URL (requires local network access)
 3. Cloud instance opens at https://mycosoft.app.n8n.cloud
 4. Use the n8n editor to create, modify, or debug workflows visually
 
 ## Common Failure Modes
 | What You See | What Went Wrong | What To Do |
 |---|---|---|
-| Both instance tabs show red dots and "Disconnected" | n8n services not running or network unreachable | For local: ensure n8n is running at localhost:5678; for cloud: check mycosoft.app.n8n.cloud availability |
+| Both instance tabs show red dots and "Disconnected" | n8n services not running or network unreachable | For local: ensure n8n is running at $N8N_LOCAL_URL; for cloud: check mycosoft.app.n8n.cloud availability |
 | Local tab connected but Cloud shows disconnected | Cloud n8n API key not configured or expired | Check environment variable for n8n cloud API credentials |
 | "Import workflows to cloud" fails with error message | Cloud n8n API rejected the import or workflows already exist | Read the error message; "skipped" means workflows already imported; check API key permissions |
 | Gateway Control Plane shows all zeros | /api/natureos/gateway endpoint unreachable | The gateway service may be down; tool routing still works via fallback defaults (9 builtin, 3 sandbox, 2 workflow, 1 agent) |
 | Platform integrations all show green but workflows fail | Integration configured but not authenticated | Open n8n directly to check credential setup for each platform |
 | Workflows list empty despite "Connected" status | n8n has no workflows configured yet | Create workflows in n8n UI, or use the import feature to load from MAS repository |
-| "Open n8n" link for local instance fails | Not on the local network | localhost:5678 is only accessible from the same machine or network; use Cloud tab for remote access |
+| "Open n8n" link for local instance fails | Not on the local network | $N8N_LOCAL_URL is only accessible from the same machine or network; use Cloud tab for remote access |
 
 ## Composability
 - **Prerequisite skills**: platform-natureos-dashboard (NatureOS layout and sidebar)
@@ -89,8 +89,8 @@ description: Manage AI workflow automation at mycosoft.com/natureos/workflows �
 - The page auto-refreshes n8n status every 30 seconds via setInterval
 - The gateway status is fetched once on mount and does not auto-refresh
 - Known workflows list is fetched once from /api/natureos/n8n/workflows-list on mount
-- The import action (POST /api/natureos/n8n/import) can take several seconds — the button shows "Importing..." during the operation
-- Platform integrations are statically defined in the component (PLATFORM_INTEGRATIONS array) — status indicators reflect availability, not live authentication state
+- The import action (POST /api/natureos/n8n/import) can take several seconds â€” the button shows "Importing..." during the operation
+- Platform integrations are statically defined in the component (PLATFORM_INTEGRATIONS array) â€” status indicators reflect availability, not live authentication state
 - Workflow categories in the MAS repository: myca (MYCA-related), native (NatureOS native), ops (operations), speech (voice/audio), defense (security), other
 - The DashboardShell wrapper provides consistent max-w-7xl container layout
 - Sandbox execution stats (active sandboxes, connections) come from the gateway API and reflect real-time WebSocket-based tool execution state
