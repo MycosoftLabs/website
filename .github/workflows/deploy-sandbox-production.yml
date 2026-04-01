@@ -14,6 +14,10 @@
 
 name: Deploy to Sandbox (Production)
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 on:
   push:
     branches: ["disabled-to-prevent-conflict"]
@@ -169,3 +173,19 @@ jobs:
               --data '{"purge_everything":true}'
             echo "Cache purged"
           fi
+
+      - name: Public endpoint verification
+        if: success()
+        run: |
+          URL="https://mycosoft.com/"
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "Public endpoint healthy: HTTP $STATUS"
+              exit 0
+            fi
+            echo "Attempt $i: public endpoint returned HTTP $STATUS, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Public endpoint verification failed"
+          exit 1
