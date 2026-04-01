@@ -32,7 +32,7 @@ export interface WSOptions {
 
 export function useWebSocket(options: WSOptions = {}) {
   const {
-    url = process.env.NEXT_PUBLIC_WS_URL || 'ws://192.168.0.188:8001/ws',
+    url = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8001/ws',
     reconnect = true,
     reconnectInterval = 3000,
     maxReconnects = 10,

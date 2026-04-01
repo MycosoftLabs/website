@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { voiceLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limiter"
 
-const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || "http://192.168.0.188:8001"
+const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || "http://localhost:8001"
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 
 export async function POST(request: NextRequest) {

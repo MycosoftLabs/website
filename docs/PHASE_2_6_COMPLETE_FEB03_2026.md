@@ -18,7 +18,7 @@ Provides real-time bidirectional communication with the MAS backend.
 
 ```typescript
 const { isConnected, lastMessage, send, subscribe } = useWebSocket({
-  url: 'ws://192.168.0.188:8001/ws',
+  url: 'ws://${MAS_VM_HOST:-localhost}:8001/ws',
   reconnect: true,
   reconnectInterval: 3000,
 })
@@ -426,7 +426,7 @@ npm install three @react-three/fiber @react-three/drei swr
 The following MAS backend endpoints must be implemented:
 
 ### WebSocket
-- `ws://192.168.0.188:8001/ws` - WebSocket connection
+- `ws://${MAS_VM_HOST:-localhost}:8001/ws` - WebSocket connection
 
 ### Autonomous
 - `POST /autonomous/experiments` - Create experiment

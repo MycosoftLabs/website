@@ -49,7 +49,7 @@ Based on documentation analysis:
 │                                       │ - K3s Kubernetes            │   │
 │                                       └─────────────────────────────┘   │
 │                                                                          │
-│  Proxmox Host (192.168.0.202)                                           │
+│  Proxmox Host (${PROXMOX_HOST})                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │ No GPU - All GPUs on physical Windows machines                   │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
@@ -101,7 +101,7 @@ gpu-operator       Active
 
 A. **GPU Passthrough** (Complex, requires Proxmox host access):
    ```bash
-   # On Proxmox host (192.168.0.202)
+   # On Proxmox host (${PROXMOX_HOST})
    lspci -nn | grep NVIDIA  # Find GPU PCI address
    qm set <vmid> -hostpci0 <pci-addr>,pcie=1
    # Edit /etc/default/grub: intel_iommu=on iommu=pt
@@ -174,7 +174,7 @@ Given the current setup, the recommended approach:
 ### Requires Proxmox Access
 
 3. **Configure GPU passthrough** (if desired):
-   - Need SSH access to Proxmox host (192.168.0.202)
+   - Need SSH access to Proxmox host (${PROXMOX_HOST})
    - Requires VM reboot
 
 ### Requires NGC Account
@@ -221,6 +221,6 @@ Given the current setup, the recommended approach:
 ## Contact
 
 For GPU passthrough configuration, Proxmox host access is needed at:
-- **Host**: 192.168.0.202
-- **Web UI**: https://192.168.0.202:8006
+- **Host**: ${PROXMOX_HOST}
+- **Web UI**: https://${PROXMOX_HOST:-localhost}:8006
 - **API Token**: `root@pam!cursor_agent` (see PROXMOX_UNIFI_API_REFERENCE.md)

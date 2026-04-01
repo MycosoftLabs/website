@@ -4,7 +4,7 @@
  * Timeline Cache Stats - February 6, 2026
  */
 
-const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || "http://192.168.0.188:8001"
+const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || "http://localhost:8001"
 
 export async function GET() {
   try {

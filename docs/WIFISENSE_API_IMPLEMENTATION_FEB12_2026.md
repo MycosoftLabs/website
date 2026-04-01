@@ -90,7 +90,7 @@ Expected actions (when implemented):
 ## Integration Points
 
 ### MINDEX API
-- **Base URL**: `http://192.168.0.189:8000`
+- **Base URL**: `http://${MINDEX_VM_HOST:-localhost}:8000`
 - **Endpoints Used**:
   - `GET /wifisense/status` - Device status list
   - `GET /wifisense/events` - Presence/motion events

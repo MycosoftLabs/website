@@ -5,7 +5,7 @@
 All website code has been fixed and is ready to deploy:
 
 ### 1. API URLs Fixed
-**Changed**: MINDEX API URL from `192.168.0.188:8001` → `192.168.0.189:8000`
+**Changed**: MINDEX API URL from `${MAS_VM_HOST}:8001` → `${MINDEX_VM_HOST}:8000`
 
 | File | What Changed |
 |------|--------------|
@@ -58,7 +58,7 @@ The MINDEX VM needs database restart:
 
 ```bash
 # SSH to MINDEX VM
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # Restart containers
 cd /home/mycosoft/mindex
@@ -100,7 +100,7 @@ Once you restart the MINDEX VM containers, test these pages:
 
 ```powershell
 # 1. Health check
-Invoke-RestMethod http://192.168.0.189:8000/api/mindex/health
+Invoke-RestMethod http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/health
 
 # 2. Infrastructure dashboard
 Start-Process "http://localhost:3010/natureos/mindex"
@@ -149,5 +149,5 @@ Once you run `docker compose restart` on VM 189, everything will work!
 ---
 
 **Status**: Code fixes complete, VM restart pending
-**Next Step**: SSH to 192.168.0.189 and run `docker compose restart`
+**Next Step**: SSH to ${MINDEX_VM_HOST} and run `docker compose restart`
 **ETA**: 2 minutes to fully operational MINDEX

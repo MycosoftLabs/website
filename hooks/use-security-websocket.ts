@@ -60,7 +60,7 @@ interface UseSecurityWebSocketReturn {
   setFilters: (filters: { eventTypes?: string[]; severities?: string[] }) => void;
 }
 
-const MAS_WS_URL = process.env.NEXT_PUBLIC_MAS_WS_URL || 'ws://192.168.0.188:8001';
+const MAS_WS_URL = process.env.NEXT_PUBLIC_MAS_WS_URL || 'ws://localhost:8001';
 const MAX_EVENTS = 100;
 
 export function useSecurityWebSocket(

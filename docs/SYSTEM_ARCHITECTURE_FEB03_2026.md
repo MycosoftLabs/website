@@ -114,7 +114,7 @@ Schemas:
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          MAS ORCHESTRATOR                                    │
-│                    (FastAPI - 192.168.0.188:8001)                            │
+│                    (FastAPI - ${MAS_VM_HOST}:8001)                            │
 │  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐                 │
 │  │ Lab Agent │  │Simulation │  │ Scientist │  │Hypothesis │                 │
 │  │           │  │   Agent   │  │   Agent   │  │   Agent   │                 │
@@ -268,9 +268,9 @@ localhost:6379  → Redis (Docker)
 ### Production (VM: 192.168.0.187)
 ```
 sandbox.mycosoft.com → Website (Docker container)
-192.168.0.188:8001   → MAS Orchestrator (Docker)
-192.168.0.188:5432   → PostgreSQL (Docker)
-192.168.0.188:6379   → Redis (Docker)
+${MAS_VM_HOST}:8001   → MAS Orchestrator (Docker)
+${MAS_VM_HOST}:5432   → PostgreSQL (Docker)
+${MAS_VM_HOST}:6379   → Redis (Docker)
 ```
 
 ### Container Network

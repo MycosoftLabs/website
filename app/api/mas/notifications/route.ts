@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAuth } from "@/lib/auth/api-auth"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 interface Notification {
   id: string
@@ -41,7 +41,7 @@ export async function GET() {
         id: "1",
         type: "success",
         title: "MAS v2 Deployed",
-        message: "MYCA Orchestrator is running on 192.168.0.188:8001",
+        message: "MYCA Orchestrator is running on MAS_HOST:8001",
         source: "System",
         timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
         read: false,

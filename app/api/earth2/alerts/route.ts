@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001";
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001";
 
 interface Earth2Alert {
   id: string;

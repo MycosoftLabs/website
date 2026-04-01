@@ -22,7 +22,7 @@ import {
 const MEMORY_CACHE_MAX_ENTRIES = 1000
 const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const PREFETCH_WINDOW_MS = 10 * 60 * 1000 // 10 minutes each direction
-const API_BASE_URL = process.env.NEXT_PUBLIC_MAS_URL || "http://192.168.0.188:8001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_MAS_URL || "http://localhost:8001"
 
 export interface CacheResult<T> {
   data: T

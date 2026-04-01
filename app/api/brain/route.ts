@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/api-auth';
 
-const MAS_ORCHESTRATOR_URL = process.env.MAS_ORCHESTRATOR_URL || 'http://192.168.0.188:8001';
+const MAS_ORCHESTRATOR_URL = process.env.MAS_ORCHESTRATOR_URL || 'http://localhost:8001';
 
 // SECURITY: Allowlist of valid brain API endpoints to prevent path traversal
 const ALLOWED_ENDPOINTS = ['status', 'chat', 'chat/stream', 'event', 'memories', 'providers'];

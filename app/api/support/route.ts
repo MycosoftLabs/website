@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
     // Also send to MAS for agent triage (optional)
     try {
-      const masUrl = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+      const masUrl = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
       await fetch(`${masUrl}/api/support/tickets`, {
         method: "POST",
         headers: {

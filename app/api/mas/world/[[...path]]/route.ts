@@ -27,7 +27,7 @@ import { createClient } from "@supabase/supabase-js"
 import { getAgentProfile } from "@/lib/agent-auth"
 import { checkAndFireBalanceAlerts, fireAgentEvent } from "@/lib/myca-hooks"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // --- Path Allowlist (public API) ---
 const ALLOWED_PATHS = new Set([

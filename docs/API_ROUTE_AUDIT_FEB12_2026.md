@@ -131,7 +131,7 @@ Comprehensive scan of all Next.js API routes in `app/api/` directory. **No route
   "anomalies": [],
   "timestamp": "2026-02-12T...",
   "status": "coming_soon",
-  "message": "Anomaly detection feed is being configured. Connect MAS (192.168.0.188:8001) or MINDEX (192.168.0.189:8000) for real data.",
+  "message": "Anomaly detection feed is being configured. Connect MAS (${MAS_VM_HOST}:8001) or MINDEX (${MINDEX_VM_HOST}:8000) for real data.",
   "code": "FEATURE_COMING_SOON"
 }
 ```

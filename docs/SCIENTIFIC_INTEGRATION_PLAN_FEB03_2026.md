@@ -45,7 +45,7 @@ This document outlines the comprehensive plan to integrate the Scientific Dashbo
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      MAS ORCHESTRATOR (192.168.0.188:8001)                   │
+│                      MAS ORCHESTRATOR (${MAS_VM_HOST}:8001)                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Core Services:                                                              │
 │  - mycosoft_mas/core/orchestrator.py                                         │
@@ -113,7 +113,7 @@ Create TypeScript service classes for API communication.
 ```typescript
 // lib/services/mas-api.ts
 export class MASApiService {
-  baseUrl = process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
+  baseUrl = process.env.NEXT_PUBLIC_MAS_URL || 'http://${MAS_VM_HOST:-localhost}:8001'
   
   async getLabInstruments(): Promise<Instrument[]>
   async getSimulations(): Promise<Simulation[]>
@@ -210,9 +210,9 @@ Connect to MYCA multi-agent system for intelligent operations.
 
 ```env
 # .env.local (website)
-NEXT_PUBLIC_MAS_URL=http://192.168.0.188:8001
-NEXT_PUBLIC_MINDEX_URL=http://192.168.0.188:5432
-NEXT_PUBLIC_WS_URL=ws://192.168.0.188:8001/ws
+NEXT_PUBLIC_MAS_URL=http://${MAS_VM_HOST:-localhost}:8001
+NEXT_PUBLIC_MINDEX_URL=http://${MAS_VM_HOST}:5432
+NEXT_PUBLIC_WS_URL=ws://${MAS_VM_HOST:-localhost}:8001/ws
 
 # Production
 MAS_ORCHESTRATOR_URL=http://mas-orchestrator:8001

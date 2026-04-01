@@ -9,7 +9,7 @@ Complete solution for configuring RTX 5090 GPU passthrough from Proxmox to Sandb
 │                         GPU PASSTHROUGH SETUP                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  Proxmox Host (192.168.0.202)                                           │
+│  Proxmox Host (${PROXMOX_HOST})                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │ Physical Hardware                                                │   │
 │  │ ├── RTX 5090 GPU (PCI address TBD)                              │   │
@@ -45,7 +45,7 @@ Complete solution for configuring RTX 5090 GPU passthrough from Proxmox to Sandb
 ## Prerequisites
 
 1. **Proxmox Host Access**
-   - SSH access to 192.168.0.202
+   - SSH access to ${PROXMOX_HOST}
    - Root privileges
 
 2. **GPU Requirements**

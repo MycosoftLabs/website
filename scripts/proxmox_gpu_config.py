@@ -15,7 +15,7 @@ if sys.platform == 'win32':
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # Proxmox configuration
-PROXMOX_HOST = "192.168.0.202"
+PROXMOX_HOST = "${PROXMOX_HOST}"
 PROXMOX_URL = f"https://{PROXMOX_HOST}:8006/api2/json"
 API_TOKEN = "root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e"
 

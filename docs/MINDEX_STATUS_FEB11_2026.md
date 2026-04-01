@@ -64,10 +64,10 @@ One of these:
 
 ### Quick Fix (You Need To Do This)
 
-**SSH to VM 192.168.0.189** and run these commands:
+**SSH to VM ${MINDEX_VM_HOST}** and run these commands:
 
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # Go to MINDEX directory
 cd /home/mycosoft/mindex
@@ -117,7 +117,7 @@ All website code is **100% FIXED** and ready:
 
 ```powershell
 # Health endpoint
-Invoke-RestMethod http://192.168.0.189:8000/api/mindex/health
+Invoke-RestMethod http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/health
 # Result: "status": "ok", "db": "ok" ✅
 
 # Website health proxy
@@ -129,18 +129,18 @@ Invoke-RestMethod http://localhost:3010/api/natureos/mindex/health
 
 ```powershell
 # Stats endpoint
-Invoke-RestMethod http://192.168.0.189:8000/api/mindex/stats
+Invoke-RestMethod http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/stats
 # Result: 500 Internal Server Error ❌
 
 # Observations endpoint  
-Invoke-RestMethod "http://192.168.0.189:8000/api/mindex/observations?limit=3"
+Invoke-RestMethod "http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/observations?limit=3"
 # Result: 500 Internal Server Error ❌
 ```
 
 ## 🎯 Next Steps
 
 ### Option 1: Manual SSH Fix (Recommended)
-1. SSH to 192.168.0.189
+1. SSH to ${MINDEX_VM_HOST}
 2. Check if tables have data
 3. Run migrations if needed
 4. Sync data from GBIF if tables empty

@@ -18,11 +18,11 @@ interface ServiceStatus {
 }
 
 const SERVICES = [
-  { name: "MINDEX", url: process.env.MINDEX_API_URL || "http://192.168.0.189:8000", healthPath: "/api/mindex/health" },
-  { name: "MAS Orchestrator", url: process.env.MAS_API_URL || "http://192.168.0.188:8001", healthPath: "/health" },
-  { name: "n8n Workflows", url: process.env.N8N_URL || "http://192.168.0.188:5678", healthPath: "/healthz" },
-  { name: "Redis", url: process.env.REDIS_URL || "http://192.168.0.189:6379", healthPath: "", ping: true },
-  { name: "Qdrant Vector DB", url: process.env.QDRANT_URL || "http://192.168.0.189:6333", healthPath: "/healthz" },
+  { name: "MINDEX", url: process.env.MINDEX_API_URL || "http://localhost:8000", healthPath: "/api/mindex/health" },
+  { name: "MAS Orchestrator", url: process.env.MAS_API_URL || "http://localhost:8001", healthPath: "/health" },
+  { name: "n8n Workflows", url: process.env.N8N_URL || "http://localhost:5678", healthPath: "/healthz" },
+  { name: "Redis", url: process.env.REDIS_URL || "http://localhost:6379", healthPath: "", ping: true },
+  { name: "Qdrant Vector DB", url: process.env.QDRANT_URL || "http://localhost:6333", healthPath: "/healthz" },
   { name: "Earth-2 Weather", url: process.env.EARTH2_URL || "http://localhost:8080", healthPath: "/health" },
   { name: "FlightRadar24", url: "https://data-cloud.flightradar24.com", healthPath: "/zones/fcgi/feed.js?faa=1&bounds=33,-117,34,-116", external: true },
   { name: "NOAA SWPC", url: "https://services.swpc.noaa.gov", healthPath: "/products/noaa-scales.json", external: true },

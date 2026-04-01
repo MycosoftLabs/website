@@ -298,7 +298,7 @@ export default function GeneticsPage() {
               <Database className="h-5 w-5 text-blue-500" />
               MINDEX
             </div>
-            <p className="text-xs text-muted-foreground">192.168.0.189</p>
+            <p className="text-xs text-muted-foreground">MINDEX_HOST</p>
           </CardContent>
         </Card>
 
@@ -392,7 +392,7 @@ export default function GeneticsPage() {
             <div className="text-sm">
               <p className="font-medium text-blue-500 mb-1">About Genetics Data</p>
               <p className="text-muted-foreground">
-                DNA sequences are fetched from the MINDEX database on VM 192.168.0.189. 
+                DNA sequences are fetched from the MINDEX database on VM MINDEX_HOST. 
                 This includes genomic data from various fungal species, with support for 
                 accession-based lookup and full-text search across species names and gene identifiers.
               </p>

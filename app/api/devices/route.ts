@@ -9,7 +9,7 @@ async function fetchMycoBrainDevices() {
   const urls = [
     process.env.MYCOBRAIN_API_URL, // http://localhost:8003 for local dev
     process.env.MAS_API_URL ? `${process.env.MAS_API_URL}/api/mycobrain` : null,
-    "http://192.168.0.188:8001/api/mycobrain",
+    "http://localhost:8001/api/mycobrain",
   ].filter(Boolean) as string[]
 
   for (const baseUrl of urls) {

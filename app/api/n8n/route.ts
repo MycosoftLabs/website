@@ -12,7 +12,7 @@ import { requireAdmin } from "@/lib/auth/api-auth"
  * Date: January 27, 2026
  */
 
-const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
+const N8N_URL = process.env.N8N_URL || "http://localhost:5678"
 const N8N_API_KEY = process.env.N8N_API_KEY || ""
 const N8N_USERNAME = process.env.N8N_USERNAME || "admin"
 const N8N_PASSWORD = process.env.N8N_PASSWORD || ""

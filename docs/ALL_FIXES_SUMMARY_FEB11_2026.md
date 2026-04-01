@@ -66,7 +66,7 @@ The MINDEX database is **connected** but **has no data**:
 
 ```powershell
 # Direct API test
-Invoke-RestMethod "http://192.168.0.189:8000/api/mindex/observations?limit=3"
+Invoke-RestMethod "http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/observations?limit=3"
 # Result: 500 Internal Server Error (table empty or query fails)
 ```
 
@@ -76,7 +76,7 @@ Invoke-RestMethod "http://192.168.0.189:8000/api/mindex/observations?limit=3"
 
 ```bash
 # 1. SSH to MINDEX VM
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # 2. Check if tables have data
 cd /home/mycosoft/mindex
@@ -118,7 +118,7 @@ curl "http://localhost:8000/api/mindex/stats"
 
 ## 🚀 After You Fix VM
 
-Once you SSH to 192.168.0.189 and sync data:
+Once you SSH to ${MINDEX_VM_HOST} and sync data:
 
 1. ✅ All 12 dashboard sections will work
 2. ✅ Species Explorer will show map with pins
@@ -157,9 +157,9 @@ Start-Process "http://localhost:3010/mindex"
 Start-Process "http://localhost:3010/natureos/mindex"
 ```
 
-**On MINDEX VM (192.168.0.189):**
+**On MINDEX VM (${MINDEX_VM_HOST}):**
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 cd /home/mycosoft/mindex
 docker compose restart
 sleep 10

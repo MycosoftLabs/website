@@ -65,7 +65,7 @@ ELEVENLABS_API_KEY=sk_your_elevenlabs_key_here
 MYCA_VOICE_ID=aEO01A4wXwd1O8GPgGlF  # Arabella voice
 
 # MAS Orchestrator
-MAS_API_URL=http://192.168.0.188:8001
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 
 # Optional: Supabase for memory persistence
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -179,7 +179,7 @@ curl -X POST http://localhost:3010/api/mas/voice \
 
 ## MAS VM Orchestrator Endpoints
 
-The MAS orchestrator at 192.168.0.188:8001 should have these endpoints:
+The MAS orchestrator at ${MAS_VM_HOST}:8001 should have these endpoints:
 
 - `POST /voice/orchestrator/chat` - Main chat with voice
 - `POST /voice/tts` - Text-to-speech
@@ -241,7 +241,7 @@ The voice system integrates with these n8n workflows:
 ### n8n Environment Variables
 
 ```bash
-N8N_URL=http://192.168.0.188:5678
+N8N_URL=http://${MAS_VM_HOST:-localhost}:5678
 N8N_USER=admin
 N8N_PASSWORD=your-password
 N8N_ENCRYPTION_KEY=your-key
@@ -280,7 +280,7 @@ N8N_ENCRYPTION_KEY=your-key
                                  │
                     ┌────────────▼───────────┐
                     │   MAS Orchestrator     │
-                    │   192.168.0.188:8001   │
+                    │   ${MAS_VM_HOST}:8001   │
                     │   - 223 agents         │
                     │   - Memory manager     │
                     │   - Task router        │
@@ -331,10 +331,10 @@ ELEVENLABS_API_KEY=sk_your_key_here
 MYCA_VOICE_ID=aEO01A4wXwd1O8GPgGlF
 
 # MAS Orchestrator
-MAS_API_URL=http://192.168.0.188:8001
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 
 # n8n Workflows
-N8N_URL=http://192.168.0.188:5678
+N8N_URL=http://${MAS_VM_HOST:-localhost}:5678
 ```
 
 ### 2. n8n Workflows

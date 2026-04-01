@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { getSecureWebSocketUrl } from "@/lib/utils/websocket-url"
 
-const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 function getWsUrl(): string {
   const base = getSecureWebSocketUrl(MAS_API_URL.replace(/^https?:\/\//, "ws://"))

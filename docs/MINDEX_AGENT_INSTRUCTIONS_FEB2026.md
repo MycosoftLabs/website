@@ -2,7 +2,7 @@
 
 ## Overview
 
-MINDEX is the primary data integrity database for the Mycosoft platform. It lives on VM **192.168.0.189:8000** and stores taxa, genetic sequences, compounds, observations, IP assets, and device telemetry. This document describes all currently known issues, their root causes, and the exact steps to fix them.
+MINDEX is the primary data integrity database for the Mycosoft platform. It lives on VM **${MINDEX_VM_HOST}:8000** and stores taxa, genetic sequences, compounds, observations, IP assets, and device telemetry. This document describes all currently known issues, their root causes, and the exact steps to fix them.
 
 ---
 
@@ -28,7 +28,7 @@ MINDEX is the primary data integrity database for the Mycosoft platform. It live
 
 **Fix steps (SSH to MINDEX VM):**
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # Check if the table exists
 docker exec -it mindex-postgres psql -U postgres -d mindex -c "\dt bio.*"
@@ -84,7 +84,7 @@ curl -H "X-API-Key: local-dev-key" http://localhost:8000/api/mindex/genetics?lim
 
 **Fix steps:**
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # Check observations table
 docker exec -it mindex-postgres psql -U postgres -d mindex -c "\d observations"
@@ -132,7 +132,7 @@ curl -H "X-API-Key: local-dev-key" "http://localhost:8000/api/mindex/observation
 
 **Fix steps:**
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # Check PostgreSQL slow queries
 docker exec -it mindex-postgres psql -U postgres -d mindex << 'SQL'
@@ -178,7 +178,7 @@ docker restart mindex-postgres mindex-api
 
 **Fix steps (run ETL to populate observations):**
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 cd /home/mycosoft/mycosoft/mindex
 
 # Run the observations ETL job
@@ -196,7 +196,7 @@ curl -X POST -H "X-API-Key: local-dev-key" \
 ## Deployment Checklist After Fixes
 
 ```bash
-ssh mycosoft@192.168.0.189
+ssh mycosoft@${MINDEX_VM_HOST}
 
 # 1. Verify all containers are running
 docker ps | grep mindex
@@ -227,7 +227,7 @@ docker compose up -d mindex-api
 ## Website → MINDEX Integration Notes
 
 The website (`192.168.0.187`) connects to MINDEX via:
-- `MINDEX_API_URL=http://192.168.0.189:8000`
+- `MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000`
 - API key: `MINDEX_API_KEY` env var (fallback: `local-dev-key`)
 
 The unified search route (`app/api/search/unified/route.ts`) queries MINDEX with a 6s timeout. If MINDEX is slow, the website falls back to external APIs (iNaturalist, PubChem, NCBI, CrossRef).
@@ -246,7 +246,7 @@ This means MINDEX grows automatically with each search. Once the genetics and ob
 ## MINDEX Data Architecture
 
 ```
-MINDEX (192.168.0.189:8000)
+MINDEX (${MINDEX_VM_HOST}:8000)
 ├── taxa                  ← Species data (works ✅)
 ├── compounds             ← Chemical compounds (works ✅)  
 ├── bio.genetic_sequence  ← DNA sequences (500 ❌ — fix Issue 1)
@@ -276,10 +276,10 @@ MINDEX (192.168.0.189:8000)
 
 ```bash
 # Is MINDEX reachable?
-curl -s http://192.168.0.189:8000/api/mindex/version | python3 -m json.tool
+curl -s http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/version | python3 -m json.tool
 
 # What's the current MINDEX version?
-ssh mycosoft@192.168.0.189 "cd /home/mycosoft/mycosoft/mindex && git log -1 --format='%h %s %ar'"
+ssh mycosoft@${MINDEX_VM_HOST} "cd /home/mycosoft/mycosoft/mindex && git log -1 --format='%h %s %ar'"
 
 # Check database size
 docker exec -it mindex-postgres psql -U postgres -d mindex -c \

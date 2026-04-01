@@ -18,7 +18,7 @@ if creds_file.exists():
                 password = value.strip()
                 break
 
-mas_vm, sandbox_vm, username = "192.168.0.188", "192.168.0.187", "mycosoft"
+mas_vm, sandbox_vm, username = "${MAS_VM_HOST}", "192.168.0.187", "mycosoft"
 
 def connect_sandbox():
     # Try direct connection first (dev PC on same LAN)

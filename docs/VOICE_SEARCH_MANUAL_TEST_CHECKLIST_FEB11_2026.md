@@ -21,8 +21,8 @@ This checklist covers comprehensive manual testing of the PersonaPlex voice inte
 - [ ] Moshi server running on port 8998
   - Verify: `curl http://localhost:8998/health`
   
-- [ ] MAS Orchestrator reachable at 192.168.0.188:8001
-  - Verify: `curl http://192.168.0.188:8001/health`
+- [ ] MAS Orchestrator reachable at ${MAS_VM_HOST}:8001
+  - Verify: `curl http://${MAS_VM_HOST:-localhost}:8001/health`
   
 - [ ] Website dev server running on port 3010
   - Start: `npm run dev:next-only`
@@ -42,7 +42,7 @@ This checklist covers comprehensive manual testing of the PersonaPlex voice inte
   - Verify: `curl http://192.168.0.187:8999/health`
   
 - [ ] OR PersonaPlex accessible from MAS VM
-  - Verify: `curl http://192.168.0.188:8999/health`
+  - Verify: `curl http://${MAS_VM_HOST}:8999/health`
   
 - [ ] Cloudflare cache purged
   - Go to Cloudflare Dashboard → Caching → Purge Everything
@@ -454,7 +454,7 @@ curl http://localhost:8999/health
 curl http://localhost:8998/health
 
 # Check MAS health
-curl http://192.168.0.188:8001/health
+curl http://${MAS_VM_HOST:-localhost}:8001/health
 
 # Start website dev server
 npm run dev:next-only

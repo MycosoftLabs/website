@@ -1,7 +1,7 @@
 ﻿// MAS API Configuration
 // Connects to MAS Orchestrator backend
 
-const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
+const MAS_URL = process.env.MAS_ORCHESTRATOR_URL || process.env.NEXT_PUBLIC_MAS_URL || 'http://localhost:8001'
 
 export const API_CONFIG = {
   MAS_URL,

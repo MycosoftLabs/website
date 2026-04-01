@@ -623,7 +623,7 @@ export function detectEarthDomains(query: string): EarthSearchDomains {
  * Falls through to external APIs if MINDEX returns nothing.
  */
 async function searchMindexEarth(query: string, limit: number): Promise<Record<string, unknown[]> | null> {
-  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
   try {
     const res = await safeFetch(
       `${MINDEX_API_URL}/api/search/earth?q=${encodeURIComponent(query)}&limit=${limit}`,
@@ -711,7 +711,7 @@ export async function searchEarthIntelligence(
       promises.cameras,
     ])
 
-  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+  const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
   
   // Background ingestion: "scrape that live data and put it in MINDEX"
   if (!mindexEarth && Object.keys(domains).some(d => domains[d as keyof EarthSearchDomains])) {

@@ -76,7 +76,7 @@ Fixed incomplete API routes by adding metadata and improving response transparen
   notes: {
     elephantTracking: "Using simulated GPS data. Real tracking collar integration pending.",
     deviceIntegration: useDemo 
-      ? "Demo mode: Using simulated devices. Connect to MAS (192.168.0.188:8001) for real device data."
+      ? "Demo mode: Using simulated devices. Connect to MAS (${MAS_VM_HOST}:8001) for real device data."
       : "Using real devices from MAS Device Registry."
   },
   // ... other fields

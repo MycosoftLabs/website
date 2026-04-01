@@ -49,7 +49,7 @@ This document describes reliability enhancements made to the CREP fungal observa
 ### Local Test Environment
 
 - **Dev server**: `npm run dev:next-only` on port 3010.
-- **MINDEX**: `MINDEX_API_URL=http://192.168.0.189:8000` (VM 189).
+- **MINDEX**: `MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000` (VM 189).
 - **MINDEX_API_KEY**: Set in `.env.local` (or fallback to `local-dev-key`).
 
 ### Test 1: Default Request
@@ -82,13 +82,13 @@ curl -s "http://localhost:3010/api/crep/fungal?kingdom=Fungi" | jq '.meta'
 During local testing, MINDEX consistently returned 0 observations. Possible causes:
 
 1. **API key**: Missing or invalid `MINDEX_API_KEY` in `.env.local` (401/403).
-2. **Reachability**: MINDEX at `192.168.0.189:8000` not reachable from dev machine.
+2. **Reachability**: MINDEX at `${MINDEX_VM_HOST}:8000` not reachable from dev machine.
 3. **Data**: No fungal/biodiversity observations in MINDEX database.
 
 **Verification steps**:
 
 - Check `.env.local`: `MINDEX_API_KEY` and `MINDEX_API_URL`.
-- Test MINDEX directly: `curl -H "X-API-Key: $MINDEX_API_KEY" "http://192.168.0.189:8000/api/mindex/observations?limit=10"`.
+- Test MINDEX directly: `curl -H "X-API-Key: $MINDEX_API_KEY" "http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/observations?limit=10"`.
 - Inspect MINDEX logs for 401/403 or empty result sets.
 
 ---

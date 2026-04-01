@@ -21,8 +21,8 @@ export const maxDuration = 30
 // CONFIGURATION
 // =============================================================================
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const EXA_API_KEY = process.env.EXA_API_KEY

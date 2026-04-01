@@ -32,11 +32,11 @@ Based on this finding, we have three options for PersonaPlex/Moshi deployment:
 - Website connects to `ws://localhost:8999`
 - **Limitation**: Only works for local development, not for live site
 
-### Option B: Deploy to MAS VM (192.168.0.188)
+### Option B: Deploy to MAS VM (${MAS_VM_HOST})
 **Status**: ⚠️ Needs GPU Verification
 - MAS VM might have GPU (needs verification)
 - Would allow both local dev and live site to use PersonaPlex
-- Check: `ssh mycosoft@192.168.0.188 nvidia-smi`
+- Check: `ssh mycosoft@${MAS_VM_HOST} nvidia-smi`
 
 ### Option C: Remote GPU Service
 **Status**: 💰 Requires Budget
@@ -62,7 +62,7 @@ The Dockerfile and docker-compose setup will be created with GPU support, ready 
 
 1. ✅ Create Dockerfile for PersonaPlex with CUDA support
 2. ✅ Add GPU reservation to docker-compose.yml
-3. ⚠️ Verify MAS VM GPU availability: `ssh mycosoft@192.168.0.188 nvidia-smi`
+3. ⚠️ Verify MAS VM GPU availability: `ssh mycosoft@${MAS_VM_HOST} nvidia-smi`
 4. 📝 Update env vars based on deployment location
 
 ## WebSocket URL Matrix
@@ -71,7 +71,7 @@ The Dockerfile and docker-compose setup will be created with GPU support, ready 
 |-------------|-----------------|-------|
 | Local Dev | `ws://localhost:8999/api/chat` | Current working setup |
 | Sandbox VM (no GPU) | N/A | GPU not available |
-| MAS VM (TBD) | `ws://192.168.0.188:8999/api/chat` | If GPU available |
+| MAS VM (TBD) | `ws://${MAS_VM_HOST}:8999/api/chat` | If GPU available |
 | Remote GPU | `wss://personaplex.mycosoft.com/api/chat` | Via Cloudflare tunnel |
 
 ## Voice Functionality Status

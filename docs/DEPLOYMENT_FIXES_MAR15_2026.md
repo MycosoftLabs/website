@@ -13,7 +13,7 @@ the MycosoftLabs platform, along with fixes applied and remaining action items.
 placeholders with no actual content rendered.
 
 **Root Cause**: The unified search API route (`/api/search/unified`) was using
-sequential MAS-first strategy with a 10s timeout. When MAS at `192.168.0.188:8001`
+sequential MAS-first strategy with a 10s timeout. When MAS at `${MAS_VM_HOST}:8001`
 (private LAN) is unreachable from production, the entire search pipeline stalls:
 - 10s waiting for MAS timeout
 - Then 6s waiting for MINDEX timeout
@@ -59,7 +59,7 @@ exist in the `public/` directory. It was expected to be served from NAS storage.
 single run (67 runs, 100% failure rate).
 
 **Root Cause**: GitHub-hosted runners (`runs-on: ubuntu-latest`) **cannot reach
-private LAN addresses** (192.168.0.188, 192.168.0.189, 192.168.0.187). SSH
+private LAN addresses** (${MAS_VM_HOST}, ${MINDEX_VM_HOST}, 192.168.0.187). SSH
 connections time out because there is no route from GitHub's infrastructure to the
 private network.
 

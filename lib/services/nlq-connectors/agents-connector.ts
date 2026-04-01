@@ -6,7 +6,7 @@
 import type { Intent } from "../myca-nlq"
 import type { BaseConnector, ConnectorOptions, ConnectorResult } from "./base-connector"
 
-const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 export class AgentsConnector implements BaseConnector {
   readonly name = "MAS Agents"

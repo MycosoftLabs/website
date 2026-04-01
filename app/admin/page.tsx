@@ -705,7 +705,7 @@ export default function SuperAdminPage() {
     } else if (cmd === 'agents') {
       appendOutput(['Querying MAS agent pool...'])
       try {
-        const masUrl = process.env.NEXT_PUBLIC_MAS_API_URL || 'http://192.168.0.188:8001'
+        const masUrl = process.env.NEXT_PUBLIC_MAS_API_URL || 'http://localhost:8001'
         const res = await fetch(`${masUrl}/agents`, { cache: 'no-store', signal: AbortSignal.timeout(5000) }).catch(() => null)
         if (res?.ok) {
           const data = await res.json()
@@ -738,7 +738,7 @@ export default function SuperAdminPage() {
           } else {
             output = [
               'MYCA Agent Status:',
-              '  MAS API unreachable at 192.168.0.188:8001',
+              '  MAS API unreachable at MAS_HOST:8001',
               '  Run "services" to check service health',
             ]
           }

@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       offset,
       error: "Unable to connect to MINDEX genetics API",
       details: error instanceof Error ? error.message : String(error),
-      info: "Configure MINDEX_API_URL in environment and ensure /api/genetics endpoint is available on MINDEX VM (192.168.0.189:8000)",
+      info: "Configure MINDEX_API_URL in environment and ensure /api/genetics endpoint is available on MINDEX VM (MINDEX_HOST:8000)",
     })
   }
 }

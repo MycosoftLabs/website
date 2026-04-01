@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 interface TrendingTopic {
   topic: string

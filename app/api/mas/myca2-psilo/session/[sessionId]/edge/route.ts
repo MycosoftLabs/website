@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const MAS = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS = process.env.MAS_API_URL || "http://localhost:8001"
 
 export async function POST(
   req: NextRequest,

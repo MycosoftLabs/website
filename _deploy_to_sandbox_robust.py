@@ -111,7 +111,7 @@ def main():
     
     start_command = """docker run -d --name mycosoft-website -p 3000:3000 \
   -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-  -e MAS_API_URL=http://192.168.0.188:8001 \
+  -e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 \
   --restart unless-stopped \
   mycosoft-always-on-mycosoft-website:latest"""
     

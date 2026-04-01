@@ -8,7 +8,7 @@ import { searchExpandedMushrooms } from "@/lib/data/top-mushrooms-expanded"
 import { searchTracker } from "@/lib/services/search-tracker"
 import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
-const MINDEX_BASE = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX_BASE = process.env.MINDEX_API_URL || "http://localhost:8000"
 const USE_WORLDVIEW_SEARCH = process.env.USE_WORLDVIEW_SEARCH === "true"
 
 interface SpeciesMappingEntry {

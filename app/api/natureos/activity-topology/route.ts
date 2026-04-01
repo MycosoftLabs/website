@@ -3,9 +3,9 @@ import type { ActivityNode, ActivityConnection, ActivityTopologyData } from "@/c
 
 export const dynamic = "force-dynamic"
 
-const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://192.168.0.189:8000"
-const N8N_URL = process.env.N8N_URL || process.env.N8N_WEBHOOK_URL?.replace(/\/webhook.*$/, "") || "http://192.168.0.188:5678"
+const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
+const N8N_URL = process.env.N8N_URL || process.env.N8N_WEBHOOK_URL?.replace(/\/webhook.*$/, "") || "http://localhost:5678"
 const HEALTH_TIMEOUT_MS = 4000
 
 type NodeStatus = "healthy" | "degraded" | "error"

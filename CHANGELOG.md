@@ -380,7 +380,7 @@ All notable changes to this project will be documented in this file.
 - NatureOS platform expansion, defense layouts, neuromorphic UI, scientific pages, device components, new NatureOS APIs (Feb 19, 2026)
 - Complete website updates and defense interaction polish
 - Add petri simulator chemical overlays and panels
-- Wire petri dish simulator page content
+- Wire Petri Dish simulator page content
 - Finalize MYCA floating chat overlay
 - Embed NatureOS tools in viewport
 - Expand NatureOS IoT dashboards

@@ -760,7 +760,7 @@ export const DEVICE_PROFILES: Record<DeviceProfileType, DeviceProfile> = {
   petreus: {
     type: "petreus",
     name: "Petreus",
-    description: "Petri dish cultivation and experiment tracking",
+    description: "Petri Dish cultivation and experiment tracking",
     icon: "petri-dish",
     color: "#00FF7F",
     requiredSensors: ["bme688"],

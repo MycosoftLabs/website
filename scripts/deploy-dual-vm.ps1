@@ -6,7 +6,7 @@
 # 
 # This script deploys to:
 #   - Sandbox VM (192.168.0.187) - Website container
-#   - MAS VM (192.168.0.188) - MYCA Orchestrator (future)
+#   - MAS VM (${MAS_VM_HOST}) - MYCA Orchestrator (future)
 # ============================================================
 
 param(
@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $SANDBOX_VM = "192.168.0.187"
-$MAS_VM = "192.168.0.188"
+$MAS_VM = "${MAS_VM_HOST}"
 $SSH_USER = "mycosoft"
 $WEBSITE_DIR = "/opt/mycosoft/website"
 $MAS_DIR = "/opt/mycosoft/mas"

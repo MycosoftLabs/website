@@ -226,7 +226,7 @@ const [currentGoals, setCurrentGoals] = useState<string[]>([])
 
 ### Local Testing (RIGHT NOW)
 - Already works on localhost:3010
-- Connects to MAS VM (192.168.0.188:8001)
+- Connects to MAS VM (${MAS_VM_HOST}:8001)
 - No deployment needed for testing
 
 ### Production Deployment (when ready)
