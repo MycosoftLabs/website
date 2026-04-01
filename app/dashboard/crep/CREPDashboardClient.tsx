@@ -325,7 +325,7 @@ type LayerDataStatus = "real" | "planned_real" | "mock";
 interface LayerConfig {
   id: string;
   name: string;
-  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities";
+  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities" | "tracking";
   icon: React.ReactNode;
   enabled: boolean;
   opacity: number;
@@ -551,6 +551,7 @@ const layerCategories = {
   imagery: { label: "Earth Observation", icon: <Globe className="w-3.5 h-3.5" />, color: "text-teal-400" },
   telecom: { label: "Telecom & Infrastructure", icon: <Radio className="w-3.5 h-3.5" />, color: "text-violet-400" },
   facilities: { label: "Facilities", icon: <MapPin className="w-3.5 h-3.5" />, color: "text-pink-400" },
+  tracking: { label: "Ground Station & Tracking", icon: <Radio className="w-3.5 h-3.5" />, color: "text-cyan-400" },
 };
 
 // Event marker component with detailed popup
@@ -1428,6 +1429,7 @@ function LayerControlPanel({
       imagery: [],
       telecom: [],
       facilities: [],
+      tracking: [],
     };
     layers.forEach(layer => {
       groups[layer.category]?.push(layer);
@@ -1721,8 +1723,9 @@ export default function CREPDashboardPage() {
   const [showSmartFenceWidget, setShowSmartFenceWidget] = useState(false);
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
 
-  // Ground Station overlay state (Mar 2026)
-  const [showGroundStation, setShowGroundStation] = useState(true); // Enabled by default — ground station is core CREP functionality
+  // Ground Station — driven by the "groundStation" layer in the unified layer system
+  const gsLayerEnabled = layers.find(l => l.id === "groundStation")?.enabled ?? false;
+  const gsLayerOpacity = layers.find(l => l.id === "groundStation")?.opacity ?? 1;
 
   
   // Selected entity states for map interaction
@@ -2043,6 +2046,10 @@ export default function CREPDashboardPage() {
     { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
     { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
     { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
+    // ===============================================================
+    // TRACKING
+    // ===============================================================
+    { id: "groundStation", name: "Ground Station", category: "tracking", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "Satellite tracking ground station, SDR receiver, pass scheduling" },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -4363,22 +4370,26 @@ export default function CREPDashboardPage() {
             )}
 
             {/* NASA GIBS Satellite Imagery Base Layers */}
-            <GibsBaseLayers
-              map={mapRef}
-              enabledLayers={{
-                modis: layers.find(l => l.id === "gibsModis")?.enabled ?? false,
-                viirs: layers.find(l => l.id === "gibsViirs")?.enabled ?? false,
-                landsat: layers.find(l => l.id === "gibsLandsat")?.enabled ?? false,
-              }}
-              opacity={0.4}
-            />
+            {mapRef && (
+              <GibsBaseLayers
+                map={mapRef}
+                enabledLayers={{
+                  modis: layers.find(l => l.id === "gibsModis")?.enabled ?? false,
+                  viirs: layers.find(l => l.id === "gibsViirs")?.enabled ?? false,
+                  landsat: layers.find(l => l.id === "gibsLandsat")?.enabled ?? false,
+                }}
+                opacity={0.4}
+              />
+            )}
 
             {/* Aurora Forecast Overlay */}
-            <AuroraOverlay
-              map={mapRef}
-              enabled={layers.find(l => l.id === "auroraOverlay")?.enabled ?? false}
-              opacity={0.5}
-            />
+            {mapRef && (
+              <AuroraOverlay
+                map={mapRef}
+                enabled={layers.find(l => l.id === "auroraOverlay")?.enabled ?? false}
+                opacity={0.5}
+              />
+            )}
 
             {/* Event Markers - Only render if corresponding layer is enabled */}
             {filteredEvents.map(event => {
@@ -4538,7 +4549,7 @@ export default function CREPDashboardPage() {
           </MapComponent>
 
           {/* Ground Station Location Marker */}
-          {showGroundStation && gsState.activeLocation && (
+          {gsLayerEnabled && gsState.activeLocation && (
             <MapMarker
               latitude={gsState.activeLocation.lat}
               longitude={gsState.activeLocation.lon ?? 0}
@@ -4552,7 +4563,7 @@ export default function CREPDashboardPage() {
           )}
 
           {/* Ground Station Tracked Satellite Positions */}
-          {showGroundStation && Object.values(gsState.positions).map((pos) => {
+          {gsLayerEnabled && Object.values(gsState.positions).map((pos) => {
             if (!pos.lat || !pos.lon) return null;
             const sat = gsState.satellites.find(s => s.norad_id === pos.norad_id);
             const isTracking = gsState.trackingState?.norad_id === pos.norad_id;
@@ -4855,7 +4866,7 @@ export default function CREPDashboardPage() {
                           <SatelliteTrackerWidget compact limit={10} />
                           
                           {/* Ground Station Overlay (Mar 2026) */}
-                          {showGroundStation && (
+                          {gsLayerEnabled && (
                             <div className="rounded-lg bg-black/40 border border-cyan-500/20 p-2 space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
@@ -4933,7 +4944,7 @@ export default function CREPDashboardPage() {
                           <Badge variant="outline" className="px-1 py-0 h-3 border-blue-500/30 text-blue-400">AIS</Badge>
                           <Badge variant="outline" className="px-1 py-0 h-3 border-purple-500/30 text-purple-400">TLE</Badge>
                           {(showSmartFenceWidget || showPresenceWidget) && <Badge variant="outline" className="px-1 py-0 h-3 border-green-500/30 text-green-400">GHANA</Badge>}
-                          {showGroundStation && <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400">GS</Badge>}
+                          {gsLayerEnabled && <Badge variant="outline" className="px-1 py-0 h-3 border-cyan-500/30 text-cyan-400">GS</Badge>}
                         </div>
                       </div>
                     </div>
@@ -4954,32 +4965,7 @@ export default function CREPDashboardPage() {
                       onOpacityChange={setLayerOpacity}
                     />
                     
-                    {/* Ground Station Toggle (Mar 2026) */}
-                    <div className="mt-4 rounded-lg bg-black/40 border border-cyan-500/20 overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 bg-black/30">
-                        <div className="flex items-center gap-2">
-                          <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="text-[11px] font-semibold text-white">Ground Station</span>
-                        </div>
-                        <Switch
-                          checked={showGroundStation}
-                          onCheckedChange={setShowGroundStation}
-                          className="h-4 w-7 data-[state=checked]:bg-cyan-500"
-                        />
-                      </div>
-                      {showGroundStation && (
-                        <div className="p-2 space-y-1">
-                          <div className="text-[9px] text-gray-500 px-2">
-                            Satellite tracking, SDR control, observation scheduling.
-                            Data syncs bi-directionally with Mindex and the Agent Worldview API.
-                          </div>
-                          <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
-                            className="block text-center text-[9px] text-cyan-400 hover:text-cyan-300 py-1 mx-2 border border-cyan-500/20 rounded mt-1">
-                            Open Full Dashboard
-                          </a>
-                        </div>
-                      )}
-                    </div>
+                    {/* Ground Station — now managed via layer control panel ("tracking" category) */}
 
                     {/* Conservation Widget Toggles (Feb 17, 2026) */}
                     <div className="mt-4 rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
@@ -5207,11 +5193,11 @@ export default function CREPDashboardPage() {
       />
 
       {/* Ground Station Overlay Panel (Mar 2026) */}
-      {showGroundStation && (
+      {gsLayerEnabled && (
         <>
           <GSOverlayPanel
-            visible={showGroundStation}
-            onToggle={() => setShowGroundStation(!showGroundStation)}
+            visible={gsLayerEnabled}
+            onToggle={() => toggleLayer("groundStation")}
           />
           {/* Pass Timeline at bottom of map */}
           <div className="fixed bottom-8 left-0 right-0 z-40">

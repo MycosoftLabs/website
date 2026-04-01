@@ -136,13 +136,16 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
       addedRef.current = true;
     };
 
-    if (map.isStyleLoaded()) {
+    // Resilient pattern: try immediately, fall back to styledata listener
+    const tryAdd = () => {
+      if (!map.isStyleLoaded()) return;
       addOverlays();
-    } else {
-      map.once("style.load", addOverlays);
-    }
+    };
+    tryAdd();
+    map.on("styledata", tryAdd);
 
     return () => {
+      map.off("styledata", tryAdd);
       if (map && addedRef.current) {
         for (const [layer, source] of [
           [AURORA_LAYER_N, AURORA_SOURCE_N],
