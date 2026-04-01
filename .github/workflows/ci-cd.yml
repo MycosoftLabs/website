@@ -20,6 +20,8 @@ on:
       - 'lib/**'
       - 'public/**'
       - 'services/**'
+      - 'docker-compose.production.yml'
+      - 'docker-compose.yml'
       - 'Dockerfile.production'
       - 'package.json'
       - 'package-lock.json'
@@ -397,16 +399,21 @@ jobs:
         run: |
           ssh-retry production bash -s <<'SCRIPT'
           echo "=== Waiting for service to be healthy ==="
+          OK=0
           for i in 1 2 3 4 5; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
               echo "Health check passed on attempt $i"
-              exit 0
+              OK=1
+              break
             fi
             echo "Attempt $i: not ready, waiting 5s..."
             sleep 5
           done
-          echo "::warning::Health check did not pass within 25s"
+          if [ "$OK" -ne 1 ]; then
+            echo "::error::Health check did not pass within 25s"
+            exit 1
+          fi
           SCRIPT
 
       - name: Purge Cloudflare cache
@@ -421,6 +428,22 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cloudflare cache purged"
           fi
+
+      - name: Public endpoint verification
+        if: success()
+        run: |
+          URL="https://mycosoft.com/"
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "Public endpoint healthy: HTTP $STATUS"
+              exit 0
+            fi
+            echo "Attempt $i: public endpoint returned HTTP $STATUS, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Public endpoint verification failed"
+          exit 1
 
       - name: Log deployment
         continue-on-error: true
@@ -550,15 +573,20 @@ jobs:
       - name: Health check
         run: |
           ssh-retry production bash -s <<'SCRIPT'
+          OK=0
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
               echo "Healthy on attempt $i"
-              exit 0
+              OK=1
+              break
             fi
             sleep 5
           done
-          echo "::warning::Health check timeout"
+          if [ "$OK" -ne 1 ]; then
+            echo "::error::Health check timeout"
+            exit 1
+          fi
           SCRIPT
 
       - name: Purge Cloudflare cache
@@ -572,6 +600,22 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cache purged"
           fi
+
+      - name: Public endpoint verification
+        if: success()
+        run: |
+          URL="https://mycosoft.com/"
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "Public endpoint healthy: HTTP $STATUS"
+              exit 0
+            fi
+            echo "Attempt $i: public endpoint returned HTTP $STATUS, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Public endpoint verification failed"
+          exit 1
 
       - name: Log deployment
         continue-on-error: true
