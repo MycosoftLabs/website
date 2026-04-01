@@ -78,7 +78,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const { resolvedTheme } = useTheme();
   const currentStyleRef = useRef<MapStyleOption | null>(null);
-  const styleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mapRef = useRef<MapLibreGL.Map | null>(null);
 
   const mapStyles = useMemo(
     () => ({
@@ -90,18 +90,12 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
   useImperativeHandle(ref, () => mapInstance as MapLibreGL.Map, [mapInstance]);
 
-  const clearStyleTimeout = useCallback(() => {
-    if (styleTimeoutRef.current) {
-      clearTimeout(styleTimeoutRef.current);
-      styleTimeoutRef.current = null;
-    }
-  }, []);
-
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Use the resolved theme, falling back to dark if not yet available
     const initialStyle =
-      resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
+      resolvedTheme === "light" ? mapStyles.light : mapStyles.dark;
     currentStyleRef.current = initialStyle;
 
     const map = new MapLibreGL.Map({
@@ -114,17 +108,18 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       ...props,
     });
 
-    const styleDataHandler = () => {
-      clearStyleTimeout();
-      // Delay to ensure style is fully processed before allowing layer operations
-      // This is a workaround to avoid race conditions with the style loading
-      styleTimeoutRef.current = setTimeout(() => {
-        setIsStyleLoaded(true);
-        if (projection) {
-          map.setProjection(projection);
-        }
-      }, 150);
+    mapRef.current = map;
+
+    // Use the "style.load" event which fires once when style is fully ready
+    // (including sources, sprites, glyphs). More reliable than "styledata"
+    // which fires multiple times during style processing.
+    const styleLoadHandler = () => {
+      setIsStyleLoaded(true);
+      if (projection) {
+        map.setProjection(projection);
+      }
     };
+
     const loadHandler = () => {
       setIsLoaded(true);
       // Call onLoad callback with the map instance when map is ready
@@ -134,14 +129,14 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     };
 
     map.on("load", loadHandler);
-    map.on("styledata", styleDataHandler);
+    map.on("style.load", styleLoadHandler);
     setMapInstance(map);
 
     return () => {
-      clearStyleTimeout();
       map.off("load", loadHandler);
-      map.off("styledata", styleDataHandler);
+      map.off("style.load", styleLoadHandler);
       map.remove();
+      mapRef.current = null;
       setIsLoaded(false);
       setIsStyleLoaded(false);
       setMapInstance(null);
@@ -157,12 +152,11 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
     if (currentStyleRef.current === newStyle) return;
 
-    clearStyleTimeout();
     currentStyleRef.current = newStyle;
     setIsStyleLoaded(false);
 
     mapInstance.setStyle(newStyle, { diff: true });
-  }, [mapInstance, resolvedTheme, mapStyles, clearStyleTimeout]);
+  }, [mapInstance, resolvedTheme, mapStyles]);
 
   const isLoading = !isLoaded || !isStyleLoaded;
 
