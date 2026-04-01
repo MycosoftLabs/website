@@ -230,6 +230,8 @@ All notable changes to this project will be documented in this file.
 - SEO audit remediation — metadata, sitemap, security headers, schema
 - *(website)* AutoplayVideo uses -web.mp4 fallbacks and explicit encodeSrc for spaced paths
 - *(crep)* Resolve map black canvas + integrate ground station as layer
+- *(deploy)* Bind Next.js to 0.0.0.0 so healthcheck passes in Docker
+- Enrich platform-authentication and platform-search skills with source-accurate details
 
 ### CREP
 
@@ -260,6 +262,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -380,7 +383,7 @@ All notable changes to this project will be documented in this file.
 - NatureOS platform expansion, defense layouts, neuromorphic UI, scientific pages, device components, new NatureOS APIs (Feb 19, 2026)
 - Complete website updates and defense interaction polish
 - Add petri simulator chemical overlays and panels
-- Wire Petri Dish simulator page content
+- Wire petri dish simulator page content
 - Finalize MYCA floating chat overlay
 - Embed NatureOS tools in viewport
 - Expand NatureOS IoT dashboards
@@ -436,6 +439,9 @@ All notable changes to this project will be documented in this file.
 - *(nlm-training)* Replace all mock data with real MAS/GPU/MINDEX API integration
 - NLM2 page, encode-asset-url, search/team/device/defense updates
 - Add power grid cables, substations, and plants to CREP
+- Initialize Mycosoft Skills Discovery System — Claude Code Computer Use
+- Add petri dish simulator skill
+- Complete Mycosoft Skills Discovery System — 59 SKILL.md files + registry
 
 ### Fix
 
@@ -515,6 +521,7 @@ All notable changes to this project will be documented in this file.
 ### Security
 
 - Purge hardcoded secrets from working tree and history
+- Remove hardcoded private IPs and fix dependency graph
 
 ### Ux
 
