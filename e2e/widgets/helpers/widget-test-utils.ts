@@ -98,8 +98,11 @@ export async function expectWidgetExpanded(
 }
 
 /**
- * Assert the primary widget is positioned first in the grid
- * (has order: -1 or is the first data-widget-id element).
+ * Assert the primary widget is among the first widgets in the grid.
+ *
+ * The FluidSearchCanvas sets `order: -1` on widgets with data, pushing them
+ * to the top. We verify the target widget appears within the first 3
+ * grid elements (answers widget may also share top position in hybrid queries).
  */
 export async function expectWidgetFirst(
   page: Page,
@@ -108,12 +111,9 @@ export async function expectWidgetFirst(
   const widget = page.locator(SEL.widget(widgetType))
   await expect(widget).toBeVisible({ timeout: WIDGET_APPEAR_TIMEOUT })
 
-  // Check it appears among the first widgets (order: -1 pushes data widgets up)
   const allWidgets = page.locator(SEL.allWidgets)
   const count = await allWidgets.count()
   if (count > 1) {
-    const firstWidgetId = await allWidgets.first().getAttribute("data-widget-id")
-    // Primary widget should be within the first 2 widgets (answers may also be first)
     const ids: string[] = []
     for (let i = 0; i < Math.min(count, 3); i++) {
       const id = await allWidgets.nth(i).getAttribute("data-widget-id")
@@ -163,6 +163,13 @@ export async function expectWidgetHasData(
     await expect(mapEl.first()).toBeVisible({ timeout: DATA_LOAD_TIMEOUT })
   }
 
+  if (validation.hasLiveIndicator) {
+    const liveEl = widget.locator(
+      '[class*="live"], [class*="streaming"], [class*="pulse"], [class*="realtime"], [class*="status"]',
+    )
+    await expect(liveEl.first()).toBeVisible({ timeout: DATA_LOAD_TIMEOUT })
+  }
+
   if (validation.minEntries) {
     // Look for list items, table rows, or card-like children
     const entries = widget.locator(
@@ -174,7 +181,11 @@ export async function expectWidgetHasData(
 }
 
 /**
- * Assert secondary widgets are also visible in the grid.
+ * Assert secondary widgets are present in the DOM.
+ *
+ * Secondary widgets may be expanded in the grid or collapsed as context pills.
+ * We verify DOM presence (count > 0) rather than visibility, since pills and
+ * minimized widgets are still valid secondary widget states.
  */
 export async function expectSecondaryWidgets(
   page: Page,
@@ -182,13 +193,8 @@ export async function expectSecondaryWidgets(
 ): Promise<void> {
   for (const type of types) {
     const widget = page.locator(SEL.widget(type))
-    // Secondary widgets may be context pills or expanded — just check existence in DOM
-    const isVisible = await widget.isVisible().catch(() => false)
-    // Secondary widgets might be pills rather than expanded. Check DOM presence.
-    if (!isVisible) {
-      const domCount = await widget.count()
-      // It's acceptable for secondary widgets to be present but collapsed
-    }
+    const domCount = await widget.count()
+    expect(domCount, `secondary widget "${type}" should be present in DOM`).toBeGreaterThan(0)
   }
 }
 
@@ -197,7 +203,13 @@ export async function expectSecondaryWidgets(
 // ---------------------------------------------------------------------------
 
 /**
- * Hit the unified search API and verify the expected result bucket has data.
+ * Hit the unified search API and verify the expected result bucket exists.
+ *
+ * Asserts that:
+ * 1. The API returns 200 with valid JSON
+ * 2. The expected `bucketKey` is present in the response object
+ * 3. If the bucket is an array, it has at least one entry (soft — logged as warning
+ *    for live-only sources that may not have data at test time)
  */
 export async function verifyApiBucket(
   request: APIRequestContext,
@@ -214,7 +226,21 @@ export async function verifyApiBucket(
   expect(data).toBeDefined()
   expect(typeof data === "object").toBeTruthy()
 
-  // The bucket should exist in the response (may be empty for some live-only sources)
+  // The bucket key should exist in the response
+  expect(
+    data,
+    `API response should contain bucket "${bucketKey}" for query "${query}"`,
+  ).toHaveProperty(bucketKey)
+
+  // If the bucket is an array, verify it has entries
+  const bucket = (data as Record<string, unknown>)[bucketKey]
+  if (Array.isArray(bucket)) {
+    expect(
+      bucket.length,
+      `bucket "${bucketKey}" should have entries for query "${query}"`,
+    ).toBeGreaterThan(0)
+  }
+
   return data as Record<string, unknown>
 }
 

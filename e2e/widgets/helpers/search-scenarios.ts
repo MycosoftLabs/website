@@ -19,7 +19,7 @@ function s(
   query: string,
   category: string,
   primaryWidget: WidgetType,
-  primarySize: { width: 1 | 2; height: 1 | 2 | 3 },
+  primarySize: SearchScenario["expectedPrimarySize"],
   secondaryWidgets: WidgetType[],
   apiResultBucket: string,
   entityType: EntityType,
@@ -254,7 +254,7 @@ export const WEATHER_SCENARIOS: SearchScenario[] = [
 
 export const AIRCRAFT_SCENARIOS: SearchScenario[] = [
   s(73, "flights over Pacific", "aircraft", "aircraft", SIZE_2x3,
-    EARTH_SECONDARY, "aircraft", "aircraft", { minEntries: 1 }),
+    EARTH_SECONDARY, "aircraft", "aircraft", { minEntries: 1, hasLiveIndicator: true }),
   s(74, "aircraft near Los Angeles", "aircraft", "aircraft", SIZE_2x3,
     EARTH_SECONDARY, "aircraft", "aircraft"),
   s(75, "planes over San Francisco", "aircraft", "aircraft", SIZE_2x3,
@@ -273,7 +273,7 @@ export const AIRCRAFT_SCENARIOS: SearchScenario[] = [
 
 export const VESSELS_SCENARIOS: SearchScenario[] = [
   s(79, "ships in Pacific", "vessels", "vessels", SIZE_2x3,
-    EARTH_SECONDARY, "vessels", "vessel", { minEntries: 1 }),
+    EARTH_SECONDARY, "vessels", "vessel", { minEntries: 1, hasLiveIndicator: true }),
   s(80, "cargo vessels near port", "vessels", "vessels", SIZE_2x3,
     EARTH_SECONDARY, "vessels", "vessel"),
   s(81, "tanker shipping routes", "vessels", "vessels", SIZE_2x3,
@@ -292,7 +292,7 @@ export const VESSELS_SCENARIOS: SearchScenario[] = [
 
 export const EVENTS_SCENARIOS: SearchScenario[] = [
   s(85, "earthquakes today", "events", "events", SIZE_2x3,
-    EARTH_SECONDARY, "events", "event", { minEntries: 1 }),
+    EARTH_SECONDARY, "events", "event", { minEntries: 1, containsText: ["earthquake"] }),
   s(86, "volcanic eruptions recent", "events", "events", SIZE_2x3,
     EARTH_SECONDARY, "events", "event"),
   s(87, "wildfire California", "events", "events", SIZE_2x3,
@@ -319,7 +319,7 @@ export const SATELLITES_SPACE_SCENARIOS: SearchScenario[] = [
   s(94, "space debris near Earth", "satellites", "satellites", SIZE_2x2,
     ANSWER_SECONDARY, "satellites", "satellite"),
   s(95, "solar flare activity", "space-weather", "space_weather", SIZE_2x2,
-    ANSWER_SECONDARY, "space_weather", "space_weather"),
+    ANSWER_SECONDARY, "space_weather", "space_weather", { containsText: ["solar"] }),
   s(96, "aurora forecast northern lights", "space-weather", "space_weather", SIZE_2x2,
     ANSWER_SECONDARY, "space_weather", "space_weather"),
 ]
@@ -353,9 +353,9 @@ export const MAP_LOCATION_SCENARIOS: SearchScenario[] = [
   s(104, "wildlife in Yellowstone", "map-location", "species", SIZE_2x2,
     BIO_SECONDARY, "species", "species"),
   s(105, "observation map Pacific Northwest", "map-location", "crep", SIZE_2x2,
-    ANSWER_SECONDARY, "crep", "crep"),
+    ANSWER_SECONDARY, "crep", "crep", { hasMap: true }),
   s(106, "earth2 weather forecast", "map-location", "earth2", SIZE_2x3,
-    ANSWER_SECONDARY, "earth2", "general"),
+    ANSWER_SECONDARY, "earth2", "general", { hasMap: true }),
   s(107, "CREP monitoring dashboard", "map-location", "crep", SIZE_2x2,
     ANSWER_SECONDARY, "crep", "crep"),
   s(108, "tracking radar global", "map-location", "crep", SIZE_2x2,
@@ -397,7 +397,7 @@ export const CROSS_DOMAIN_SCENARIOS: SearchScenario[] = [
   s(119, "embedding atlas mushroom similarity", "cross-domain", "embedding_atlas", SIZE_2x2,
     ANSWER_SECONDARY, "embeddings", "general"),
   s(120, "webcam nature live stream", "cross-domain", "cameras", SIZE_2x3,
-    ANSWER_SECONDARY, "cameras", "cameras"),
+    ANSWER_SECONDARY, "cameras", "cameras", { hasLiveIndicator: true }),
   s(121, "mycobrain sensor telemetry", "cross-domain", "devices", SIZE_2x2,
     ANSWER_SECONDARY, "devices", "device"),
   s(122, "what is a chanterelle?", "cross-domain", "species", SIZE_2x2,
