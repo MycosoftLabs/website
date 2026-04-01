@@ -220,6 +220,38 @@ services:
       - "com.crep.priority=critical"
 
   # ==========================================================================
+  # POWER GRID - U.S. Transmission Lines, Substations, Power Plants
+  # Sources: HIFLD (transmission/substations), EIA (power plants)
+  # ==========================================================================
+  crep-power-grid:
+    build:
+      context: ./services/crep-collectors
+      dockerfile: Dockerfile.power-grid
+    container_name: crep-power-grid
+    ports:
+      - "8207:8207"
+    environment:
+      - REDIS_URL=redis://mycosoft-redis:6379
+      - MINDEX_API_URL=http://mindex-api:8000
+      - COLLECT_INTERVAL=3600
+      - CACHE_PATH=/app/data/power_grid_cache.db
+      - GRID_BBOX=-125.0,24.0,-66.0,50.0
+      - LOG_LEVEL=INFO
+    volumes:
+      - power_grid_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8207/health"]
+      interval: 120s
+      timeout: 30s
+      retries: 3
+    networks:
+      - mycosoft-always-on_default
+    labels:
+      - "com.crep.service=power-grid"
+      - "com.crep.priority=medium"
+
+  # ==========================================================================
   # CREP CACHE WARMER - Pre-loads data for instant dashboard access
   # ==========================================================================
   crep-cache-warmer:
@@ -229,7 +261,7 @@ services:
     container_name: crep-cache-warmer
     environment:
       - REDIS_URL=redis://mycosoft-redis:6379
-      - CREP_SERVICES=carbon-mapper:8201,railway:8202,astria:8203,satmap:8204,marine:8205,flights:8206
+      - CREP_SERVICES=carbon-mapper:8201,railway:8202,astria:8203,satmap:8204,marine:8205,flights:8206,power-grid:8207
       - WARM_INTERVAL=60
       - LOG_LEVEL=INFO
     depends_on:
@@ -239,6 +271,7 @@ services:
       - crep-satmap
       - crep-marine
       - crep-flights
+      - crep-power-grid
     restart: unless-stopped
     networks:
       - mycosoft-always-on_default
@@ -263,4 +296,6 @@ volumes:
   marine_data:
     driver: local
   flights_data:
+    driver: local
+  power_grid_data:
     driver: local
