@@ -53,9 +53,10 @@ jobs:
     steps:
       - name: Check commit message for [fast]
         id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
-          if echo "$MSG" | grep -qiE '\[fast\]|\[instant\]|\[quick\]'; then
+          if echo "$COMMIT_MSG" | grep -qiE '\[fast\]|\[instant\]|\[quick\]'; then
             echo "is_fast=true" >> "$GITHUB_OUTPUT"
             echo "Fast deploy requested — skipping full CI/CD"
           else
