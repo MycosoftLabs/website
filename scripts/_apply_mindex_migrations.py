@@ -9,7 +9,7 @@ import paramiko
 import sys
 import time
 
-VM_HOST = "192.168.0.189"
+VM_HOST = "${MINDEX_VM_HOST}"
 VM_USER = "mycosoft"
 VM_PASSWORD = "REDACTED_VM_SSH_PASSWORD"
 

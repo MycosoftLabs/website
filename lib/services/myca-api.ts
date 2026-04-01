@@ -3,7 +3,7 @@
  * Interface to the autonomous AI agent orchestrator
  */
 
-const MYCA_URL = process.env.NEXT_PUBLIC_MYCA_URL || 'http://192.168.0.188:8001/myca'
+const MYCA_URL = process.env.NEXT_PUBLIC_MYCA_URL || 'http://localhost:8001/myca'
 
 export interface Agent {
   id: string

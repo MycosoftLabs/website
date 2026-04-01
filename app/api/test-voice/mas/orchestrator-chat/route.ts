@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const masBaseUrl =
     process.env.MAS_API_URL ||
     process.env.NEXT_PUBLIC_MAS_API_URL ||
-    "http://192.168.0.188:8001"
+    "http://localhost:8001"
 
   const protocolMode =
     req.headers.get("x-protocol-mode")?.toLowerCase() ||

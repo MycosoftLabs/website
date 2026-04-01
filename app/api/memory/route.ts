@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const MAS_URL = process.env.MAS_API_URL || process.env.MAS_ORCHESTRATOR_URL || 'http://192.168.0.188:8001';
+const MAS_URL = process.env.MAS_API_URL || process.env.MAS_ORCHESTRATOR_URL || 'http://localhost:8001';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

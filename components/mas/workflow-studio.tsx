@@ -71,7 +71,7 @@ interface WorkflowStudioProps {
   className?: string
 }
 
-export function WorkflowStudio({ n8nUrl = "http://192.168.0.188:5678", className }: WorkflowStudioProps) {
+export function WorkflowStudio({ n8nUrl = "http://localhost:5678", className }: WorkflowStudioProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats | null>(null)
   const [executionStats, setExecutionStats] = useState<ExecutionStats | null>(null)

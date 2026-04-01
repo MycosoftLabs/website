@@ -132,15 +132,15 @@ components/mas/topology/
 
 ```env
 # MAS API Configuration
-MAS_API_URL=http://192.168.0.188:8001
-NEXT_PUBLIC_MAS_API_URL=http://192.168.0.188:8001
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
+NEXT_PUBLIC_MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 
 # WebSocket Configuration (optional, defaults to true)
-NEXT_PUBLIC_MAS_WS_URL=ws://192.168.0.188:8001/ws/topology
+NEXT_PUBLIC_MAS_WS_URL=ws://${MAS_VM_HOST:-localhost}:8001/ws/topology
 NEXT_PUBLIC_MAS_WS_ENABLED=true
 
 # SSE Log Stream Configuration (optional, defaults to true)
-NEXT_PUBLIC_MAS_SSE_URL=http://192.168.0.188:8001/stream/logs
+NEXT_PUBLIC_MAS_SSE_URL=http://${MAS_VM_HOST:-localhost}:8001/stream/logs
 NEXT_PUBLIC_MAS_SSE_ENABLED=true
 ```
 

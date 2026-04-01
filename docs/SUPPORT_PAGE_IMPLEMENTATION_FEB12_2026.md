@@ -136,7 +136,7 @@ The page includes **25 real questions and answers** covering:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-MAS_API_URL=http://192.168.0.188:8001 (optional, for notifications)
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 (optional, for notifications)
 ```
 
 ## Usage

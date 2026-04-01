@@ -9,8 +9,8 @@ import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limite
 import { evaluateGovernance } from "@/lib/services/avani-governance"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 
 interface ChatRequest {

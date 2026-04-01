@@ -30,7 +30,7 @@ def main() -> int:
         return out
 
     print(run("docker ps --filter name=mycosoft-website --format '{{.Names}}\\t{{.Status}}\\t{{.Ports}}'"))
-    print("MAS health from sandbox VM:", run("curl -s -o /dev/null -w '%{http_code}' http://192.168.0.188:8001/health"))
+    print("MAS health from sandbox VM:", run("curl -s -o /dev/null -w '%{http_code}' http://${MAS_VM_HOST:-localhost}:8001/health"))
 
     for i in range(10):
         code = run("curl -s -o /dev/null -w '%{http_code}' http://localhost:3000", timeout=30)

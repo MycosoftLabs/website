@@ -163,7 +163,7 @@ async function fetchLocalMINDEX(limit: number): Promise<Observation[]> {
     process.env.MINDEX_API_URL ||
     process.env.MINDEX_API_BASE_URL ||
     process.env.MINDEX_DATABASE_URL ||
-    "http://192.168.0.189:8000"
+    "http://localhost:8000"
 
   try {
     const url = mindexUrl.includes("/api/") ? `${mindexUrl}/observations` : `${mindexUrl}/api/mindex/observations`

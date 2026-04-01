@@ -43,7 +43,7 @@ export class FCIWebSocketClient {
 
   constructor(config: FCIWebSocketConfig) {
     this.config = {
-      url: process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://192.168.0.188:8001",
+      url: process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://localhost:8001",
       reconnect: true,
       reconnectInterval: 3000,
       maxReconnectAttempts: 10,
@@ -67,7 +67,7 @@ export class FCIWebSocketClient {
     this.setStatus("connecting")
     
     // Correct endpoint: /api/fci/ws/stream/{device_id}
-    const base = getSecureWebSocketUrl(this.config.url || "ws://192.168.0.188:8001")
+    const base = getSecureWebSocketUrl(this.config.url || "ws://localhost:8001")
     const wsUrl = `${base.replace(/\/$/, "")}/api/fci/ws/stream/${this.config.deviceId}`
     
     try {

@@ -74,7 +74,7 @@ GET /api/mas/voice
   "voice_name": "Arabella",
   "model": "eleven_turbo_v2_5",
   "elevenlabs_configured": false,
-  "mas_url": "http://192.168.0.188:8001"
+  "mas_url": "http://${MAS_VM_HOST:-localhost}:8001"
 }
 ```
 
@@ -124,7 +124,7 @@ POST /api/mas/chat
 ```
 **System Status Report**
 
-• **Orchestrator**: 🟢 Online (192.168.0.188:8001)
+• **Orchestrator**: 🟢 Online (${MAS_VM_HOST}:8001)
 • **Redis Broker**: 🟢 Connected
 • **PostgreSQL (MINDEX)**: 🟢 Connected
 • **Qdrant Vector DB**: 🟢 Connected
@@ -197,7 +197,7 @@ POST /api/mas/memory
 - `/webhook/myca/speech_confirm` - Ready
 
 ### MAS Orchestrator
-- URL: `http://192.168.0.188:8001`
+- URL: `http://${MAS_VM_HOST:-localhost}:8001`
 - Status: Timeout (expected - VM offline during local tests)
 - Fallback: Working correctly
 

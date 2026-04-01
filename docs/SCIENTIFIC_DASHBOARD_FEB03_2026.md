@@ -61,7 +61,7 @@ The scientific section uses a dedicated sidebar layout with:
 ## Integration with Backend
 
 These pages integrate with the MAS Orchestrator API at:
-- Development: `http://192.168.0.188:8001`
+- Development: `http://${MAS_VM_HOST:-localhost}:8001`
 - Services accessed:
   - `/natureos/*` - Device management
   - `/scientific/*` - Simulations and experiments

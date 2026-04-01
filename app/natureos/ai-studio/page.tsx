@@ -44,7 +44,7 @@ import {
 } from "lucide-react"
 
 // MAS API URL - points to the MAS VM orchestrator
-const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 interface SystemStats {
   activeAgents: number
@@ -307,7 +307,7 @@ export default function AIStudioPage() {
             {/* Quick Actions Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <a href="http://192.168.0.188:8001/docs" target="_blank" rel="noopener noreferrer">
+                <a href="http://localhost:8001/docs" target="_blank" rel="noopener noreferrer">
                   <Brain className="h-5 w-5 text-purple-500" />
                   <span className="text-xs">MAS API Docs</span>
                 </a>
@@ -319,7 +319,7 @@ export default function AIStudioPage() {
                 </a>
               </Button>
               <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
-                <a href="https://192.168.0.202:8006" target="_blank" rel="noopener noreferrer">
+                <a href="https://localhost:8006" target="_blank" rel="noopener noreferrer">
                   <Server className="h-5 w-5 text-blue-500" />
                   <span className="text-xs">Proxmox VE</span>
                 </a>

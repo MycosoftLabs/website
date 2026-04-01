@@ -14,9 +14,9 @@ import { requireAuth } from "@/lib/auth/api-auth"
  * Updated: Jan 27, 2026
  */
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
-const METABASE_URL = process.env.METABASE_URL || "http://192.168.0.188:3000"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const N8N_URL = process.env.N8N_URL || "http://localhost:5678"
+const METABASE_URL = process.env.METABASE_URL || "http://localhost:3000"
 
 // API Keys
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
@@ -52,7 +52,7 @@ const MYCA_SYSTEM_PROMPT = `You are MYCA (Mycosoft Autonomous Cognitive Agent), 
 - **Device**: MycoBrain coordinator, sensors, telemetry
 
 ## Current System Status
-- Orchestrator: Online at 192.168.0.188:8001
+- Orchestrator: Online at MAS_HOST:8001
 - Active Agents: ~16 containerized agents
 - Redis: Online (message broker)
 - Voice: ElevenLabs with Arabella voice

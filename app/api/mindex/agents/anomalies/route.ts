@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
  * or MINDEX telemetry processing pipeline.
  */
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const MINDEX_API_URL = process.env.MINDEX_API_URL || env.mindexApiBaseUrl.replace(/\/api\/v1$/, "")
 
 export async function GET() {
@@ -64,7 +64,7 @@ export async function GET() {
     anomalies: [],
     timestamp: new Date().toISOString(),
     status: "coming_soon",
-    message: "Anomaly detection feed is being configured. Connect MAS (192.168.0.188:8001) or MINDEX (192.168.0.189:8000) for real data.",
+    message: "Anomaly detection feed is being configured. Connect MAS (MAS_HOST:8001) or MINDEX (MINDEX_HOST:8000) for real data.",
     code: "FEATURE_COMING_SOON",
   })
 }

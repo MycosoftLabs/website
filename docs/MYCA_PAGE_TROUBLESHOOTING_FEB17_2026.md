@@ -23,7 +23,7 @@ If you see "localhost redirected you too many times" or "ERR_TOO_MANY_REDIRECTS"
 
 - Ensure dev server is running on port **3010** (not 3000)
 - URL: `http://localhost:3010/myca`
-- If MAS (192.168.0.188:8001) is down, the page still loads; consciousness badge shows "Dormant", world tab shows "Failed to connect"
+- If MAS (${MAS_VM_HOST}:8001) is down, the page still loads; consciousness badge shows "Dormant", world tab shows "Failed to connect"
 - Check browser console (F12 → Console) for JavaScript errors
 
 ## Integrations (MAS API)
@@ -35,4 +35,4 @@ If you see "localhost redirected you too many times" or "ERR_TOO_MANY_REDIRECTS"
 | Chat / Orchestrator      | /api/mas/voice/orchestrator            | MAS orchestrator    |
 | Memory                   | /api/mas/memory                        | MAS memory          |
 
-Set `MAS_API_URL` in `.env.local` (default: `http://192.168.0.188:8001`). If MAS is unreachable, the page degrades gracefully.
+Set `MAS_API_URL` in `.env.local` (default: `http://${MAS_VM_HOST:-localhost}:8001`). If MAS is unreachable, the page degrades gracefully.

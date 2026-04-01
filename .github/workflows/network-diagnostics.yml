@@ -17,9 +17,9 @@
 #   192.168.0.123  — NemoClaw Jetson (NVIDIA Nemotron)
 #   192.168.0.172  — Windows Dev PC (RTX 5090)
 #   192.168.0.187  — Sandbox VM (Production website) — VMID 103
-#   192.168.0.188  — MAS VM (Multi-Agent System)
-#   192.168.0.189  — MINDEX VM (Data integrity DB)
-#   192.168.0.202  — Proxmox Host (primary)
+#   ${MAS_VM_HOST}  — MAS VM (Multi-Agent System)
+#   ${MINDEX_VM_HOST}  — MINDEX VM (Data integrity DB)
+#   ${PROXMOX_HOST}  — Proxmox Host (primary)
 # =============================================================================
 
 name: Network Diagnostics
@@ -148,11 +148,11 @@ jobs:
             HOSTS[192.168.0.123]="NemoClaw Jetson"
             HOSTS[192.168.0.172]="Windows Dev PC"
             HOSTS[192.168.0.187]="Sandbox VM (this host)"
-            HOSTS[192.168.0.188]="MAS VM"
-            HOSTS[192.168.0.189]="MINDEX VM"
-            HOSTS[192.168.0.202]="Proxmox Host"
+            HOSTS[${MAS_VM_HOST}]="MAS VM"
+            HOSTS[${MINDEX_VM_HOST}]="MINDEX VM"
+            HOSTS[${PROXMOX_HOST}]="Proxmox Host"
 
-            for ip in 192.168.0.1 192.168.0.100 192.168.0.105 192.168.0.123 192.168.0.172 192.168.0.187 192.168.0.188 192.168.0.189 192.168.0.202; do
+            for ip in 192.168.0.1 192.168.0.100 192.168.0.105 192.168.0.123 192.168.0.172 192.168.0.187 ${MAS_VM_HOST} ${MINDEX_VM_HOST} ${PROXMOX_HOST}; do
               if ping -c 1 -W 2 "$ip" > /dev/null 2>&1; then
                 # Try to get MAC address
                 MAC=$(ip neigh show "$ip" 2>/dev/null | awk '{print $5}' | head -1)
@@ -186,14 +186,14 @@ jobs:
             check_http "Providers API"    "http://localhost:3000/api/health/providers"
             echo ""
 
-            echo "--- MAS VM (192.168.0.188) ---"
-            check_http "MAS Orchestrator" "http://192.168.0.188:8001"
-            check_http "MAS Health"       "http://192.168.0.188:8001/health"
+            echo "--- MAS VM (${MAS_VM_HOST}) ---"
+            check_http "MAS Orchestrator" "${MAS_API_URL:-http://localhost:8001}"
+            check_http "MAS Health"       "${MAS_API_URL:-http://localhost:8001}/health"
             echo ""
 
-            echo "--- MINDEX VM (192.168.0.189) ---"
-            check_http "MINDEX API"       "http://192.168.0.189:8000"
-            check_http "MINDEX Health"    "http://192.168.0.189:8000/health"
+            echo "--- MINDEX VM (${MINDEX_VM_HOST}) ---"
+            check_http "MINDEX API"       "${MINDEX_API_URL:-http://localhost:8000}"
+            check_http "MINDEX Health"    "${MINDEX_API_URL:-http://localhost:8000}/health"
             echo ""
 
             echo "--- In-Stack Services ---"

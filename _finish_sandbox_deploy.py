@@ -87,10 +87,10 @@ def main():
         -e NEXT_PUBLIC_BASE_URL={base_url} \
         -e NEXTAUTH_URL={base_url} \
         -e NEXT_PUBLIC_SITE_URL={base_url} \
-        -e MAS_API_URL=http://192.168.0.188:8001 \
-        -e MINDEX_API_URL=http://192.168.0.189:8000 \
-        -e OLLAMA_BASE_URL=http://192.168.0.188:11434 \
-        -e N8N_URL=http://192.168.0.188:5678 \
+        -e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 \
+        -e MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000 \
+        -e OLLAMA_BASE_URL=http://${MAS_VM_HOST:-localhost}:11434 \
+        -e N8N_URL=http://${MAS_VM_HOST:-localhost}:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
         --restart unless-stopped {IMAGE_TAG}"""

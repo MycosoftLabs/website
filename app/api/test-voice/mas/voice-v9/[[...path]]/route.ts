@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server"
 const MAS_BASE =
   process.env.MAS_API_URL ||
   process.env.NEXT_PUBLIC_MAS_API_URL ||
-  "http://192.168.0.188:8001"
+  "http://localhost:8001"
 
 function getMasUrl(pathSegments: string[] | undefined, search: string): string {
   const base = MAS_BASE.replace(/\/$/, "")

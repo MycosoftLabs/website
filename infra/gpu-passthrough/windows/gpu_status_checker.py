@@ -29,7 +29,7 @@ if not VM_PASS:
     sys.exit(1)
 
 # Configuration
-PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "192.168.0.202")
+PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "${PROXMOX_HOST}")
 PROXMOX_API = f"https://{PROXMOX_HOST}:8006/api2/json"
 PROXMOX_TOKEN = os.environ.get("PROXMOX_TOKEN", "root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e")
 
@@ -62,7 +62,7 @@ def check_local_gpu():
 
 def check_proxmox_gpu():
     """Check GPU on Proxmox via API"""
-    print("\n>>> Proxmox Host (192.168.0.202)")
+    print("\n>>> Proxmox Host (${PROXMOX_HOST})")
     try:
         url = f"{PROXMOX_API}/nodes"
         headers = {"Authorization": f"PVEAPIToken={PROXMOX_TOKEN}"}

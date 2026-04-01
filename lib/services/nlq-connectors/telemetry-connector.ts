@@ -6,7 +6,7 @@
 import type { Intent } from "../myca-nlq"
 import type { BaseConnector, ConnectorOptions, ConnectorResult } from "./base-connector"
 
-const TELEMETRY_API_URL = process.env.NEXT_PUBLIC_TELEMETRY_API_URL || "http://192.168.0.188:8003"
+const TELEMETRY_API_URL = process.env.NEXT_PUBLIC_TELEMETRY_API_URL || "http://localhost:8003"
 
 export class TelemetryConnector implements BaseConnector {
   readonly name = "Device Telemetry"

@@ -69,7 +69,7 @@ export default async function MINDEXExplorerPage() {
           <div className="p-4 bg-muted/30 rounded-lg">
             <h3 className="font-semibold mb-2">Integration</h3>
             <p className="text-sm text-muted-foreground">
-              Connected to MINDEX database on 192.168.0.189 and MAS orchestrator
+              Connected to MINDEX database on MINDEX_HOST and MAS orchestrator
               for real-time agent data enrichment
             </p>
           </div>

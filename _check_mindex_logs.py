@@ -2,7 +2,7 @@
 """Check MINDEX API logs via SSH"""
 import paramiko
 
-VM_IP = "192.168.0.189"
+VM_IP = "${MINDEX_VM_HOST}"
 VM_USER = "mycosoft"
 VM_PASS = "REDACTED_VM_SSH_PASSWORD"
 

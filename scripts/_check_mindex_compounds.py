@@ -9,7 +9,7 @@ import psycopg2
 import sys
 
 # MINDEX DB connection
-DB_HOST = "192.168.0.189"
+DB_HOST = "${MINDEX_VM_HOST}"
 DB_PORT = 5432
 DB_NAME = "mindex"
 DB_USER = "mycosoft"

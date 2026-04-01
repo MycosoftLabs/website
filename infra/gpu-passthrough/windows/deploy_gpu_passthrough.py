@@ -41,7 +41,7 @@ if not VM_PASS:
     sys.exit(1)
 
 # Configuration
-PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "192.168.0.202")
+PROXMOX_HOST = os.environ.get("PROXMOX_HOST", "${PROXMOX_HOST}")
 PROXMOX_API = f"https://{PROXMOX_HOST}:8006/api2/json"
 PROXMOX_TOKEN = os.environ.get("PROXMOX_TOKEN", "root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e")
 PROXMOX_USER = os.environ.get("PROXMOX_USER", "root")
@@ -393,7 +393,7 @@ def main():
         configure_proxmox()
         
         print("\n[NEXT STEPS]")
-        print("1. Reboot Proxmox host: ssh root@192.168.0.202 'reboot'")
+        print("1. Reboot Proxmox host: ssh root@${PROXMOX_HOST} 'reboot'")
         print("2. After reboot: python deploy_gpu_passthrough.py --attach")
         print("3. After VM starts: python deploy_gpu_passthrough.py --vm")
 

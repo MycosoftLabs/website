@@ -15,7 +15,7 @@ User Browser (HTTPS)
     ↓
 Cloudflare (WebSocket Proxy)
     ↓
-    WS connection: ws://192.168.0.188:8999/api/chat
+    WS connection: ws://${MAS_VM_HOST}:8999/api/chat
     ↓
 PersonaPlex Bridge (MAS VM or Remote GPU)
 ```
@@ -62,9 +62,9 @@ export default {
     
     // Backend PersonaPlex Bridge
     // Change this to actual deployment location:
-    // - MAS VM: ws://192.168.0.188:8999
+    // - MAS VM: ws://${MAS_VM_HOST}:8999
     // - Remote GPU: wss://your-gpu-instance.runpod.io
-    const BACKEND_WS = 'ws://192.168.0.188:8999/api/chat';
+    const BACKEND_WS = 'ws://${MAS_VM_HOST}:8999/api/chat';
     
     // Upgrade request header check
     const upgradeHeader = request.headers.get('Upgrade');
@@ -209,7 +209,7 @@ ws.send(JSON.stringify({ type: 'ping' }));
 **Cause**: Backend not reachable or Cloudflare proxy misconfigured
 
 **Fix**:
-1. Verify backend is running: `curl http://192.168.0.188:8999/health`
+1. Verify backend is running: `curl http://${MAS_VM_HOST}:8999/health`
 2. Check Cloudflare Worker logs for errors
 3. Ensure WebSocket is enabled in Cloudflare Network settings
 

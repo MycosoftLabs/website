@@ -29,11 +29,11 @@
 | VM | IP | Required For |
 |----|-----|--------------|
 | **Sandbox** | 192.168.0.187 | Website container |
-| **MAS** | 192.168.0.188 | MYCA Consciousness, Brain, `/api/search/ai` fallback |
-| **MINDEX** | 192.168.0.189 | Species, compounds, genetics, research search results |
+| **MAS** | ${MAS_VM_HOST} | MYCA Consciousness, Brain, `/api/search/ai` fallback |
+| **MINDEX** | ${MINDEX_VM_HOST} | Species, compounds, genetics, research search results |
 
-- **MAS** must be reachable: `http://192.168.0.188:8001/health`
-- **MINDEX** for unified search: `http://192.168.0.189:8000`
+- **MAS** must be reachable: `http://${MAS_VM_HOST:-localhost}:8001/health`
+- **MINDEX** for unified search: `http://${MINDEX_VM_HOST:-localhost}:8000`
 
 ---
 
@@ -41,8 +41,8 @@
 
 Ensure these are set when starting the website container:
 
-- `MAS_API_URL=http://192.168.0.188:8001`
-- `MINDEX_API_URL=http://192.168.0.189:8000`
+- `MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001`
+- `MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000`
 
 ---
 

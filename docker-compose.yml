@@ -28,7 +28,7 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
-      - MINDEX_API_URL=${MINDEX_API_URL:-http://192.168.0.189:8000}
+      - MINDEX_API_URL=${MINDEX_API_URL:-${MINDEX_API_URL:-http://localhost:8000}}
       # Ollama runs in-stack — always reachable as LLM fallback
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
@@ -40,7 +40,7 @@ services:
       - XAI_API_KEY=${XAI_API_KEY:-}
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
       # MAS Orchestrator
-      - MAS_API_URL=${MAS_API_URL:-http://192.168.0.188:8001}
+      - MAS_API_URL=${MAS_API_URL:-${MAS_API_URL:-http://localhost:8001}}
       - N8N_URL=${N8N_URL:-http://n8n:5678}
       # Supabase — server-side key for protected operations (anon key is baked into the build)
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
@@ -399,7 +399,7 @@ services:
       - BRIDGE_PORT=8999
       - MOSHI_HOST=moshi-server
       - MOSHI_PORT=8998
-      - MAS_ORCHESTRATOR_URL=${MAS_ORCHESTRATOR_URL:-http://192.168.0.188:8001}
+      - MAS_ORCHESTRATOR_URL=${MAS_ORCHESTRATOR_URL:-${MAS_API_URL:-http://localhost:8001}}
     depends_on:
       - moshi-server
     restart: unless-stopped

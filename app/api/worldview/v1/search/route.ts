@@ -23,7 +23,7 @@ import { recordUsageFromRequest } from "@/lib/usage/record-api-usage"
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_BASE = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX_BASE = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

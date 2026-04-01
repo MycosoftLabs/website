@@ -15,7 +15,7 @@ interface DefenseBriefingRequest {
 async function sendDefenseBriefingNotification(request: DefenseBriefingRequest): Promise<void> {
   try {
     // Send notification via MAS communication service
-    const masUrl = process.env.MAS_API_URL || 'http://192.168.0.188:8001'
+    const masUrl = process.env.MAS_API_URL || 'http://localhost:8001'
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@mycosoft.com'
     
     const response = await fetch(`${masUrl}/api/communications/notify`, {

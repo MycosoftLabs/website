@@ -26,7 +26,7 @@ import {
   FrequencyBandPowers,
 } from "./types"
 
-const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 // ============================================================================
 // Device Management Hooks

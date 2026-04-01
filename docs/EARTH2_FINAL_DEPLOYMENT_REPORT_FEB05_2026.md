@@ -35,7 +35,7 @@ The RTX 5090 GPU is physically installed in the **Windows Dev PC** (192.168.0.17
 
 ### Proxmox Investigation Results
 - **Proxmox Version**: 8.4.0
-- **Proxmox Host**: 192.168.0.202
+- **Proxmox Host**: ${PROXMOX_HOST}
 - **VM ID**: 103 (mycosoft-sandbox)
 - **NVIDIA GPUs on Proxmox**: **None detected**
 
@@ -173,7 +173,7 @@ python inference_server.py --port 8310
 | Redis | 192.168.0.187:6379 | Running |
 
 ### Proxmox API
-- URL: https://192.168.0.202:8006
+- URL: https://${PROXMOX_HOST:-localhost}:8006
 - Token: `root@pam!cursor_agent=bc1c9dc7-6fca-4e89-8a1d-557a9d117a3e`
 
 ---

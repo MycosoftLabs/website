@@ -3,7 +3,7 @@
  * Interface to the MYCA biological data warehouse
  */
 
-const MINDEX_URL = process.env.NEXT_PUBLIC_MINDEX_URL || process.env.MINDEX_API_URL || 'http://192.168.0.189:8000'
+const MINDEX_URL = process.env.NEXT_PUBLIC_MINDEX_URL || process.env.MINDEX_API_URL || 'http://localhost:8000'
 
 export interface QueryResult {
   rows: Record<string, unknown>[]

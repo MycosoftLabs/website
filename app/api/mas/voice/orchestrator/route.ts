@@ -17,13 +17,13 @@ import { evaluateGovernance, type AvaniEvaluation } from "@/lib/services/avani-g
  */
 
 // MAS Orchestrator (port 8001)
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // MINDEX API (port 8000) - for data-aware fallback when consciousness fails
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 // n8n Webhooks
-const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
+const N8N_URL = process.env.N8N_URL || "http://localhost:5678"
 
 // ElevenLabs (read at call time)
 const getElevenLabsKey = () => getKey("ELEVENLABS_API_KEY")
@@ -47,7 +47,7 @@ const getXAIKey = () => getKey("XAI_API_KEY")
 const getGroqKey = () => getKey("GROQ_API_KEY")
 
 // Local Ollama — runs on MAS VM (188) in production; use localhost for local dev with Ollama on same machine
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://192.168.0.188:11434"
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:3b"
 
 // NVIDIA NIM Cloud API — fastest GPU inference when local GPU unavailable

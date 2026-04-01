@@ -54,13 +54,13 @@ interface SystemOverviewProps {
 }
 
 const DEFAULT_SERVICES: ServiceStatus[] = [
-  { name: "MYCA Orchestrator", status: "up", latency: 12, icon: <Brain className="h-4 w-4" />, url: "http://192.168.0.188:8001" },
+  { name: "MYCA Orchestrator", status: "up", latency: 12, icon: <Brain className="h-4 w-4" />, url: "http://localhost:8001" },
   { name: "Redis Broker", status: "up", latency: 2, icon: <Zap className="h-4 w-4" /> },
   { name: "PostgreSQL", status: "up", latency: 5, icon: <Database className="h-4 w-4" /> },
   { name: "n8n Workflows", status: "up", latency: 18, icon: <Activity className="h-4 w-4" />, url: "http://localhost:5678" },
   { name: "MycoBrain", status: "up", latency: 45, icon: <Radio className="h-4 w-4" /> },
   { name: "Docker Engine", status: "up", latency: 3, icon: <Container className="h-4 w-4" /> },
-  { name: "Proxmox VE", status: "up", latency: 8, icon: <Server className="h-4 w-4" />, url: "https://192.168.0.202:8006" },
+  { name: "Proxmox VE", status: "up", latency: 8, icon: <Server className="h-4 w-4" />, url: "https://localhost:8006" },
   { name: "UniFi Network", status: "up", latency: 15, icon: <Wifi className="h-4 w-4" /> },
 ]
 

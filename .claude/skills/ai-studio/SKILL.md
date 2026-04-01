@@ -77,12 +77,12 @@ description: Navigate the MYCA Command Center (AI Studio) at mycosoft.com/nature
 ## Common Failure Modes
 | What You See | What Went Wrong | What To Do |
 |---|---|---|
-| Orchestrator status dot is red, stats show "degraded" | MAS VM orchestrator at 192.168.0.188:8001 is unreachable | Check that the MAS VM is running; the page falls back to registry data for agent counts |
+| Orchestrator status dot is red, stats show "degraded" | MAS VM orchestrator at ${MAS_VM_HOST}:8001 is unreachable | Check that the MAS VM is running; the page falls back to registry data for agent counts |
 | 3D topology is blank or loading spinner persists | WebGL not supported or Three.js failed to initialize | Try a different browser; ensure hardware acceleration is enabled; fall back to Legacy Grid View |
 | Agent counts show 0 Active | /api/mas/agents endpoint returned error | Click Refresh; if persistent, the MAS API may be down — registry total still shows correctly |
 | "Create Agent" modal submits but no agent appears | MAS API rejected the creation request | Check browser console for error details; ensure company-level access |
 | Voice commands not working | PersonaPlex not connected or on mobile | Voice requires desktop + edge node; check the voice indicator in bottom-right |
-| Quick action links (Proxmox, n8n) fail to load | Local network services not accessible | These link to internal IPs (192.168.0.202, localhost:5678) — only work on the local network |
+| Quick action links (Proxmox, n8n) fail to load | Local network services not accessible | These link to internal IPs (${PROXMOX_HOST}, localhost:5678) — only work on the local network |
 
 ## Composability
 - **Prerequisite skills**: platform-natureos-dashboard (for sidebar navigation and NatureOS layout)

@@ -52,7 +52,7 @@ const TYPE_CONFIG = {
 
 // Simulated notifications data (timestamps generated client-side to avoid hydration mismatch)
 const NOTIFICATION_DATA = [
-  { id: "1", type: "success" as const, title: "MAS v2 Deployed", message: "MYCA Orchestrator is now running on 192.168.0.188:8001", source: "System", minutesAgo: 5, read: false },
+  { id: "1", type: "success" as const, title: "MAS v2 Deployed", message: "MYCA Orchestrator is now running on MAS_HOST:8001", source: "System", minutesAgo: 5, read: false },
   { id: "2", type: "info" as const, title: "Agent Pool Updated", message: "12 agents are now active and processing tasks", source: "MYCA Orchestrator", minutesAgo: 15, read: false },
   { id: "3", type: "warning" as const, title: "High Memory Usage", message: "MINDEX Agent is using 512MB of memory (threshold: 500MB)", source: "Resource Monitor", minutesAgo: 30, read: true },
   { id: "4", type: "success" as const, title: "Workflow Completed", message: "MycoBrain Data Sync workflow completed successfully", source: "n8n Agent", minutesAgo: 45, read: true },

@@ -61,7 +61,7 @@ RestartSec=3
 StartLimitIntervalSec=0
 TimeoutStartSec=30
 Environment=MYCOBRAIN_SERVICE_PORT=8003
-Environment=MAS_REGISTRY_URL=http://192.168.0.188:8001
+Environment=MAS_REGISTRY_URL=http://${MAS_VM_HOST:-localhost}:8001
 Environment=TELEMETRY_INGEST_URL=http://127.0.0.1:3000/api/devices/ingest
 StandardOutput=journal
 StandardError=journal

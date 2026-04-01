@@ -8,7 +8,7 @@ export async function GET() {
   const masBaseUrl =
     process.env.MAS_API_URL ||
     process.env.NEXT_PUBLIC_MAS_API_URL ||
-    "http://192.168.0.188:8001"
+    "http://localhost:8001"
 
   try {
     const res = await fetch(`${masBaseUrl.replace(/\/$/, "")}/api/memory/health`, {

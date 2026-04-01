@@ -2,7 +2,7 @@
 
 /**
  * WebSocket Hook for Real-Time Topology Updates
- * Connects to MAS Dashboard API at 192.168.0.188:8001
+ * Connects to MAS Dashboard API at MAS_HOST:8001
  * 
  * Falls back gracefully to polling mode when WebSocket is unavailable
  */
@@ -22,7 +22,7 @@ import type {
 
 // MAS Dashboard WebSocket URL - can be disabled with NEXT_PUBLIC_MAS_WS_ENABLED=false
 const WS_ENABLED = process.env.NEXT_PUBLIC_MAS_WS_ENABLED !== "false"
-const WS_URL = process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://192.168.0.188:8001/api/dashboard/ws"
+const WS_URL = process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://localhost:8001/api/dashboard/ws"
 const RECONNECT_DELAY = 5000
 const MAX_RECONNECT_ATTEMPTS = 3 // Reduced from 10 to avoid spam
 const HEARTBEAT_INTERVAL = 30000
@@ -398,7 +398,7 @@ export function useTopologyLogStream(enabled: boolean = false) {
   const eventSourceRef = useRef<EventSource | null>(null)
   const [attemptedConnection, setAttemptedConnection] = useState(false)
 
-  const SSE_URL = process.env.NEXT_PUBLIC_MAS_SSE_URL || "http://192.168.0.188:8001/api/dashboard/stream"
+  const SSE_URL = process.env.NEXT_PUBLIC_MAS_SSE_URL || "http://localhost:8001/api/dashboard/stream"
   const SSE_ENABLED = process.env.NEXT_PUBLIC_MAS_SSE_ENABLED !== "false"
 
   useEffect(() => {
@@ -473,7 +473,7 @@ export function useTopologyLogStream(enabled: boolean = false) {
 // REST API Hooks
 // ============================================
 
-const API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 /**
  * Fetch topology data from MAS Dashboard API

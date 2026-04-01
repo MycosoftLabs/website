@@ -9,7 +9,7 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 - **Access Tier**: COMPANY (requires authenticated Mycosoft employee/contractor account)
 - **Depends On**: platform-authentication, platform-navigation, platform-natureos-dashboard
 - **Route**: `/natureos/mindex`
-- **Key Components**: MINDEX API server (192.168.0.189:8000), blockchain verification layer, genome record viewer, audit trail panel, cross-validation engine
+- **Key Components**: MINDEX API server (${MINDEX_VM_HOST}:8000), blockchain verification layer, genome record viewer, audit trail panel, cross-validation engine
 
 ## Success Criteria (Eval)
 - [ ] MINDEX dashboard loads showing database statistics (genome records 100k+, species observations 1M+)
@@ -37,7 +37,7 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 | Chain-of-custody timeline (vertical timeline with dated entries: "Collected", "Sequenced", "Verified", "Updated") | Inside record detail panel, lower section | Read chronological custody events; click an event for more detail |
 | Audit trail button or tab labeled "Audit Trail" or "Provenance" | Inside record detail panel, as a tab or button | Click to expand the full audit log with timestamps, actors, and actions |
 | Cross-validation panel showing comparison against external databases | Inside record detail or as a separate tab | Click "Cross-Validate" to check the record against iNaturalist/GBIF/GenBank |
-| API documentation link or "API Access" button | Footer or sidebar | Click to view API endpoints (base: 192.168.0.189:8000) |
+| API documentation link or "API Access" button | Footer or sidebar | Click to view API endpoints (base: ${MINDEX_VM_HOST}:8000) |
 
 ## Core Actions
 ### Action 1: Search for Genome Records
@@ -72,7 +72,7 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 ### Action 5: Access the MINDEX API
 **Goal:** Programmatically query the database.
 1. Click the "API Access" or "API Documentation" link (footer or sidebar).
-2. The API base URL is `http://192.168.0.189:8000`.
+2. The API base URL is `http://${MINDEX_VM_HOST:-localhost}:8000`.
 3. Review available endpoints: `/genomes`, `/traits`, `/observations`, `/verify/{record_id}`.
 4. Use your company auth token in the Authorization header for API requests.
 
@@ -92,7 +92,7 @@ description: Use when navigating or querying the MINDEX cryptographic mycologica
 
 ## Computer Use Notes
 - This page requires company authentication — always verify you are logged in before navigating here.
-- The API server at 192.168.0.189:8000 is an internal network address; it is only reachable from within the Mycosoft network or VPN.
+- The API server at ${MINDEX_VM_HOST}:8000 is an internal network address; it is only reachable from within the Mycosoft network or VPN.
 - Blockchain verification checks may take a few seconds per record — watch for a spinning indicator next to the badge.
 - The audit trail can be long for frequently-updated records; use date filters within the audit panel if available.
 - Record IDs follow a specific format (e.g., "MX-GEN-000001") — use this format in searches for exact matches.

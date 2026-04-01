@@ -136,8 +136,8 @@ jobs:
               -e NEXT_PUBLIC_BASE_URL="\${BASE_URL}" \
               -e NEXTAUTH_URL="\${BASE_URL}" \
               -e NEXT_PUBLIC_SITE_URL="\${BASE_URL}" \
-              -e MAS_API_URL=http://192.168.0.188:8001 \
-              -e MINDEX_API_URL=http://192.168.0.189:8000 \
+              -e MAS_API_URL=${MAS_API_URL:-http://localhost:8001} \
+              -e MINDEX_API_URL=${MINDEX_API_URL:-http://localhost:8000} \
               -e MYCOBRAIN_SERVICE_URL=http://host.docker.internal:8003 \
               -e NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL:-}" \
               -e NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" \

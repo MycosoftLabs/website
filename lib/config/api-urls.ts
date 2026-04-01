@@ -8,8 +8,8 @@
 
 // VM IP addresses
 const SANDBOX_VM_IP = "192.168.0.187"
-const MAS_VM_IP = "192.168.0.188"
-const MINDEX_VM_IP = "192.168.0.189"
+const MAS_VM_IP = process.env.MAS_VM_HOST || "localhost"
+const MINDEX_VM_IP = process.env.MINDEX_VM_HOST || "localhost"
 
 // Default ports
 const MAS_PORT = "8001"

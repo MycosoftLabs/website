@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://192.168.0.189:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || process.env.MINDEX_API_BASE_URL || "http://localhost:8000"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 export interface DataQualityStats {

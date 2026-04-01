@@ -20,7 +20,7 @@ import { searchEarthIntelligence, detectEarthDomains } from "@/lib/search/earth-
 
 export const dynamic = "force-dynamic"
 
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 const USE_MAS_SEARCH = process.env.USE_MAS_SEARCH !== "false"
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY
 

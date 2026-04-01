@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server"
  * Handles orchestrator commands like health check, restart all, sync memory, clear queue
  */
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // Action handlers
 const actionHandlers: Record<string, (params: Record<string, unknown>) => Promise<ActionResult>> = {

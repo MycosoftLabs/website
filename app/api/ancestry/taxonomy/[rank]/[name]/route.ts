@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 const INAT = "https://api.inaturalist.org/v1"
-const MINDEX = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MINDEX = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 const RANK_ORDER = ["kingdom", "phylum", "class", "order", "family", "genus", "species"] as const
 type Rank = typeof RANK_ORDER[number]

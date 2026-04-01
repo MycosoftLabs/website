@@ -78,7 +78,7 @@ PersonaPlex voice system has been fully integrated across the Mycosoft website w
 **Findings**:
 - ⚠️ **Sandbox VM (192.168.0.187)**: No GPU / Connection timeout
 - ✅ **Local Dev Machine**: RTX 5090 with 22GB VRAM (working)
-- ⚠️ **MAS VM (192.168.0.188)**: GPU status unknown (needs verification)
+- ⚠️ **MAS VM (${MAS_VM_HOST})**: GPU status unknown (needs verification)
 
 **Deployment Options**:
 - **Current**: Local dev only
@@ -112,7 +112,7 @@ PersonaPlex voice system has been fully integrated across the Mycosoft website w
 
 **Configurations**:
 - **Local Dev**: `ws://localhost:8999/api/chat`
-- **MAS VM**: `ws://192.168.0.188:8999/api/chat`
+- **MAS VM**: `ws://${MAS_VM_HOST}:8999/api/chat`
 - **Sandbox VM**: `ws://192.168.0.187:8999/api/chat` (when GPU available)
 - **Production**: `wss://mycosoft.com/voice/ws` (via Cloudflare)
 
@@ -261,7 +261,7 @@ python scripts/start_myca_voice.py
 # 2. Verify services
 curl http://localhost:8999/health  # PersonaPlex Bridge
 curl http://localhost:8998/health  # Moshi Server
-curl http://192.168.0.188:8001/health  # MAS Orchestrator
+curl http://${MAS_VM_HOST:-localhost}:8001/health  # MAS Orchestrator
 
 # 3. Start website dev server
 npm run dev:next-only
@@ -320,7 +320,7 @@ git push
    - Live site cannot use voice until PersonaPlex deployed elsewhere
 
 2. **MAS VM GPU Unknown**
-   - Need to SSH to 192.168.0.188 and verify GPU
+   - Need to SSH to ${MAS_VM_HOST} and verify GPU
    - If GPU available, deploy PersonaPlex there
 
 3. **No Production Deployment Yet**
@@ -335,7 +335,7 @@ git push
 
 1. **Verify MAS VM GPU**:
    ```bash
-   ssh mycosoft@192.168.0.188
+   ssh mycosoft@${MAS_VM_HOST}
    nvidia-smi
    python3 -c "import torch; print(torch.cuda.is_available())"
    ```
@@ -350,7 +350,7 @@ git push
 3. **Update Website .env**:
    ```bash
    # Change from localhost to MAS VM
-   NEXT_PUBLIC_PERSONAPLEX_WS_URL=ws://192.168.0.188:8999/api/chat
+   NEXT_PUBLIC_PERSONAPLEX_WS_URL=ws://${MAS_VM_HOST}:8999/api/chat
    ```
 
 4. **Run Manual Tests**:
@@ -406,7 +406,7 @@ All docs created for this implementation:
 NEXT_PUBLIC_PERSONAPLEX_WS_URL=ws://localhost:8999/api/chat
 
 # MAS VM
-NEXT_PUBLIC_PERSONAPLEX_WS_URL=ws://192.168.0.188:8999/api/chat
+NEXT_PUBLIC_PERSONAPLEX_WS_URL=ws://${MAS_VM_HOST}:8999/api/chat
 
 # Production
 NEXT_PUBLIC_PERSONAPLEX_WS_URL=wss://mycosoft.com/voice/ws
@@ -415,7 +415,7 @@ NEXT_PUBLIC_PERSONAPLEX_WS_URL=wss://mycosoft.com/voice/ws
 ### Service URLs
 - PersonaPlex Bridge: http://localhost:8999
 - Moshi Server: http://localhost:8998
-- MAS Orchestrator: http://192.168.0.188:8001
+- MAS Orchestrator: http://${MAS_VM_HOST:-localhost}:8001
 - Admin Dashboard: http://localhost:3010/admin/voice-health
 
 ### Key Commands

@@ -3,7 +3,7 @@
  * Connects to the MYCA Multi-Agent System Orchestrator
  */
 
-const MAS_URL = process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
+const MAS_URL = process.env.NEXT_PUBLIC_MAS_URL || 'http://localhost:8001'
 
 export interface Instrument {
   id: string

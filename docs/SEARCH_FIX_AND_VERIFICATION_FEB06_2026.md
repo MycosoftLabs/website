@@ -8,7 +8,7 @@ Fixes and verification steps for the Revolutionary Search (fluid UI) at localhos
 
 ### 1. Unified Search API (`app/api/search/unified/route.ts`)
 
-- **MINDEX URL/port:** Default changed from `http://192.168.0.189:8001` to `http://192.168.0.189:8000` (per VM layout docs). Use `MINDEX_API_URL` or `NEXT_PUBLIC_MINDEX_URL` in env to override.
+- **MINDEX URL/port:** Default changed from `http://${MINDEX_VM_HOST}:8001` to `http://${MINDEX_VM_HOST:-localhost}:8000` (per VM layout docs). Use `MINDEX_API_URL` or `NEXT_PUBLIC_MINDEX_URL` in env to override.
 - **Optional path prefix:** `MINDEX_API_PREFIX` (e.g. `/api`) is supported if the MINDEX API is mounted under a path.
 - **Fallback when MINDEX is down:** If all MINDEX calls fail or return empty, the API uses website-only data:
   - **Species:** from `SPECIES_MAPPING` (lib/services/species-mapping)
@@ -41,11 +41,11 @@ Fixes and verification steps for the Revolutionary Search (fluid UI) at localhos
 
 | Variable | Purpose |
 |----------|---------|
-| `MINDEX_API_URL` | MINDEX API base URL (default: `http://192.168.0.189:8000`) |
+| `MINDEX_API_URL` | MINDEX API base URL (default: `http://${MINDEX_VM_HOST:-localhost}:8000`) |
 | `NEXT_PUBLIC_MINDEX_URL` | Same, for client if needed |
 | `MINDEX_API_KEY` | API key sent as `X-API-Key` (default: `local-dev-key`) |
 | `MINDEX_API_PREFIX` | Optional path prefix (e.g. `/api`) |
-| `MYCA_BRAIN_URL` | Optional; for AI answers in search (default: `http://192.168.0.188:8000`) |
+| `MYCA_BRAIN_URL` | Optional; for AI answers in search (default: `http://${MAS_VM_HOST}:8000`) |
 
 ## How to Test
 

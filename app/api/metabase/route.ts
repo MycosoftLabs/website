@@ -11,11 +11,11 @@ import { NextRequest, NextResponse } from "next/server"
  * Date: January 27, 2026
  */
 
-const METABASE_URL = process.env.METABASE_URL || "http://192.168.0.188:3000"
+const METABASE_URL = process.env.METABASE_URL || "http://localhost:3000"
 const METABASE_API_KEY = process.env.METABASE_API_KEY || ""
 const METABASE_USERNAME = process.env.METABASE_USERNAME || "morgan@mycosoft.org"
 const METABASE_PASSWORD = process.env.METABASE_PASSWORD || ""
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 interface MetabaseSession {
   id: string

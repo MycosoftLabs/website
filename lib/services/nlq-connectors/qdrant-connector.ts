@@ -6,7 +6,7 @@
 import type { Intent } from "../myca-nlq"
 import type { BaseConnector, ConnectorOptions, ConnectorResult } from "./base-connector"
 
-const QDRANT_URL = process.env.QDRANT_URL || "http://192.168.0.188:6333"
+const QDRANT_URL = process.env.QDRANT_URL || "http://localhost:6333"
 
 export class QdrantConnector implements BaseConnector {
   readonly name = "Qdrant Vector DB"

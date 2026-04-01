@@ -80,9 +80,9 @@ curl http://localhost:3020/api/crep/health
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `NEXT_PUBLIC_MAS_WS_URL` | `ws://192.168.0.188:8001` | MAS WebSocket base (EntityStreamClient, topology) |
-| `MAS_API_URL` | `http://192.168.0.188:8001` | MAS REST base |
-| `MINDEX_API_URL` | `http://192.168.0.189:8000` | MINDEX API base |
+| `NEXT_PUBLIC_MAS_WS_URL` | `ws://${MAS_VM_HOST:-localhost}:8001` | MAS WebSocket base (EntityStreamClient, topology) |
+| `MAS_API_URL` | `http://${MAS_VM_HOST:-localhost}:8001` | MAS REST base |
+| `MINDEX_API_URL` | `http://${MINDEX_VM_HOST:-localhost}:8000` | MINDEX API base |
 
 **Production (HTTPS):** When served over `https://`, all WebSocket clients automatically use `wss://` via `getSecureWebSocketUrl`. If MAS does not support WSS, set `NEXT_PUBLIC_MAS_WS_URL` to a URL that does (e.g. `wss://mas.mycosoft.com` via Cloudflare proxy).
 

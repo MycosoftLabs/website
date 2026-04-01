@@ -315,7 +315,7 @@ export function LiveDemo({ className }: { className?: string }) {
                   </div>
                 ) : world?.error ? (
                   <p className="text-amber-600 dark:text-amber-400">
-                    {world.error} — Ensure MAS is running at 192.168.0.188:8001
+                    {world.error} — Ensure MAS is running at MAS_HOST:8001
                   </p>
                 ) : world ? (
                   <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto max-h-[400px] overflow-y-auto">

@@ -5,7 +5,7 @@ import requests
 try:
     # Test MINDEX directly
     r = requests.get(
-        "http://192.168.0.189:8000/api/mindex/unified-search",
+        "http://${MINDEX_VM_HOST:-localhost}:8000/api/mindex/unified-search",
         params={"q": "Amanita", "limit": 5},
         timeout=30
     )

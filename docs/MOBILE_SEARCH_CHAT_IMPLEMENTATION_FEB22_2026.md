@@ -140,7 +140,7 @@ State management hook integrating:
 The mobile search chat uses the same MYCA context as the rest of the website:
 
 - **Context**: `useMYCA()` from `contexts/myca-context.tsx`
-- **API**: `/api/mas/voice/orchestrator` (MAS VM 192.168.0.188:8001)
+- **API**: `/api/mas/voice/orchestrator` (MAS VM ${MAS_VM_HOST}:8001)
 - **Data cards**: Populated from `nlqData` in MYCA response
 - **Memory**: Full memory system via MYCA context
 - **Consciousness**: Consciousness status indicator in header

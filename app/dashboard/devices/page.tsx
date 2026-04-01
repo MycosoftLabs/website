@@ -42,7 +42,7 @@ interface Device {
 }
 
 async function getDevices(): Promise<Device[]> {
-  const masApiUrl = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+  const masApiUrl = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
   try {
     const response = await fetch(`${masApiUrl}/api/devices/network`, {
