@@ -78,7 +78,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const { resolvedTheme } = useTheme();
   const currentStyleRef = useRef<MapStyleOption | null>(null);
-  const onLoadCalledRef = useRef(false);
+  const styleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mapStyles = useMemo(
     () => ({
@@ -89,6 +89,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   );
 
   useImperativeHandle(ref, () => mapInstance as MapLibreGL.Map, [mapInstance]);
+
+  const clearStyleTimeout = useCallback(() => {
+    if (styleTimeoutRef.current) {
+      clearTimeout(styleTimeoutRef.current);
+      styleTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -107,33 +114,23 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       ...props,
     });
 
-    // Track both conditions — only call onLoad when BOTH are satisfied.
-    // This prevents the race where onLoad fires before style is ready,
-    // causing downstream addSource/addLayer calls to silently fail.
-    const readyState = { loaded: false, styleReady: false };
-
-    const tryOnLoad = () => {
-      if (readyState.loaded && readyState.styleReady && !onLoadCalledRef.current) {
-        onLoadCalledRef.current = true;
-        if (onLoad) {
-          onLoad(map);
-        }
-      }
-    };
-
     const styleDataHandler = () => {
-      setIsStyleLoaded(true);
-      if (projection) {
-        map.setProjection(projection);
-      }
-      readyState.styleReady = true;
-      tryOnLoad();
+      clearStyleTimeout();
+      // Delay to ensure style is fully processed before allowing layer operations
+      // This is a workaround to avoid race conditions with the style loading
+      styleTimeoutRef.current = setTimeout(() => {
+        setIsStyleLoaded(true);
+        if (projection) {
+          map.setProjection(projection);
+        }
+      }, 150);
     };
-
     const loadHandler = () => {
       setIsLoaded(true);
-      readyState.loaded = true;
-      tryOnLoad();
+      // Call onLoad callback with the map instance when map is ready
+      if (onLoad) {
+        onLoad(map);
+      }
     };
 
     map.on("load", loadHandler);
@@ -141,13 +138,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     setMapInstance(map);
 
     return () => {
+      clearStyleTimeout();
       map.off("load", loadHandler);
       map.off("styledata", styleDataHandler);
       map.remove();
       setIsLoaded(false);
       setIsStyleLoaded(false);
       setMapInstance(null);
-      onLoadCalledRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -160,11 +157,12 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
 
     if (currentStyleRef.current === newStyle) return;
 
+    clearStyleTimeout();
     currentStyleRef.current = newStyle;
     setIsStyleLoaded(false);
 
     mapInstance.setStyle(newStyle, { diff: true });
-  }, [mapInstance, resolvedTheme, mapStyles]);
+  }, [mapInstance, resolvedTheme, mapStyles, clearStyleTimeout]);
 
   const isLoading = !isLoaded || !isStyleLoaded;
 
