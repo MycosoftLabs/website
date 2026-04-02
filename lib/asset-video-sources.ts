@@ -1,6 +1,9 @@
 /**
- * Build ordered MP4 URL lists for NAS-mounted assets: try `name-web.mp4` before `name.mp4`
- * so production can serve smaller encodes while keeping full files as fallback.
+ * Build ordered MP4 URL lists for NAS-mounted assets.
+ *
+ * Keep the canonical source first to guarantee playback when optional `-web`
+ * variants are missing or stale on NAS; browsers can still try `-web` as a
+ * secondary source.
  */
 
 export function webVariantPath(canonicalMp4Path: string): string {
@@ -12,7 +15,7 @@ export function webVariantPath(canonicalMp4Path: string): string {
 export function assetMp4Sources(canonicalPath: string): string[] {
   const web = webVariantPath(canonicalPath)
   if (web === canonicalPath) return [canonicalPath]
-  return [web, canonicalPath]
+  return [canonicalPath, web]
 }
 
 export function mergeVideoSources(...groups: (string[] | undefined)[]): string[] {
