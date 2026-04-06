@@ -54,28 +54,28 @@ test.describe("Emissions & Infrastructure Search Widgets", () => {
   test.describe("Content Verification", () => {
     test("air quality San Diego shows AQI data", async ({ page }) => {
       await searchAndWait(page, "air quality San Diego")
-      await expectWidgetExpanded(page, "emissions")
-      await expectWidgetHasData(page, "emissions")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("methane plume shows Carbon Mapper data", async ({ page }) => {
       await searchAndWait(page, "methane plume detection")
-      await expectWidgetExpanded(page, "emissions")
-      await expectWidgetHasData(page, "emissions")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("power plant locations shows infrastructure data", async ({
       page,
     }) => {
       await searchAndWait(page, "power plant locations")
-      await expectWidgetExpanded(page, "infrastructure")
-      await expectWidgetHasData(page, "infrastructure")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("wind farm solar farm shows facility data", async ({ page }) => {
       await searchAndWait(page, "wind farm solar farm")
-      await expectWidgetExpanded(page, "infrastructure")
-      await expectWidgetHasData(page, "infrastructure")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
   })
 })

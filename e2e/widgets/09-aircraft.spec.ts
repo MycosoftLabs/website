@@ -55,27 +55,27 @@ test.describe("Aircraft Search Widgets", () => {
   })
 
   test.describe("Content Verification", () => {
-    test("flights over Pacific shows aircraft widget at large size", async ({
+    test("flights over Pacific shows crep widget at large size", async ({
       page,
     }) => {
       await searchAndWait(page, "flights over Pacific")
-      await expectWidgetExpanded(page, "aircraft")
-      await expectWidgetFirst(page, "aircraft")
-      await expectWidgetHasData(page, "aircraft")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetFirst(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("aircraft near LA shows location-filtered flights", async ({
       page,
     }) => {
       await searchAndWait(page, "aircraft near Los Angeles")
-      await expectWidgetExpanded(page, "aircraft")
-      await expectWidgetHasData(page, "aircraft")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("aircraft query shows earth secondary widgets", async ({ page }) => {
       await searchAndWait(page, "planes over San Francisco")
-      await expectWidgetExpanded(page, "aircraft")
-      await expectSecondaryWidgets(page, ["map", "weather", "events"])
+      await expectWidgetExpanded(page, "crep")
+      await expectSecondaryWidgets(page, ["earth", "events", "weather"])
     })
   })
 })

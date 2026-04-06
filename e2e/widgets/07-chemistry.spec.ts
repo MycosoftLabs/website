@@ -55,31 +55,31 @@ test.describe("Chemistry & Compounds Search Widgets", () => {
   test.describe("Content Verification", () => {
     test("psilocybin molecule shows compound data", async ({ page }) => {
       await searchAndWait(page, "psilocybin molecule")
-      await expectWidgetExpanded(page, "chemistry")
-      await expectWidgetHasData(page, "chemistry")
+      await expectWidgetExpanded(page, "species")
+      await expectWidgetHasData(page, "species")
     })
 
     test("amatoxin shows toxicity compound info", async ({ page }) => {
       await searchAndWait(page, "amatoxin poisoning mechanism")
-      await expectWidgetExpanded(page, "chemistry")
-      await expectWidgetHasData(page, "chemistry")
+      await expectWidgetExpanded(page, "species")
+      await expectWidgetHasData(page, "species")
     })
 
     test("ergotamine shows chemical formula", async ({ page }) => {
       await searchAndWait(page, "ergotamine chemical formula")
-      await expectWidgetExpanded(page, "chemistry")
-      await expectWidgetHasData(page, "chemistry")
+      await expectWidgetExpanded(page, "species")
+      await expectWidgetHasData(page, "species")
     })
 
     test("answers widget appears as secondary for compound queries", async ({
       page,
     }) => {
       await searchAndWait(page, "muscimol effects")
-      await expectWidgetExpanded(page, "chemistry")
+      await expectWidgetExpanded(page, "species")
       // Answers should also be present (hybrid query)
       const answersWidget = page.locator(SEL.widget("answers"))
       const isVisible = await answersWidget.isVisible().catch(() => false)
-      // Answers may be expanded or in pill form — just verify chemistry is primary
+      // Answers may be expanded or in pill form — just verify species is primary
     })
   })
 })

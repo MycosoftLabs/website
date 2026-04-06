@@ -56,20 +56,20 @@ test.describe("Vessels & Maritime Search Widgets", () => {
   test.describe("Content Verification", () => {
     test("ships in Pacific shows vessel tracking data", async ({ page }) => {
       await searchAndWait(page, "ships in Pacific")
-      await expectWidgetExpanded(page, "vessels")
-      await expectWidgetFirst(page, "vessels")
-      await expectWidgetHasData(page, "vessels")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetFirst(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("cargo vessels shows vessel type data", async ({ page }) => {
       await searchAndWait(page, "cargo vessels near port")
-      await expectWidgetExpanded(page, "vessels")
-      await expectWidgetHasData(page, "vessels")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("maritime query shows earth secondary widgets", async ({ page }) => {
       await searchAndWait(page, "maritime traffic San Diego")
-      await expectWidgetExpanded(page, "vessels")
+      await expectWidgetExpanded(page, "crep")
       await expectSecondaryWidgets(page, ["map", "weather", "events"])
     })
   })

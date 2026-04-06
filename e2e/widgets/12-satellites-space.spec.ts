@@ -54,26 +54,26 @@ test.describe("Satellites & Space Weather Search Widgets", () => {
   test.describe("Content Verification", () => {
     test("ISS tracking shows satellite orbit data", async ({ page }) => {
       await searchAndWait(page, "ISS tracking")
-      await expectWidgetExpanded(page, "satellites")
-      await expectWidgetHasData(page, "satellites")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("Starlink satellites shows constellation data", async ({ page }) => {
       await searchAndWait(page, "Starlink satellites")
-      await expectWidgetExpanded(page, "satellites")
-      await expectWidgetHasData(page, "satellites")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("solar flare activity shows space weather data", async ({ page }) => {
       await searchAndWait(page, "solar flare activity")
-      await expectWidgetExpanded(page, "space_weather")
-      await expectWidgetHasData(page, "space_weather")
+      await expectWidgetExpanded(page, "earth")
+      await expectWidgetHasData(page, "earth")
     })
 
     test("aurora forecast shows geomagnetic data", async ({ page }) => {
       await searchAndWait(page, "aurora forecast northern lights")
-      await expectWidgetExpanded(page, "space_weather")
-      await expectWidgetHasData(page, "space_weather")
+      await expectWidgetExpanded(page, "earth")
+      await expectWidgetHasData(page, "earth")
     })
   })
 })

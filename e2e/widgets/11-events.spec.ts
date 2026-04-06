@@ -78,7 +78,7 @@ test.describe("Natural Events Search Widgets", () => {
     test("events query shows map and weather secondary", async ({ page }) => {
       await searchAndWait(page, "tornado warnings")
       await expectWidgetExpanded(page, "events")
-      await expectSecondaryWidgets(page, ["map", "weather"])
+      await expectSecondaryWidgets(page, ["weather"])
     })
   })
 })

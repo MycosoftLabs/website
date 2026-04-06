@@ -71,42 +71,42 @@ test.describe("Cross-Domain & Edge Case Search Widgets", () => {
       await expectWidgetHasData(page, "weather")
     })
 
-    test("cross-domain: flights + events shows aircraft primary", async ({
+    test("cross-domain: flights + events shows crep primary", async ({
       page,
     }) => {
       await searchAndWait(page, "flights over earthquake zone")
-      await expectWidgetExpanded(page, "aircraft")
+      await expectWidgetExpanded(page, "crep")
     })
 
-    test("cross-domain: ships + events shows vessels primary", async ({
+    test("cross-domain: ships + events shows crep primary", async ({
       page,
     }) => {
       await searchAndWait(page, "ships near volcanic island")
-      await expectWidgetExpanded(page, "vessels")
+      await expectWidgetExpanded(page, "crep")
     })
 
-    test("embedding atlas triggers visualization widget", async ({ page }) => {
+    test("embedding atlas triggers species widget", async ({ page }) => {
       await searchAndWait(page, "embedding atlas mushroom similarity")
-      await expectWidgetExpanded(page, "embedding_atlas")
+      await expectWidgetExpanded(page, "species")
     })
 
-    test("webcam triggers cameras widget", async ({ page }) => {
+    test("webcam triggers earth widget", async ({ page }) => {
       await searchAndWait(page, "webcam nature live stream")
-      await expectWidgetExpanded(page, "cameras")
+      await expectWidgetExpanded(page, "earth")
     })
 
-    test("mycobrain triggers devices widget", async ({ page }) => {
+    test("mycobrain triggers crep widget", async ({ page }) => {
       await searchAndWait(page, "mycobrain sensor telemetry")
-      await expectWidgetExpanded(page, "devices")
+      await expectWidgetExpanded(page, "crep")
     })
 
     test("conversational query triggers answers with species secondary", async ({
       page,
     }) => {
       await searchAndWait(page, "what is a chanterelle?")
-      // Should show species (chanterelle keyword) with answers as secondary
-      await expectWidgetExpanded(page, "species")
-      await expectWidgetHasData(page, "species")
+      // Should show answers primary (conversational query) with species as secondary
+      await expectWidgetExpanded(page, "answers")
+      await expectWidgetHasData(page, "answers")
     })
 
     test("pure greeting triggers only answers widget", async ({ page }) => {

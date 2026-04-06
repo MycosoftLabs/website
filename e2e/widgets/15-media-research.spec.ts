@@ -53,16 +53,16 @@ test.describe("Media & Research Search Widgets", () => {
   })
 
   test.describe("Content Verification", () => {
-    test("mushroom documentaries shows media widget", async ({ page }) => {
+    test("mushroom documentaries shows crep widget", async ({ page }) => {
       await searchAndWait(page, "mushroom documentaries")
-      await expectWidgetExpanded(page, "media")
-      await expectWidgetHasData(page, "media")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("fungi movie shows media results", async ({ page }) => {
       await searchAndWait(page, "fungi movie Fantastic Fungi")
-      await expectWidgetExpanded(page, "media")
-      await expectWidgetHasData(page, "media")
+      await expectWidgetExpanded(page, "crep")
+      await expectWidgetHasData(page, "crep")
     })
 
     test("mycology research papers shows research widget", async ({

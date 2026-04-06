@@ -67,12 +67,12 @@ test.describe("Map & Location Search Widgets", () => {
       await expectWidgetFirst(page, "crep")
     })
 
-    test("earth2 weather forecast triggers Earth2 widget", async ({
+    test("earth2 weather forecast triggers Earth widget", async ({
       page,
     }) => {
       await searchAndWait(page, "earth2 weather forecast")
-      await expectWidgetExpanded(page, "earth2")
-      await expectWidgetFirst(page, "earth2")
+      await expectWidgetExpanded(page, "earth")
+      await expectWidgetFirst(page, "earth")
     })
 
     test("CREP monitoring triggers CREP dashboard", async ({ page }) => {
