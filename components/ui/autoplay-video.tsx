@@ -5,7 +5,7 @@
  * Tries smaller / alternate URLs first when `sources` is set; on error or stall,
  * advances to the next source. Dev: rewrites /assets/ to production host.
  */
-import { useRef, useEffect, useMemo, useState, type CSSProperties } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
 function resolveAssetUrl(src: string, isDev: boolean): string {
@@ -62,6 +62,8 @@ export function AutoplayVideo({
   )
   const [index, setIndex] = useState(0)
   const activeSrc = list[index] ?? ""
+  const listRef = useRef(list)
+  listRef.current = list
 
   useEffect(() => {
     setIndex(0)
@@ -87,7 +89,8 @@ export function AutoplayVideo({
       clearStall()
       stallTimer = setTimeout(() => {
         if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && v.currentTime === 0) {
-          setIndex((i) => (i + 1 < list.length ? i + 1 : i))
+          const L = listRef.current
+          setIndex((i) => (i + 1 < L.length ? i + 1 : i))
         }
       }, stallTimeoutMs)
     }
@@ -97,13 +100,22 @@ export function AutoplayVideo({
     const onWaiting = () => scheduleStall()
     const onError = () => {
       clearStall()
-      setIndex((i) => (i + 1 < list.length ? i + 1 : i))
+      const L = listRef.current
+      setIndex((i) => (i + 1 < L.length ? i + 1 : i))
+    }
+    const onLoadedMetadata = () => {
+      const dur = v.duration
+      if (!Number.isFinite(dur) || dur <= 0) {
+        const L = listRef.current
+        setIndex((i) => (i + 1 < L.length ? i + 1 : i))
+      }
     }
 
     v.addEventListener("canplay", onCanPlay)
     v.addEventListener("playing", onPlaying)
     v.addEventListener("waiting", onWaiting)
     v.addEventListener("error", onError)
+    v.addEventListener("loadedmetadata", onLoadedMetadata)
     scheduleStall()
 
     return () => {
@@ -113,8 +125,9 @@ export function AutoplayVideo({
       v.removeEventListener("playing", onPlaying)
       v.removeEventListener("waiting", onWaiting)
       v.removeEventListener("error", onError)
+      v.removeEventListener("loadedmetadata", onLoadedMetadata)
     }
-  }, [activeSrc, list.length, stallTimeoutMs])
+  }, [activeSrc, stallTimeoutMs])
 
   if (!activeSrc) return null
 

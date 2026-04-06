@@ -240,8 +240,20 @@ jobs:
               echo "  Path exists: /opt/mycosoft/media/website/assets"
               echo "  Contents: $(ls /opt/mycosoft/media/website/assets 2>/dev/null | wc -l) items"
               ls -la /opt/mycosoft/media/website/assets/ 2>/dev/null | head -10
+              echo ""
+              echo "  Zero-byte MP4s (should be none):"
+              find /opt/mycosoft/media/website/assets -name '*.mp4' -size 0 2>/dev/null | head -15 || true
             else
               echo "  Path MISSING: /opt/mycosoft/media/website/assets"
+            fi
+            echo ""
+            echo "--- Website container :3000 + NAS bind ---"
+            C=$(docker ps --filter publish=3000 --format '{{.Names}}' | head -1)
+            if [ -n "$C" ]; then
+              echo "  Container: $C"
+              docker inspect "$C" --format '{{range .Mounts}}{{.Source}} -> {{.Destination}} ({{.Mode}}){{"\n"}}{{end}}' 2>/dev/null | head -5
+            else
+              echo "  No container publishing port 3000"
             fi
           SCRIPT
 

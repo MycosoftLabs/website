@@ -32,3 +32,16 @@ export function mergeVideoSources(...groups: (string[] | undefined)[]): string[]
   }
   return out
 }
+
+/** Known-good NAS clips when a hero/canonical file is 0 bytes or missing */
+export const NAS_HD_FALLBACK_MP4 = "/assets/mushroom1/mushroom 1 walking.mp4"
+export const NAS_SECONDARY_FALLBACK_MP4 = "/assets/mushroom1/waterfall 1.mp4"
+
+/** Append HD fallbacks after primary `-web` chains so empty/missing originals still play */
+export function mergeWithNasFallbacks(...primaryGroups: string[][]): string[] {
+  return mergeVideoSources(
+    ...primaryGroups,
+    assetMp4Sources(NAS_HD_FALLBACK_MP4),
+    assetMp4Sources(NAS_SECONDARY_FALLBACK_MP4)
+  )
+}

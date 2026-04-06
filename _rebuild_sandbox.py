@@ -296,7 +296,10 @@ else:
     time.sleep(10)
     
     # Check status
-    stdin, stdout, stderr = ssh.exec_command("docker ps --filter name=mycosoft-website --format '{{.Status}}'", timeout=30)
+    stdin, stdout, stderr = ssh.exec_command(
+        "docker ps --filter publish=3000 --format '{{.Names}} {{.Status}}' | head -1",
+        timeout=30,
+    )
     status = stdout.read().decode().strip()
     print(f"   Status: {status}")
     
@@ -305,6 +308,18 @@ else:
     stdin, stdout, stderr = ssh.exec_command("curl -s -o /dev/null -w '%{http_code}' http://localhost:3000", timeout=30)
     http_code = stdout.read().decode().strip()
     print(f"   HTTP status: {http_code}")
+
+    # 7b. NAS bind mount must serve non-trivial MP4 bytes (common failure: missing -v or 0-byte NAS files)
+    print("\n7b. NAS media spot-check (critical MP4)...")
+    _, spot_out, _ = _run(
+        "curl -sI 'http://127.0.0.1:3000/assets/mushroom1/mushroom%201%20walking.mp4' 2>/dev/null | head -12",
+        timeout=30,
+    )
+    print(spot_out[:800] if spot_out else "   (no curl output)")
+    if spot_out and "Content-Length: 0" in spot_out:
+        print("   WARNING: mushroom1 walking MP4 reports 0 bytes — check NAS files and bind mount.")
+    elif spot_out and "200" not in spot_out[:200]:
+        print("   WARNING: Critical MP4 did not return OK — verify container has -v /opt/mycosoft/media/website/assets:/app/public/assets:ro")
     
     # 8. MycoBrain service: always-on (CRITICAL - never let it stay down)
     print("\n8. MycoBrain service (ensure always-on)...")

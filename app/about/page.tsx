@@ -11,7 +11,7 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { ParticleCanvas } from "@/components/effects/particle-canvas"
 import { NeuralNetworkCanvas } from "@/components/effects/neural-network-canvas"
@@ -38,9 +38,9 @@ import {
 
 // NAS video — mounted at /assets/ in the production Docker container
 const HERO_VIDEO_SRC = "/assets/about us/Mycosoft Commercial 1.mp4"
-const HERO_VIDEO_SOURCES = assetMp4Sources(HERO_VIDEO_SRC)
+const HERO_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(HERO_VIDEO_SRC))
 const CLOSING_VIDEO_SRC = "/assets/about us/10343918-hd_1920_1080_24fps.mp4"
-const CLOSING_VIDEO_SOURCES = assetMp4Sources(CLOSING_VIDEO_SRC)
+const CLOSING_VIDEO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(CLOSING_VIDEO_SRC))
 
 // Technology Pillars - AI, Defense, Biological Compute
 const technologyPillars = [
@@ -146,7 +146,8 @@ export default function AboutPage() {
       {/* Hero Section — no poster, instant start, no image flash */}
       <section className="relative min-h-[80dvh] flex items-center justify-center overflow-hidden" data-over-video>
         <AutoplayVideo
-          src={HERO_VIDEO_SRC}
+          src={HERO_VIDEO_SOURCES[0]}
+          sources={HERO_VIDEO_SOURCES}
           className="absolute inset-0 w-full h-full object-cover"
           encodeSrc
         />

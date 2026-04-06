@@ -22,7 +22,7 @@ import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
 import {
   Search,
   Mic,
@@ -35,7 +35,7 @@ import {
 } from "lucide-react"
 
 const HOME_HERO_MP4 = "/assets/homepage/Mycosoft Background.mp4"
-const HOME_HERO_SOURCES = assetMp4Sources(HOME_HERO_MP4)
+const HOME_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(HOME_HERO_MP4))
 
 export function HeroSearch() {
   const router = useRouter()
