@@ -3,6 +3,8 @@ node_modules/
 dist/
 out/
 .turbo/
+playwright-report/
+test-results/
 
 # Logs
 npm-debug.log*
