@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ETHICS_TRAINING_ALLOWED_EMAILS } from "@/lib/access/routes"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const BASE = `${MAS_API_URL}/api/ethics/training`
 
 async function proxy(

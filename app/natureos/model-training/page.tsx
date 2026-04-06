@@ -307,9 +307,9 @@ export default function ModelTrainingToolPage() {
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-500" />
           <p className="text-muted-foreground">Connecting to NLM Training Infrastructure...</p>
           <div className="flex gap-2 justify-center">
-            <Badge variant="outline" className="text-xs">MAS 192.168.0.188</Badge>
+            <Badge variant="outline" className="text-xs">MAS MAS_HOST</Badge>
             <Badge variant="outline" className="text-xs">GPU 192.168.0.190</Badge>
-            <Badge variant="outline" className="text-xs">MINDEX 192.168.0.189</Badge>
+            <Badge variant="outline" className="text-xs">MINDEX MINDEX_HOST</Badge>
           </div>
         </div>
       </div>
@@ -491,7 +491,7 @@ export default function ModelTrainingToolPage() {
                       <Server className="h-12 w-12 mx-auto mb-3 opacity-20" />
                       <p className="text-sm">No devices detected.</p>
                       <p className="text-xs mt-1">Ensure MAS Device Registry and MycoBrain service are running.</p>
-                      {!connections.mas && <p className="text-xs text-red-400 mt-2">MAS connection unavailable (192.168.0.188:8001)</p>}
+                      {!connections.mas && <p className="text-xs text-red-400 mt-2">MAS connection unavailable (MAS_HOST:8001)</p>}
                     </div>
                   )}
                 </CardContent>

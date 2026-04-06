@@ -123,7 +123,7 @@ docs/
 - **Changes**: Bug fixes, z-index improvements
 - **Action**: Rebuild Docker container, purge Cloudflare cache
 
-### MAS VM (192.168.0.188)
+### MAS VM (${MAS_VM_HOST})
 - **Status**: Provisioning pending
 - **Spec**: 16 cores, 64GB RAM, 500GB SSD
 - **Purpose**: MYCA Orchestrator + 40 agents

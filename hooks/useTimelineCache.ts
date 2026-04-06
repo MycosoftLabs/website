@@ -131,7 +131,7 @@ export function useTimelineCache(
     if (liveUpdates.length === 0) return
     
     // Connect to live data WebSocket
-    const wsUrl = process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://192.168.0.188:8001/ws/timeline"
+    const wsUrl = process.env.NEXT_PUBLIC_MAS_WS_URL || "ws://localhost:8001/ws/timeline"
     let ws: WebSocket | null = null
     let reconnectTimer: NodeJS.Timeout | null = null
     

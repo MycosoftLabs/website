@@ -39,8 +39,8 @@ This document is for the **deployment agent**. All code and documentation for CR
 | VM | IP | Role |
 |----|-----|------|
 | Sandbox | 192.168.0.187 | Website (Docker) – CREP served here |
-| MAS | 192.168.0.188 | Multi-Agent System |
-| MINDEX | 192.168.0.189 | Database + vector store |
+| MAS | ${MAS_VM_HOST} | Multi-Agent System |
+| MINDEX | ${MINDEX_VM_HOST} | Database + vector store |
 
 CREP uses **website API routes only** (e.g. `/api/natureos/global-events`). No MAS/MINDEX code changes for this feature.
 

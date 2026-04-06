@@ -60,5 +60,5 @@ Configured in `next.config.js`:
 ## Dependencies
 
 - MYCAProvider (root layout)
-- MAS API at 192.168.0.188:8001 for consciousness, world, chat
+- MAS API at ${MAS_VM_HOST}:8001 for consciousness, world, chat
 - /api/myca/consciousness/* proxy routes

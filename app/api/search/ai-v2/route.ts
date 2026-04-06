@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
 // Provider configuration — read keys at call time so they survive container restarts
-const MAS_BRAIN_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_BRAIN_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const getOpenAIKey = () => process.env.OPENAI_API_KEY?.trim() || undefined
 const getAnthropicKey = () => process.env.ANTHROPIC_API_KEY?.trim() || undefined
 const getGroqKey = () => process.env.GROQ_API_KEY?.trim() || undefined

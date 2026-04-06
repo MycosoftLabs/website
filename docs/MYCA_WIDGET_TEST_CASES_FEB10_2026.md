@@ -17,7 +17,7 @@ Both surfaces must support text and voice input and correctly handle math, fungi
 
 ## Prerequisites
 
-- MAS VM reachable at `192.168.0.188:8001` (MYCA Consciousness, Brain)
+- MAS VM reachable at `${MAS_VM_HOST}:8001` (MYCA Consciousness, Brain)
 - `MAS_API_URL` set in website `.env.local`
 - Website dev: `npm run dev:next-only` on port 3010
 - Voice: Web Speech API (Chrome/Edge) or PersonaPlex when configured

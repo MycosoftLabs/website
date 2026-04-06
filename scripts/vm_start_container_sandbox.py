@@ -38,11 +38,11 @@ def main() -> None:
         "docker run -d --name mycosoft-website -p 3000:3000 "
         "-e NEXTAUTH_URL=https://sandbox.mycosoft.com "
         "-e AUTH_TRUST_HOST=true "
-        "-e MAS_API_URL=http://192.168.0.188:8001 "
-        "-e NEXT_PUBLIC_MAS_API_URL=http://192.168.0.188:8001 "
-        "-e MINDEX_API_URL=http://192.168.0.189:8000 "
-        "-e MINDEX_API_BASE_URL=http://192.168.0.189:8000 "
-        "-e NEXT_PUBLIC_MINDEX_API_BASE_URL=http://192.168.0.189:8000 "
+        "-e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 "
+        "-e NEXT_PUBLIC_MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 "
+        "-e MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000 "
+        "-e MINDEX_API_BASE_URL=http://${MINDEX_VM_HOST:-localhost}:8000 "
+        "-e NEXT_PUBLIC_MINDEX_API_BASE_URL=http://${MINDEX_VM_HOST:-localhost}:8000 "
         "-v /opt/mycosoft/media/website/assets:/app/public/assets:ro "
         "--restart unless-stopped mycosoft-always-on-mycosoft-website:latest",
         "sleep 10",

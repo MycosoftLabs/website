@@ -8,7 +8,7 @@ MYCA Live Demo chat connects through:
 
 1. **Website** → `/api/mas/voice/orchestrator` (Next.js API route)
 2. **Orchestrator** → tries in order:
-   - MAS Consciousness API (`http://192.168.0.188:8001/api/myca/chat`) — 6s timeout
+   - MAS Consciousness API (`http://${MAS_VM_HOST:-localhost}:8001/api/myca/chat`) — 6s timeout
    - Claude (ANTHROPIC_API_KEY)
    - OpenAI GPT-4 (OPENAI_API_KEY)
    - Groq (GROQ_API_KEY)
@@ -27,15 +27,15 @@ Returns: `ok`, `mas` status, `llm_keys` status, `summary`. Use when chat fails.
 
 ## Verification Steps
 
-### 1. MAS VM (192.168.0.188:8001)
+### 1. MAS VM (${MAS_VM_HOST}:8001)
 
 ```powershell
-Invoke-RestMethod -Uri "http://192.168.0.188:8001/health" -TimeoutSec 5
+Invoke-RestMethod -Uri "http://${MAS_VM_HOST:-localhost}:8001/health" -TimeoutSec 5
 ```
 
 - **Success:** Returns JSON with status
 - **Timeout:** MAS VM unreachable (different network, VM down, or firewall)
-- **Fix:** Ensure dev machine and MAS VM are on same LAN (192.168.0.x). SSH to VM: `ssh mycosoft@192.168.0.188`
+- **Fix:** Ensure dev machine and MAS VM are on same LAN (192.168.0.x). SSH to VM: `ssh mycosoft@${MAS_VM_HOST}`
 
 ### 2. Website Health Proxy
 
@@ -60,7 +60,7 @@ Invoke-RestMethod -Uri "http://localhost:3010/api/mas/voice/orchestrator" -Metho
 
 ```env
 # MAS VM - used when reachable
-MAS_API_URL=http://192.168.0.188:8001
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 
 # At least one LLM key for chat when MAS is down
 ANTHROPIC_API_KEY=sk-ant-...
@@ -81,5 +81,5 @@ GROQ_API_KEY=gsk_...
 ## Common Issues
 
 1. **AbortError / "signal is aborted"** — Client timeout or MAS/LLM slow. Increased to 180s; polyfill for `AbortSignal.timeout` added.
-2. **"MYCA can't reach the API backend"** — MAS VM (192.168.0.188) unreachable. Use LLM fallbacks (set API keys) or fix network.
+2. **"MYCA can't reach the API backend"** — MAS VM (${MAS_VM_HOST}) unreachable. Use LLM fallbacks (set API keys) or fix network.
 3. **"API keys"** — Add ANTHROPIC_API_KEY or other LLM keys to `.env.local` for when MAS is down.

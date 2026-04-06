@@ -25,7 +25,7 @@ if creds_file.exists():
                 password = value.strip()
                 break
 
-mas_vm = "192.168.0.188"
+mas_vm = "${MAS_VM_HOST}"
 sandbox_vm = "192.168.0.187"
 username = "mycosoft"
 
@@ -129,11 +129,11 @@ try:
     start_cmd = (
         "docker run -d --name mycosoft-website -p 3000:3000 "
         "-v /opt/mycosoft/media/website/assets:/app/public/assets:ro "
-        "-e MAS_API_URL=http://192.168.0.188:8001 "
-        "-e MINDEX_API_URL=http://192.168.0.189:8000 "
-        "-e OLLAMA_BASE_URL=http://192.168.0.188:11434 "
+        "-e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 "
+        "-e MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000 "
+        "-e OLLAMA_BASE_URL=http://${MAS_VM_HOST:-localhost}:11434 "
         "-e OLLAMA_MODEL=llama3.2:3b "
-        "-e N8N_URL=http://192.168.0.188:5678 "
+        "-e N8N_URL=http://${MAS_VM_HOST:-localhost}:5678 "
         "-e NEXT_PUBLIC_BASE_URL=https://sandbox.mycosoft.com "
         "--restart unless-stopped "
         "mycosoft-always-on-mycosoft-website:latest"

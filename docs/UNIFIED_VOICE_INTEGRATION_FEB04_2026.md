@@ -289,7 +289,7 @@ useEffect(() => {
 NEXT_PUBLIC_PERSONAPLEX_URL=ws://localhost:8999/api/chat
 
 # MYCA Brain Engine URL
-NEXT_PUBLIC_MAS_API_URL=http://192.168.0.188:8001
+NEXT_PUBLIC_MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 ```
 
 ### PersonaPlex Provider Options

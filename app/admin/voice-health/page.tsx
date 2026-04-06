@@ -90,7 +90,7 @@ export default function VoiceHealthDashboard() {
       const moshiLatency = Date.now() - moshiStart
       
       // Check MAS Orchestrator
-      const masUrl = process.env.NEXT_PUBLIC_MAS_URL || 'http://192.168.0.188:8001'
+      const masUrl = process.env.NEXT_PUBLIC_MAS_URL || 'http://localhost:8001'
       const masStart = Date.now()
       const masRes = await fetch(`${masUrl}/health`).catch(() => null)
       const masLatency = Date.now() - masStart

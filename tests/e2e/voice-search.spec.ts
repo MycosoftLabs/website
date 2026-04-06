@@ -6,7 +6,7 @@
  * 
  * Prerequisites:
  * - PersonaPlex Bridge running on localhost:8999 (or env var)
- * - MAS Orchestrator running on 192.168.0.188:8001
+ * - MAS Orchestrator running on MAS_HOST:8001
  * - Website running on localhost:3010
  * 
  * Run: npx playwright test tests/e2e/voice-search.spec.ts

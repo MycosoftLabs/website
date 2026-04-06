@@ -7,7 +7,7 @@ const V9_BASE = "/api/test-voice/mas/voice-v9"
 
 function masWsUrl(): string {
   const base =
-    process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+    process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
   const wsBase = base.replace(/^http/, "ws")
   return `${wsBase.replace(/\/$/, "")}/ws/voice/v9`
 }

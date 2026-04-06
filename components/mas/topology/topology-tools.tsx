@@ -64,7 +64,7 @@ import {
 import type { TopologyNode, TopologyConnection, DetectedGap, NodeCategory } from "./types"
 
 // ============= API HELPERS =============
-const MAS_API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_BASE = process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 async function callOrchestratorAPI(endpoint: string, method: string = "GET", body?: unknown) {
   try {

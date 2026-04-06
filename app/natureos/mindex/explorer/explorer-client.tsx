@@ -62,13 +62,13 @@ function SpeciesListTab({ species }: { species: SpeciesRecord[] }) {
           <div className="inline-block text-left bg-background/50 rounded-lg p-4 border border-orange-500/30 max-w-lg">
             <p className="text-xs font-mono text-orange-300 mb-2">🔍 Diagnostic:</p>
             <ul className="text-xs space-y-1 text-muted-foreground">
-              <li>✅ API Reachable: <span className="text-green-400">http://192.168.0.189:8000</span></li>
+              <li>✅ API Reachable: <span className="text-green-400">http://localhost:8000</span></li>
               <li>❌ Database: <span className="text-red-400">PostgreSQL connection failed</span></li>
               <li>📋 Fix: <span className="text-cyan-400">SSH to VM 189 and restart postgres container</span></li>
             </ul>
             <div className="mt-3 p-2 bg-black/40 rounded border border-orange-500/20">
               <code className="text-[10px] text-cyan-300">
-                ssh mycosoft@192.168.0.189<br/>
+                ssh mycosoft@MINDEX_HOST<br/>
                 cd /home/mycosoft/mindex<br/>
                 docker-compose restart
               </code>

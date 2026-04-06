@@ -42,12 +42,12 @@ except Exception as e:
     try:
         mas_ssh = paramiko.SSHClient()
         mas_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        mas_ssh.connect('192.168.0.188', username=user, password=password, timeout=10)
+        mas_ssh.connect('${MAS_VM_HOST}', username=user, password=password, timeout=10)
         print("Connected to MAS")
         
         # Create channel to sandbox
         transport = mas_ssh.get_transport()
-        channel = transport.open_channel("direct-tcpip", (host, 22), ('192.168.0.188', 22))
+        channel = transport.open_channel("direct-tcpip", (host, 22), ('${MAS_VM_HOST}', 22))
         
         sandbox_ssh = paramiko.SSHClient()
         sandbox_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

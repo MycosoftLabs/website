@@ -6,7 +6,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 # Load credentials from environment variables
-mindex_host = os.environ.get("MINDEX_VM_HOST", "192.168.0.189")
+mindex_host = os.environ.get("MINDEX_VM_HOST", "${MINDEX_VM_HOST}")
 user = os.environ.get("MINDEX_VM_USER", "mycosoft")
 passwd = os.environ.get("VM_PASSWORD")
 
@@ -34,12 +34,12 @@ ON CONFLICT (name) DO UPDATE SET url = EXCLUDED.url, description = EXCLUDED.desc
 
 -- Register n8n Workflow
 INSERT INTO registry.systems (name, type, url, description, status)
-VALUES ('n8n', 'automation', 'http://192.168.0.188:5678', 'n8n Workflow Automation Engine', 'active')
+VALUES ('n8n', 'automation', 'http://${MAS_VM_HOST:-localhost}:5678', 'n8n Workflow Automation Engine', 'active')
 ON CONFLICT (name) DO UPDATE SET url = EXCLUDED.url, description = EXCLUDED.description;
 
 -- Register Proxmox Host
 INSERT INTO registry.systems (name, type, url, description, status)
-VALUES ('Proxmox', 'infrastructure', 'https://192.168.0.202:8006', 'Proxmox VE Hypervisor Host', 'active')
+VALUES ('Proxmox', 'infrastructure', 'https://${PROXMOX_HOST:-localhost}:8006', 'Proxmox VE Hypervisor Host', 'active')
 ON CONFLICT (name) DO UPDATE SET url = EXCLUDED.url, description = EXCLUDED.description;
 
 -- Register Grafana

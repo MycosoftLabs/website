@@ -1,6 +1,6 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
-const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678";
+const N8N_URL = process.env.N8N_URL || "http://localhost:5678";
 const N8N_API_KEY = process.env.N8N_API_KEY || "";
 
 async function n8nRequest(endpoint: string, options: RequestInit = {}) {

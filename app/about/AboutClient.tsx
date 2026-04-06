@@ -38,7 +38,7 @@ const technologies = [
   {
     title: "Smart Lab Equipment",
     description:
-      "In laboratory environments, our technology aims to automate and smartly monitor the growth and health of fungi in petri dishes and farm environments. By incorporating data-gathering sensors and AI-powered tools, we aim to improve precision and efficiency in scientific research and commercial farming.",
+      "In laboratory environments, our technology aims to automate and smartly monitor the growth and health of fungi in Petri dishes and farm environments. By incorporating data-gathering sensors and AI-powered tools, we aim to improve precision and efficiency in scientific research and commercial farming.",
     image:
       "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/smart%20lab%20equipment-z3U2lh0DJDiLs1nRgfkfFyhWTfuroY.webp",
   },

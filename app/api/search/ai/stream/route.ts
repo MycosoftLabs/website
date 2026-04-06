@@ -11,7 +11,7 @@ import { searchLimiter, getClientIP, rateLimitResponse } from "@/lib/rate-limite
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434"
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.3"

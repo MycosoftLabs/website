@@ -1,6 +1,6 @@
 #!/bin/bash
 # Configure VFIO for GPU passthrough on Proxmox
-# Run as root on Proxmox host (192.168.0.202)
+# Run as root on Proxmox host (${PROXMOX_HOST})
 
 set -e
 

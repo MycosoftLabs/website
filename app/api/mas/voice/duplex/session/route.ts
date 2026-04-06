@@ -12,9 +12,9 @@ import { NextRequest, NextResponse } from "next/server"
 const IS_LOCAL = process.env.PERSONAPLEX_LOCAL === "true" || process.env.NODE_ENV === "development"
 
 // PersonaPlex internal URLs (server-side only)
-const PERSONAPLEX_BRIDGE_URL = process.env.PERSONAPLEX_BRIDGE_URL || (IS_LOCAL ? "http://localhost:8999" : "http://192.168.0.188:8999")
+const PERSONAPLEX_BRIDGE_URL = process.env.PERSONAPLEX_BRIDGE_URL || (IS_LOCAL ? "http://localhost:8999" : "http://localhost:8999")
 const PERSONAPLEX_BRIDGE_PORT = process.env.PERSONAPLEX_BRIDGE_PORT || "8999"
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // Build WebSocket URL based on request host (for browser connection)
 function getWebSocketUrl(request: NextRequest, sessionId: string): string {

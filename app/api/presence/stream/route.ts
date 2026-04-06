@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 
-const MAS_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 export async function GET(request: NextRequest) {
   const streamUrl = `${MAS_URL}/api/presence/stream`

@@ -209,7 +209,7 @@ async function testOllama(): Promise<ProviderStatus> {
 }
 
 async function testMAS(): Promise<ProviderStatus> {
-  const url = process.env.MAS_ORCHESTRATOR_URL || "http://192.168.0.188:8001"
+  const url = process.env.MAS_ORCHESTRATOR_URL || "http://localhost:8001"
   const start = Date.now()
   try {
     const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(5000) })

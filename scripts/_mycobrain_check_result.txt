@@ -31,7 +31,7 @@ StartLimitIntervalSec=0
 # If the process hangs (e.g. serial lock), watchdog will restart via cron
 TimeoutStartSec=30
 Environment=MYCOBRAIN_SERVICE_PORT=8003
-Environment=MAS_REGISTRY_URL=http://192.168.0.188:8001
+Environment=MAS_REGISTRY_URL=http://${MAS_VM_HOST:-localhost}:8001
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=mycobrain-service

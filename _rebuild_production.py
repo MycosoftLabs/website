@@ -133,10 +133,10 @@ def main():
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
         -e NEXT_PUBLIC_BASE_URL=https://mycosoft.com \
         -e NEXTAUTH_URL=https://mycosoft.com \
-        -e MAS_API_URL=http://192.168.0.188:8001 \
-        -e MINDEX_API_URL=http://192.168.0.189:8000 \
-        -e OLLAMA_BASE_URL=http://192.168.0.188:11434 \
-        -e N8N_URL=http://192.168.0.188:5678 \
+        -e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 \
+        -e MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000 \
+        -e OLLAMA_BASE_URL=http://${MAS_VM_HOST:-localhost}:11434 \
+        -e N8N_URL=http://${MAS_VM_HOST:-localhost}:5678 \
         --restart unless-stopped {image_tag}"""
     code, out, err = _run(start_cmd, timeout=60)
     if out:

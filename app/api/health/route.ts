@@ -72,7 +72,7 @@ export async function GET() {
   // Check MAS API connectivity
   try {
     const masStart = Date.now()
-    const masUrl = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+    const masUrl = process.env.MAS_API_URL || "http://localhost:8001"
     const masResponse = await fetch(`${masUrl}/health`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)
@@ -102,7 +102,7 @@ export async function GET() {
   // Check MINDEX API connectivity
   try {
     const mindexStart = Date.now()
-    const mindexUrl = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+    const mindexUrl = process.env.MINDEX_API_URL || "http://localhost:8000"
     const mindexResponse = await fetch(`${mindexUrl}/api/v1/taxon/stats`, { 
       signal: AbortSignal.timeout(3000) 
     }).catch(() => null)

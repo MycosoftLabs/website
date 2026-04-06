@@ -11,6 +11,10 @@
 
 name: Mycosoft CI/CD
 
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, develop]
@@ -20,6 +24,8 @@ on:
       - 'lib/**'
       - 'public/**'
       - 'services/**'
+      - 'docker-compose.production.yml'
+      - 'docker-compose.yml'
       - 'Dockerfile.production'
       - 'package.json'
       - 'package-lock.json'
@@ -53,9 +59,10 @@ jobs:
     steps:
       - name: Check commit message for [fast]
         id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          MSG="${{ github.event.head_commit.message }}"
-          if echo "$MSG" | grep -qiE '\[fast\]|\[instant\]|\[quick\]'; then
+          if echo "$COMMIT_MSG" | grep -qiE '\[fast\]|\[instant\]|\[quick\]'; then
             echo "is_fast=true" >> "$GITHUB_OUTPUT"
             echo "Fast deploy requested — skipping full CI/CD"
           else
@@ -301,6 +308,9 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     needs: [check-fast, build]
     if: >-
       always()
@@ -366,7 +376,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ssh-retry production bash -s <<'BUILD'
-            set -e
+            set -euo pipefail
+            exec 9>/tmp/mycosoft-prod-deploy.lock
+            flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
 
             echo "=== Authenticating with GHCR ==="
@@ -376,15 +388,25 @@ jobs:
             IMAGE_NAME_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
             docker pull ghcr.io/${IMAGE_NAME_LC}:production-latest
 
-            echo "=== Cleaning Up Zombie Containers ==="
-            docker rm -f $(docker ps -aq --filter status=dead --filter status=exited) 2>/dev/null || true
-            docker rm -f website-website-1 website-website-2 mycosoft-website 2>/dev/null || true
-            CONFLICTING=$(docker ps -q --filter "publish=3000")
-            if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
+            PREV_IMAGE=$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
+            echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
+            echo "Previous image: ${PREV_IMAGE:-none}"
+
+            echo "=== Preparing deterministic restart ==="
+            docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
 
             echo "=== Starting Container ==="
             export WEBSITE_IMAGE="ghcr.io/${IMAGE_NAME_LC}:production-latest"
-            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
+            if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
+              echo "Compose deploy failed. Attempting rollback container..."
+              if [ -n "${PREV_IMAGE}" ]; then
+                docker rm -f website-live 2>/dev/null || true
+                docker run -d --name website-live -p 3000:3000 \
+                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                  --restart unless-stopped "${PREV_IMAGE}" || true
+              fi
+              exit 1
+            fi
           BUILD
 
       - name: Run database migrations
@@ -395,17 +417,31 @@ jobs:
       - name: Health check
         run: |
           ssh-retry production bash -s <<'SCRIPT'
+          set -euo pipefail
           echo "=== Waiting for service to be healthy ==="
+          OK=0
           for i in 1 2 3 4 5; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
               echo "Health check passed on attempt $i"
-              exit 0
+              OK=1
+              break
             fi
             echo "Attempt $i: not ready, waiting 5s..."
             sleep 5
           done
-          echo "::warning::Health check did not pass within 25s"
+          if [ "$OK" -ne 1 ]; then
+            echo "::error::Health check did not pass within 25s"
+            PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
+            if [ -n "$PREV_IMAGE" ]; then
+              echo "Attempting rollback to previous image: $PREV_IMAGE"
+              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              docker run -d --name website-live -p 3000:3000 \
+                -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
+            fi
+            exit 1
+          fi
           SCRIPT
 
       - name: Purge Cloudflare cache
@@ -420,6 +456,22 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cloudflare cache purged"
           fi
+
+      - name: Public endpoint verification
+        if: success()
+        run: |
+          URL="https://mycosoft.com/"
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "Public endpoint healthy: HTTP $STATUS"
+              exit 0
+            fi
+            echo "Attempt $i: public endpoint returned HTTP $STATUS, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Public endpoint verification failed"
+          exit 1
 
       - name: Log deployment
         continue-on-error: true
@@ -456,6 +508,9 @@ jobs:
   instant-deploy:
     name: Instant Deploy (fast)
     runs-on: ubuntu-latest
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     needs: [check-fast]
     if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main'
     environment: production
@@ -512,7 +567,9 @@ jobs:
       - name: Build and deploy on VM
         run: |
           ssh-retry production bash -s <<'BUILD'
-            set -e
+            set -euo pipefail
+            exec 9>/tmp/mycosoft-prod-deploy.lock
+            flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
 
             echo "=== Building Docker image locally ==="
@@ -530,15 +587,22 @@ jobs:
             echo "--- MOUNTS ---"
             df -h
 
-            echo "=== Cleaning Up Zombie Containers ==="
-            docker rm -f $(docker ps -aq --filter status=dead --filter status=exited) 2>/dev/null || true
-            docker rm -f website-website-1 website-website-2 mycosoft-website 2>/dev/null || true
-            CONFLICTING=$(docker ps -q --filter "publish=3000")
-            if [ -n "$CONFLICTING" ]; then docker rm -f $CONFLICTING; fi
+            PREV_IMAGE=$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
+            echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
+            docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
 
             echo "=== Starting Container ==="
             export WEBSITE_IMAGE="mycosoft-website:local"
-            docker compose -f docker-compose.production.yml up -d --no-deps --scale website=1 website
+            if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
+              echo "Compose deploy failed. Attempting rollback container..."
+              if [ -n "${PREV_IMAGE}" ]; then
+                docker rm -f website-live 2>/dev/null || true
+                docker run -d --name website-live -p 3000:3000 \
+                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                  --restart unless-stopped "${PREV_IMAGE}" || true
+              fi
+              exit 1
+            fi
 
             echo "=== Running Database Migrations ==="
             docker compose -f docker-compose.production.yml exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped"
@@ -549,15 +613,28 @@ jobs:
       - name: Health check
         run: |
           ssh-retry production bash -s <<'SCRIPT'
+          set -euo pipefail
+          OK=0
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
               echo "Healthy on attempt $i"
-              exit 0
+              OK=1
+              break
             fi
             sleep 5
           done
-          echo "::warning::Health check timeout"
+          if [ "$OK" -ne 1 ]; then
+            echo "::error::Health check timeout"
+            PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
+            if [ -n "$PREV_IMAGE" ]; then
+              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              docker run -d --name website-live -p 3000:3000 \
+                -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
+                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
+            fi
+            exit 1
+          fi
           SCRIPT
 
       - name: Purge Cloudflare cache
@@ -571,6 +648,22 @@ jobs:
               -d '{"purge_everything":true}'
             echo "Cache purged"
           fi
+
+      - name: Public endpoint verification
+        if: success()
+        run: |
+          URL="https://mycosoft.com/"
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "Public endpoint healthy: HTTP $STATUS"
+              exit 0
+            fi
+            echo "Attempt $i: public endpoint returned HTTP $STATUS, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Public endpoint verification failed"
+          exit 1
 
       - name: Log deployment
         continue-on-error: true

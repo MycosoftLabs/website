@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 // MycoBrain service URL - runs on port 8003 (local) or via network
 const MYCOBRAIN_SERVICE_URL = process.env.MYCOBRAIN_SERVICE_URL || "http://localhost:8003"
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 export const dynamic = "force-dynamic"
 

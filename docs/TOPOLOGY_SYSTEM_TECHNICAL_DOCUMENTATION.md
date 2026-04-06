@@ -163,7 +163,7 @@ function generateMetrics() {
 }
 ```
 
-**IMPROVEMENT NEEDED**: Connect to real MAS orchestrator at `192.168.0.188:8001`
+**IMPROVEMENT NEEDED**: Connect to real MAS orchestrator at `${MAS_VM_HOST}:8001`
 
 ### POST /api/mas/topology
 
@@ -517,7 +517,7 @@ interface TopologyNode {
 ### Phase 2: Real Data Integration
 
 #### 2.1 MAS Orchestrator Connection
-- Connect to `http://192.168.0.188:8001`
+- Connect to `http://${MAS_VM_HOST:-localhost}:8001`
 - Real agent status from Docker
 - Actual CPU/memory metrics
 - Live message passing data
@@ -580,7 +580,7 @@ interface TopologyNode {
 
 | System | Status | Notes |
 |--------|--------|-------|
-| MAS Orchestrator | Simulated | Should connect to 192.168.0.188:8001 |
+| MAS Orchestrator | Simulated | Should connect to ${MAS_VM_HOST}:8001 |
 | Redis | Not connected | Shown as node only |
 | PostgreSQL | Not connected | Shown as node only |
 | n8n | Not connected | Should show workflow status |

@@ -92,7 +92,7 @@ export async function GET() {
   const masBaseUrl =
     process.env.MAS_API_URL ||
     process.env.NEXT_PUBLIC_MAS_API_URL ||
-    "http://192.168.0.188:8001"
+    "http://localhost:8001"
 
   // When USE_LOCAL_GPU or USE_LOCAL_VOICE is true, always use localhost for Bridge
   // (Moshi + Bridge run locally; env may still point to GPU node for remote use)

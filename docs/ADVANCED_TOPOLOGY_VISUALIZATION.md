@@ -257,7 +257,7 @@ Execute action on a node.
 ## Integration Points
 
 ### Real Data Sources
-- MAS Orchestrator: `http://192.168.0.188:8001/topology`
+- MAS Orchestrator: `http://${MAS_VM_HOST:-localhost}:8001/topology`
 - Falls back to generated data when MAS offline
 
 ### Connected Systems

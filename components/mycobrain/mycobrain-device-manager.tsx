@@ -2063,7 +2063,7 @@ export function MycoBrainDeviceManager({ initialPort }: MycoBrainDeviceManagerPr
                   <code className="block mt-1 p-2 rounded bg-muted font-mono text-xs">
                     MYCOBRAIN_HEARTBEAT_ENABLED=true<br/>
                     MYCOBRAIN_DEVICE_NAME="Beto&apos;s Lab"<br/>
-                    MAS_REGISTRY_URL=http://192.168.0.188:8001
+                    MAS_REGISTRY_URL=http://localhost:8001
                   </code>
                 </li>
                 <li>Start the MycoBrain service: <code className="bg-muted px-1 rounded">python mycobrain_service_standalone.py</code></li>

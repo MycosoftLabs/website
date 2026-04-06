@@ -11,8 +11,8 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://192.168.0.189:8000"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 async function safeFetch(url: string, options?: RequestInit & { timeout?: number }) {
   const timeout = options?.timeout ?? 8000

@@ -20,7 +20,7 @@ private generateDevKey(): string {
 ```
 
 ### 2. MINDEX API URL Pointing to Wrong VM ✅
-**Problem**: Multiple files pointed MINDEX API to MAS VM (192.168.0.188:8001) instead of dedicated MINDEX VM (192.168.0.189:8000).
+**Problem**: Multiple files pointed MINDEX API to MAS VM (${MAS_VM_HOST}:8001) instead of dedicated MINDEX VM (${MINDEX_VM_HOST}:8000).
 
 **Solution**: Updated all MINDEX API URLs across the codebase:
 
@@ -33,8 +33,8 @@ private generateDevKey(): string {
 | VM | IP | Role | Port |
 |----|-----|------|------|
 | Sandbox | 192.168.0.187 | Website (Docker), Mycorrhizae | 3000, 8002 |
-| MAS | 192.168.0.188 | Multi-Agent System | 8001 |
-| MINDEX | 192.168.0.189 | Database (PostgreSQL, Qdrant, Redis) | 8000 |
+| MAS | ${MAS_VM_HOST} | Multi-Agent System | 8001 |
+| MINDEX | ${MINDEX_VM_HOST} | Database (PostgreSQL, Qdrant, Redis) | 8000 |
 
 ### 3. Infrastructure Dashboard Integration ✅
 **Status**: The `/natureos/mindex` infrastructure dashboard already properly integrates with the backend:
@@ -166,7 +166,7 @@ All 16 MINDEX API routes already proxy correctly to backend:
 5. **Verify on sandbox.mycosoft.com**:
    - Check https://sandbox.mycosoft.com/mindex
    - Check https://sandbox.mycosoft.com/natureos/mindex
-   - Verify API connectivity to 192.168.0.189:8000
+   - Verify API connectivity to ${MINDEX_VM_HOST}:8000
 
 ## Environment Variables
 
@@ -174,13 +174,13 @@ Ensure `.env.local` has correct VM URLs:
 
 ```env
 # MINDEX (VM 189:8000)
-MINDEX_API_URL=http://192.168.0.189:8000
-MINDEX_API_BASE_URL=http://192.168.0.189:8000
-NEXT_PUBLIC_MINDEX_URL=http://192.168.0.189:8000
+MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000
+MINDEX_API_BASE_URL=http://${MINDEX_VM_HOST:-localhost}:8000
+NEXT_PUBLIC_MINDEX_URL=http://${MINDEX_VM_HOST:-localhost}:8000
 
 # MAS (VM 188:8001)
-MAS_API_URL=http://192.168.0.188:8001
-NEXT_PUBLIC_MAS_API_URL=http://192.168.0.188:8001
+MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
+NEXT_PUBLIC_MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001
 
 # Mycorrhizae (VM 187:8002)
 MYCORRHIZAE_API_URL=http://192.168.0.187:8002

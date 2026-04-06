@@ -10,8 +10,8 @@ import { NextRequest, NextResponse } from "next/server"
  * - "Abort" or "Cancel that" - To cancel
  */
 
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
-const N8N_URL = process.env.N8N_URL || "http://192.168.0.188:5678"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
+const N8N_URL = process.env.N8N_URL || "http://localhost:5678"
 
 interface ConfirmRequest {
   request_id: string

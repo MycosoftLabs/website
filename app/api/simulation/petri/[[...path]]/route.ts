@@ -13,7 +13,7 @@ const MAS_API_URL =
   process.env.MAS_API_URL ||
   process.env.MAS_ORCHESTRATOR_URL ||
   process.env.NEXT_PUBLIC_MAS_API_URL ||
-  "http://192.168.0.188:8001"
+  "http://localhost:8001"
 
 async function proxyRequest(
   request: NextRequest,

@@ -12,8 +12,8 @@ Ensure these are set in `.env.local` (dev) or in the website/Mycorrhizae contain
 
 | Variable | Purpose |
 |----------|---------|
-| **MAS_API_URL** | MAS orchestrator (e.g. http://192.168.0.188:8001). |
-| **MINDEX_API_URL** | MINDEX API base URL (e.g. http://192.168.0.189:8000 or http://192.168.0.187:8000). |
+| **MAS_API_URL** | MAS orchestrator (e.g. http://${MAS_VM_HOST:-localhost}:8001). |
+| **MINDEX_API_URL** | MINDEX API base URL (e.g. http://${MINDEX_VM_HOST:-localhost}:8000 or http://192.168.0.187:8000). |
 | **MINDEX_API_KEY** | API key sent as `X-API-Key` to MINDEX. |
 | **MYCORRHIZAE_API_URL** | Mycorrhizae API (e.g. http://192.168.0.187:8002). |
 | **MYCORRHIZAE_PUBLISH_KEY** | Key for publishing to Mycorrhizae channels. |

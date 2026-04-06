@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 // MAS API URL - points to the MAS VM orchestrator
-const MAS_API_URL = process.env.MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"
 
 // ElevenLabs configuration
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY

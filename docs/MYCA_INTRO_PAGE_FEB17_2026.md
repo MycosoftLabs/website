@@ -65,7 +65,7 @@ All components follow mobile-first standards:
 - `/api/myca/consciousness/status` - Consciousness state
 - `/api/myca/consciousness/world` - World perception
 - `/api/myca/consciousness/chat` - Chat (via MYCAChatWidget)
-- MAS at 192.168.0.188:8001 (proxied through website API routes)
+- MAS at ${MAS_VM_HOST}:8001 (proxied through website API routes)
 
 ---
 

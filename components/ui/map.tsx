@@ -78,7 +78,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const { resolvedTheme } = useTheme();
   const currentStyleRef = useRef<MapStyleOption | null>(null);
-  const onLoadCalledRef = useRef(false);
+  const mapRef = useRef<MapLibreGL.Map | null>(null);
 
   const mapStyles = useMemo(
     () => ({
@@ -93,8 +93,9 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Use the resolved theme, falling back to dark if not yet available
     const initialStyle =
-      resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
+      resolvedTheme === "light" ? mapStyles.light : mapStyles.dark;
     currentStyleRef.current = initialStyle;
 
     const map = new MapLibreGL.Map({
@@ -107,47 +108,38 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       ...props,
     });
 
-    // Track both conditions — only call onLoad when BOTH are satisfied.
-    // This prevents the race where onLoad fires before style is ready,
-    // causing downstream addSource/addLayer calls to silently fail.
-    const readyState = { loaded: false, styleReady: false };
+    mapRef.current = map;
 
-    const tryOnLoad = () => {
-      if (readyState.loaded && readyState.styleReady && !onLoadCalledRef.current) {
-        onLoadCalledRef.current = true;
-        if (onLoad) {
-          onLoad(map);
-        }
-      }
-    };
-
-    const styleDataHandler = () => {
+    // Use the "style.load" event which fires once when style is fully ready
+    // (including sources, sprites, glyphs). More reliable than "styledata"
+    // which fires multiple times during style processing.
+    const styleLoadHandler = () => {
       setIsStyleLoaded(true);
       if (projection) {
         map.setProjection(projection);
       }
-      readyState.styleReady = true;
-      tryOnLoad();
     };
 
     const loadHandler = () => {
       setIsLoaded(true);
-      readyState.loaded = true;
-      tryOnLoad();
+      // Call onLoad callback with the map instance when map is ready
+      if (onLoad) {
+        onLoad(map);
+      }
     };
 
     map.on("load", loadHandler);
-    map.on("styledata", styleDataHandler);
+    map.on("style.load", styleLoadHandler);
     setMapInstance(map);
 
     return () => {
       map.off("load", loadHandler);
-      map.off("styledata", styleDataHandler);
+      map.off("style.load", styleLoadHandler);
       map.remove();
+      mapRef.current = null;
       setIsLoaded(false);
       setIsStyleLoaded(false);
       setMapInstance(null);
-      onLoadCalledRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

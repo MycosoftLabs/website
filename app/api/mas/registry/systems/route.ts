@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server"
  * Proxy to MAS registry systems list.
  * GET /api/mas/registry/systems - used by Activity topology for live system catalog.
  */
-const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://192.168.0.188:8001"
+const MAS_API_URL = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL || "http://localhost:8001"
 
 export const dynamic = "force-dynamic"
 

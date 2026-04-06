@@ -272,7 +272,7 @@ function mapCategoryToEventType(category: string): string {
 //   outputs:
 //     - redis:
 //         enabled: yes
-//         server: 192.168.0.189
+//         server: MINDEX_HOST
 //         port: 6379
 //         key: suricata
 //         filetype: redis
@@ -342,7 +342,7 @@ let redisSubscription: { unsubscribe: () => void } | null = null;
  * Subscribe to Suricata events via Redis
  * 
  * UPDATED: Feb 12, 2026 - No mock data. Must connect to real Redis.
- * Redis should be configured with Suricata output at 192.168.0.189:6379
+ * Redis should be configured with Suricata output at MINDEX_HOST:6379
  */
 export async function subscribeToRedis(redisUrl: string): Promise<void> {
   console.log(`[SuricataIDS] Connecting to Redis: ${redisUrl}`);

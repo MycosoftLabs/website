@@ -323,7 +323,7 @@ All systems verified working:
 | MINDEX API | ✅ Running | Port 8000 |
 | n8n Workflows | ✅ Running | Port 5678 |
 | UniFi Dream Machine | ✅ Online | 192.168.0.1 |
-| Proxmox Server | ✅ Online | 192.168.0.202 |
+| Proxmox Server | ✅ Online | ${PROXMOX_HOST} |
 | Google Maps | ✅ Working | Full satellite imagery |
 | Google OAuth | ✅ Configured | Provider active |
 | OpenSky ADS-B | ✅ Live Data | 22 aircraft in test |

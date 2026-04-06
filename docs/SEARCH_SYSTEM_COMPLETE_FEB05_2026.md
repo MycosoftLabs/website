@@ -368,12 +368,12 @@ docker compose -p mycosoft-production up -d mycosoft-website
 
 ```bash
 # Website (.env.local)
-MAS_API_URL=http://192.168.0.188:8000
-MINDEX_API_URL=http://192.168.0.188:8001
-MYCA_BRAIN_URL=http://192.168.0.188:8000
+MAS_API_URL=http://${MAS_VM_HOST}:8000
+MINDEX_API_URL=http://${MAS_VM_HOST:-localhost}:8001
+MYCA_BRAIN_URL=http://${MAS_VM_HOST}:8000
 
 # MAS Backend
-MINDEX_DATABASE_URL=postgresql://mycosoft:...@192.168.0.189:5432/mindex
+MINDEX_DATABASE_URL=postgresql://mycosoft:...@${MINDEX_VM_HOST}:5432/mindex
 ```
 
 ---

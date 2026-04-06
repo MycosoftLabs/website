@@ -58,13 +58,14 @@ services:
   # WEBSITE — Next.js production app
   # ==========================================================================
   # All LLM keys are injected here so the orchestrator can always reach at
-  # least one AI provider even when MAS VM (192.168.0.188) is unreachable.
+  # least one AI provider even when MAS VM (${MAS_VM_HOST}) is unreachable.
   # ==========================================================================
 
   website:
     image: ${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}
     ports:
-      - "3000-3001:3000"
+      # Keep origin on a fixed port; Cloudflare tunnel targets localhost:3000.
+      - "3000:3000"
     env_file:
       - .env
     environment:
@@ -80,8 +81,8 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
       # MAS Orchestrator (cross-VM, may be unreachable through tunnel)
-      - MAS_API_URL=${MAS_API_URL:-http://192.168.0.188:8001}
-      - MINDEX_API_URL=${MINDEX_API_URL:-http://192.168.0.189:8000}
+      - MAS_API_URL=${MAS_API_URL:-${MAS_API_URL:-http://localhost:8001}}
+      - MINDEX_API_URL=${MINDEX_API_URL:-${MINDEX_API_URL:-http://localhost:8000}}
       - N8N_URL=${N8N_URL:-http://n8n:5678}
       # NemoClaw Gateway (Jetson with NVIDIA Nemotron for on-site AI)
       - NEMOCLAW_GATEWAY_URL=${NEMOCLAW_GATEWAY_URL:-http://192.168.0.123:18789}
@@ -103,7 +104,7 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       # Public URLs
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}
-      - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-http://192.168.0.188:8001}
+      - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-${MAS_API_URL:-http://localhost:8001}}
       - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
     volumes:
       # NAS media assets (videos, images) mounted read-only into public/assets

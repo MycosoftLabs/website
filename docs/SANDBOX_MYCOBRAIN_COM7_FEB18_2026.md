@@ -4,9 +4,9 @@
 
 Per **docs/DEVICE_MANAGER_AND_GATEWAY_ARCHITECTURE_FEB10_2026.md** and **docs/TAILSCALE_REMOTE_DEVICE_GUIDE_FEB09_2026.md**:
 
-- Run **MycoBrain service on your dev PC** with the board on **COM7**. The service connects to the board and sends **heartbeat to MAS** (192.168.0.188:8001) with your PC’s host (e.g. LAN IP) and port 8003.
+- Run **MycoBrain service on your dev PC** with the board on **COM7**. The service connects to the board and sends **heartbeat to MAS** (${MAS_VM_HOST}:8001) with your PC’s host (e.g. LAN IP) and port 8003.
 - **MAS Device Registry** stores the device. The sandbox website (and any client) fetches **Network** devices from MAS. So the **board on your desk does show on the sandbox site** — in the merged device list that includes MAS-registered devices (heartbeat from your PC).
-- Ensure on your dev PC: **MYCOBRAIN_HEARTBEAT_ENABLED=true**, **MAS_REGISTRY_URL=http://192.168.0.188:8001**, and the MycoBrain service is running so heartbeat runs. Then open sandbox → Device Network; the device should appear (from MAS registry).
+- Ensure on your dev PC: **MYCOBRAIN_HEARTBEAT_ENABLED=true**, **MAS_REGISTRY_URL=http://${MAS_VM_HOST:-localhost}:8001**, and the MycoBrain service is running so heartbeat runs. Then open sandbox → Device Network; the device should appear (from MAS registry).
 - **Local/serial discovery** on the sandbox uses the MycoBrain service URL configured for the sandbox (e.g. 187:8003), so serial ports on the sandbox host appear there. Devices that register via heartbeat from other machines (e.g. your PC) appear from the **MAS registry** in the same view.
 
 ## Why the sandbox host also has a MycoBrain service

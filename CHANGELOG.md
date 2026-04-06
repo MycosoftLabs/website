@@ -230,6 +230,15 @@ All notable changes to this project will be documented in this file.
 - SEO audit remediation — metadata, sitemap, security headers, schema
 - *(website)* AutoplayVideo uses -web.mp4 fallbacks and explicit encodeSrc for spaced paths
 - *(crep)* Resolve map black canvas + integrate ground station as layer
+- *(deploy)* Bind Next.js to 0.0.0.0 so healthcheck passes in Docker
+- Enrich platform-authentication and platform-search skills with source-accurate details
+- *(map)* Replace fragile styledata+setTimeout with style.load (#92)
+- *(ci)* Use env var for commit message to prevent bash parse errors
+- *(deploy)* Prevent tunnel 502 by pinning port and enforcing health gates
+- *(ci)* Enforce strict production health gates and deploy concurrency
+- Remove exposed private IPs, internal URLs, and fix dependency cycle (#94)
+- *(deploy)* Serialize production deploys and auto-rollback on failure
+- *(video)* Prioritize canonical mp4 before web variant
 
 ### CREP
 
@@ -260,6 +269,9 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
+- Update changelog [skip ci]
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -436,6 +448,9 @@ All notable changes to this project will be documented in this file.
 - *(nlm-training)* Replace all mock data with real MAS/GPU/MINDEX API integration
 - NLM2 page, encode-asset-url, search/team/device/defense updates
 - Add power grid cables, substations, and plants to CREP
+- Initialize Mycosoft Skills Discovery System — Claude Code Computer Use
+- Add petri dish simulator skill
+- Complete Mycosoft Skills Discovery System — 59 SKILL.md files + registry
 
 ### Fix
 
@@ -515,6 +530,7 @@ All notable changes to this project will be documented in this file.
 ### Security
 
 - Purge hardcoded secrets from working tree and history
+- Remove hardcoded private IPs and fix dependency graph
 
 ### Ux
 

@@ -52,8 +52,8 @@ This document describes the **live events** feature on the CREP map, how to test
 | VM        | IP           | Role                          | Relevant for CREP                    |
 |-----------|--------------|-------------------------------|--------------------------------------|
 | Sandbox   | 192.168.0.187| Website (Docker), optional svc | CREP UI + Next.js API routes         |
-| MAS       | 192.168.0.188| Multi-Agent System            | If CREP calls MAS (e.g. agents)      |
-| MINDEX    | 192.168.0.189| Database + vector store       | If CREP uses MINDEX (e.g. fungal)    |
+| MAS       | ${MAS_VM_HOST}| Multi-Agent System            | If CREP calls MAS (e.g. agents)      |
+| MINDEX    | ${MINDEX_VM_HOST}| Database + vector store       | If CREP uses MINDEX (e.g. fungal)    |
 
 - **CREP dashboard URL (production)**: `https://sandbox.mycosoft.com/dashboard/crep` (or main site if deployed there).  
 - **Local dev (CREP-only, optional)**: `npm run dev:crep` → `http://localhost:3020/dashboard/crep` (see `.cursor/rules/crep-context.mdc`).  
