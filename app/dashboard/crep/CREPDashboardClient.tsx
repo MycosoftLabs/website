@@ -4535,66 +4535,66 @@ export default function CREPDashboardPage() {
                 </MarkerPopup>
               </MapMarker>
             )}
-          </MapComponent>
 
-          {/* Ground Station Location Marker */}
-          {showGroundStation && gsState.activeLocation && (
-            <MapMarker
-              latitude={gsState.activeLocation.lat}
-              longitude={gsState.activeLocation.lon ?? 0}
-            >
-              <MarkerContent>
-                <div className="w-6 h-6 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center animate-pulse" title={`Ground Station: ${gsState.activeLocation.name || "Active"}`}>
-                  <Radio className="w-3 h-3 text-cyan-300" />
-                </div>
-              </MarkerContent>
-            </MapMarker>
-          )}
-
-          {/* Ground Station Tracked Satellite Positions */}
-          {showGroundStation && Object.values(gsState.positions).map((pos) => {
-            if (!pos.lat || !pos.lon) return null;
-            const sat = gsState.satellites.find(s => s.norad_id === pos.norad_id);
-            const isTracking = gsState.trackingState?.norad_id === pos.norad_id;
-            return (
-              <MapMarker key={`gs-sat-${pos.norad_id}`} latitude={pos.lat} longitude={pos.lon}>
+            {/* Ground Station Location Marker */}
+            {showGroundStation && gsState.activeLocation && (
+              <MapMarker
+                latitude={gsState.activeLocation.lat}
+                longitude={gsState.activeLocation.lon ?? 0}
+              >
                 <MarkerContent>
-                  <div
-                    className={cn(
-                      "w-4 h-4 rounded-full flex items-center justify-center text-[8px] border",
-                      isTracking
-                        ? "bg-green-500/40 border-green-400 text-green-300 animate-pulse"
-                        : pos.is_visible
-                        ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300"
-                        : "bg-gray-500/20 border-gray-500/40 text-gray-400"
-                    )}
-                    title={`${sat?.name || `NORAD ${pos.norad_id}`} — Alt: ${pos.alt?.toFixed(0)}km, Az: ${pos.az?.toFixed(1)}°, El: ${pos.el?.toFixed(1)}°`}
-                  >
-                    <Satellite className="w-2.5 h-2.5" />
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/30 border-2 border-cyan-400 flex items-center justify-center animate-pulse" title={`Ground Station: ${gsState.activeLocation.name || "Active"}`}>
+                    <Radio className="w-3 h-3 text-cyan-300" />
                   </div>
                 </MarkerContent>
               </MapMarker>
-            );
-          })}
+            )}
 
-          {/* Infrastructure Markers from Overpass API */}
-          {infraFeatures.map((feat) => (
-            <MapMarker key={feat.id} latitude={feat.lat} longitude={feat.lng}>
-              <MarkerContent>
-                <button
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] border shadow-md"
-                  style={{
-                    backgroundColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}20`,
-                    borderColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}60`,
-                    color: INFRA_TYPE_COLORS[feat.type] || "#6b7280",
-                  }}
-                  title={`${feat.name || feat.type} (${feat.type.replace(/_/g, " ")})`}
-                >
-                  {INFRA_TYPE_ICONS[feat.type] || "📍"}
-                </button>
-              </MarkerContent>
-            </MapMarker>
-          ))}
+            {/* Ground Station Tracked Satellite Positions */}
+            {showGroundStation && Object.values(gsState.positions).map((pos) => {
+              if (!pos.lat || !pos.lon) return null;
+              const sat = gsState.satellites.find(s => s.norad_id === pos.norad_id);
+              const isTracking = gsState.trackingState?.norad_id === pos.norad_id;
+              return (
+                <MapMarker key={`gs-sat-${pos.norad_id}`} latitude={pos.lat} longitude={pos.lon}>
+                  <MarkerContent>
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full flex items-center justify-center text-[8px] border",
+                        isTracking
+                          ? "bg-green-500/40 border-green-400 text-green-300 animate-pulse"
+                          : pos.is_visible
+                          ? "bg-cyan-500/30 border-cyan-400/60 text-cyan-300"
+                          : "bg-gray-500/20 border-gray-500/40 text-gray-400"
+                      )}
+                      title={`${sat?.name || `NORAD ${pos.norad_id}`} — Alt: ${pos.alt?.toFixed(0)}km, Az: ${pos.az?.toFixed(1)}°, El: ${pos.el?.toFixed(1)}°`}
+                    >
+                      <Satellite className="w-2.5 h-2.5" />
+                    </div>
+                  </MarkerContent>
+                </MapMarker>
+              );
+            })}
+
+            {/* Infrastructure Markers from Overpass API */}
+            {infraFeatures.map((feat) => (
+              <MapMarker key={feat.id} latitude={feat.lat} longitude={feat.lng}>
+                <MarkerContent>
+                  <button
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] border shadow-md"
+                    style={{
+                      backgroundColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}20`,
+                      borderColor: `${INFRA_TYPE_COLORS[feat.type] || "#6b7280"}60`,
+                      color: INFRA_TYPE_COLORS[feat.type] || "#6b7280",
+                    }}
+                    title={`${feat.name || feat.type} (${feat.type.replace(/_/g, " ")})`}
+                  >
+                    {INFRA_TYPE_ICONS[feat.type] || "📍"}
+                  </button>
+                </MarkerContent>
+              </MapMarker>
+            ))}
+          </MapComponent>
 
           {/* Signal Coverage Heatmap */}
           <SignalHeatmapLayer
