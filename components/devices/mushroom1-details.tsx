@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
   NeuCard,
@@ -13,14 +14,13 @@ import {
 } from "@/components/ui/neuromorphic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
-  ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
+  Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Antenna, Radio, Wifi, Network, Shield, Zap, Sun, Eye, Thermometer,
   Droplets, Wind, Activity, MapPin, Globe, Trees, Microscope, Database,
   Cpu, Battery, Signal, Lock, Cloud, Leaf, AlertTriangle, Check,
-  ExternalLink, Youtube, Home, Flashlight, CircuitBoard, Cable
+  ExternalLink, Youtube, Home, Flashlight, CircuitBoard, Cable, FileText
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { PreOrderModal } from "./pre-order-modal"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
@@ -254,9 +254,9 @@ export function Mushroom1Details() {
   const [selectedComponent, setSelectedComponent] = useState<string>("solar")
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<SelectedVideo | null>(null)
-  const [isPreOrderModalOpen, setIsPreOrderModalOpen] = useState(false)
   const heroRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
+  const router = useRouter()
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
   const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
@@ -362,14 +362,18 @@ export function Mushroom1Details() {
           >
             <NeuButton 
               className="device-cta-over-video min-h-[44px] px-8 bg-emerald-500 hover:bg-emerald-600 !text-black font-semibold"
-              onClick={() => setIsPreOrderModalOpen(true)}
+              onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}
             >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Pre-Order Now
-            </NeuButton>
-            <NeuButton variant="default" className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10" onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}>
               <Play className="mr-2 h-5 w-5" />
               Watch Film
+            </NeuButton>
+            <NeuButton
+              variant="default"
+              className="device-cta-over-video-outline min-h-[44px] px-8 border border-white/30 hover:bg-white/10"
+              onClick={() => router.push("/devices/specifications")}
+            >
+              <FileText className="mr-2 h-5 w-5" />
+              Specifications
             </NeuButton>
           </motion.div>
 
@@ -1209,24 +1213,21 @@ export function Mushroom1Details() {
               Ready to take a walk in nature?
             </h2>
             <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
-              Join the future of environmental intelligence. Pre-order Mushroom 1 today and be among the first to deploy the world&apos;s most advanced fungal sensing network.
+              Mushroom 1 connects field sensing to MYCA and NatureOS for research and environmental intelligence. This platform device is not offered for retail sale.
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <NeuButton 
                 className="min-h-[44px] px-8 py-6 text-lg bg-emerald-600 hover:bg-emerald-700 !text-white font-semibold"
-                onClick={() => setIsPreOrderModalOpen(true)}
+                onClick={() => openMp4Modal(MUSHROOM1_ASSETS.videos.promo, "Mushroom 1 — Watch Film")}
               >
-                <ShoppingCart className="mr-2 h-6 w-6" />
-                Pre-Order - $2,000
+                <Play className="mr-2 h-6 w-6" />
+                Watch Film
               </NeuButton>
               <NeuButton variant="outline" className="min-h-[44px] px-8 py-6 text-lg border-white/30 !text-white hover:!text-white hover:bg-white/10">
                 <Download className="mr-2 h-6 w-6" />
                 Download Brochure
               </NeuButton>
             </div>
-            <p className="text-white/50 mt-6 text-sm">
-              Expected deployment mid-to-end 2026 • 30-day money-back guarantee • Free worldwide shipping
-            </p>
           </motion.div>
         </div>
       </section>
@@ -1272,11 +1273,6 @@ export function Mushroom1Details() {
         )}
       </AnimatePresence>
 
-      {/* Pre-Order Modal */}
-      <PreOrderModal 
-        isOpen={isPreOrderModalOpen} 
-        onClose={() => setIsPreOrderModalOpen(false)} 
-      />
     </div>
     </NeuromorphicProvider>
   )

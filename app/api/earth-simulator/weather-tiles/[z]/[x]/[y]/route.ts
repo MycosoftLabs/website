@@ -178,7 +178,7 @@ export async function GET(
     // In production, generate actual weather visualization
     const png = createTransparentPNG()
     
-    return new NextResponse(png, {
+    return new NextResponse(new Uint8Array(png), {
       status: 200,
       headers: {
         "Content-Type": "image/png",

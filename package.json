@@ -20,7 +20,8 @@
     "services:mycobrain": "python -m uvicorn services.mycobrain.mycobrain_service:app --host 0.0.0.0 --port 8765",
     "db:migrate": "npx drizzle-kit migrate",
     "db:push": "npx drizzle-kit push",
-    "db:studio": "npx drizzle-kit studio"
+    "db:studio": "npx drizzle-kit studio",
+    "assets:sync-cursor-image": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/sync-cursor-chat-image-to-public.ps1"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.10",

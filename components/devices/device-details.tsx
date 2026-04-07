@@ -80,7 +80,11 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
             </div>
             <div className="flex gap-2">
               <NeuBadge variant="default">{device.status}</NeuBadge>
-              <NeuBadge variant="default" className="border border-gray-300 dark:border-gray-600">${device.price}</NeuBadge>
+              {device.price > 0 ? (
+                <NeuBadge variant="default" className="border border-gray-300 dark:border-gray-600">
+                  ${device.price}
+                </NeuBadge>
+              ) : null}
             </div>
             <p className="text-muted-foreground">{device.description}</p>
             <div className="flex gap-4 pt-4">

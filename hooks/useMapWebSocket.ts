@@ -107,6 +107,7 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
   const [lastSpeak, setLastSpeak] = useState<string | null>(null)
   
   const clientRef = useRef<MapWebSocketClient | null>(null)
+  const voiceBridgeErrorLoggedRef = useRef(false)
   
   // Build handlers object for executeCrepCommand
   const handlers: MapCommandHandlers = {
@@ -141,6 +142,7 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
     const client = getMapWebSocketClient({
       url,
       onConnect: () => {
+        voiceBridgeErrorLoggedRef.current = false
         setIsConnected(true)
         setIsConnecting(false)
       },
@@ -150,7 +152,13 @@ export function useMapWebSocket(options: UseMapWebSocketOptions = {}): UseMapWeb
       },
       onCommand: executeCommand,
       onError: (error) => {
-        console.error("[useMapWebSocket] Error:", error)
+        if (!voiceBridgeErrorLoggedRef.current) {
+          voiceBridgeErrorLoggedRef.current = true
+          console.warn(
+            "[useMapWebSocket] Voice bridge unavailable (map works without voice):",
+            error.message
+          )
+        }
         setIsConnecting(false)
       },
     })

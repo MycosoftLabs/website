@@ -867,7 +867,7 @@ export default function SuperAdminPage() {
         'Database Statistics:',
         '────────────────────────────────────',
         ...ALL_DATABASES.map(db =>
-          `  ${db.status === 'connected' || db.status === 'syncing' ? '✓' : '✗'} ${db.name} (${db.type}) — ${db.size} — ${db.records?.toLocaleString() || '?'} records — ${db.status}`
+          `  ${db.status === 'online' || db.status === 'syncing' ? '✓' : '✗'} ${db.name} (${db.type}) — ${db.size} — ${db.records?.toLocaleString() || '?'} records — ${db.status}`
         ),
       ]
     } else if (cmd === 'kill-switch') {

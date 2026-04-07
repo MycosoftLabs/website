@@ -45,6 +45,8 @@ export class EntityStreamClient {
   private _connectionState: ConnectionState = "disconnected"
   private messageCount = 0
   private lastMessageAt = 0
+  /** Avoid flooding console when MAS stream is down or CSP blocked (notify once until reconnect succeeds). */
+  private userErrorNotified = false
 
   constructor(endpointBase?: string) {
     // Use centralized API_URLS config with env var override — no hard-coded IPs
@@ -147,6 +149,7 @@ export class EntityStreamClient {
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0
+      this.userErrorNotified = false
       this.setConnectionState("connected")
       console.log("[EntityStream] Connected to MAS entity stream")
     }
@@ -186,7 +189,8 @@ export class EntityStreamClient {
     }
 
     this.ws.onerror = () => {
-      // WebSocket error events have limited info (often {}); include URL for debugging
+      if (this.userErrorNotified) return
+      this.userErrorNotified = true
       this.onError?.(new Error(`WebSocket connection error (${url.toString()})`))
     }
 

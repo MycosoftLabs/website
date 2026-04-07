@@ -228,7 +228,7 @@ async function verifyEvm(txHash: string, network: "ethereum" | "base"): Promise<
 
   if (tx && tx.to?.toLowerCase() === ourWallet) {
     const weiValue = BigInt(tx.value);
-    if (weiValue > 0n) {
+    if (weiValue > BigInt(0)) {
       // Convert to a dollar estimate; for simplicity credit 100 cents minimum
       const ethAmount = Number(weiValue) / 1e18;
       const amountCents = Math.max(100, Math.round(ethAmount * 100));

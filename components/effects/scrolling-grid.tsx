@@ -1,7 +1,12 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { useMemo, useEffect, useRef, useState } from "react"
+import { useMemo, useEffect, useRef, useState, useId } from "react"
+
+/** Stable CSS id prefix from React useId (SSR + client must match; colons invalid in @keyframes names). */
+function cssIdPrefix(prefix: string, reactId: string): string {
+  return `${prefix}${reactId.replace(/:/g, "")}`
+}
 
 interface ScrollingGridProps {
   /** Grid cell size in pixels */
@@ -43,8 +48,7 @@ export function ScrollingGrid({
   dotSize = 4,
   className = "",
 }: ScrollingGridProps) {
-  // Generate unique animation ID
-  const animId = useMemo(() => `grid-${Math.random().toString(36).substr(2, 9)}`, [])
+  const animId = cssIdPrefix("grid", useId())
   
   // Generate SVG data URL for grid pattern with optional dot
   const svgPattern = useMemo(() => {
@@ -123,7 +127,7 @@ export function InfrastructureGrid({
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  const animId = useMemo(() => `infragrid-${Math.random().toString(36).substr(2, 9)}`, [])
+  const animId = cssIdPrefix("infragrid", useId())
   
   // Generate dots with varying opacity based on distance from center
   const dots = useMemo(() => {

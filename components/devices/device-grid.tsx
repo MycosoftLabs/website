@@ -111,10 +111,18 @@ export function DeviceGrid() {
               </TabsContent>
             </Tabs>
           </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6">
-            <div className="font-bold">
-              ${typeof device.price === "number" ? device.price.toFixed(2) : device.price}
-            </div>
+          <CardFooter
+            className={`flex border-t pt-6 ${
+              ["mushroom-1", "sporebase", "hyphae-1"].includes(device.id)
+                ? "justify-end"
+                : "justify-between"
+            }`}
+          >
+            {!["mushroom-1", "sporebase", "hyphae-1"].includes(device.id) ? (
+              <div className="font-bold">
+                ${typeof device.price === "number" ? device.price.toFixed(2) : device.price}
+              </div>
+            ) : null}
             <Button asChild>
               <Link href={`/devices/${device.id}`}>Learn More</Link>
             </Button>

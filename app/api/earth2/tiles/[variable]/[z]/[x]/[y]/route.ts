@@ -32,7 +32,7 @@ export async function GET(
       { bodyBase64: buffer.toString("base64"), contentType },
       { ttlMs: 5 * 60 * 1000, headers: { "content-type": contentType } },
     );
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=120",
@@ -43,7 +43,7 @@ export async function GET(
     if (cached && typeof cached.body === "object" && cached.body !== null) {
       const bodyObj = cached.body as { bodyBase64?: string; contentType?: string };
       if (bodyObj.bodyBase64) {
-        return new NextResponse(Buffer.from(bodyObj.bodyBase64, "base64"), {
+        return new NextResponse(new Uint8Array(Buffer.from(bodyObj.bodyBase64, "base64")), {
           headers: {
             "Content-Type": bodyObj.contentType || "application/octet-stream",
             "X-Data-Source": "cached_real",

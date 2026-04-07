@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { useMemo } from "react"
+import { useId } from "react"
 
 interface DotGridPulseProps {
   /** Number of columns */
@@ -40,8 +40,7 @@ export function DotGridPulse({
   color = "white",
   className = "",
 }: DotGridPulseProps) {
-  // Generate unique animation ID to prevent conflicts
-  const animId = useMemo(() => `dotgrid-${Math.random().toString(36).substr(2, 9)}`, [])
+  const animId = `dotgrid${useId().replace(/:/g, "")}`
   
   const cells = cols * rows
   const centerRow = Math.ceil(rows / 2)

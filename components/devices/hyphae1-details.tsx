@@ -12,12 +12,13 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { 
-  ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
-  Box, Network, Shield, Zap, Eye, Thermometer, Server, HardDrive,
-  Droplets, Activity, MapPin, Globe, Microscope, Database, Package,
-  Cpu, Battery, Signal, Lock, Cloud, Plug, Cable, Radio,
-  ExternalLink, Check, CircuitBoard, Layers, LayoutGrid, Maximize,
-  ArrowRight, Square, RectangleHorizontal, RectangleVertical
+  Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
+  Box, Network, Shield, Zap, Eye, Thermometer, HardDrive,
+  Droplets, Activity, MapPin, Globe, Microscope, Package,
+  Cpu, Battery, Signal, Cloud, Plug, Cable, Radio,
+  ExternalLink, Check, CircuitBoard, Layers, Maximize,
+  ArrowRight, Square, RectangleHorizontal, RectangleVertical,
+  Radar, ScanSearch, Antenna,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
@@ -30,6 +31,9 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 // NAS path: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\
 // Public URL: /assets/hyphae1/...
 // See docs/DEVICE_MEDIA_ASSETS_PIPELINE.md for details
+// After pasting an image in Cursor chat, run from website repo:
+//   npm run assets:sync-cursor-image -- -Preset hyphae-why
+//   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
 const HYPHAE1_ASSETS = {
   // Product images by variant - replace when real photos are available
@@ -44,45 +48,91 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero video (add when available)
-  // heroVideo: "/assets/hyphae1/hero.mp4",
+  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\hero.mp4)
+  heroVideo: "/assets/hyphae1/hero.mp4",
+  // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
+  whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
+  /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
+  labPrototype: "/assets/hyphae1/hyphae1-lab-prototype.png",
 }
 
-// Hyphae 1 comes in 3 sizes - like electric junction boxes
-const HYPHAE_VARIANTS = [
+interface HyphaeVariant {
+  id: string
+  name: string
+  size: string
+  dimensions: string
+  icon: LucideIcon
+  description: string
+}
+
+/** Same on every size card — edge stack */
+const HYPHAE_COMPUTE = "MycoBrain + Jetson"
+
+/** Same on every size card — sensing suite */
+const HYPHAE_SENSORS =
+  "Visual, acoustic, gas, electromagnetic, radiation, motion, and more"
+
+/** Why-section capability tiles (icons + short labels) */
+const HYPHAE_WHY_CAPABILITIES: {
+  icon: LucideIcon
+  title: string
+  subtitle: string
+}[] = [
+  {
+    icon: Radar,
+    title: "Radar & LiDAR fusion",
+    subtitle:
+      "Distributed ranging and structure replace or defer costly single-mission targeted radars for many perimeter, mobility, and yard missions—upgrade only when threat demands a dedicated emitter.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Full-stack sensing",
+    subtitle:
+      "Gas, particles, ionizing radiation, EM/RFI, motion, and optical channels ingest together so chemistry, physics, and presence are one timeline—not five vendor portals.",
+  },
+  {
+    icon: Radio,
+    title: "Adaptive connectivity",
+    subtitle:
+      "SDR, LiFi, and acoustic links ride Mycosoft protocols beside Ethernet, cellular, and mesh backhaul—maintain command when spectrum is contested or fiber is late.",
+  },
+  {
+    icon: Antenna,
+    title: "Virtual antenna mesh",
+    subtitle:
+      "Cooperative RF surfaces fuse radar, LiDAR, and WiFi-sense-class observation into fewer towers, more correlated tracks, and less duplicated RF capital across sites.",
+  },
+]
+
+// Hyphae 1 comes in 3 sizes — exterior dimensions from product specs
+const HYPHAE_VARIANTS: HyphaeVariant[] = [
   {
     id: "compact",
     name: "Hyphae 1 Compact",
     size: "Small",
-    dimensions: "15cm × 10cm × 5cm",
-    capacity: "Basic",
+    dimensions: '6" D × 10" W × 12" H',
     icon: Square,
-    channels: 4,
-    price: 199,
-    description: "Perfect for single-point monitoring and tight spaces"
+    description:
+      "Purpose: minimum footprint and fastest path to a field-proven node—pilots, diligence, forward or vehicle-friendly sites, tight poles and cabinets, boutique labs, and specialty agriculture where a larger shell will not fit.",
   },
   {
     id: "standard",
     name: "Hyphae 1 Standard",
     size: "Medium",
-    dimensions: "25cm × 15cm × 8cm",
-    capacity: "Standard",
+    dimensions: '15.7" × 11.8" × 7.9"',
     icon: RectangleHorizontal,
-    channels: 8,
-    price: 399,
-    description: "The versatile workhorse for most deployments"
+    description:
+      "Purpose: the balanced workhorse for recurring regional rollouts—bases, state and local programs, plants, scaled farms, field labs, and mid-market tech fleets that need full exterior capability at sustainable install and logistics cost.",
   },
   {
     id: "industrial",
     name: "Hyphae 1 Industrial",
     size: "Large",
-    dimensions: "40cm × 25cm × 12cm",
-    capacity: "Extended",
+    dimensions: '19.6" × 15.7" × 7.9"',
     icon: Maximize,
-    channels: 16,
-    price: 799,
-    description: "Maximum capacity for complex installations"
-  }
+    description:
+      "Purpose: maximum volume in one chassis when a single site must carry peak compute, storage, interconnect, and thermal headroom—strategic anchors for major bases, federal programs, flagship factories, national laboratories, and large estates.",
+  },
 ]
 
 // Device Components
@@ -96,119 +146,263 @@ interface DeviceComponent {
 }
 
 const DEVICE_COMPONENTS: DeviceComponent[] = [
-  { 
-    id: "housing", 
-    name: "IP66 Enclosure", 
+  {
+    id: "housing",
+    name: "Outdoor enclosure",
     icon: Box,
-    position: { top: "10%", left: "45%" }, 
-    description: "Fiberglass-reinforced polymer housing",
-    details: "The Hyphae 1 enclosure is constructed from UV-stabilized fiberglass-reinforced polymer (FRP) rated IP66. It withstands extreme temperatures, UV exposure, and physical impact while remaining lightweight. Available in white or grey to match any installation environment."
+    position: { top: "10%", left: "45%" },
+    description: "IP66-class shell, serviceable in the field",
+    details:
+      "UV-stabilized FRP construction with gasketed service access, gland-friendly cable entries, and a chassis ground bus so exterior installs do not become corrosion or lightning surprises. Finish and hardware grade are selected for years outside—not a repurposed indoor PLC box.",
   },
-  { 
-    id: "terminal", 
-    name: "Terminal Block", 
+  {
+    id: "terminal",
+    name: "Sensor & field I/O",
     icon: Cable,
-    position: { top: "25%", left: "30%" }, 
-    description: "Modular connection system",
-    details: "Industrial-grade terminal blocks support 4-16 sensor channels depending on variant. Each terminal handles 2A continuous current with surge protection. Color-coded and labeled for easy installation. Accepts wire gauges from 22-12 AWG."
+    position: { top: "25%", left: "30%" },
+    description: "Industrial terminations, fused where required",
+    details:
+      "Channel count, wire gauge range, and protection (TVS, fusing) follow the BOM for your modality mix—analog 4–20 mA / 0–10 V, digital, and bus drops land on labeled blocks so field crews can trace circuits without opening schematics on a phone in the rain.",
   },
-  { 
-    id: "controller", 
-    name: "Control Module", 
+  {
+    id: "controller",
+    name: "Edge compute stack",
     icon: Cpu,
-    position: { top: "40%", left: "55%" }, 
-    description: "ESP32-S3 with RS-485 bus",
-    details: "The ESP32-S3 control module manages all sensor channels via an RS-485 industrial bus. Supports Modbus RTU/TCP protocols for integration with existing SCADA and BMS systems. Edge processing capability enables local analytics and alerting."
+    position: { top: "40%", left: "55%" },
+    description: "MycoBrain + Jetson-class GPU plane",
+    details:
+      "The MycoBrain side handles deterministic sensor ingest, bus timing, and MDP-style device behavior. The Jetson-class module carries fusion, tracking, and model inference so you are not forwarding raw radar frames to a distant cloud to learn it rained. Exact SoC memory and thermal solution are configuration-specific.",
   },
-  { 
-    id: "power", 
-    name: "Power Supply", 
+  {
+    id: "power",
+    name: "Power conditioning",
     icon: Plug,
-    position: { top: "50%", left: "35%" }, 
-    description: "24V DC / 120-240V AC options",
-    details: "Flexible power input accepts 24V DC or 120-240V AC (50/60Hz). Integrated surge protection handles transients up to 6kV. Optional battery backup module provides 24-hour operation during power outages."
+    position: { top: "50%", left: "35%" },
+    description: "Field power, surge budget, optional UPS tie-in",
+    details:
+      "Wide-range DC and/or AC front ends with transient budgeting appropriate to pole and yard environments. Battery or UPS integration is quoted when your program requires ride-through; we avoid promising a single universal hold-up time because load and climate change the math.",
   },
-  { 
-    id: "io", 
-    name: "I/O Expansion", 
+  {
+    id: "io",
+    name: "Acquisition & expansion",
     icon: CircuitBoard,
-    position: { top: "60%", left: "50%" }, 
-    description: "Analog and digital I/O",
-    details: "Expansion slots accept analog input cards (4-20mA, 0-10V), digital I/O cards, and relay output modules. Mix and match to create custom configurations for any monitoring or control application."
+    position: { top: "60%", left: "50%" },
+    description: "Modality cards and backplane headroom",
+    details:
+      "Analog front ends, digital isolators, and co-processor slots scale with Standard and Industrial variants. The architecture is built so new sensing slices (e.g., additional RF or particle paths) upgrade as cards—not as a forklift replacement of the whole node.",
   },
-  { 
-    id: "comms", 
-    name: "Communications", 
+  {
+    id: "comms",
+    name: "Backhaul & mesh",
     icon: Radio,
-    position: { top: "70%", left: "40%" }, 
-    description: "Ethernet, LoRa, WiFi, LTE",
-    details: "Multiple communication options ensure connectivity in any environment. Hardwired Ethernet for reliable building integration, WiFi for quick setup, LoRa for long-range mesh networking, and optional LTE cellular for remote sites."
+    position: { top: "70%", left: "40%" },
+    description: "Ethernet, Wi-Fi, LoRa, cellular, program RF",
+    details:
+      "Primary site integration is almost always gigabit Ethernet. LoRa and mesh radios extend coverage across yards and perimeters; cellular modules cover thin backhaul. Higher-tier RF (SDR-class, licensed bands) is integrated when your statement of work defines it—antenna and filter chain are never one-size-fits-all.",
   },
-  { 
-    id: "din", 
-    name: "DIN Rail Mount", 
+  {
+    id: "din",
+    name: "Mechanical mounting",
     icon: Layers,
-    position: { top: "80%", left: "55%" }, 
-    description: "Standard 35mm DIN rail compatible",
-    details: "Mounts directly on standard 35mm DIN rails for panel installation. Wall-mount and pole-mount kits also available. Tool-free installation with secure snap-fit design."
+    position: { top: "80%", left: "55%" },
+    description: "DIN internal, pole & pad external",
+    details:
+      "Internal electronics mount on standard 35 mm DIN rail for serviceability. The same chassis ships with pole- and pad-mount hardware so the exterior datacenter sits where the worldview needs to be—not only where an IDF already exists.",
   },
-  { 
-    id: "display", 
-    name: "Status Display", 
+  {
+    id: "display",
+    name: "Local status & service",
     icon: Eye,
-    position: { top: "35%", left: "65%" }, 
-    description: "LED indicators + optional LCD",
-    details: "Front-panel LED indicators show power, network, channel status, and alarms at a glance. Optional LCD module provides local readout of sensor values, configuration menus, and diagnostic information."
+    position: { top: "35%", left: "65%" },
+    description: "LED ladder + optional service UI",
+    details:
+      "Power, link, sync, and alarm LEDs give technicians immediate state without logging in. Optional local display or service port supports commissioning, firmware policy checks, and safe recovery when orchestrator reachability is intermittent.",
   },
 ]
 
-// Use cases
+/** Applications grid — aligned with exterior datacenter + fused sensing value */
 const USE_CASES = [
   {
-    title: "Building Automation",
-    icon: Server,
-    color: "from-slate-400 to-slate-600",
-    description: "Integrate with BMS systems for HVAC control, energy monitoring, and environmental sensing.",
-    applications: ["HVAC integration", "Energy monitoring", "Occupancy sensing", "Air quality control"]
+    title: "Defense & sovereign programs",
+    icon: Shield,
+    color: "from-slate-500 to-slate-700",
+    description:
+      "Perimeters, flight lines, ports, and forward sites where fused exterior sensing and edge command must survive disconnected or contested links—without cloning another bespoke radar program for every gate.",
+    applications: [
+      "Fused radar / LiDAR / RF perimeter",
+      "Edge command & policy at the pole",
+      "Mesh growth per deployed node",
+      "Contested spectrum & backup paths",
+    ],
   },
   {
-    title: "Industrial Monitoring",
+    title: "Labs & advanced technology",
+    icon: Microscope,
+    color: "from-slate-400 to-slate-600",
+    description:
+      "National, corporate, and university campuses that need instrumented ranges and exteriors treated as datacenter tiers—time-aligned telemetry with rack-grade analytics at the fence.",
+    applications: [
+      "Live environmental + EM baselines",
+      "Range and corridor instrumentation",
+      "Edge data residency for research",
+      "Mycosoft-native integration surfaces",
+    ],
+  },
+  {
+    title: "Industrial & manufacturing estates",
     icon: HardDrive,
     color: "from-slate-500 to-slate-700",
-    description: "Monitor industrial processes, equipment status, and environmental conditions.",
-    applications: ["Process monitoring", "Equipment health", "Leak detection", "Temperature mapping"]
+    description:
+      "Yards, tank farms, logistics aprons, and plant borders where safety, emissions, and operations need the same live worldview as security—processed at the edge before historians lag reality.",
+    applications: [
+      "Yard & gate-line situational awareness",
+      "Emissions / leak-class sensing fusion",
+      "Local OT–IT bridging on-node",
+      "Fewer greenfield micro-datacenter builds",
+    ],
   },
   {
-    title: "Data Centers",
-    icon: Database,
-    color: "from-slate-300 to-slate-500",
-    description: "Track temperature, humidity, and airflow in server rooms and data centers.",
-    applications: ["Hot/cold aisle monitoring", "Humidity control", "Water leak detection", "Power monitoring"]
-  },
-  {
-    title: "Agriculture",
+    title: "Agriculture & critical environments",
     icon: Droplets,
     color: "from-slate-400 to-slate-500",
-    description: "Monitor greenhouses, storage facilities, and processing environments.",
-    applications: ["Greenhouse climate", "Cold storage monitoring", "Irrigation control", "Livestock environment"]
+    description:
+      "Field-scale production and watershed assets where live exterior intelligence beats quarterly snapshots—each node feeds a regional mesh common operating picture for food, water, and climate risk.",
+    applications: [
+      "Field-scale live sensing mesh",
+      "Soil gas, water, and micro-weather fusion",
+      "Edge agronomic & safety models",
+      "Rural backhaul via SDR / LTE / mesh",
+    ],
   },
 ]
 
-// Specs
-const SPECIFICATIONS = {
-  "Enclosure Rating": "IP66 / NEMA 4X",
-  "Operating Temp": "-40°C to 70°C",
-  "Housing Material": "UV-stabilized FRP",
-  "Sensor Channels": "4 / 8 / 16 (by variant)",
-  "Communication": "Ethernet, WiFi, LoRa, LTE",
-  "Power Input": "24V DC or 120-240V AC",
-  "Power Consumption": "< 5W typical",
-  "Mounting": "DIN rail, wall, pole",
-  "Protocols": "Modbus RTU/TCP, MQTT, HTTP API",
-  "Certifications": "CE, UL, FCC, RoHS",
-  "Warranty": "5 years",
-  "Data Storage": "8GB local buffer"
+/** Larger capabilities grid (detail cards) */
+const HYPHAE_FEATURE_CAPABILITIES: {
+  icon: LucideIcon
+  title: string
+  desc: string
+}[] = [
+  {
+    icon: CircuitBoard,
+    title: "Sense, process, command—one chassis",
+    desc: "Ingest, analytics, alerting, and operator workflows ship together so decisions are not chained through separate sensor buses and remote NOC hops.",
+  },
+  {
+    icon: Cpu,
+    title: "Edge datacenter throughput",
+    desc: "MycoBrain + Jetson with TPU/GPU paths for fast scoring, correlation, buffering, and continuity when fiber or cloud control planes slow down.",
+  },
+  {
+    icon: Radar,
+    title: "Radar economics on the mesh",
+    desc: "Composite radar and LiDAR across nodes offsets dedicated targeted-radar CAPEX for many mobility and perimeter missions while staying upgradeable for emitters when doctrine demands them.",
+  },
+  {
+    icon: Globe,
+    title: "Live worldview from every modality",
+    desc: "Visual, acoustic, chemical, particle, EM, radiation, motion, and RF streams align into one evolving picture per node and across your exterior tier.",
+  },
+  {
+    icon: Antenna,
+    title: "Virtual antenna fabric",
+    desc: "Networked RF surfaces fuse radar, LiDAR, and WiFi-sense-class feeds—fewer redundant towers and more correlated tracks for command and infrastructure owners.",
+  },
+  {
+    icon: Network,
+    title: "Grow the mesh, not the closet count",
+    desc: "Each Hyphae widens exterior compute and sensing instead of funding another micro-datacenter carve-out whenever a new yard, hangar row, or lab wing appears.",
+  },
+  {
+    icon: Cloud,
+    title: "Mycosoft fabric end-to-end",
+    desc: "Common identity, provisioning, telemetry, and orchestration from pole to core—built for programs that cannot tolerate one-off integrators per site.",
+  },
+  {
+    icon: Shield,
+    title: "Built for weather, EMI, and vibration",
+    desc: "IP66-class hardened shells with pole and pad mounting—this lives outside next to storms and dust, not only climate-controlled rows.",
+  },
+]
+
+/** Representative technical rows — binding numbers ship on the configuration datasheet per SKU & region */
+interface HyphaeSpecRow {
+  label: string
+  value: string
 }
+
+const HYPHAE_PHYSICAL_SPEC_ROWS: HyphaeSpecRow[] = [
+  {
+    label: "Enclosure rating",
+    value: "IP66-class (IEC 60529); NEMA 4X–equivalent outdoor intent",
+  },
+  {
+    label: "Operating temperature",
+    value: "Electronics rated for wide industrial outdoor span; solar load & altitude derate per install guide",
+  },
+  {
+    label: "Housing & finish",
+    value: "UV-stabilized FRP shell, stainless / coated hardware, long-life gasket strategy",
+  },
+  {
+    label: "Mounting",
+    value: "Pole, pad, wall, and in-enclosure DIN rail; wind / seismic options by program",
+  },
+  {
+    label: "Power input",
+    value: "24 V DC and/or 100–240 V AC field power; surge-conditioned entry (class per BOM)",
+  },
+  {
+    label: "Typical power draw",
+    value: "Workload-dependent; Jetson-class inference drives peak—quoted TDP per configuration",
+  },
+  {
+    label: "Dimensions & mass",
+    value: "Variant matrix (Compact / Standard / Industrial); final mechanical in CAD release package",
+  },
+]
+
+const HYPHAE_SYSTEM_SPEC_ROWS: HyphaeSpecRow[] = [
+  {
+    label: "Edge compute stack",
+    value:
+      "MycoBrain plane for deterministic I/O & sensor buses + Jetson-class GPU module for fusion & models; optional accelerator paths by SKU",
+  },
+  {
+    label: "Sensing front-end",
+    value:
+      "Multi-modal acquisition: imaging, acoustic, environmental, gas / VOC class, EM, radiation, motion, particulate—exact mix is BOM-defined",
+  },
+  {
+    label: "Storage & continuity",
+    value:
+      "Local eMMC / NVMe tier for models, ring buffers, and offline queue when backhaul drops—capacity per SKU",
+  },
+  {
+    label: "Connectivity",
+    value:
+      "Gigabit Ethernet; Wi-Fi; LoRa mesh; LTE or 5G cellular optional; PoE+ where the configuration supports it",
+  },
+  {
+    label: "Time & correlation",
+    value:
+      "GNSS discipline optional; NTP/PTP over trusted links; hardware timestamping on supported sensor buses",
+  },
+  {
+    label: "Integration surface",
+    value:
+      "Mycosoft-native telemetry & identity; HTTPS / MQTT; Modbus RTU/TCP; hooks into MAS device registry & orchestration",
+  },
+  {
+    label: "Security posture",
+    value:
+      "Secure boot & signed update targets; TLS to control plane; keying aligned to your deployment policy (HSM optional)",
+  },
+  {
+    label: "Compliance & warranty",
+    value:
+      "Marks (CE, FCC, UL, others) and warranty term are confirmed before manufacture—region and vertical drive the stack",
+  },
+]
 
 export function Hyphae1Details() {
   const [selectedVariant, setSelectedVariant] = useState(HYPHAE_VARIANTS[1])
@@ -216,6 +410,22 @@ export function Hyphae1Details() {
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  const heroVideoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const el = heroVideoRef.current
+    if (!el) return
+    const kick = () => {
+      el.muted = true
+      el.play().catch(() => {})
+    }
+    kick()
+    const onVis = () => {
+      if (document.visibilityState === "visible") kick()
+    }
+    document.addEventListener("visibilitychange", onVis)
+    return () => document.removeEventListener("visibilitychange", onVis)
+  }, [])
   
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -223,68 +433,58 @@ export function Hyphae1Details() {
   })
   
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
-  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.05])
 
   return (
     <NeuromorphicProvider>
     <div className="relative min-h-dvh bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#334155_1px,transparent_1px),linear-gradient(to_bottom,#334155_1px,transparent_1px)] bg-[size:40px_40px]" />
-        
+        <video
+          ref={heroVideoRef}
+          className="absolute inset-0 z-0 h-full w-full object-cover pointer-events-none"
+          src={HYPHAE1_ASSETS.heroVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden
+        />
+        <div className="absolute inset-0 z-[1] bg-slate-900/45 dark:bg-slate-950/55" />
+
         <motion.div 
           style={{ opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-5xl mx-auto"
         >
           <NeuBadge variant="default" className="mb-4 bg-slate-800 text-white border-0 text-sm px-4 py-1">
-            Modular I/O Platform
+            Edge Datacenter
           </NeuBadge>
           
           <motion.h1 
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4"
+            className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-4 antialiased"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.5 }}
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 via-slate-600 to-slate-500 dark:from-slate-200 dark:via-slate-400 dark:to-slate-300">
+            <span className="text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.95),0_3px_20px_rgba(0,0,0,0.75),0_0_48px_rgba(0,0,0,0.45)]">
               Hyphae 1
             </span>
           </motion.h1>
           
           <motion.p 
-            className="text-xl md:text-2xl lg:text-3xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto font-light"
+            className="text-xl md:text-2xl lg:text-3xl mb-8 max-w-3xl mx-auto font-light"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.7 }}
           >
-            Industrial-grade modular I/O.
+            <span className="text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.95),0_3px_20px_rgba(0,0,0,0.75),0_0_48px_rgba(0,0,0,0.45)]">
+              The Outside Datacenter
+            </span>
             <br />
-            <span className="text-slate-900 dark:text-slate-100 font-medium">Three sizes. Infinite possibilities.</span>
+            <span className="text-white font-medium [text-shadow:0_1px_10px_rgba(0,0,0,0.6)]">
+              Terrestrial Datacenters At The Edge Of Nature
+            </span>
           </motion.p>
-          
-          {/* Size selector */}
-          <motion.div 
-            className="flex justify-center gap-4 mb-8"
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.9 }}
-          >
-            {HYPHAE_VARIANTS.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => setSelectedVariant(variant)}
-                className={`px-6 py-3 rounded-xl border-2 transition-all ${
-                  selectedVariant.id === variant.id
-                    ? 'border-slate-800 dark:border-slate-200 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900'
-                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-500 dark:hover:border-slate-400'
-                }`}
-              >
-                <variant.icon className="h-6 w-6 mx-auto mb-1" />
-                <span className="text-sm font-medium">{variant.size}</span>
-              </button>
-            ))}
-          </motion.div>
           
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center"
@@ -292,10 +492,6 @@ export function Hyphae1Details() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.1 }}
           >
-            <NeuButton size="lg" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-8">
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Configure & Order
-            </NeuButton>
             <NeuButton size="lg" variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Download className="mr-2 h-5 w-5" />
               Download Datasheet
@@ -317,9 +513,8 @@ export function Hyphae1Details() {
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-900">
               Choose Your Size
             </h2>
-            <p className="text-xl text-slate-600 dark:text-slate-800 max-w-2xl mx-auto">
-              From compact single-point monitors to industrial-scale systems, 
-              Hyphae 1 scales to your needs.
+            <p className="text-xl text-slate-600 dark:text-slate-800 max-w-3xl mx-auto leading-relaxed">
+              Hyphae 1 is a family of mobile, exterior datacenter nodes on Mycosoft protocols—advanced TPU and GPU data systems, continuous sensing of the surroundings, and mesh-native growth so every unit enlarges your network. The proposition for investors, defense, government, and any organization that already buys cloud or colocation is simple: own live intelligence outside the building across military bases, agriculture, laboratories, factories, and technology campuses—without surrendering the field to blind infrastructure.
             </p>
           </div>
           
@@ -346,21 +541,35 @@ export function Hyphae1Details() {
                 </div>
                 
                 <h3 className="text-2xl font-bold mb-2 text-slate-800 dark:text-slate-100">{variant.name}</h3>
-                <p className="text-slate-600 dark:text-slate-200 mb-4">{variant.description}</p>
+                <p className="text-slate-600 dark:text-slate-200 mb-4 text-sm sm:text-base leading-relaxed">
+                  {variant.description}
+                </p>
                 
                 <div className="space-y-2 mb-6">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-slate-300">Dimensions</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-100">{variant.dimensions}</span>
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="text-slate-500 dark:text-slate-300 shrink-0">
+                      Exterior dimensions
+                    </span>
+                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right">
+                      {variant.dimensions}
+                    </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-slate-300">Channels</span>
-                    <span className="font-medium text-slate-700 dark:text-slate-100">{variant.channels}</span>
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span className="text-slate-500 dark:text-slate-300 shrink-0">
+                      Compute
+                    </span>
+                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right">
+                      {HYPHAE_COMPUTE}
+                    </span>
                   </div>
-                </div>
-                
-                <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-                  ${variant.price}
+                  <div className="flex justify-between gap-4 text-sm items-start">
+                    <span className="text-slate-500 dark:text-slate-300 shrink-0 pt-0.5">
+                      Sensors
+                    </span>
+                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right max-w-[min(100%,14rem)] sm:max-w-[65%]">
+                      {HYPHAE_SENSORS}
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -377,57 +586,129 @@ export function Hyphae1Details() {
                 Why Hyphae 1
               </NeuBadge>
               <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800 dark:text-slate-100">
-                The Industrial Standard
+                Datacenter capacity, outside the building
               </h2>
-              <div className="space-y-4 text-lg text-slate-600 dark:text-slate-300">
+              <div className="space-y-4 text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                 <p>
-                  Hyphae 1 is a modular I/O platform designed for industrial, commercial, 
-                  and agricultural environments. It bridges the gap between simple sensors 
-                  and complex building management systems.
+                  Most consequential failures do not start in a climate-controlled rack—they start
+                  where weather, chemistry, motion, and radio spectrum meet your mission, and where
+                  leaders still decide on fragmentary pictures of what is actually happening outside.
+                  Hyphae 1 exists to close that gap: mobile, exterior datacenter nodes on Mycosoft
+                  protocols that unite MycoBrain and Jetson-class compute with TPU- and GPU-driven
+                  analytics and continuous field sensing—visual, acoustic, gas, electromagnetic,
+                  radiation, motion, and aligned modalities—so terrain, perimeters, and operations
+                  beyond the fence become as legible as what sits behind it. For commanders and
+                  civil authorities, factories and laboratories, agriculture and global technology
+                  platforms, and the investors who underwrite durable infrastructure, it is the
+                  difference between guessing at the outside world and owning the ground truth.
                 </p>
                 <p>
-                  With IP66-rated enclosures, industrial communication protocols, and 
-                  flexible mounting options, Hyphae 1 integrates seamlessly into any 
-                  existing infrastructure.
+                  Unlike fixed racks alone, every Hyphae 1 widens the operational mesh: more
+                  coverage, more correlated field truth, and more resilience for missions that
+                  depend on what is happening outdoors—instrumented farms, base expansions,
+                  industrial yards, research campuses, and forward technology programs.
                 </p>
-                <p>
-                  Whether you&apos;re monitoring a greenhouse, a data center, or an industrial 
-                  facility, Hyphae 1 provides the reliable connectivity your operation demands.
-                </p>
+                <div className="space-y-2">
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">
+                    What Hyphae 1 does in one enclosure
+                  </p>
+                  <ul className="list-disc pl-5 space-y-2 marker:text-slate-500 dark:marker:text-slate-400 text-base">
+                    <li>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        Targeted radar economics:
+                      </span>{" "}
+                      fused radar, LiDAR, and cooperative RF reduce the need to buy, site, and
+                      sustain bespoke million-dollar radars for every corridor, gate line, or
+                      yard—while staying upgradeable when doctrine requires a dedicated emitter.
+                    </li>
+                    <li>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        Sense, process, and command together:
+                      </span>{" "}
+                      not a dumb sensor pack—ingest, TPU/GPU and MycoBrain–Jetson analytics,
+                      policy, alerting, and operator workflows run locally so decisions do not
+                      bounce through multiple silos before they matter.
+                    </li>
+                    <li>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        A real exterior datacenter:
+                      </span>{" "}
+                      rack-class throughput at the pole or pad—fast correlation, model scoring,
+                      buffering, and state retention when backhaul degrades, not a Raspberry Pi
+                      bolted to a camera.
+                    </li>
+                    <li>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        Collective live worldview:
+                      </span>{" "}
+                      visual, acoustic, gas, particle, EM, radiation, motion, and RF modalities
+                      time-align into a common operating picture around each node and across the
+                      mesh so command sees one evolving story, not twenty stale charts.
+                    </li>
+                    <li>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        Mesh instead of micro-datacenter sprawl:
+                      </span>{" "}
+                      add Hyphae nodes to grow exterior compute and sensing capacity instead of
+                      lighting up another closet IDF or mini colo every time a new yard, flight
+                      line, or field block comes online—each box widens the same Mycosoft fabric.
+                    </li>
+                  </ul>
+                </div>
               </div>
               
-              <div className="grid grid-cols-4 gap-4 mt-8">
-                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">IP66</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Weather Rating</div>
-                </div>
-                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">16</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Max Channels</div>
-                </div>
-                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">5yr</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Warranty</div>
-                </div>
-                <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600">
-                  <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">UL</div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Certified</div>
-                </div>
+              <div
+                className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8"
+                role="list"
+                aria-label="Hyphae 1 field capabilities"
+              >
+                {HYPHAE_WHY_CAPABILITIES.map((cap) => {
+                  const Icon = cap.icon
+                  return (
+                    <div
+                      key={cap.title}
+                      role="listitem"
+                      className="flex flex-col items-center gap-2 text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600"
+                    >
+                      <Icon
+                        className="h-9 w-9 text-slate-800 dark:text-slate-100 shrink-0"
+                        aria-hidden
+                      />
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                        {cap.title}
+                      </div>
+                      <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                        {cap.subtitle}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
             
-            <div className="relative">
-              <div className="aspect-square rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
-                <div className="relative w-3/4 h-3/4">
-                  <Box className="w-full h-full text-slate-300 dark:text-slate-600" strokeWidth={0.5} />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-4xl font-bold text-slate-800 dark:text-slate-100">{selectedVariant.name}</p>
-                      <p className="text-slate-500 dark:text-slate-400">{selectedVariant.dimensions}</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="flex flex-col gap-6">
+              <div className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-sm">
+                <Image
+                  src={HYPHAE1_ASSETS.whyOutdoorInstall}
+                  alt="Hyphae 1 white outdoor enclosure with mushroom logo and antenna on grass, hedge and palm trees in the background"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 592px"
+                />
               </div>
+              <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-sm">
+                <Image
+                  src={HYPHAE1_ASSETS.labPrototype}
+                  alt="Hyphae 1 physical unit on a stainless lab workbench: white chamfered enclosure with Mycosoft mushroom logo, top-mounted antennas, and side sensor housings"
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 1024px) 100vw, 592px"
+                />
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center lg:text-left leading-relaxed">
+                Field form factor, lab proven—integrated antennas and sensor apertures on a single
+                exterior-grade chassis.
+              </p>
             </div>
           </div>
         </div>
@@ -441,21 +722,17 @@ export function Hyphae1Details() {
               Capabilities
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
-              Built for Industry
+              What Hyphae 1 replaces and enables
             </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+              One exterior datacenter that ingests, fuses, decides, and commands—so you spend
+              capital on outcomes, not on duplicating radar programs, closet IDFs, and siloed
+              sensor contracts.
+            </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Shield, title: "IP66 Rated", desc: "Dust-tight and water-resistant for harsh environments" },
-              { icon: Network, title: "Multi-Protocol", desc: "Modbus, MQTT, REST API, and more" },
-              { icon: Plug, title: "Flexible Power", desc: "24V DC or universal AC input" },
-              { icon: LayoutGrid, title: "Modular Design", desc: "Expandable I/O with plug-in cards" },
-              { icon: Radio, title: "Multi-Connectivity", desc: "Ethernet, WiFi, LoRa, LTE options" },
-              { icon: HardDrive, title: "Edge Computing", desc: "Local processing and analytics" },
-              { icon: Lock, title: "Secure", desc: "TLS encryption, access control" },
-              { icon: Layers, title: "DIN Rail", desc: "Standard industrial mounting" },
-            ].map((item) => (
+            {HYPHAE_FEATURE_CAPABILITIES.map((item) => (
               <NeuCard key={item.title} className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-lg transition-all">
                 <NeuCardContent className="pt-6">
                   <div className="p-3 rounded-xl bg-slate-800 dark:bg-slate-600 w-fit mb-4">
@@ -481,8 +758,13 @@ export function Hyphae1Details() {
               Applications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
-              Deployed Everywhere
+              Where exterior datacenters win
             </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed mb-2">
+              Applications assume fused sensing, fast edge processing, and command on the pole—
+              the same Hyphae stack whether you secure a base line, instrument a lab campus, run a
+              factory yard, or cover critical agriculture.
+            </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -530,8 +812,12 @@ export function Hyphae1Details() {
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               Inside Hyphae 1
             </h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
-              Industrial-grade components built for decades of reliable operation.
+            <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed">
+              Layered like a small datacenter: conditioned power, deterministic sensor ingest, GPU-class
+              fusion, and resilient backhaul—engineered for exterior installs where rack rows and climate
+              control do not exist. Component grades, channel counts, and RF chains evolve with your program;
+              the interactive breakdown below reflects the architecture customers buy into, not a frozen SKU
+              list.
             </p>
           </div>
 
@@ -652,6 +938,12 @@ export function Hyphae1Details() {
               </div>
             </div>
           </div>
+
+          <p className="text-center text-sm text-white/45 max-w-3xl mx-auto mt-10 leading-relaxed">
+            Schematic is illustrative. Connector pinouts, thermal images, and EMI plots ship with the
+            engineering package for your revision—so evaluators see real hardware intent without treating a
+            marketing render as a type certificate.
+          </p>
         </div>
       </section>
 
@@ -663,21 +955,33 @@ export function Hyphae1Details() {
               Specifications
             </NeuBadge>
             <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
-              Technical Details
+              Technical details
             </h2>
+            <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+              The table is a <span className="font-medium text-slate-800 dark:text-slate-200">representative</span>{" "}
+              architecture brief—real engineering categories buyers care about, without pretending every
+              number is final before your configuration is frozen. Thermal curves, exact TDP, RF masks,
+              certifications, and warranty language are issued on the datasheet and drawing package for your
+              SKU and region.
+            </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
               <div className="flex items-center gap-2 mb-6">
-                <Box className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <span className="font-semibold text-slate-800 dark:text-slate-100">Physical</span>
+                <Box className="h-5 w-5 text-slate-600 dark:text-slate-400 shrink-0" />
+                <span className="font-semibold text-slate-800 dark:text-slate-100">Exterior &amp; mechanical</span>
               </div>
               <div className="space-y-3">
-                {Object.entries(SPECIFICATIONS).slice(0, 6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                    <span className="text-slate-600 dark:text-slate-400">{key}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{value}</span>
+                {HYPHAE_PHYSICAL_SPEC_ROWS.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
+                  >
+                    <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                      {row.value}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -685,19 +989,30 @@ export function Hyphae1Details() {
             
             <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
               <div className="flex items-center gap-2 mb-6">
-                <Cpu className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <span className="font-semibold text-slate-800 dark:text-slate-100">System</span>
+                <Cpu className="h-5 w-5 text-slate-600 dark:text-slate-400 shrink-0" />
+                <span className="font-semibold text-slate-800 dark:text-slate-100">Compute, sense &amp; integration</span>
               </div>
               <div className="space-y-3">
-                {Object.entries(SPECIFICATIONS).slice(6).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-600">
-                    <span className="text-slate-600 dark:text-slate-400">{key}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{value}</span>
+                {HYPHAE_SYSTEM_SPEC_ROWS.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
+                  >
+                    <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                      {row.value}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400 max-w-2xl mx-auto mt-10 leading-relaxed">
+            Need binding figures for procurement or safety cases? Mycosoft issues revision-controlled specs
+            (power budgets, environmental limits, agency marks, and interface control documents) after
+            configuration sign-off—marketing pages stay accurate to the architecture, not to every draft BOM.
+          </p>
           
           <div className="flex justify-center gap-4 mt-12">
             <NeuButton variant="outline" className="border-slate-400 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -722,26 +1037,24 @@ export function Hyphae1Details() {
           <div className="bg-slate-800/90 backdrop-blur-sm rounded-3xl border border-slate-700/50 p-10 md:p-14 shadow-2xl">
             <div className="text-center">
               <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                Ready to modernize your infrastructure?
+                Ready to operate your own datacenter?
               </h2>
-              <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
-                Configure your Hyphae 1 system with our online tool or speak 
-                with our integration specialists.
+              <p className="text-lg sm:text-xl text-white/70 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Hyphae 1 puts the Outside Datacenter where nature and operations meet—fused sensing,
+                edge inference, and command on the pole, not only in the climate-controlled row. Talk with
+                Mycosoft to map modalities, mesh, and compliance for your perimeter, campus, or estate.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <NeuButton size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8">
-                  <ShoppingCart className="mr-2 h-5 w-5" />
-                  Configure & Order
-                </NeuButton>
-                <NeuButton size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+              <div className="flex justify-center">
+                <NeuButton size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8 min-h-[48px]">
                   <ExternalLink className="mr-2 h-5 w-5" />
-                  Contact Sales
+                  Contact sales
                 </NeuButton>
               </div>
               
-              <p className="text-sm text-white/50 mt-8">
-                Starting at $199 • 5-year warranty • Free technical support
+              <p className="text-sm text-white/50 mt-8 max-w-xl mx-auto leading-relaxed">
+                Configuration-specific datasheets and drawings after sign-off • Mycosoft fabric, MAS registry,
+                and field integration support
               </p>
             </div>
           </div>

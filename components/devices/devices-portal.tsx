@@ -42,8 +42,8 @@ const devices = [
     icon: Radar,
     color: "emerald-500",
     image: "/assets/mushroom1/Main A.jpg",
-    status: "Pre-order",
-    price: "$2,000",
+    status: "Development",
+    price: "",
     specs: [
       { label: "Sensor Depth", value: "Up to 2 meters" },
       { label: "Battery Life", value: "6 months (solar)" },
@@ -76,7 +76,7 @@ const devices = [
     color: "orange-500",
     image: "/assets/sporebase/sporebase%20main2.jpg",
     status: "In Stock",
-    price: "$299",
+    price: "",
     specs: [
       { label: "Sampling Method", value: "Fan-driven active deposition" },
       { label: "Sample Intervals", value: "2,880 per cassette (30 days)" },
@@ -109,7 +109,7 @@ const devices = [
     color: "slate-500",
     image: "/placeholder.svg?height=600&width=800&text=Hyphae1",
     status: "In Stock",
-    price: "From $199",
+    price: "",
     specs: [
       { label: "Enclosure Rating", value: "IP66 / NEMA 4X" },
       { label: "Operating Temp", value: "-40°C to 70°C" },

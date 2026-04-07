@@ -17,8 +17,12 @@ const http = require('http');
 const path = require('path');
 
 // Configuration
-const GPU_SERVICES_SCRIPT = path.resolve(__dirname, '../../../mycosoft-mas/scripts/local_gpu_services.py');
-const MAS_DIR = path.resolve(__dirname, '../../../mycosoft-mas');
+// MAS repo lives at CODE/MAS/mycosoft-mas (not CODE/mycosoft-mas)
+const GPU_SERVICES_SCRIPT = path.resolve(
+  __dirname,
+  '../../../MAS/mycosoft-mas/scripts/local_gpu_services.py'
+);
+const MAS_DIR = path.resolve(__dirname, '../../../MAS/mycosoft-mas');
 
 const PORTS = {
   gateway: 8300,
