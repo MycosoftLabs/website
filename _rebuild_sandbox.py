@@ -74,6 +74,11 @@ if not VM_PASS:
 def main():
     parser = argparse.ArgumentParser(description="Rebuild and deploy website to Sandbox VM (187)")
     parser.add_argument("--production", action="store_true", help="Deploy with mycosoft.com URLs (production)")
+    parser.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Skip Dockerfile fix and docker build; use existing image on VM (start container only)",
+    )
     args = parser.parse_args()
 
     base_url = "https://mycosoft.com" if args.production else "https://sandbox.mycosoft.com"
@@ -159,10 +164,15 @@ def main():
         raise RuntimeError(f"Failed to sync repo (exit {code}): {err or out}")
     if out:
         print(f"   {out.split(chr(10))[-1]}")
-    
-    # Fix Dockerfile encoding: strip BOM and convert UTF-16 to UTF-8 (VM git/encoding can cause "unknown instruction" errors)
-    print("\n2. Fixing Dockerfile encoding (BOM + UTF-16 -> UTF-8)...")
-    fix_script = b"""import pathlib
+
+    image_tag = "mycosoft-always-on-mycosoft-website:latest"
+
+    if args.skip_build:
+        print("\n2–3. Skipping Dockerfile fix and image build (--skip-build).")
+    else:
+        # Fix Dockerfile encoding: strip BOM and convert UTF-16 to UTF-8 (VM git/encoding can cause "unknown instruction" errors)
+        print("\n2. Fixing Dockerfile encoding (BOM + UTF-16 -> UTF-8)...")
+        fix_script = b"""import pathlib
 p = pathlib.Path('Dockerfile')
 b = p.read_bytes()
 # Strip BOM
@@ -187,53 +197,52 @@ else:
     p.write_bytes(b)
     print('Encoding OK')
 """
-    fix_b64 = base64.b64encode(fix_script).decode()
-    fix_cmd = f"cd {WEBSITE_DIR} && echo {fix_b64} | base64 -d | python3"
-    code, out, err = _run(fix_cmd, timeout=30)
-    print(f"   {out or err or 'ok'}")
+        fix_b64 = base64.b64encode(fix_script).decode()
+        fix_cmd = f"cd {WEBSITE_DIR} && echo {fix_b64} | base64 -d | python3"
+        code, out, err = _run(fix_cmd, timeout=30)
+        print(f"   {out or err or 'ok'}")
 
-    print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
-    image_tag = "mycosoft-always-on-mycosoft-website:latest"
+        print("\n3. Rebuilding Docker image (--no-cache, may take a few minutes)...")
 
-    # Kill any stale build processes so only one build runs (prevents resource contention from multiple deploys)
-    print("   Stopping any existing docker build processes on VM...")
-    _run("pkill -f 'docker build.*mycosoft-always-on-mycosoft-website' 2>/dev/null || true", timeout=15)
-    _run("pkill -f '/tmp/rebuild_build.sh' 2>/dev/null || true", timeout=10)
-    _run("rm -f /tmp/rebuild_build.log /tmp/rebuild_build.exit /tmp/rebuild_build.pid /tmp/rebuild_build.sh", timeout=5)
-    time.sleep(3)
+        # Kill any stale build processes so only one build runs (prevents resource contention from multiple deploys)
+        print("   Stopping any existing docker build processes on VM...")
+        _run("pkill -f 'docker build.*mycosoft-always-on-mycosoft-website' 2>/dev/null || true", timeout=15)
+        _run("pkill -f '/tmp/rebuild_build.sh' 2>/dev/null || true", timeout=10)
+        _run("rm -f /tmp/rebuild_build.log /tmp/rebuild_build.exit /tmp/rebuild_build.pid /tmp/rebuild_build.sh", timeout=5)
+        time.sleep(3)
 
-    # Build strategy:
-    # 1) Try classic builder first (DOCKER_BUILDKIT=0). If the base image is already cached, this
-    #    avoids Docker Hub metadata calls that have been timing out.
-    # 2) Fall back to BuildKit with retries in case classic builder still needs to pull.
-    exports_cmd, docker_args = _build_supabase_args()
-    site_url_arg = f"--build-arg NEXT_PUBLIC_SITE_URL={base_url} "
-    build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
-    build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
+        # Build strategy:
+        # 1) Try classic builder first (DOCKER_BUILDKIT=0). If the base image is already cached, this
+        #    avoids Docker Hub metadata calls that have been timing out.
+        # 2) Fall back to BuildKit with retries in case classic builder still needs to pull.
+        exports_cmd, docker_args = _build_supabase_args()
+        site_url_arg = f"--build-arg NEXT_PUBLIC_SITE_URL={base_url} "
+        build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
+        build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
 
-    print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
-    print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
-    pid = _start_background_build(build_cmd_legacy)
-    code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
-    print(f"   Last 50 lines:\n{out}")
-
-    if code != 0:
-        print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
-        for attempt in (1, 2):
-            pid = _start_background_build(build_cmd_buildkit)
-            code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
-            print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
-            if code == 0:
-                break
-            time.sleep(5 * attempt)
+        print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
+        print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
+        pid = _start_background_build(build_cmd_legacy)
+        code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+        print(f"   Last 50 lines:\n{out}")
 
         if code != 0:
-            # Do NOT stop/remove the running container if we failed to produce a new image.
-            print("\n❌ Docker image build failed. Leaving the currently running container untouched.")
-            print("   Most common cause: sandbox VM cannot reach Docker Hub (TLS handshake timeout).")
-            raise RuntimeError(f"Docker build failed (exit {code}).")
+            print(f"   Legacy build failed (exit {code}). Attempt 2/2: BuildKit (retry 2x)")
+            for attempt in (1, 2):
+                pid = _start_background_build(build_cmd_buildkit)
+                code, out = _poll_build_until_done(pid, poll_interval=30, timeout_sec=build_timeout_sec)
+                print(f"   BuildKit attempt {attempt}/2 exit {code}\n   Last 50 lines:\n{out}")
+                if code == 0:
+                    break
+                time.sleep(5 * attempt)
 
-    print("   Docker image build succeeded.")
+            if code != 0:
+                # Do NOT stop/remove the running container if we failed to produce a new image.
+                print("\n❌ Docker image build failed. Leaving the currently running container untouched.")
+                print("   Most common cause: sandbox VM cannot reach Docker Hub (TLS handshake timeout).")
+                raise RuntimeError(f"Docker build failed (exit {code}).")
+
+        print("   Docker image build succeeded.")
 
     # Stop/remove only AFTER successful build so we never 'deploy' an old image.
     print("\n4. Stopping current container (post-build)...")
@@ -278,10 +287,10 @@ else:
         -e NEXT_PUBLIC_BASE_URL={base_url} \
         -e NEXTAUTH_URL={base_url} \
         -e NEXT_PUBLIC_SITE_URL={base_url} \
-        -e MAS_API_URL=http://${MAS_VM_HOST:-localhost}:8001 \
-        -e MINDEX_API_URL=http://${MINDEX_VM_HOST:-localhost}:8000 \
-        -e OLLAMA_BASE_URL=http://${MAS_VM_HOST:-localhost}:11434 \
-        -e N8N_URL=http://${MAS_VM_HOST:-localhost}:5678 \
+        -e MAS_API_URL=http://${{MAS_VM_HOST:-localhost}}:8001 \
+        -e MINDEX_API_URL=http://${{MINDEX_VM_HOST:-localhost}}:8000 \
+        -e OLLAMA_BASE_URL=http://${{MAS_VM_HOST:-localhost}}:11434 \
+        -e N8N_URL=http://${{MAS_VM_HOST:-localhost}}:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
         --restart unless-stopped {image_tag}"""
