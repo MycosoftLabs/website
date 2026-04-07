@@ -239,6 +239,7 @@ All notable changes to this project will be documented in this file.
 - Remove exposed private IPs, internal URLs, and fix dependency cycle (#94)
 - *(deploy)* Serialize production deploys and auto-rollback on failure
 - *(video)* Prioritize canonical mp4 before web variant
+- *(crep)* Nest Ground Station and infra MapMarkers inside MapComponent
 
 ### CREP
 
@@ -269,6 +270,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -451,6 +453,7 @@ All notable changes to this project will be documented in this file.
 - Initialize Mycosoft Skills Discovery System — Claude Code Computer Use
 - Add petri dish simulator skill
 - Complete Mycosoft Skills Discovery System — 59 SKILL.md files + registry
+- *(website)* NAS MP4 fallbacks, zero-duration skip, media health API, sandbox verify
 
 ### Fix
 
