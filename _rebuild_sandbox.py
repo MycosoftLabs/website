@@ -169,6 +169,11 @@ def main():
 
     if args.skip_build:
         print("\n2–3. Skipping Dockerfile fix and image build (--skip-build).")
+        print("   Tagging current :latest as :previous for rollback...")
+        _run(
+            f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} mycosoft-always-on-mycosoft-website:previous || true",
+            timeout=30,
+        )
     else:
         # Fix Dockerfile encoding: strip BOM and convert UTF-16 to UTF-8 (VM git/encoding can cause "unknown instruction" errors)
         print("\n2. Fixing Dockerfile encoding (BOM + UTF-16 -> UTF-8)...")
@@ -220,6 +225,13 @@ else:
         build_cmd_legacy = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=0 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
         build_cmd_buildkit = f"cd {WEBSITE_DIR} && {exports_cmd}DOCKER_BUILDKIT=1 docker build {docker_args}{site_url_arg}--network host --no-cache -t {image_tag} ."
 
+        # Preserve last known-good image for rollback (Cloudflare 502 if new container dies on :3000)
+        print("   Tagging current :latest as :previous (rollback target)...")
+        _run(
+            f"docker image inspect {image_tag} >/dev/null 2>&1 && docker tag {image_tag} mycosoft-always-on-mycosoft-website:previous || true",
+            timeout=30,
+        )
+
         print(f"   Build poll timeout: {build_timeout_sec}s ({build_timeout_sec // 3600}h)")
         print("   Attempt 1/2: DOCKER_BUILDKIT=0 (legacy builder)")
         pid = _start_background_build(build_cmd_legacy)
@@ -244,14 +256,8 @@ else:
 
         print("   Docker image build succeeded.")
 
-    # Stop/remove only AFTER successful build so we never 'deploy' an old image.
-    print("\n4. Stopping current container (post-build)...")
-    _run("docker stop mycosoft-website >/dev/null 2>&1 || true", timeout=60)
-    _run("docker rm mycosoft-website >/dev/null 2>&1 || true", timeout=60)
-    print("   Old container removed.")
-
-    # Sync Stripe and other keys from .env.local to VM so container has them.
-    print("\n4b. Syncing env keys to VM (.env.local -> /opt/mycosoft/website/.env)...")
+    # Sync env before any container changes (keeps public :3000 serving until candidate is proven).
+    print("\n4. Syncing env keys to VM (.env.local -> /opt/mycosoft/website/.env)...")
     sync_script = Path(__file__).resolve().parent / "_sandbox_env_sync.py"
     if sync_script.exists():
         import subprocess
@@ -264,11 +270,7 @@ else:
             print("   Warning: env sync had non-zero exit; container may lack Stripe/other keys.")
     else:
         print("   _sandbox_env_sync.py not found; run it once to push keys to VM.")
-    
-    # Start new container with NAS mount, optional env file, MAS URL, MycoBrain gateway URL, and Supabase.
-    # host.docker.internal lets container reach MycoBrain on host (port 8003).
-    print(f"\n5. Starting new container with NAS mount ({site_label})...")
-    _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=15)  # ensure name free before run
+
     mycobrain_url = "http://host.docker.internal:8003"
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
     supabase_key = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
@@ -280,7 +282,11 @@ else:
     env_file = f"{WEBSITE_DIR}/.env"
     ec, _, _ = _run(f"test -f {env_file} && echo ok", timeout=5)
     env_file_opt = f" --env-file {env_file}" if (ec == 0) else ""
-    start_cmd = f"""docker run -d --name mycosoft-website -p 3000:3000 \
+    rollback_image = "mycosoft-always-on-mycosoft-website:previous"
+    candidate_name = "mycosoft-website-candidate"
+
+    def _docker_run_cmd(container_name: str, publish: str, img: str) -> str:
+        return f"""docker run -d --name {container_name} -p {publish} \
         --add-host=host.docker.internal:host-gateway \
         -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
         {env_file_opt} \
@@ -293,33 +299,95 @@ else:
         -e N8N_URL=http://${{MAS_VM_HOST:-localhost}}:5678 \
         -e MYCOBRAIN_SERVICE_URL={mycobrain_url} \
         -e MYCOBRAIN_API_URL={mycobrain_url}{supabase_env} \
-        --restart unless-stopped {image_tag}"""
-    code, out, err = _run(start_cmd, timeout=60)
+        --restart unless-stopped {img}"""
+
+    def _wait_http(url: str, attempts: int = 60, delay_sec: int = 3) -> str:
+        """Poll curl on VM until HTTP 200 or attempts exhausted."""
+        last = "000"
+        for i in range(attempts):
+            code, out, _ = _run(
+                f"curl -s -o /dev/null -w '%{{http_code}}' --connect-timeout 5 '{url}' 2>/dev/null || echo 000",
+                timeout=25,
+            )
+            last = (out or "000").strip() or "000"
+            if last == "200":
+                return last
+            if i % 5 == 0:
+                print(f"   ... health {url} attempt {i + 1}/{attempts} (code {last})")
+            time.sleep(delay_sec)
+        return last
+
+    http_code = "000"
+
+    print(
+        f"\n5. Zero-downtime cutover ({site_label}): candidate on 127.0.0.1:3001, "
+        "then swap :3000 only after HTTP 200..."
+    )
+    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
+
+    cand_cmd = _docker_run_cmd(candidate_name, "127.0.0.1:3001:3000", image_tag)
+    code, out, err = _run(cand_cmd, timeout=90)
     if out:
-        print(f"   Container ID: {out[:12]}")
-    if err:
-        print(f"   Error: {err}")
-    
-    # Wait for container to be healthy
-    print("\n6. Waiting for container to become healthy...")
-    time.sleep(10)
-    
-    # Check status
+        print(f"   Candidate ID: {(out or '')[:14]}")
+    if code != 0:
+        print(f"   Candidate start failed: {err or out}")
+        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
+        ssh.close()
+        raise RuntimeError("Failed to start candidate container; production container unchanged.")
+
+    cand_http = _wait_http("http://127.0.0.1:3001/", attempts=70, delay_sec=3)
+    if cand_http != "200":
+        print(f"\n❌ Candidate never reached HTTP 200 (got {cand_http}). Removing candidate; leaving :3000 as-is.")
+        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
+        ssh.close()
+        raise RuntimeError("Candidate health check failed; no cutover. Fix image and redeploy.")
+
+    print("   Candidate healthy on :3001 — swapping public :3000 (brief handoff).")
+
+    _run("docker stop mycosoft-website >/dev/null 2>&1 || true", timeout=90)
+    _run("docker rm mycosoft-website >/dev/null 2>&1 || true", timeout=60)
+    _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=15)
+
+    main_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", image_tag)
+    code, out, err = _run(main_cmd, timeout=90)
+    if code != 0:
+        print(f"   Primary container start failed: {err or out}")
+        _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=15)
+        # Attempt rollback so Cloudflare origin is not left empty
+        print("   Attempting rollback to :previous image on :3000...")
+        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
+        _run(rb_cmd, timeout=90)
+        _wait_http("http://127.0.0.1:3000/", attempts=40, delay_sec=2)
+        ssh.close()
+        raise RuntimeError("New primary container failed to start; rolled back to :previous if available.")
+
+    _run(f"docker rm -f {candidate_name} 2>/dev/null || true", timeout=20)
+
+    print("\n6. Waiting for public :3000 to return HTTP 200...")
+    http_code = _wait_http("http://127.0.0.1:3000/", attempts=70, delay_sec=3)
+
     stdin, stdout, stderr = ssh.exec_command(
         "docker ps --filter publish=3000 --format '{{.Names}} {{.Status}}' | head -1",
         timeout=30,
     )
     status = stdout.read().decode().strip()
-    print(f"   Status: {status}")
-    
-    # Test the site
-    print("\n7. Testing site health...")
-    stdin, stdout, stderr = ssh.exec_command("curl -s -o /dev/null -w '%{http_code}' http://localhost:3000", timeout=30)
-    http_code = stdout.read().decode().strip()
-    print(f"   HTTP status: {http_code}")
+    print(f"   Docker: {status}")
 
-    # 7b. NAS bind mount must serve non-trivial MP4 bytes (common failure: missing -v or 0-byte NAS files)
-    print("\n7b. NAS media spot-check (critical MP4)...")
+    if http_code != "200":
+        print(f"\n⚠️  Primary returned {http_code} after cutover — attempting rollback to {rollback_image}...")
+        _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=30)
+        rb_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", rollback_image)
+        _run(rb_cmd, timeout=90)
+        http_code = _wait_http("http://127.0.0.1:3000/", attempts=50, delay_sec=3)
+        if http_code == "200":
+            print("   Rollback serving 200 on :3000.")
+        ssh.close()
+        if http_code != "200":
+            raise RuntimeError("Primary and rollback both unhealthy; check docker logs on VM 187.")
+        print("\n⚠️  Deploy reverted to previous image. Skipping Cloudflare purge.")
+        return
+
+    print("\n7. NAS media spot-check (critical MP4)...")
     _, spot_out, _ = _run(
         "curl -sI 'http://127.0.0.1:3000/assets/mushroom1/mushroom%201%20walking.mp4' 2>/dev/null | head -12",
         timeout=30,
@@ -329,8 +397,7 @@ else:
         print("   WARNING: mushroom1 walking MP4 reports 0 bytes — check NAS files and bind mount.")
     elif spot_out and "200" not in spot_out[:200]:
         print("   WARNING: Critical MP4 did not return OK — verify container has -v /opt/mycosoft/media/website/assets:/app/public/assets:ro")
-    
-    # 8. MycoBrain service: always-on (CRITICAL - never let it stay down)
+
     print("\n8. MycoBrain service (ensure always-on)...")
     ensure_script = Path(__file__).resolve().parent / "_ensure_mycobrain_sandbox.py"
     if ensure_script.exists():
@@ -344,16 +411,16 @@ else:
             print("   MycoBrain ensure had issues; check output above.")
     else:
         print("   _ensure_mycobrain_sandbox.py not found; MycoBrain may need manual setup.")
-    
+
     ssh.close()
-    
+
     if http_code == "200":
         print(f"\n✅ Deployment successful! Site is live at {site_label}")
         purge_everything()
     else:
-        print(f"\n⚠️  Site returned {http_code} - may need attention")
-    
-    print("\nNote: Cloudflare purge runs automatically when configured.")
+        print(f"\n⚠️  Site returned {http_code} — Cloudflare purge skipped.")
+
+    print("\nNote: Cloudflare purge runs only after HTTP 200 on origin :3000.")
 
 if __name__ == "__main__":
     main()

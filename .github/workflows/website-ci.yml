@@ -1,0 +1,54 @@
+# Website CI — Apr 06, 2026
+# Catches broken Next.js builds and lint issues before deploy.
+# Production deploy: run _rebuild_sandbox.py from a trusted machine (VM creds stay local).
+# That script uses a candidate container on :3001, health-checks, then swaps :3000 and
+# purges Cloudflare only after origin HTTP 200 — reduces 502 / bad gateway windows.
+
+name: Website CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: website-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders so middleware and client bundles compile; not real credentials.
+      NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImNpLXBsYWNlaG9sZGVyIn0.ci-placeholder-signature"
+      NEXT_PUBLIC_SITE_URL: "https://mycosoft.com"
+      NEXT_PUBLIC_BASE_URL: "https://mycosoft.com"
+      NEXTAUTH_URL: "https://mycosoft.com"
+      NEXTAUTH_SECRET: "ci-build-placeholder-secret-min-32-chars-long"
+      MAS_API_URL: "http://127.0.0.1:8001"
+      NEXT_PUBLIC_MAS_API_URL: "http://127.0.0.1:8001"
+      MINDEX_API_URL: "http://127.0.0.1:8000"
+      MINDEX_API_BASE_URL: "http://127.0.0.1:8000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Next.js build
+        run: npm run build
