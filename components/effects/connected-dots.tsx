@@ -221,7 +221,7 @@ export function ProductShowcaseDots({
 }: Omit<ConnectedDotsProps, 'dotColor' | 'lineColor' | 'cursorColor'>) {
   return (
     <ConnectedDots
-      totalDots={300}              // Dense particle field
+      totalDots={120}
       minDistance={100}            // Connection radius
       friction={0.12}              // Smooth cursor follow
       dotColor="rgba(15, 23, 42, 0.8)"    // Slate-900, darker/bolder

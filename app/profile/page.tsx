@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSupabaseUser, useProfile } from "@/hooks/use-supabase-user"
@@ -21,6 +22,7 @@ import {
 } from "lucide-react"
 
 export default function ProfilePage() {
+  const { setTheme, resolvedTheme } = useTheme()
   const { user, loading: authLoading, signOut } = useSupabaseUser()
   const { profile, loading: profileLoading, updateProfile } = useProfile()
   const router = useRouter()
@@ -43,6 +45,11 @@ export default function ProfilePage() {
     bio: "",
   })
   const [showChangelog, setShowChangelog] = useState(false)
+  const [themeReady, setThemeReady] = useState(false)
+
+  useEffect(() => {
+    setThemeReady(true)
+  }, [])
 
   // Initialize form when profile loads
   useEffect(() => {
@@ -87,15 +94,33 @@ export default function ProfilePage() {
   // Handle account toggle
   const handleAccountToggle = async (key: keyof NonNullable<typeof settings>["account"]) => {
     if (!settings) return
+
+    if (key === "darkMode") {
+      const currentlyDark =
+        themeReady && resolvedTheme !== undefined
+          ? resolvedTheme === "dark"
+          : settings.account.darkMode
+      const newValue = !currentlyDark
+      const success = await updateSetting("account", "darkMode", newValue)
+      if (success) {
+        setTheme(newValue ? "dark" : "light")
+        toast({
+          title: "Setting saved",
+          description: `Dark mode ${newValue ? "enabled" : "disabled"}`,
+        })
+      }
+      return
+    }
+
     const currentValue = settings.account[key]
-    if (typeof currentValue !== 'boolean') return
-    
+    if (typeof currentValue !== "boolean") return
+
     const newValue = !currentValue
     const success = await updateSetting("account", key, newValue)
     if (success) {
       toast({
         title: "Setting saved",
-        description: `${key.replace(/([A-Z])/g, ' $1').trim()} ${newValue ? 'enabled' : 'disabled'}`,
+        description: `${key.replace(/([A-Z])/g, " $1").trim()} ${newValue ? "enabled" : "disabled"}`,
       })
     }
   }
@@ -478,7 +503,11 @@ export default function ProfilePage() {
                       <Label htmlFor="darkMode">Dark mode</Label>
                       <Switch 
                         id="darkMode"
-                        checked={settings.account.darkMode}
+                        checked={
+                          themeReady && resolvedTheme !== undefined
+                            ? resolvedTheme === "dark"
+                            : settings.account.darkMode
+                        }
                         onCheckedChange={() => handleAccountToggle("darkMode")}
                         disabled={saving}
                       />

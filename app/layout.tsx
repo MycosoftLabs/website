@@ -2,6 +2,7 @@ import type React from "react"
 import type { Viewport } from "next"
 import { GeistSans } from "geist/font/sans"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeColorSync } from "@/components/theme-color-sync"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AppShellProviders } from "@/components/providers/AppShellProviders"
 import "./globals.css"
@@ -38,10 +39,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-  ],
+  // Initial paint only; ThemeColorSync replaces with meta matching next-themes after hydrate
+  themeColor: "#0a0a0a",
 }
 
 export default function RootLayout({
@@ -83,6 +82,7 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <ThemeColorSync />
           <AuthProvider>
             <AppShellProviders>{children}</AppShellProviders>
           </AuthProvider>

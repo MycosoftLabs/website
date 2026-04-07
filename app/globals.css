@@ -1,6 +1,9 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 @import "tailwindcss";
+/* Manual theme via next-themes (.dark on <html>) — see https://tailwindcss.com/docs/dark-mode#toggling-dark-mode-manually */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @import "tw-animate-css";
 
 :root {

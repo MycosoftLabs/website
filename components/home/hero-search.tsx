@@ -39,7 +39,7 @@ const HOME_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(HOME_HERO_MP4))
 
 export function HeroSearch() {
   const router = useRouter()
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [query, setQuery] = useState("")
   const [isFocused, setIsFocused] = useState(false)
@@ -217,7 +217,7 @@ export function HeroSearch() {
     }
   }
 
-  const logoSrc = mounted && theme === "dark"
+  const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 

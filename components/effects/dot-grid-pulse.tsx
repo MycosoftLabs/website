@@ -1,7 +1,8 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { useId } from "react"
+import { useId, useEffect, useState } from "react"
+import { useTheme } from "next-themes"
 
 interface DotGridPulseProps {
   /** Number of columns */
@@ -211,13 +212,18 @@ export function DotGridPulse({
 }
 
 /**
- * Infrastructure-themed variant with white dots
- * Perfect for Hyphae 1 CTA section - dark background
+ * Infrastructure-themed variant — light dots on dark bg, dark dots on light bg (theme-aware).
  */
 export function InfrastructureDotGrid({
   className = "",
   ...props
-}: Omit<DotGridPulseProps, 'color'>) {
+}: Omit<DotGridPulseProps, "color">) {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const isDark = mounted ? resolvedTheme === "dark" : false
+  const color = isDark ? "rgba(255, 255, 255, 0.9)" : "rgba(15, 23, 42, 0.4)"
+
   return (
     <DotGridPulse
       cols={12}
@@ -226,7 +232,7 @@ export function InfrastructureDotGrid({
       gutter={2.5}
       lineWeight={2}
       speed={2.5}
-      color="rgba(255, 255, 255, 0.95)"
+      color={color}
       className={className}
       {...props}
     />

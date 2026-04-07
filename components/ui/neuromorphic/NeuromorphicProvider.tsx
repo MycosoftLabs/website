@@ -2,20 +2,35 @@
 
 /**
  * NeuromorphicProvider – wraps children with neuromorphic theme
- * Integrates with next-themes for dark/light mode.
- * Date: Feb 18, 2026
+ * Dark/light follows the same signal as Tailwind: `class="dark"` on <html>.
+ * (next-themes `resolvedTheme` stays undefined until hydration and was forcing
+ * `neuromorphic-dark` + dark-only CSS on marketing pages in "light" mode.)
+ * Date: Feb 18, 2026 · Updated Apr 06, 2026
  */
 
-import { useTheme } from "next-themes"
-import { type ReactNode } from "react"
+import { type ReactNode, useSyncExternalStore } from "react"
 import "./neuromorphic-styles.css"
+
+function subscribeHtmlDarkClass(onStoreChange: () => void) {
+  const root = document.documentElement
+  const observer = new MutationObserver(() => onStoreChange())
+  observer.observe(root, { attributes: true, attributeFilter: ["class"] })
+  return () => observer.disconnect()
+}
+
+function getSnapshotHtmlIsDark(): boolean {
+  return document.documentElement.classList.contains("dark")
+}
 
 export interface NeuromorphicProviderProps {
   children: ReactNode
   className?: string
-  /** Optional: force dark mode regardless of theme */
+  /** Optional: force dark mode regardless of <html> class */
   forceDark?: boolean
-  /** When resolvedTheme is undefined (SSR/hydration), assume this. Must match layout defaultTheme. */
+  /**
+   * @deprecated No longer used — theme follows <html class="dark">.
+   * Kept for API compatibility with older call sites.
+   */
   ssrFallback?: "light" | "dark"
 }
 
@@ -23,11 +38,14 @@ export function NeuromorphicProvider({
   children,
   className = "",
   forceDark,
-  ssrFallback = "dark",
+  ssrFallback: _ssrFallback,
 }: NeuromorphicProviderProps) {
-  const { resolvedTheme } = useTheme()
-  // During SSR/hydration, resolvedTheme is undefined. Default to dark to match layout defaultTheme and avoid flash.
-  const isDark = forceDark ?? (resolvedTheme === undefined ? ssrFallback === "dark" : resolvedTheme === "dark")
+  const domDark = useSyncExternalStore(
+    subscribeHtmlDarkClass,
+    getSnapshotHtmlIsDark,
+    () => false
+  )
+  const isDark = forceDark ?? domDark
   const wrapperClass = `neuromorphic-page ${isDark ? "neuromorphic-dark" : ""} ${className}`.trim()
 
   return (

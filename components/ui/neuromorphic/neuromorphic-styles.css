@@ -30,6 +30,11 @@
   color: #1f2937;
 }
 
+/* Hyphae 1 (and similar): sections set their own bg — avoid gray shell fighting white bands */
+.neuromorphic-page.hyphae1-neu-root {
+  background: transparent !important;
+}
+
 .neuromorphic-page.neuromorphic-dark {
   color: #e5e7eb;
 }
@@ -461,25 +466,27 @@
   border-color: #334155 !important;
 }
 
-/* Hyphae1 Applications: light graphic bg, dark headings + unselected text */
+/* Hyphae1 Applications: dark surface (slate-950) so InfrastructureGrid stays visible.
+   Grid uses light lines in theme=dark; previous light gray #e2e8f0 made lines same hue → invisible. */
 .neuromorphic-page.neuromorphic-dark .hyphae1-applications {
-  background-color: #e2e8f0 !important;
+  background-color: #020617 !important;
 }
 .neuromorphic-page.neuromorphic-dark .hyphae1-applications .text-center h2,
 .neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge,
 .neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge span {
-  color: #0f172a !important;
+  color: #f8fafc !important;
+}
+.neuromorphic-page.neuromorphic-dark .hyphae1-applications .text-center p {
+  color: #cbd5e1 !important;
 }
 .neuromorphic-page.neuromorphic-dark .hyphae1-applications .hyphae1-applications-badge {
-  background-color: #cbd5e1 !important;
-  border-color: #94a3b8 !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
 }
-.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] h3,
-.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] p,
-.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] span,
-.neuromorphic-page.neuromorphic-dark .hyphae1-applications [class*="bg-white"] svg {
-  color: #0f172a !important;
-}
+/* Note: do not target [class*="bg-white"] here — Hyphae use-case cards include
+   `bg-white` in the class string alongside `dark:bg-slate-800`, so that selector
+   matched dark cards and forced dark text (!important), hiding copy. Card text
+   uses Tailwind dark: utilities in hyphae1-details.tsx instead. */
 
 /* Hyphae1 Technical Details: dark mode = lighter grey than sections above/below (slate-800 vs slate-900) */
 .neuromorphic-page.neuromorphic-dark .hyphae1-tech-specs {

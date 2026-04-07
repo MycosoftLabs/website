@@ -119,7 +119,7 @@ function ExpandableSection({ title, href, icon: Icon, items, closeMenu, isOpen, 
 
 export function MobileNav() {
   const router = useRouter()
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { user, signOut } = useAuth()
@@ -208,7 +208,7 @@ export function MobileNav() {
                 <div className="relative h-8 w-8">
                   <Image
                     src={
-                      mounted && theme === "dark"
+                      mounted && (resolvedTheme ?? "dark") === "dark"
                         ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
                         : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
                     }

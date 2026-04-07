@@ -72,36 +72,12 @@ const HYPHAE_COMPUTE = "MycoBrain + Jetson"
 const HYPHAE_SENSORS =
   "Visual, acoustic, gas, electromagnetic, radiation, motion, and more"
 
-/** Why-section capability tiles (icons + short labels) */
-const HYPHAE_WHY_CAPABILITIES: {
-  icon: LucideIcon
-  title: string
-  subtitle: string
-}[] = [
-  {
-    icon: Radar,
-    title: "Radar & LiDAR fusion",
-    subtitle:
-      "Distributed ranging and structure replace or defer costly single-mission targeted radars for many perimeter, mobility, and yard missions—upgrade only when threat demands a dedicated emitter.",
-  },
-  {
-    icon: ScanSearch,
-    title: "Full-stack sensing",
-    subtitle:
-      "Gas, particles, ionizing radiation, EM/RFI, motion, and optical channels ingest together so chemistry, physics, and presence are one timeline—not five vendor portals.",
-  },
-  {
-    icon: Radio,
-    title: "Adaptive connectivity",
-    subtitle:
-      "SDR, LiFi, and acoustic links ride Mycosoft protocols beside Ethernet, cellular, and mesh backhaul—maintain command when spectrum is contested or fiber is late.",
-  },
-  {
-    icon: Antenna,
-    title: "Virtual antenna mesh",
-    subtitle:
-      "Cooperative RF surfaces fuse radar, LiDAR, and WiFi-sense-class observation into fewer towers, more correlated tracks, and less duplicated RF capital across sites.",
-  },
+/** Why-section capability tiles (icon + title only) */
+const HYPHAE_WHY_CAPABILITIES: { icon: LucideIcon; title: string }[] = [
+  { icon: Radar, title: "Radar & LiDAR fusion" },
+  { icon: ScanSearch, title: "Full-stack sensing" },
+  { icon: Radio, title: "Adaptive connectivity" },
+  { icon: Antenna, title: "Virtual antenna mesh" },
 ]
 
 // Hyphae 1 comes in 3 sizes — exterior dimensions from product specs
@@ -435,8 +411,8 @@ export function Hyphae1Details() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
   return (
-    <NeuromorphicProvider>
-    <div className="relative min-h-dvh bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
+    <NeuromorphicProvider className="hyphae1-neu-root">
+    <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         <video
@@ -447,7 +423,7 @@ export function Hyphae1Details() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           aria-hidden
         />
         <div className="absolute inset-0 z-[1] bg-slate-900/45 dark:bg-slate-950/55" />
@@ -500,20 +476,20 @@ export function Hyphae1Details() {
         </motion.div>
       </section>
 
-      {/* Variant Showcase - Product Line: light bg/dots; dark mode = dark widgets + light text; light mode = white widgets + dark text */}
-      <section className="hyphae1-product-line relative py-24 bg-slate-100 dark:bg-slate-200 overflow-hidden">
+      {/* Variant Showcase — light mode: white cards + dark text; dark mode: elevated slate cards */}
+      <section className="hyphae1-product-line relative py-24 bg-white dark:bg-slate-950 overflow-hidden">
         {/* Connected dots background animation - light in both modes for contrast with dark widgets */}
         <ProductShowcaseDots className="opacity-100" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-900 border-slate-300 dark:border-slate-500">
+            <NeuBadge variant="default" className="hyphae1-product-badge mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
               Product Line
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-900">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
               Choose Your Size
             </h2>
-            <p className="text-xl text-slate-600 dark:text-slate-800 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-slate-700 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
               Hyphae 1 is a family of mobile, exterior datacenter nodes on Mycosoft protocols—advanced TPU and GPU data systems, continuous sensing of the surroundings, and mesh-native growth so every unit enlarges your network. The proposition for investors, defense, government, and any organization that already buys cloud or colocation is simple: own live intelligence outside the building across military bases, agriculture, laboratories, factories, and technology campuses—without surrendering the field to blind infrastructure.
             </p>
           </div>
@@ -528,45 +504,53 @@ export function Hyphae1Details() {
                 onClick={() => setSelectedVariant(variant)}
                 className={`hyphae1-product-card cursor-pointer rounded-2xl border-2 p-8 transition-all ${
                   selectedVariant.id === variant.id
-                    ? 'border-slate-800 dark:border-slate-200 bg-slate-50 dark:bg-slate-800 shadow-xl dark:shadow-slate-900/50 hyphae1-product-card-selected'
-                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 hover:border-slate-500 dark:hover:border-slate-400 hover:shadow-lg'
+                    ? "border-slate-900 dark:border-slate-300 bg-slate-50 dark:bg-slate-800 shadow-[8px_8px_20px_rgba(15,23,42,0.08),-4px_-4px_12px_rgba(255,255,255,0.9)] dark:shadow-xl dark:shadow-slate-950/50 ring-1 ring-slate-900/10 dark:ring-white/10 hyphae1-product-card-selected"
+                    : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/90 hover:border-slate-300 dark:hover:border-slate-500 shadow-[4px_4px_12px_rgba(15,23,42,0.06),-2px_-2px_8px_rgba(255,255,255,0.85)] dark:shadow-none hover:shadow-md"
                 }`}
               >
-                <div className={`p-4 rounded-2xl mb-6 w-fit ${
-                  selectedVariant.id === variant.id ? 'bg-slate-800 dark:bg-slate-500' : 'bg-slate-100 dark:bg-slate-600'
-                }`}>
-                  <variant.icon className={`h-10 w-10 ${
-                    selectedVariant.id === variant.id ? 'text-white' : 'text-slate-600 dark:text-slate-100'
-                  }`} />
+                <div
+                  className={`p-4 rounded-2xl mb-6 w-fit ${
+                    selectedVariant.id === variant.id
+                      ? "bg-slate-900 dark:bg-slate-600"
+                      : "bg-slate-100 dark:bg-slate-700"
+                  }`}
+                >
+                  <variant.icon
+                    className={`h-10 w-10 ${
+                      selectedVariant.id === variant.id
+                        ? "text-white"
+                        : "text-slate-700 dark:text-slate-100"
+                    }`}
+                  />
                 </div>
                 
-                <h3 className="text-2xl font-bold mb-2 text-slate-800 dark:text-slate-100">{variant.name}</h3>
-                <p className="text-slate-600 dark:text-slate-200 mb-4 text-sm sm:text-base leading-relaxed">
+                <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">{variant.name}</h3>
+                <p className="text-slate-700 dark:text-slate-300 mb-4 text-sm sm:text-base leading-relaxed">
                   {variant.description}
                 </p>
                 
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between gap-4 text-sm">
-                    <span className="text-slate-500 dark:text-slate-300 shrink-0">
+                    <span className="text-slate-600 dark:text-slate-400 shrink-0">
                       Exterior dimensions
                     </span>
-                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right">
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
                       {variant.dimensions}
                     </span>
                   </div>
                   <div className="flex justify-between gap-4 text-sm">
-                    <span className="text-slate-500 dark:text-slate-300 shrink-0">
+                    <span className="text-slate-600 dark:text-slate-400 shrink-0">
                       Compute
                     </span>
-                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right">
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-right">
                       {HYPHAE_COMPUTE}
                     </span>
                   </div>
                   <div className="flex justify-between gap-4 text-sm items-start">
-                    <span className="text-slate-500 dark:text-slate-300 shrink-0 pt-0.5">
+                    <span className="text-slate-600 dark:text-slate-400 shrink-0 pt-0.5">
                       Sensors
                     </span>
-                    <span className="font-medium text-slate-700 dark:text-slate-100 text-right max-w-[min(100%,14rem)] sm:max-w-[65%]">
+                    <span className="font-medium text-slate-900 dark:text-slate-100 text-right max-w-[min(100%,14rem)] sm:max-w-[65%]">
                       {HYPHAE_SENSORS}
                     </span>
                   </div>
@@ -577,18 +561,18 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Mission Section */}
-      <section className="hyphae1-why py-24 bg-slate-50 dark:bg-slate-900">
+      {/* Mission Section — light: white + dark copy; images: soft neuromorphic elevation */}
+      <section className="hyphae1-why py-24 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <NeuBadge variant="default" className="mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
+              <NeuBadge variant="default" className="mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
                 Why Hyphae 1
               </NeuBadge>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-800 dark:text-slate-100">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-slate-100">
                 Datacenter capacity, outside the building
               </h2>
-              <div className="space-y-4 text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="space-y-4 text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
                 <p>
                   Most consequential failures do not start in a climate-controlled rack—they start
                   where weather, chemistry, motion, and radio spectrum meet your mission, and where
@@ -609,12 +593,12 @@ export function Hyphae1Details() {
                   industrial yards, research campuses, and forward technology programs.
                 </p>
                 <div className="space-y-2">
-                  <p className="font-semibold text-slate-800 dark:text-slate-200">
+                  <p className="font-semibold text-slate-900 dark:text-slate-200">
                     What Hyphae 1 does in one enclosure
                   </p>
-                  <ul className="list-disc pl-5 space-y-2 marker:text-slate-500 dark:marker:text-slate-400 text-base">
+                  <ul className="list-disc pl-5 space-y-2 marker:text-slate-500 dark:marker:text-slate-400 text-base text-slate-800 dark:text-slate-300">
                     <li>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                      <span className="font-medium text-slate-900 dark:text-slate-200">
                         Targeted radar economics:
                       </span>{" "}
                       fused radar, LiDAR, and cooperative RF reduce the need to buy, site, and
@@ -622,7 +606,7 @@ export function Hyphae1Details() {
                       yard—while staying upgradeable when doctrine requires a dedicated emitter.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                      <span className="font-medium text-slate-900 dark:text-slate-200">
                         Sense, process, and command together:
                       </span>{" "}
                       not a dumb sensor pack—ingest, TPU/GPU and MycoBrain–Jetson analytics,
@@ -630,7 +614,7 @@ export function Hyphae1Details() {
                       bounce through multiple silos before they matter.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                      <span className="font-medium text-slate-900 dark:text-slate-200">
                         A real exterior datacenter:
                       </span>{" "}
                       rack-class throughput at the pole or pad—fast correlation, model scoring,
@@ -638,7 +622,7 @@ export function Hyphae1Details() {
                       bolted to a camera.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                      <span className="font-medium text-slate-900 dark:text-slate-200">
                         Collective live worldview:
                       </span>{" "}
                       visual, acoustic, gas, particle, EM, radiation, motion, and RF modalities
@@ -646,7 +630,7 @@ export function Hyphae1Details() {
                       mesh so command sees one evolving story, not twenty stale charts.
                     </li>
                     <li>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                      <span className="font-medium text-slate-900 dark:text-slate-200">
                         Mesh instead of micro-datacenter sprawl:
                       </span>{" "}
                       add Hyphae nodes to grow exterior compute and sensing capacity instead of
@@ -668,17 +652,14 @@ export function Hyphae1Details() {
                     <div
                       key={cap.title}
                       role="listitem"
-                      className="flex flex-col items-center gap-2 text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600"
+                      className="flex flex-col items-center gap-2 text-center p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 shadow-[6px_8px_18px_rgba(15,23,42,0.08),-5px_-5px_14px_rgba(255,255,255,0.92)] dark:shadow-none"
                     >
                       <Icon
-                        className="h-9 w-9 text-slate-800 dark:text-slate-100 shrink-0"
+                        className="h-9 w-9 text-slate-900 dark:text-slate-100 shrink-0"
                         aria-hidden
                       />
-                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">
                         {cap.title}
-                      </div>
-                      <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                        {cap.subtitle}
                       </div>
                     </div>
                   )
@@ -687,7 +668,7 @@ export function Hyphae1Details() {
             </div>
             
             <div className="flex flex-col gap-6">
-              <div className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-sm">
+              <div className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <Image
                   src={HYPHAE1_ASSETS.whyOutdoorInstall}
                   alt="Hyphae 1 white outdoor enclosure with mushroom logo and antenna on grass, hedge and palm trees in the background"
@@ -696,7 +677,7 @@ export function Hyphae1Details() {
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
               </div>
-              <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-sm">
+              <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <Image
                   src={HYPHAE1_ASSETS.labPrototype}
                   alt="Hyphae 1 physical unit on a stainless lab workbench: white chamfered enclosure with Mycosoft mushroom logo, top-mounted antennas, and side sensor housings"
@@ -705,7 +686,7 @@ export function Hyphae1Details() {
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center lg:text-left leading-relaxed">
+              <p className="text-sm text-slate-600 dark:text-slate-400 text-center lg:text-left leading-relaxed">
                 Field form factor, lab proven—integrated antennas and sensor apertures on a single
                 exterior-grade chassis.
               </p>
@@ -714,17 +695,17 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="hyphae1-capabilities py-24 bg-white dark:bg-slate-900">
+      {/* Features Grid — light gray page, white raised cards + dark type */}
+      <section className="hyphae1-capabilities py-24 bg-slate-50 dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-capabilities-badge mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
+            <NeuBadge variant="default" className="hyphae1-capabilities-badge mb-4 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600 shadow-sm dark:shadow-none">
               Capabilities
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
               What Hyphae 1 replaces and enables
             </h2>
-            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg text-slate-700 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
               One exterior datacenter that ingests, fuses, decides, and commands—so you spend
               capital on outcomes, not on duplicating radar programs, closet IDFs, and siloed
               sensor contracts.
@@ -733,13 +714,16 @@ export function Hyphae1Details() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {HYPHAE_FEATURE_CAPABILITIES.map((item) => (
-              <NeuCard key={item.title} className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-lg transition-all">
+              <NeuCard
+                key={item.title}
+                className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 shadow-[8px_10px_22px_rgba(15,23,42,0.07),-4px_-4px_14px_rgba(255,255,255,0.85)] dark:shadow-none hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-md transition-all"
+              >
                 <NeuCardContent className="pt-6">
-                  <div className="p-3 rounded-xl bg-slate-800 dark:bg-slate-600 w-fit mb-4">
+                  <div className="p-3 rounded-xl bg-slate-900 dark:bg-slate-600 w-fit mb-4 shadow-[3px_3px_8px_rgba(15,23,42,0.2),-2px_-2px_6px_rgba(255,255,255,0.15)] dark:shadow-none">
                     <item.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="font-bold text-lg mb-2 text-slate-800 dark:text-slate-100">{item.title}</h3>
-                  <p className="text-slate-600 dark:text-slate-300 text-sm">{item.desc}</p>
+                  <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-slate-100">{item.title}</h3>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm">{item.desc}</p>
                 </NeuCardContent>
               </NeuCard>
             ))}
@@ -747,20 +731,19 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Applications Section */}
-      <section className="hyphae1-applications relative py-24 bg-slate-100 dark:bg-slate-900 overflow-hidden">
-        {/* Scrolling grid background effect - prominent visibility */}
-        <InfrastructureGrid className="opacity-90" />
+      {/* Applications — white field + dark scrolling grid in light mode */}
+      <section className="hyphae1-applications relative py-24 bg-white dark:bg-slate-950 overflow-hidden">
+        <InfrastructureGrid className="opacity-100" />
         
         <div className="relative z-10 max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
+            <NeuBadge variant="default" className="hyphae1-applications-badge mb-4 bg-white/95 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600 shadow-sm backdrop-blur-sm">
               Applications
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
               Where exterior datacenters win
             </h2>
-            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed mb-2">
+            <p className="text-lg text-slate-700 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed mb-2">
               Applications assume fused sensing, fast edge processing, and command on the pole—
               the same Hyphae stack whether you secure a base line, instrument a lab campus, run a
               factory yard, or cover critical agriculture.
@@ -777,22 +760,24 @@ export function Hyphae1Details() {
                 onClick={() => setSelectedCase(index)}
                 className={`cursor-pointer rounded-2xl border-2 p-6 transition-all ${
                   selectedCase === index
-                    ? 'border-slate-800 dark:border-slate-400 bg-slate-800 dark:bg-slate-700 text-white'
-                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-500'
+                    ? "border-slate-900 dark:border-slate-400 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-[8px_10px_24px_rgba(15,23,42,0.1),-4px_-4px_14px_rgba(255,255,255,0.9)] dark:shadow-none ring-1 ring-slate-900/10 dark:ring-0"
+                    : "border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-500 shadow-[4px_6px_16px_rgba(15,23,42,0.05),-2px_-2px_10px_rgba(255,255,255,0.85)] dark:shadow-none"
                 }`}
               >
-                <useCase.icon className={`h-10 w-10 mb-4 ${selectedCase === index ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`} />
-                <h3 className={`font-bold text-lg mb-2 ${selectedCase === index ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
+                <useCase.icon className="h-10 w-10 mb-4 text-slate-600 dark:text-white/90" />
+                <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">
                   {useCase.title}
                 </h3>
-                <p className={`text-sm mb-4 ${selectedCase === index ? 'text-white/80' : 'text-slate-600 dark:text-slate-300'}`}>
+                <p className="text-sm mb-4 text-slate-700 dark:text-white/80">
                   {useCase.description}
                 </p>
                 <div className="space-y-1">
                   {useCase.applications.map((app) => (
                     <div key={app} className="flex items-center gap-2 text-xs">
-                      <Check className={`h-3 w-3 ${selectedCase === index ? 'text-white/60' : 'text-slate-400 dark:text-slate-400'}`} />
-                      <span className={selectedCase === index ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}>{app}</span>
+                      <Check className="h-3 w-3 shrink-0 text-slate-500 dark:text-white/55" />
+                      <span className="text-slate-600 dark:text-white/75">
+                        {app}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -802,17 +787,20 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Inside Hyphae 1 - Blueprint Section */}
-      <section className="py-24 bg-slate-900 text-white">
+      {/* Inside Hyphae 1 — light: pale shell + dark type; dark: blueprint console */}
+      <section className="py-24 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <NeuBadge variant="default" className="mb-4 bg-white/10 text-white border-white/20">
+            <NeuBadge
+              variant="default"
+              className="mb-4 bg-white dark:bg-white/10 text-slate-800 dark:text-white border-slate-200 dark:border-white/20 shadow-sm dark:shadow-none"
+            >
               Engineering
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-white">
               Inside Hyphae 1
             </h2>
-            <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl text-slate-600 dark:text-white/70 max-w-3xl mx-auto leading-relaxed">
               Layered like a small datacenter: conditioned power, deterministic sensor ingest, GPU-class
               fusion, and resilient backhaul—engineered for exterior installs where rack rows and climate
               control do not exist. Component grades, channel counts, and RF chains evolve with your program;
@@ -822,15 +810,17 @@ export function Hyphae1Details() {
           </div>
 
           {/* Control Device Layout */}
-          <div className="relative bg-slate-800/50 rounded-3xl border border-slate-700 p-6">
+          <div className="relative bg-white dark:bg-slate-800/50 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-[8px_12px_32px_rgba(15,23,42,0.06)] dark:shadow-none">
             <div className="flex flex-col lg:flex-row gap-6 lg:items-stretch">
               {/* LEFT SIDE: Controller Panel + Description */}
               <div className="lg:w-80 flex flex-col gap-4">
                 {/* Controller Panel */}
-                <div className="bg-slate-900 rounded-2xl border border-slate-700 p-4 shadow-inner">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-700">
+                <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-inner">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-mono text-white/70 uppercase tracking-wider">Component Selector</span>
+                    <span className="text-xs font-mono text-slate-600 dark:text-white/70 uppercase tracking-wider">
+                      Component Selector
+                    </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2">
@@ -842,16 +832,28 @@ export function Hyphae1Details() {
                           key={component.id}
                           onClick={() => setSelectedComponent(component.id)}
                           className={`p-3 rounded-xl border transition-all text-left ${
-                            isSelected 
-                              ? 'bg-white/10 border-white/40' 
-                              : 'bg-slate-800/50 border-slate-700 hover:border-white/30'
+                            isSelected
+                              ? "bg-slate-900 border-slate-900 text-white dark:bg-white/10 dark:border-white/40"
+                              : "bg-white border-slate-200 hover:border-slate-400 dark:bg-slate-800/50 dark:border-slate-700 dark:hover:border-white/30"
                           }`}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           <div className="flex items-center gap-2">
-                            <IconComponent className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-white/50'}`} />
-                            <span className={`text-xs font-medium ${isSelected ? 'text-white' : 'text-white/70'}`}>
+                            <IconComponent
+                              className={`h-4 w-4 ${
+                                isSelected
+                                  ? "text-white"
+                                  : "text-slate-500 dark:text-white/50"
+                              }`}
+                            />
+                            <span
+                              className={`text-xs font-medium ${
+                                isSelected
+                                  ? "text-white"
+                                  : "text-slate-700 dark:text-white/70"
+                              }`}
+                            >
                               {component.name}
                             </span>
                           </div>
@@ -862,10 +864,12 @@ export function Hyphae1Details() {
                 </div>
 
                 {/* Description Widget */}
-                <div className="bg-slate-900 rounded-2xl border border-slate-700 p-4 shadow-inner flex-1">
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700">
+                <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-inner flex-1">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700">
                     <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    <span className="text-xs font-mono text-white/70 uppercase tracking-wider">Component Details</span>
+                    <span className="text-xs font-mono text-slate-600 dark:text-white/70 uppercase tracking-wider">
+                      Component Details
+                    </span>
                   </div>
                   
                   <AnimatePresence mode="wait">
@@ -877,15 +881,15 @@ export function Hyphae1Details() {
                         exit={{ opacity: 0, y: -10 }}
                       >
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 rounded-xl bg-white/10 border border-white/20">
-                            <component.icon className="h-6 w-6 text-white" />
+                          <div className="p-2 rounded-xl bg-slate-200 border border-slate-300 dark:bg-white/10 dark:border-white/20">
+                            <component.icon className="h-6 w-6 text-slate-800 dark:text-white" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-white">{component.name}</h3>
-                            <p className="text-xs text-white/50 font-mono">{component.description}</p>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{component.name}</h3>
+                            <p className="text-xs text-slate-500 font-mono dark:text-white/50">{component.description}</p>
                           </div>
                         </div>
-                        <p className="text-sm text-white/80 leading-relaxed">{component.details}</p>
+                        <p className="text-sm text-slate-700 dark:text-white/80 leading-relaxed">{component.details}</p>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -894,40 +898,62 @@ export function Hyphae1Details() {
 
               {/* RIGHT SIDE: Schematic */}
               <div className="flex-1 min-w-0 flex flex-col">
-                <div className="relative flex-1 min-h-[500px] bg-slate-950 rounded-2xl border border-slate-700 overflow-hidden shadow-inner">
-                  {/* Grid pattern */}
-                  <div className="absolute inset-0 opacity-20" style={{
-                    backgroundImage: `
+                <div className="relative flex-1 min-h-[500px] bg-slate-200 dark:bg-slate-950 rounded-2xl border border-slate-300 dark:border-slate-700 overflow-hidden shadow-inner">
+                  {/* Grid pattern — dark lines on light; light lines on dark */}
+                  <div
+                    className="absolute inset-0 opacity-35 dark:hidden"
+                    style={{
+                      backgroundImage: `
+                      linear-gradient(rgba(15,23,42,0.14) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(15,23,42,0.14) 1px, transparent 1px)
+                    `,
+                      backgroundSize: "30px 30px",
+                    }}
+                  />
+                  <div
+                    className="absolute inset-0 opacity-20 hidden dark:block"
+                    style={{
+                      backgroundImage: `
                       linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px),
                       linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)
                     `,
-                    backgroundSize: '30px 30px'
-                  }} />
+                      backgroundSize: "30px 30px",
+                    }}
+                  />
                   
                   {/* Panel Header */}
-                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-900 to-transparent z-10">
+                  <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-slate-100/95 to-transparent dark:from-slate-900 z-10">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                      <span className="text-xs font-mono text-white/50 uppercase tracking-wider">Schematic View</span>
+                      <span className="text-xs font-mono text-slate-500 uppercase tracking-wider dark:text-white/50">
+                        Schematic View
+                      </span>
                       <div className="flex-1" />
-                      <span className="text-xs font-mono text-white/30">HYPHAE-1 // {selectedVariant.size.toUpperCase()}</span>
+                      <span className="text-xs font-mono text-slate-400 dark:text-white/30">
+                        HYPHAE-1 // {selectedVariant.size.toUpperCase()}
+                      </span>
                     </div>
                   </div>
                   
                   {/* Device Visual */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="relative w-3/4 h-3/4 border border-slate-600 rounded-lg bg-slate-800/50">
-                      <Box className="absolute inset-0 w-full h-full text-slate-600/30" strokeWidth={0.3} />
+                    <div className="relative w-3/4 h-3/4 border border-slate-400 rounded-lg bg-white/60 dark:border-slate-600 dark:bg-slate-800/50">
+                      <Box className="absolute inset-0 w-full h-full text-slate-400/40 dark:text-slate-600/30" strokeWidth={0.3} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-mono text-slate-500">HYPHAE 1</span>
+                        <span className="text-2xl font-mono text-slate-600 dark:text-slate-500">HYPHAE 1</span>
                       </div>
                     </div>
                   </div>
                   
                   {/* Status bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-900 to-transparent">
-                    <div className="flex items-center justify-between text-xs font-mono text-white/30">
-                      <span>COMPONENT: <span className="text-white/70">{DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}</span></span>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-slate-100/95 to-transparent dark:from-slate-900">
+                    <div className="flex items-center justify-between text-xs font-mono text-slate-500 dark:text-white/30">
+                      <span>
+                        COMPONENT:{" "}
+                        <span className="text-slate-800 dark:text-white/70">
+                          {DEVICE_COMPONENTS.find(c => c.id === selectedComponent)?.name.toUpperCase()}
+                        </span>
+                      </span>
                       <span className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         SYSTEM READY
@@ -939,7 +965,7 @@ export function Hyphae1Details() {
             </div>
           </div>
 
-          <p className="text-center text-sm text-white/45 max-w-3xl mx-auto mt-10 leading-relaxed">
+          <p className="text-center text-sm text-slate-600 dark:text-white/45 max-w-3xl mx-auto mt-10 leading-relaxed">
             Schematic is illustrative. Connector pinouts, thermal images, and EMI plots ship with the
             engineering package for your revision—so evaluators see real hardware intent without treating a
             marketing render as a type certificate.
@@ -947,14 +973,14 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* Technical Specifications */}
-      <section className="hyphae1-tech-specs py-24 bg-white dark:bg-slate-800" data-section="tech-specs">
+      {/* Technical Specifications — light: white cards + dark type */}
+      <section className="hyphae1-tech-specs py-24 bg-slate-50 dark:bg-slate-900" data-section="tech-specs">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <NeuBadge variant="default" className="mb-4 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600">
               Specifications
             </NeuBadge>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-800 dark:text-slate-100">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-slate-100">
               Technical details
             </h2>
             <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
@@ -967,10 +993,10 @@ export function Hyphae1Details() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
+            <div className="hyphae1-spec-card bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6 shadow-[8px_10px_26px_rgba(15,23,42,0.07)] dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
                 <Box className="h-5 w-5 text-slate-600 dark:text-slate-400 shrink-0" />
-                <span className="font-semibold text-slate-800 dark:text-slate-100">Exterior &amp; mechanical</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">Exterior &amp; mechanical</span>
               </div>
               <div className="space-y-3">
                 {HYPHAE_PHYSICAL_SPEC_ROWS.map((row) => (
@@ -979,7 +1005,7 @@ export function Hyphae1Details() {
                     className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
                   >
                     <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                    <span className="font-medium text-slate-900 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
                       {row.value}
                     </span>
                   </div>
@@ -987,10 +1013,10 @@ export function Hyphae1Details() {
               </div>
             </div>
             
-            <div className="hyphae1-spec-card bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6">
+            <div className="hyphae1-spec-card bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-600 p-6 shadow-[8px_10px_26px_rgba(15,23,42,0.07)] dark:shadow-none">
               <div className="flex items-center gap-2 mb-6">
                 <Cpu className="h-5 w-5 text-slate-600 dark:text-slate-400 shrink-0" />
-                <span className="font-semibold text-slate-800 dark:text-slate-100">Compute, sense &amp; integration</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">Compute, sense &amp; integration</span>
               </div>
               <div className="space-y-3">
                 {HYPHAE_SYSTEM_SPEC_ROWS.map((row) => (
@@ -999,7 +1025,7 @@ export function Hyphae1Details() {
                     className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 py-3 border-b border-slate-200 dark:border-slate-600 last:border-0"
                   >
                     <span className="text-slate-600 dark:text-slate-400 text-sm shrink-0 sm:max-w-[40%]">{row.label}</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
+                    <span className="font-medium text-slate-900 dark:text-slate-200 text-sm text-left sm:text-right sm:max-w-[58%]">
                       {row.value}
                     </span>
                   </div>
@@ -1008,7 +1034,7 @@ export function Hyphae1Details() {
             </div>
           </div>
 
-          <p className="text-center text-sm text-slate-500 dark:text-slate-400 max-w-2xl mx-auto mt-10 leading-relaxed">
+          <p className="text-center text-sm text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mt-10 leading-relaxed">
             Need binding figures for procurement or safety cases? Mycosoft issues revision-controlled specs
             (power budgets, environmental limits, agency marks, and interface control documents) after
             configuration sign-off—marketing pages stay accurate to the architecture, not to every draft BOM.
@@ -1027,32 +1053,33 @@ export function Hyphae1Details() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative py-24 bg-slate-900 text-white overflow-hidden">
-        {/* Pulsing dot grid background effect - full visibility */}
+      {/* CTA — light: white page band + light card + dark type; dot grid stays visible */}
+      <section className="relative py-24 bg-white dark:bg-slate-900 text-slate-900 dark:text-white overflow-hidden">
         <InfrastructureDotGrid className="opacity-100" />
         
         <div className="relative z-10 max-w-4xl mx-auto px-4">
-          {/* Container widget to separate text from animated background */}
-          <div className="bg-slate-800/90 backdrop-blur-sm rounded-3xl border border-slate-700/50 p-10 md:p-14 shadow-2xl">
+          <div className="bg-slate-50 dark:bg-slate-800/90 backdrop-blur-sm rounded-3xl border border-slate-200 dark:border-slate-700/50 p-10 md:p-14 shadow-[12px_16px_40px_rgba(15,23,42,0.08)] dark:shadow-2xl">
             <div className="text-center">
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">
                 Ready to operate your own datacenter?
               </h2>
-              <p className="text-lg sm:text-xl text-white/70 mb-8 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg sm:text-xl text-slate-600 dark:text-white/70 mb-8 max-w-2xl mx-auto leading-relaxed">
                 Hyphae 1 puts the Outside Datacenter where nature and operations meet—fused sensing,
                 edge inference, and command on the pole, not only in the climate-controlled row. Talk with
                 Mycosoft to map modalities, mesh, and compliance for your perimeter, campus, or estate.
               </p>
               
               <div className="flex justify-center">
-                <NeuButton size="lg" className="bg-white text-slate-900 hover:bg-slate-100 font-semibold px-8 min-h-[48px]">
+                <NeuButton
+                  size="lg"
+                  className="bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 font-semibold px-8 min-h-[48px]"
+                >
                   <ExternalLink className="mr-2 h-5 w-5" />
                   Contact sales
                 </NeuButton>
               </div>
               
-              <p className="text-sm text-white/50 mt-8 max-w-xl mx-auto leading-relaxed">
+              <p className="text-sm text-slate-500 dark:text-white/50 mt-8 max-w-xl mx-auto leading-relaxed">
                 Configuration-specific datasheets and drawings after sign-off • Mycosoft fabric, MAS registry,
                 and field integration support
               </p>

@@ -323,7 +323,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
 }
 
 export function Header() {
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const { user: supabaseUser, loading: isLoading, signOut } = useSupabaseUser()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -372,7 +372,7 @@ export function Header() {
   }
 
   // Use default logo during SSR to prevent hydration mismatch
-  const logoSrc = mounted && theme === "dark"
+  const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
     : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/MycosoftLogo2%20(1)-5jx3SObDwKV9c6QmbxJ2NWopjhfLmZ.png"
 
