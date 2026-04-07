@@ -240,6 +240,8 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Serialize production deploys and auto-rollback on failure
 - *(video)* Prioritize canonical mp4 before web variant
 - *(crep)* Nest Ground Station and infra MapMarkers inside MapComponent
+- *(deploy)* Escape shell vars in docker run f-string; add --skip-build
+- *(hyphae)* Dark-mode applications grid, card text, capability tiles; theme/neuromorphic updates
 
 ### CREP
 
@@ -270,6 +272,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -504,6 +507,8 @@ All notable changes to this project will be documented in this file.
 - Add vm debugger
 - *(deploy)* Cloudflare Access headers, SSH retries, unified search fix
 - *(setup-ssh)* Require Cloudflare Access secrets on deploy workflows
+- GitHub Actions lint+build; sandbox deploy candidate health + rollback
+- Main uses Mycosoft CI/CD deploy; PR-only Website CI; Dockerfile site URL arg
 
 ### Performance
 
@@ -524,6 +529,7 @@ All notable changes to this project will be documented in this file.
 ### Website
 
 - All 223+ agents active 24/7 in AI Studio
+- Hyphae 1 updates, device pages, APIs, and public assets
 
 ### Mobile
 
