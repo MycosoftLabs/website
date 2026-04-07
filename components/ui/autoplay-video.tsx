@@ -8,6 +8,20 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
+/** NAS / Docker can serve 200 + Content-Length: 0 for missing or truncated uploads — skip before <video> stalls. */
+function shouldProbeEmptyMp4(url: string): boolean {
+  if (url.startsWith("/assets/")) return true
+  try {
+    const u = new URL(url)
+    return (
+      (u.hostname === "mycosoft.com" || u.hostname.endsWith(".mycosoft.com")) &&
+      u.pathname.startsWith("/assets/")
+    )
+  } catch {
+    return false
+  }
+}
+
 function resolveAssetUrl(src: string, isDev: boolean): string {
   if (isDev && src.startsWith("/assets/")) return `https://mycosoft.com${src}`
   return src
@@ -68,6 +82,28 @@ export function AutoplayVideo({
   useEffect(() => {
     setIndex(0)
   }, [list.join("|")])
+
+  // Skip zero-byte MP4s immediately (origin often returns 200 + CL:0 for empty NAS files).
+  useEffect(() => {
+    if (!activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(activeSrc, { method: "HEAD", cache: "no-store" })
+        const cl = r.headers.get("content-length")
+        if (cancelled || !r.ok || cl !== "0") return
+        setIndex((i) => {
+          const L = listRef.current
+          return i + 1 < L.length ? i + 1 : i
+        })
+      } catch {
+        /* ignore — fall through to normal video load */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [activeSrc])
 
   useEffect(() => {
     const v = videoRef.current
