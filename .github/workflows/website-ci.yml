@@ -1,14 +1,12 @@
-# Website CI — Apr 06, 2026
-# Catches broken Next.js builds and lint issues before deploy.
-# Production deploy: run _rebuild_sandbox.py from a trusted machine (VM creds stay local).
-# That script uses a candidate container on :3001, health-checks, then swaps :3000 and
-# purges Cloudflare only after origin HTTP 200 — reduces 502 / bad gateway windows.
+# Website CI — Apr 06, 2026 (PR gate only)
+# Fast lint + Next build on pull requests (no Docker). Fails the PR if the app does not compile.
+#
+# Production path: pushes to main run "Mycosoft CI/CD" (.github/workflows/ci-cd.yml) —
+# Docker build → GHCR → SSH via Cloudflare Tunnel → compose deploy → health → Cloudflare purge.
 
 name: Website CI
 
 on:
-  push:
-    branches: [main, master]
   pull_request:
     branches: [main, master]
 

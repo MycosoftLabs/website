@@ -1,6 +1,14 @@
 # Mycosoft CI/CD Pipeline
-# Last Updated: 2026-03-16T00:00:00Z
-# Version: 3.0.0
+# Last Updated: 2026-04-06 — main-branch push: lint → test → Docker → GHCR → production deploy
+# Version: 3.1.0
+#
+# Required GitHub Actions secrets (repo or production environment):
+#   PRODUCTION_HOST, SSH_KEY or SSH_KEY_B64, SSH_USER (optional, default mycosoft)
+#   CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET (Cloudflare Access Service Auth for SSH over tunnel)
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   NEXTAUTH_SECRET (production cookie signing — set a strong secret)
+#   Optional: SUPABASE_SERVICE_ROLE_KEY, MAS_API_URL, MINDEX_API_URL, OPENAI_API_KEY, wallet keys
+#   Optional: CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN (purge after deploy)
 #
 # Principles (see docs/INSTANT_WEBSITE_UPDATES_FASTER_CICD_MAR15_2026.md):
 #   1. Build in CI, not on the VM — image pushed to GHCR, VM only pulls + restarts
@@ -22,17 +30,20 @@ on:
       - 'app/**'
       - 'components/**'
       - 'lib/**'
+      - 'hooks/**'
       - 'public/**'
       - 'services/**'
+      - 'middleware.ts'
       - 'docker-compose.production.yml'
       - 'docker-compose.yml'
+      - 'Dockerfile'
       - 'Dockerfile.production'
       - 'package.json'
       - 'package-lock.json'
       - 'next.config.*'
       - 'tsconfig.json'
       - 'tailwind.config.*'
-      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -91,7 +102,7 @@ jobs:
         run: npm ci
 
       - name: Run ESLint
-        run: npm run lint || echo "::warning::ESLint errors found (non-blocking)"
+        run: npm run lint
 
       - name: Run TypeScript check
         run: npx tsc --noEmit || echo "::warning::TypeScript errors found (non-blocking — next.config.js has ignoreBuildErrors enabled)"
@@ -200,6 +211,8 @@ jobs:
             GIT_SHA=${{ github.sha }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ github.ref == 'refs/heads/main' && 'https://mycosoft.com' || 'https://sandbox.mycosoft.com' }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
 
       - name: Build and push Collectors
         continue-on-error: true

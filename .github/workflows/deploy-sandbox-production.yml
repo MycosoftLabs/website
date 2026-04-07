@@ -1,5 +1,7 @@
-# Primary production deploy for mycosoft.com (Sandbox VM 187)
-# Build runs in CI with layer cache; VM only pulls and restarts (~1–2 min deploy).
+# Alternate GHCR deploy (tunnel SSH). Prefer the unified pipeline:
+#   .github/workflows/ci-cd.yml  →  main push: lint, test, Docker build, deploy-production
+#
+# This workflow stays available for workflow_dispatch / experiments.
 # See docs/MYCOSOFT_COM_PRODUCTION_SANDBOX_ROUTE_MAR13_2026.md
 #
 # Secrets (Settings → Secrets and variables → Actions):
