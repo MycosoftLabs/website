@@ -344,9 +344,12 @@ else:
 
     print("   Candidate healthy on :3001 — swapping public :3000 (brief handoff).")
 
-    _run("docker stop mycosoft-website >/dev/null 2>&1 || true", timeout=90)
-    _run("docker rm mycosoft-website >/dev/null 2>&1 || true", timeout=60)
-    _run("docker rm -f mycosoft-website 2>/dev/null || true", timeout=15)
+    # Free host :3000 from any container (compose stacks often use names like website-live).
+    _, pub3000, _ = _run("docker ps -q --filter publish=3000", timeout=30)
+    for cid in (pub3000 or "").strip().split():
+        _run(f"docker stop {cid}", timeout=90)
+        _run(f"docker rm {cid} 2>/dev/null || true", timeout=30)
+    _run("docker rm -f mycosoft-website website-live 2>/dev/null || true", timeout=20)
 
     main_cmd = _docker_run_cmd("mycosoft-website", "3000:3000", image_tag)
     code, out, err = _run(main_cmd, timeout=90)
