@@ -8,23 +8,35 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 
-/** NAS / Docker can serve 200 + Content-Length: 0 for missing or truncated uploads — skip before <video> stalls. */
+/**
+ * NAS / Docker can serve 200 + Content-Length: 0 for missing uploads — HEAD-skip before <video> stalls.
+ * Only same-origin: cross-origin HEAD from localhost hits CORS and tells us nothing.
+ */
 function shouldProbeEmptyMp4(url: string): boolean {
-  if (url.startsWith("/assets/")) return true
+  if (typeof url !== "string" || !url) return false
+  if (typeof window === "undefined") return false
   try {
-    const u = new URL(url)
-    return (
-      (u.hostname === "mycosoft.com" || u.hostname.endsWith(".mycosoft.com")) &&
-      u.pathname.startsWith("/assets/")
-    )
+    const u = new URL(url, window.location.href)
+    if (u.origin !== window.location.origin) return false
+    return u.pathname.startsWith("/assets/") && u.pathname.toLowerCase().endsWith(".mp4")
   } catch {
     return false
   }
 }
 
+/**
+ * Dev: `/assets/*` has no NAS on localhost unless you copy files into `public/assets`.
+ * - Unset `NEXT_PUBLIC_DEV_ASSETS_ORIGIN` → prefix `https://mycosoft.com` (matches prod assets).
+ * - `NEXT_PUBLIC_DEV_ASSETS_ORIGIN=local` (or `same`) → keep same-origin for real local files.
+ * - Any other value → that origin (e.g. sandbox).
+ */
 function resolveAssetUrl(src: string, isDev: boolean): string {
-  if (isDev && src.startsWith("/assets/")) return `https://mycosoft.com${src}`
-  return src
+  if (typeof src !== "string" || !src) return ""
+  if (!isDev || !src.startsWith("/assets/")) return src
+  const raw = process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN?.trim().toLowerCase()
+  if (raw === "local" || raw === "same") return src
+  const origin = (process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN || "https://mycosoft.com").replace(/\/$/, "")
+  return `${origin}${src}`
 }
 
 function normalizeSources(
@@ -33,12 +45,19 @@ function normalizeSources(
   isDev: boolean,
   encodeSrc: boolean
 ): string[] {
-  const raw = [...(sources?.length ? sources : []), ...(src ? [src] : [])].filter(Boolean)
+  const combined: unknown[] = [
+    ...(Array.isArray(sources) ? sources : []),
+    ...(typeof src === "string" && src ? [src] : []),
+  ]
+  const raw = combined.flat(Infinity).filter((x) => x != null && x !== "")
   const seen = new Set<string>()
   const out: string[] = []
   for (const u of raw) {
+    if (typeof u !== "string") continue
     const resolved = resolveAssetUrl(u, isDev)
+    if (!resolved) continue
     const safe = encodeSrc ? encodeAssetUrl(resolved) : resolved
+    if (typeof safe !== "string" || !safe) continue
     if (!seen.has(safe)) {
       seen.add(safe)
       out.push(safe)
@@ -58,6 +77,11 @@ interface AutoplayVideoProps {
   encodeSrc?: boolean
   /** If playback does not reach HAVE_FUTURE_DATA within this many ms, try next source */
   stallTimeoutMs?: number
+  /**
+   * Opacity 0 until `playing` — use over a poster image so missing/broken sources do not flash black.
+   * When every source fails, the component unmounts (`return null`).
+   */
+  hideUntilPlaying?: boolean
 }
 
 export function AutoplayVideo({
@@ -67,6 +91,7 @@ export function AutoplayVideo({
   style,
   encodeSrc = true,
   stallTimeoutMs = 14000,
+  hideUntilPlaying = false,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const isDev = process.env.NODE_ENV === "development"
@@ -75,12 +100,16 @@ export function AutoplayVideo({
     [src, sources, isDev, encodeSrc]
   )
   const [index, setIndex] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [allFailed, setAllFailed] = useState(false)
   const activeSrc = list[index] ?? ""
   const listRef = useRef(list)
   listRef.current = list
 
   useEffect(() => {
     setIndex(0)
+    setPlaying(false)
+    setAllFailed(false)
   }, [list.join("|")])
 
   // Skip zero-byte MP4s immediately (origin often returns 200 + CL:0 for empty NAS files).
@@ -126,24 +155,38 @@ export function AutoplayVideo({
       stallTimer = setTimeout(() => {
         if (v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA && v.currentTime === 0) {
           const L = listRef.current
-          setIndex((i) => (i + 1 < L.length ? i + 1 : i))
+          setIndex((i) => {
+            if (i + 1 < L.length) return i + 1
+            if (hideUntilPlaying) setAllFailed(true)
+            return i
+          })
         }
       }, stallTimeoutMs)
     }
 
     const onCanPlay = () => clearStall()
-    const onPlaying = () => clearStall()
+    const onPlaying = () => {
+      clearStall()
+      if (hideUntilPlaying) setPlaying(true)
+    }
     const onWaiting = () => scheduleStall()
     const onError = () => {
       clearStall()
       const L = listRef.current
-      setIndex((i) => (i + 1 < L.length ? i + 1 : i))
+      setIndex((i) => {
+        if (i + 1 < L.length) return i + 1
+        if (hideUntilPlaying) setAllFailed(true)
+        return i
+      })
     }
     const onLoadedMetadata = () => {
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
-        const L = listRef.current
-        setIndex((i) => (i + 1 < L.length ? i + 1 : i))
+        setIndex((i) => {
+          if (i + 1 < L.length) return i + 1
+          if (hideUntilPlaying) setAllFailed(true)
+          return i
+        })
       }
     }
 
@@ -163,9 +206,13 @@ export function AutoplayVideo({
       v.removeEventListener("error", onError)
       v.removeEventListener("loadedmetadata", onLoadedMetadata)
     }
-  }, [activeSrc, stallTimeoutMs])
+  }, [activeSrc, stallTimeoutMs, hideUntilPlaying])
 
   if (!activeSrc) return null
+  if (hideUntilPlaying && allFailed) return null
+
+  const visibilityClass =
+    hideUntilPlaying && !playing ? "opacity-0" : hideUntilPlaying ? "opacity-100 transition-opacity duration-500" : ""
 
   return (
     <video
@@ -176,7 +223,7 @@ export function AutoplayVideo({
       loop
       playsInline
       preload="metadata"
-      className={className}
+      className={[className, visibilityClass].filter(Boolean).join(" ")}
       style={style}
     >
       <source src={activeSrc} type="video/mp4" />

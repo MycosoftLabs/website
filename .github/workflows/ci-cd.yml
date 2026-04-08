@@ -405,15 +405,26 @@ jobs:
             echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
             echo "Previous image: ${PREV_IMAGE:-none}"
 
+            free_host_port_3000() {
+              echo "=== Freeing host :3000 (compose website + all publishers) ==="
+              (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+              for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                [ -z "$cid" ] && continue
+                docker stop "$cid" 2>/dev/null || true
+                docker rm -f "$cid" 2>/dev/null || true
+              done
+              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+            }
+
             echo "=== Preparing deterministic restart ==="
-            docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+            free_host_port_3000
 
             echo "=== Starting Container ==="
             export WEBSITE_IMAGE="ghcr.io/${IMAGE_NAME_LC}:production-latest"
             if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
               echo "Compose deploy failed. Attempting rollback container..."
               if [ -n "${PREV_IMAGE}" ]; then
-                docker rm -f website-live 2>/dev/null || true
+                free_host_port_3000
                 docker run -d --name website-live -p 3000:3000 \
                   -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                   --restart unless-stopped "${PREV_IMAGE}" || true
@@ -448,7 +459,16 @@ jobs:
             PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
             if [ -n "$PREV_IMAGE" ]; then
               echo "Attempting rollback to previous image: $PREV_IMAGE"
-              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              free_host_port_3000() {
+                (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+                for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                  [ -z "$cid" ] && continue
+                  docker stop "$cid" 2>/dev/null || true
+                  docker rm -f "$cid" 2>/dev/null || true
+                done
+                docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+              }
+              free_host_port_3000
               docker run -d --name website-live -p 3000:3000 \
                 -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                 --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
@@ -602,14 +622,25 @@ jobs:
 
             PREV_IMAGE=$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
             echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
-            docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+
+            free_host_port_3000() {
+              echo "=== Freeing host :3000 (compose website + all publishers) ==="
+              (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+              for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                [ -z "$cid" ] && continue
+                docker stop "$cid" 2>/dev/null || true
+                docker rm -f "$cid" 2>/dev/null || true
+              done
+              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+            }
+            free_host_port_3000
 
             echo "=== Starting Container ==="
             export WEBSITE_IMAGE="mycosoft-website:local"
             if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
               echo "Compose deploy failed. Attempting rollback container..."
               if [ -n "${PREV_IMAGE}" ]; then
-                docker rm -f website-live 2>/dev/null || true
+                free_host_port_3000
                 docker run -d --name website-live -p 3000:3000 \
                   -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                   --restart unless-stopped "${PREV_IMAGE}" || true
@@ -641,7 +672,16 @@ jobs:
             echo "::error::Health check timeout"
             PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
             if [ -n "$PREV_IMAGE" ]; then
-              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              free_host_port_3000() {
+                (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+                for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                  [ -z "$cid" ] && continue
+                  docker stop "$cid" 2>/dev/null || true
+                  docker rm -f "$cid" 2>/dev/null || true
+                done
+                docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+              }
+              free_host_port_3000
               docker run -d --name website-live -p 3000:3000 \
                 -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                 --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true

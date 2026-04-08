@@ -22,7 +22,7 @@ import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { homeHeroVideoSources } from "@/lib/asset-video-sources"
 import {
   Search,
   Mic,
@@ -34,8 +34,8 @@ import {
   Brain,
 } from "lucide-react"
 
-const HOME_HERO_MP4 = "/assets/homepage/Mycosoft Background.mp4"
-const HOME_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(HOME_HERO_MP4))
+/** Env + filename candidates — see `homeHeroVideoSources` in lib/asset-video-sources.ts */
+const HOME_HERO_SOURCES = homeHeroVideoSources()
 
 export function HeroSearch() {
   const router = useRouter()
@@ -61,7 +61,14 @@ export function HeroSearch() {
 
   // Unified listening state: PersonaPlex OR Web Speech API
   const isListening = (personaplex?.isListening ?? false) || webSpeechListening
-  const hasWebSpeech = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+  /** Must not depend on `window` during SSR — same value on server and first client paint to avoid hydration mismatch. */
+  const [hasWebSpeech, setHasWebSpeech] = useState(false)
+  useEffect(() => {
+    setHasWebSpeech(
+      typeof window !== "undefined" &&
+        ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
+    )
+  }, [])
   
   // Animated typing placeholder
   const { placeholder: animatedPlaceholder, pause, resume } = useTypingPlaceholder({

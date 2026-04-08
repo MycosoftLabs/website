@@ -85,11 +85,21 @@ jobs:
             PREV_IMAGE=\$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
             echo "\${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
             export WEBSITE_IMAGE="${IMAGE}"
-            docker rm -f mycosoft-website website-live website-website-1 website-website-2 2>/dev/null || true
+            free_host_port_3000() {
+              echo "=== Freeing host :3000 (compose website + all publishers) ==="
+              docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true
+              for cid in \$(docker ps -q --filter publish=3000 2>/dev/null); do
+                [ -z "\$cid" ] && continue
+                docker stop "\$cid" 2>/dev/null || true
+                docker rm -f "\$cid" 2>/dev/null || true
+              done
+              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+            }
+            free_host_port_3000
             if ! docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website; then
               echo "Compose deploy failed. Attempting rollback container..."
               if [ -n "\${PREV_IMAGE}" ]; then
-                docker rm -f website-live 2>/dev/null || true
+                free_host_port_3000
                 docker run -d --name website-live -p 3000:3000 \
                   -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                   --restart unless-stopped "\${PREV_IMAGE}" || true
@@ -117,7 +127,16 @@ jobs:
             echo "::error::Health check did not pass within 30s"
             PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
             if [ -n "$PREV_IMAGE" ]; then
-              docker rm -f website-website-1 mycosoft-website website-live 2>/dev/null || true
+              free_host_port_3000() {
+                (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+                for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                  [ -z "$cid" ] && continue
+                  docker stop "$cid" 2>/dev/null || true
+                  docker rm -f "$cid" 2>/dev/null || true
+                done
+                docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+              }
+              free_host_port_3000
               docker run -d --name website-live -p 3000:3000 \
                 -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
                 --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true

@@ -107,7 +107,7 @@ const devices = [
     description: "Industrial-grade modular I/O for building automation, agriculture, and industrial monitoring. Three sizes to fit any deployment.",
     icon: Microscope,
     color: "slate-500",
-    image: "/placeholder.svg?height=600&width=800&text=Hyphae1",
+    image: "/assets/hyphae1/standard.jpg",
     status: "In Stock",
     price: "",
     specs: [

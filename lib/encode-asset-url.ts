@@ -24,7 +24,7 @@ function encodePathSegments(path: string): string {
 }
 
 export function encodeAssetUrl(src: string): string {
-  if (!src) return src
+  if (typeof src !== "string" || !src) return ""
   try {
     if (/^https?:\/\//i.test(src)) {
       const u = new URL(src)

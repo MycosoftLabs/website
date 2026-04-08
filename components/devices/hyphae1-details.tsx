@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useMemo } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
@@ -24,6 +24,8 @@ import type { LucideIcon } from "lucide-react"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { hyphaeHeroVideoSources, mergeVideoSources } from "@/lib/asset-video-sources"
 
 // ============================================================================
 // HYPHAE 1 MEDIA ASSETS
@@ -35,6 +37,9 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 //   npm run assets:sync-cursor-image -- -Preset hyphae-why
 //   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
+// Hyphae 1 Hero video: UniFi Drive share https://drop.ui.com/99dad083-8c81-47c3-8982-649f4555cf2c
+// → copy the file’s direct MP4 URL into NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL (.env.example).
+
 const HYPHAE1_ASSETS = {
   // Product images by variant - replace when real photos are available
   compact: "/assets/hyphae1/compact.jpg",
@@ -48,12 +53,19 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\hero.mp4)
+  // Hero background — NAS: \\…\website\assets\hyphae1\hero.mp4 (alt: Hyphae 1 Hero.mp4)
   heroVideo: "/assets/hyphae1/hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
   labPrototype: "/assets/hyphae1/hyphae1-lab-prototype.png",
+}
+
+/** Hero still — Hyphae 1 product imagery per size (no cross-product fallbacks). */
+const HYPHAE_VARIANT_HERO_STILL: Record<string, string> = {
+  compact: HYPHAE1_ASSETS.compact,
+  standard: HYPHAE1_ASSETS.standard,
+  industrial: HYPHAE1_ASSETS.industrial,
 }
 
 interface HyphaeVariant {
@@ -337,6 +349,48 @@ const HYPHAE_PHYSICAL_SPEC_ROWS: HyphaeSpecRow[] = [
   },
 ]
 
+/** NAS JPG/PNG missing or 404 — show neutral shell (no fake product photos). */
+function HyphaeFillImage({
+  src,
+  alt,
+  sizes,
+  className = "object-cover",
+}: {
+  src: string
+  alt: string
+  sizes: string
+  className?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <>
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950"
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          aria-hidden
+        >
+          <Box className="h-20 w-20 text-slate-500/35 dark:text-slate-400/25" strokeWidth={0.35} />
+        </div>
+        <span className="sr-only">{alt}</span>
+      </>
+    )
+  }
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      className={className}
+      sizes={sizes}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 const HYPHAE_SYSTEM_SPEC_ROWS: HyphaeSpecRow[] = [
   {
     label: "Edge compute stack",
@@ -386,21 +440,11 @@ export function Hyphae1Details() {
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
-  const heroVideoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    const el = heroVideoRef.current
-    if (!el) return
-    const kick = () => {
-      el.muted = true
-      el.play().catch(() => {})
-    }
-    kick()
-    const onVis = () => {
-      if (document.visibilityState === "visible") kick()
-    }
-    document.addEventListener("visibilitychange", onVis)
-    return () => document.removeEventListener("visibilitychange", onVis)
+  const heroVideoSources = useMemo(() => {
+    const chain = hyphaeHeroVideoSources(HYPHAE1_ASSETS.heroVideo)
+    const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
+    return envUrl ? mergeVideoSources([envUrl], chain) : chain
   }, [])
   
   const { scrollYProgress } = useScroll({
@@ -415,18 +459,20 @@ export function Hyphae1Details() {
     <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
-        <video
-          ref={heroVideoRef}
+        <Image
+          src={HYPHAE_VARIANT_HERO_STILL[selectedVariant.id] ?? HYPHAE1_ASSETS.industrial}
+          alt={`${selectedVariant.name} — product exterior`}
+          fill
           className="absolute inset-0 z-0 h-full w-full object-cover pointer-events-none"
-          src={HYPHAE1_ASSETS.heroVideo}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-hidden
+          sizes="100vw"
+          priority
         />
-        <div className="absolute inset-0 z-[1] bg-slate-900/45 dark:bg-slate-950/55" />
+        <AutoplayVideo
+          sources={heroVideoSources}
+          hideUntilPlaying
+          className="absolute inset-0 z-[1] h-full w-full object-cover pointer-events-none"
+        />
+        <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55" />
 
         <motion.div 
           style={{ opacity: heroOpacity }}
@@ -669,19 +715,17 @@ export function Hyphae1Details() {
             
             <div className="flex flex-col gap-6">
               <div className="relative aspect-square rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
-                <Image
+                <HyphaeFillImage
                   src={HYPHAE1_ASSETS.whyOutdoorInstall}
                   alt="Hyphae 1 white outdoor enclosure with mushroom logo and antenna on grass, hedge and palm trees in the background"
-                  fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
               </div>
               <div className="relative aspect-[4/5] sm:aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200/90 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 shadow-[12px_14px_32px_rgba(15,23,42,0.12),-8px_-8px_22px_rgba(255,255,255,0.95),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[14px_18px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
-                <Image
+                <HyphaeFillImage
                   src={HYPHAE1_ASSETS.labPrototype}
                   alt="Hyphae 1 physical unit on a stainless lab workbench: white chamfered enclosure with Mycosoft mushroom logo, top-mounted antennas, and side sensor housings"
-                  fill
                   className="object-cover object-center"
                   sizes="(max-width: 1024px) 100vw, 592px"
                 />
