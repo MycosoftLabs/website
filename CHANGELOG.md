@@ -244,6 +244,7 @@ All notable changes to this project will be documented in this file.
 - *(hyphae)* Dark-mode applications grid, card text, capability tiles; theme/neuromorphic updates
 - *(deploy)* Stop all containers publishing :3000 before cutover (e.g. website-live)
 - *(video)* Skip zero-byte /assets MP4s via HEAD so hero fallbacks load immediately
+- *(devices)* Hero video sources, Sporebase path, Myconode AutoplayVideo
 
 ### CREP
 
@@ -274,6 +275,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
