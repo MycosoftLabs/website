@@ -116,9 +116,25 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Security headers
+  // Security headers + asset caching
   async headers() {
     return [
+      // Long-lived cache for NAS-mounted media assets (videos, images)
+      // Browsers cache for 1 day, serve stale up to 7 days while revalidating.
+      {
+        source: '/assets/:path(.+\\.(?:mp4|webm|mov))',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800, immutable' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
+        source: '/assets/:path(.+\\.(?:jpg|jpeg|png|webp|svg|gif|avif))',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
