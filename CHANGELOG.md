@@ -245,7 +245,12 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Stop all containers publishing :3000 before cutover (e.g. website-live)
 - *(video)* Skip zero-byte /assets MP4s via HEAD so hero fallbacks load immediately
 - *(devices)* Hero video sources, Sporebase path, Myconode AutoplayVideo
+- *(media)* Hero NAS fallbacks, zero-byte MP4 skip, Hyphae hero chain, CI env docs
+- *(devices)* Hero video sources, Sporebase path, Myconode AutoplayVideo
 - *(media)* Resolve video/image loading, caching, and navigation latency (#95)
+- *(media)* Resolve video/image loading, caching, and navigation latency
+- *(media)* Remove all cross-device video fallbacks — each page plays its own video only
+- *(hyphae1)* Correct hero video filename to match NAS (Hyphae 1 Hero.mp4)
 
 ### CREP
 
@@ -276,6 +281,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -537,6 +543,10 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Merge
+
+- Claude fix-media-loading (hyphae hero, no cross-device fallbacks)
 
 ### Mobile
 
