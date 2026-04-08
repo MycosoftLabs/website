@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
 import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
@@ -260,11 +260,7 @@ export function Mushroom1Details() {
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
   const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
-  const heroSources = mergeVideoSources(
-    assetMp4Sources(heroVideoSrc),
-    assetMp4Sources(isMobile ? MUSHROOM1_ASSETS.videos.background : MUSHROOM1_ASSETS.videos.waterfall),
-    assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)
-  )
+  const heroSources = assetMp4Sources(heroVideoSrc)
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -465,10 +461,7 @@ export function Mushroom1Details() {
               <div className="relative aspect-square rounded-2xl overflow-hidden border border-emerald-500/20">
                 <AutoplayVideo
                   src={MUSHROOM1_ASSETS.videos.waterfall}
-                  sources={mergeVideoSources(
-                    assetMp4Sources(MUSHROOM1_ASSETS.videos.waterfall),
-                    assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)
-                  )}
+                  sources={assetMp4Sources(MUSHROOM1_ASSETS.videos.waterfall)}
                   className="absolute inset-0 w-full h-full object-cover object-center"
                   preload="metadata"
                   encodeSrc
@@ -741,10 +734,7 @@ export function Mushroom1Details() {
               <AutoplayVideo
                 key={USE_CASES[activeUseCase].video}
                 src={USE_CASES[activeUseCase].video}
-                sources={mergeVideoSources(
-                  assetMp4Sources(USE_CASES[activeUseCase].video),
-                  assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)
-                )}
+                sources={assetMp4Sources(USE_CASES[activeUseCase].video)}
                 className="absolute inset-0 w-full h-full object-cover"
                 preload="metadata"
                 encodeSrc
@@ -1191,10 +1181,7 @@ export function Mushroom1Details() {
         <div className="absolute inset-0">
           <AutoplayVideo
             src={MUSHROOM1_ASSETS.videos.walking}
-            sources={mergeVideoSources(
-              assetMp4Sources(MUSHROOM1_ASSETS.videos.walking),
-              assetMp4Sources(MUSHROOM1_ASSETS.videos.waterfall)
-            )}
+            sources={assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)}
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
             preload="metadata"

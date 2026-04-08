@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { X, ShoppingCart, Package, Check, Calendar, Zap, Network, Database } from "lucide-react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 interface PreOrderModalProps {
   isOpen: boolean
@@ -58,7 +58,7 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
                 <div className="w-full rounded-xl overflow-hidden border border-emerald-500/20 bg-slate-900">
                   <AutoplayVideo
                     src="/assets/mushroom1/close 1.mp4"
-                    sources={mergeWithNasFallbacks(assetMp4Sources("/assets/mushroom1/close 1.mp4"))}
+                    sources={assetMp4Sources("/assets/mushroom1/close 1.mp4")}
                     className="w-full h-auto"
                     encodeSrc
                   />

@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -382,7 +382,7 @@ const HYPHAE_SYSTEM_SPEC_ROWS: HyphaeSpecRow[] = [
   },
 ]
 
-const HYPHAE1_HERO_SOURCES = hyphaeHeroVideoSources(HYPHAE1_ASSETS.heroVideo)
+const HYPHAE1_HERO_SOURCES = assetMp4Sources(HYPHAE1_ASSETS.heroVideo)
 
 export function Hyphae1Details() {
   const [selectedVariant, setSelectedVariant] = useState(HYPHAE_VARIANTS[1])

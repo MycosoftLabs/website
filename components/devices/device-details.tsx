@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/neuromorphic"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 interface DeviceDetailsProps {
   device: Device
@@ -28,7 +28,7 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
 
   const deviceVideoSources = device.video
-    ? mergeWithNasFallbacks(assetMp4Sources(device.video))
+    ? assetMp4Sources(device.video)
     : []
 
   const { scrollYProgress } = useScroll({

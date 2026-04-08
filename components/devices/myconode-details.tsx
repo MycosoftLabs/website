@@ -24,7 +24,7 @@ import { ParticleFlow } from "@/components/ui/particle-flow"
 import type { LucideIcon } from "lucide-react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 // ============================================================================
 // MYCONODE MEDIA ASSETS
@@ -245,7 +245,7 @@ export function MycoNodeDetails() {
   const [selectedColor, setSelectedColor] = useState(0)
   const [hoveredSensor, setHoveredSensor] = useState<number | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
-  const myconodeHeroSources = mergeWithNasFallbacks(assetMp4Sources(MYCONODE_ASSETS.heroVideo))
+  const myconodeHeroSources = assetMp4Sources(MYCONODE_ASSETS.heroVideo)
   
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -529,7 +529,7 @@ export function MycoNodeDetails() {
               <div className="aspect-video rounded-2xl overflow-hidden border border-purple-500/20 bg-slate-900">
                 <AutoplayVideo
                   src={MYCONODE_ASSETS.deployVideo}
-                  sources={mergeWithNasFallbacks(assetMp4Sources(MYCONODE_ASSETS.deployVideo))}
+                  sources={assetMp4Sources(MYCONODE_ASSETS.deployVideo)}
                   className="w-full h-full object-cover"
                   preload="metadata"
                   encodeSrc
@@ -671,7 +671,7 @@ export function MycoNodeDetails() {
         <div className="absolute inset-0 z-0">
           <AutoplayVideo
             src={MYCONODE_ASSETS.myceliumVideo}
-            sources={mergeWithNasFallbacks(assetMp4Sources(MYCONODE_ASSETS.myceliumVideo))}
+            sources={assetMp4Sources(MYCONODE_ASSETS.myceliumVideo)}
             className="absolute inset-0 w-full h-full object-cover"
             preload="metadata"
             encodeSrc
