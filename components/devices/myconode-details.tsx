@@ -23,6 +23,8 @@ import { MyceliumNetwork } from "@/components/ui/mycelium-network"
 import { ParticleFlow } from "@/components/ui/particle-flow"
 import type { LucideIcon } from "lucide-react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 // ============================================================================
 // MYCONODE MEDIA ASSETS
@@ -243,7 +245,7 @@ export function MycoNodeDetails() {
   const [selectedColor, setSelectedColor] = useState(0)
   const [hoveredSensor, setHoveredSensor] = useState<number | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const myconodeHeroSources = assetMp4Sources(MYCONODE_ASSETS.heroVideo)
   
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -259,17 +261,12 @@ export function MycoNodeDetails() {
       <section ref={heroRef} className="myconode-hero relative min-h-dvh flex items-center justify-center overflow-hidden" data-over-video>
         {/* Video background */}
         <div className="absolute inset-0 z-0">
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
+          <AutoplayVideo
+            src={myconodeHeroSources[0]}
+            sources={myconodeHeroSources}
+            encodeSrc
             className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={encodeAssetUrl(MYCONODE_ASSETS.heroVideo)} type="video/mp4" />
-          </video>
+          />
           {/* Dark overlay for text readability */}
           <div className="myconode-hero-overlay absolute inset-0 bg-gradient-to-b from-white/70 via-white/60 to-white/70 dark:from-purple-950/70 dark:via-purple-950/50 dark:to-slate-950/90" />
         </div>
