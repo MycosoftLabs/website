@@ -93,6 +93,40 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return
+    if (typeof window === "undefined") return
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") return
+
+    function handleDevHardNavigation(event: MouseEvent) {
+      if (event.defaultPrevented) return
+      if (event.button !== 0) return
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+
+      const target = event.target as HTMLElement | null
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null
+      if (!anchor) return
+      if (anchor.target && anchor.target !== "_self") return
+      if (anchor.hasAttribute("download")) return
+
+      const rawHref = anchor.getAttribute("href")
+      if (!rawHref || rawHref.startsWith("#")) return
+      if (/^(mailto:|tel:|javascript:)/i.test(rawHref)) return
+
+      const url = new URL(anchor.href, window.location.href)
+      if (url.origin !== window.location.origin) return
+      if (url.href === window.location.href) return
+
+      // Localhost dev fallback: use full document navigation to avoid flaky
+      // client-side route transitions while hot reload / hydration is unstable.
+      event.preventDefault()
+      window.location.assign(url.toString())
+    }
+
+    document.addEventListener("click", handleDevHardNavigation, true)
+    return () => document.removeEventListener("click", handleDevHardNavigation, true)
+  }, [])
+
   const { enableMyca, enableVoice, showFloating, enableAppState, mycaAlwaysActive } = useMemo(() => {
     const lightPublic = isLightPublicRoute(pathname)
     const routeWantsMyca = startsWithAny(pathname, MYCA_PREFIXES)

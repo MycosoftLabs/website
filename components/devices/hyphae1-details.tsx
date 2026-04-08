@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { hyphaeHeroVideoSources, mergeVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -37,14 +37,16 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 //   npm run assets:sync-cursor-image -- -Preset hyphae-why
 //   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
-// Hyphae 1 Hero video: UniFi Drive share https://drop.ui.com/99dad083-8c81-47c3-8982-649f4555cf2c
-// → copy the file’s direct MP4 URL into NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL (.env.example).
+// Hero MP4 on NAS / repo: public/assets/hyphae1/hero.mp4 (must match filename on disk).
+// Optional: set NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL to an absolute MP4 URL instead.
 
 const HYPHAE1_ASSETS = {
-  // Product images by variant - replace when real photos are available
-  compact: "/assets/hyphae1/compact.jpg",
-  standard: "/assets/hyphae1/standard.jpg",
-  industrial: "/assets/hyphae1/industrial.jpg",
+  // Product stills used while the hero video is warming up.
+  // These must point at files that actually exist locally/NAS so the hero never flashes
+  // a broken-image icon before the MP4 starts playing.
+  compact: "/assets/hyphae1/why-outdoor-install.png",
+  standard: "/assets/hyphae1/hyphae1-lab-prototype.png",
+  industrial: "/assets/hyphae1/why-outdoor-install.png",
   // Generic fallback
   mainImage: "/images/hyphae1-card.svg",
   // Gallery images
@@ -53,8 +55,8 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background (NAS: Hyphae 1 Hero.mp4; hyphaeHeroVideoSources also tries hero.mp4)
-  heroVideo: "/assets/hyphae1/Hyphae 1 Hero.mp4",
+  // Hero background — same file as lib/devices.ts video slug (hero.mp4)
+  heroVideo: "/assets/hyphae1/hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
@@ -442,9 +444,9 @@ export function Hyphae1Details() {
   const heroRef = useRef<HTMLDivElement>(null)
 
   const heroVideoSources = useMemo(() => {
-    const chain = hyphaeHeroVideoSources(HYPHAE1_ASSETS.heroVideo)
     const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
-    return envUrl ? mergeVideoSources([envUrl], chain) : chain
+    if (envUrl) return [envUrl]
+    return assetMp4Sources(HYPHAE1_ASSETS.heroVideo)
   }, [])
 
   const { scrollYProgress } = useScroll({
@@ -459,21 +461,14 @@ export function Hyphae1Details() {
     <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
-        <Image
-          src={HYPHAE_VARIANT_HERO_STILL[selectedVariant.id] ?? HYPHAE1_ASSETS.industrial}
-          alt={`${selectedVariant.name} — product exterior`}
-          fill
-          className="absolute inset-0 z-0 h-full w-full object-cover pointer-events-none"
-          sizes="100vw"
-          priority
-        />
+        <div className="absolute inset-0 z-0 bg-slate-100 dark:bg-slate-900 pointer-events-none" />
         <AutoplayVideo
           sources={heroVideoSources}
           hideUntilPlaying
           encodeSrc
           className="absolute inset-0 z-[1] h-full w-full object-cover pointer-events-none"
         />
-        <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55" />
+        <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
 
         <motion.div 
           style={{ opacity: heroOpacity }}

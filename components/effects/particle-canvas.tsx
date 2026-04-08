@@ -132,7 +132,7 @@ export function ParticleCanvas({ className }: Props) {
   return (
     <canvas
       ref={canvasRef}
-      className={className}
+      className={[className, "pointer-events-none"].filter(Boolean).join(" ")}
       style={{ display: "block" }}
       aria-hidden="true"
     />

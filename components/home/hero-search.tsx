@@ -1,7 +1,9 @@
+"use client"
+
 /**
  * HeroSearch - Revolutionary Homepage Search Component
  * Created: February 5, 2026
- * 
+ *
  * Features:
  * - Glass morphism design with animated gradient borders
  * - Working voice search via PersonaPlex
@@ -9,8 +11,6 @@
  * - Smooth 60fps animations
  * - Session memory integration
  */
-
-"use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -22,7 +22,7 @@ import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { homeHeroVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import {
   Search,
   Mic,
@@ -34,8 +34,13 @@ import {
   Brain,
 } from "lucide-react"
 
-/** Env + filename candidates — see `homeHeroVideoSources` in lib/asset-video-sources.ts */
-const HOME_HERO_SOURCES = homeHeroVideoSources()
+/**
+ * Homepage hero video only. Keep this on the canonical homepage media path so the
+ * hero behaves like the rest of the site's background videos.
+ */
+const HOME_HERO_MP4 =
+  process.env.NEXT_PUBLIC_HOME_HERO_MP4?.trim() || "/assets/homepage/Mycosoft Background.mp4"
+const HOME_HERO_SOURCES = assetMp4Sources(HOME_HERO_MP4)
 
 export function HeroSearch() {
   const router = useRouter()
@@ -174,15 +179,16 @@ export function HeroSearch() {
     }
   }, [router])
 
-  // Click outside handler - just unfocus
+  // Click outside handler - use `click` instead of `mousedown` so first-click
+  // navigation on page links is not interrupted by an early state update.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsFocused(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
   }, [])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -230,8 +236,8 @@ export function HeroSearch() {
 
   return (
     <section className="relative min-h-[100dvh] pt-4 pb-8 sm:pt-6 sm:pb-12 md:pt-8 md:pb-24 px-3 sm:px-4 md:px-6 flex flex-col items-center justify-center gap-4 sm:gap-6 md:gap-8">
-      {/* Full-screen video — fixed to viewport so always covers entire screen on desktop, tablet, mobile */}
-      <div className="fixed inset-0 z-0 overflow-hidden">
+      {/* Full-screen video — pointer-events-none so header/footer/page links receive the first click (not blocked by this layer). */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <AutoplayVideo
           src={HOME_HERO_SOURCES[0]}
           sources={HOME_HERO_SOURCES}
@@ -239,12 +245,15 @@ export function HeroSearch() {
           style={{ filter: "brightness(0.95) saturate(1.05)" }}
           encodeSrc
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10" aria-hidden />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/10 via-background/5 to-background/10"
+          aria-hidden
+        />
       </div>
 
       <div 
         ref={containerRef}
-        className="w-full max-w-3xl relative z-10"
+        className="w-full max-w-3xl relative z-10 pointer-events-auto"
         onMouseMove={handleMouseMove}
       >
         {/* Hero Container with Glass Morphism — no video inside; sits on top of page video */}

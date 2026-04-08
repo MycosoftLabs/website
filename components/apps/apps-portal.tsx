@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { 
   PipetteIcon as PetriDish, 
   Microscope, 
@@ -369,7 +369,7 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
       <Link href={app.href}>
         <NeuCard className={`h-full ${theme.hoverBorder} transition-all group cursor-pointer relative overflow-hidden`}>
           {/* Subtle gradient overlay based on theme */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
+          <div className={`absolute inset-0 pointer-events-none bg-gradient-to-br ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity`} />
           
           <NeuCardContent className="relative z-10">
             <div className="flex items-start justify-between">
@@ -399,14 +399,14 @@ function AppCard({ app, index }: { app: AppWithTheme, index: number }) {
   )
 }
 
-const APPS_PORTAL_HERO_WALK_SOURCES = mergeWithNasFallbacks(
-  assetMp4Sources("/assets/mushroom1/mushroom 1 walking.mp4")
+const APPS_PORTAL_HERO_WALK_SOURCES = assetMp4Sources(
+  "/assets/mushroom1/mushroom 1 walking.mp4"
 )
-const APPS_FEATURED_MYCONODE_DEPLOY_SOURCES = mergeWithNasFallbacks(
-  assetMp4Sources("/assets/myconode/myconode deploy1.mp4")
+const APPS_FEATURED_MYCONODE_DEPLOY_SOURCES = assetMp4Sources(
+  "/assets/myconode/myconode deploy1.mp4"
 )
-const APPS_INTEGRATION_MYCONODE_MYCELIUM_SOURCES = mergeWithNasFallbacks(
-  assetMp4Sources("/assets/myconode/myconode mycelium.mp4")
+const APPS_INTEGRATION_MYCONODE_MYCELIUM_SOURCES = assetMp4Sources(
+  "/assets/myconode/myconode mycelium.mp4"
 )
 
 export function AppsPortal() {
@@ -427,11 +427,11 @@ export function AppsPortal() {
         />
         
         {/* Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/60 to-background" />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-background/40 via-background/60 to-background" />
         
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-5" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(to_right,#8884_1px,transparent_1px),linear-gradient(to_bottom,#8884_1px,transparent_1px)] bg-[size:32px_32px] opacity-5" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] pointer-events-none bg-primary/5 rounded-full blur-3xl" />
         
         <div className="container max-w-7xl mx-auto relative z-10 px-4">
           <motion.div 
@@ -587,8 +587,8 @@ export function AppsPortal() {
                   style={{ filter: "brightness(0.8)" }}
                   encodeSrc
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/80 to-transparent" />
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                   <div className="text-center">
                     <Eye className="h-16 w-16 text-primary/50 mx-auto mb-4" />
                     <p className="text-lg font-semibold">NatureOS Dashboard</p>
@@ -596,9 +596,9 @@ export function AppsPortal() {
                   </div>
                 </div>
                 {/* Simulated Dashboard Elements */}
-                <div className="absolute top-4 left-4 right-4 h-8 bg-background/50 backdrop-blur rounded-lg" />
-                <div className="absolute bottom-4 left-4 w-32 h-24 bg-background/50 backdrop-blur rounded-lg" />
-                <div className="absolute bottom-4 right-4 w-48 h-24 bg-background/50 backdrop-blur rounded-lg" />
+                <div className="absolute top-4 left-4 right-4 h-8 pointer-events-none bg-background/50 backdrop-blur rounded-lg" />
+                <div className="absolute bottom-4 left-4 w-32 h-24 pointer-events-none bg-background/50 backdrop-blur rounded-lg" />
+                <div className="absolute bottom-4 right-4 w-48 h-24 pointer-events-none bg-background/50 backdrop-blur rounded-lg" />
               </div>
             </div>
           </div>
@@ -614,7 +614,7 @@ export function AppsPortal() {
           className="absolute inset-0 w-full h-full object-cover opacity-10"
           encodeSrc
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-muted/90 to-muted/95" />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-muted/90 to-muted/95" />
         
         <div className="container max-w-7xl mx-auto px-4 relative z-10">
           <div className="text-center mb-16">

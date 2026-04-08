@@ -354,7 +354,8 @@ export function Header() {
     setMounted(true)
   }, [])
   
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside. Use `click` instead of `mousedown`
+  // so page navigation is not pre-empted on the first press.
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
@@ -362,8 +363,8 @@ export function Header() {
       }
     }
     
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("click", handleClickOutside)
+    return () => document.removeEventListener("click", handleClickOutside)
   }, [])
 
   const handleSignOut = async () => {

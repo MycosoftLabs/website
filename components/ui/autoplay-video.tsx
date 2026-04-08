@@ -25,18 +25,18 @@ function shouldProbeEmptyMp4(url: string): boolean {
 }
 
 /**
- * Dev: `/assets/*` has no NAS on localhost unless you copy files into `public/assets`.
- * - Unset `NEXT_PUBLIC_DEV_ASSETS_ORIGIN` → prefix `https://mycosoft.com` (matches prod assets).
- * - `NEXT_PUBLIC_DEV_ASSETS_ORIGIN=local` (or `same`) → keep same-origin for real local files.
- * - Any other value → that origin (e.g. sandbox).
+ * Dev asset resolution:
+ * - Prefer same-origin first so locally copied `public/assets/*` files work.
+ * - Keep prod/sandbox origin as a fallback for assets that only exist remotely.
+ * - `NEXT_PUBLIC_DEV_ASSETS_ORIGIN=local|same` forces same-origin only.
  */
-function resolveAssetUrl(src: string, isDev: boolean): string {
-  if (typeof src !== "string" || !src) return ""
-  if (!isDev || !src.startsWith("/assets/")) return src
+function resolveAssetUrls(src: string, isDev: boolean): string[] {
+  if (typeof src !== "string" || !src) return []
+  if (!isDev || !src.startsWith("/assets/")) return [src]
   const raw = process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN?.trim().toLowerCase()
-  if (raw === "local" || raw === "same") return src
+  if (raw === "local" || raw === "same") return [src]
   const origin = (process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN || "https://mycosoft.com").replace(/\/$/, "")
-  return `${origin}${src}`
+  return [src, `${origin}${src}`]
 }
 
 function normalizeSources(
@@ -54,13 +54,15 @@ function normalizeSources(
   const out: string[] = []
   for (const u of raw) {
     if (typeof u !== "string") continue
-    const resolved = resolveAssetUrl(u, isDev)
-    if (!resolved) continue
-    const safe = encodeSrc ? encodeAssetUrl(resolved) : resolved
-    if (typeof safe !== "string" || !safe) continue
-    if (!seen.has(safe)) {
-      seen.add(safe)
-      out.push(safe)
+    const resolvedCandidates = resolveAssetUrls(u, isDev)
+    for (const resolved of resolvedCandidates) {
+      if (!resolved) continue
+      const safe = encodeSrc ? encodeAssetUrl(resolved) : resolved
+      if (typeof safe !== "string" || !safe) continue
+      if (!seen.has(safe)) {
+        seen.add(safe)
+        out.push(safe)
+      }
     }
   }
   return out
@@ -84,6 +86,12 @@ interface AutoplayVideoProps {
   hideUntilPlaying?: boolean
   /** Video preload strategy. "auto" for hero videos (faster start), "metadata" for below-fold. Default "auto" */
   preload?: "auto" | "metadata" | "none"
+  /**
+   * When true (default), the video does not receive pointer events so full-bleed heroes
+   * do not sit above the footer/header stack and eat the first tap/click.
+   * Parent `pointer-events-none` alone does NOT disable hits on child video elements.
+   */
+  pointerEventsNone?: boolean
 }
 
 export function AutoplayVideo({
@@ -95,6 +103,7 @@ export function AutoplayVideo({
   stallTimeoutMs = 12000,
   hideUntilPlaying = false,
   preload = "auto",
+  pointerEventsNone = true,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const isDev = process.env.NODE_ENV === "development"
@@ -227,6 +236,7 @@ export function AutoplayVideo({
 
   const visibilityClass =
     hideUntilPlaying && !playing ? "opacity-0" : hideUntilPlaying ? "opacity-100 transition-opacity duration-500" : ""
+  const pointerClass = pointerEventsNone ? "pointer-events-none" : ""
 
   return (
     <video
@@ -237,7 +247,7 @@ export function AutoplayVideo({
       loop
       playsInline
       preload={preload}
-      className={[className, visibilityClass].filter(Boolean).join(" ")}
+      className={[className, visibilityClass, pointerClass].filter(Boolean).join(" ")}
       style={style}
     >
       <source src={activeSrc} type="video/mp4" />
