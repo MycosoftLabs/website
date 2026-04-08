@@ -16,7 +16,7 @@ import { SporeGravity } from "@/components/effects/particle-gravity"
 import { SporeWave } from "@/components/effects/particle-wave"
 import { SporeParticleCanvas } from "@/components/devices/spore-particle-canvas"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { 
   ShoppingCart, Download, Share2, Play, Pause, ChevronLeft, ChevronRight,
   Wind, Droplets, Network, Shield, Zap, Sun, Eye, Thermometer,
@@ -49,7 +49,7 @@ const SPOREBASE_ASSETS = {
   heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
 
-const SPOREBASE_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SPOREBASE_ASSETS.heroVideo))
+const SPOREBASE_HERO_SOURCES = assetMp4Sources(SPOREBASE_ASSETS.heroVideo)
 
 // Device Components - UPDATED with accurate specifications (see docs/SPOREBASE_TECHNICAL_SPECIFICATION.md)
 interface DeviceComponent {

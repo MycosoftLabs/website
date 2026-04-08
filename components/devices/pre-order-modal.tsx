@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, ShoppingCart, Package, Check, Calendar, Zap, Network, Database } from "lucide-react"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 interface PreOrderModalProps {
   isOpen: boolean
@@ -54,13 +56,11 @@ export function PreOrderModal({ isOpen, onClose }: PreOrderModalProps) {
               <div>
                 <h3 className="text-2xl font-bold text-white mb-4 text-center">Device Overview</h3>
                 <div className="w-full rounded-xl overflow-hidden border border-emerald-500/20 bg-slate-900">
-                  <video
-                    src={encodeAssetUrl("/assets/mushroom1/close 1.mp4")}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
+                  <AutoplayVideo
+                    src="/assets/mushroom1/close 1.mp4"
+                    sources={assetMp4Sources("/assets/mushroom1/close 1.mp4")}
                     className="w-full h-auto"
+                    encodeSrc
                   />
                 </div>
               </div>

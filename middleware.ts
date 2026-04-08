@@ -17,17 +17,20 @@ export async function middleware(request: NextRequest) {
       ? NextResponse.redirect(new URL("/myca", request.url), 302)
       : NextResponse.next({ request })
 
+  // Fast path: skip Supabase getUser() entirely for public pages that don't
+  // need auth. This eliminates a network round-trip on every navigation to
+  // /, /about, /devices/*, etc. and fixes the "page won't load until clicked" lag.
+  const needsAuth = pathRequiresAuth(pathname) || pathRequiresCompanyEmail(pathname)
+  if (!needsAuth) return response
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (pathRequiresAuth(pathname) || pathRequiresCompanyEmail(pathname)) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      url.searchParams.set('error', 'config_missing')
-      return NextResponse.redirect(url)
-    }
-    return response // Public pages can load normally even if DB is down
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('error', 'config_missing')
+    return NextResponse.redirect(url)
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -42,7 +45,7 @@ export async function middleware(request: NextRequest) {
       },
     },
   })
-  
+
   const { data: { user } } = await supabase.auth.getUser()
 
   // Auth gate: any route that requires auth (canonical route map)

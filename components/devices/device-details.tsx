@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,6 +15,8 @@ import {
   NeuromorphicProvider,
 } from "@/components/ui/neuromorphic"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 
 interface DeviceDetailsProps {
   device: Device
@@ -22,9 +24,12 @@ interface DeviceDetailsProps {
 
 export function DeviceDetails({ device }: DeviceDetailsProps) {
   const videoSectionRef = useRef<HTMLDivElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
   const [videoError, setVideoError] = useState(false)
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+
+  const deviceVideoSources = device.video
+    ? assetMp4Sources(device.video)
+    : []
 
   const { scrollYProgress } = useScroll({
     target: videoSectionRef,
@@ -40,17 +45,6 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
       [id]: true,
     }))
   }
-
-  // Mobile/tablet: programmatic play() for reliable autoplay
-  useEffect(() => {
-    const v = videoRef.current
-    if (v && device.video) {
-      v.play().catch(() => {})
-      const handler = () => v.play().catch(() => {})
-      document.addEventListener("touchstart", handler, { once: true })
-      return () => document.removeEventListener("touchstart", handler)
-    }
-  }, [device.video])
 
   return (
     <NeuromorphicProvider>
@@ -110,20 +104,14 @@ export function DeviceDetails({ device }: DeviceDetailsProps) {
 
       {/* Video Section — data-over-video for theme-aware text over dark video */}
       <section ref={videoSectionRef} className="relative min-h-[80vh] w-full overflow-hidden mt-12" data-over-video>
-        {!videoError ? (
+        {!videoError && deviceVideoSources.length > 0 ? (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
+            <AutoplayVideo
+              src={deviceVideoSources[0]}
+              sources={deviceVideoSources}
               className="absolute inset-0 w-full h-full object-cover"
-              onError={() => setVideoError(true)}
-            >
-              <source src={device.video ? encodeAssetUrl(device.video) : ""} type="video/mp4" />
-            </video>
+              encodeSrc
+            />
             <div className="absolute inset-0 bg-black/50" />
           </>
         ) : (

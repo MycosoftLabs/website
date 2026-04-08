@@ -527,16 +527,13 @@ export function MycoNodeDetails() {
             {/* Right: Deployment Video */}
             <div className="relative">
               <div className="aspect-video rounded-2xl overflow-hidden border border-purple-500/20 bg-slate-900">
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
+                <AutoplayVideo
+                  src={MYCONODE_ASSETS.deployVideo}
+                  sources={assetMp4Sources(MYCONODE_ASSETS.deployVideo)}
                   className="w-full h-full object-cover"
-                  poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
-                >
-                  <source src={encodeAssetUrl(MYCONODE_ASSETS.deployVideo)} type="video/mp4" />
-                </video>
+                  preload="metadata"
+                  encodeSrc
+                />
               </div>
               <div className="absolute -bottom-4 -left-4 p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-xl rounded-2xl border border-emerald-500/30">
                 <MapPin className="h-6 w-6 text-emerald-400" />
@@ -672,16 +669,13 @@ export function MycoNodeDetails() {
       <section className="relative py-24 overflow-hidden">
         {/* Video background */}
         <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
+          <AutoplayVideo
+            src={MYCONODE_ASSETS.myceliumVideo}
+            sources={assetMp4Sources(MYCONODE_ASSETS.myceliumVideo)}
             className="absolute inset-0 w-full h-full object-cover"
-            poster={encodeAssetUrl(MYCONODE_ASSETS.mainImage)}
-          >
-            <source src={encodeAssetUrl(MYCONODE_ASSETS.myceliumVideo)} type="video/mp4" />
-          </video>
+            preload="metadata"
+            encodeSrc
+          />
           {/* Dark overlay for content readability */}
           <div className="myconode-apps-overlay absolute inset-0 bg-white/70 dark:bg-gradient-to-b dark:from-purple-950/85 dark:via-slate-950/80 dark:to-slate-950/90" />
         </div>

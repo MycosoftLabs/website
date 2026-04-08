@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
@@ -21,6 +21,8 @@ import {
   Radar, ScanSearch, Antenna,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -48,8 +50,8 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\hero.mp4)
-  heroVideo: "/assets/hyphae1/hero.mp4",
+  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\Hyphae 1 Hero.mp4)
+  heroVideo: "/assets/hyphae1/Hyphae 1 Hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
@@ -380,34 +382,20 @@ const HYPHAE_SYSTEM_SPEC_ROWS: HyphaeSpecRow[] = [
   },
 ]
 
+const HYPHAE1_HERO_SOURCES = assetMp4Sources(HYPHAE1_ASSETS.heroVideo)
+
 export function Hyphae1Details() {
   const [selectedVariant, setSelectedVariant] = useState(HYPHAE_VARIANTS[1])
   const [selectedComponent, setSelectedComponent] = useState("housing")
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
-  const heroVideoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    const el = heroVideoRef.current
-    if (!el) return
-    const kick = () => {
-      el.muted = true
-      el.play().catch(() => {})
-    }
-    kick()
-    const onVis = () => {
-      if (document.visibilityState === "visible") kick()
-    }
-    document.addEventListener("visibilitychange", onVis)
-    return () => document.removeEventListener("visibilitychange", onVis)
-  }, [])
-  
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"]
   })
-  
+
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
   return (
@@ -415,16 +403,11 @@ export function Hyphae1Details() {
     <div className="relative min-h-dvh w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
-        <video
-          ref={heroVideoRef}
+        <AutoplayVideo
+          src={HYPHAE1_HERO_SOURCES[0]}
+          sources={HYPHAE1_HERO_SOURCES}
           className="absolute inset-0 z-0 h-full w-full object-cover pointer-events-none"
-          src={HYPHAE1_ASSETS.heroVideo}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-hidden
+          encodeSrc
         />
         <div className="absolute inset-0 z-[1] bg-slate-900/45 dark:bg-slate-950/55" />
 
