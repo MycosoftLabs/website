@@ -50,8 +50,8 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\hero.mp4)
-  heroVideo: "/assets/hyphae1/hero.mp4",
+  // Hero background (NAS: \\192.168.0.105\mycosoft.com\website\assets\hyphae1\Hyphae 1 Hero.mp4)
+  heroVideo: "/assets/hyphae1/Hyphae 1 Hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
