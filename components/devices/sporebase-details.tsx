@@ -45,8 +45,8 @@ const SPOREBASE_ASSETS = {
   ],
   // Primary product image
   mainImage: "/assets/sporebase/sporebase%20main.jpg",
-  // Hero video (add when available)
-  heroVideo: "/assets/sporebase/Sporebase1publish.mp4",
+  // Hero — NAS filename is lowercase (Sporebase1publish.mp4 404s on CDN)
+  heroVideo: "/assets/sporebase/sporebase1publish.mp4",
 }
 
 const SPOREBASE_HERO_SOURCES = mergeWithNasFallbacks(assetMp4Sources(SPOREBASE_ASSETS.heroVideo))
