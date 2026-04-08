@@ -82,6 +82,8 @@ interface AutoplayVideoProps {
    * When every source fails, the component unmounts (`return null`).
    */
   hideUntilPlaying?: boolean
+  /** Video preload strategy. "auto" for hero videos (faster start), "metadata" for below-fold. Default "auto" */
+  preload?: "auto" | "metadata" | "none"
 }
 
 export function AutoplayVideo({
@@ -90,8 +92,9 @@ export function AutoplayVideo({
   className = "",
   style,
   encodeSrc = true,
-  stallTimeoutMs = 14000,
+  stallTimeoutMs = 12000,
   hideUntilPlaying = false,
+  preload = "auto",
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const isDev = process.env.NODE_ENV === "development"
@@ -112,25 +115,36 @@ export function AutoplayVideo({
     setAllFailed(false)
   }, [list.join("|")])
 
-  // Skip zero-byte MP4s immediately (origin often returns 200 + CL:0 for empty NAS files).
+  // Skip zero-byte MP4s (origin often returns 200 + CL:0 for empty NAS files).
+  // Runs in parallel with video load — does NOT block playback. If the probe
+  // detects CL:0 before the video element loads, we advance immediately.
   useEffect(() => {
     if (!activeSrc || !shouldProbeEmptyMp4(activeSrc)) return
     let cancelled = false
+    const ctrl = new AbortController()
     ;(async () => {
       try {
-        const r = await fetch(activeSrc, { method: "HEAD", cache: "no-store" })
-        const cl = r.headers.get("content-length")
-        if (cancelled || !r.ok || cl !== "0") return
-        setIndex((i) => {
-          const L = listRef.current
-          return i + 1 < L.length ? i + 1 : i
+        const r = await fetch(activeSrc, {
+          method: "HEAD",
+          cache: "no-store",
+          signal: ctrl.signal,
         })
+        const cl = r.headers.get("content-length")
+        if (cancelled) return
+        // Advance on zero-byte or 404/5xx
+        if (!r.ok || cl === "0") {
+          setIndex((i) => {
+            const L = listRef.current
+            return i + 1 < L.length ? i + 1 : i
+          })
+        }
       } catch {
         /* ignore — fall through to normal video load */
       }
     })()
     return () => {
       cancelled = true
+      ctrl.abort()
     }
   }, [activeSrc])
 
@@ -222,7 +236,7 @@ export function AutoplayVideo({
       muted
       loop
       playsInline
-      preload="metadata"
+      preload={preload}
       className={[className, visibilityClass].filter(Boolean).join(" ")}
       style={style}
     >

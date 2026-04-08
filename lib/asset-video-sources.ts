@@ -31,7 +31,7 @@ export function mergeVideoSources(...groups: (string[] | undefined)[]): string[]
   return out
 }
 
-/** One canonical path → [path, path-web] merged with other paths in order. */
+/** One canonical path → [path-web, path] merged with other paths in order. */
 export function mergeMp4SourceGroups(...canonicalPaths: string[]): string[] {
   if (!canonicalPaths.length) return []
   return mergeVideoSources(...canonicalPaths.map((p) => assetMp4Sources(p)))

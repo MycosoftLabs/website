@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources, mergeVideoSources } from "@/lib/asset-video-sources"
+import { assetMp4Sources } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
 import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
@@ -260,11 +260,7 @@ export function Mushroom1Details() {
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
   const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
-  const heroSources = mergeVideoSources(
-    assetMp4Sources(heroVideoSrc),
-    assetMp4Sources(isMobile ? MUSHROOM1_ASSETS.videos.background : MUSHROOM1_ASSETS.videos.waterfall),
-    assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)
-  )
+  const heroSources = assetMp4Sources(heroVideoSrc)
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -463,16 +459,13 @@ export function Mushroom1Details() {
               className="relative"
             >
               <div className="relative aspect-square rounded-2xl overflow-hidden border border-emerald-500/20">
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
+                <AutoplayVideo
+                  src={MUSHROOM1_ASSETS.videos.waterfall}
+                  sources={assetMp4Sources(MUSHROOM1_ASSETS.videos.waterfall)}
                   className="absolute inset-0 w-full h-full object-cover object-center"
-                >
-                  <source src={encodeAssetUrl(MUSHROOM1_ASSETS.videos.waterfall)} type="video/mp4" />
-                </video>
+                  preload="metadata"
+                  encodeSrc
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               </div>
               {/* Floating feature badges */}
@@ -738,17 +731,14 @@ export function Mushroom1Details() {
               transition={{ duration: 0.5 }}
               className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/10"
             >
-              <video
+              <AutoplayVideo
                 key={USE_CASES[activeUseCase].video}
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
+                src={USE_CASES[activeUseCase].video}
+                sources={assetMp4Sources(USE_CASES[activeUseCase].video)}
                 className="absolute inset-0 w-full h-full object-cover"
-              >
-                <source src={encodeAssetUrl(USE_CASES[activeUseCase].video)} type="video/mp4" />
-              </video>
+                preload="metadata"
+                encodeSrc
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
                 <h3 className="text-2xl font-bold">{USE_CASES[activeUseCase].title}</h3>
@@ -1189,17 +1179,14 @@ export function Mushroom1Details() {
       <section className="relative py-40 md:py-56 min-h-[800px] md:min-h-[900px] overflow-hidden">
         {/* Background Video */}
         <div className="absolute inset-0">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
+          <AutoplayVideo
+            src={MUSHROOM1_ASSETS.videos.walking}
+            sources={assetMp4Sources(MUSHROOM1_ASSETS.videos.walking)}
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center 70%' }}
-          >
-            <source src={encodeAssetUrl(MUSHROOM1_ASSETS.videos.walking)} type="video/mp4" />
-          </video>
+            preload="metadata"
+            encodeSrc
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/20" />
         </div>
         

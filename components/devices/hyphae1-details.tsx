@@ -21,11 +21,11 @@ import {
   Radar, ScanSearch, Antenna,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { AutoplayVideo } from "@/components/ui/autoplay-video"
+import { hyphaeHeroVideoSources, mergeVideoSources } from "@/lib/asset-video-sources"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
-import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { hyphaeHeroVideoSources, mergeVideoSources } from "@/lib/asset-video-sources"
 
 // ============================================================================
 // HYPHAE 1 MEDIA ASSETS
@@ -53,8 +53,8 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background — NAS: \\…\website\assets\hyphae1\hero.mp4 (alt: Hyphae 1 Hero.mp4)
-  heroVideo: "/assets/hyphae1/hero.mp4",
+  // Hero background (NAS: Hyphae 1 Hero.mp4; hyphaeHeroVideoSources also tries hero.mp4)
+  heroVideo: "/assets/hyphae1/Hyphae 1 Hero.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
@@ -446,12 +446,12 @@ export function Hyphae1Details() {
     const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
     return envUrl ? mergeVideoSources([envUrl], chain) : chain
   }, [])
-  
+
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"]
   })
-  
+
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
 
   return (
@@ -470,6 +470,7 @@ export function Hyphae1Details() {
         <AutoplayVideo
           sources={heroVideoSources}
           hideUntilPlaying
+          encodeSrc
           className="absolute inset-0 z-[1] h-full w-full object-cover pointer-events-none"
         />
         <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55" />
