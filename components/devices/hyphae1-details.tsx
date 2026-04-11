@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useMemo } from "react"
+import { useState, useRef, useMemo, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import {
@@ -22,7 +22,8 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
+import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -441,12 +442,29 @@ export function Hyphae1Details() {
   const [selectedComponent, setSelectedComponent] = useState("housing")
   const [hoveredComponent, setHoveredComponent] = useState<string | null>(null)
   const [selectedCase, setSelectedCase] = useState(0)
+  const [heroVideoFailed, setHeroVideoFailed] = useState(false)
+  const [currentSlide, setCurrentSlide] = useState(0)
   const heroRef = useRef<HTMLDivElement>(null)
+  const galleryImages = HYPHAE1_ASSETS.gallery
+
+  const nextSlide = useCallback(
+    () => setCurrentSlide((prev) => (prev + 1) % galleryImages.length),
+    [galleryImages.length]
+  )
+  const prevSlide = useCallback(
+    () => setCurrentSlide((prev) => (prev - 1 + galleryImages.length) % galleryImages.length),
+    [galleryImages.length]
+  )
+
+  useEffect(() => {
+    const interval = setInterval(nextSlide, 6000)
+    return () => clearInterval(interval)
+  }, [nextSlide])
 
   const heroVideoSources = useMemo(() => {
     const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
     if (envUrl) return [envUrl]
-    return assetMp4Sources(HYPHAE1_ASSETS.heroVideo)
+    return hyphaeHeroVideoSources(HYPHAE1_ASSETS.heroVideo)
   }, [])
 
   const { scrollYProgress } = useScroll({
@@ -462,13 +480,30 @@ export function Hyphae1Details() {
       {/* Hero Section - Clean White Industrial */}
       <section ref={heroRef} className="relative min-h-dvh flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 bg-slate-100 dark:bg-slate-900 pointer-events-none" />
+
+        {/* Poster fallback — visible immediately, covered by video once it plays */}
+        <div
+          className={`absolute inset-0 z-[1] pointer-events-none transition-opacity duration-700 ${heroVideoFailed ? "opacity-100" : "opacity-100"}`}
+        >
+          <Image
+            src={HYPHAE1_ASSETS.mainImage}
+            alt=""
+            fill
+            priority
+            className="object-contain opacity-10 dark:opacity-[0.07]"
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
+        </div>
+
         <AutoplayVideo
           sources={heroVideoSources}
           hideUntilPlaying
           encodeSrc
-          className="absolute inset-0 z-[1] h-full w-full object-cover pointer-events-none"
+          onAllFailed={() => setHeroVideoFailed(true)}
+          className="absolute inset-0 z-[2] h-full w-full object-cover pointer-events-none"
         />
-        <div className="absolute inset-0 z-[2] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
+        <div className="absolute inset-0 z-[3] bg-slate-900/45 dark:bg-slate-950/55 pointer-events-none" />
 
         <motion.div 
           style={{ opacity: heroOpacity }}
@@ -730,6 +765,89 @@ export function Hyphae1Details() {
                 Field form factor, lab proven—integrated antennas and sensor apertures on a single
                 exterior-grade chassis.
               </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Photo Gallery Carousel */}
+      <section className="hyphae1-gallery py-24 bg-slate-50 dark:bg-slate-950">
+        <div className="max-w-7xl mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <NeuBadge variant="default" className="mb-4 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-600">
+              Gallery
+            </NeuBadge>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-slate-100">
+              In the <span className="text-slate-600 dark:text-slate-400">Field</span>
+            </h2>
+          </motion.div>
+
+          <div className="relative">
+            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSlide}
+                  initial={{ opacity: 0, scale: 1.05 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0"
+                >
+                  <HyphaeFillImage
+                    src={encodeAssetUrl(galleryImages[currentSlide].src)}
+                    alt={galleryImages[currentSlide].alt}
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 1280px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-6 left-6">
+                    <NeuBadge variant="default" className="bg-black/50 backdrop-blur-sm border-white/20 mb-2 text-white">
+                      <MapPin className="h-3 w-3 mr-1" />
+                      {galleryImages[currentSlide].location}
+                    </NeuBadge>
+                    <p className="text-white/80 text-sm sm:text-base">{galleryImages[currentSlide].alt}</p>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              <button
+                onClick={prevSlide}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-slate-700/80 hover:bg-slate-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-slate-700/80 hover:bg-slate-600/90 backdrop-blur-sm rounded-full p-3 transition-all text-white"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="flex gap-2 mt-4 justify-center">
+              {galleryImages.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentSlide(i)}
+                  className={`relative w-20 h-14 rounded-lg overflow-hidden border transition-all ${
+                    currentSlide === i
+                      ? "ring-2 ring-slate-900 dark:ring-slate-300 scale-105 border-slate-300 dark:border-slate-500"
+                      : "opacity-50 hover:opacity-80 border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <HyphaeFillImage
+                    src={encodeAssetUrl(img.src)}
+                    alt={img.alt}
+                    className="object-cover"
+                    sizes="80px"
+                  />
+                </button>
+              ))}
             </div>
           </div>
         </div>

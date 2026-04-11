@@ -92,6 +92,8 @@ interface AutoplayVideoProps {
    * Parent `pointer-events-none` alone does NOT disable hits on child video elements.
    */
   pointerEventsNone?: boolean
+  /** Fired once when every source has been exhausted. Lets the parent show a poster fallback. */
+  onAllFailed?: () => void
 }
 
 export function AutoplayVideo({
@@ -104,6 +106,7 @@ export function AutoplayVideo({
   hideUntilPlaying = false,
   preload = "auto",
   pointerEventsNone = true,
+  onAllFailed,
 }: AutoplayVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const isDev = process.env.NODE_ENV === "development"
@@ -123,6 +126,10 @@ export function AutoplayVideo({
     setPlaying(false)
     setAllFailed(false)
   }, [list.join("|")])
+
+  useEffect(() => {
+    if (allFailed && onAllFailed) onAllFailed()
+  }, [allFailed, onAllFailed])
 
   // Skip zero-byte MP4s (origin often returns 200 + CL:0 for empty NAS files).
   // Runs in parallel with video load — does NOT block playback. If the probe
@@ -205,6 +212,7 @@ export function AutoplayVideo({
     const onLoadedMetadata = () => {
       const dur = v.duration
       if (!Number.isFinite(dur) || dur <= 0) {
+        const L = listRef.current
         setIndex((i) => {
           if (i + 1 < L.length) return i + 1
           if (hideUntilPlaying) setAllFailed(true)
