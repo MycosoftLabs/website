@@ -22,7 +22,6 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { hyphaeHeroVideoSources } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
@@ -38,7 +37,7 @@ import { ProductShowcaseDots } from "@/components/effects/connected-dots"
 //   npm run assets:sync-cursor-image -- -Preset hyphae-why
 //   (scripts/sync-cursor-chat-image-to-public.ps1 -ListPresets for all presets)
 // ============================================================================
-// Hero MP4 on NAS / repo: public/assets/hyphae1/hero.mp4 (must match filename on disk).
+// Hero MP4 on NAS / repo: public/assets/hyphae1/Hyphae Hero 1.mp4 (must match filename on disk).
 // Optional: set NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL to an absolute MP4 URL instead.
 
 const HYPHAE1_ASSETS = {
@@ -56,8 +55,8 @@ const HYPHAE1_ASSETS = {
     { src: "/assets/hyphae1/gallery-2.jpg", alt: "Hyphae 1 Standard", location: "DIN Rail" },
     { src: "/assets/hyphae1/gallery-3.jpg", alt: "Hyphae 1 Industrial", location: "Field Deploy" },
   ],
-  // Hero background — same file as lib/devices.ts video slug (hero.mp4)
-  heroVideo: "/assets/hyphae1/hero.mp4",
+  // Hero background — exact filename on NAS/disk (no fallbacks)
+  heroVideo: "/assets/hyphae1/Hyphae Hero 1.mp4",
   // Why Hyphae 1 — outdoor product photo (add file: public/assets/hyphae1/why-outdoor-install.png)
   whyOutdoorInstall: "/assets/hyphae1/why-outdoor-install.png",
   /** Lab / workshop photo — prototype on bench (public/assets/hyphae1/hyphae1-lab-prototype.png) */
@@ -464,7 +463,7 @@ export function Hyphae1Details() {
   const heroVideoSources = useMemo(() => {
     const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
     if (envUrl) return [envUrl]
-    return hyphaeHeroVideoSources(HYPHAE1_ASSETS.heroVideo)
+    return [HYPHAE1_ASSETS.heroVideo]
   }, [])
 
   const { scrollYProgress } = useScroll({
