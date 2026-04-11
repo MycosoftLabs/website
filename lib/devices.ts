@@ -183,7 +183,7 @@ export const DEVICES: Device[] = [
     price: 0,
     status: "In Stock",
     image: "/assets/hyphae1/standard.jpg",
-    video: "/assets/hyphae1/Hyphae Hero 1.mp4",
+    video: "/assets/hyphae1/Hyphae 1 Hero.mp4",
     videoTitle: "Industrial Standard",
     videoDescription: "Modular I/O platform designed for decades of reliable operation.",
     features: [

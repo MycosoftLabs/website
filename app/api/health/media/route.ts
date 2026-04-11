@@ -45,7 +45,7 @@ const ASSET_CHECKS: AssetCheck[] = [
     tier: "warning",
   },
   {
-    path: path.join("hyphae1", "Hyphae Hero 1.mp4"),
+    path: path.join("hyphae1", "Hyphae 1 Hero.mp4"),
     minBytes: 1024,
     tier: "warning",
   },

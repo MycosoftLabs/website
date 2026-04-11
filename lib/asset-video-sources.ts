@@ -86,7 +86,7 @@ export function hyphaeHeroVideoSources(defaultCanonical: string): string[] {
   }
   if (env) add(env)
   add(defaultCanonical)
-  add("/assets/hyphae1/Hyphae Hero 1.mp4")
+  add("/assets/hyphae1/Hyphae 1 Hero.mp4")
   const primary = mergeMp4SourceGroups(...paths)
   if (process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
     return primary
