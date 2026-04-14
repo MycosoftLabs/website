@@ -1794,10 +1794,12 @@ export default function CREPDashboardPage() {
   //
   // This matches OpenGridWorks visual hierarchy exactly.
   // ═══════════════════════════════════════════════════════════════════════════
+  // Infrastructure layers — STABLE, no zoom-dependent re-renders.
+  // Data is loaded ONCE and cached. Layers don't change on pan/zoom
+  // which eliminates the globe flickering issue.
   const infraDeckLayers = useMemo(() => {
     if (!showInfraLayers) return [];
     const layers: any[] = [];
-    const z = mapZoom;
 
     // ── Layer 1: Submarine cables (visible at ALL zoom levels) ──────────
     // Thick colored lines across oceans — like submarinecablemap.com
@@ -1821,7 +1823,7 @@ export default function CREPDashboardPage() {
             const hash = d.name?.charCodeAt(0) || 0;
             return colors[hash % colors.length];
           },
-          getWidth: z >= 6 ? 4 : z >= 3 ? 3 : 2,
+          getWidth: 3,
           widthUnits: "pixels",
           widthMinPixels: 1.5,
           widthMaxPixels: 8,
@@ -1843,7 +1845,7 @@ export default function CREPDashboardPage() {
 
     // ── Layer 2: Transmission lines (visible zoom 4+) ─────────────────
     // OpenGridWorks-style voltage-colored lines forming the power grid
-    if (infraTransmissionLines.length > 0 && z >= 4) {
+    if (infraTransmissionLines.length > 0) {
       layers.push(
         new InfraPathLayer({
           id: "crep-transmission-lines",
@@ -1862,9 +1864,9 @@ export default function CREPDashboardPage() {
           },
           getWidth: (d: any) => {
             const kv = d.voltage_kv || 0;
-            if (kv >= 500) return z >= 7 ? 4 : 3;
-            if (kv >= 230) return z >= 7 ? 3 : 2;
-            return z >= 7 ? 2 : 1.5;
+            if (kv >= 500) return 3;
+            if (kv >= 230) return 2.5;
+            return 1.5;
           },
           widthUnits: "pixels",
           widthMinPixels: 1,
@@ -1888,7 +1890,7 @@ export default function CREPDashboardPage() {
 
     // ── Layer 3: Power plant bubbles (visible zoom 3+) ──────────────────
     // Large colored circles sized by MW capacity — THE main OpenGridWorks feature
-    if (powerPlants.length > 0 && z >= 3) {
+    if (powerPlants.length > 0) {
       layers.push(
         new InfraScatterplotLayer({
           id: "crep-power-plants",
@@ -1947,13 +1949,13 @@ export default function CREPDashboardPage() {
 
     // ── Layer 3: Substations (visible zoom 5+) ──────────────────────────
     // Small dots colored by voltage class — OpenGridWorks shows these at medium zoom
-    if (infraSubstations.length > 0 && z >= 5) {
+    if (infraSubstations.length > 0) {
       layers.push(
         new InfraScatterplotLayer({
           id: "crep-substations",
           data: infraSubstations,
           getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: z >= 8 ? 5 : 3,
+          getRadius: 4,
           radiusUnits: "pixels",
           radiusMinPixels: 2,
           radiusMaxPixels: 10,
@@ -1975,7 +1977,7 @@ export default function CREPDashboardPage() {
     }
 
     return layers;
-  }, [powerPlants, infraCableRoutes, infraSubstations, showInfraLayers, mapZoom, bubbleScale, selectedPlant]);
+  }, [powerPlants, infraCableRoutes, infraSubstations, infraTransmissionLines, showInfraLayers, bubbleScale, selectedPlant]);
 
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -4380,40 +4382,48 @@ export default function CREPDashboardPage() {
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
 
-              // Fetch infrastructure from MINDEX on map load + viewport changes
-              // Fetch ALL infrastructure from MINDEX on viewport change
-              let infraFetchTimer: ReturnType<typeof setTimeout> | null = null;
-              const fetchInfraFromMap = () => {
-                // Debounce — don't fetch on every tiny pan
-                if (infraFetchTimer) clearTimeout(infraFetchTimer);
-                infraFetchTimer = setTimeout(() => {
-                  const center = map.getCenter();
-                  const z = map.getZoom();
-                  const span = 180 / Math.pow(2, z);
-                  const bounds = {
-                    north: Math.min(90, center.lat + span),
-                    south: Math.max(-90, center.lat - span),
-                    east: Math.min(180, center.lng + span * 1.5),
-                    west: Math.max(-180, center.lng - span * 1.5),
-                  };
-                  console.log(`[CREP/Infra] Fetching all infra at zoom ${z.toFixed(1)}`);
+              // ════════════════════════════════════════════════════════════
+              // INFRASTRUCTURE DATA — Load ONCE, cache forever
+              // Permanent assets (cables, plants, substations, TX lines)
+              // don't move — no need to refetch on viewport change.
+              // This eliminates the 429 rate limit errors.
+              // ════════════════════════════════════════════════════════════
+              let infraLoaded = false;
+              const loadPermanentInfra = () => {
+                if (infraLoaded) return; // Only load once
+                infraLoaded = true;
+                console.log("[CREP/Infra] Loading permanent infrastructure (one-time)...");
 
-                  // Fetch all infrastructure layers in parallel
-                  Promise.allSettled([
-                    // Power plants + data centers + factories
-                    mindexFetch("facilities", bounds, 2000),
-                    // Substations + transmission lines (power grid)
-                    mindexFetch("substations", bounds, 2000),
-                    // Submarine cables (global — permanent, cached)
-                    mindexFetch("submarine-cables", null, 500),
-                    // Military installations
-                    mindexFetch("military", bounds, 1000),
-                    // Transmission lines (zoom 4+ only — permanent infra)
-                    ...(z >= 4 ? [mindexFetch("transmission-lines", bounds, 2000)] : []),
-                  ]).then(([facRes, subRes, cabRes, milRes, txRes]) => {
-                    // Power plants / facilities
-                    if (facRes.status === "fulfilled" && facRes.value?.entities?.length > 0) {
-                      const plants = facRes.value.entities
+                // Submarine cables — global, load ALL (they cross oceans)
+                mindexFetch("submarine-cables", null, 1000)
+                  .then(data => {
+                    if (data?.entities?.length > 0) {
+                      const cables = data.entities
+                        .filter((e: any) => e.properties?.route)
+                        .map((e: any) => ({
+                          id: e.id, name: e.name,
+                          path: e.properties.route?.coordinates || [],
+                          color: "#06b6d4",
+                        }))
+                        .filter((c: any) => c.path.length >= 2);
+                      setInfraCableRoutes(cables);
+                      console.log(`[CREP/Infra] ${cables.length} submarine cables (cached)`);
+                    }
+                  }).catch(() => {});
+
+                // Power plants — load for visible hemisphere
+                const center = map.getCenter();
+                const globalBounds = {
+                  north: Math.min(90, center.lat + 50),
+                  south: Math.max(-90, center.lat - 50),
+                  east: Math.min(180, center.lng + 80),
+                  west: Math.max(-180, center.lng - 80),
+                };
+
+                mindexFetch("facilities", globalBounds, 2000)
+                  .then(data => {
+                    if (data?.entities?.length > 0) {
+                      const plants = data.entities
                         .filter((e: any) => e.lat != null && e.lng != null)
                         .map((e: any) => ({
                           id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
@@ -4424,66 +4434,39 @@ export default function CREPDashboardPage() {
                           plant_id: e.id,
                         }));
                       setPowerPlants(plants);
-                      console.log(`[CREP/Infra] ${plants.length} facilities`);
+                      console.log(`[CREP/Infra] ${plants.length} facilities (cached)`);
                     }
-                    // Substations
-                    if (subRes.status === "fulfilled" && subRes.value?.entities?.length > 0) {
-                      setInfraSubstations(subRes.value.entities.filter((e: any) => e.lat && e.lng));
-                      console.log(`[CREP/Infra] ${subRes.value.entities.length} substations`);
+                  }).catch(() => {});
+
+                // Substations — large dataset, load for visible area
+                mindexFetch("substations", globalBounds, 2000)
+                  .then(data => {
+                    if (data?.entities?.length > 0) {
+                      setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
+                      console.log(`[CREP/Infra] ${data.entities.length} substations (cached)`);
                     }
-                    // Submarine cables (extract route paths for PathLayer)
-                    if (cabRes.status === "fulfilled" && cabRes.value?.entities?.length > 0) {
-                      const cables = cabRes.value.entities
+                  }).catch(() => {});
+
+                // Transmission lines — load for visible area
+                mindexFetch("transmission-lines", globalBounds, 2000)
+                  .then(data => {
+                    if (data?.entities?.length > 0) {
+                      const lines = data.entities
                         .filter((e: any) => e.properties?.route)
-                        .map((e: any) => {
-                          const geojson = e.properties.route;
-                          const coords = geojson?.coordinates || [];
-                          return { id: e.id, name: e.name, path: coords, color: "#06b6d4" };
-                        })
-                        .filter((c: any) => c.path.length >= 2);
-                      setInfraCableRoutes(cables);
-                      console.log(`[CREP/Infra] ${cables.length} submarine cables`);
-                    }
-                    // Military
-                    if (milRes?.status === "fulfilled" && milRes.value?.entities?.length > 0) {
-                      console.log(`[CREP/Infra] ${milRes.value.entities.length} military bases`);
-                    }
-                    // Transmission lines — extract route paths for PathLayer rendering
-                    if (txRes?.status === "fulfilled" && txRes.value?.entities?.length > 0) {
-                      const txLines = txRes.value.entities
-                        .filter((e: any) => e.properties?.route)
-                        .map((e: any) => {
-                          const geojson = e.properties.route;
-                          return {
-                            id: e.id,
-                            name: e.name,
-                            path: geojson?.coordinates || [],
-                            voltage_kv: e.properties?.voltage_kv || 0,
-                          };
-                        })
+                        .map((e: any) => ({
+                          id: e.id, name: e.name,
+                          path: e.properties.route?.coordinates || [],
+                          voltage_kv: e.properties?.voltage_kv || 0,
+                        }))
                         .filter((l: any) => l.path.length >= 2);
-                      // Also include substations that are lines (from power_grid query)
-                      if (subRes.status === "fulfilled") {
-                        const subLines = (subRes.value?.entities || [])
-                          .filter((e: any) => e.properties?.route && e.entity_type === "transmission_line")
-                          .map((e: any) => ({
-                            id: e.id, name: e.name,
-                            path: e.properties.route?.coordinates || [],
-                            voltage_kv: e.properties?.voltage_kv || 0,
-                          }))
-                          .filter((l: any) => l.path.length >= 2);
-                        txLines.push(...subLines);
-                      }
-                      setInfraTransmissionLines(txLines);
-                      console.log(`[CREP/Infra] ${txLines.length} transmission lines`);
+                      setInfraTransmissionLines(lines);
+                      console.log(`[CREP/Infra] ${lines.length} transmission lines (cached)`);
                     }
-                  });
-                }, 1500); // 1.5s debounce — prevents spam during fly-to animations
+                  }).catch(() => {});
               };
-              // Initial fetch after map loads
-              setTimeout(fetchInfraFromMap, 500);
-              // Re-fetch on viewport change
-              map.on("moveend", fetchInfraFromMap);
+
+              // Load permanent infra 2 seconds after map loads (let map settle first)
+              setTimeout(loadPermanentInfra, 2000);
               
               // Initialize zoom and bounds
               setMapZoom(map.getZoom());

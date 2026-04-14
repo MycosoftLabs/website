@@ -33,11 +33,13 @@ const CACHE_TTL_MS = 30_000 // 30 seconds cache
 
 const INIT_WAIT_MS = 5000       // Wait up to 5 s for first vessels on cold start
 const RECONNECT_BASE_MS = 3000  // Initial reconnect delay
-const MAX_RECONNECT_MS = 60000  // Cap reconnect delay at 1 minute
+const MAX_RECONNECT_MS = 300000 // Cap reconnect delay at 5 minutes (was 1 min — too aggressive)
+const MAX_RETRIES = 5           // Stop retrying after 5 failures to avoid log spam
 
 // Module-level persistent stream state (survives across requests in the same process)
 let streamRunning = false
 let reconnectDelay = RECONNECT_BASE_MS
+let reconnectAttempts = 0
 let streamCleanup: (() => void) | null = null
 
 /**
@@ -64,15 +66,18 @@ function ensureAISStream(): void {
       // Vessel is automatically added to the client's internal cache
     },
     (err) => {
-      console.error("[AISStream] Stream error:", err.message, "– reconnecting in", reconnectDelay / 1000, "s")
       streamRunning = false
       streamCleanup = null
+      reconnectAttempts++
 
-      // Exponential back-off reconnect
-      setTimeout(() => {
-        reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_MS)
-        ensureAISStream()
-      }, reconnectDelay)
+      if (reconnectAttempts >= MAX_RETRIES) {
+        console.warn(`[AISStream] Stopped after ${MAX_RETRIES} failures. Service may be down.`)
+        return // Stop retrying — no more log spam
+      }
+
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_MS)
+      console.warn(`[AISStream] Error: ${err.message} — retry ${reconnectAttempts}/${MAX_RETRIES} in ${reconnectDelay / 1000}s`)
+      setTimeout(() => ensureAISStream(), reconnectDelay)
     }
   )
 }
