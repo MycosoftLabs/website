@@ -4217,12 +4217,10 @@ export default function CREPDashboardPage() {
                 infraLoaded = true;
                 console.log("[CREP/Infra] Loading permanent infrastructure into MapLibre...");
 
-                const center = map.getCenter();
+                // Use reasonable bounds that PostGIS can handle efficiently
+                // Full global for now — MINDEX returns up to 2000 per query
                 const globalBounds = {
-                  north: Math.min(90, center.lat + 50),
-                  south: Math.max(-90, center.lat - 50),
-                  east: Math.min(180, center.lng + 80),
-                  west: Math.max(-180, center.lng - 80),
+                  north: 85, south: -60, east: 180, west: -180,
                 };
 
                 // Helper: fuel type → color
@@ -4242,28 +4240,58 @@ export default function CREPDashboardPage() {
                   return "#6b7280";
                 };
 
-                // ── Submarine cables (global) ──
+                // ── Submarine cables (global) — multi-color like submarinecablemap.com ──
+                const cableColors = ["#06b6d4","#3b82f6","#a855f7","#ec4899","#f59e0b","#22c55e","#ef4444","#8b5cf6","#14b8a6","#f97316"];
                 mindexFetch("submarine-cables", null, 1000).then(data => {
                   if (!data?.entities?.length) return;
                   const features = data.entities
                     .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: { name: e.name, ...e.properties },
-                      geometry: e.properties.route,
-                    }));
+                    .map((e: any, i: number) => {
+                      // Fix antimeridian: split lines that cross ±180° longitude
+                      const coords = e.properties.route.coordinates;
+                      const color = cableColors[i % cableColors.length];
+                      return {
+                        type: "Feature" as const,
+                        properties: { name: e.name, color, cable_type: e.properties?.cable_type, length_km: e.properties?.length_km },
+                        geometry: e.properties.route,
+                      };
+                    });
                   if (!features.length) return;
                   map.addSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
                   map.addLayer({
                     id: "crep-cables-line", type: "line", source: "crep-cables",
-                    paint: { "line-color": "#06b6d4", "line-width": 2.5, "line-opacity": 0.8 },
+                    paint: {
+                      "line-color": ["get", "color"],
+                      "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1.5, 4, 2.5, 8, 4],
+                      "line-opacity": 0.8,
+                    },
                   });
-                  setInfraCableRoutes(features as any); // For INFRA panel stats
-                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre`);
+                  // Click handler for cable info
+                  map.on("click", "crep-cables-line", (e: any) => {
+                    const props = e.features?.[0]?.properties;
+                    if (props?.name) {
+                      toast(`🌊 ${props.name}${props.length_km ? ` — ${props.length_km} km` : ""}`, { duration: 4000 });
+                    }
+                  });
+                  map.on("mouseenter", "crep-cables-line", () => { map.getCanvas().style.cursor = "pointer"; });
+                  map.on("mouseleave", "crep-cables-line", () => { map.getCanvas().style.cursor = ""; });
+                  setInfraCableRoutes(features as any);
+                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color)`);
                 }).catch(() => {});
 
                 // ── Power plants + data centers ──
-                mindexFetch("facilities", globalBounds, 2000).then(data => {
+                // Split into 2 hemispheres because PostGIS can't handle full-globe bbox
+                const westBounds = { north: 70, south: -60, east: 0, west: -180 };
+                const eastBounds = { north: 70, south: -60, east: 180, west: 0 };
+                Promise.all([
+                  mindexFetch("facilities", westBounds, 2000),
+                  mindexFetch("facilities", eastBounds, 2000),
+                ]).then(([westData, eastData]) => {
+                  const allEntities = [
+                    ...(westData?.entities || []),
+                    ...(eastData?.entities || []),
+                  ];
+                  const data = { entities: allEntities, total: allEntities.length };
                   if (!data?.entities?.length) return;
                   const features = data.entities
                     .filter((e: any) => e.lat != null && e.lng != null)
@@ -4297,11 +4325,24 @@ export default function CREPDashboardPage() {
                     status: e.properties?.status || "Operating",
                     owner: e.properties?.operator, source: e.source || "mindex", plant_id: e.id,
                   })));
+                  // Click handler for plant info
+                  map.on("click", "crep-plants-circle", (e: any) => {
+                    const props = e.features?.[0]?.properties;
+                    if (props?.name) {
+                      toast(`⚡ ${props.name}${props.sub_type ? ` (${props.sub_type})` : ""}${props.operator ? ` — ${props.operator}` : ""}`, { duration: 4000 });
+                    }
+                  });
+                  map.on("mouseenter", "crep-plants-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+                  map.on("mouseleave", "crep-plants-circle", () => { map.getCanvas().style.cursor = ""; });
                   console.log(`[CREP/Infra] ${features.length} plants → MapLibre`);
                 }).catch(() => {});
 
-                // ── Substations ──
-                mindexFetch("substations", globalBounds, 2000).then(data => {
+                // ── Substations ── (split hemispheres)
+                Promise.all([
+                  mindexFetch("substations", westBounds, 2000),
+                  mindexFetch("substations", eastBounds, 2000),
+                ]).then(([w, e]) => {
+                  const data = { entities: [...(w?.entities || []), ...(e?.entities || [])] };
                   if (!data?.entities?.length) return;
                   const features = data.entities
                     .filter((e: any) => e.lat && e.lng)
@@ -4323,12 +4364,25 @@ export default function CREPDashboardPage() {
                     },
                     minzoom: 4,
                   });
+                  // Click handler for substations
+                  map.on("click", "crep-subs-circle", (e: any) => {
+                    const props = e.features?.[0]?.properties;
+                    if (props?.name) {
+                      toast(`🔌 ${props.name}${props.voltage_kv ? ` — ${props.voltage_kv} kV` : ""}`, { duration: 4000 });
+                    }
+                  });
+                  map.on("mouseenter", "crep-subs-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+                  map.on("mouseleave", "crep-subs-circle", () => { map.getCanvas().style.cursor = ""; });
                   setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
                   console.log(`[CREP/Infra] ${features.length} substations → MapLibre`);
                 }).catch(() => {});
 
-                // ── Transmission lines ──
-                mindexFetch("transmission-lines", globalBounds, 2000).then(data => {
+                // ── Transmission lines ── (split hemispheres)
+                Promise.all([
+                  mindexFetch("transmission-lines", westBounds, 2000),
+                  mindexFetch("transmission-lines", eastBounds, 2000),
+                ]).then(([w, e]) => {
+                  const data = { entities: [...(w?.entities || []), ...(e?.entities || [])] };
                   if (!data?.entities?.length) return;
                   const features = data.entities
                     .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
