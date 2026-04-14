@@ -355,6 +355,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -476,6 +477,7 @@ All notable changes to this project will be documented in this file.
 - Complete Mycosoft Skills Discovery System — 59 SKILL.md files + registry
 - *(website)* NAS MP4 fallbacks, zero-duration skip, media health API, sandbox verify
 - CREP globe + OpenGridWorks integration + MINDEX proxy + infrastructure layers
+- Render substations + submarine cables + military on CREP globe
 
 ### Fix
 
