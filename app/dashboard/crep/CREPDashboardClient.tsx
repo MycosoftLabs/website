@@ -4217,6 +4217,29 @@ export default function CREPDashboardPage() {
                 infraLoaded = true;
                 console.log("[CREP/Infra] Loading permanent infrastructure into MapLibre...");
 
+                // Safe source/layer add — handles HMR re-runs where source already exists
+                const safeAddSource = (id: string, spec: any) => {
+                  try {
+                    if (map.getSource(id)) {
+                      (map.getSource(id) as any).setData(spec.data);
+                    } else {
+                      safeAddSource(id, spec);
+                    }
+                  } catch (e: any) {
+                    console.warn(`[CREP/Infra] Source ${id}:`, e.message);
+                  }
+                };
+                const safeAddLayer = (spec: any) => {
+                  try {
+                    if (map.getLayer(spec.id)) {
+                      map.removeLayer(spec.id);
+                    }
+                    safeAddLayer(spec);
+                  } catch (e: any) {
+                    console.warn(`[CREP/Infra] Layer ${spec.id}:`, e.message);
+                  }
+                };
+
                 // Use reasonable bounds that PostGIS can handle efficiently
                 // Full global for now — MINDEX returns up to 2000 per query
                 const globalBounds = {
@@ -4257,8 +4280,8 @@ export default function CREPDashboardPage() {
                       };
                     });
                   if (!features.length) return;
-                  map.addSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
-                  map.addLayer({
+                  safeAddSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddLayer({
                     id: "crep-cables-line", type: "line", source: "crep-cables",
                     paint: {
                       "line-color": ["get", "color"],
@@ -4306,8 +4329,8 @@ export default function CREPDashboardPage() {
                       },
                       geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
                     }));
-                  map.addSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
-                  map.addLayer({
+                  safeAddSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddLayer({
                     id: "crep-plants-circle", type: "circle", source: "crep-plants",
                     paint: {
                       "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 5, 8, 8, 12, 12],
@@ -4351,8 +4374,8 @@ export default function CREPDashboardPage() {
                       properties: { name: e.name, voltage_kv: e.properties?.voltage_kv || 0 },
                       geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
                     }));
-                  map.addSource("crep-substations", { type: "geojson", data: { type: "FeatureCollection", features } });
-                  map.addLayer({
+                  safeAddSource("crep-substations", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddLayer({
                     id: "crep-subs-circle", type: "circle", source: "crep-substations",
                     paint: {
                       "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 7, 4, 12, 7],
@@ -4392,8 +4415,8 @@ export default function CREPDashboardPage() {
                       geometry: e.properties.route,
                     }));
                   if (!features.length) return;
-                  map.addSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
-                  map.addLayer({
+                  safeAddSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddLayer({
                     id: "crep-txlines-line", type: "line", source: "crep-txlines",
                     paint: {
                       "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
