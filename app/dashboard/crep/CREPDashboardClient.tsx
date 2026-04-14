@@ -1779,36 +1779,39 @@ export default function CREPDashboardPage() {
   const [bubbleScale, setBubbleScale] = useState(1.0);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Power plant deck.gl layers (merged into EntityDeckLayer's single overlay)
-  const plantLayers = usePowerPlantLayers({
-    plants: powerPlants,
-    visible: showInfraLayers,
-    bubbleScale,
-    zoom: mapZoom,
-    selectedPlantId: selectedPlant?.id,
-    onPlantClick: (plant) => {
-      lastEntityPickTimeRef.current = Date.now();
-      setSelectedPlant(plant);
-    },
-  });
+  // Power plant layers now integrated directly into infraDeckLayers below
+  // with OpenGridWorks-style LOD rendering (bubbles only at zoom 3+)
 
-  // All infrastructure deck.gl layers — plants + substations + cables
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INFRASTRUCTURE DECK.GL LAYERS — OpenGridWorks-style LOD rendering
+  //
+  // Zoom 0-3:  Submarine cables only (thin cyan lines across oceans)
+  // Zoom 3-5:  + Power plant bubbles (large, colored by fuel, sized by MW)
+  // Zoom 5-7:  + Substations appear (small voltage-colored dots)
+  // Zoom 7-9:  + Plant labels, substation labels, cable names
+  // Zoom 10+:  + Everything at full detail
+  //
+  // This matches OpenGridWorks visual hierarchy exactly.
+  // ═══════════════════════════════════════════════════════════════════════════
   const infraDeckLayers = useMemo(() => {
     if (!showInfraLayers) return [];
-    const layers: any[] = [...plantLayers];
+    const layers: any[] = [];
+    const z = mapZoom;
 
-    // Submarine cable routes as PathLayer (rendered at sea level, below everything)
+    // ── Layer 1: Submarine cables (visible at ALL zoom levels) ──────────
+    // These are the most visually distinctive — cyan lines across oceans
     if (infraCableRoutes.length > 0) {
-      layers.unshift(
+      layers.push(
         new InfraPathLayer({
           id: "crep-submarine-cables",
           data: infraCableRoutes,
           getPath: (d: any) => d.path,
-          getColor: [6, 182, 212, 160], // cyan-500
-          getWidth: 2,
+          getColor: [6, 182, 212, 180], // cyan-500
+          getWidth: z >= 5 ? 3 : 2,
           widthUnits: "pixels",
           widthMinPixels: 1,
-          widthMaxPixels: 4,
+          widthMaxPixels: 6,
+          opacity: 0.8,
           pickable: true,
           jointRounded: true,
           capRounded: true,
@@ -1816,27 +1819,87 @@ export default function CREPDashboardPage() {
       );
     }
 
-    // Substations as ScatterplotLayer (small gray/blue dots)
-    if (infraSubstations.length > 0) {
+    // ── Layer 2: Power plant bubbles (visible zoom 3+) ──────────────────
+    // Large colored circles sized by MW capacity — THE main OpenGridWorks feature
+    if (powerPlants.length > 0 && z >= 3) {
+      layers.push(
+        new InfraScatterplotLayer({
+          id: "crep-power-plants",
+          data: powerPlants,
+          getPosition: (d: any) => [d.lng, d.lat],
+          // Bubble size: sqrt(capacity) for area-proportional, or fixed size if no capacity
+          getRadius: (d: any) => {
+            const mw = d.capacity_mw || 0;
+            if (mw > 0) return Math.max(4, Math.sqrt(mw) * 0.8 * bubbleScale);
+            return 6 * bubbleScale; // default size for plants without capacity data
+          },
+          radiusUnits: "pixels",
+          radiusMinPixels: 3,
+          radiusMaxPixels: 60,
+          // OpenGridWorks fuel type colors
+          getFillColor: (d: any) => {
+            const fuel = (d.fuel_type || "other").toLowerCase();
+            if (fuel.includes("solar")) return [245, 158, 11, 200];    // amber
+            if (fuel.includes("wind")) return [20, 184, 166, 200];     // teal
+            if (fuel.includes("hydro")) return [56, 189, 248, 200];    // sky blue
+            if (fuel.includes("nuclear")) return [74, 222, 128, 200];  // green
+            if (fuel.includes("gas")) return [168, 85, 247, 200];      // purple
+            if (fuel.includes("coal")) return [156, 163, 175, 200];    // gray
+            if (fuel.includes("oil") || fuel.includes("petroleum")) return [239, 68, 68, 200]; // red
+            if (fuel.includes("biomass") || fuel.includes("waste")) return [234, 179, 8, 200]; // yellow
+            if (fuel.includes("geothermal")) return [34, 197, 94, 200]; // emerald
+            if (fuel.includes("storage") || fuel.includes("battery")) return [244, 63, 94, 200]; // rose
+            if (fuel.includes("data_center")) return [124, 58, 237, 200]; // violet (DCs)
+            if (fuel.includes("refinery")) return [185, 28, 28, 180];  // dark red
+            return [107, 114, 128, 180]; // gray default
+          },
+          stroked: true,
+          getLineColor: (d: any) => {
+            return d.id === selectedPlant?.id
+              ? [0, 255, 255, 255]  // cyan highlight for selected
+              : [0, 0, 0, 100];
+          },
+          lineWidthMinPixels: 1,
+          filled: true,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 60],
+          onClick: (info: any) => {
+            if (info.object) {
+              lastEntityPickTimeRef.current = Date.now();
+              setSelectedPlant(info.object);
+            }
+          },
+          updateTriggers: {
+            getLineColor: [selectedPlant?.id],
+            getRadius: [bubbleScale],
+          },
+        })
+      );
+    }
+
+    // ── Layer 3: Substations (visible zoom 5+) ──────────────────────────
+    // Small dots colored by voltage class — OpenGridWorks shows these at medium zoom
+    if (infraSubstations.length > 0 && z >= 5) {
       layers.push(
         new InfraScatterplotLayer({
           id: "crep-substations",
           data: infraSubstations,
           getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: 4,
+          getRadius: z >= 8 ? 5 : 3,
           radiusUnits: "pixels",
           radiusMinPixels: 2,
-          radiusMaxPixels: 8,
+          radiusMaxPixels: 10,
           getFillColor: (d: any) => {
             const kv = d.properties?.voltage_kv || 0;
-            if (kv >= 500) return [255, 255, 255, 200]; // white for HV
-            if (kv >= 345) return [34, 211, 238, 180];  // cyan
-            if (kv >= 230) return [96, 165, 250, 160];  // blue
-            if (kv >= 100) return [168, 85, 247, 140];  // purple
-            return [156, 163, 175, 120];                 // gray
+            if (kv >= 500) return [255, 255, 255, 200]; // white — HV
+            if (kv >= 345) return [34, 211, 238, 180];   // cyan
+            if (kv >= 230) return [96, 165, 250, 160];   // blue
+            if (kv >= 100) return [168, 85, 247, 140];   // purple
+            return [156, 163, 175, 120];                  // gray — LV
           },
           stroked: true,
-          getLineColor: [0, 0, 0, 80],
+          getLineColor: [0, 0, 0, 60],
           lineWidthMinPixels: 1,
           filled: true,
           pickable: true,
@@ -1845,7 +1908,7 @@ export default function CREPDashboardPage() {
     }
 
     return layers;
-  }, [plantLayers, infraCableRoutes, infraSubstations, showInfraLayers]);
+  }, [powerPlants, infraCableRoutes, infraSubstations, showInfraLayers, mapZoom, bubbleScale, selectedPlant]);
 
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -4319,7 +4382,7 @@ export default function CREPDashboardPage() {
                       console.log(`[CREP/Infra] ${milRes.value.entities.length} military bases`);
                     }
                   });
-                }, 500); // 500ms debounce
+                }, 1500); // 1.5s debounce — prevents spam during fly-to animations
               };
               // Initial fetch after map loads
               setTimeout(fetchInfraFromMap, 500);
