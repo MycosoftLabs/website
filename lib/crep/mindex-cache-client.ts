@@ -41,7 +41,7 @@ export type MindexSource =
   | "aircraft" | "vessels" | "airports" | "ports"
   | "satellites" | "solar-events"
   | "species" | "sightings"
-  | "facilities" | "power-grid" | "internet-cables" | "antennas" | "wifi-hotspots"
+  | "facilities" | "power-grid" | "power-plants" | "substations" | "internet-cables" | "submarine-cables" | "antennas" | "wifi-hotspots" | "military"
   | "weather" | "air-quality" | "greenhouse-gas"
   | "buoys" | "stream-gauges"
   | "cameras" | "military"
