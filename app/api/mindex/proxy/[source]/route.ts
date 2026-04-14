@@ -58,6 +58,7 @@ const SOURCE_TO_MINDEX_LAYER: Record<string, string> = {
   "power-grid": "power_grid",
   "power-plants": "facilities",
   substations: "power_grid",
+  "transmission-lines": "power_grid",
   "internet-cables": "internet_cables",
   "submarine-cables": "internet_cables",
   antennas: "antennas",

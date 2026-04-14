@@ -339,48 +339,71 @@ export function EntityDeckLayer({
   extraLayers = [],
   useGlobeMode = false,
 }: EntityDeckLayerProps) {
-  // One MapboxOverlay per component instance.
-  // Globe projection requires interleaved: false (separate canvas overlay).
-  // Flat mercator can use interleaved: true (renders into MapLibre pipeline).
-  // pickingRadius: 28 → fungal icons are 14–36px; 12 was too small for reliable clicks.
-  const overlayRef = useRef<MapboxOverlay | null>(null);
+  // TWO overlays for proper depth rendering:
+  //
+  // 1. infraOverlay (interleaved: true) — infrastructure layers render WITHIN
+  //    MapLibre's pipeline (below labels, part of the ground plane).
+  //    Used for: power plant bubbles, transmission lines, substations, cables
+  //
+  // 2. entityOverlay (interleaved: false) — entity layers render ON TOP as a
+  //    separate WebGL canvas. This canvas sits above the map so entities are
+  //    always visible and never clipped by globe edges or map labels.
+  //    Used for: aircraft, vessels, satellites, species, events
+  //
+  // This matches OpenGridWorks' 4-canvas approach and fixes the globe
+  // rendering issue where interleaved icons were invisible.
 
-  // Attach / detach overlay when map ref or globe mode changes
+  const infraOverlayRef = useRef<MapboxOverlay | null>(null);
+  const entityOverlayRef = useRef<MapboxOverlay | null>(null);
+
   useEffect(() => {
     if (!map) return;
 
-    // Remove old overlay if it exists
-    if (overlayRef.current) {
-      try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
-      overlayRef.current = null;
+    // Clean up old overlays
+    if (infraOverlayRef.current) {
+      try { map.removeControl(infraOverlayRef.current as unknown as maplibregl.IControl); } catch {}
+    }
+    if (entityOverlayRef.current) {
+      try { map.removeControl(entityOverlayRef.current as unknown as maplibregl.IControl); } catch {}
     }
 
-    // Always use interleaved: true — deck.gl v9 MapboxOverlay works with
-    // MapLibre globe projection in interleaved mode. Non-interleaved mode
-    // breaks SVG icon atlases. Interleaved renders entities correctly
-    // within the MapLibre GL pipeline on both globe and flat projections.
-    const overlay = new MapboxOverlay({
+    // Infrastructure overlay — renders INTO the map pipeline (interleaved)
+    const infraOverlay = new MapboxOverlay({
       interleaved: true,
+      pickingRadius: 20,
+    });
+    infraOverlayRef.current = infraOverlay;
+    map.addControl(infraOverlay as unknown as maplibregl.IControl);
+
+    // Entity overlay — renders ON TOP as separate canvas (non-interleaved)
+    // This ensures planes, boats, satellites are always visible on globe
+    const entityOverlay = new MapboxOverlay({
+      interleaved: false,
       pickingRadius: 28,
     });
-    overlayRef.current = overlay;
-    map.addControl(overlay as unknown as maplibregl.IControl);
+    entityOverlayRef.current = entityOverlay;
+    map.addControl(entityOverlay as unknown as maplibregl.IControl);
 
     return () => {
-      if (overlayRef.current) {
-        try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
-        overlayRef.current = null;
+      if (infraOverlayRef.current) {
+        try { map.removeControl(infraOverlayRef.current as unknown as maplibregl.IControl); } catch {}
+        infraOverlayRef.current = null;
+      }
+      if (entityOverlayRef.current) {
+        try { map.removeControl(entityOverlayRef.current as unknown as maplibregl.IControl); } catch {}
+        entityOverlayRef.current = null;
       }
     };
   }, [map, useGlobeMode]);
 
-  // overlayRef.current is used directly in the layer update effect below
-
   // Rebuild layers whenever entities or visibility changes
+  // Infrastructure → infraOverlay (interleaved, part of map)
+  // Entities → entityOverlay (non-interleaved, separate canvas on top)
   useEffect(() => {
-    if (!overlayRef.current) return;
+    if (!infraOverlayRef.current || !entityOverlayRef.current) return;
     if (!visible) {
-      overlayRef.current.setProps({ layers: [] });
+      infraOverlayRef.current.setProps({ layers: [] });
+      entityOverlayRef.current.setProps({ layers: [] });
       return;
     }
 
@@ -437,12 +460,16 @@ export function EntityDeckLayer({
       return [lng, lat, 0];
     };
 
-    overlayRef.current.setProps({
+    // Infrastructure layers → interleaved overlay (part of the map ground plane)
+    infraOverlayRef.current.setProps({
       layers: [
-        // ── Extra infrastructure layers (power plants, transmission, etc.) ──
-        // Rendered BELOW entity icons so planes/boats/sats stay on top
         ...extraLayers,
+      ],
+    });
 
+    // Entity layers → non-interleaved overlay (separate canvas, always on top)
+    entityOverlayRef.current.setProps({
+      layers: [
         // ── Trajectory lines: thin, low-opacity dashed path so they don't clog the map ──
         // Planes, boats, satellites: path = [past, future]; icon at current. Not attached to icon.
         new PathLayer<TrailItem>({

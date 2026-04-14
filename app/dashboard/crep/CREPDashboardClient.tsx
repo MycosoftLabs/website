@@ -1775,6 +1775,7 @@ export default function CREPDashboardPage() {
   const [selectedPlant, setSelectedPlant] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant | null>(null);
   const [infraSubstations, setInfraSubstations] = useState<any[]>([]);
   const [infraCableRoutes, setInfraCableRoutes] = useState<any[]>([]);
+  const [infraTransmissionLines, setInfraTransmissionLines] = useState<any[]>([]);
   const [showInfraLayers, setShowInfraLayers] = useState(true);
   const [bubbleScale, setBubbleScale] = useState(1.0);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1840,7 +1841,52 @@ export default function CREPDashboardPage() {
       );
     }
 
-    // ── Layer 2: Power plant bubbles (visible zoom 3+) ──────────────────
+    // ── Layer 2: Transmission lines (visible zoom 4+) ─────────────────
+    // OpenGridWorks-style voltage-colored lines forming the power grid
+    if (infraTransmissionLines.length > 0 && z >= 4) {
+      layers.push(
+        new InfraPathLayer({
+          id: "crep-transmission-lines",
+          data: infraTransmissionLines,
+          getPath: (d: any) => d.path,
+          getColor: (d: any) => {
+            const kv = d.voltage_kv || 0;
+            // OpenGridWorks exact voltage colors
+            if (kv >= 735) return [255, 255, 255, 220];   // white — EHV
+            if (kv >= 500) return [34, 211, 238, 200];     // cyan — 500kV
+            if (kv >= 345) return [96, 165, 250, 200];     // blue — 345kV
+            if (kv >= 230) return [168, 85, 247, 180];     // purple — 230kV
+            if (kv >= 100) return [236, 72, 153, 180];     // pink — 100kV
+            if (kv >= 31)  return [251, 146, 60, 140];     // orange — 31-99kV
+            return [156, 163, 175, 100];                    // gray — <31kV
+          },
+          getWidth: (d: any) => {
+            const kv = d.voltage_kv || 0;
+            if (kv >= 500) return z >= 7 ? 4 : 3;
+            if (kv >= 230) return z >= 7 ? 3 : 2;
+            return z >= 7 ? 2 : 1.5;
+          },
+          widthUnits: "pixels",
+          widthMinPixels: 1,
+          widthMaxPixels: 6,
+          opacity: 0.8,
+          pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 0, 120],
+          jointRounded: true,
+          capRounded: true,
+          onClick: (info: any) => {
+            if (info.object) {
+              lastEntityPickTimeRef.current = Date.now();
+              const kv = info.object.voltage_kv;
+              toast(`${info.object.name} — ${kv >= 1 ? kv + ' kV' : 'Unknown voltage'}`, { duration: 3000 });
+            }
+          },
+        })
+      );
+    }
+
+    // ── Layer 3: Power plant bubbles (visible zoom 3+) ──────────────────
     // Large colored circles sized by MW capacity — THE main OpenGridWorks feature
     if (powerPlants.length > 0 && z >= 3) {
       layers.push(
@@ -4356,15 +4402,15 @@ export default function CREPDashboardPage() {
                   Promise.allSettled([
                     // Power plants + data centers + factories
                     mindexFetch("facilities", bounds, 2000),
-                    // Substations (power grid)
+                    // Substations + transmission lines (power grid)
                     mindexFetch("substations", bounds, 2000),
-                    // Submarine cables (global, not viewport-bounded)
+                    // Submarine cables (global — permanent, cached)
                     mindexFetch("submarine-cables", null, 500),
                     // Military installations
                     mindexFetch("military", bounds, 1000),
-                    // Cell towers (only at higher zoom to avoid overload)
-                    ...(z >= 6 ? [mindexFetch("antennas", bounds, 2000)] : []),
-                  ]).then(([facRes, subRes, cabRes, milRes, antRes]) => {
+                    // Transmission lines (zoom 4+ only — permanent infra)
+                    ...(z >= 4 ? [mindexFetch("transmission-lines", bounds, 2000)] : []),
+                  ]).then(([facRes, subRes, cabRes, milRes, txRes]) => {
                     // Power plants / facilities
                     if (facRes.status === "fulfilled" && facRes.value?.entities?.length > 0) {
                       const plants = facRes.value.entities
@@ -4398,9 +4444,38 @@ export default function CREPDashboardPage() {
                       setInfraCableRoutes(cables);
                       console.log(`[CREP/Infra] ${cables.length} submarine cables`);
                     }
-                    // Military — add to power plants as a separate category
+                    // Military
                     if (milRes?.status === "fulfilled" && milRes.value?.entities?.length > 0) {
                       console.log(`[CREP/Infra] ${milRes.value.entities.length} military bases`);
+                    }
+                    // Transmission lines — extract route paths for PathLayer rendering
+                    if (txRes?.status === "fulfilled" && txRes.value?.entities?.length > 0) {
+                      const txLines = txRes.value.entities
+                        .filter((e: any) => e.properties?.route)
+                        .map((e: any) => {
+                          const geojson = e.properties.route;
+                          return {
+                            id: e.id,
+                            name: e.name,
+                            path: geojson?.coordinates || [],
+                            voltage_kv: e.properties?.voltage_kv || 0,
+                          };
+                        })
+                        .filter((l: any) => l.path.length >= 2);
+                      // Also include substations that are lines (from power_grid query)
+                      if (subRes.status === "fulfilled") {
+                        const subLines = (subRes.value?.entities || [])
+                          .filter((e: any) => e.properties?.route && e.entity_type === "transmission_line")
+                          .map((e: any) => ({
+                            id: e.id, name: e.name,
+                            path: e.properties.route?.coordinates || [],
+                            voltage_kv: e.properties?.voltage_kv || 0,
+                          }))
+                          .filter((l: any) => l.path.length >= 2);
+                        txLines.push(...subLines);
+                      }
+                      setInfraTransmissionLines(txLines);
+                      console.log(`[CREP/Infra] ${txLines.length} transmission lines`);
                     }
                   });
                 }, 1500); // 1.5s debounce — prevents spam during fly-to animations
