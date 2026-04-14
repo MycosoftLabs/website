@@ -352,6 +352,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -472,6 +473,7 @@ All notable changes to this project will be documented in this file.
 - Add petri dish simulator skill
 - Complete Mycosoft Skills Discovery System — 59 SKILL.md files + registry
 - *(website)* NAS MP4 fallbacks, zero-duration skip, media health API, sandbox verify
+- CREP globe + OpenGridWorks integration + MINDEX proxy + infrastructure layers
 
 ### Fix
 
