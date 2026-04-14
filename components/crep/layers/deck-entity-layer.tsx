@@ -542,11 +542,15 @@ export function EntityDeckLayer({
                   return key in SPECIES_ICON_MAPPING ? key : "fungi";
                 },
                 getPosition: getPos,
-                getSize: 20,
+                getSize: 14,
                 sizeUnits: "pixels",
-                sizeMinPixels: 14,
-                sizeMaxPixels: 36,
-                getColor: (e) => fungalEntityColor(e),
+                sizeMinPixels: 8,
+                sizeMaxPixels: 24,
+                getColor: (e) => {
+                  const c = fungalEntityColor(e);
+                  // Reduce opacity so infrastructure layers show through
+                  return [c[0], c[1], c[2], Math.min(c[3] ?? 255, 160)] as [number, number, number, number];
+                },
                 pickable: true,
                 onClick: handleClick,
               }),

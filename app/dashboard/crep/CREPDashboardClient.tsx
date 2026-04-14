@@ -1799,22 +1799,43 @@ export default function CREPDashboardPage() {
     const z = mapZoom;
 
     // ── Layer 1: Submarine cables (visible at ALL zoom levels) ──────────
-    // These are the most visually distinctive — cyan lines across oceans
+    // Thick colored lines across oceans — like submarinecablemap.com
     if (infraCableRoutes.length > 0) {
       layers.push(
         new InfraPathLayer({
           id: "crep-submarine-cables",
           data: infraCableRoutes,
           getPath: (d: any) => d.path,
-          getColor: [6, 182, 212, 180], // cyan-500
-          getWidth: z >= 5 ? 3 : 2,
+          getColor: (d: any) => {
+            // Use cable-specific color if available, else cycle through palette
+            const colors: [number, number, number, number][] = [
+              [6, 182, 212, 200],   // cyan
+              [59, 130, 246, 200],  // blue
+              [168, 85, 247, 200],  // purple
+              [236, 72, 153, 200],  // pink
+              [245, 158, 11, 200],  // amber
+              [34, 197, 94, 200],   // green
+              [239, 68, 68, 200],   // red
+            ];
+            const hash = d.name?.charCodeAt(0) || 0;
+            return colors[hash % colors.length];
+          },
+          getWidth: z >= 6 ? 4 : z >= 3 ? 3 : 2,
           widthUnits: "pixels",
-          widthMinPixels: 1,
-          widthMaxPixels: 6,
-          opacity: 0.8,
+          widthMinPixels: 1.5,
+          widthMaxPixels: 8,
+          opacity: 0.85,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 100],
           jointRounded: true,
           capRounded: true,
+          onClick: (info: any) => {
+            if (info.object) {
+              lastEntityPickTimeRef.current = Date.now();
+              toast(`${info.object.name}`, { duration: 3000 });
+            }
+          },
         })
       );
     }
@@ -4351,7 +4372,7 @@ export default function CREPDashboardPage() {
                         .map((e: any) => ({
                           id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
                           capacity_mw: e.properties?.capacity_mw || 0,
-                          fuel_type: e.properties?.type || e.entity_type || "other",
+                          fuel_type: e.properties?.sub_type || e.properties?.type || e.entity_type || "other",
                           status: e.properties?.status || "Operating",
                           owner: e.properties?.operator, source: e.source || "mindex",
                           plant_id: e.id,
