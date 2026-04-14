@@ -252,6 +252,7 @@ All notable changes to this project will be documented in this file.
 - *(media)* Remove all cross-device video fallbacks — each page plays its own video only
 - *(hyphae1)* Correct hero video filename to match NAS (Hyphae 1 Hero.mp4)
 - *(media)* Restore homepage hero and clean local navigation
+- MINDEX infrastructure data fetch on globe projection
 
 ### CREP
 
@@ -282,6 +283,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
