@@ -253,6 +253,7 @@ All notable changes to this project will be documented in this file.
 - *(hyphae1)* Correct hero video filename to match NAS (Hyphae 1 Hero.mp4)
 - *(media)* Restore homepage hero and clean local navigation
 - MINDEX infrastructure data fetch on globe projection
+- Fuel type colors from sub_type + thick colored cables + smaller species markers
 
 ### CREP
 
@@ -283,6 +284,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -478,6 +480,7 @@ All notable changes to this project will be documented in this file.
 - *(website)* NAS MP4 fallbacks, zero-duration skip, media health API, sandbox verify
 - CREP globe + OpenGridWorks integration + MINDEX proxy + infrastructure layers
 - Render substations + submarine cables + military on CREP globe
+- OpenGridWorks-style LOD rendering + larger fuel-colored plant bubbles
 
 ### Fix
 
