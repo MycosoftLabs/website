@@ -1741,7 +1741,7 @@ export default function CREPDashboardPage() {
   const [showPresenceWidget, setShowPresenceWidget] = useState(false);
 
   // Ground Station overlay state (Mar 2026)
-  const [showGroundStation, setShowGroundStation] = useState(true); // Enabled by default — ground station is core CREP functionality
+  const [showGroundStation, setShowGroundStation] = useState(false); // Hidden by default — only show when user opens it
 
   
   // Selected entity states for map interaction
@@ -2055,7 +2055,7 @@ export default function CREPDashboardPage() {
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
+    { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
     { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
     { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
     { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
@@ -4277,7 +4277,7 @@ export default function CREPDashboardPage() {
                   map.on("mouseleave", "crep-cables-line", () => { map.getCanvas().style.cursor = ""; });
                   setInfraCableRoutes(features as any);
                   console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color)`);
-                }).catch(() => {});
+                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
                 // ── Power plants + data centers ──
                 // Split into 2 hemispheres because PostGIS can't handle full-globe bbox
@@ -4335,7 +4335,7 @@ export default function CREPDashboardPage() {
                   map.on("mouseenter", "crep-plants-circle", () => { map.getCanvas().style.cursor = "pointer"; });
                   map.on("mouseleave", "crep-plants-circle", () => { map.getCanvas().style.cursor = ""; });
                   console.log(`[CREP/Infra] ${features.length} plants → MapLibre`);
-                }).catch(() => {});
+                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
                 // ── Substations ── (split hemispheres)
                 Promise.all([
@@ -4375,7 +4375,7 @@ export default function CREPDashboardPage() {
                   map.on("mouseleave", "crep-subs-circle", () => { map.getCanvas().style.cursor = ""; });
                   setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
                   console.log(`[CREP/Infra] ${features.length} substations → MapLibre`);
-                }).catch(() => {});
+                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
                 // ── Transmission lines ── (split hemispheres)
                 Promise.all([
@@ -4407,11 +4407,15 @@ export default function CREPDashboardPage() {
                   });
                   setInfraTransmissionLines(features as any);
                   console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre`);
-                }).catch(() => {});
+                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
               };
 
-              // Load permanent infra 2 seconds after map loads
-              setTimeout(loadPermanentInfra, 2000);
+              // Load permanent infra after style is fully ready
+              if (map.isStyleLoaded()) {
+                setTimeout(loadPermanentInfra, 500);
+              } else {
+                map.once("style.load", () => setTimeout(loadPermanentInfra, 500));
+              }
               
               // Initialize zoom and bounds
               setMapZoom(map.getZoom());

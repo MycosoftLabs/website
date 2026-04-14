@@ -101,7 +101,7 @@ export class MapWebSocketClient {
             console.log("[MapWS] Server confirmed connection")
           }
         } catch (e) {
-          console.error("[MapWS] Failed to parse message:", e)
+          console.warn("[MapWS] Failed to parse message:", e)
         }
       }
       
@@ -109,7 +109,7 @@ export class MapWebSocketClient {
         this.isConnecting = false
         // Suppressing the raw event dump which spams the console when backend is offline
         if (this.reconnectAttempts === 0) {
-          console.error("[MapWS] Connection failed. Will retry in background.")
+          console.warn("[MapWS] Connection failed. Will retry in background.")
         }
         const error = new Error("WebSocket connection failed")
         this.onError?.(error)
@@ -125,7 +125,7 @@ export class MapWebSocketClient {
       }
     } catch (e) {
       this.isConnecting = false
-      console.error("[MapWS] Connection failed:", e)
+      console.warn("[MapWS] Connection failed:", e)
       this.scheduleReconnect()
     }
   }
