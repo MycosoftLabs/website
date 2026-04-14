@@ -1794,190 +1794,12 @@ export default function CREPDashboardPage() {
   //
   // This matches OpenGridWorks visual hierarchy exactly.
   // ═══════════════════════════════════════════════════════════════════════════
-  // Infrastructure layers — STABLE, no zoom-dependent re-renders.
-  // Data is loaded ONCE and cached. Layers don't change on pan/zoom
-  // which eliminates the globe flickering issue.
-  const infraDeckLayers = useMemo(() => {
-    if (!showInfraLayers) return [];
-    const layers: any[] = [];
-
-    // ── Layer 1: Submarine cables (visible at ALL zoom levels) ──────────
-    // Thick colored lines across oceans — like submarinecablemap.com
-    if (infraCableRoutes.length > 0) {
-      layers.push(
-        new InfraPathLayer({
-          id: "crep-submarine-cables",
-          data: infraCableRoutes,
-          getPath: (d: any) => d.path,
-          getColor: (d: any) => {
-            // Use cable-specific color if available, else cycle through palette
-            const colors: [number, number, number, number][] = [
-              [6, 182, 212, 200],   // cyan
-              [59, 130, 246, 200],  // blue
-              [168, 85, 247, 200],  // purple
-              [236, 72, 153, 200],  // pink
-              [245, 158, 11, 200],  // amber
-              [34, 197, 94, 200],   // green
-              [239, 68, 68, 200],   // red
-            ];
-            const hash = d.name?.charCodeAt(0) || 0;
-            return colors[hash % colors.length];
-          },
-          getWidth: 3,
-          widthUnits: "pixels",
-          widthMinPixels: 1.5,
-          widthMaxPixels: 8,
-          opacity: 0.85,
-          pickable: true,
-          autoHighlight: true,
-          highlightColor: [255, 255, 255, 100],
-          jointRounded: true,
-          capRounded: true,
-          onClick: (info: any) => {
-            if (info.object) {
-              lastEntityPickTimeRef.current = Date.now();
-              toast(`${info.object.name}`, { duration: 3000 });
-            }
-          },
-        })
-      );
-    }
-
-    // ── Layer 2: Transmission lines (visible zoom 4+) ─────────────────
-    // OpenGridWorks-style voltage-colored lines forming the power grid
-    if (infraTransmissionLines.length > 0) {
-      layers.push(
-        new InfraPathLayer({
-          id: "crep-transmission-lines",
-          data: infraTransmissionLines,
-          getPath: (d: any) => d.path,
-          getColor: (d: any) => {
-            const kv = d.voltage_kv || 0;
-            // OpenGridWorks exact voltage colors
-            if (kv >= 735) return [255, 255, 255, 220];   // white — EHV
-            if (kv >= 500) return [34, 211, 238, 200];     // cyan — 500kV
-            if (kv >= 345) return [96, 165, 250, 200];     // blue — 345kV
-            if (kv >= 230) return [168, 85, 247, 180];     // purple — 230kV
-            if (kv >= 100) return [236, 72, 153, 180];     // pink — 100kV
-            if (kv >= 31)  return [251, 146, 60, 140];     // orange — 31-99kV
-            return [156, 163, 175, 100];                    // gray — <31kV
-          },
-          getWidth: (d: any) => {
-            const kv = d.voltage_kv || 0;
-            if (kv >= 500) return 3;
-            if (kv >= 230) return 2.5;
-            return 1.5;
-          },
-          widthUnits: "pixels",
-          widthMinPixels: 1,
-          widthMaxPixels: 6,
-          opacity: 0.8,
-          pickable: true,
-          autoHighlight: true,
-          highlightColor: [255, 255, 0, 120],
-          jointRounded: true,
-          capRounded: true,
-          onClick: (info: any) => {
-            if (info.object) {
-              lastEntityPickTimeRef.current = Date.now();
-              const kv = info.object.voltage_kv;
-              toast(`${info.object.name} — ${kv >= 1 ? kv + ' kV' : 'Unknown voltage'}`, { duration: 3000 });
-            }
-          },
-        })
-      );
-    }
-
-    // ── Layer 3: Power plant bubbles (visible zoom 3+) ──────────────────
-    // Large colored circles sized by MW capacity — THE main OpenGridWorks feature
-    if (powerPlants.length > 0) {
-      layers.push(
-        new InfraScatterplotLayer({
-          id: "crep-power-plants",
-          data: powerPlants,
-          getPosition: (d: any) => [d.lng, d.lat],
-          // Bubble size: sqrt(capacity) for area-proportional, or fixed size if no capacity
-          getRadius: (d: any) => {
-            const mw = d.capacity_mw || 0;
-            if (mw > 0) return Math.max(4, Math.sqrt(mw) * 0.8 * bubbleScale);
-            return 6 * bubbleScale; // default size for plants without capacity data
-          },
-          radiusUnits: "pixels",
-          radiusMinPixels: 3,
-          radiusMaxPixels: 60,
-          // OpenGridWorks fuel type colors
-          getFillColor: (d: any) => {
-            const fuel = (d.fuel_type || "other").toLowerCase();
-            if (fuel.includes("solar")) return [245, 158, 11, 200];    // amber
-            if (fuel.includes("wind")) return [20, 184, 166, 200];     // teal
-            if (fuel.includes("hydro")) return [56, 189, 248, 200];    // sky blue
-            if (fuel.includes("nuclear")) return [74, 222, 128, 200];  // green
-            if (fuel.includes("gas")) return [168, 85, 247, 200];      // purple
-            if (fuel.includes("coal")) return [156, 163, 175, 200];    // gray
-            if (fuel.includes("oil") || fuel.includes("petroleum")) return [239, 68, 68, 200]; // red
-            if (fuel.includes("biomass") || fuel.includes("waste")) return [234, 179, 8, 200]; // yellow
-            if (fuel.includes("geothermal")) return [34, 197, 94, 200]; // emerald
-            if (fuel.includes("storage") || fuel.includes("battery")) return [244, 63, 94, 200]; // rose
-            if (fuel.includes("data_center")) return [124, 58, 237, 200]; // violet (DCs)
-            if (fuel.includes("refinery")) return [185, 28, 28, 180];  // dark red
-            return [107, 114, 128, 180]; // gray default
-          },
-          stroked: true,
-          getLineColor: (d: any) => {
-            return d.id === selectedPlant?.id
-              ? [0, 255, 255, 255]  // cyan highlight for selected
-              : [0, 0, 0, 100];
-          },
-          lineWidthMinPixels: 1,
-          filled: true,
-          pickable: true,
-          autoHighlight: true,
-          highlightColor: [255, 255, 255, 60],
-          onClick: (info: any) => {
-            if (info.object) {
-              lastEntityPickTimeRef.current = Date.now();
-              setSelectedPlant(info.object);
-            }
-          },
-          updateTriggers: {
-            getLineColor: [selectedPlant?.id],
-            getRadius: [bubbleScale],
-          },
-        })
-      );
-    }
-
-    // ── Layer 3: Substations (visible zoom 5+) ──────────────────────────
-    // Small dots colored by voltage class — OpenGridWorks shows these at medium zoom
-    if (infraSubstations.length > 0) {
-      layers.push(
-        new InfraScatterplotLayer({
-          id: "crep-substations",
-          data: infraSubstations,
-          getPosition: (d: any) => [d.lng, d.lat],
-          getRadius: 4,
-          radiusUnits: "pixels",
-          radiusMinPixels: 2,
-          radiusMaxPixels: 10,
-          getFillColor: (d: any) => {
-            const kv = d.properties?.voltage_kv || 0;
-            if (kv >= 500) return [255, 255, 255, 200]; // white — HV
-            if (kv >= 345) return [34, 211, 238, 180];   // cyan
-            if (kv >= 230) return [96, 165, 250, 160];   // blue
-            if (kv >= 100) return [168, 85, 247, 140];   // purple
-            return [156, 163, 175, 120];                  // gray — LV
-          },
-          stroked: true,
-          getLineColor: [0, 0, 0, 60],
-          lineWidthMinPixels: 1,
-          filled: true,
-          pickable: true,
-        })
-      );
-    }
-
-    return layers;
-  }, [powerPlants, infraCableRoutes, infraSubstations, infraTransmissionLines, showInfraLayers, bubbleScale, selectedPlant]);
+  // Infrastructure rendered via MapLibre native layers (not deck.gl) — NO FLICKERING.
+  // Layers added directly to map in onLoad handler via map.addSource/addLayer.
+  // infraDeckLayers is empty — deck.gl only handles dynamic entities.
+  const infraDeckLayers: any[] = [];
+  // Old deck.gl infra code removed — now using MapLibre native layers
+  // See onLoad handler above for map.addSource/addLayer calls
 
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
@@ -2185,7 +2007,7 @@ export default function CREPDashboardPage() {
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
-    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
+    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
@@ -4383,35 +4205,18 @@ export default function CREPDashboardPage() {
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
 
               // ════════════════════════════════════════════════════════════
-              // INFRASTRUCTURE DATA — Load ONCE, cache forever
-              // Permanent assets (cables, plants, substations, TX lines)
-              // don't move — no need to refetch on viewport change.
-              // This eliminates the 429 rate limit errors.
+              // PERMANENT INFRASTRUCTURE — MapLibre native layers
+              // Rendered directly by MapLibre (not deck.gl) = NO FLICKERING
+              // Loads ONCE from MINDEX, added as GeoJSON sources + layers.
+              // This is how OpenGridWorks renders — permanent infra in the
+              // map pipeline, dynamic entities in deck.gl overlay.
               // ════════════════════════════════════════════════════════════
               let infraLoaded = false;
               const loadPermanentInfra = () => {
-                if (infraLoaded) return; // Only load once
+                if (infraLoaded) return;
                 infraLoaded = true;
-                console.log("[CREP/Infra] Loading permanent infrastructure (one-time)...");
+                console.log("[CREP/Infra] Loading permanent infrastructure into MapLibre...");
 
-                // Submarine cables — global, load ALL (they cross oceans)
-                mindexFetch("submarine-cables", null, 1000)
-                  .then(data => {
-                    if (data?.entities?.length > 0) {
-                      const cables = data.entities
-                        .filter((e: any) => e.properties?.route)
-                        .map((e: any) => ({
-                          id: e.id, name: e.name,
-                          path: e.properties.route?.coordinates || [],
-                          color: "#06b6d4",
-                        }))
-                        .filter((c: any) => c.path.length >= 2);
-                      setInfraCableRoutes(cables);
-                      console.log(`[CREP/Infra] ${cables.length} submarine cables (cached)`);
-                    }
-                  }).catch(() => {});
-
-                // Power plants — load for visible hemisphere
                 const center = map.getCenter();
                 const globalBounds = {
                   north: Math.min(90, center.lat + 50),
@@ -4420,52 +4225,138 @@ export default function CREPDashboardPage() {
                   west: Math.max(-180, center.lng - 80),
                 };
 
-                mindexFetch("facilities", globalBounds, 2000)
-                  .then(data => {
-                    if (data?.entities?.length > 0) {
-                      const plants = data.entities
-                        .filter((e: any) => e.lat != null && e.lng != null)
-                        .map((e: any) => ({
-                          id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
-                          capacity_mw: e.properties?.capacity_mw || 0,
-                          fuel_type: e.properties?.sub_type || e.properties?.type || e.entity_type || "other",
-                          status: e.properties?.status || "Operating",
-                          owner: e.properties?.operator, source: e.source || "mindex",
-                          plant_id: e.id,
-                        }));
-                      setPowerPlants(plants);
-                      console.log(`[CREP/Infra] ${plants.length} facilities (cached)`);
-                    }
-                  }).catch(() => {});
+                // Helper: fuel type → color
+                const fuelColor = (sub: string) => {
+                  const f = (sub || "").toLowerCase();
+                  if (f.includes("solar")) return "#f59e0b";
+                  if (f.includes("wind")) return "#14b8a6";
+                  if (f.includes("hydro")) return "#38bdf8";
+                  if (f.includes("nuclear")) return "#4ade80";
+                  if (f.includes("gas")) return "#a855f7";
+                  if (f.includes("coal")) return "#9ca3af";
+                  if (f.includes("oil")) return "#ef4444";
+                  if (f.includes("biomass") || f.includes("waste")) return "#eab308";
+                  if (f.includes("geothermal")) return "#22c55e";
+                  if (f.includes("data_center")) return "#7c3aed";
+                  if (f.includes("battery") || f.includes("storage")) return "#f43f5e";
+                  return "#6b7280";
+                };
 
-                // Substations — large dataset, load for visible area
-                mindexFetch("substations", globalBounds, 2000)
-                  .then(data => {
-                    if (data?.entities?.length > 0) {
-                      setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
-                      console.log(`[CREP/Infra] ${data.entities.length} substations (cached)`);
-                    }
-                  }).catch(() => {});
+                // ── Submarine cables (global) ──
+                mindexFetch("submarine-cables", null, 1000).then(data => {
+                  if (!data?.entities?.length) return;
+                  const features = data.entities
+                    .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: { name: e.name, ...e.properties },
+                      geometry: e.properties.route,
+                    }));
+                  if (!features.length) return;
+                  map.addSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  map.addLayer({
+                    id: "crep-cables-line", type: "line", source: "crep-cables",
+                    paint: { "line-color": "#06b6d4", "line-width": 2.5, "line-opacity": 0.8 },
+                  });
+                  setInfraCableRoutes(features as any); // For INFRA panel stats
+                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre`);
+                }).catch(() => {});
 
-                // Transmission lines — load for visible area
-                mindexFetch("transmission-lines", globalBounds, 2000)
-                  .then(data => {
-                    if (data?.entities?.length > 0) {
-                      const lines = data.entities
-                        .filter((e: any) => e.properties?.route)
-                        .map((e: any) => ({
-                          id: e.id, name: e.name,
-                          path: e.properties.route?.coordinates || [],
-                          voltage_kv: e.properties?.voltage_kv || 0,
-                        }))
-                        .filter((l: any) => l.path.length >= 2);
-                      setInfraTransmissionLines(lines);
-                      console.log(`[CREP/Infra] ${lines.length} transmission lines (cached)`);
-                    }
-                  }).catch(() => {});
+                // ── Power plants + data centers ──
+                mindexFetch("facilities", globalBounds, 2000).then(data => {
+                  if (!data?.entities?.length) return;
+                  const features = data.entities
+                    .filter((e: any) => e.lat != null && e.lng != null)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: {
+                        name: e.name, type: e.entity_type,
+                        sub_type: e.properties?.sub_type || e.properties?.type || e.entity_type,
+                        capacity_mw: e.properties?.capacity_mw || 0,
+                        operator: e.properties?.operator,
+                        color: fuelColor(e.properties?.sub_type || e.properties?.type || e.entity_type),
+                      },
+                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                    }));
+                  map.addSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  map.addLayer({
+                    id: "crep-plants-circle", type: "circle", source: "crep-plants",
+                    paint: {
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 5, 8, 8, 12, 12],
+                      "circle-color": ["get", "color"],
+                      "circle-opacity": 0.85,
+                      "circle-stroke-width": 1,
+                      "circle-stroke-color": "rgba(0,0,0,0.3)",
+                    },
+                  });
+                  // Update React state for INFRA panel
+                  setPowerPlants(data.entities.filter((e: any) => e.lat).map((e: any) => ({
+                    id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
+                    capacity_mw: e.properties?.capacity_mw || 0,
+                    fuel_type: e.properties?.sub_type || e.properties?.type || e.entity_type || "other",
+                    status: e.properties?.status || "Operating",
+                    owner: e.properties?.operator, source: e.source || "mindex", plant_id: e.id,
+                  })));
+                  console.log(`[CREP/Infra] ${features.length} plants → MapLibre`);
+                }).catch(() => {});
+
+                // ── Substations ──
+                mindexFetch("substations", globalBounds, 2000).then(data => {
+                  if (!data?.entities?.length) return;
+                  const features = data.entities
+                    .filter((e: any) => e.lat && e.lng)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: { name: e.name, voltage_kv: e.properties?.voltage_kv || 0 },
+                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                    }));
+                  map.addSource("crep-substations", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  map.addLayer({
+                    id: "crep-subs-circle", type: "circle", source: "crep-substations",
+                    paint: {
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 7, 4, 12, 7],
+                      "circle-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
+                      "circle-opacity": 0.7,
+                      "circle-stroke-width": 0.5,
+                      "circle-stroke-color": "rgba(0,0,0,0.2)",
+                    },
+                    minzoom: 4,
+                  });
+                  setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
+                  console.log(`[CREP/Infra] ${features.length} substations → MapLibre`);
+                }).catch(() => {});
+
+                // ── Transmission lines ──
+                mindexFetch("transmission-lines", globalBounds, 2000).then(data => {
+                  if (!data?.entities?.length) return;
+                  const features = data.entities
+                    .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: { name: e.name, voltage_kv: e.properties?.voltage_kv || 0 },
+                      geometry: e.properties.route,
+                    }));
+                  if (!features.length) return;
+                  map.addSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  map.addLayer({
+                    id: "crep-txlines-line", type: "line", source: "crep-txlines",
+                    paint: {
+                      "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, "#9ca3af", 31, "#fb923c", 100, "#ec4899", 230, "#a855f7",
+                        345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
+                      "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, 1, 100, 1.5, 345, 2, 500, 2.5, 735, 3],
+                      "line-opacity": 0.75,
+                    },
+                    minzoom: 3,
+                  });
+                  setInfraTransmissionLines(features as any);
+                  console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre`);
+                }).catch(() => {});
               };
 
-              // Load permanent infra 2 seconds after map loads (let map settle first)
+              // Load permanent infra 2 seconds after map loads
               setTimeout(loadPermanentInfra, 2000);
               
               // Initialize zoom and bounds
