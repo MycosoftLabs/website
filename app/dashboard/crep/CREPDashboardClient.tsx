@@ -2422,53 +2422,8 @@ export default function CREPDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INFRASTRUCTURE DATA — Fetch power plants via MINDEX (Apr 2026)
-  // ═══════════════════════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (!showInfraLayers) return;
-    const controller = new AbortController();
-
-    async function fetchInfra() {
-      try {
-        // Fetch facilities (power plants) from MINDEX
-        const data = await mindexFetch("facilities", mapBounds ? {
-          north: mapBounds.north,
-          south: mapBounds.south,
-          east: mapBounds.east,
-          west: mapBounds.west,
-        } : null, 2000, controller.signal);
-
-        if (data?.entities) {
-          const plants: PowerPlant[] = data.entities
-            .filter((e: any) => e.lat != null && e.lng != null)
-            .map((e: any) => ({
-              id: e.id,
-              name: e.name || "Unknown Plant",
-              lat: e.lat,
-              lng: e.lng,
-              capacity_mw: e.properties?.capacity_mw || e.properties?.output_mw || 0,
-              fuel_type: e.properties?.type || e.properties?.fuel_type || e.entity_type || "other",
-              status: e.properties?.status || "Operating",
-              owner: e.properties?.operator || e.properties?.owner,
-              source: e.source || "mindex",
-              state: e.properties?.state,
-              country: e.properties?.country,
-              plant_id: e.properties?.plant_id || e.id,
-            }));
-          setPowerPlants(plants);
-          console.log(`[CREP/Infra] Loaded ${plants.length} power plants from MINDEX`);
-        }
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          console.warn("[CREP/Infra] Failed to fetch power plants:", err);
-        }
-      }
-    }
-
-    fetchInfra();
-    return () => controller.abort();
-  }, [showInfraLayers, mapBounds]);
+  // Infrastructure data fetched via map onLoad + moveend handler above (not useEffect)
+  // This avoids React strict mode double-render abort issues with AbortController
 
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
   // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
@@ -4236,6 +4191,42 @@ export default function CREPDashboardPage() {
               // Register PMTiles protocol for vector tile sources
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
+
+              // Fetch infrastructure from MINDEX on map load + viewport changes
+              const fetchInfraFromMap = () => {
+                const center = map.getCenter();
+                const z = map.getZoom();
+                const span = 180 / Math.pow(2, z);
+                const bounds = {
+                  north: Math.min(90, center.lat + span),
+                  south: Math.max(-90, center.lat - span),
+                  east: Math.min(180, center.lng + span * 1.5),
+                  west: Math.max(-180, center.lng - span * 1.5),
+                };
+                console.log(`[CREP/Infra] Fetching at zoom ${z.toFixed(1)}, center ${center.lat.toFixed(1)},${center.lng.toFixed(1)}`);
+                mindexFetch("facilities", bounds, 2000)
+                  .then(data => {
+                    if (data?.entities?.length > 0) {
+                      const plants = data.entities
+                        .filter((e: any) => e.lat != null && e.lng != null)
+                        .map((e: any) => ({
+                          id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
+                          capacity_mw: e.properties?.capacity_mw || 0,
+                          fuel_type: e.properties?.type || e.entity_type || "other",
+                          status: e.properties?.status || "Operating",
+                          owner: e.properties?.operator, source: e.source || "mindex",
+                          plant_id: e.id,
+                        }));
+                      setPowerPlants(plants);
+                      console.log(`[CREP/Infra] Loaded ${plants.length} facilities from MINDEX`);
+                    }
+                  })
+                  .catch(err => console.warn("[CREP/Infra] Fetch error:", err.message));
+              };
+              // Initial fetch after map loads
+              setTimeout(fetchInfraFromMap, 1000);
+              // Re-fetch on viewport change
+              map.on("moveend", fetchInfraFromMap);
               
               // Initialize zoom and bounds
               setMapZoom(map.getZoom());
