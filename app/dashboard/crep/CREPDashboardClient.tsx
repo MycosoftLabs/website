@@ -228,6 +228,20 @@ import {
 
 // Voice Map Controls (Feb 6, 2026)
 import { VoiceMapControls } from "@/components/crep/voice-map-controls";
+
+// Globe/Map Projection Toggle (Apr 2026 — OpenGridWorks-style)
+import { GlobeToggle, type ProjectionMode } from "@/components/crep/controls/globe-toggle";
+
+// PMTiles Protocol Registration (Apr 2026)
+import { registerPMTilesProtocol } from "@/lib/crep/pmtiles-source";
+
+// OpenGridWorks-style Infrastructure Layers (Apr 2026)
+import { usePowerPlantLayers, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
+import { PlantPopup } from "@/components/crep/popups/plant-popup";
+import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
+import { FlyToButtons } from "@/components/crep/controls/fly-to-buttons";
+import { InfrastructureStatsPanel } from "@/components/crep/panels/infrastructure-stats-panel";
+import { mindexFetch } from "@/lib/crep/mindex-cache-client";
 import { executeCrepCommand, type MapCommandHandlers } from "@/hooks/useMapWebSocket";
 import type { FrontendCommand } from "@/lib/voice/map-websocket-client";
 import { VOICE_ENDPOINTS } from "@/lib/config/api-urls";
@@ -1673,7 +1687,7 @@ export default function CREPDashboardPage() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState("mission");
-  const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events">("fungal"); // DEFAULT TO FUNGAL
+  const [leftPanelTab, setLeftPanelTab] = useState<"fungal" | "events" | "infra">("fungal"); // DEFAULT TO FUNGAL
   const [selectedEvent, setSelectedEvent] = useState<GlobalEvent | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   
@@ -1681,6 +1695,10 @@ export default function CREPDashboardPage() {
   const [mapRef, setMapRef] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasAutoZoomed, setHasAutoZoomed] = useState(false);
+
+  // Globe/Map projection mode (Apr 2026 — OpenGridWorks-style)
+  // Globe always — shows 3D sphere zoomed out, naturally flat 2D when zoomed in
+  const [projectionMode, setProjectionMode] = useState<ProjectionMode>("globe");
   
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
@@ -1749,6 +1767,28 @@ export default function CREPDashboardPage() {
   const lastKnownRef = useRef<Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }>>({});
   const MAX_EXTRAPOLATION_MS = 30000; // cap at 30s — positions older than this use API data directly
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INFRASTRUCTURE STATE — OpenGridWorks-style layers (Apr 2026)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [powerPlants, setPowerPlants] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant[]>([]);
+  const [selectedPlant, setSelectedPlant] = useState<import("@/components/crep/layers/power-plant-bubbles").PowerPlant | null>(null);
+  const [showInfraLayers, setShowInfraLayers] = useState(true);
+  const [bubbleScale, setBubbleScale] = useState(1.0);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  // Power plant deck.gl layers (merged into EntityDeckLayer's single overlay)
+  const infraDeckLayers = usePowerPlantLayers({
+    plants: powerPlants,
+    visible: showInfraLayers,
+    bubbleScale,
+    zoom: mapZoom,
+    selectedPlantId: selectedPlant?.id,
+    onPlantClick: (plant) => {
+      lastEntityPickTimeRef.current = Date.now();
+      setSelectedPlant(plant);
+    },
+  });
+
   // Space weather state for NOAA scales
   const [noaaScales, setNoaaScales] = useState<NOAAScales>({ radio: 0, solar: 0, geomag: 0 });
   
@@ -2007,9 +2047,13 @@ export default function CREPDashboardPage() {
     { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
     { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
     { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
-    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#fbbf24", description: "Thermal, nuclear, renewable plants" },
+    { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants — OpenGridWorks-style" },
     { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
     { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
+    // TELECOM & INFRASTRUCTURE — OpenGridWorks-style (Apr 2026)
+    { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
+    { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Data centers worldwide from OSM" },
+    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
@@ -2159,6 +2203,13 @@ export default function CREPDashboardPage() {
     }
   }, [mounted, mapRef, hasAutoZoomed]);
   
+  // Update map projection when toggle changes (Apr 2026)
+  useEffect(() => {
+    if (!mapRef?.setProjection) return;
+    mapRef.setProjection({ type: projectionMode });
+    console.log(`[CREP] Projection set to: ${projectionMode}`);
+  }, [mapRef, projectionMode]);
+
   // Fetch data
   useEffect(() => {
     setMounted(true);
@@ -2370,6 +2421,54 @@ export default function CREPDashboardPage() {
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INFRASTRUCTURE DATA — Fetch power plants via MINDEX (Apr 2026)
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!showInfraLayers) return;
+    const controller = new AbortController();
+
+    async function fetchInfra() {
+      try {
+        // Fetch facilities (power plants) from MINDEX
+        const data = await mindexFetch("facilities", mapBounds ? {
+          north: mapBounds.north,
+          south: mapBounds.south,
+          east: mapBounds.east,
+          west: mapBounds.west,
+        } : null, 2000, controller.signal);
+
+        if (data?.entities) {
+          const plants: PowerPlant[] = data.entities
+            .filter((e: any) => e.lat != null && e.lng != null)
+            .map((e: any) => ({
+              id: e.id,
+              name: e.name || "Unknown Plant",
+              lat: e.lat,
+              lng: e.lng,
+              capacity_mw: e.properties?.capacity_mw || e.properties?.output_mw || 0,
+              fuel_type: e.properties?.type || e.properties?.fuel_type || e.entity_type || "other",
+              status: e.properties?.status || "Operating",
+              owner: e.properties?.operator || e.properties?.owner,
+              source: e.source || "mindex",
+              state: e.properties?.state,
+              country: e.properties?.country,
+              plant_id: e.properties?.plant_id || e.id,
+            }));
+          setPowerPlants(plants);
+          console.log(`[CREP/Infra] Loaded ${plants.length} power plants from MINDEX`);
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.warn("[CREP/Infra] Failed to fetch power plants:", err);
+        }
+      }
+    }
+
+    fetchInfra();
+    return () => controller.abort();
+  }, [showInfraLayers, mapBounds]);
 
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
   // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
@@ -3773,6 +3872,8 @@ export default function CREPDashboardPage() {
           >
             {rightPanelOpen ? <PanelRightClose className="w-4 h-4 text-cyan-400" /> : <PanelRightOpen className="w-4 h-4 text-cyan-400" />}
           </Button>
+          {/* Globe/Map Projection Toggle (Apr 2026 — OpenGridWorks-style) */}
+          <GlobeToggle mode={projectionMode} onChange={setProjectionMode} />
           <Button
             variant="ghost"
             size="icon"
@@ -3826,6 +3927,18 @@ export default function CREPDashboardPage() {
                 >
                   <TreePine className="w-3 h-3" />
                   NATURE DATA
+                </button>
+                <button
+                  onClick={() => setLeftPanelTab("infra")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[10px] font-semibold transition-all",
+                    leftPanelTab === "infra"
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                      : "bg-black/30 text-gray-500 border border-transparent hover:border-gray-600"
+                  )}
+                >
+                  <Zap className="w-3 h-3" />
+                  INFRA
                 </button>
                 <button
                   onClick={() => setLeftPanelTab("events")}
@@ -4051,10 +4164,22 @@ export default function CREPDashboardPage() {
               </>
             )}
 
+            {/* INFRASTRUCTURE TAB CONTENT — OpenGridWorks-style (Apr 2026) */}
+            {leftPanelTab === "infra" && (
+              <ScrollArea className="flex-1">
+                <InfrastructureStatsPanel
+                  plants={powerPlants}
+                  zoom={mapZoom}
+                  bubbleScale={bubbleScale}
+                  onBubbleScaleChange={setBubbleScale}
+                />
+              </ScrollArea>
+            )}
+
             {/* Sidebar Footer */}
             <div className="px-3 py-2 border-t border-cyan-500/20 bg-black/30">
               <div className="flex items-center justify-between text-[8px] font-mono text-gray-500">
-                <span>{leftPanelTab === "fungal" ? "MINDEX SYNC" : "LAST UPDATE"}</span>
+                <span>{leftPanelTab === "fungal" ? "MINDEX SYNC" : leftPanelTab === "infra" ? "MINDEX INFRA" : "LAST UPDATE"}</span>
                 <span className="text-cyan-400">{clientTime || "--:--:--"}</span>
               </div>
             </div>
@@ -4098,15 +4223,18 @@ export default function CREPDashboardPage() {
               pointer-events: auto !important;
             }
           `}</style>
-          <MapComponent 
-            center={userLocation ? [userLocation.lng, userLocation.lat] : [0, 20]} 
+          <MapComponent
+            center={userLocation ? [userLocation.lng, userLocation.lat] : [0, 20]}
             zoom={userLocation ? 5 : 2}
+            projection={projectionMode === "globe" ? { type: "globe" } : { type: "mercator" }}
             styles={{
               dark: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json",
               light: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
             }}
             onLoad={(map: any) => {
               setMapRef(map);
+              // Register PMTiles protocol for vector tile sources
+              import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
               
               // Initialize zoom and bounds
@@ -4217,6 +4345,8 @@ export default function CREPDashboardPage() {
               map={mapRef}
               entities={deckEntities}
               visible={deckEntities.length > 0}
+              extraLayers={infraDeckLayers}
+              useGlobeMode={projectionMode === "globe"}
               onEntityClick={(entity) => {
                 lastEntityPickTimeRef.current = Date.now();
                 if (entity.type === "aircraft") {
@@ -4261,6 +4391,9 @@ export default function CREPDashboardPage() {
 
             {/* Satellite orbit lines and icons come only from EntityDeckLayer (deck.gl);
                 SatelliteOrbitLines removed to avoid duplicate/conflicting orbit lines and filter bugs */}
+
+            {/* Power plant infrastructure layers are merged into EntityDeckLayer
+                via extraLayers prop — no separate overlay needed (Apr 2026) */}
 
             {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
                 NVIDIA EARTH-2 AI WEATHER LAYERS
@@ -4603,6 +4736,67 @@ export default function CREPDashboardPage() {
             towers={cellTowerPoints}
             opacity={0.4}
             signalType="cellular"
+          />
+
+          {/* ═══════════════════════════════════════════════════════════════
+              POWER PLANT DETAIL POPUP (Apr 2026)
+              ═══════════════════════════════════════════════════════════════ */}
+          {selectedPlant && (
+            <div
+              className="absolute z-50 pointer-events-auto"
+              style={{
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <PlantPopup
+                plant={selectedPlant}
+                onClose={() => setSelectedPlant(null)}
+                onFlyTo={(lat, lng, zoom) => {
+                  mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
+                }}
+              />
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              FLY-TO COUNTRY BUTTONS (Apr 2026)
+              ═══════════════════════════════════════════════════════════════ */}
+          <div className={cn(
+            "absolute top-14 z-20 transition-all duration-300",
+            rightPanelOpen ? "right-[340px]" : "right-4"
+          )}>
+            <FlyToButtons
+              onFlyTo={(center, zoom) => {
+                mapRef?.flyTo({ center, zoom, duration: 1200 });
+              }}
+              compact
+            />
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              UNIFIED SEARCH (Cmd+K) (Apr 2026)
+              ═══════════════════════════════════════════════════════════════ */}
+          <UnifiedSearch
+            plants={powerPlants}
+            viewportCenter={mapRef ? { lat: mapRef.getCenter().lat, lng: mapRef.getCenter().lng } : undefined}
+            onSelect={(result) => {
+              if (result.id === "__open") {
+                setSearchOpen(true);
+                return;
+              }
+              // Fly to result
+              if (result.lat && result.lng) {
+                mapRef?.flyTo({ center: [result.lng, result.lat], zoom: 10, duration: 800 });
+              }
+              // Open popup based on type
+              if (result.type === "plant" && result.data) {
+                setSelectedPlant(result.data);
+              }
+            }}
+            onClose={() => setSearchOpen(false)}
+            isOpen={searchOpen}
           />
 
           {/* Map Overlay - Corner Decorations */}

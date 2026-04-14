@@ -14,7 +14,7 @@
  * the correct custom widget (FlightTrackerWidget, VesselTrackerWidget, etc.).
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { IconLayer, PathLayer } from "@deck.gl/layers";
 import { PathStyleExtension } from "@deck.gl/extensions";
@@ -23,9 +23,43 @@ import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 
 // ── SVG icon data URIs ────────────────────────────────────────────────────────
 // All icons are drawn WHITE so deck.gl can tint them via getColor (mask: true).
+//
+// IMPORTANT: SVG data URIs fail in non-interleaved deck.gl mode (globe projection).
+// We pre-render them to PNG via an offscreen canvas so they work in both modes.
 
 function svgUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Pre-render SVG data URI to PNG data URL via offscreen canvas.
+ * Returns a Promise that resolves to a PNG data URL.
+ * This makes IconLayer work in non-interleaved (globe) mode.
+ */
+const _pngCache = new Map<string, string>();
+function svgToPng(svgDataUri: string, size = 64): Promise<string> {
+  const cached = _pngCache.get(svgDataUri);
+  if (cached) return Promise.resolve(cached);
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, size, size);
+        const png = canvas.toDataURL("image/png");
+        _pngCache.set(svgDataUri, png);
+        resolve(png);
+      } else {
+        resolve(svgDataUri); // fallback to SVG
+      }
+    };
+    img.onerror = () => resolve(svgDataUri); // fallback to SVG
+    img.src = svgDataUri;
+  });
 }
 
 /**
@@ -287,6 +321,12 @@ export interface EntityDeckLayerProps {
   entities: UnifiedEntity[];
   visible: boolean;
   onEntityClick?: (entity: UnifiedEntity) => void;
+  /** Extra deck.gl layers (e.g. power plant bubbles, transmission lines) merged
+   *  into the single MapboxOverlay. Avoids creating competing overlays. */
+  extraLayers?: any[];
+  /** When true, use non-interleaved rendering (needed for globe projection).
+   *  Interleaved mode doesn't work with MapLibre globe projection. */
+  useGlobeMode?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -296,31 +336,51 @@ export function EntityDeckLayer({
   entities,
   visible,
   onEntityClick,
+  extraLayers = [],
+  useGlobeMode = false,
 }: EntityDeckLayerProps) {
   // One MapboxOverlay per component instance.
-  // interleaved: true → deck.gl layers are inserted INTO the MapLibre render pipeline
-  // so they render correctly with the map. Required by @deck.gl/mapbox in this setup.
-  // (The @deck.gl/mapbox patch fixes the deck.viewManager API for v9 compatibility.)
+  // Globe projection requires interleaved: false (separate canvas overlay).
+  // Flat mercator can use interleaved: true (renders into MapLibre pipeline).
   // pickingRadius: 28 → fungal icons are 14–36px; 12 was too small for reliable clicks.
-  const overlay = useMemo(
-    () => new MapboxOverlay({ interleaved: true, pickingRadius: 28 }),
-    []
-  );
+  const overlayRef = useRef<MapboxOverlay | null>(null);
 
-  // Attach / detach overlay when map ref changes
+  // Attach / detach overlay when map ref or globe mode changes
   useEffect(() => {
     if (!map) return;
-    // MapboxOverlay satisfies maplibre's IControl interface at runtime
+
+    // Remove old overlay if it exists
+    if (overlayRef.current) {
+      try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
+      overlayRef.current = null;
+    }
+
+    // Always use interleaved: true — deck.gl v9 MapboxOverlay works with
+    // MapLibre globe projection in interleaved mode. Non-interleaved mode
+    // breaks SVG icon atlases. Interleaved renders entities correctly
+    // within the MapLibre GL pipeline on both globe and flat projections.
+    const overlay = new MapboxOverlay({
+      interleaved: true,
+      pickingRadius: 28,
+    });
+    overlayRef.current = overlay;
     map.addControl(overlay as unknown as maplibregl.IControl);
+
     return () => {
-      map.removeControl(overlay as unknown as maplibregl.IControl);
+      if (overlayRef.current) {
+        try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
+        overlayRef.current = null;
+      }
     };
-  }, [map, overlay]);
+  }, [map, useGlobeMode]);
+
+  // overlayRef.current is used directly in the layer update effect below
 
   // Rebuild layers whenever entities or visibility changes
   useEffect(() => {
+    if (!overlayRef.current) return;
     if (!visible) {
-      overlay.setProps({ layers: [] });
+      overlayRef.current.setProps({ layers: [] });
       return;
     }
 
@@ -355,11 +415,34 @@ export function EntityDeckLayer({
       if (info?.object && onEntityClick) onEntityClick(info.object);
     };
 
+    // 2D position for flat mode
     const getPos = (e: UnifiedEntity) =>
       e.geometry.coordinates as [number, number];
 
-    overlay.setProps({
+    // 3D position with altitude for globe mode — aircraft at flight level,
+    // satellites at orbital altitude, vessels/species at surface
+    const getPos3D = (e: UnifiedEntity): [number, number, number] => {
+      const [lng, lat] = e.geometry.coordinates as [number, number];
+      if (e.type === "aircraft") {
+        // altitude_ft → meters, scale down for visual (real altitudes too high)
+        const altFt = e.state?.altitude ?? e.properties?.altitude_ft ?? 35000;
+        return [lng, lat, Number(altFt) * 0.3048 * 0.5]; // 50% scale for visibility
+      }
+      if (e.type === "satellite") {
+        // Orbital altitude in km, scale to meters but cap for visual
+        const altKm = e.state?.altitude ?? e.properties?.altitude_km ?? 400;
+        return [lng, lat, Number(altKm) * 100]; // Scaled: 400km orbit → 40km visual
+      }
+      // Vessels, species, events at surface
+      return [lng, lat, 0];
+    };
+
+    overlayRef.current.setProps({
       layers: [
+        // ── Extra infrastructure layers (power plants, transmission, etc.) ──
+        // Rendered BELOW entity icons so planes/boats/sats stay on top
+        ...extraLayers,
+
         // ── Trajectory lines: thin, low-opacity dashed path so they don't clog the map ──
         // Planes, boats, satellites: path = [past, future]; icon at current. Not attached to icon.
         new PathLayer<TrailItem>({
@@ -368,15 +451,15 @@ export function EntityDeckLayer({
           widthUnits: "pixels",
           getPath: (x) => x.path,
           getColor: (x) => entityColor(x.entity.type),
-          getWidth: 1,
-          opacity: 0.4,
+          getWidth: useGlobeMode ? 0.5 : 1,
+          opacity: useGlobeMode ? 0.15 : 0.4, // Much thinner on globe so entities stand out
           pickable: false,
           dashJustified: true,
           extensions: [new PathStyleExtension({ dash: true })],
           ...({ getDashArray: () => [4, 3] } as any),
         }),
 
-        // ── Other entities: weather, earthquake, elephant, device ──
+        // ── Entity icons: single branch, interleaved: true works for both globe + flat ──
         new IconLayer<UnifiedEntity>({
           id: "crep-others",
           data: others,
@@ -423,7 +506,6 @@ export function EntityDeckLayer({
           sizeMinPixels: 10,
           sizeMaxPixels: 36,
           getColor: () => entityColor("vessel"),
-          // deck.gl getAngle: degrees, positive = CCW. Aviation heading = clockwise from north → angle = -heading
           getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
           pickable: true,
           onClick: handleClick,
@@ -442,14 +524,12 @@ export function EntityDeckLayer({
           sizeMinPixels: 10,
           sizeMaxPixels: 40,
           getColor: () => entityColor("aircraft"),
-          // Rotate plane to match aviation heading (clockwise from north); getAngle = -heading in degrees
           getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
           pickable: true,
           onClick: handleClick,
         }),
 
-        // ── Biodiversity observations (fungal + all species) – LAST so on top & pickable ──
-        // IconLayer with SVG kingdom icons (🍄 fungi, 🌿 plantae, 🐦 aves, etc.). TextLayer emojis don't render in deck.gl.
+        // ── Biodiversity observations (fungal + all species) ──────────────
         ...(fungal.length > 0
           ? [
               new IconLayer<UnifiedEntity>({
@@ -474,7 +554,7 @@ export function EntityDeckLayer({
           : []),
       ],
     });
-  }, [overlay, entities, visible, onEntityClick]);
+  }, [entities, visible, onEntityClick, extraLayers, useGlobeMode]);
 
   // This component produces no DOM output – it controls the deck.gl overlay
   return null;

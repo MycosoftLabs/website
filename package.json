@@ -123,6 +123,7 @@
     "particles.js": "^2.0.0",
     "pdf-parse": "^2.4.5",
     "pixi.js": "^8.16.0",
+    "pmtiles": "^4.4.1",
     "prismjs": "^1.30.0",
     "protobufjs": "^7.5.4",
     "react": "19.0.0",
@@ -187,5 +188,3 @@
     "vitest": "^4.0.18"
   }
 }
-
-
