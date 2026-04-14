@@ -255,6 +255,7 @@ All notable changes to this project will be documented in this file.
 - MINDEX infrastructure data fetch on globe projection
 - Fuel type colors from sub_type + thick colored cables + smaller species markers
 - Single MapboxOverlay with proper layer ordering for globe
+- Z is not defined + load infra ONCE + stop AISStream spam
 
 ### CREP
 
@@ -285,6 +286,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
