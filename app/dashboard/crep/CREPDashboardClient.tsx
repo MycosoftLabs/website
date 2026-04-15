@@ -4223,7 +4223,7 @@ export default function CREPDashboardPage() {
                     if (map.getSource(id)) {
                       (map.getSource(id) as any).setData(spec.data);
                     } else {
-                      safeAddSource(id, spec);
+                      map.addSource(id, spec);
                     }
                   } catch (e: any) {
                     console.warn(`[CREP/Infra] Source ${id}:`, e.message);
@@ -4234,7 +4234,7 @@ export default function CREPDashboardPage() {
                     if (map.getLayer(spec.id)) {
                       map.removeLayer(spec.id);
                     }
-                    safeAddLayer(spec);
+                    map.addLayer(spec);
                   } catch (e: any) {
                     console.warn(`[CREP/Infra] Layer ${spec.id}:`, e.message);
                   }
