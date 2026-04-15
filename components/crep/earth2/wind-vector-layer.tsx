@@ -16,6 +16,8 @@ interface WindVectorLayerProps {
   visible: boolean;
   forecastHours: number;
   opacity: number;
+  /** Degrees between samples — align with scalar grid / CREP resolution control */
+  resolutionDeg?: number;
   animated?: boolean;
   density?: "low" | "medium" | "high";
   showSpeedColors?: boolean;
@@ -62,6 +64,7 @@ export function WindVectorLayer({
   visible,
   forecastHours,
   opacity,
+  resolutionDeg = 0.22,
   animated = true,
   density = "medium",
   showSpeedColors = true,
@@ -92,7 +95,7 @@ export function WindVectorLayer({
       const windData = await clientRef.current.getWindVectors({
         forecastHours: debouncedHours,
         bounds,
-        resolution: 0.5,
+        resolution: resolutionDeg,
       });
 
       let minSpeed = Infinity, maxSpeed = -Infinity, totalSpeed = 0, count = 0;
@@ -176,7 +179,7 @@ export function WindVectorLayer({
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, animated, density, showSpeedColors, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, resolutionDeg, animated, density, showSpeedColors, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;

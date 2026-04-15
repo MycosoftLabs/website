@@ -19,6 +19,7 @@ interface PrecipitationLayerProps {
   visible: boolean;
   forecastHours: number;
   opacity: number;
+  resolutionDeg?: number;
   showAnimation?: boolean;
   precipType?: "all" | "rain" | "snow" | "mixed";
   onDataLoaded?: (data: { totalPrecip: number; maxIntensity: number; coverage: number; snowCoverage: number }) => void;
@@ -97,6 +98,7 @@ export function PrecipitationLayer({
   visible,
   forecastHours,
   opacity,
+  resolutionDeg = 0.22,
   showAnimation = true,
   precipType = "all",
   onDataLoaded,
@@ -136,18 +138,18 @@ export function PrecipitationLayer({
           variable: "tp",
           forecastHours: debouncedHours,
           bounds,
-          resolution: 0.5,
+          resolution: resolutionDeg,
         }),
         clientRef.current.getWeatherGrid({
           variable: "t2m",
           forecastHours: debouncedHours,
           bounds,
-          resolution: 0.5,
+          resolution: resolutionDeg,
         }),
         clientRef.current.getWindVectors({
           forecastHours: debouncedHours,
           bounds,
-          resolution: 1,
+          resolution: resolutionDeg,
         }),
       ]);
 
@@ -246,7 +248,7 @@ export function PrecipitationLayer({
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, showAnimation, precipType, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, resolutionDeg, showAnimation, precipType, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;

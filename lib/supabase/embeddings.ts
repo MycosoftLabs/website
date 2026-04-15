@@ -5,7 +5,7 @@
  * using Supabase pgvector extension
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
 export interface EmbeddingResult {
   id: string
@@ -72,7 +72,8 @@ export async function storeEmbedding(
   embedding: number[],
   metadata?: Record<string, unknown>
 ) {
-  const supabase = await createClient()
+  // CMMC: anon cannot UPDATE documents/species — use admin client
+  const supabase = await createAdminClient()
   
   const { data, error } = await supabase
     .from(table)
@@ -97,7 +98,8 @@ export async function semanticSearch(
   limit: number = 10,
   threshold: number = 0.7
 ): Promise<EmbeddingResult[]> {
-  const supabase = await createClient()
+  // CMMC: anon EXECUTE revoked on all functions — use admin client for match_* RPCs
+  const supabase = await createAdminClient()
   
   // Generate embedding for query
   const queryEmbedding = await generateEmbedding(query)

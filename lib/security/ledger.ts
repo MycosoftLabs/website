@@ -4,8 +4,9 @@ import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// CMMC: anon can no longer INSERT into security_ledger — service role required
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 // AES encryption key for payload
 const ENCRYPTION_KEY = process.env.LEDGER_ENCRYPTION_KEY || 'default-secret-key-replace-me-12';
@@ -128,7 +129,7 @@ export class SecurityLedger {
     // Emit event or webhook to MAS/MINDEX to mirror ledger modifications
     // (Mocked integration point for MAS interaction system)
     console.log('[MAS/MINDEX] Syncing cryptographic ledger update. Chain length: ', this.chain.length);
-    if (block && supabaseUrl) {
+    if (block && supabase) {
       console.log('[SUPABASE] Syncing block index: ', block.index);
       try {
         const { error } = await supabase.from('security_ledger').insert({

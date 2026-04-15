@@ -191,11 +191,12 @@ async function syncChainStateFromDB(): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 
 async function getSupabaseClient() {
+  // CMMC: anon can no longer write to security tables — service role required
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
   if (!supabaseUrl || !supabaseKey) {
-    console.warn('[SecurityDB] Supabase not configured, using in-memory storage');
+    console.warn('[SecurityDB] Supabase service role key not configured, using in-memory storage');
     return null;
   }
 

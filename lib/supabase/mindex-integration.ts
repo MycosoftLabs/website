@@ -5,7 +5,7 @@
  * Uses Foreign Data Wrapper (FDW) or direct replication
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { env } from "@/lib/env"
 import { listTaxa } from "@/lib/integrations/mindex"
 import type { Taxon } from "@/lib/integrations/types"
@@ -24,7 +24,8 @@ export async function syncMINDEXTaxaToSupabase(options?: { pageSize?: number; ma
     throw new Error("Integrations are disabled. Set INTEGRATIONS_ENABLED=true and provide MINDEX_API_BASE_URL/MINDEX_API_KEY.")
   }
 
-  const supabase = await createClient()
+  // CMMC: anon cannot UPSERT into species — use admin client for server-side sync
+  const supabase = await createAdminClient()
   
   const pageSize = options?.pageSize ?? 200
   const maxPages = options?.maxPages ?? 50

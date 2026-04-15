@@ -328,6 +328,19 @@ export function Earth2LayerControl({
             </Badge>
           </div>
 
+          <p className="px-2 py-1.5 text-[9px] text-gray-500 leading-snug border-b border-emerald-500/10">
+            GPU-side AI weather uses MAS/Legion pipelines aligned with{" "}
+            <a
+              href="https://github.com/NVIDIA/earth2studio"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400/90 underline hover:text-emerald-300"
+            >
+              NVIDIA Earth2Studio
+            </a>
+            . The map renders live scalar/wind grids (Earth2Studio itself is a Python inference toolkit, not a browser SDK).
+          </p>
+
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full bg-black/50 border-b border-emerald-500/20 rounded-none h-8">
               <TabsTrigger value="layers" className="text-[10px] data-[state=active]:bg-emerald-500/20">

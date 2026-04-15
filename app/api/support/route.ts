@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
+import { createClient } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -7,7 +8,8 @@ interface SupportTicketRequest {
   name: string
   email: string
   issueType: string
-  subject: string
+  /** Optional; defaulted from issue type when omitted (e.g. support form). */
+  subject?: string
   description: string
 }
 
@@ -15,13 +17,17 @@ export async function POST(request: Request) {
   try {
     const body: SupportTicketRequest = await request.json()
 
-    // Validate required fields
-    if (!body.name || !body.email || !body.issueType || !body.subject || !body.description) {
+    // Validate required fields (subject optional — derived from issueType if missing)
+    if (!body.name || !body.email || !body.issueType || !body.description) {
       return NextResponse.json(
         { error: "All fields are required" },
         { status: 400 }
       )
     }
+
+    const subject =
+      body.subject?.trim() ||
+      `${body.issueType.replace(/-/g, " ")} — support request`
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -32,19 +38,15 @@ export async function POST(request: Request) {
       )
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabase = createServiceRoleClient()
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Supabase configuration missing")
+    if (!supabase) {
+      console.error("Supabase configuration missing (SUPABASE_SERVICE_ROLE_KEY required)")
       return NextResponse.json(
         { error: "Service configuration error" },
         { status: 500 }
       )
     }
-
-    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Insert support ticket into Supabase
     const { data, error } = await supabase
@@ -54,7 +56,7 @@ export async function POST(request: Request) {
           name: body.name,
           email: body.email,
           issue_type: body.issueType,
-          subject: body.subject,
+          subject,
           description: body.description,
           status: "open",
           created_at: new Date().toISOString(),
@@ -108,35 +110,33 @@ export async function POST(request: Request) {
   }
 }
 
-// GET endpoint to retrieve tickets (for authenticated users)
-export async function GET(request: Request) {
+// GET: authenticated users only; tickets scoped to session email (no email query-param leak)
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get("email")
+    const authClient = await createClient()
+    const {
+      data: { user },
+    } = await authClient.auth.getUser()
 
-    if (!email) {
+    if (!user?.email) {
       return NextResponse.json(
-        { error: "Email parameter required" },
-        { status: 400 }
+        { error: "Authentication required" },
+        { status: 401 }
       )
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
+    const supabase = createServiceRoleClient()
+    if (!supabase) {
       return NextResponse.json(
         { error: "Service configuration error" },
         { status: 500 }
       )
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
     const { data, error } = await supabase
       .from("support_tickets")
       .select("*")
-      .eq("email", email)
+      .eq("email", user.email)
       .order("created_at", { ascending: false })
       .limit(50)
 

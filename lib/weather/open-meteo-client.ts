@@ -458,9 +458,8 @@ export class OpenMeteoClient {
     const gridPoints: WeatherGridPoint[] = [];
     const fetchPromises: Promise<void>[] = [];
 
-    // Limit resolution to avoid too many API calls
-    const effectiveResolution = Math.max(resolution, 1);
-    const maxPoints = 100; // Limit total API calls
+    const effectiveResolution = Math.max(resolution, 0.25);
+    const maxPoints = 256;
 
     // Calculate number of points
     const latPoints = Math.ceil((north - south) / effectiveResolution);
@@ -572,9 +571,8 @@ export class OpenMeteoClient {
 
     const gridPoints: WeatherGridPoint[] = [];
 
-    // Limit resolution for API load
-    const effectiveResolution = Math.max(resolution, 0.5);
-    const maxPoints = 100;
+    const effectiveResolution = Math.max(resolution, 0.25);
+    const maxPoints = 256;
 
     const latPoints = Math.ceil((north - south) / effectiveResolution);
     const lonPoints = Math.ceil((east - west) / effectiveResolution);

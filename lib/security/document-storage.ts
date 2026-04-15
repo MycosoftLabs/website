@@ -5,7 +5,8 @@
  * Uses Supabase Storage for file storage and database for metadata
  */
 
-import { createClient } from '@/lib/supabase/server'
+// CMMC: compliance_documents table requires service role — anon has no access
+import { createAdminClient as createClient } from '@/lib/supabase/server'
 import { 
   generateDefaultSSP, 
   generateSSPHTML, 

@@ -7,7 +7,8 @@
  * API Keys are encrypted at rest using AES-256-GCM
  */
 
-import { createClient } from '@/lib/supabase/server'
+// CMMC: security tables require service role — anon has no access
+import { createAdminClient as createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
 // ═══════════════════════════════════════════════════════════════

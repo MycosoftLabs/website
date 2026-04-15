@@ -23,6 +23,17 @@ export async function middleware(request: NextRequest) {
   const needsAuth = pathRequiresAuth(pathname) || pathRequiresCompanyEmail(pathname)
   if (!needsAuth) return response
 
+  // Local dev only: allow NatureOS/infrastructure routes without login (opt-in; never enable in prod).
+  // Set in .env.local: UNSAFE_BYPASS_AUTH=true with NODE_ENV=development on localhost:3010.
+  const host = request.nextUrl.hostname
+  const localDevAuthBypass =
+    process.env.UNSAFE_BYPASS_AUTH === "true" &&
+    process.env.NODE_ENV === "development" &&
+    (host === "localhost" || host === "127.0.0.1")
+  if (localDevAuthBypass) {
+    return response
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 

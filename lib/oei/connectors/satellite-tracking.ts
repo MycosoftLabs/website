@@ -57,6 +57,18 @@ export interface SatelliteEntity extends Entity {
     velocity?: number
     isActive: boolean
     owner?: string
+    // TLE lines for client-side SGP4 propagation (from TLE API)
+    line1?: string
+    line2?: string
+    // Keplerian elements for SGP4 propagation (from CelesTrak GP or parsed TLE)
+    epoch?: string
+    meanMotion?: number
+    eccentricity?: number
+    raAscNode?: number
+    argPericenter?: number
+    meanAnomaly?: number
+    bstar?: number
+    meanMotionDot?: number
   }
 }
 
@@ -101,6 +113,10 @@ interface ParsedTLE {
   meanAnomaly: number      // degrees
   bstar: number
   meanMotionDot: number
+  /** Raw TLE line 1 — preserved for client-side SGP4 propagation */
+  line1?: string
+  /** Raw TLE line 2 — preserved for client-side SGP4 propagation */
+  line2?: string
 }
 
 // CelesTrak GP format (for when CelesTrak is accessible)
@@ -211,6 +227,8 @@ function parseTLELines(noradId: number, name: string, line1: string, line2: stri
       meanAnomaly,
       bstar,
       meanMotionDot: isNaN(meanMotionDot) ? 0 : meanMotionDot,
+      line1,
+      line2,
     }
   } catch (err) {
     return null
@@ -369,6 +387,18 @@ function parsedTLEToEntity(tle: ParsedTLE): SatelliteEntity {
       period: Math.round(orbital.period * 10) / 10,
       velocity: Math.round(orbital.velocity * 100) / 100,
       isActive,
+      // Raw TLE lines for client-side SGP4 propagation
+      line1: tle.line1,
+      line2: tle.line2,
+      // Keplerian elements for SGP4 propagation (when TLE lines not available)
+      epoch: tle.epoch,
+      meanMotion: tle.meanMotion,
+      eccentricity: tle.eccentricity,
+      raAscNode: tle.raAscNode,
+      argPericenter: tle.argPericenter,
+      meanAnomaly: tle.meanAnomaly,
+      bstar: tle.bstar,
+      meanMotionDot: tle.meanMotionDot,
     },
   }
 }

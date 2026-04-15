@@ -23,7 +23,7 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react"
-import { createClient } from "@supabase/supabase-js"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 
 export const metadata: Metadata = {
   title: "Careers | Mycosoft",
@@ -47,15 +47,12 @@ interface Job {
 }
 
 async function getJobs(): Promise<Job[]> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("[Careers] Missing Supabase credentials")
+  // CMMC: anon role no longer has SELECT on jobs — use service role for server-side fetch
+  const supabase = createServiceRoleClient()
+  if (!supabase) {
+    console.error("[Careers] Missing SUPABASE_SERVICE_ROLE_KEY for jobs query")
     return []
   }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
   try {
     const { data, error } = await supabase

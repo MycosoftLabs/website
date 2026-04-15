@@ -7,7 +7,8 @@ import type { Intent } from "../myca-nlq"
 import type { BaseConnector, ConnectorOptions, ConnectorResult } from "./base-connector"
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+/** CMMC: anon role revoked on most tables — service role required for NLQ queries. */
+const SUPABASE_REST_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export class SupabaseConnector implements BaseConnector {
   readonly name = "Supabase"
@@ -16,7 +17,7 @@ export class SupabaseConnector implements BaseConnector {
   async query(intent: Intent, options?: ConnectorOptions): Promise<ConnectorResult> {
     const startTime = Date.now()
     
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_REST_KEY) {
       return {
         success: false,
         data: [],
@@ -57,8 +58,8 @@ export class SupabaseConnector implements BaseConnector {
       
       const response = await fetch(queryUrl, {
         headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+          apikey: SUPABASE_REST_KEY,
+          Authorization: `Bearer ${SUPABASE_REST_KEY}`,
         },
         signal: AbortSignal.timeout(options?.timeout || 10000),
       })
@@ -140,14 +141,15 @@ export class SupabaseConnector implements BaseConnector {
   }
   
   async isAvailable(): Promise<boolean> {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_REST_KEY) {
       return false
     }
-    
+
     try {
       const response = await fetch(`${SUPABASE_URL}/rest/v1/`, {
         headers: {
-          "apikey": SUPABASE_ANON_KEY,
+          apikey: SUPABASE_REST_KEY,
+          Authorization: `Bearer ${SUPABASE_REST_KEY}`,
         },
         signal: AbortSignal.timeout(3000),
       })

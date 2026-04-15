@@ -27,13 +27,14 @@ const MAS_API_KEY = process.env.MAS_API_KEY || '';
 // ═══════════════════════════════════════════════════════════════
 
 function getSupabaseClient() {
+  // CMMC: anon can no longer access agent_run_log, agent_resolutions, etc. — service role required
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
   if (!supabaseUrl || !supabaseKey) {
     return null;
   }
-  
+
   return createClient(supabaseUrl, supabaseKey);
 }
 

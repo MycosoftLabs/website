@@ -28,13 +28,14 @@ export const dynamic = 'force-dynamic';
 // ═══════════════════════════════════════════════════════════════
 
 function getSupabaseClient() {
+  // CMMC: anon can no longer access incident_causality — service role required
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
   if (!supabaseUrl || !supabaseKey) {
     return null;
   }
-  
+
   return createClient(supabaseUrl, supabaseKey);
 }
 

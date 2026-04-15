@@ -253,8 +253,9 @@ function MapMarker({
       ...markerOptions,
       element: document.createElement("div"),
       draggable,
-      occludedOpacity: 0, // Hide markers behind the globe (not visible from other side)
     } as any).setLngLat([longitude, latitude]);
+    // Hide markers behind the globe if MapLibre supports it
+    try { (markerInstance as any).setOccludedOpacity?.(0); } catch {}
 
     // Use refs in handlers so they always call the LATEST callback
     const handleClick = (e: MouseEvent) => {

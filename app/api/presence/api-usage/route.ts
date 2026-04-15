@@ -1,6 +1,8 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 
+// CMMC: anon can no longer INSERT into api_usage_log — use admin for unauthenticated telemetry
+
 function isStaffRole(role: string | undefined): boolean {
   if (!role) return false
   const r = role.toLowerCase()
@@ -17,6 +19,8 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    // CMMC: anon cannot INSERT into api_usage_log — use admin client for telemetry inserts
+    const admin = await createAdminClient()
 
     const body = await request.json().catch(() => ({}))
     const { events } = body
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
       response_size_bytes: typeof e.response_size_bytes === "number" ? e.response_size_bytes : null,
     }))
 
-    const { error } = await supabase.from("api_usage_log").insert(rows)
+    const { error } = await admin.from("api_usage_log").insert(rows)
 
     if (error) {
       console.error("API usage insert error:", error)

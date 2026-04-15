@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCachedReal, normalizeError, setCachedReal } from "../../_lib/real-cache";
 import { getOpenMeteoClient, VARIABLE_MAPPING } from "@/lib/weather/open-meteo-client";
+import { pointsTo2DGrid } from "@/lib/earth2/points-to-2d-grid";
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001";
 
@@ -61,6 +62,8 @@ export async function GET(request: NextRequest) {
     // GFS is better for US/North America, standard forecast for global
     const isUSRegion = west >= -130 && east <= -60 && south >= 20 && north <= 55;
 
+    // Finer sampling when MAS is down: 0.25° floor (was 1°, which looked like huge blocks).
+    const omRes = Math.max(resolution, 0.25);
     const gridData = isUSRegion
       ? await openMeteoClient.getGFSGrid({
           variable,
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
           south,
           east,
           west,
-          resolution: Math.max(resolution, 1), // Open-Meteo needs coarser resolution
+          resolution: omRes,
         })
       : await openMeteoClient.getWeatherGrid({
           variable,
@@ -78,13 +81,45 @@ export async function GET(request: NextRequest) {
           south,
           east,
           west,
-          resolution: Math.max(resolution, 1),
+          resolution: omRes,
         });
 
     if (gridData.grid.length > 0) {
-      // Transform to match expected format
+      const raw = gridData.grid as unknown[];
+      const asPoints =
+        raw.length > 0 && typeof raw[0] === "object" && raw[0] !== null && "value" in (raw[0] as object)
+          ? (raw as { lat: number; lon: number; value: number }[])
+          : null;
+      const matrix = asPoints ? pointsTo2DGrid(asPoints) : null;
+      const grid2d =
+        matrix?.grid ??
+        (Array.isArray(raw[0]) ? (raw as number[][]) : null);
+      const minMax =
+        matrix ??
+        (() => {
+          const g = grid2d;
+          if (!g?.length) return null;
+          let lo = Infinity;
+          let hi = -Infinity;
+          for (const row of g) {
+            for (const v of row) {
+              if (Number.isFinite(v)) {
+                lo = Math.min(lo, v);
+                hi = Math.max(hi, v);
+              }
+            }
+          }
+          return Number.isFinite(lo) ? { grid: g, min: lo, max: hi } : null;
+        })();
+
+      if (!minMax?.grid?.length) {
+        throw new Error("open-meteo grid normalize failed");
+      }
+
       const responseData = {
-        grid: gridData.grid,
+        grid: minMax.grid,
+        min: minMax.min,
+        max: minMax.max,
         variable: gridData.variable,
         unit: gridData.unit,
         timestamp: gridData.timestamp,

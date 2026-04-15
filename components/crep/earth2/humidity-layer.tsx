@@ -16,6 +16,7 @@ interface HumidityLayerProps {
   visible: boolean;
   forecastHours: number;
   opacity: number;
+  resolutionDeg?: number;
   onDataLoaded?: (data: { avgHumidity: number; minHumidity: number; maxHumidity: number }) => void;
 }
 
@@ -92,6 +93,7 @@ export function HumidityLayer({
   visible,
   forecastHours,
   opacity,
+  resolutionDeg = 0.22,
   onDataLoaded,
 }: HumidityLayerProps) {
   const layerAddedRef = useRef(false);
@@ -119,7 +121,7 @@ export function HumidityLayer({
         variable: "tcwv",
         forecastHours: debouncedHours,
         bounds,
-        resolution: 0.5,
+        resolution: resolutionDeg,
       });
 
       const humidityGrid = grid.map(row => 
@@ -178,7 +180,7 @@ export function HumidityLayer({
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, resolutionDeg, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;

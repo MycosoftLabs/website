@@ -141,7 +141,7 @@ export class EntityStreamClient {
       this.ws = new WebSocket(url.toString())
       this.ws.binaryType = "arraybuffer"
     } catch (error) {
-      console.error("[EntityStream] Failed to create WebSocket:", error)
+      console.warn("[EntityStream] WebSocket unavailable (optional):", (error as Error)?.message || error)
       this.onError?.(error instanceof Error ? error : new Error(String(error)))
       this.scheduleReconnect()
       return
@@ -204,8 +204,8 @@ export class EntityStreamClient {
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error(
-        `[EntityStream] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`
+      console.warn(
+        `[EntityStream] MAS entity stream unavailable (optional). Entities use direct API fetch instead.`
       )
       this.setConnectionState("disconnected")
       this.onError?.(

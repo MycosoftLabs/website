@@ -4,16 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 
 export const dynamic = "force-dynamic"
 
-// Server-side Supabase client with service role key (for admin operations)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("[Contact API] Missing Supabase credentials")
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("[Contact API] Missing Supabase credentials (SUPABASE_SERVICE_ROLE_KEY required)")
 }
 
 interface ContactFormData {
@@ -102,15 +98,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create Supabase client
-    if (!supabaseUrl || !supabaseAnonKey) {
+    const supabase = createServiceRoleClient()
+    if (!supabase) {
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
       )
     }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
     // Insert contact submission into Supabase
     const { data, error } = await supabase

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServiceRoleClient } from "@/lib/supabase/service-role"
 import { NextRequest, NextResponse } from "next/server"
 
 interface DefenseBriefingRequest {
@@ -65,9 +65,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    // CMMC: public form insert — anon cannot write defense_briefing_requests
+    const supabase = createServiceRoleClient()
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      )
+    }
 
-    // Insert into Supabase
     const { data, error } = await supabase
       .from("defense_briefing_requests")
       .insert({

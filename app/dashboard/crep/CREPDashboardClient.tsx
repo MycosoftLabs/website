@@ -148,6 +148,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { gridResolutionDegrees } from "@/lib/earth2/resolution-from-filter";
 import { toast } from "sonner";
 
 // OEI Real-time Data Widgets (lazy-loaded per tab)
@@ -2140,6 +2141,11 @@ export default function CREPDashboardPage() {
     showTemperature: false, // All Earth2 layers off by default — user opts in
     forecastHours: 24,
   });
+
+  const earth2ApiResolutionDeg = useMemo(
+    () => gridResolutionDegrees({ resolution: earth2Filter.resolution, gpuMode: earth2Filter.gpuMode }),
+    [earth2Filter.resolution, earth2Filter.gpuMode],
+  );
   
   // Use Earth-2 alerts hook for automatic updates
   const { alerts: fetchedEarth2Alerts } = useEarth2Alerts(60000);
@@ -5256,6 +5262,7 @@ export default function CREPDashboardPage() {
                 variable={earth2Filter.showTemperature ? "temperature" : "precipitation"}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
             
@@ -5276,6 +5283,7 @@ export default function CREPDashboardPage() {
                 visible={true}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
             
@@ -5286,6 +5294,7 @@ export default function CREPDashboardPage() {
                 visible={true}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
             
@@ -5296,6 +5305,7 @@ export default function CREPDashboardPage() {
                 visible={true}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
                 showAnimation={earth2Filter.animated}
               />
             )}
@@ -5307,6 +5317,7 @@ export default function CREPDashboardPage() {
                 visible={true}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
             
@@ -5327,6 +5338,7 @@ export default function CREPDashboardPage() {
                 visible={true}
                 forecastHours={earth2Filter.forecastHours}
                 opacity={earth2Filter.opacity}
+                resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
 

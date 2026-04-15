@@ -18,6 +18,7 @@ interface PressureLayerProps {
   visible: boolean;
   forecastHours: number;
   opacity: number;
+  resolutionDeg?: number;
   showLabels?: boolean;
   showHighLow?: boolean;
   onDataLoaded?: (data: { minPressure: number; maxPressure: number }) => void;
@@ -45,6 +46,7 @@ export function PressureLayer({
   visible,
   forecastHours,
   opacity,
+  resolutionDeg = 0.22,
   showLabels = true,
   showHighLow = true,
   onDataLoaded,
@@ -75,7 +77,7 @@ export function PressureLayer({
         variable: "sp",
         forecastHours: debouncedHours,
         bounds,
-        resolution: 0.5,
+        resolution: resolutionDeg,
       });
 
       // Convert Pa to hPa
@@ -176,7 +178,7 @@ export function PressureLayer({
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, showLabels, showHighLow, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, resolutionDeg, showLabels, showHighLow, onDataLoaded]);
 
   // Initial setup and visibility changes
   useEffect(() => {

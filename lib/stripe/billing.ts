@@ -5,7 +5,7 @@
  */
 
 import { getStripe } from './server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { 
   SUBSCRIPTION_PLANS, 
   HARDWARE_PRODUCTS, 
@@ -25,19 +25,20 @@ import type Stripe from 'stripe';
  */
 export async function getOrCreateCustomer(userId: string, email: string, name?: string): Promise<string> {
   const stripe = getStripe();
-  const supabase = await createClient();
-  
+  // CMMC: anon cannot SELECT/UPDATE profiles — use admin client for billing operations
+  const supabase = await createAdminClient();
+
   // Check if user already has a Stripe customer ID
   const { data: profile } = await supabase
     .from('profiles')
     .select('stripe_customer_id')
     .eq('id', userId)
     .single();
-  
+
   if (profile?.stripe_customer_id) {
     return profile.stripe_customer_id;
   }
-  
+
   // Create new Stripe customer
   const customer = await stripe.customers.create({
     email,
@@ -46,13 +47,13 @@ export async function getOrCreateCustomer(userId: string, email: string, name?: 
       supabase_user_id: userId,
     },
   });
-  
+
   // Save customer ID to profile
   await supabase
     .from('profiles')
     .update({ stripe_customer_id: customer.id })
     .eq('id', userId);
-  
+
   return customer.id;
 }
 

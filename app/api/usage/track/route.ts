@@ -5,17 +5,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { API_USAGE_PRICING } from '@/lib/stripe';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+    // CMMC: anon cannot SELECT api_keys, INSERT api_usage, or EXECUTE get_user_monthly_usage
+    // Use admin client for all data operations; auth client only for getUser()
+    const admin = await createAdminClient();
+
     // Get auth header for API key authentication
     const authHeader = request.headers.get('authorization');
     let userId: string | null = null;
-    
+
     if (authHeader?.startsWith('Bearer ')) {
       // Verify user session
       const { data: { user }, error } = await supabase.auth.getUser();
@@ -23,33 +26,33 @@ export async function POST(request: NextRequest) {
         userId = user.id;
       }
     }
-    
+
     // Also check for API key authentication
     const apiKey = request.headers.get('x-api-key');
     if (apiKey && !userId) {
-      // Look up user by API key
-      const { data: apiKeyData } = await supabase
+      // Look up user by API key (requires admin — anon has no access to api_keys)
+      const { data: apiKeyData } = await admin
         .from('api_keys')
         .select('user_id')
         .eq('key', apiKey)
         .eq('active', true)
         .single();
-      
+
       if (apiKeyData) {
         userId = apiKeyData.user_id;
       }
     }
-    
+
     if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
-    
+
     const body = await request.json();
     const { usageType, quantity = 1, metadata } = body;
-    
+
     // Validate usage type
     if (!usageType || !Object.keys(API_USAGE_PRICING).includes(usageType)) {
       return NextResponse.json(
@@ -57,23 +60,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Get user's subscription tier to check limits
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('subscription_tier, stripe_customer_id')
       .eq('id', userId)
       .single();
-    
+
     const tier = profile?.subscription_tier || 'free';
-    
-    // Get current month usage
-    const { data: currentUsage } = await supabase
-      .rpc('get_user_monthly_usage', { 
-        p_user_id: userId, 
-        p_usage_type: usageType 
+
+    // Get current month usage (CMMC: anon EXECUTE revoked — use admin)
+    const { data: currentUsage } = await admin
+      .rpc('get_user_monthly_usage', {
+        p_user_id: userId,
+        p_usage_type: usageType
       });
-    
+
     const currentCount = currentUsage?.[0]?.total_count || 0;
     
     // Check if user has exceeded limits based on tier
@@ -113,8 +116,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Record usage
-    const { error: insertError } = await supabase
+    // Record usage (admin — anon cannot INSERT into api_usage)
+    const { error: insertError } = await admin
       .from('api_usage')
       .insert({
         user_id: userId,
@@ -149,7 +152,9 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    
+    // CMMC: anon EXECUTE revoked on get_user_monthly_usage — use admin
+    const admin = await createAdminClient();
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
@@ -157,13 +162,13 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    
-    // Get all usage for current month
-    const { data: usage } = await supabase
+
+    // Get all usage for current month (admin — anon EXECUTE revoked)
+    const { data: usage } = await admin
       .rpc('get_user_monthly_usage', { p_user_id: user.id });
-    
+
     // Get user's tier and limits
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('subscription_tier')
       .eq('id', user.id)

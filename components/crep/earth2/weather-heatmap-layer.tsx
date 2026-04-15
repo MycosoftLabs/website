@@ -1,33 +1,31 @@
 "use client";
 
 /**
- * Weather Heatmap Layer Component
- * February 5, 2026
- * 
- * Renders temperature/precipitation overlay on MapLibre using fill layers
- * Fetches real data from Earth-2 API with intelligent fallback
- * 
- * FIXED: Proper source management to prevent flickering
+ * Weather overlay — bilinear raster on MapLibre image source (Apr 15, 2026).
+ * Replaces coarse GeoJSON cell fills with a smooth RGBA texture aligned to bounds.
  */
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { getEarth2Client, type WeatherVariable, type GeoBounds } from "@/lib/earth2/client";
+import { gridToRasterCanvas } from "@/lib/earth2/grid-raster";
+import { rasterDimensions } from "@/lib/earth2/resolution-from-filter";
 
 interface WeatherHeatmapLayerProps {
-  map: any; // MapLibre Map instance
+  map: any;
   visible: boolean;
   variable: "temperature" | "precipitation" | "humidity";
   forecastHours: number;
   opacity: number;
+  /** Degrees between samples — from CREP filter (smaller = denser API grid) */
+  resolutionDeg?: number;
   model?: "atlas-era5" | "stormscope" | "corrdiff" | "fourcastnet";
   onDataLoaded?: (data: { min: number; max: number; variable: string }) => void;
   onError?: (error: string) => void;
 }
 
-const LAYER_ID = "earth2-weather-heatmap";
-const SOURCE_ID = "earth2-weather-source";
+const LAYER_ID = "earth2-weather-raster";
+const SOURCE_ID = "earth2-weather-raster-src";
 
-// Debounce helper
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -37,7 +35,6 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Color scales for different variables (NOAA-style)
 const COLOR_SCALES = {
   temperature: [
     { value: -40, color: "#1a0033" },
@@ -76,23 +73,11 @@ const COLOR_SCALES = {
   ],
 };
 
-// Map UI variable to API variable
 const VARIABLE_MAP: Record<string, WeatherVariable> = {
   temperature: "t2m",
   precipitation: "tp",
   humidity: "tcwv",
 };
-
-function getColorForValue(value: number, scale: { value: number; color: string }[]): string {
-  for (let i = scale.length - 1; i >= 0; i--) {
-    if (value >= scale[i].value) {
-      if (i === scale.length - 1) return scale[i].color;
-      // Interpolate between this and next color
-      return scale[i].color;
-    }
-  }
-  return scale[0].color;
-}
 
 export function WeatherHeatmapLayer({
   map,
@@ -100,7 +85,7 @@ export function WeatherHeatmapLayer({
   variable,
   forecastHours,
   opacity,
-  model = "atlas-era5",
+  resolutionDeg = 0.22,
   onDataLoaded,
   onError,
 }: WeatherHeatmapLayerProps) {
@@ -108,20 +93,15 @@ export function WeatherHeatmapLayer({
   const fetchingRef = useRef(false);
   const lastFetchKey = useRef("");
   const clientRef = useRef(getEarth2Client());
-  
-  // Debounce forecastHours to prevent rapid updates during timeline scrubbing
   const debouncedHours = useDebouncedValue(forecastHours, 300);
-  
-  // Update data function - uses setData() for existing sources
+
   const updateData = useCallback(async () => {
     if (!map || !visible) return;
-    if (fetchingRef.current) return; // Prevent concurrent fetches
-    
-    const fetchKey = `${variable}-${debouncedHours}`;
+    if (fetchingRef.current) return;
+    const fetchKey = `${variable}-${debouncedHours}-${resolutionDeg}`;
     if (fetchKey === lastFetchKey.current && layerAddedRef.current) return;
-    
-    fetchingRef.current = true;
 
+    fetchingRef.current = true;
     try {
       const mapBounds = map.getBounds();
       const bounds: GeoBounds = {
@@ -132,100 +112,105 @@ export function WeatherHeatmapLayer({
       };
 
       const apiVariable = VARIABLE_MAP[variable] || "t2m";
-      
       const { grid, min, max } = await clientRef.current.getWeatherGrid({
         variable: apiVariable,
         forecastHours: debouncedHours,
         bounds,
-        resolution: 0.5,
+        resolution: resolutionDeg,
       });
 
-      const weatherData = generateWeatherGeoJSON(grid, bounds, variable, min, max);
+      const el = map.getContainer?.() as HTMLElement | undefined;
+      const { w, h } = rasterDimensions(el?.clientWidth ?? 1024, el?.clientHeight ?? 768);
+      const stops = COLOR_SCALES[variable as keyof typeof COLOR_SCALES] || COLOR_SCALES.temperature;
+      const canvas = gridToRasterCanvas({
+        grid,
+        bounds,
+        colorStops: stops,
+        width: w,
+        height: h,
+        validPredicate: (v) => Number.isFinite(v),
+      });
+      const dataUrl = canvas.toDataURL("image/png");
 
-      // Check if source exists - UPDATE it, don't recreate (guard: style must be loaded)
-      let source: { setData: (data: GeoJSON.FeatureCollection) => void } | null = null;
-      try {
-        if (map?.isStyleLoaded?.() && typeof map.getSource === "function") {
-          const s = map.getSource(SOURCE_ID);
-          source = s && typeof s.setData === "function" ? s : null;
-        }
-      } catch {
-        source = null;
-      }
-      if (source) {
-        source.setData(weatherData);
+      const coordinates: [[number, number], [number, number], [number, number], [number, number]] = [
+        [bounds.west, bounds.north],
+        [bounds.east, bounds.north],
+        [bounds.east, bounds.south],
+        [bounds.west, bounds.south],
+      ];
+
+      const beforeId = map.getLayer("waterway") ? "waterway" : undefined;
+      const existing = map.getSource(SOURCE_ID) as
+        | { updateImage?: (o: { url: string; coordinates: typeof coordinates }) => void }
+        | undefined;
+
+      if (existing && typeof existing.updateImage === "function") {
+        existing.updateImage({ url: dataUrl, coordinates });
       } else {
-        // First time - create source and layer
-        map.addSource(SOURCE_ID, {
-          type: "geojson",
-          data: weatherData,
-        });
-
-        const layerConfig = {
-          id: LAYER_ID,
-          type: "fill" as const,
-          source: SOURCE_ID,
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": opacity * 0.65,
-          },
-        };
-        
         try {
-          if (map.getLayer("waterway")) {
-            map.addLayer(layerConfig, "waterway");
-          } else {
-            map.addLayer(layerConfig);
-          }
-        } catch {
-          map.addLayer(layerConfig);
-        }
+          if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+        } catch {}
+        try {
+          if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        } catch {}
+        map.addSource(SOURCE_ID, { type: "image", url: dataUrl, coordinates });
+        map.addLayer(
+          {
+            id: LAYER_ID,
+            type: "raster",
+            source: SOURCE_ID,
+            paint: {
+              "raster-opacity": opacity * 0.92,
+              "raster-fade-duration": 0,
+            },
+          },
+          beforeId,
+        );
       }
 
       layerAddedRef.current = true;
       lastFetchKey.current = fetchKey;
       onDataLoaded?.({ min, max, variable });
     } catch (error) {
-      console.error("[Earth-2] Weather layer error:", error);
+      console.error("[Earth-2] Weather raster error:", error);
       onError?.(String(error));
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, variable, debouncedHours, opacity, onDataLoaded, onError]);
+  }, [map, visible, variable, debouncedHours, opacity, resolutionDeg, onDataLoaded, onError]);
 
-  // Initial setup and visibility changes
   useEffect(() => {
     if (!map) return;
-
     const handleSetup = () => {
-      if (visible) {
-        updateData();
-      } else {
-        // Hide layers when not visible
+      if (visible) updateData();
+      else {
         try {
-          if (map.getLayer(LAYER_ID)) {
-            map.setLayoutProperty(LAYER_ID, "visibility", "none");
-          }
+          if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, "visibility", "none");
         } catch {}
-        layerAddedRef.current = false;
       }
     };
-
-    if (map.isStyleLoaded()) {
-      handleSetup();
-    } else {
-      map.once("style.load", handleSetup);
-    }
+    if (map.isStyleLoaded()) handleSetup();
+    else map.once("style.load", handleSetup);
   }, [map, visible, updateData]);
 
-  // Update when debounced hours change
   useEffect(() => {
-    if (visible && map && layerAddedRef.current) {
+    if (!map || !visible) return;
+    const onMoveEnd = () => {
+      lastFetchKey.current = "";
       updateData();
-    }
+    };
+    map.on("moveend", onMoveEnd);
+    return () => {
+      try {
+        map.off("moveend", onMoveEnd);
+      } catch {}
+    };
+  }, [map, visible, updateData]);
+
+  useEffect(() => {
+    if (visible && map && layerAddedRef.current) updateData();
   }, [debouncedHours, visible, map, updateData]);
 
-  // Show layer when it becomes visible
   useEffect(() => {
     if (!map) return;
     try {
@@ -235,16 +220,14 @@ export function WeatherHeatmapLayer({
     } catch {}
   }, [map, visible]);
 
-  // Update opacity
   useEffect(() => {
     if (map?.getLayer?.(LAYER_ID)) {
       try {
-        map.setPaintProperty(LAYER_ID, "fill-opacity", opacity * 0.65);
+        map.setPaintProperty(LAYER_ID, "raster-opacity", opacity * 0.92);
       } catch {}
     }
   }, [map, opacity]);
 
-  // Cleanup on unmount only
   useEffect(() => {
     return () => {
       try {
@@ -257,55 +240,6 @@ export function WeatherHeatmapLayer({
   return null;
 }
 
-// Generate GeoJSON grid from data
-function generateWeatherGeoJSON(
-  grid: number[][],
-  bounds: GeoBounds,
-  variable: string,
-  dataMin: number,
-  dataMax: number
-): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = [];
-  const scale = COLOR_SCALES[variable as keyof typeof COLOR_SCALES] || COLOR_SCALES.temperature;
-  
-  const latSteps = grid.length;
-  const lonSteps = grid[0]?.length || 1;
-  const latStep = (bounds.north - bounds.south) / latSteps;
-  const lonStep = (bounds.east - bounds.west) / lonSteps;
-
-  for (let i = 0; i < latSteps; i++) {
-    for (let j = 0; j < lonSteps; j++) {
-      const value = grid[i][j];
-      const color = getColorForValue(value, scale);
-      
-      const lat = bounds.south + i * latStep;
-      const lon = bounds.west + j * lonStep;
-
-      features.push({
-        type: "Feature",
-        properties: {
-          value: Math.round(value * 10) / 10,
-          color,
-          variable,
-        },
-        geometry: {
-          type: "Polygon",
-          coordinates: [[
-            [lon, lat],
-            [lon + lonStep, lat],
-            [lon + lonStep, lat + latStep],
-            [lon, lat + latStep],
-            [lon, lat],
-          ]],
-        },
-      });
-    }
-  }
-  
-  return { type: "FeatureCollection", features };
-}
-
-// Helper component for legend
 export function WeatherLegend({
   variable,
   min,
@@ -343,8 +277,14 @@ export function WeatherLegend({
         ))}
       </div>
       <div className="flex justify-between text-gray-500 mt-0.5">
-        <span>{scale[0].value}{units[variable]}</span>
-        <span>{scale[scale.length - 1].value}{units[variable]}</span>
+        <span>
+          {scale[0].value}
+          {units[variable]}
+        </span>
+        <span>
+          {scale[scale.length - 1].value}
+          {units[variable]}
+        </span>
       </div>
     </div>
   );

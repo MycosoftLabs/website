@@ -19,6 +19,8 @@ interface CloudLayerProps {
   visible: boolean;
   forecastHours: number;
   opacity: number;
+  /** Scalar/wind grid spacing in degrees (CREP resolution control) */
+  resolutionDeg?: number;
   showAnimation?: boolean;
   showShadows?: boolean;
   onDataLoaded?: (data: { coverage: number }) => void;
@@ -44,6 +46,7 @@ export function CloudLayer({
   visible,
   forecastHours,
   opacity,
+  resolutionDeg = 0.22,
   showAnimation = true,
   showShadows = true,
   onDataLoaded,
@@ -78,12 +81,12 @@ export function CloudLayer({
           variable: "tcwv",
           forecastHours: debouncedHours,
           bounds,
-          resolution: 0.5,
+          resolution: resolutionDeg,
         }),
         clientRef.current.getWindVectors({
           forecastHours: debouncedHours,
           bounds,
-          resolution: 1,
+          resolution: resolutionDeg,
         }),
       ]);
 
@@ -167,7 +170,7 @@ export function CloudLayer({
     } finally {
       fetchingRef.current = false;
     }
-  }, [map, visible, debouncedHours, opacity, showAnimation, showShadows, onDataLoaded]);
+  }, [map, visible, debouncedHours, opacity, resolutionDeg, showAnimation, showShadows, onDataLoaded]);
 
   useEffect(() => {
     if (!map) return;

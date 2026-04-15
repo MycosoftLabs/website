@@ -61,7 +61,12 @@ const nextConfig = {
     '@langchain/core',
     'langchain',
   ],
-  experimental: {},
+  experimental: {
+    // Stabilize large-app production builds: avoid parallel compile/trace races that
+    // surface as missing chunks (e.g. ./chunks/vendor-chunks/next.js) or PageNotFoundError in export.
+    parallelServerCompiles: false,
+    parallelServerBuildTraces: false,
+  },
   // Increase timeout for "Collecting page data" (fixes build failures on large apps)
   staticPageGenerationTimeout: 120,
   // Configure webpack for Cesium
