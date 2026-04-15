@@ -131,6 +131,20 @@ try:
     print(f">> Docker image built successfully")
     
     # Step 5: Start new container
+    # Another stack (or a stale container) may still hold host port 3000 after stop/rm of
+    # mycosoft-website — free it explicitly before docker run.
+    print(f"\n>> Ensuring host port 3000 is free...")
+    stdin, stdout, stderr = sandbox_client.exec_command(
+        "sh -c '"
+        "for id in $(docker ps -q 2>/dev/null); do "
+        "  docker port \"$id\" 2>/dev/null | grep -q \":3000\" && docker rm -f \"$id\"; "
+        "done; "
+        "docker rm -f mycosoft-website 2>/dev/null; "
+        "true'"
+    )
+    stdout.channel.recv_exit_status()
+    time.sleep(1)
+
     print(f"\n>> Starting new container...")
     start_cmd = (
         "docker run -d --name mycosoft-website -p 3000:3000 "
