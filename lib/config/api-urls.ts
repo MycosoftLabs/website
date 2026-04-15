@@ -123,8 +123,11 @@ export const MINDEX_ENDPOINTS = {
  * Voice and TTS endpoints
  */
 export const VOICE_ENDPOINTS = {
-  // PersonaPlex (local GPU, port 8998/8999)
-  PERSONAPLEX_WS: process.env.PERSONAPLEX_WS_URL || "ws://localhost:8999/api/chat",
+  // PersonaPlex (local GPU, port 8998/8999). Prefer NEXT_PUBLIC_* for browser bundles.
+  PERSONAPLEX_WS:
+    process.env.NEXT_PUBLIC_PERSONAPLEX_WS_URL ||
+    process.env.PERSONAPLEX_WS_URL ||
+    "ws://localhost:8999/api/chat",
   PERSONAPLEX_HTTP: process.env.PERSONAPLEX_HTTP_URL || "http://localhost:8998",
   
   // CREP map command WebSocket (PersonaPlex Bridge CREP channel)

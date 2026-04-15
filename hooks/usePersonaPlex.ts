@@ -115,11 +115,15 @@ export interface UsePersonaPlexReturn {
   conversationId: string
 }
 
+const DEFAULT_PERSONAPLEX_WS =
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_PERSONAPLEX_WS_URL) ||
+  "ws://localhost:8999/api/chat"
+
 export function usePersonaPlex(options: UsePersonaPlexOptions = {}): UsePersonaPlexReturn {
   const {
     // PersonaPlex Bridge (8999) instead of direct Moshi (8998)
     // Bridge handles CUDA warmup, MAS events, and Brain routing
-    serverUrl = "ws://localhost:8999/api/chat",
+    serverUrl = DEFAULT_PERSONAPLEX_WS,
     voicePrompt = "NATURAL_F2.pt",
     voicePromptHash,
     textPrompt = MYCA_PERSONAPLEX_PROMPT,
