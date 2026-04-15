@@ -371,6 +371,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -495,6 +496,7 @@ All notable changes to this project will be documented in this file.
 - Render substations + submarine cables + military on CREP globe
 - OpenGridWorks-style LOD rendering + larger fuel-colored plant bubbles
 - Dual-canvas rendering + transmission lines + distinct depth layers
+- *(crep)* Board updates, layers, infra widgets; Earth-2 grid/wind MAS paths
 
 ### Fix
 
