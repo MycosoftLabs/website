@@ -261,6 +261,7 @@ All notable changes to this project will be documented in this file.
 - Style-load guard + error logging + ground station hidden + MapWS warn
 - Safe addSource/addLayer with HMR duplicate handling
 - CRITICAL — safeAddSource/safeAddLayer infinite recursion
+- *(voice)* PersonaPlex WS from NEXT_PUBLIC; CSP for Legion bridge; CREP env hints
 
 ### CREP
 
@@ -291,6 +292,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
