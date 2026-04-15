@@ -1,5 +1,6 @@
-# Dependencies
+# Dependencies (explicit patterns — Windows Docker can still send huge contexts otherwise)
 node_modules
+**/node_modules
 .pnpm-store
 
 # Build outputs
@@ -14,7 +15,9 @@ build
 *.md
 LICENSE
 
-# IDE
+# IDE / local tooling (can be hundreds of MB — never needed in the image)
+.cursor
+**/.cursor
 .vscode
 .idea
 *.swp
@@ -33,6 +36,10 @@ yarn-error.log*
 # Testing
 coverage
 .nyc_output
+playwright-report
+test-results
+.turbo
+.cache
 
 # Misc
 .DS_Store
