@@ -1760,6 +1760,7 @@ export default function CREPDashboardPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
   const [vessels, setVessels] = useState<VesselEntity[]>([]);
+  const [buoys, setBuoys] = useState<any[]>([]);
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   // Persistent observation store — merge incoming data, never fully replace (prevents blink)
@@ -1783,6 +1784,7 @@ export default function CREPDashboardPage() {
   const [selectedVessel, setSelectedVessel] = useState<VesselEntity | null>(null);
   const [selectedSatellite, setSelectedSatellite] = useState<SatelliteEntity | null>(null);
   const [selectedFungal, setSelectedFungal] = useState<FungalObservation | null>(null);
+  const [selectedBuoy, setSelectedBuoy] = useState<any | null>(null);
   const [selectedOther, setSelectedOther] = useState<UnifiedEntity | null>(null);
   
   // Live events: IDs that appeared after initial load (show blinking indicator; pop-up)
@@ -2054,6 +2056,7 @@ export default function CREPDashboardPage() {
     // Environment - Context for fungal activity
     { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
     { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
+    { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
     // These auto-display with LOD scaling for fires, floods, storms, earthquakes, etc.
@@ -2483,6 +2486,32 @@ export default function CREPDashboardPage() {
     fetchData();
     // Refresh every 60s to reduce cold-path and polling load (was 15s)
     const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUOY DATA FETCH — NOAA NDBC ocean buoys (every 5 minutes)
+  // ~1300 active stations worldwide with wave, wind, temp, pressure data
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const fetchBuoys = async () => {
+      try {
+        const res = await fetch("/api/oei/buoys");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.buoys && Array.isArray(data.buoys)) {
+            console.log(`[CREP] Buoy: ${data.buoys.length} ocean buoys loaded from ${data.source || "ndbc"}`);
+            setBuoys(data.buoys);
+          }
+        }
+      } catch (e) {
+        console.warn("[CREP] Buoy: Failed to fetch buoy data:", e);
+      }
+    };
+
+    fetchBuoys();
+    // Refresh every 5 minutes (buoy data updates every 5-10 min at NDBC)
+    const interval = setInterval(fetchBuoys, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -3785,6 +3814,49 @@ export default function CREPDashboardPage() {
   }, [deckEntities]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // BUOY DATA PUMP — push buoy positions into MapLibre native source
+  // Separate from deckEntities pump since buoys are static environmental data,
+  // not moving entities. Updates when buoys state changes (~every 5 minutes).
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map || buoys.length === 0) return;
+
+    // Expose for click handler lookup
+    if (typeof window !== "undefined") (window as any).__crep_buoys = buoys;
+
+    const buoyLayerEnabled = layers.find(l => l.id === "buoys")?.enabled ?? true;
+
+    const timer = setTimeout(() => {
+      const m = mapNativeRef.current;
+      if (!m) return;
+      try {
+        const buoySrc = m.getSource?.("crep-live-buoys") as any;
+        if (buoySrc?.setData) {
+          const fc = {
+            type: "FeatureCollection" as const,
+            features: buoyLayerEnabled ? buoys.filter((b: any) => b.lat != null && b.lng != null && Math.abs(b.lat) <= 90 && Math.abs(b.lng) <= 180).map((b: any) => ({
+              type: "Feature" as const,
+              properties: {
+                id: b.id,
+                station_id: b.station_id,
+                wave_height: b.wave_height,
+                water_temp: b.water_temp,
+                wind_speed: b.wind_speed,
+                air_temp: b.air_temp,
+                pressure: b.pressure,
+              },
+              geometry: { type: "Point" as const, coordinates: [b.lng, b.lat] },
+            })) : [],
+          };
+          buoySrc.setData(fc);
+        }
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [buoys, layers]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
   // Runs via requestAnimationFrame, independent of React state. Pushes positions
   // directly into the MapLibre "crep-live-satellites" source and generates orbit
@@ -4477,7 +4549,40 @@ export default function CREPDashboardPage() {
                 map.on("mouseenter", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = ""; });
 
-                console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels");
+                // ═══════════════════════════════════════════════════════════
+                // OCEAN BUOYS — Yellow-green dots (NOAA NDBC stations)
+                // ~1300 active ocean buoys with weather/wave data
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-buoys", { type: "geojson", data: emptyFC });
+                // Outer glow
+                map.addLayer({ id: "crep-live-buoys-glow", type: "circle", source: "crep-live-buoys",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 5, 6, 8, 10, 12],
+                    "circle-color": "#84cc16", "circle-opacity": 0.25, "circle-blur": 0.8 }});
+                // Inner dot
+                map.addLayer({ id: "crep-live-buoys-dot", type: "circle", source: "crep-live-buoys",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4, 10, 6, 14, 9],
+                    "circle-color": "#84cc16", "circle-opacity": 1,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
+                    "circle-stroke-color": "#ffffff" }});
+                // Click handler
+                map.on("click", "crep-live-buoys-dot", (e: any) => {
+                  const props = e.features?.[0]?.properties;
+                  if (props) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    // Parse the serialised properties back
+                    try {
+                      const buoyId = props.station_id || props.id;
+                      const matched = (window as any).__crep_buoys?.find((b: any) => b.station_id === buoyId || b.id === buoyId);
+                      if (matched) setSelectedBuoy(matched);
+                    } catch {}
+                  }
+                });
+                map.on("mouseenter", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels, buoy lime-green");
                 // Initial data pump — fill entity sources 1s after creation so aircraft/sats show immediately.
                 // The React data pump effect may miss the first render if deckEntities was set before mapNativeRef.
                 setTimeout(() => {
@@ -5803,6 +5908,12 @@ export default function CREPDashboardPage() {
                 {filteredVessels.length}/{vessels.length}
               </div>
             )}
+            {layers.find(l => l.id === "buoys")?.enabled && buoys.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-lime-400" title={`${buoys.length} ocean buoys (NOAA NDBC)`}>
+                <Waves className="w-3 h-3 inline-block mr-1" />
+                {buoys.length} BUOYS
+              </div>
+            )}
             {layers.find(l => l.id === "satellites")?.enabled && satellites.length > 0 && (
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-purple-400" title={`${filteredSatellites.length} shown / ${satellites.length} total`}>
                 <Satellite className="w-3 h-3 inline-block mr-1" />
@@ -6292,7 +6403,7 @@ export default function CREPDashboardPage() {
       {/* Centered Entity Detail Panel - for transport entities only
           NOTE: Events and Fungal observations use attached MarkerPopup widgets instead of this centered modal.
           This provides a better UX where the popup is connected to the marker icon. */}
-      <EntityDetailPanel 
+      <EntityDetailPanel
         onClose={() => {
           setSelectedAircraft(null);
           setSelectedVessel(null);
@@ -6302,6 +6413,75 @@ export default function CREPDashboardPage() {
         vessel={selectedVessel as any}
         satellite={selectedSatellite as any}
       />
+
+      {/* Buoy Detail Popup */}
+      {selectedBuoy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setSelectedBuoy(null)}>
+          <div className="bg-[#0d1b2a]/95 border border-lime-500/30 rounded-lg p-5 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Waves className="w-5 h-5 text-lime-400" />
+                <h3 className="text-lime-400 font-bold text-lg">Buoy {selectedBuoy.station_id}</h3>
+              </div>
+              <button onClick={() => setSelectedBuoy(null)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-black/40 rounded p-2">
+                <div className="text-gray-400 text-xs">Position</div>
+                <div className="text-white">{selectedBuoy.lat?.toFixed(3)}, {selectedBuoy.lng?.toFixed(3)}</div>
+              </div>
+              {selectedBuoy.wave_height != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Wave Height</div>
+                  <div className="text-cyan-300 font-mono">{selectedBuoy.wave_height} m</div>
+                </div>
+              )}
+              {selectedBuoy.water_temp != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Water Temp</div>
+                  <div className="text-blue-300 font-mono">{selectedBuoy.water_temp} C</div>
+                </div>
+              )}
+              {selectedBuoy.air_temp != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Air Temp</div>
+                  <div className="text-orange-300 font-mono">{selectedBuoy.air_temp} C</div>
+                </div>
+              )}
+              {selectedBuoy.wind_speed != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Wind Speed</div>
+                  <div className="text-emerald-300 font-mono">{selectedBuoy.wind_speed} m/s</div>
+                </div>
+              )}
+              {selectedBuoy.wind_direction != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Wind Dir</div>
+                  <div className="text-emerald-300 font-mono">{selectedBuoy.wind_direction} deg</div>
+                </div>
+              )}
+              {selectedBuoy.pressure != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Pressure</div>
+                  <div className="text-purple-300 font-mono">{selectedBuoy.pressure} hPa</div>
+                </div>
+              )}
+              {selectedBuoy.dominant_wave_period != null && (
+                <div className="bg-black/40 rounded p-2">
+                  <div className="text-gray-400 text-xs">Wave Period</div>
+                  <div className="text-cyan-300 font-mono">{selectedBuoy.dominant_wave_period} s</div>
+                </div>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+              <span>Source: {selectedBuoy.source === "ndbc" ? "NOAA NDBC" : "MINDEX"}</span>
+              {selectedBuoy.timestamp && <span>{new Date(selectedBuoy.timestamp).toLocaleString()}</span>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ground Station Overlay Panel (Mar 2026) */}
       {showGroundStation && (

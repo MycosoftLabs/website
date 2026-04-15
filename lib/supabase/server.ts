@@ -124,7 +124,8 @@ export async function createAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Supabase admin credentials not configured')
+    console.warn('[Supabase] Admin credentials not configured — falling back to anon client')
+    return createClient()
   }
 
   const cookieStore = await cookies()
