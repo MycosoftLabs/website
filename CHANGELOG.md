@@ -257,6 +257,10 @@ All notable changes to this project will be documented in this file.
 - Single MapboxOverlay with proper layer ordering for globe
 - Z is not defined + load infra ONCE + stop AISStream spam
 - Move infra to MapLibre native layers — eliminates globe flickering
+- Split hemisphere queries for facilities + multi-color cables + click handlers
+- Style-load guard + error logging + ground station hidden + MapWS warn
+- Safe addSource/addLayer with HMR duplicate handling
+- CRITICAL — safeAddSource/safeAddLayer infinite recursion
 
 ### CREP
 
@@ -287,6 +291,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
