@@ -491,15 +491,18 @@ export class Earth2Client {
   async getWindVectors(params: {
     forecastHours: number;
     bounds: GeoBounds;
+    /** Degrees — must match scalar grid (default 0.5) so wind arrows align with heatmaps */
     resolution?: number;
   }): Promise<{ u: number[][]; v: number[][]; speed: number[][]; direction: number[][] }> {
+    const res = params.resolution ?? 0.5;
     const response = await fetch(
       `${this.baseUrl}/layers/wind?` +
       `hours=${params.forecastHours}&` +
       `north=${params.bounds.north}&` +
       `south=${params.bounds.south}&` +
       `east=${params.bounds.east}&` +
-      `west=${params.bounds.west}`,
+      `west=${params.bounds.west}&` +
+      `resolution=${res}`,
       { cache: "no-store" },
     );
     if (!response.ok) throw new Error(`[Earth-2 Client] Wind unavailable (${response.status})`);

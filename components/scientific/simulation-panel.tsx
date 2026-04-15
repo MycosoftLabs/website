@@ -27,12 +27,12 @@ export function SimulationPanel() {
   }
 
   const typeIcons: Record<string, string> = {
-    alphafold: 'ðŸ§¬',
-    boltzgen: 'âš¡',
-    mycelium: 'ðŸ„',
-    cobrapy: 'ðŸ”„',
-    physics: 'âš›ï¸',
-    molecular: 'ðŸ”¬',
+    alphafold: "\u{1F9EC}",
+    boltzgen: "\u26A1",
+    mycelium: "\u{1F344}",
+    cobrapy: "\u{1F504}",
+    physics: "\u269B",
+    molecular: "\u{1F9EA}",
   }
 
   const [isCreating, setIsCreating] = useState(false)

@@ -209,6 +209,12 @@ import { EntityDeckLayer } from "@/components/crep/layers/deck-entity-layer";
 import { EntityStreamClient } from "@/lib/crep/streaming/entity-websocket-client";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
 import { getOrbitPath } from "@/lib/crep/orbit-path";
+import {
+  startSatelliteAnimation,
+  stopSatelliteAnimation,
+  updateSatelliteAnimation,
+  isSatelliteAnimationRunning,
+} from "@/lib/crep/satellite-animation";
 import { useGroundStation } from "@/lib/ground-station/context";
 
 // Phase 2-6: New CREP layers and panels
@@ -416,7 +422,7 @@ function MissionPromptModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-lg mx-4 bg-[#0a0f1e] border border-cyan-500/30 rounded-xl overflow-hidden shadow-2xl shadow-cyan-500/10">
         {/* Header */}
         <div className="px-6 py-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/5">
@@ -1168,12 +1174,14 @@ function formatNum(num: number): string {
 }
 
 // Right Panel - Mission Context Component
-function MissionContextPanel({ 
-  mission, 
-  stats 
-}: { 
+function MissionContextPanel({
+  mission,
+  stats,
+  liveTracking,
+}: {
   mission: MissionContext | null;
   stats: { events: number; devices: number; critical: number; kingdoms: Record<string, number> };
+  liveTracking?: { aircraft: number; satellites: number; vessels: number };
 }) {
   return (
     <div className="space-y-2 h-full flex flex-col">
@@ -1242,30 +1250,26 @@ function MissionContextPanel({
         </div>
       </div>
 
-      {/* Kingdom Data - Nature Observations */}
+      {/* Live Tracking — aircraft, satellites, vessels */}
       <div className="p-2 rounded-lg bg-black/40 border border-gray-700/50 flex-1 min-h-0">
         <div className="flex items-center gap-1.5 mb-1.5">
-          <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[10px] font-bold text-white">NATURE OBSERVATIONS</span>
+          <Radar className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="text-[10px] font-bold text-white">LIVE TRACKING</span>
         </div>
         <div className="grid grid-cols-3 gap-1">
           {[
-            { key: "fungi", icon: <TreePine className="w-3.5 h-3.5" />, color: "text-green-400", label: "Fungi" },
-            { key: "plants", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400", label: "Plants" },
-            { key: "birds", icon: <Bird className="w-3.5 h-3.5" />, color: "text-sky-400", label: "Birds" },
-            { key: "insects", icon: <Bug className="w-3.5 h-3.5" />, color: "text-amber-400", label: "Insects" },
-            { key: "animals", icon: <PawPrint className="w-3.5 h-3.5" />, color: "text-orange-400", label: "Animals" },
-            { key: "marine", icon: <Waves className="w-3.5 h-3.5" />, color: "text-cyan-400", label: "Marine" },
-          ].map(({ key, icon, color, label }) => {
-            const n = stats.kingdoms[key] || 0;
-            const displayCount = n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n);
+            { icon: <Plane className="w-3.5 h-3.5" />, color: "text-amber-400", borderColor: "border-amber-500/20", label: "Aircraft", count: liveTracking?.aircraft ?? 0 },
+            { icon: <Satellite className="w-3.5 h-3.5" />, color: "text-purple-400", borderColor: "border-purple-500/20", label: "Satellites", count: liveTracking?.satellites ?? 0 },
+            { icon: <Ship className="w-3.5 h-3.5" />, color: "text-cyan-400", borderColor: "border-cyan-500/20", label: "Vessels", count: liveTracking?.vessels ?? 0 },
+          ].map(({ icon, color, borderColor, label, count }) => {
+            const displayCount = count >= 1000 ? `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K` : String(count);
             return (
-              <div key={key} className="text-center p-1 rounded bg-black/30 hover:bg-black/50 transition-colors cursor-pointer">
+              <div key={label} className={cn("text-center p-1.5 rounded bg-black/30 border", borderColor)}>
                 <div className={cn("mx-auto flex items-center justify-center", color)}>{icon}</div>
-                <div className={cn("text-[9px] font-bold tabular-nums", color)}>
+                <div className={cn("text-sm font-bold tabular-nums", color)}>
                   {displayCount}
                 </div>
-                <div className="text-[6px] text-gray-500">{label}</div>
+                <div className="text-[6px] text-gray-500 uppercase">{label}</div>
               </div>
             );
           })}
@@ -2102,12 +2106,12 @@ export default function CREPDashboardPage() {
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "earth2Forecast", name: "âš¡ Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
-    { id: "earth2Nowcast", name: "âš¡ Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
-    { id: "earth2Spore", name: "âš¡ Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
-    { id: "earth2Wind", name: "âš¡ Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
-    { id: "earth2Temp", name: "âš¡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
-    { id: "earth2Precip", name: "âš¡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
+    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
+    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
+    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
+    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
+    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
+    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
     // ═══════════════════════════════════════════════════════════════════════════
     // EARTH OBSERVATION IMAGERY — controlled by on-map MapLayersPopup
     // GIBS rendering handled via eoImageryFilter state + GibsBaseLayers
@@ -2648,7 +2652,7 @@ export default function CREPDashboardPage() {
       const target = e.target;
       
       // Skip if no popups are selected - nothing to dismiss
-      if (!selectedEvent && !selectedFungal) return;
+      if (!selectedEvent && !selectedFungal && !selectedInfraAsset && !selectedOther) return;
       
       // Guard: Ensure target is an Element with closest() method
       if (!target || !(target instanceof Element)) {
@@ -2677,20 +2681,44 @@ export default function CREPDashboardPage() {
       // Check if click is inside Intel Feed event cards
       const isInsideEventCard = target.closest('[data-event-card]') !== null;
       
-      // If clicking outside popup, marker, panel, and event cards - dismiss
+      // If clicking outside popup, marker, panel, and event cards - dismiss all
       if (!isInsidePopup && !isInsideMarker && !isInsidePanel && !isInsideEventCard) {
         console.log("[CREP] Click-away (doc): dismissing popups");
         setSelectedEvent(null);
         setSelectedFungal(null);
         setSelectedInfraAsset(null);
+        setSelectedOther(null);
       }
     };
 
-    // Use click event in BUBBLING phase (false/default) so that 
+    // Use click event in BUBBLING phase (false/default) so that
     // marker stopPropagation() can prevent this handler from running
     document.addEventListener('click', handleClickAway, false);
     return () => document.removeEventListener('click', handleClickAway, false);
-  }, [selectedEvent, selectedFungal]);
+  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ESC KEY HANDLER: Dismiss all popups/selections on Escape
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (selectedEvent || selectedFungal || selectedInfraAsset || selectedOther || selectedAircraft || selectedVessel || selectedSatellite || selectedPlant) {
+          setSelectedEvent(null);
+          setSelectedFungal(null);
+          setSelectedInfraAsset(null);
+          setSelectedOther(null);
+          setSelectedAircraft(null);
+          setSelectedVessel(null);
+          setSelectedSatellite(null);
+          setSelectedPlant(null);
+          if (mapRef) clearHighlight(mapRef);
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther, selectedAircraft, selectedVessel, selectedSatellite, selectedPlant, mapRef]);
 
   // Layer handlers
   const toggleLayer = useCallback((layerId: string) => {
@@ -2861,13 +2889,12 @@ export default function CREPDashboardPage() {
   // This is critical for user trust and accurate data representation.
   //
   // Zoom Level Strategy (GENEROUS at higher zoom):
-  //   0-2  (world view)       â†’ 50 markers   (global sampling)
-  //   2-3  (multi-continent)  â†’ 200 markers  
-  //   3-4  (continent view)   â†’ 500 markers
-  //   4-5  (large country)    â†’ 1500 markers
-  //   5-6  (country/region)   â†’ 3000 markers
-  //   6-7  (state/province)   â†’ 6000 markers
-  //   7+   (local view)       â†’ ALL in viewport (up to 15000 cap)
+  //   0-2  (world view)       â†’ 2000 markers  (global sampling)
+  //   2-3  (multi-continent)  â†’ 5000 markers
+  //   3-4  (continent view)   â†’ 10000 markers
+  //   4-5  (large country)    â†’ 20000 markers
+  //   5-6  (country/region)   â†’ 30000 markers
+  //   6+   (local view)       â†’ ALL in viewport (no cap)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // Species stats for Fungi dropdown (per-species counts)
   const fungalSpeciesStats = useMemo(() => {
@@ -2882,10 +2909,9 @@ export default function CREPDashboardPage() {
   }, [fungalObservations]);
 
   const visibleFungalObservations = useMemo(() => {
-    // Early return with minimal markers if no bounds yet (Feb 12, 2026 - added debug logging)
+    // Early return with ALL markers if no bounds yet — never hide data before the map initializes
     if (!mapBounds || fungalObservations.length === 0) {
-      console.log(`[CREP/LOD] No bounds or no observations - showing first 50`);
-      return fungalObservations.slice(0, 50);
+      return fungalObservations;
     }
     
     // Validate bounds are reasonable (Feb 12, 2026 - prevent NaN/Infinity issues)
@@ -2896,7 +2922,7 @@ export default function CREPDashboardPage() {
     
     if (!boundsValid) {
       console.warn(`[CREP/LOD] Invalid bounds detected:`, mapBounds);
-      return fungalObservations.slice(0, 100);
+      return fungalObservations;
     }
     
     // Step 0: Filter by ground kingdom toggles
@@ -3205,16 +3231,17 @@ export default function CREPDashboardPage() {
   // Clear all selections when clicking on empty map area
   const handleMapClick = useCallback(() => {
     // Only clear if something is selected
-    if (selectedEvent || selectedFungal || selectedInfraAsset) {
+    if (selectedEvent || selectedFungal || selectedInfraAsset || selectedOther) {
       setSelectedEvent(null);
       setSelectedFungal(null);
       setSelectedInfraAsset(null);
+      setSelectedOther(null);
       // Clear OpenGridWorks-style highlight glow
       if (mapRef) {
         clearHighlight(mapRef);
       }
     }
-  }, [selectedEvent, selectedFungal, selectedInfraAsset, mapRef]);
+  }, [selectedEvent, selectedFungal, selectedInfraAsset, selectedOther, mapRef]);
 
   // MYCA message handler
   // (MYCA chat is now handled by real MYCAProvider + CREPMycaPanel)
@@ -3257,9 +3284,9 @@ export default function CREPDashboardPage() {
 
   // LOD (Level of Detail) filtering for events - same system as fungal data
   const visibleEvents = useMemo(() => {
-    // Early return with minimal markers if no bounds yet
+    // Early return with ALL events if no bounds yet — never hide events before map init
     if (!mapBounds || typeFilteredEvents.length === 0) {
-      return typeFilteredEvents.slice(0, 30);
+      return typeFilteredEvents;
     }
 
     // Space weather types have synthetic coordinates (0,0 for solar flares, 65,0 for geomag)
@@ -3575,31 +3602,10 @@ export default function CREPDashboardPage() {
         };
       }
     }
-    for (const s of filteredSatellites) {
-      const loc = (s as any).location as { longitude?: number; latitude?: number } | undefined;
-      const est = s.estimatedPosition;
-      const apiLng = loc?.longitude ?? (loc as any)?.coordinates?.[0] ?? est?.longitude ?? 0;
-      const apiLat = loc?.latitude ?? (loc as any)?.coordinates?.[1] ?? est?.latitude ?? 0;
-      const velKmS = (s as { orbitalParams?: { velocity?: number } }).orbitalParams?.velocity ?? (s as any).properties?.velocity ?? 0;
-      const heading = (s as any).heading ?? 90; // 90 = east (prograde) for LEO
-      if (Number.isFinite(apiLng) && Number.isFinite(apiLat) && typeof velKmS === "number" && velKmS > 0) {
-        const h = (heading * Math.PI) / 180;
-        const degPerSec = velKmS / 111; // ~111 km per degree at equator
-        const velLng = Math.sin(h) * degPerSec;
-        const velLat = Math.cos(h) * degPerSec;
-        // ALWAYS accept the API position — never reject corrections
-        // (was: velocity-lock rejected API positions behind the velocity vector, causing stale data)
-        next[s.id] = {
-          lng: apiLng,
-          lat: apiLat,
-          velLng,
-          velLat,
-          ts: now,
-        };
-      }
-    }
+    // Satellites are no longer extrapolated here — they use real-time SGP4 propagation
+    // via the satellite-animation module (requestAnimationFrame at ~10 FPS).
     lastKnownRef.current = next;
-  }, [filteredAircraft, filteredVessels, filteredSatellites]);
+  }, [filteredAircraft, filteredVessels]);
 
   // Tick: every 2 seconds extrapolate positions from last known + velocity.
   // This updates React state → triggers deckEntities recompute → data pump to MapLibre.
@@ -3690,43 +3696,25 @@ export default function CREPDashboardPage() {
         s2_cell: "",
       };
       }),
+      // Satellite positions are now driven by the SGP4 satellite-animation module
+      // at ~10 FPS via requestAnimationFrame. These deckEntities entries are kept
+      // for the unified entity list (click-selection, sidebar, etc.) but their
+      // coordinates are the API fallback position, NOT the live propagated position.
       ...filteredSatellites.map((satelliteEntity) => {
         const loc = (satelliteEntity as any).location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
         const est = satelliteEntity.estimatedPosition;
         const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
         const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
-        const extrap = extrapolatedCoords[satelliteEntity.id];
-        const coords: [number, number] = extrap ?? [apiLng, apiLat];
-        const anchor = lastKnown[satelliteEntity.id];
-        const trailAnchor: [number, number] | undefined = anchor ? [anchor.lng, anchor.lat] : undefined;
         const orbitalParams = (satelliteEntity as { orbitalParams?: { velocity?: number; period?: number; inclination?: number } }).orbitalParams;
         const velKmS = orbitalParams?.velocity ?? (satelliteEntity as any).properties?.velocity ?? 0;
-        const periodMin = orbitalParams?.period;
-        const inclinationDeg = orbitalParams?.inclination ?? ((satelliteEntity as any).properties?.inclination as number | undefined);
-        const heading = (satelliteEntity as any).heading ?? 90;
-        const hRad = (heading * Math.PI) / 180;
-        const degPerSec = typeof velKmS === "number" && velKmS > 0 ? velKmS / 111 : 0;
-        const satVelocity = degPerSec > 0
-          ? { x: Math.sin(hRad) * degPerSec, y: Math.cos(hRad) * degPerSec }
-          : undefined;
-        const orbitPath =
-          typeof periodMin === "number" &&
-          periodMin > 0 &&
-          typeof inclinationDeg === "number" &&
-          Number.isFinite(apiLng) &&
-          Number.isFinite(apiLat)
-            ? getOrbitPath(periodMin, inclinationDeg, anchor?.lng ?? apiLng, anchor?.lat ?? apiLat)
-            : undefined;
         return {
         id: satelliteEntity.id,
         type: "satellite" as const,
-        geometry: { type: "Point" as const, coordinates: coords },
+        geometry: { type: "Point" as const, coordinates: [apiLng, apiLat] as [number, number] },
         state: {
           altitude: (satelliteEntity as any).altitude ?? satelliteEntity.estimatedPosition?.altitude,
           heading: (satelliteEntity as any).heading,
-          velocity: satVelocity,
-          trailAnchor,
-          orbitPath: orbitPath ?? undefined,
+          velocity: typeof velKmS === "number" && velKmS > 0 ? { x: velKmS / 111, y: 0 } : undefined,
         },
         time: {
           observed_at: (satelliteEntity as any).lastUpdate ?? satelliteEntity.lastSeen,
@@ -3777,18 +3765,49 @@ export default function CREPDashboardPage() {
           })),
         });
         const aircraft = deckEntities.filter((e: any) => e.type === "aircraft");
-        const satellites = deckEntities.filter((e: any) => e.type === "satellite");
         const vessels = deckEntities.filter((e: any) => e.type === "vessel");
         const acSrc = m.getSource?.("crep-live-aircraft") as any;
         if (acSrc?.setData) acSrc.setData(toFC(aircraft));
-        const satSrc = m.getSource?.("crep-live-satellites") as any;
-        if (satSrc?.setData) satSrc.setData(toFC(satellites));
+        // Satellites are NOT pushed here — they are driven by the SGP4 satellite-animation
+        // module at ~10 FPS via requestAnimationFrame for smooth real-time propagation.
         const vSrc = m.getSource?.("crep-live-vessels") as any;
         if (vSrc?.setData) vSrc.setData(toFC(vessels));
       } catch {}
     }, 0);
     return () => clearTimeout(timer);
   }, [deckEntities]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
+  // Runs via requestAnimationFrame, independent of React state. Pushes positions
+  // directly into the MapLibre "crep-live-satellites" source and generates orbit
+  // path lines into "crep-live-satellite-orbits".
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map || filteredSatellites.length === 0) return;
+
+    // Build satellite inputs with orbital elements in properties
+    const satInputs = filteredSatellites.map((s) => ({
+      id: s.id,
+      properties: (s as any).properties || {},
+    }));
+
+    if (!isSatelliteAnimationRunning()) {
+      // First start — launch the animation loop
+      startSatelliteAnimation(map, satInputs);
+    } else {
+      // Already running — just update the satellite set (adds new ones)
+      updateSatelliteAnimation(satInputs);
+    }
+  }, [filteredSatellites]);
+
+  // Cleanup: stop satellite animation on unmount
+  useEffect(() => {
+    return () => {
+      stopSatelliteAnimation();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -4043,6 +4062,52 @@ export default function CREPDashboardPage() {
                   <p className="text-[9px] text-gray-400 leading-snug">
                     Each dot is a <strong className="text-gray-300">nature observation</strong> with GPS: species sightings (fungi, plants, birds, insects, animals, marine) from <strong className="text-purple-400">MINDEX</strong> and <strong className="text-green-400">iNaturalist</strong>/<strong className="text-blue-400">GBIF</strong>, enriched by <strong className="text-cyan-400">MYCA</strong> and the <strong className="text-amber-400">Nature Learning Model (NLM)</strong>. Click a dot or list item to see details and source links.
                   </p>
+                  {/* Color Legend — Kingdom dot colors */}
+                  <details className="group">
+                    <summary className="text-[9px] text-cyan-400/80 cursor-pointer hover:text-cyan-300 select-none flex items-center gap-1">
+                      <ChevronDown className="w-2.5 h-2.5 group-open:rotate-180 transition-transform" />
+                      <span>Color Legend</span>
+                    </summary>
+                    <div className="mt-1.5 space-y-1.5">
+                      {/* Nature Observation Colors */}
+                      <div className="text-[8px] text-gray-500 font-semibold uppercase tracking-wider">Species</div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                        {[
+                          { color: "bg-amber-700",  label: "Fungi" },
+                          { color: "bg-emerald-700", label: "Plants" },
+                          { color: "bg-sky-700",     label: "Birds" },
+                          { color: "bg-orange-700",  label: "Mammals" },
+                          { color: "bg-lime-700",    label: "Reptiles" },
+                          { color: "bg-green-700",   label: "Amphibians" },
+                          { color: "bg-cyan-700",    label: "Fish" },
+                          { color: "bg-rose-700",    label: "Mollusks" },
+                          { color: "bg-red-800",     label: "Arachnids" },
+                          { color: "bg-yellow-700",  label: "Insects" },
+                          { color: "bg-orange-700",  label: "Other Animals" },
+                        ].map(({ color, label }) => (
+                          <div key={label} className="flex items-center gap-1.5 py-0.5">
+                            <div className={cn("w-2 h-2 rounded-full shrink-0", color)} />
+                            <span className="text-[9px] text-gray-400">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Entity Type Colors */}
+                      <div className="text-[8px] text-gray-500 font-semibold uppercase tracking-wider mt-1">Tracking</div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                        {[
+                          { color: "bg-amber-400",  label: "Aircraft" },
+                          { color: "bg-purple-500", label: "Satellites" },
+                          { color: "bg-cyan-500",   label: "Vessels" },
+                          { color: "bg-red-500",    label: "Events" },
+                        ].map(({ color, label }) => (
+                          <div key={label} className="flex items-center gap-1.5 py-0.5">
+                            <div className={cn("w-2 h-2 rounded-full shrink-0", color)} />
+                            <span className="text-[9px] text-gray-400">{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
                 </div>
                 {/* Nature Observation Filters */}
                 <div className="p-2 border-b border-cyan-500/10 space-y-2">
@@ -4062,7 +4127,7 @@ export default function CREPDashboardPage() {
 
                 {/* Fungal Observation List - SCROLLABLE
                     Shows VISIBLE observations (from LOD system) for consistency with map
-                    Limited to 50 items max for performance */}
+                    Limited to 200 items in the scrollable list for DOM performance */}
                 <ScrollArea className="flex-1">
                   <div className="p-2 space-y-1">
                     {fungalLoading ? (
@@ -4076,7 +4141,7 @@ export default function CREPDashboardPage() {
                         Zoom in to see observations
                       </div>
                     ) : (
-                      visibleFungalObservations.slice(0, 50).map((obs) => {
+                      visibleFungalObservations.slice(0, 200).map((obs) => {
                         const speciesName = obs.taxon?.preferred_common_name || obs.species || obs.taxon?.name || "Unknown Species";
                         const isResearchGrade = obs.quality_grade === "research";
                         const isSelected = selectedFungal?.id === obs.id;
@@ -4131,9 +4196,9 @@ export default function CREPDashboardPage() {
                         );
                       })
                     )}
-                    {visibleFungalObservations.length > 50 && (
+                    {visibleFungalObservations.length > 200 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 50 of {visibleFungalObservations.length} visible â€¢ Zoom in for more
+                        Showing 200 of {visibleFungalObservations.length} visible â€¢ Zoom in for more
                       </div>
                     )}
                   </div>
@@ -4147,7 +4212,7 @@ export default function CREPDashboardPage() {
                 {/* Event List - Filtered by Ground/Space Weather toggles in Data Filters panel */}
             <ScrollArea className="flex-1">
                   <div className="px-2 py-1.5 space-y-1.5">
-                    {filteredEvents.slice(0, 50).map((event) => {
+                    {filteredEvents.slice(0, 200).map((event) => {
                   const config = eventTypeConfig[event.type] || eventTypeConfig.default;
                   const isSelected = selectedEvent?.id === event.id;
                   
@@ -4214,9 +4279,9 @@ export default function CREPDashboardPage() {
                     </div>
                   );
                 })}
-                    {filteredEvents.length > 50 && (
+                    {filteredEvents.length > 200 && (
                       <div className="text-center py-2 text-[9px] text-gray-500">
-                        Showing 50 of {filteredEvents.length} visible â€¢ Zoom in for more
+                        Showing 200 of {filteredEvents.length} visible â€¢ Zoom in for more
                       </div>
                     )}
               </div>
@@ -4229,6 +4294,9 @@ export default function CREPDashboardPage() {
               <ScrollArea className="flex-1">
                 <InfrastructureStatsPanel
                   plants={powerPlants}
+                  transmissionLines={infraTransmissionLines}
+                  substations={infraSubstations}
+                  cableRoutes={infraCableRoutes}
                   zoom={mapZoom}
                   bubbleScale={bubbleScale}
                   onBubbleScaleChange={setBubbleScale}
@@ -4323,16 +4391,7 @@ export default function CREPDashboardPage() {
                     "circle-color": "#fbbf24", "circle-opacity": 1,
                     "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2, 14, 3],
                     "circle-stroke-color": "#ffffff" }});
-                // Callsign label at zoom 8+
-                map.addLayer({ id: "crep-live-aircraft-label", type: "symbol", source: "crep-live-aircraft",
-                  minzoom: 8,
-                  layout: {
-                    "text-field": ["get", "name"],
-                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
-                    "text-offset": [0, 1.5], "text-anchor": "top",
-                    "text-allow-overlap": false, "text-optional": true,
-                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
-                  paint: { "text-color": "#fbbf24", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                // Labels added later when style fonts are known
                 // Click + hover
                 map.on("click", "crep-live-aircraft-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
@@ -4362,16 +4421,7 @@ export default function CREPDashboardPage() {
                     "circle-color": "#c084fc", "circle-opacity": 1,
                     "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
                     "circle-stroke-color": "#ffffff" }});
-                // Name label at zoom 6+
-                map.addLayer({ id: "crep-live-satellites-label", type: "symbol", source: "crep-live-satellites",
-                  minzoom: 6,
-                  layout: {
-                    "text-field": ["get", "name"],
-                    "text-size": ["interpolate", ["linear"], ["zoom"], 6, 8, 10, 10],
-                    "text-offset": [0, 1.3], "text-anchor": "top",
-                    "text-allow-overlap": false, "text-optional": true,
-                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
-                  paint: { "text-color": "#c084fc", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                // Labels added later when style fonts are known
                 map.on("click", "crep-live-satellites-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
                   if (id) {
@@ -4382,6 +4432,14 @@ export default function CREPDashboardPage() {
                 });
                 map.on("mouseenter", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                // ═══════════════════════════════════════════════════════════
+                // 🛰 SATELLITE ORBIT PATHS — thin purple dashed lines
+                // SGP4-propagated orbit ground tracks (next 90 min)
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-satellite-orbits", { type: "geojson", data: emptyFC });
+                map.addLayer({ id: "crep-live-satellite-orbits-line", type: "line", source: "crep-live-satellite-orbits",
+                  paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
 
                 // ═══════════════════════════════════════════════════════════
                 // 🚢 VESSELS — Bright cyan/teal with ocean glow
@@ -4400,16 +4458,7 @@ export default function CREPDashboardPage() {
                     "circle-color": "#22d3ee", "circle-opacity": 1,
                     "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2],
                     "circle-stroke-color": "#ffffff" }});
-                // Name label at zoom 8+
-                map.addLayer({ id: "crep-live-vessels-label", type: "symbol", source: "crep-live-vessels",
-                  minzoom: 8,
-                  layout: {
-                    "text-field": ["get", "name"],
-                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
-                    "text-offset": [0, 1.5], "text-anchor": "top",
-                    "text-allow-overlap": false, "text-optional": true,
-                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
-                  paint: { "text-color": "#22d3ee", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                // Labels added later when style fonts are known
                 map.on("click", "crep-live-vessels-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
                   if (id) {
@@ -4438,12 +4487,11 @@ export default function CREPDashboardPage() {
                       })),
                     });
                     const ac = entities.filter((e: any) => e.type === "aircraft");
-                    const sat = entities.filter((e: any) => e.type === "satellite");
                     const v = entities.filter((e: any) => e.type === "vessel");
                     (map.getSource("crep-live-aircraft") as any)?.setData(toFC(ac));
-                    (map.getSource("crep-live-satellites") as any)?.setData(toFC(sat));
+                    // Satellites are handled by SGP4 satellite-animation module — not pumped here
                     (map.getSource("crep-live-vessels") as any)?.setData(toFC(v));
-                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🛰${sat.length} 🚢${v.length}`);
+                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🚢${v.length} (satellites via SGP4 animation)`);
                   } catch {}
                 }, 1000);
               } catch (err: any) {
@@ -5789,7 +5837,7 @@ export default function CREPDashboardPage() {
               {/* Tab Content */}
               <div className="flex-1 overflow-hidden">
                 <TabsContent value="mission" className="h-full m-0 p-3 overflow-hidden flex flex-col">
-                  <MissionContextPanel mission={currentMission} stats={stats} />
+                  <MissionContextPanel mission={currentMission} stats={stats} liveTracking={{ aircraft: aircraft.length, satellites: satellites.length, vessels: vessels.length }} />
                 </TabsContent>
 
                 <TabsContent value="data" className="h-full m-0 p-2 overflow-auto">

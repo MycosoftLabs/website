@@ -92,6 +92,7 @@ export function WindVectorLayer({
       const windData = await clientRef.current.getWindVectors({
         forecastHours: debouncedHours,
         bounds,
+        resolution: 0.5,
       });
 
       let minSpeed = Infinity, maxSpeed = -Infinity, totalSpeed = 0, count = 0;
