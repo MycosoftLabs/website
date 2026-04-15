@@ -263,6 +263,8 @@ All notable changes to this project will be documented in this file.
 - CRITICAL — safeAddSource/safeAddLayer infinite recursion
 - *(voice)* PersonaPlex WS from NEXT_PUBLIC; CSP for Legion bridge; CREP env hints
 - *(docker)* Copy patches before npm ci, Node 22, smaller deps heap
+- *(deploy)* Free any container publishing port 3000 before docker run
+- *(crep)* Earth-2 wind resolution parity, env docs, UTF-8 labels
 
 ### CREP
 
@@ -293,6 +295,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -499,6 +502,7 @@ All notable changes to this project will be documented in this file.
 - OpenGridWorks-style LOD rendering + larger fuel-colored plant bubbles
 - Dual-canvas rendering + transmission lines + distinct depth layers
 - *(crep)* Board updates, layers, infra widgets; Earth-2 grid/wind MAS paths
+- *(crep)* SGP4 satellite animation, native entity layers, CMMC compliance, full filter system
 
 ### Fix
 
@@ -551,6 +555,7 @@ All notable changes to this project will be documented in this file.
 - *(setup-ssh)* Require Cloudflare Access secrets on deploy workflows
 - GitHub Actions lint+build; sandbox deploy candidate health + rollback
 - Main uses Mycosoft CI/CD deploy; PR-only Website CI; Dockerfile site URL arg
+- *(docker)* Shrink build context — ignore .cursor, nested node_modules, Playwright caches
 
 ### Performance
 
