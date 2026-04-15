@@ -57,12 +57,13 @@ const SOURCE_TO_MINDEX_LAYER: Record<string, string> = {
   facilities: "facilities",
   "power-grid": "power_grid",
   "power-plants": "facilities",
-  substations: "power_grid",
-  "transmission-lines": "power_grid",
+  substations: "substations",
+  "transmission-lines": "transmission_lines",
   "internet-cables": "internet_cables",
   "submarine-cables": "internet_cables",
   antennas: "antennas",
   "wifi-hotspots": "wifi_hotspots",
+  "cell-towers": "antennas",
 
   // Atmosphere
   weather: "weather",
@@ -80,8 +81,8 @@ const SOURCE_TO_MINDEX_LAYER: Record<string, string> = {
 
 /** Fallback internal API routes when MINDEX is unavailable */
 const FALLBACK_ROUTES: Record<string, string> = {
-  aircraft: "/api/oei/flights",
-  vessels: "/api/oei/marine",
+  aircraft: "/api/oei/flightradar24",
+  vessels: "/api/oei/aisstream",
   satellites: "/api/oei/satellites",
   earthquakes: "/api/natureos/global-events",
   species: "/api/crep/fungal",
@@ -116,7 +117,7 @@ export async function GET(
 
     const res = await fetch(mindexUrl, {
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(30000),
       headers: { Accept: "application/json", "X-API-Key": MINDEX_API_KEY },
     })
 
@@ -186,8 +187,13 @@ export async function GET(
 }
 
 /**
- * POST — Ingest data into MINDEX for a given source.
+ * POST -- Ingest data into MINDEX for a given source.
  * Used by CREP collectors and ETL pipelines to push data into MINDEX.
+ *
+ * Body: { entities: [{ lat, lng, timestamp, ...properties }] }
+ *
+ * Each entity MUST include lat, lng, and timestamp. The handler normalizes
+ * missing timestamps to the current server time and validates coordinates.
  */
 export async function POST(
   request: NextRequest,
@@ -196,26 +202,65 @@ export async function POST(
   const { source } = await params
   const body = await request.json()
 
+  const mindexLayer = SOURCE_TO_MINDEX_LAYER[source]
+  if (!mindexLayer) {
+    return NextResponse.json(
+      { error: `Unknown source: ${source}`, available: Object.keys(SOURCE_TO_MINDEX_LAYER) },
+      { status: 400 }
+    )
+  }
+
+  const rawEntities: Record<string, unknown>[] = body.entities || []
+  if (rawEntities.length === 0) {
+    return NextResponse.json({ ingested: 0, source, layer: mindexLayer })
+  }
+
+  // Normalize: ensure every entity has lat, lng, timestamp
+  const now = new Date().toISOString()
+  const entities = rawEntities.map(e => ({
+    ...e,
+    lat: e.lat ?? e.latitude ?? null,
+    lng: e.lng ?? e.longitude ?? null,
+    timestamp: e.timestamp || now,
+  }))
+
+  // Filter out entities without valid coordinates
+  const valid = entities.filter(e => e.lat != null && e.lng != null)
+
   try {
     const res = await fetch(`${MINDEX_URL}/api/mindex/earth/ingest`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source, entities: body.entities || [] }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": MINDEX_API_KEY,
+      },
+      body: JSON.stringify({
+        source,
+        layer: mindexLayer,
+        timestamp: now,
+        entities: valid,
+      }),
       signal: AbortSignal.timeout(10000),
     })
 
     if (res.ok) {
       const data = await res.json()
-      return NextResponse.json(data)
+      return NextResponse.json({
+        ...data,
+        ingested: valid.length,
+        dropped: rawEntities.length - valid.length,
+        source,
+        layer: mindexLayer,
+      })
     }
 
     return NextResponse.json(
-      { error: `MINDEX ingest failed: ${res.status}` },
+      { error: `MINDEX ingest failed: ${res.status}`, source, layer: mindexLayer },
       { status: res.status }
     )
   } catch (err) {
     return NextResponse.json(
-      { error: "MINDEX unreachable for ingest" },
+      { error: "MINDEX unreachable for ingest", source, layer: mindexLayer },
       { status: 503 }
     )
   }

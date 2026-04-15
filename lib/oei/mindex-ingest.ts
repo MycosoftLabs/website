@@ -1,16 +1,22 @@
 /**
  * MINDEX Ingestion Helper for CREP Data
- * 
+ *
  * Non-blocking ingestion of CREP data into MINDEX for persistent storage
  * and historical playback. Failures are logged but don't affect the main response.
+ *
+ * Dual-path ingestion:
+ *   Path A: /api/mindex/ingest/[type]  (CREP ingest — detailed records with metadata)
+ *   Path B: /api/mindex/proxy/[source] (Earth ingest — normalized {lat,lng,timestamp} entities)
+ *
+ * Every entity sent through either path MUST include lat, lng, and timestamp.
  */
 
-type IngestType = 
-  | "aircraft" 
-  | "vessels" 
-  | "satellites" 
-  | "events" 
-  | "weather" 
+type IngestType =
+  | "aircraft"
+  | "vessels"
+  | "satellites"
+  | "events"
+  | "weather"
   | "telemetry"
   | "lightning"
   | "fires"
@@ -25,36 +31,65 @@ interface IngestOptions {
   metadata?: Record<string, unknown>
 }
 
+/** Map ingest types to MINDEX proxy source names for dual-path ingestion */
+const TYPE_TO_PROXY_SOURCE: Partial<Record<IngestType, string>> = {
+  aircraft: "aircraft",
+  vessels: "vessels",
+  satellites: "satellites",
+}
+
 /**
  * Non-blocking ingestion of data to MINDEX
- * Fires and forgets - errors are logged but don't block the main request
+ * Fires and forgets - errors are logged but don't block the main request.
+ *
+ * Dual-path: sends to /api/mindex/ingest/[type] AND (for aircraft/vessels/satellites)
+ * to /api/mindex/proxy/[source] so the PostGIS earth layer stays current.
  */
 export function ingestToMINDEX(options: IngestOptions): void {
   const { type, source, data, metadata } = options
-  
+
   // Don't ingest empty data
   if (!data || (Array.isArray(data) && data.length === 0)) {
     return
   }
-  
+
   // Fire and forget - don't await
-  const baseUrl = typeof window !== "undefined" 
-    ? "" 
+  const baseUrl = typeof window !== "undefined"
+    ? ""
     : (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3010")
-  
+
+  const timestamp = new Date().toISOString()
+
+  // Path A: CREP ingest (detailed records with metadata)
   fetch(`${baseUrl}/api/mindex/ingest/${type}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       source,
-      timestamp: new Date().toISOString(),
+      timestamp,
       data,
       metadata,
     }),
   }).catch(error => {
-    // Log but don't throw - ingestion failures shouldn't affect the main request
-    console.warn(`[MINDEX Ingest] Failed to ingest ${type} from ${source}:`, error)
+    console.warn(`[MINDEX Ingest] Path A failed for ${type} from ${source}:`, error)
   })
+
+  // Path B: Earth/proxy ingest (normalized entities with lat/lng/timestamp)
+  const proxySource = TYPE_TO_PROXY_SOURCE[type]
+  if (proxySource) {
+    const entities = Array.isArray(data) ? data : [data]
+    if (entities.length > 0) {
+      fetch(`${baseUrl}/api/mindex/proxy/${proxySource}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entities: entities.map(e => ({ ...e, timestamp: (e as Record<string, unknown>).timestamp || timestamp })),
+        }),
+      }).catch(error => {
+        console.warn(`[MINDEX Ingest] Path B (proxy) failed for ${proxySource} from ${source}:`, error)
+      })
+    }
+  }
 }
 
 /**
@@ -82,7 +117,9 @@ export function ingestBatchToMINDEX(
 }
 
 /**
- * Ingest aircraft data with track history
+ * Ingest aircraft data with track history.
+ * Normalizes latitude/longitude to lat/lng and ensures every entity
+ * carries id, lat, lng, altitude, heading, speed, callsign, timestamp.
  */
 export function ingestAircraft(
   source: string,
@@ -91,30 +128,49 @@ export function ingestAircraft(
     callsign?: string
     latitude?: number
     longitude?: number
+    lat?: number
+    lng?: number
     altitude?: number
     velocity?: number
+    speed?: number
     heading?: number
     on_ground?: boolean
+    timestamp?: string
     [key: string]: unknown
   }>
 ): void {
   if (!aircraft || aircraft.length === 0) return
-  
+
+  const now = new Date().toISOString()
   const items = aircraft.map((a, i) => ({
     id: a.icao24 || `aircraft-${Date.now()}-${i}`,
     ...a,
+    // Normalize coordinates — sources may use latitude/longitude or lat/lng
+    lat: a.lat ?? a.latitude ?? null,
+    lng: a.lng ?? a.longitude ?? null,
+    altitude: a.altitude ?? null,
+    heading: a.heading ?? null,
+    speed: a.speed ?? a.velocity ?? null,
+    callsign: a.callsign ?? null,
+    timestamp: a.timestamp || now,
     entity_type: "aircraft",
-    captured_at: new Date().toISOString(),
+    captured_at: now,
   }))
-  
-  ingestBatchToMINDEX("aircraft", source, items, {
+
+  // Only ingest entities that have valid GPS coordinates
+  const withPosition = items.filter(a => a.lat != null && a.lng != null)
+
+  ingestBatchToMINDEX("aircraft", source, withPosition, {
     entity_count: aircraft.length,
-    has_position: aircraft.filter(a => a.latitude && a.longitude).length,
+    has_position: withPosition.length,
+    dropped_no_position: items.length - withPosition.length,
   })
 }
 
 /**
- * Ingest vessel data with track history
+ * Ingest vessel data with track history.
+ * Normalizes to lat/lng and ensures every entity carries
+ * mmsi, lat, lng, sog, cog, name, destination, ship_type, timestamp.
  */
 export function ingestVessels(
   source: string,
@@ -123,53 +179,100 @@ export function ingestVessels(
     name?: string
     latitude?: number
     longitude?: number
+    lat?: number
+    lng?: number
     speed?: number
+    sog?: number
     course?: number
+    cog?: number
+    destination?: string
     type?: string
+    ship_type?: string | number
+    timestamp?: string
     [key: string]: unknown
   }>
 ): void {
   if (!vessels || vessels.length === 0) return
-  
+
+  const now = new Date().toISOString()
   const items = vessels.map((v, i) => ({
     id: v.mmsi || `vessel-${Date.now()}-${i}`,
     ...v,
+    // Normalize coordinates
+    lat: v.lat ?? v.latitude ?? null,
+    lng: v.lng ?? v.longitude ?? null,
+    mmsi: v.mmsi ?? null,
+    sog: v.sog ?? v.speed ?? null,
+    cog: v.cog ?? v.course ?? null,
+    name: v.name ?? null,
+    destination: v.destination ?? null,
+    ship_type: v.ship_type ?? v.type ?? null,
+    timestamp: v.timestamp || now,
     entity_type: "vessel",
-    captured_at: new Date().toISOString(),
+    captured_at: now,
   }))
-  
-  ingestBatchToMINDEX("vessels", source, items, {
+
+  const withPosition = items.filter(v => v.lat != null && v.lng != null)
+
+  ingestBatchToMINDEX("vessels", source, withPosition, {
     entity_count: vessels.length,
-    has_position: vessels.filter(v => v.latitude && v.longitude).length,
+    has_position: withPosition.length,
+    dropped_no_position: items.length - withPosition.length,
   })
 }
 
 /**
- * Ingest satellite data with orbital elements
+ * Ingest satellite data with orbital elements.
+ * Normalizes to lat/lng and ensures every entity carries
+ * norad_id, lat, lng, altitude, velocity, period, inclination, tle_epoch, timestamp.
  */
 export function ingestSatellites(
   source: string,
   satellites: Array<{
     noradId?: number
+    norad_id?: number
+    id?: string
     name?: string
     latitude?: number
     longitude?: number
+    lat?: number
+    lng?: number
     altitude?: number
     velocity?: number
+    period?: number
+    inclination?: number
+    tle_epoch?: string
+    tleEpoch?: string
+    timestamp?: string
     [key: string]: unknown
   }>
 ): void {
   if (!satellites || satellites.length === 0) return
-  
+
+  const now = new Date().toISOString()
   const items = satellites.map((s, i) => ({
-    id: s.noradId?.toString() || `sat-${Date.now()}-${i}`,
+    id: (s.noradId ?? s.norad_id)?.toString() || s.id || `sat-${Date.now()}-${i}`,
     ...s,
+    // Normalize coordinates
+    lat: s.lat ?? s.latitude ?? null,
+    lng: s.lng ?? s.longitude ?? null,
+    norad_id: s.norad_id ?? s.noradId ?? null,
+    altitude: s.altitude ?? null,
+    velocity: s.velocity ?? null,
+    period: s.period ?? null,
+    inclination: s.inclination ?? null,
+    tle_epoch: s.tle_epoch ?? s.tleEpoch ?? null,
+    timestamp: s.timestamp || now,
     entity_type: "satellite",
-    captured_at: new Date().toISOString(),
+    captured_at: now,
   }))
-  
-  ingestBatchToMINDEX("satellites", source, items, {
+
+  const withPosition = items.filter(s => s.lat != null && s.lng != null)
+
+  ingestBatchToMINDEX("satellites", source, withPosition, {
     entity_count: satellites.length,
+    has_position: withPosition.length,
+    dropped_no_position: items.length - withPosition.length,
   })
 }
 
@@ -348,8 +451,8 @@ export function ingestDebris(
   if (!debris || debris.length === 0) return
   
   const items = debris.map((d, i) => ({
-    id: d.noradId?.toString() || d.id || `debris-${Date.now()}-${i}`,
     ...d,
+    id: d.noradId?.toString() || d.id || `debris-${Date.now()}-${i}`,
     entity_type: "debris",
     captured_at: new Date().toISOString(),
   }))

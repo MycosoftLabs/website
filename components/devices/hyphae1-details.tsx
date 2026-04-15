@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { deviceHeroVideoSources } from "@/lib/asset-video-sources"
 import { InfrastructureGrid } from "@/components/effects/scrolling-grid"
 import { InfrastructureDotGrid } from "@/components/effects/dot-grid-pulse"
 import { ProductShowcaseDots } from "@/components/effects/connected-dots"
@@ -444,9 +444,10 @@ export function Hyphae1Details() {
   const heroRef = useRef<HTMLDivElement>(null)
 
   const heroVideoSources = useMemo(() => {
-    const envUrl = process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL?.trim()
-    if (envUrl) return [envUrl]
-    return assetMp4Sources(HYPHAE1_ASSETS.heroVideo)
+    return deviceHeroVideoSources(HYPHAE1_ASSETS.heroVideo, {
+      envUrl: process.env.NEXT_PUBLIC_HYPHAE_HERO_VIDEO_URL,
+      aliases: ["/assets/hyphae1/Hyphae 1 Hero.mp4"],
+    })
   }, [])
 
   const { scrollYProgress } = useScroll({

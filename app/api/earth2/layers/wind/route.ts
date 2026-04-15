@@ -18,18 +18,19 @@ export async function GET(request: NextRequest) {
   const south = parseFloat(searchParams.get("south") || "-85");
   const east = parseFloat(searchParams.get("east") || "180");
   const west = parseFloat(searchParams.get("west") || "-180");
+  const resolution = parseFloat(searchParams.get("resolution") || "0.5");
 
-  const cacheKey = `earth2:wind:${hours}:${north}:${south}:${east}:${west}`;
+  const cacheKey = `earth2:wind:${hours}:${north}:${south}:${east}:${west}:${resolution}`;
   try {
     const query = new URLSearchParams({
-      variable: "wind",
       hours: String(hours),
       north: String(north),
       south: String(south),
       east: String(east),
       west: String(west),
+      resolution: String(resolution),
     });
-    const response = await fetch(`${MAS_API_URL}/api/earth2/layers?${query.toString()}`, {
+    const response = await fetch(`${MAS_API_URL}/api/earth2/layers/wind?${query.toString()}`, {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
     });

@@ -216,7 +216,7 @@ export function ParticleGravity({
   return (
     <canvas
       ref={canvasRef}
-      className={`absolute inset-0 w-full h-full pointer-events-auto ${className}`}
+      className={`absolute inset-0 w-full h-full pointer-events-none ${className}`}
       style={{ background: 'transparent' }}
     />
   )

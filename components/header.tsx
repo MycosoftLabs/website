@@ -372,6 +372,12 @@ export function Header() {
     router.push("/")
   }
 
+  function hardNavigate(url: string) {
+    if (typeof window !== "undefined") {
+      window.location.assign(url)
+    }
+  }
+
   // Use default logo during SSR to prevent hydration mismatch
   const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
@@ -382,9 +388,9 @@ export function Header() {
       {/* h-12 on mobile (saves 8px), h-14 on desktop */}
       <div className="container max-w-7xl mx-auto flex h-12 md:h-14 items-center justify-between px-3 md:px-4">
         <div className="flex items-center gap-1.5 md:gap-2 font-semibold">
-          <Link href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
+          <a href="/" className="flex items-center gap-1.5 md:gap-2 font-semibold group">
             <motion.div 
-              className="relative h-7 w-7 md:h-8 md:w-8"
+              className="relative h-7 w-7 pointer-events-none md:h-8 md:w-8"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
@@ -392,13 +398,13 @@ export function Header() {
                 src={logoSrc}
                 alt="Mycosoft Logo"
                 fill
-                className="object-contain"
+                className="pointer-events-none object-contain"
                 priority
               />
             </motion.div>
             {/* Hide brand name on small mobile to save space */}
             <span className="hidden sm:inline transition-colors duration-300 group-hover:text-primary">Mycosoft</span>
-          </Link>
+          </a>
         </div>
 
         {/* Desktop Navigation with Individual Dropdowns */}
@@ -418,24 +424,32 @@ export function Header() {
           </a>
 
           {/* About Us - Direct Link */}
-          <Link
+          <a
             href="/about"
+            onMouseDown={(event) => {
+              event.preventDefault()
+              hardNavigate("/about")
+            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Users className="h-4 w-4 text-muted-foreground group-hover:text-green-400 transition-colors duration-300" />
             <span>About Us</span>
-          </Link>
+          </a>
 
           {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
-          <Link
+          <a
             href="/agent"
+            onMouseDown={(event) => {
+              event.preventDefault()
+              hardNavigate("/agent")
+            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Key className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
             <span>Agent Access</span>
-          </Link>
+          </a>
 
           {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}
           <NavDropdown
@@ -504,14 +518,18 @@ export function Header() {
 
           {/* Security - Direct Link (no dropdown) */}
           {user && (
-            <Link
+            <a
               href="/security"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                hardNavigate("/security")
+              }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
               onMouseEnter={() => setOpenDropdown(null)}
             >
               <Lock className="h-4 w-4 text-muted-foreground group-hover:text-red-400 transition-colors duration-300" />
               <span>Security</span>
-            </Link>
+            </a>
           )}
         </nav>
 

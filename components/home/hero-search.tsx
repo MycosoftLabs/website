@@ -20,9 +20,10 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { usePersonaPlexContext } from "@/components/voice/PersonaPlexProvider"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
+import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { homeHeroVideoSources } from "@/lib/asset-video-sources"
 import {
   Search,
   Mic,
@@ -38,9 +39,15 @@ import {
  * Homepage hero video only. Keep this on the canonical homepage media path so the
  * hero behaves like the rest of the site's background videos.
  */
-const HOME_HERO_MP4 =
-  process.env.NEXT_PUBLIC_HOME_HERO_MP4?.trim() || "/assets/homepage/Mycosoft Background.mp4"
-const HOME_HERO_SOURCES = assetMp4Sources(HOME_HERO_MP4)
+const HOME_HERO_SOURCES = homeHeroVideoSources()
+
+interface HeroSuggestion {
+  id: string
+  title: string
+  type: string
+  scientificName?: string
+  url: string
+}
 
 export function HeroSearch() {
   const router = useRouter()
@@ -49,9 +56,12 @@ export function HeroSearch() {
   const [query, setQuery] = useState("")
   const [isFocused, setIsFocused] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [suggestions, setSuggestions] = useState<HeroSuggestion[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [trySuggestions, setTrySuggestions] = useState<{ term: string; phoneVisible?: boolean }[]>(DEFAULT_TRY_SUGGESTIONS)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const debouncedQuery = useDebounce(query, 250)
   
   // PersonaPlex voice context (gracefully handles null)
   const personaplex = usePersonaPlexContext()
@@ -191,12 +201,54 @@ export function HeroSearch() {
     return () => document.removeEventListener("click", handleClickOutside)
   }, [])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (query.trim()) {
-      setIsSearching(true)
-      router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+  useEffect(() => {
+    const safeQuery = debouncedQuery.trim()
+    if (safeQuery.length < 2) {
+      setSuggestions([])
+      setSuggestionsLoading(false)
+      return
     }
+
+    const controller = new AbortController()
+    setSuggestionsLoading(true)
+
+    fetch(`/api/search/suggestions?q=${encodeURIComponent(safeQuery)}`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return { suggestions: [] }
+        return response.json()
+      })
+      .then((data) => {
+        setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : [])
+      })
+      .catch(() => {
+        setSuggestions([])
+      })
+      .finally(() => {
+        setSuggestionsLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [debouncedQuery])
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    const submittedQuery = String(formData.get("q") || query).trim()
+    if (submittedQuery) {
+      setIsSearching(true)
+      window.location.assign(`/search?q=${encodeURIComponent(submittedQuery)}`)
+    }
+  }
+
+  const navigateToSearch = (rawQuery: string) => {
+    const submittedQuery = rawQuery.trim()
+    if (!submittedQuery) return
+    setIsSearching(true)
+    window.location.assign(`/search?q=${encodeURIComponent(submittedQuery)}`)
   }
 
   const toggleVoice = () => {
@@ -319,6 +371,8 @@ export function HeroSearch() {
             {/* Search Bar */}
             <motion.form
               onSubmit={handleSearch}
+              action="/search"
+              method="GET"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
@@ -339,14 +393,23 @@ export function HeroSearch() {
                 {/* Input */}
                 <input
                   ref={inputRef}
+                  name="q"
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      navigateToSearch((e.currentTarget as HTMLInputElement).value)
+                    }
+                  }}
                   onFocus={() => {
                     setIsFocused(true)
                     pause()
                   }}
                   onBlur={() => {
+                    setTimeout(() => setIsFocused(false), 150)
                     if (!query) resume()
                   }}
                   placeholder={animatedPlaceholder || "Search nature, environment, live data..."}
@@ -415,7 +478,11 @@ export function HeroSearch() {
                 {/* Submit Button */}
                 <motion.button
                   type="submit"
-                  disabled={!query.trim() || isSearching}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    navigateToSearch(query)
+                  }}
+                  disabled={isSearching}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
@@ -450,6 +517,44 @@ export function HeroSearch() {
                 )}
               </AnimatePresence>
             </motion.form>
+
+            <AnimatePresence>
+              {query.trim().length >= 2 && (suggestionsLoading || suggestions.length > 0) ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-border bg-background/95 shadow-2xl backdrop-blur-md"
+                >
+                  {suggestionsLoading ? (
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading suggestions...
+                    </div>
+                  ) : (
+                    <ul className="max-h-80 overflow-auto py-2">
+                      {suggestions.map((suggestion) => (
+                        <li key={suggestion.id}>
+                          <button
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              window.location.assign(suggestion.url)
+                            }}
+                            className="flex w-full flex-col px-4 py-3 text-left hover:bg-muted/70"
+                          >
+                            <span className="text-sm font-medium text-foreground">{suggestion.title}</span>
+                            {suggestion.scientificName ? (
+                              <span className="text-xs italic text-muted-foreground">{suggestion.scientificName}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -468,7 +573,7 @@ export function HeroSearch() {
               type="button"
               onClick={() => {
                 setQuery(term)
-                router.push(`/search?q=${encodeURIComponent(term)}`)
+                window.location.assign(`/search?q=${encodeURIComponent(term)}`)
               }}
               className={cn(
                 "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",
@@ -487,7 +592,6 @@ export function HeroSearch() {
           </div>
         </motion.div>
 
-        {/* Old suggestions dropdown removed - search results now shown on /search page with fluid widgets */}
       </div>
     </section>
   )

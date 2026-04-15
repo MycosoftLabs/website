@@ -15,6 +15,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
+# Prevent npm dependency resolution from OOMing in constrained Docker builds.
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Copy package files
 COPY package.json package-lock.json ./
 

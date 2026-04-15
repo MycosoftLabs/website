@@ -59,7 +59,6 @@ import {
   Wrench,
   Power,
   Fuel,
-  Image,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -235,13 +234,9 @@ export function MapControls({
     if (satelliteFilter.showStations) count++
     if (satelliteFilter.showStarlink) count++
     if (spaceWeatherFilter.showSolarFlares) count++
-    if (eoImageryFilter?.showModis) count++
-    if (eoImageryFilter?.showViirs) count++
-    if (eoImageryFilter?.showAirs) count++
-    if (eoImageryFilter?.showLandsat) count++
-    if (eoImageryFilter?.showEonet) count++
+    // EO imagery filters no longer counted here — controlled by MapLayersPopup
     return count
-  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter, eoImageryFilter])
+  }, [aircraftFilter, vesselFilter, satelliteFilter, spaceWeatherFilter])
 
   return (
     <div className="bg-black/90 border border-cyan-500/30 rounded-lg overflow-hidden backdrop-blur-sm">
@@ -520,21 +515,8 @@ export function MapControls({
                   </div>
                 </div>
 
-                {/* Earth Observation (NASA GIBS) - inside Ground tab */}
-                <div className="space-y-1.5 pt-2 border-t border-green-500/20">
-                  <span className="text-[10px] text-amber-400/70 uppercase font-medium">EO Imagery (NASA)</span>
-                  {onEoImageryFilterChange ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      <FilterToggle label="MODIS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showModis ?? false} onChange={(v) => onEoImageryFilterChange({ showModis: v })} color="amber" compact />
-                      <FilterToggle label="VIIRS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showViirs ?? false} onChange={(v) => onEoImageryFilterChange({ showViirs: v })} color="amber" compact />
-                      <FilterToggle label="AIRS" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showAirs ?? false} onChange={(v) => onEoImageryFilterChange({ showAirs: v })} color="amber" compact />
-                      <FilterToggle label="Landsat" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showLandsat ?? false} onChange={(v) => onEoImageryFilterChange({ showLandsat: v })} color="amber" compact />
-                      <FilterToggle label="EONET" icon={<Image className="w-3 h-3" />} checked={eoImageryFilter.showEonet ?? false} onChange={(v) => onEoImageryFilterChange({ showEonet: v })} color="amber" compact />
-                    </div>
-                  ) : (
-                    <p className="text-[9px] text-gray-500">EO filters not connected</p>
-                  )}
-                </div>
+                {/* EO Imagery (NASA GIBS) — removed from right panel data filters.
+                   Now controlled exclusively by the on-map MapLayersPopup widget. */}
 
                 {/* Sensor Networks */}
                 <div className="space-y-1.5 pt-2 border-t border-green-500/20">

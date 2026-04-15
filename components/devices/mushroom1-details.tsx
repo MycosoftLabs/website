@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
-import { assetMp4Sources } from "@/lib/asset-video-sources"
+import { assetMp4Sources, mergeWithNasFallbacks } from "@/lib/asset-video-sources"
 import { encodeAssetUrl } from "@/lib/encode-asset-url"
 import { SensorNeuralWeb } from "@/components/effects/neural-web"
 import { MyceliumCanvas } from "@/components/effects/mycelium-canvas"
@@ -260,7 +260,7 @@ export function Mushroom1Details() {
 
   // Mobile reliability: avoid 8K hero playback on phones (can cause videos to stall/fail on iOS)
   const heroVideoSrc = isMobile ? MUSHROOM1_ASSETS.videos.waterfall : MUSHROOM1_ASSETS.videos.background
-  const heroSources = assetMp4Sources(heroVideoSrc)
+  const heroSources = mergeWithNasFallbacks(assetMp4Sources(heroVideoSrc))
 
   const { scrollYProgress } = useScroll({
     target: heroRef,

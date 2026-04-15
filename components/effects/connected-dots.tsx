@@ -203,7 +203,7 @@ export function ConnectedDots({
   return (
     <div
       ref={containerRef}
-      className={cn("absolute inset-0 overflow-hidden pointer-events-auto", className)}
+      className={cn("absolute inset-0 overflow-hidden pointer-events-none", className)}
       style={{ backgroundColor }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />

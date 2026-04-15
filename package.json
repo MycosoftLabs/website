@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "node scripts/start-with-gpu.js",
+    "dev": "node --max-old-space-size=3072 node_modules/next/dist/bin/next dev --port 3010",
+    "dev:with-gpu": "node scripts/start-with-gpu.js",
     "dev:next-only": "node --max-old-space-size=3072 node_modules/next/dist/bin/next dev --port 3010",
     "dev:no-gpu": "node --max-old-space-size=3072 node_modules/next/dist/bin/next dev --port 3010",
     "dev:stable": "node --max-old-space-size=3072 node_modules/next/dist/bin/next dev --port 3010",

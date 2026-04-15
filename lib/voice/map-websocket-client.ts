@@ -43,6 +43,7 @@ export interface MapWebSocketClientOptions {
 }
 
 export class MapWebSocketClient {
+  static _errorLogged = false
   private ws: WebSocket | null = null
   private url: string
   private reconnectInterval: number
@@ -107,9 +108,10 @@ export class MapWebSocketClient {
       
       this.ws.onerror = () => {
         this.isConnecting = false
-        // Suppressing the raw event dump which spams the console when backend is offline
-        if (this.reconnectAttempts === 0) {
-          console.warn("[MapWS] Connection failed. Will retry in background.")
+        // Only log once total — voice bridge is optional, don't spam console
+        if (!MapWebSocketClient._errorLogged) {
+          MapWebSocketClient._errorLogged = true
+          console.warn("[MapWS] Voice bridge unavailable (optional). No further retry logs.")
         }
         const error = new Error("WebSocket connection failed")
         this.onError?.(error)

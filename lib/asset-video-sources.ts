@@ -3,6 +3,13 @@
  *
  * Prefer `-web` first when present for faster start-to-play; fall back to the
  * full file if the smaller variant is missing on NAS.
+ *
+ * Asset policy:
+ * - Large hero/device videos should resolve from `/assets/...` so production
+ *   can serve them from the NAS bind mount.
+ * - Small UI images can remain local repo assets or remote CDN images.
+ * - Helper functions here should keep route URLs stable while allowing NAS
+ *   filename aliases and fallback clips.
  */
 
 export function webVariantPath(canonicalMp4Path: string): string {
@@ -65,6 +72,41 @@ function orderedHomeHeroCanonicalPaths(): string[] {
 export function homeHeroVideoSources(): string[] {
   const primary = mergeMp4SourceGroups(...orderedHomeHeroCanonicalPaths())
   if (process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
+    return primary
+  }
+  return mergeWithNasFallbacks([primary])
+}
+
+interface DeviceHeroVideoOptions {
+  envUrl?: string
+  aliases?: string[]
+  allowMushroomFallback?: boolean
+}
+
+/**
+ * Generic NAS-first hero source builder for device pages.
+ * Keeps production URLs under `/assets/...` while permitting alternate
+ * filenames that may exist on the NAS.
+ */
+export function deviceHeroVideoSources(
+  defaultCanonical: string,
+  options: DeviceHeroVideoOptions = {}
+): string[] {
+  const paths: string[] = []
+  const seen = new Set<string>()
+  const add = (p?: string) => {
+    if (!p || !p.startsWith("/")) return
+    if (seen.has(p)) return
+    seen.add(p)
+    paths.push(p)
+  }
+
+  add(options.envUrl?.trim())
+  add(defaultCanonical)
+  for (const alias of options.aliases || []) add(alias)
+
+  const primary = mergeMp4SourceGroups(...paths)
+  if (options.allowMushroomFallback === false || process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
     return primary
   }
   return mergeWithNasFallbacks([primary])

@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         west: String(west),
         resolution: String(resolution),
       });
-      const response = await fetch(`${MAS_API_URL}/api/earth2/layers?${query.toString()}`, {
+      const response = await fetch(`${MAS_API_URL}/api/earth2/layers/grid?${query.toString()}`, {
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
       });

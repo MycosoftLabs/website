@@ -69,7 +69,7 @@ export default function GibsBaseLayers({ map, enabledLayers, opacity = 0.4 }: Gi
                 source: config.sourceId,
                 paint: {
                   "raster-opacity": config.opacity ?? opacity,
-                  "raster-fade-duration": 300,
+                  "raster-fade-duration": 0,
                 },
               },
               beforeId,

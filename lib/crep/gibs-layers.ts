@@ -14,12 +14,20 @@ function toGibsDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** MODIS Terra True Color - ~1 day lag */
+/** MODIS Terra True Color - ~1 day lag.
+ *  URL is cached per calendar day to avoid regenerating on every render
+ *  (which causes MapLibre to tear down / recreate the raster source and flicker). */
+let _modisCache: { key: string; url: string } | null = null;
+
 export function getModisTerraTrueColorUrl(dateLagDays = 1): string {
   const d = new Date();
   d.setDate(d.getDate() - dateLagDays);
   const date = toGibsDate(d);
-  return `${GIBS_BASE}/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg`;
+  const cacheKey = `modis-${date}`;
+  if (_modisCache && _modisCache.key === cacheKey) return _modisCache.url;
+  const url = `${GIBS_BASE}/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpeg`;
+  _modisCache = { key: cacheKey, url };
+  return url;
 }
 
 /** VIIRS Night Lights - static 2012 (VIIRS_CityLights_2012 is the supported GIBS layer; DayNightBand has limited availability) */
@@ -53,13 +61,17 @@ export function getAirsCoUrl(dateLagDays = 3): string {
  * Actually, the easiest is to skip AIRS for the first pass and add MODIS, VIIRS, Landsat.
  * We can add AIRS later with a proper WMS proxy or tile conversion.
  */
+let _airsCache: { key: string; url: string } | null = null;
+
 export function getAirsCoTileUrl(dateLagDays = 3): string | null {
-  // AIRS on GIBS - check for WMTS. Many GIBS layers use WMTS.
-  // AIRS_L2_Carbon_Monoxide_400hPa_Volume_Mixing_Ratio_Daily has WMTS
   const d = new Date();
   d.setDate(d.getDate() - dateLagDays);
   const date = toGibsDate(d);
-  return `${GIBS_BASE}/wmts/epsg3857/best/AIRS_L2_Carbon_Monoxide_400hPa_Volume_Mixing_Ratio_Daily/default/${date}/GoogleMapsCompatible_Level5/{z}/{y}/{x}.png`;
+  const cacheKey = `airs-${date}`;
+  if (_airsCache && _airsCache.key === cacheKey) return _airsCache.url;
+  const url = `${GIBS_BASE}/wmts/epsg3857/best/AIRS_L2_Carbon_Monoxide_400hPa_Volume_Mixing_Ratio_Daily/default/${date}/GoogleMapsCompatible_Level5/{z}/{y}/{x}.png`;
+  _airsCache = { key: cacheKey, url };
+  return url;
 }
 
 /** Landsat WELD True Color - historic dates only */

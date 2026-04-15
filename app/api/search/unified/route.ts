@@ -286,11 +286,12 @@ interface INaturalistObservation {
 
 async function searchMindexUnified(query: string, limit: number) {
   try {
-    // Use MINDEX unified-search endpoint which searches taxa, compounds, genetics in parallel
-    // Short timeout (3s) — if MINDEX is on a private LAN, fail fast to external APIs
+    // Use MINDEX unified-search endpoint which searches taxa, compounds, genetics in parallel.
+    // Give LAN MINDEX more time so the search UI does not degrade into empty states
+    // while upstream search is still healthy but slower than a cold 3s budget.
     const res = await fetch(
       `${MINDEX_API_URL}/api/mindex/unified-search?q=${encodeURIComponent(query)}&limit=${limit}`,
-      { signal: AbortSignal.timeout(3000) }
+      { signal: AbortSignal.timeout(12000) }
     )
     if (!res.ok) {
       console.error("MINDEX unified-search failed:", res.status)
@@ -386,7 +387,7 @@ async function searchMindexResearch(query: string, limit: number, origin?: strin
     const res = await fetch(
       requestUrl,
       {
-        signal: AbortSignal.timeout(2500),
+        signal: AbortSignal.timeout(12000),
         headers,
         cache: "no-store",
       }
@@ -1167,7 +1168,7 @@ async function searchExaWeb(query: string, limit: number, origin: string) {
         includeText: true,
         includeHighlights: true,
       }),
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) return []
     const data = await res.json()
@@ -1200,7 +1201,7 @@ async function getAIAnswer(query: string, origin: string) {
     url.searchParams.set("q", query)
     url.searchParams.set("integrated", "true")
     const res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) return undefined
     const data = await res.json()

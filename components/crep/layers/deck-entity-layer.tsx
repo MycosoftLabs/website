@@ -14,9 +14,9 @@
  * the correct custom widget (FlightTrackerWidget, VesselTrackerWidget, etc.).
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { IconLayer, PathLayer } from "@deck.gl/layers";
+import { IconLayer, PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { PathStyleExtension } from "@deck.gl/extensions";
 import type maplibregl from "maplibre-gl";
 import type { UnifiedEntity } from "@/lib/crep/entities/unified-entity-schema";
@@ -37,7 +37,8 @@ function svgUri(svg: string): string {
  * This makes IconLayer work in non-interleaved (globe) mode.
  */
 const _pngCache = new Map<string, string>();
-function svgToPng(svgDataUri: string, size = 64): Promise<string> {
+function svgToPng(svgDataUri: string, width = 64, height?: number): Promise<string> {
+  const h = height ?? width;
   const cached = _pngCache.get(svgDataUri);
   if (cached) return Promise.resolve(cached);
 
@@ -45,11 +46,11 @@ function svgToPng(svgDataUri: string, size = 64): Promise<string> {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
+      canvas.width = width;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.drawImage(img, 0, 0, size, size);
+        ctx.drawImage(img, 0, 0, width, h);
         const png = canvas.toDataURL("image/png");
         _pngCache.set(svgDataUri, png);
         resolve(png);
@@ -317,7 +318,9 @@ function hasValidCoords(e: UnifiedEntity): boolean {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface EntityDeckLayerProps {
-  map: maplibregl.Map | null;
+  /** MapLibre map instance OR a React ref to a map instance.
+   *  Parent typically passes mapRef (a ref); we handle both. */
+  map: maplibregl.Map | React.RefObject<maplibregl.Map | null> | null;
   entities: UnifiedEntity[];
   visible: boolean;
   onEntityClick?: (entity: UnifiedEntity) => void;
@@ -332,13 +335,73 @@ export interface EntityDeckLayerProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function EntityDeckLayer({
-  map,
+  map: mapProp,
   entities,
   visible,
   onEntityClick,
   extraLayers = [],
   useGlobeMode = false,
 }: EntityDeckLayerProps) {
+  // Resolve map instance — parent passes either a Map, a RefObject, or null via state.
+  // Since parent uses useState (not useRef), re-renders trigger naturally when map loads.
+  const resolvedMap = (() => {
+    if (!mapProp) return null;
+    // If it's a RefObject, read .current
+    if (typeof mapProp === 'object' && 'current' in mapProp) {
+      return (mapProp as React.RefObject<maplibregl.Map | null>).current;
+    }
+    // If it has getZoom, it's the Map instance directly (parent uses useState)
+    if (typeof mapProp === 'object' && typeof (mapProp as any).getZoom === 'function') {
+      return mapProp as maplibregl.Map;
+    }
+    // Fallback: try using it directly (parent may pass Map as any)
+    return mapProp as maplibregl.Map;
+  })();
+
+  // Debug: log map resolution status on every render
+  useEffect(() => {
+    console.log(`[CREP/Deck] resolvedMap=${!!resolvedMap}, mapProp type=${typeof mapProp}, hasGetZoom=${typeof (mapProp as any)?.getZoom}`);
+  }, [resolvedMap, mapProp]);
+
+  // ── Pre-load SVG icons as Image objects ──
+  // deck.gl's IconLayer treats string iconAtlas as a URL and tries to fetch() it.
+  // SVG data URIs fail in the loaders.gl image parser (globe mode, some browsers).
+  // By passing a pre-loaded HTMLImageElement object, we bypass the fetch pipeline entirely.
+  // deck.gl accepts Image objects directly — no fetch, no parse, just renders.
+  const [iconImages, setIconImages] = useState<{
+    aircraft: HTMLImageElement;
+    vessel: HTMLImageElement;
+    satellite: HTMLImageElement;
+    dot: HTMLImageElement;
+    species: HTMLImageElement;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    function loadImg(src: string): Promise<HTMLImageElement> {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(img); // still return — deck.gl handles gracefully
+        img.src = src;
+      });
+    }
+    Promise.all([
+      loadImg(AIRCRAFT_ICON),
+      loadImg(VESSEL_ICON),
+      loadImg(SATELLITE_ICON),
+      loadImg(DOT_ICON),
+      loadImg(SPECIES_ATLAS),
+    ]).then(([aircraft, vessel, satellite, dot, species]) => {
+      if (!cancelled) {
+        setIconImages({ aircraft, vessel, satellite, dot, species });
+        console.log("[CREP/Deck] Icon atlas images pre-loaded ✓ (bypasses fetch)");
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // Single overlay — deck.gl only supports ONE MapboxOverlay per map.
   // Layer order in the array determines rendering depth:
   //   First (index 0) = rendered first (bottom) → infrastructure
@@ -349,10 +412,10 @@ export function EntityDeckLayer({
   const overlayRef = useRef<MapboxOverlay | null>(null);
 
   useEffect(() => {
-    if (!map) return;
+    if (!resolvedMap) return;
 
     if (overlayRef.current) {
-      try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
+      try { resolvedMap.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
       overlayRef.current = null;
     }
 
@@ -361,21 +424,22 @@ export function EntityDeckLayer({
       pickingRadius: 28,
     });
     overlayRef.current = overlay;
-    map.addControl(overlay as unknown as maplibregl.IControl);
+    resolvedMap.addControl(overlay as unknown as maplibregl.IControl);
+    console.log("[CREP/Deck] MapboxOverlay added to map ✓");
 
     return () => {
       if (overlayRef.current) {
-        try { map.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
+        try { resolvedMap.removeControl(overlayRef.current as unknown as maplibregl.IControl); } catch {}
         overlayRef.current = null;
       }
     };
-  }, [map, useGlobeMode]);
+  }, [resolvedMap, useGlobeMode]);
 
-  // Rebuild layers whenever entities or visibility changes
+  // Rebuild layers whenever entities, visibility, or PNG icons change
   useEffect(() => {
     if (!overlayRef.current) return;
     if (!visible) {
-      overlayRef.current.setProps({ layers: [] });
+      overlayRef.current.setProps({ layers: [...extraLayers] });
       return;
     }
 
@@ -393,6 +457,9 @@ export function EntityDeckLayer({
     const others     = valid.filter(
       e => !["aircraft", "vessel", "satellite", "fungal"].includes(e.type)
     );
+    if (aircraft.length + vessels.length + satellites.length > 0) {
+      console.log(`[CREP/Deck] ✈${aircraft.length} 🚢${vessels.length} 🛰${satellites.length} 🍄${fungal.length} other=${others.length}`);
+    }
 
     // Build motion trails: satellites only get full-orbit path (no short segment) for consistency
     const trails: TrailItem[] = valid
@@ -455,98 +522,99 @@ export function EntityDeckLayer({
           ...({ getDashArray: () => [4, 3] } as any),
         }),
 
-        // ── Entity icons: single branch, interleaved: true works for both globe + flat ──
-        new IconLayer<UnifiedEntity>({
+        // ── Entity ScatterplotLayers — pure WebGL circles, no icon atlas needed ──
+        // ScatterplotLayer renders guaranteed without image loading issues.
+        // Aircraft = amber, Satellites = purple, Vessels = cyan, Others = gray, Fungal = green
+
+        // ── Others (weather, earthquakes, etc.) – gray dots ──
+        new ScatterplotLayer<UnifiedEntity>({
           id: "crep-others",
           data: others,
-          iconAtlas: DOT_ICON,
-          iconMapping: ICON_MAPPING,
-          getIcon: () => "icon",
           getPosition: getPos,
-          getSize: 14,
-          sizeUnits: "pixels",
-          sizeMinPixels: 12,
-          sizeMaxPixels: 28,
-          getColor: (e) => entityColor(e.type),
+          getRadius: 4,
+          radiusUnits: "pixels",
+          radiusMinPixels: 3,
+          radiusMaxPixels: 12,
+          getFillColor: (e) => entityColor(e.type),
+          getLineColor: [255, 255, 255, 120],
+          lineWidthMinPixels: 1,
+          stroked: true,
           pickable: true,
           onClick: handleClick,
         }),
 
-        // ── Satellites – purple cross icon ─────────────────────────────────
-        new IconLayer<UnifiedEntity>({
+        // ── Satellites – bright purple dots, white-ringed ─────────────────
+        new ScatterplotLayer<UnifiedEntity>({
           id: "crep-satellites",
           data: satellites,
-          iconAtlas: SATELLITE_ICON,
-          iconMapping: ICON_MAPPING,
-          getIcon: () => "icon",
           getPosition: getPos,
-          getSize: 16,
-          sizeUnits: "pixels",
-          sizeMinPixels: 8,
-          sizeMaxPixels: 32,
-          getColor: () => entityColor("satellite"),
+          getRadius: 5,
+          radiusUnits: "pixels",
+          radiusMinPixels: 4,
+          radiusMaxPixels: 16,
+          getFillColor: [167, 85, 247, 255],  // bright purple, full opacity
+          getLineColor: [255, 255, 255, 220],
+          lineWidthMinPixels: 1.5,
+          stroked: true,
           pickable: true,
           onClick: handleClick,
+          updateTriggers: { getPosition: [entities] },
         }),
 
-        // ── Vessels – blue arrowhead, rotated by COG / heading ─────────────
-        new IconLayer<UnifiedEntity>({
+        // ── Vessels – bright cyan dots, white-ringed ─────────────────────
+        new ScatterplotLayer<UnifiedEntity>({
           id: "crep-vessels",
           data: vessels,
-          iconAtlas: VESSEL_ICON,
-          iconMapping: ICON_MAPPING,
-          getIcon: () => "icon",
           getPosition: getPos,
-          getSize: 18,
-          sizeUnits: "pixels",
-          sizeMinPixels: 10,
-          sizeMaxPixels: 36,
-          getColor: () => entityColor("vessel"),
-          getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
+          getRadius: 6,
+          radiusUnits: "pixels",
+          radiusMinPixels: 5,
+          radiusMaxPixels: 18,
+          getFillColor: [56, 189, 248, 255],  // bright cyan, full opacity
+          getLineColor: [255, 255, 255, 220],
+          lineWidthMinPixels: 2,
+          stroked: true,
           pickable: true,
           onClick: handleClick,
+          updateTriggers: { getPosition: [entities] },
         }),
 
-        // ── Aircraft – amber plane icon, rotated by heading ────────────────
-        new IconLayer<UnifiedEntity>({
+        // ── Aircraft – bright amber dots, larger than infra, white-ringed ──
+        new ScatterplotLayer<UnifiedEntity>({
           id: "crep-aircraft",
           data: aircraft,
-          iconAtlas: AIRCRAFT_ICON,
-          iconMapping: ICON_MAPPING,
-          getIcon: () => "icon",
           getPosition: getPos,
-          getSize: 20,
-          sizeUnits: "pixels",
-          sizeMinPixels: 10,
-          sizeMaxPixels: 40,
-          getColor: () => entityColor("aircraft"),
-          getAngle: (e) => -normalizeHeadingDeg(e.state?.heading ?? 0),
+          getRadius: 7,
+          radiusUnits: "pixels",
+          radiusMinPixels: 6,
+          radiusMaxPixels: 22,
+          getFillColor: [251, 182, 36, 255],  // bright amber, full opacity
+          getLineColor: [255, 255, 255, 255],
+          lineWidthMinPixels: 2,
+          stroked: true,
           pickable: true,
           onClick: handleClick,
+          updateTriggers: { getPosition: [entities] }, // Re-render when positions update
         }),
 
-        // ── Biodiversity observations (fungal + all species) ──────────────
+        // ── Biodiversity observations (fungal + all species) ─────────────
         ...(fungal.length > 0
           ? [
-              new IconLayer<UnifiedEntity>({
+              new ScatterplotLayer<UnifiedEntity>({
                 id: "crep-fungal",
                 data: fungal,
-                iconAtlas: SPECIES_ATLAS,
-                iconMapping: SPECIES_ICON_MAPPING,
-                getIcon: (e) => {
-                  const key = getSpeciesIconKey(e);
-                  return key in SPECIES_ICON_MAPPING ? key : "fungi";
-                },
                 getPosition: getPos,
-                getSize: 14,
-                sizeUnits: "pixels",
-                sizeMinPixels: 8,
-                sizeMaxPixels: 24,
-                getColor: (e) => {
+                getRadius: 4,
+                radiusUnits: "pixels",
+                radiusMinPixels: 3,
+                radiusMaxPixels: 12,
+                getFillColor: (e) => {
                   const c = fungalEntityColor(e);
-                  // Reduce opacity so infrastructure layers show through
-                  return [c[0], c[1], c[2], Math.min(c[3] ?? 255, 160)] as [number, number, number, number];
+                  return [c[0], c[1], c[2], Math.min(c[3] ?? 255, 160)] as RGBA;
                 },
+                getLineColor: [255, 255, 255, 100],
+                lineWidthMinPixels: 1,
+                stroked: true,
                 pickable: true,
                 onClick: handleClick,
               }),
@@ -554,7 +622,7 @@ export function EntityDeckLayer({
           : []),
       ],
     });
-  }, [entities, visible, onEntityClick, extraLayers, useGlobeMode]);
+  }, [resolvedMap, entities, visible, onEntityClick, extraLayers, useGlobeMode]);
 
   // This component produces no DOM output – it controls the deck.gl overlay
   return null;

@@ -189,7 +189,6 @@ import {
   PressureLayer,
   StormCellsLayer,
   HumidityLayer,
-  CrepGibsEoOverlays,
   ForecastTimeline,
   AlertPanel,
   useEarth2Alerts,
@@ -239,10 +238,15 @@ import { registerPMTilesProtocol } from "@/lib/crep/pmtiles-source";
 import { usePowerPlantLayers, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
 import { PlantPopup } from "@/components/crep/popups/plant-popup";
+import { InfraDetailWidget, type InfraAsset } from "@/components/crep/popups/infra-detail-widget";
 import { UnifiedSearch, type SearchResult } from "@/components/crep/search/unified-search";
 import { FlyToButtons } from "@/components/crep/controls/fly-to-buttons";
+import { MapLayersPopup } from "@/components/crep/controls/map-layers-popup";
 import { InfrastructureStatsPanel } from "@/components/crep/panels/infrastructure-stats-panel";
 import { mindexFetch } from "@/lib/crep/mindex-cache-client";
+import { ALL_FETCH_REGIONS, regionToBounds, TOTAL_FETCH_REGIONS } from "@/lib/crep/geo-regions";
+import { addJurisdictionLayers } from "@/lib/crep/jurisdiction-layers";
+import { initHighlightLayers, highlightPoint, highlightLine, highlightFromEvent, clearHighlight } from "@/lib/crep/infra-highlight";
 import { executeCrepCommand, type MapCommandHandlers } from "@/hooks/useMapWebSocket";
 import type { FrontendCommand } from "@/lib/voice/map-websocket-client";
 import { VOICE_ENDPOINTS } from "@/lib/config/api-urls";
@@ -1681,6 +1685,30 @@ function CREPMycaPanel({
   );
 }
 
+/**
+ * Client-side MINDEX sync -- pushes fetched entity data to MINDEX proxy as a
+ * safety net in case the server-side ingest (inside the API routes) failed.
+ * Fire-and-forget: failures are silently caught so the UI is never blocked.
+ */
+function syncToMINDEX(source: "aircraft" | "vessels" | "satellites", entities: Record<string, unknown>[]) {
+  if (!entities || entities.length === 0) return;
+  const now = new Date().toISOString();
+  fetch(`/api/mindex/proxy/${source}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entities: entities.map(e => ({
+        ...e,
+        lat: e.lat ?? e.latitude ?? null,
+        lng: e.lng ?? e.longitude ?? null,
+        timestamp: e.timestamp || now,
+      })),
+    }),
+  }).catch(() => {
+    // Silent -- server-side ingest is the primary path; this is a fallback
+  });
+}
+
 // Main CREP Page Component
 export default function CREPDashboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -1767,6 +1795,9 @@ export default function CREPDashboardPage() {
   const [extrapolatedCoords, setExtrapolatedCoords] = useState<Record<string, [number, number]>>({});
   const lastKnownRef = useRef<Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }>>({});
   const MAX_EXTRAPOLATION_MS = 30000; // cap at 30s — positions older than this use API data directly
+  // Direct map ref for live entity data pump — bypasses React state propagation issues.
+  // Set in onLoad callback, read in the data pump effect.
+  const mapNativeRef = useRef<any>(null);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // INFRASTRUCTURE STATE — OpenGridWorks-style layers (Apr 2026)
@@ -1776,6 +1807,7 @@ export default function CREPDashboardPage() {
   const [infraSubstations, setInfraSubstations] = useState<any[]>([]);
   const [infraCableRoutes, setInfraCableRoutes] = useState<any[]>([]);
   const [infraTransmissionLines, setInfraTransmissionLines] = useState<any[]>([]);
+  const [selectedInfraAsset, setSelectedInfraAsset] = useState<InfraAsset | null>(null);
   const [showInfraLayers, setShowInfraLayers] = useState(true);
   const [bubbleScale, setBubbleScale] = useState(1.0);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -2077,21 +2109,16 @@ export default function CREPDashboardPage() {
     { id: "earth2Temp", name: "âš¡ Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
     { id: "earth2Precip", name: "âš¡ Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
     // ═══════════════════════════════════════════════════════════════════════════
-    // EARTH OBSERVATION IMAGERY (NASA GIBS)
+    // EARTH OBSERVATION IMAGERY — controlled by on-map MapLayersPopup
+    // GIBS rendering handled via eoImageryFilter state + GibsBaseLayers
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "gibsModis", name: "MODIS True Color", category: "imagery", icon: <Globe className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#059669", description: "NASA MODIS Terra daily satellite imagery overlay" },
-    { id: "gibsViirs", name: "VIIRS Night Lights", category: "imagery", icon: <Eye className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#fbbf24", description: "VIIRS global night lights composite" },
-    { id: "gibsLandsat", name: "Landsat WELD", category: "imagery", icon: <MapIcon className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#22c55e", description: "Landsat WELD true color historic imagery" },
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
     { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
     // ═══════════════════════════════════════════════════════════════════════════
-    // TELECOM & COMMUNICATIONS INFRASTRUCTURE (real data via Overpass)
+    // ADDITIONAL TELECOM (non-duplicate)
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#8b5cf6", description: "Cell/radio tower locations from OSM" },
-    { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "Undersea internet cable routes globally" },
-    { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#7c3aed", description: "Data center locations from OSM" },
     { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL FACILITIES (real data via Overpass API)
@@ -2199,8 +2226,8 @@ export default function CREPDashboardPage() {
           // Default to slightly zoomed out global view
           if (mapRef && mapRef.flyTo) {
             mapRef.flyTo({
-              center: [0, 20],
-              zoom: 2.5,
+              center: [-98.5, 39.8],
+              zoom: 4,
               duration: 1500,
             });
             setHasAutoZoomed(true);
@@ -2337,12 +2364,18 @@ export default function CREPDashboardPage() {
             if (aircraftRes.ok) {
               const data = await aircraftRes.json();
               if (data.aircraft && Array.isArray(data.aircraft)) {
-                console.log(`[CREP] Loaded ${data.aircraft.length} aircraft from FlightRadar24`);
+                console.log(`[CREP] ✈ ${data.aircraft.length} aircraft loaded from FlightRadar24`);
                 setAircraft(data.aircraft);
+                // Client-side MINDEX sync (fallback if server-side ingest missed)
+                syncToMINDEX("aircraft", data.aircraft);
+              } else {
+                console.warn("[CREP] ✈ FlightRadar24 returned no aircraft array:", data?.error || "empty");
               }
+            } else {
+              console.warn(`[CREP] ✈ FlightRadar24 API returned ${aircraftRes.status}`);
             }
           } catch (e) {
-            console.error("Failed to fetch aircraft data:", e);
+            console.warn("[CREP] ✈ Failed to fetch aircraft:", e);
           }
         }
 
@@ -2355,12 +2388,18 @@ export default function CREPDashboardPage() {
             if (vesselsRes.ok) {
               const data = await vesselsRes.json();
               if (data.vessels && Array.isArray(data.vessels)) {
-                console.log(`[CREP] Loaded ${data.vessels.length} vessels from AISstream${data.sample ? ' (sample data)' : ''}`);
+                console.log(`[CREP] 🚢 ${data.vessels.length} vessels loaded from AISstream${data.isLive ? ' (LIVE)' : ''}${data.sample ? ' (sample)' : ''}`);
                 setVessels(data.vessels);
+                // Client-side MINDEX sync (fallback if server-side ingest missed)
+                syncToMINDEX("vessels", data.vessels);
+              } else {
+                console.warn("[CREP] 🚢 AISstream returned no vessels:", data?.error || "empty");
               }
+            } else {
+              console.warn(`[CREP] 🚢 AISstream API returned ${vesselsRes.status}`);
             }
           } catch (e) {
-            console.error("Failed to fetch vessel data:", e);
+            console.warn("[CREP] 🚢 Failed to fetch vessels:", e);
           }
         }
 
@@ -2390,10 +2429,12 @@ export default function CREPDashboardPage() {
             const uniqueSatellites = Array.from(
               new Map(allSatellites.map(s => [s.id, s])).values()
             );
-            console.log(`[CREP] Satellites: ${uniqueSatellites.length} (${isInitial ? "bounded initial" : "full refresh"})`);
+            console.log(`[CREP] 🛰 ${uniqueSatellites.length} satellites loaded (${isInitial ? "initial" : "full refresh"})`);
             setSatellites(uniqueSatellites);
+            // Client-side MINDEX sync (fallback if server-side ingest missed)
+            syncToMINDEX("satellites", uniqueSatellites as unknown as Record<string, unknown>[]);
           } catch (e) {
-            console.error("Failed to fetch satellite data:", e);
+            console.warn("[CREP] 🛰 Failed to fetch satellites:", e);
           }
         }
 
@@ -2641,6 +2682,7 @@ export default function CREPDashboardPage() {
         console.log("[CREP] Click-away (doc): dismissing popups");
         setSelectedEvent(null);
         setSelectedFungal(null);
+        setSelectedInfraAsset(null);
       }
     };
 
@@ -3163,11 +3205,16 @@ export default function CREPDashboardPage() {
   // Clear all selections when clicking on empty map area
   const handleMapClick = useCallback(() => {
     // Only clear if something is selected
-    if (selectedEvent || selectedFungal) {
+    if (selectedEvent || selectedFungal || selectedInfraAsset) {
       setSelectedEvent(null);
       setSelectedFungal(null);
+      setSelectedInfraAsset(null);
+      // Clear OpenGridWorks-style highlight glow
+      if (mapRef) {
+        clearHighlight(mapRef);
+      }
     }
-  }, [selectedEvent, selectedFungal]);
+  }, [selectedEvent, selectedFungal, selectedInfraAsset, mapRef]);
 
   // MYCA message handler
   // (MYCA chat is now handled by real MYCAProvider + CREPMycaPanel)
@@ -3554,7 +3601,11 @@ export default function CREPDashboardPage() {
     lastKnownRef.current = next;
   }, [filteredAircraft, filteredVessels, filteredSatellites]);
 
-  // Tick: every 500ms extrapolate positions from last known + velocity so icons move smoothly
+  // Tick: every 2 seconds extrapolate positions from last known + velocity.
+  // This updates React state → triggers deckEntities recompute → data pump to MapLibre.
+  // 2s interval keeps animation smooth enough while NOT blocking UI with constant re-renders.
+  // At 2s intervals with 2000+ entities, the browser has 1.75s of idle time between updates
+  // for processing click events, scroll, and other interactions.
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -3567,7 +3618,7 @@ export default function CREPDashboardPage() {
         next[id] = [lng, lat];
       }
       setExtrapolatedCoords((prev) => (Object.keys(next).length === 0 ? prev : { ...prev, ...next }));
-    }, 500);
+    }, 2000); // 0.5 FPS — smooth enough for position updates, leaves UI thread free
     return () => clearInterval(interval);
   }, []);
 
@@ -3694,8 +3745,50 @@ export default function CREPDashboardPage() {
     const byId = new Map<string, UnifiedEntity>();
     for (const entity of sourceEntities) byId.set(entity.id, entity as UnifiedEntity);
     for (const streamed of streamedEntities) byId.set(streamed.id, streamed);
-    return [...byId.values()];
+    const result = [...byId.values()];
+    // Expose for onLoad initial pump (React state not accessible from map callback)
+    if (typeof window !== "undefined") (window as any).__crep_deckEntities = result;
+    return result;
   }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords, layers]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MAPLIBRE NATIVE ENTITY LAYERS — bypasses deck.gl entirely for reliability.
+  // Aircraft, satellites, vessels rendered as MapLibre circle layers with live
+  // position updates via source.setData(). Separate from infrastructure layers.
+  // Animation: deckEntities updates every 250ms → source.setData() → smooth movement.
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Data pump: push deckEntities into MapLibre native sources when positions change.
+  // Simple setTimeout(0) — runs after current microtask queue, lets clicks process first.
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map) return;
+    // Use setTimeout(0) to yield to UI thread before pumping data
+    const timer = setTimeout(() => {
+      const m = mapNativeRef.current;
+      if (!m) return;
+      try {
+        const toFC = (ents: any[]) => ({
+          type: "FeatureCollection" as const,
+          features: ents.filter((e: any) => e.geometry?.coordinates?.length >= 2).map((e: any) => ({
+            type: "Feature" as const,
+            properties: { id: e.id, heading: e.state?.heading ?? 0, type: e.type,
+              name: e.properties?.callsign || e.properties?.name || e.properties?.mmsi || e.id },
+            geometry: e.geometry,
+          })),
+        });
+        const aircraft = deckEntities.filter((e: any) => e.type === "aircraft");
+        const satellites = deckEntities.filter((e: any) => e.type === "satellite");
+        const vessels = deckEntities.filter((e: any) => e.type === "vessel");
+        const acSrc = m.getSource?.("crep-live-aircraft") as any;
+        if (acSrc?.setData) acSrc.setData(toFC(aircraft));
+        const satSrc = m.getSource?.("crep-live-satellites") as any;
+        if (satSrc?.setData) satSrc.setData(toFC(satellites));
+        const vSrc = m.getSource?.("crep-live-vessels") as any;
+        if (vSrc?.setData) vSrc.setData(toFC(vessels));
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [deckEntities]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -3826,7 +3919,7 @@ export default function CREPDashboardPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+            onClick={() => setLeftPanelOpen(prev => !prev)}
             className="h-7 w-7 border border-gray-600/30 hover:border-cyan-400/50"
           >
             {leftPanelOpen ? <ChevronLeft className="w-4 h-4 text-cyan-400" /> : <ChevronRight className="w-4 h-4 text-cyan-400" />}
@@ -3834,7 +3927,7 @@ export default function CREPDashboardPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            onClick={() => setRightPanelOpen(prev => !prev)}
             className="h-7 w-7 border border-gray-600/30 hover:border-cyan-400/50"
           >
             {rightPanelOpen ? <PanelRightClose className="w-4 h-4 text-cyan-400" /> : <PanelRightOpen className="w-4 h-4 text-cyan-400" />}
@@ -4191,8 +4284,8 @@ export default function CREPDashboardPage() {
             }
           `}</style>
           <MapComponent
-            center={userLocation ? [userLocation.lng, userLocation.lat] : [0, 20]}
-            zoom={userLocation ? 5 : 2}
+            center={userLocation ? [userLocation.lng, userLocation.lat] : [-98.5, 39.8]}
+            zoom={userLocation ? 5 : 4}
             projection={projectionMode === "globe" ? { type: "globe" } : { type: "mercator" }}
             styles={{
               dark: "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json",
@@ -4200,9 +4293,162 @@ export default function CREPDashboardPage() {
             }}
             onLoad={(map: any) => {
               setMapRef(map);
+              mapNativeRef.current = map; // Direct ref for entity data pump
               // Register PMTiles protocol for vector tile sources
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
+
+              // ════════════════════════════════════════════════════════════
+              // LIVE ENTITY LAYERS — aircraft, satellites, vessels
+              // Created empty here, data pumped in by useEffect every 250ms.
+              // MapLibre native = 100% reliable, no deck.gl issues.
+              // ════════════════════════════════════════════════════════════
+              const emptyFC = { type: "FeatureCollection" as const, features: [] as any[] };
+              try {
+                // ═══════════════════════════════════════════════════════════
+                // ✈ AIRCRAFT — Bright amber/gold with pulsing glow + trail
+                // Distinctive: large, bright, white-bordered, trail line
+                // At high zoom: shows callsign label
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-aircraft", { type: "geojson", data: emptyFC });
+                // Outer glow (large, blurred — looks like radar blip)
+                map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 8, 6, 12, 10, 18, 14, 26],
+                    "circle-color": "#fbbf24", "circle-opacity": 0.25, "circle-blur": 1.0 }});
+                // Inner bright dot
+                map.addLayer({ id: "crep-live-aircraft-dot", type: "circle", source: "crep-live-aircraft",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3.5, 6, 5.5, 10, 9, 14, 14],
+                    "circle-color": "#fbbf24", "circle-opacity": 1,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2, 14, 3],
+                    "circle-stroke-color": "#ffffff" }});
+                // Callsign label at zoom 8+
+                map.addLayer({ id: "crep-live-aircraft-label", type: "symbol", source: "crep-live-aircraft",
+                  minzoom: 8,
+                  layout: {
+                    "text-field": ["get", "name"],
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
+                    "text-offset": [0, 1.5], "text-anchor": "top",
+                    "text-allow-overlap": false, "text-optional": true,
+                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
+                  paint: { "text-color": "#fbbf24", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                // Click + hover
+                map.on("click", "crep-live-aircraft-dot", (e: any) => {
+                  const id = e.features?.[0]?.properties?.id;
+                  if (id) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    const ac = filteredAircraft.find((a) => a.id === id);
+                    if (ac) setSelectedAircraft(ac);
+                  }
+                });
+                map.on("mouseenter", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                // ═══════════════════════════════════════════════════════════
+                // 🛰 SATELLITES — Violet/purple with cross-hatch glow
+                // Distinctive: smaller, purple, fast-moving, orbit trail
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-satellites", { type: "geojson", data: emptyFC });
+                // Outer glow
+                map.addLayer({ id: "crep-live-satellites-glow", type: "circle", source: "crep-live-satellites",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 9, 10, 14],
+                    "circle-color": "#c084fc", "circle-opacity": 0.3, "circle-blur": 0.9 }});
+                // Inner dot
+                map.addLayer({ id: "crep-live-satellites-dot", type: "circle", source: "crep-live-satellites",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4, 10, 7, 14, 11],
+                    "circle-color": "#c084fc", "circle-opacity": 1,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
+                    "circle-stroke-color": "#ffffff" }});
+                // Name label at zoom 6+
+                map.addLayer({ id: "crep-live-satellites-label", type: "symbol", source: "crep-live-satellites",
+                  minzoom: 6,
+                  layout: {
+                    "text-field": ["get", "name"],
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 6, 8, 10, 10],
+                    "text-offset": [0, 1.3], "text-anchor": "top",
+                    "text-allow-overlap": false, "text-optional": true,
+                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
+                  paint: { "text-color": "#c084fc", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                map.on("click", "crep-live-satellites-dot", (e: any) => {
+                  const id = e.features?.[0]?.properties?.id;
+                  if (id) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    const sat = filteredSatellites.find((s) => s.id === id);
+                    if (sat) setSelectedSatellite(sat);
+                  }
+                });
+                map.on("mouseenter", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                // ═══════════════════════════════════════════════════════════
+                // 🚢 VESSELS — Bright cyan/teal with ocean glow
+                // Distinctive: medium, cyan blue, near coastlines
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC });
+                // Outer glow
+                map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 7, 6, 10, 10, 16],
+                    "circle-color": "#22d3ee", "circle-opacity": 0.3, "circle-blur": 0.9 }});
+                // Inner dot
+                map.addLayer({ id: "crep-live-vessels-dot", type: "circle", source: "crep-live-vessels",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 6, 5, 10, 8, 14, 12],
+                    "circle-color": "#22d3ee", "circle-opacity": 1,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2],
+                    "circle-stroke-color": "#ffffff" }});
+                // Name label at zoom 8+
+                map.addLayer({ id: "crep-live-vessels-label", type: "symbol", source: "crep-live-vessels",
+                  minzoom: 8,
+                  layout: {
+                    "text-field": ["get", "name"],
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 8, 9, 12, 12],
+                    "text-offset": [0, 1.5], "text-anchor": "top",
+                    "text-allow-overlap": false, "text-optional": true,
+                    "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"] },
+                  paint: { "text-color": "#22d3ee", "text-halo-color": "#000000", "text-halo-width": 1.5 }});
+                map.on("click", "crep-live-vessels-dot", (e: any) => {
+                  const id = e.features?.[0]?.properties?.id;
+                  if (id) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    const v = filteredVessels.find((v) => v.id === id);
+                    if (v) setSelectedVessel(v);
+                  }
+                });
+                map.on("mouseenter", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels");
+                // Initial data pump — fill entity sources 1s after creation so aircraft/sats show immediately.
+                // The React data pump effect may miss the first render if deckEntities was set before mapNativeRef.
+                setTimeout(() => {
+                  try {
+                    const entities = (window as any).__crep_deckEntities;
+                    if (!entities?.length) return;
+                    const toFC = (ents: any[]) => ({
+                      type: "FeatureCollection",
+                      features: ents.filter((e: any) => e.geometry?.coordinates?.length >= 2).map((e: any) => ({
+                        type: "Feature",
+                        properties: { id: e.id, heading: e.state?.heading ?? 0, type: e.type,
+                          name: e.properties?.callsign || e.properties?.name || e.properties?.mmsi || e.id },
+                        geometry: e.geometry,
+                      })),
+                    });
+                    const ac = entities.filter((e: any) => e.type === "aircraft");
+                    const sat = entities.filter((e: any) => e.type === "satellite");
+                    const v = entities.filter((e: any) => e.type === "vessel");
+                    (map.getSource("crep-live-aircraft") as any)?.setData(toFC(ac));
+                    (map.getSource("crep-live-satellites") as any)?.setData(toFC(sat));
+                    (map.getSource("crep-live-vessels") as any)?.setData(toFC(v));
+                    console.log(`[CREP/Live] Initial pump: ✈${ac.length} 🛰${sat.length} 🚢${v.length}`);
+                  } catch {}
+                }, 1000);
+              } catch (err: any) {
+                console.warn("[CREP/Live] Failed to create entity layers:", err.message);
+              }
 
               // ════════════════════════════════════════════════════════════
               // PERMANENT INFRASTRUCTURE — MapLibre native layers
@@ -4264,20 +4510,78 @@ export default function CREPDashboardPage() {
                 };
 
                 // ── Submarine cables (global) — multi-color like submarinecablemap.com ──
+                // Split into 2 hemispheres to avoid PostGIS full-globe bbox issues
                 const cableColors = ["#06b6d4","#3b82f6","#a855f7","#ec4899","#f59e0b","#22c55e","#ef4444","#8b5cf6","#14b8a6","#f97316"];
-                mindexFetch("submarine-cables", null, 1000).then(data => {
+
+                // Antimeridian fix: split LineStrings that cross ±180° longitude
+                // Without this, cables from Japan to US draw a line across the entire map
+                const splitAntimeridian = (geom: any) => {
+                  if (!geom?.coordinates?.length) return geom;
+                  const coords = geom.coordinates;
+                  if (geom.type === "MultiLineString") {
+                    // Already multi — split each sub-line
+                    const newCoords: number[][][] = [];
+                    for (const line of coords) {
+                      newCoords.push(...splitLineCoords(line));
+                    }
+                    return { type: "MultiLineString", coordinates: newCoords };
+                  }
+                  // Single LineString
+                  const segments = splitLineCoords(coords);
+                  if (segments.length === 1) return { type: "LineString", coordinates: segments[0] };
+                  return { type: "MultiLineString", coordinates: segments };
+                };
+
+                const splitLineCoords = (coords: number[][]) => {
+                  const segments: number[][][] = [];
+                  let current: number[][] = [coords[0]];
+                  for (let i = 1; i < coords.length; i++) {
+                    const prevLng = coords[i - 1][0];
+                    const currLng = coords[i][0];
+                    // Longitude jump > 180° = antimeridian crossing
+                    if (Math.abs(currLng - prevLng) > 180) {
+                      segments.push(current);
+                      current = [];
+                    }
+                    current.push(coords[i]);
+                  }
+                  if (current.length > 0) segments.push(current);
+                  // Filter out single-point segments
+                  return segments.filter(s => s.length >= 2);
+                };
+
+                Promise.all([
+                  mindexFetch("submarine-cables", { north: 85, south: -60, east: 0, west: -180 }, 5000).catch(() => ({ entities: [] })),
+                  mindexFetch("submarine-cables", { north: 85, south: -60, east: 180, west: 0 }, 5000).catch(() => ({ entities: [] })),
+                ]).then(([west, east]) => {
+                  // Merge and deduplicate
+                  const allCables = [...(west?.entities || []), ...(east?.entities || [])];
+                  const seen = new Set<string>();
+                  const data = { entities: allCables.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; }) };
                   if (!data?.entities?.length) return;
                   const features = data.entities
                     .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
-                    .map((e: any, i: number) => {
-                      // Fix antimeridian: split lines that cross ±180° longitude
-                      const coords = e.properties.route.coordinates;
+                    .flatMap((e: any, i: number) => {
                       const color = cableColors[i % cableColors.length];
-                      return {
-                        type: "Feature" as const,
-                        properties: { name: e.name, color, cable_type: e.properties?.cable_type, length_km: e.properties?.length_km },
-                        geometry: e.properties.route,
+                      const props = {
+                        name: e.name, color, cable_type: e.properties?.cable_type,
+                        length_km: e.properties?.length_km,
+                        owners: e.properties?.owners || e.properties?.operator,
+                        rfs_year: e.properties?.rfs_year || e.properties?.year,
+                        status: e.properties?.status || "Active",
+                        landing_points: e.properties?.landing_points,
+                        capacity: e.properties?.capacity,
+                        cable_id: e.id,
+                        source: e.source || "mindex",
+                        url: e.properties?.url,
                       };
+                      // Split at antimeridian so cables don't draw across the globe
+                      const geom = splitAntimeridian(e.properties.route);
+                      return [{
+                        type: "Feature" as const,
+                        properties: props,
+                        geometry: geom,
+                      }];
                     });
                   if (!features.length) return;
                   safeAddSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
@@ -4289,11 +4593,23 @@ export default function CREPDashboardPage() {
                       "line-opacity": 0.8,
                     },
                   });
-                  // Click handler for cable info
+                  // Click handler for cable detail widget
                   map.on("click", "crep-cables-line", (e: any) => {
                     const props = e.features?.[0]?.properties;
                     if (props?.name) {
-                      toast(`🌊 ${props.name}${props.length_km ? ` — ${props.length_km} km` : ""}`, { duration: 4000 });
+                      lastEntityPickTimeRef.current = Date.now(); // Prevent general click from dismissing
+                      highlightFromEvent(map, e);
+                      const coords = e.lngLat || e.features?.[0]?.geometry?.coordinates?.[0];
+                      const lat = coords?.lat ?? coords?.[1] ?? 0;
+                      const lng = coords?.lng ?? coords?.[0] ?? 0;
+                      setSelectedInfraAsset({
+                        type: "cable",
+                        id: props.cable_id || props.id,
+                        name: props.name,
+                        lat, lng,
+                        properties: typeof props === "object" ? { ...props } : {},
+                      });
+                      setSelectedPlant(null);
                     }
                   });
                   map.on("mouseenter", "crep-cables-line", () => { map.getCanvas().style.cursor = "pointer"; });
@@ -4303,32 +4619,90 @@ export default function CREPDashboardPage() {
                 }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
                 // ── Power plants + data centers ──
-                // Split into 2 hemispheres because PostGIS can't handle full-globe bbox
-                const westBounds = { north: 70, south: -60, east: 0, west: -180 };
-                const eastBounds = { north: 70, south: -60, east: 180, west: 0 };
-                Promise.all([
-                  mindexFetch("facilities", westBounds, 2000),
-                  mindexFetch("facilities", eastBounds, 2000),
-                ]).then(([westData, eastData]) => {
-                  const allEntities = [
-                    ...(westData?.entities || []),
-                    ...(eastData?.entities || []),
-                  ];
-                  const data = { entities: allEntities, total: allEntities.length };
-                  if (!data?.entities?.length) return;
-                  const features = data.entities
-                    .filter((e: any) => e.lat != null && e.lng != null)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: {
-                        name: e.name, type: e.entity_type,
-                        sub_type: e.properties?.sub_type || e.properties?.type || e.entity_type,
-                        capacity_mw: e.properties?.capacity_mw || 0,
-                        operator: e.properties?.operator,
-                        color: fuelColor(e.properties?.sub_type || e.properties?.type || e.entity_type),
-                      },
-                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
-                    }));
+                // Fetch by state/province/country-level sub-regions for complete data coverage
+                // Each jurisdiction is its own fetch region — guarantees no gaps in US coverage
+                // ALL_FETCH_REGIONS = 51 US states + 13 CA provinces + 6 MX + 18 EU + 11 AS + 5 AF + 4 OC + 8 SA = ~116 regions
+                const allRegionBounds = ALL_FETCH_REGIONS.map(regionToBounds);
+
+                // ── Viewport-first loading ──
+                // Step 1: Get current viewport bounds from the map
+                const vpBounds = map.getBounds();
+                const vp = vpBounds ? {
+                  north: vpBounds.getNorth(),
+                  south: vpBounds.getSouth(),
+                  east: vpBounds.getEast(),
+                  west: vpBounds.getWest(),
+                } : null;
+
+                // Step 2: Sort ALL regions by proximity to viewport center for fastest visible-area paint
+                const vpCenter = vp ? { lat: (vp.north + vp.south) / 2, lng: (vp.east + vp.west) / 2 } : { lat: 39.8, lng: -98.5 };
+                const sortedRegions = [...allRegionBounds].sort((a, b) => {
+                  const aDist = Math.abs((a.north + a.south) / 2 - vpCenter.lat) + Math.abs((a.east + a.west) / 2 - vpCenter.lng);
+                  const bDist = Math.abs((b.north + b.south) / 2 - vpCenter.lat) + Math.abs((b.east + b.west) / 2 - vpCenter.lng);
+                  return aDist - bDist;
+                });
+
+                console.log(`[CREP/Infra] Full parallel fetch: ${sortedRegions.length} regions, sorted by proximity to viewport center`);
+
+                // Step 3: Blast ALL regions in parallel — 10Gb network can handle it.
+                // Render incrementally: first 20 regions fire onFirstBatch callback, rest accumulate.
+                const FIRST_BATCH_SIZE = 20; // Render as soon as closest 20 regions complete
+                const batchFetch = async (source: string, limit: number, onFirstBatch?: (results: any[]) => void) => {
+                  // Split: first 20 (closest) vs rest (all at once, no batching)
+                  const firstRegions = sortedRegions.slice(0, FIRST_BATCH_SIZE);
+                  const restRegions = sortedRegions.slice(FIRST_BATCH_SIZE);
+
+                  // Fire first batch immediately
+                  const firstPromise = Promise.all(
+                    firstRegions.map(b => mindexFetch(source as any, b, limit).catch(() => ({ entities: [], total: 0 })))
+                  );
+                  // Fire ALL remaining in parallel simultaneously (no batching — fast network)
+                  const restPromise = Promise.all(
+                    restRegions.map(b => mindexFetch(source as any, b, limit).catch(() => ({ entities: [], total: 0 })))
+                  );
+
+                  // As soon as first batch resolves, render it immediately
+                  const firstResults = await firstPromise;
+                  console.log(`[CREP/Infra] ${source}: first ${firstRegions.length} regions done`);
+                  if (onFirstBatch) {
+                    try { onFirstBatch(firstResults); } catch (_) {}
+                  }
+                  // Yield once for UI responsiveness
+                  await new Promise(resolve => setTimeout(resolve, 0));
+
+                  // Wait for rest (already in flight — just awaiting)
+                  const restResults = await restPromise;
+                  return [...firstResults, ...restResults];
+                };
+
+                // Helper: convert raw facility entities → GeoJSON features
+                const facilitiesToFeatures = (entities: any[]) => entities
+                  .filter((e: any) => e.lat != null && e.lng != null)
+                  .map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      name: e.name, type: e.entity_type,
+                      sub_type: e.properties?.sub_type || e.properties?.type || e.entity_type,
+                      capacity_mw: e.properties?.capacity_mw || 0,
+                      operator: e.properties?.operator,
+                      color: fuelColor(e.properties?.sub_type || e.properties?.type || e.entity_type),
+                      status: e.properties?.status || "Operating",
+                      source: e.source || "mindex",
+                      plant_id: e.id,
+                      sector: e.properties?.sector,
+                      ba: e.properties?.ba,
+                      entity: e.properties?.entity,
+                      online_year: e.properties?.online_year,
+                      retirement_year: e.properties?.retirement_year,
+                    },
+                    geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                  }));
+
+                // Helper: render facilities to map + state (idempotent via safeAddSource/safeAddLayer)
+                let plantsClickBound = false;
+                const renderFacilities = (entities: any[], label: string) => {
+                  const features = facilitiesToFeatures(entities);
+                  if (!features.length) return;
                   safeAddSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
                   safeAddLayer({
                     id: "crep-plants-circle", type: "circle", source: "crep-plants",
@@ -4340,40 +4714,76 @@ export default function CREPDashboardPage() {
                       "circle-stroke-color": "rgba(0,0,0,0.3)",
                     },
                   });
-                  // Update React state for INFRA panel
-                  setPowerPlants(data.entities.filter((e: any) => e.lat).map((e: any) => ({
+                  setPowerPlants(entities.filter((e: any) => e.lat).map((e: any) => ({
                     id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
                     capacity_mw: e.properties?.capacity_mw || 0,
                     fuel_type: e.properties?.sub_type || e.properties?.type || e.entity_type || "other",
                     status: e.properties?.status || "Operating",
                     owner: e.properties?.operator, source: e.source || "mindex", plant_id: e.id,
                   })));
-                  // Click handler for plant info
-                  map.on("click", "crep-plants-circle", (e: any) => {
-                    const props = e.features?.[0]?.properties;
-                    if (props?.name) {
-                      toast(`⚡ ${props.name}${props.sub_type ? ` (${props.sub_type})` : ""}${props.operator ? ` — ${props.operator}` : ""}`, { duration: 4000 });
-                    }
-                  });
-                  map.on("mouseenter", "crep-plants-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-                  map.on("mouseleave", "crep-plants-circle", () => { map.getCanvas().style.cursor = ""; });
-                  console.log(`[CREP/Infra] ${features.length} plants → MapLibre`);
+                  // Only bind click/hover once
+                  if (!plantsClickBound) {
+                    plantsClickBound = true;
+                    map.on("click", "crep-plants-circle", (e: any) => {
+                      const props = e.features?.[0]?.properties;
+                      if (props?.name) {
+                        lastEntityPickTimeRef.current = Date.now();
+                        highlightFromEvent(map, e);
+                        const coords = e.lngLat;
+                        setSelectedInfraAsset({
+                          type: "plant",
+                          id: props.plant_id || props.id,
+                          name: props.name,
+                          lat: coords?.lat ?? 0,
+                          lng: coords?.lng ?? 0,
+                          properties: typeof props === "object" ? { ...props } : {},
+                        });
+                        setSelectedPlant(null);
+                      }
+                    });
+                    map.on("mouseenter", "crep-plants-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+                    map.on("mouseleave", "crep-plants-circle", () => { map.getCanvas().style.cursor = ""; });
+                  }
+                  console.log(`[CREP/Infra] ${features.length} plants → MapLibre (${label})`);
+                };
+
+                // Yield helper — gives browser time to process clicks between heavy operations
+                const yieldToUI = () => new Promise<void>(r => setTimeout(r, 0));
+
+                batchFetch("facilities", 20000, (vpResults) => {
+                  // Early render: show viewport plants immediately
+                  const vpEntities = vpResults.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = vpEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderFacilities(unique, "viewport");
+                }).then(async (results) => {
+                  const allEntities = results.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = allEntities.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderFacilities(unique, "global");
+                  await yieldToUI(); // Let browser process pending clicks
                 }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
-                // ── Substations ── (split hemispheres)
-                Promise.all([
-                  mindexFetch("substations", westBounds, 2000),
-                  mindexFetch("substations", eastBounds, 2000),
-                ]).then(([w, e]) => {
-                  const data = { entities: [...(w?.entities || []), ...(e?.entities || [])] };
-                  if (!data?.entities?.length) return;
-                  const features = data.entities
-                    .filter((e: any) => e.lat && e.lng)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: { name: e.name, voltage_kv: e.properties?.voltage_kv || 0 },
-                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
-                    }));
+                // ── Substations ── (jurisdictional sub-region split, viewport-first)
+                const subsToFeatures = (entities: any[]) => entities
+                  .filter((e: any) => e.lat && e.lng)
+                  .map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      name: e.name, voltage_kv: e.properties?.voltage_kv || 0,
+                      operator: e.properties?.operator,
+                      sub_type: e.properties?.sub_type || e.properties?.type,
+                      status: e.properties?.status || "Active",
+                      source: e.source || "mindex",
+                      id: e.id,
+                    },
+                    geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                  }));
+
+                let subsClickBound = false;
+                const renderSubstations = (entities: any[], label: string) => {
+                  const features = subsToFeatures(entities);
+                  if (!features.length) return;
                   safeAddSource("crep-substations", { type: "geojson", data: { type: "FeatureCollection", features } });
                   safeAddLayer({
                     id: "crep-subs-circle", type: "circle", source: "crep-substations",
@@ -4387,33 +4797,63 @@ export default function CREPDashboardPage() {
                     },
                     minzoom: 4,
                   });
-                  // Click handler for substations
-                  map.on("click", "crep-subs-circle", (e: any) => {
-                    const props = e.features?.[0]?.properties;
-                    if (props?.name) {
-                      toast(`🔌 ${props.name}${props.voltage_kv ? ` — ${props.voltage_kv} kV` : ""}`, { duration: 4000 });
-                    }
-                  });
-                  map.on("mouseenter", "crep-subs-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-                  map.on("mouseleave", "crep-subs-circle", () => { map.getCanvas().style.cursor = ""; });
-                  setInfraSubstations(data.entities.filter((e: any) => e.lat && e.lng));
-                  console.log(`[CREP/Infra] ${features.length} substations → MapLibre`);
-                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
+                  if (!subsClickBound) {
+                    subsClickBound = true;
+                    map.on("click", "crep-subs-circle", (e: any) => {
+                      const props = e.features?.[0]?.properties;
+                      if (props?.name) {
+                        lastEntityPickTimeRef.current = Date.now();
+                        highlightFromEvent(map, e);
+                        const coords = e.lngLat;
+                        setSelectedInfraAsset({
+                          type: "substation", id: props.id, name: props.name,
+                          lat: coords?.lat ?? 0, lng: coords?.lng ?? 0,
+                          properties: typeof props === "object" ? { ...props } : {},
+                        });
+                        setSelectedPlant(null);
+                      }
+                    });
+                    map.on("mouseenter", "crep-subs-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+                    map.on("mouseleave", "crep-subs-circle", () => { map.getCanvas().style.cursor = ""; });
+                  }
+                  setInfraSubstations(entities.filter((e: any) => e.lat && e.lng));
+                  console.log(`[CREP/Infra] ${features.length} substations → MapLibre (${label})`);
+                };
 
-                // ── Transmission lines ── (split hemispheres)
-                Promise.all([
-                  mindexFetch("transmission-lines", westBounds, 2000),
-                  mindexFetch("transmission-lines", eastBounds, 2000),
-                ]).then(([w, e]) => {
-                  const data = { entities: [...(w?.entities || []), ...(e?.entities || [])] };
-                  if (!data?.entities?.length) return;
-                  const features = data.entities
-                    .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: { name: e.name, voltage_kv: e.properties?.voltage_kv || 0 },
-                      geometry: e.properties.route,
-                    }));
+                batchFetch("substations", 20000, (vpResults) => {
+                  const vpSubs = vpResults.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = vpSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderSubstations(unique, "viewport");
+                }).then(async (results) => {
+                  const allSubs = results.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = allSubs.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderSubstations(unique, "global");
+                  await yieldToUI();
+                }).catch((err) => console.warn("[CREP/Infra] Substations error:", err?.message || err));
+
+                // ── Transmission lines ── (jurisdictional sub-region split, viewport-first)
+                const txLinesToFeatures = (entities: any[]) => entities
+                  .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
+                  .map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      name: e.name, voltage_kv: e.properties?.voltage_kv || 0,
+                      operator: e.properties?.operator,
+                      circuits: e.properties?.circuits,
+                      frequency: e.properties?.frequency,
+                      length_km: e.properties?.length_km,
+                      status: e.properties?.status || "Active",
+                      source: e.source || "mindex",
+                      id: e.id,
+                    },
+                    geometry: e.properties.route,
+                  }));
+
+                let txClickBound = false;
+                const renderTxLines = (entities: any[], label: string) => {
+                  const features = txLinesToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
                   safeAddLayer({
@@ -4428,17 +4868,128 @@ export default function CREPDashboardPage() {
                     },
                     minzoom: 3,
                   });
+                  if (!txClickBound) {
+                    txClickBound = true;
+                    map.on("click", "crep-txlines-line", (e: any) => {
+                      const props = e.features?.[0]?.properties;
+                      if (props?.name) {
+                        lastEntityPickTimeRef.current = Date.now();
+                        highlightFromEvent(map, e);
+                        const coords = e.lngLat;
+                        setSelectedInfraAsset({
+                          type: "transmission_line", id: props.id, name: props.name,
+                          lat: coords?.lat ?? 0, lng: coords?.lng ?? 0,
+                          properties: typeof props === "object" ? { ...props } : {},
+                        });
+                        setSelectedPlant(null);
+                      }
+                    });
+                    map.on("mouseenter", "crep-txlines-line", () => { map.getCanvas().style.cursor = "pointer"; });
+                    map.on("mouseleave", "crep-txlines-line", () => { map.getCanvas().style.cursor = ""; });
+                  }
                   setInfraTransmissionLines(features as any);
-                  console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre`);
-                }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
+                  console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre (${label})`);
+                };
+
+                batchFetch("transmission-lines", 20000, (vpResults) => {
+                  const vpLines = vpResults.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = vpLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderTxLines(unique, "viewport");
+                }).then(async (results) => {
+                  const allLines = results.flatMap(r => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = allLines.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderTxLines(unique, "global");
+                  await yieldToUI();
+                }).catch((err) => console.warn("[CREP/Infra] TX lines error:", err?.message || err));
+
+                // ── Cell towers (antennas) — show at zoom 6+ (viewport-first) ──
+                const towersToFeatures = (entities: any[]) => entities
+                  .filter((e: any) => e.lat != null && e.lng != null)
+                  .map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      name: e.name,
+                      radio: e.properties?.technology || e.entity_type,
+                      operator: e.properties?.operator,
+                      source: e.source || "mindex",
+                    },
+                    geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                  }));
+
+                let towersClickBound = false;
+                const renderCellTowers = (entities: any[], label: string) => {
+                  const features = towersToFeatures(entities);
+                  if (!features.length) return;
+                  safeAddSource("crep-celltowers", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddLayer({
+                    id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
+                    paint: {
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 10, 3, 14, 6],
+                      "circle-color": "#22c55e",
+                      "circle-opacity": 0.6,
+                      "circle-stroke-width": 0.5,
+                      "circle-stroke-color": "rgba(0,0,0,0.2)",
+                    },
+                    minzoom: 6,
+                  });
+                  if (!towersClickBound) {
+                    towersClickBound = true;
+                    map.on("click", "crep-celltowers-circle", (e: any) => {
+                      const props = e.features?.[0]?.properties;
+                      if (props?.name) {
+                        lastEntityPickTimeRef.current = Date.now();
+                        const coords = e.lngLat;
+                        highlightPoint(map, coords?.lng ?? 0, coords?.lat ?? 0);
+                        setSelectedInfraAsset({
+                          type: "cell_tower", name: props.name,
+                          lat: coords?.lat ?? 0, lng: coords?.lng ?? 0,
+                          properties: typeof props === "object" ? { ...props } : {},
+                        });
+                      }
+                    });
+                    map.on("mouseenter", "crep-celltowers-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+                    map.on("mouseleave", "crep-celltowers-circle", () => { map.getCanvas().style.cursor = ""; });
+                  }
+                  console.log(`[CREP/Infra] ${features.length} cell towers → MapLibre (${label})`);
+                };
+
+                batchFetch("cell-towers", 20000, (vpResults) => {
+                  const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = vpTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderCellTowers(unique, "viewport");
+                }).then(async (results) => {
+                  const allTowers = results.flatMap((r: any) => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = allTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderCellTowers(unique, "global");
+                  await yieldToUI();
+                }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
+
+                // ── Jurisdiction boundary layers (state/county/FEMA/country) ──
+                // Critical for defense/IC — every data point anchored to its jurisdiction
+                try {
+                  addJurisdictionLayers(map);
+                } catch (e: any) {
+                  console.warn("[CREP/Jurisdiction] Error adding boundary layers:", e.message);
+                }
+
+                // ── Highlight layers (OpenGridWorks-style selection glow) ──
+                // Must be last so they render on top of all infra
+                setTimeout(() => {
+                  try {
+                    initHighlightLayers(map);
+                  } catch (e: any) {
+                    console.warn("[CREP/Highlight] Error initializing:", e.message);
+                  }
+                }, 2000);
               };
 
-              // Load permanent infra after style is fully ready
-              if (map.isStyleLoaded()) {
-                setTimeout(loadPermanentInfra, 500);
-              } else {
-                map.once("style.load", () => setTimeout(loadPermanentInfra, 500));
-              }
+              // Load permanent infra IMMEDIATELY — no delay.
+              // Style is already loaded (we're in onLoad callback which fires after style.load).
+              loadPermanentInfra();
               
               // Initialize zoom and bounds
               setMapZoom(map.getZoom());
@@ -4495,6 +5046,7 @@ export default function CREPDashboardPage() {
                       setSelectedEvent(null);
                       setSelectedFungal(null);
                       setSelectedOther(null);
+                      setSelectedInfraAsset(null);
                     }
                   }
                 }, 300);
@@ -4514,6 +5066,46 @@ export default function CREPDashboardPage() {
                 leftPanelOpen ? "ml-[310px]" : "ml-4"
               )}
             />
+
+            {/* ═══ ON-MAP LAYERS POPUP — OpenGridWorks-style basemap + overlay selector ═══ */}
+            <div className={cn(
+              "absolute bottom-16 z-20 transition-all duration-300",
+              leftPanelOpen ? "left-[310px]" : "left-4"
+            )}>
+              <MapLayersPopup
+                currentBasemap={basemap || "dark"}
+                onBasemapChange={(id, styleUrl) => {
+                  setBasemap(id === "dark" ? null : id as any);
+                  // Note: full basemap style switching requires map.setStyle()
+                  // For now, toggle EO imagery overlays as "satellite" mode
+                  if (id === "satellite") {
+                    setEoImageryFilter(prev => ({ ...prev, showModis: true }));
+                  }
+                  console.log(`[CREP] Basemap → ${id}`);
+                }}
+                eoImageryFilter={eoImageryFilter}
+                onEoFilterChange={(filter) => {
+                  setEoImageryFilter(prev => ({ ...prev, ...filter }));
+                }}
+                map={mapRef}
+                showInfra={showInfraLayers}
+                onToggleInfra={(show) => {
+                  setShowInfraLayers(show);
+                  // Toggle all infra MapLibre layers visibility
+                  if (mapRef) {
+                    const infraLayerIds = [
+                      "crep-cables-line", "crep-plants-circle", "crep-subs-circle",
+                      "crep-txlines-line", "crep-celltowers-circle",
+                    ];
+                    for (const id of infraLayerIds) {
+                      if (mapRef.getLayer(id)) {
+                        mapRef.setLayoutProperty(id, "visibility", show ? "visible" : "none");
+                      }
+                    }
+                  }
+                }}
+              />
+            </div>
 
             {/* Live events toast – new events that appeared since load */}
             {newEventIds.size > 0 && (
@@ -4547,7 +5139,7 @@ export default function CREPDashboardPage() {
             <EntityDeckLayer
               map={mapRef}
               entities={deckEntities}
-              visible={deckEntities.length > 0}
+              visible={true}
               extraLayers={infraDeckLayers}
               useGlobeMode={projectionMode === "globe"}
               onEntityClick={(entity) => {
@@ -4690,21 +5282,17 @@ export default function CREPDashboardPage() {
               />
             )}
 
-            {/* NASA GIBS Earth Observation Overlays (MODIS, VIIRS, AIRS, Landsat, EONET) */}
-            {mapRef && (
-              <CrepGibsEoOverlays
-                map={mapRef}
-                eoImageryFilter={eoImageryFilter}
-              />
-            )}
-
-            {/* NASA GIBS Satellite Imagery Base Layers */}
+            {/* NASA GIBS Satellite Imagery Base Layers — controlled by MapLayersPopup via eoImageryFilter
+                 NOTE: CrepGibsEoOverlays removed — it duplicated sources/layers with GibsBaseLayers
+                 using the same source IDs, causing MODIS tile flickering. GibsBaseLayers is the
+                 single renderer for all GIBS raster overlays. */}
             <GibsBaseLayers
               map={mapRef}
               enabledLayers={{
-                modis: layers.find(l => l.id === "gibsModis")?.enabled ?? false,
-                viirs: layers.find(l => l.id === "gibsViirs")?.enabled ?? false,
-                landsat: layers.find(l => l.id === "gibsLandsat")?.enabled ?? false,
+                modis: eoImageryFilter.showModis,
+                viirs: eoImageryFilter.showViirs,
+                landsat: eoImageryFilter.showLandsat,
+                airs: eoImageryFilter.showAirs,
               }}
               opacity={0.4}
             />
@@ -4946,18 +5534,46 @@ export default function CREPDashboardPage() {
               ═══════════════════════════════════════════════════════════════ */}
           {selectedPlant && (
             <div
-              className="absolute z-50 pointer-events-auto"
+              className="absolute z-[100] pointer-events-auto"
               style={{
                 left: "50%",
                 top: "50%",
                 transform: "translate(-50%, -50%)",
               }}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <PlantPopup
                 plant={selectedPlant}
                 onClose={() => setSelectedPlant(null)}
                 onFlyTo={(lat, lng, zoom) => {
                   mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
+                }}
+              />
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              INFRASTRUCTURE DETAIL WIDGET (Apr 2026)
+              Shows detailed live data for cables, substations, TX lines,
+              plants, cell towers, datacenters, military, airports
+              ═══════════════════════════════════════════════════════════════ */}
+          {selectedInfraAsset && (
+            <div
+              className="absolute z-[100] pointer-events-auto"
+              style={{
+                left: "50%",
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <InfraDetailWidget
+                asset={selectedInfraAsset}
+                onClose={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
+                onFlyTo={(lat, lng, zoom) => {
+                  mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 10, duration: 800 });
                 }}
               />
             </div>
@@ -4996,6 +5612,7 @@ export default function CREPDashboardPage() {
               // Open popup based on type
               if (result.type === "plant" && result.data) {
                 setSelectedPlant(result.data);
+                setSelectedInfraAsset(null);
               }
             }}
             onClose={() => setSearchOpen(false)}

@@ -399,7 +399,7 @@ export class UnifiedSearchClient {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        signal: signal || AbortSignal.timeout(15000),
+        signal: signal || AbortSignal.timeout(45000),
       })
 
       if (!response.ok) {
