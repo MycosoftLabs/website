@@ -111,6 +111,8 @@ export interface Earth2Filter {
   // Advanced
   showUncertainty: boolean;
   resolution: "native" | "1km" | "250m";
+  /** MapLibre raster tile pyramid (sharp at all zooms) vs viewport heatmap texture */
+  useHdWeatherTiles: boolean;
   
   // GPU Resource Management (Feb 12, 2026)
   gpuMode: GpuMode;
@@ -145,6 +147,7 @@ export const DEFAULT_EARTH2_FILTER: Earth2Filter = {
   showSporeGradient: true,
   showUncertainty: false,
   resolution: "native",
+  useHdWeatherTiles: false,
   // GPU Resource Management (Feb 12, 2026)
   gpuMode: "off",
   cpuFallbackEnabled: true,
@@ -512,6 +515,14 @@ export function Earth2LayerControl({
                       onChange={(v) => onFilterChange({ showUncertainty: v })}
                       color="pink"
                       hint="Ensemble"
+                    />
+                    <LayerToggle
+                      label="HD weather tiles"
+                      icon={<Layers className="w-3 h-3" />}
+                      checked={filter.useHdWeatherTiles}
+                      onChange={(v) => onFilterChange({ useHdWeatherTiles: v })}
+                      color="emerald"
+                      hint="Tile pyramid"
                     />
                   </div>
                 </div>

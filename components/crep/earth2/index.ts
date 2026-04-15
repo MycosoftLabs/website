@@ -8,6 +8,7 @@
 
 // Core Weather Layer Components
 export { WeatherHeatmapLayer, WeatherLegend } from "./weather-heatmap-layer";
+export { default as Earth2TileRasterLayers } from "./earth2-tile-raster-layers";
 export { SporeDispersalLayer, SporeZoneSummary } from "./spore-dispersal-layer";
 export { WindVectorLayer, WindLegend } from "./wind-vector-layer";
 

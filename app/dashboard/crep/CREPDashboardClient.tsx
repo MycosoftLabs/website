@@ -182,6 +182,7 @@ import { TrajectoryLines } from "@/components/crep/trajectory-lines";
 // NVIDIA Earth-2 AI Weather Components
 import { 
   Earth2LayerControl,
+  Earth2TileRasterLayers,
   WeatherHeatmapLayer,
   SporeDispersalLayer,
   WindVectorLayer,
@@ -5254,17 +5255,54 @@ export default function CREPDashboardPage() {
                 Rendered with mapRef when Earth-2 layers are enabled
                 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
             
-            {/* Earth-2 Temperature/Precipitation Heatmap */}
-            {mapRef && (earth2Filter.showTemperature || earth2Filter.showPrecipitation || earth2Filter.showForecast) && (
-              <WeatherHeatmapLayer
-                map={mapRef}
-                visible={true}
-                variable={earth2Filter.showTemperature ? "temperature" : "precipitation"}
-                forecastHours={earth2Filter.forecastHours}
-                opacity={earth2Filter.opacity}
-                resolutionDeg={earth2ApiResolutionDeg}
-              />
-            )}
+            {/* NASA GIBS (below Earth-2 rasters in stack order: basemap → GIBS → HD tiles → heatmap → wind) */}
+            <GibsBaseLayers
+              map={mapRef}
+              enabledLayers={{
+                modis: eoImageryFilter.showModis,
+                viirs: eoImageryFilter.showViirs,
+                landsat: eoImageryFilter.showLandsat,
+                airs: eoImageryFilter.showAirs,
+              }}
+              opacity={0.4}
+            />
+
+            {mapRef &&
+              earth2Filter.useHdWeatherTiles &&
+              (earth2Filter.showTemperature ||
+                earth2Filter.showPrecipitation ||
+                earth2Filter.showHumidity) && (
+                <Earth2TileRasterLayers
+                  map={mapRef}
+                  forecastHours={earth2Filter.forecastHours}
+                  opacity={earth2Filter.opacity}
+                  enabled={{
+                    t2m: earth2Filter.showTemperature,
+                    tp: earth2Filter.showPrecipitation,
+                    tcwv: earth2Filter.showHumidity,
+                  }}
+                  model={earth2Filter.selectedModel}
+                />
+              )}
+
+            {/* Earth-2 Temperature/Precipitation Heatmap — hidden for layers using HD tile mode */}
+            {mapRef &&
+              (earth2Filter.showTemperature ||
+                earth2Filter.showPrecipitation ||
+                earth2Filter.showForecast) &&
+              !(
+                earth2Filter.useHdWeatherTiles &&
+                (earth2Filter.showTemperature || earth2Filter.showPrecipitation)
+              ) && (
+                <WeatherHeatmapLayer
+                  map={mapRef}
+                  visible={true}
+                  variable={earth2Filter.showTemperature ? "temperature" : "precipitation"}
+                  forecastHours={earth2Filter.forecastHours}
+                  opacity={earth2Filter.opacity}
+                  resolutionDeg={earth2ApiResolutionDeg}
+                />
+              )}
             
             {/* Earth-2 Spore Dispersal Layer */}
             {mapRef && earth2Filter.showSporeDispersal && (
@@ -5298,8 +5336,8 @@ export default function CREPDashboardPage() {
               />
             )}
             
-            {/* Earth-2 Precipitation/Rain Layer */}
-            {mapRef && earth2Filter.showPrecipitation && (
+            {/* Earth-2 Precipitation/Rain Layer — optional animation; omit when HD precip tiles on */}
+            {mapRef && earth2Filter.showPrecipitation && !earth2Filter.useHdWeatherTiles && (
               <PrecipitationLayer
                 map={mapRef}
                 visible={true}
@@ -5331,8 +5369,8 @@ export default function CREPDashboardPage() {
               />
             )}
             
-            {/* Earth-2 Humidity Layer */}
-            {mapRef && earth2Filter.showHumidity && (
+            {/* Earth-2 Humidity Layer — omit when HD humidity tiles on */}
+            {mapRef && earth2Filter.showHumidity && !earth2Filter.useHdWeatherTiles && (
               <HumidityLayer
                 map={mapRef}
                 visible={true}
@@ -5341,21 +5379,6 @@ export default function CREPDashboardPage() {
                 resolutionDeg={earth2ApiResolutionDeg}
               />
             )}
-
-            {/* NASA GIBS Satellite Imagery Base Layers — controlled by MapLayersPopup via eoImageryFilter
-                 NOTE: CrepGibsEoOverlays removed — it duplicated sources/layers with GibsBaseLayers
-                 using the same source IDs, causing MODIS tile flickering. GibsBaseLayers is the
-                 single renderer for all GIBS raster overlays. */}
-            <GibsBaseLayers
-              map={mapRef}
-              enabledLayers={{
-                modis: eoImageryFilter.showModis,
-                viirs: eoImageryFilter.showViirs,
-                landsat: eoImageryFilter.showLandsat,
-                airs: eoImageryFilter.showAirs,
-              }}
-              opacity={0.4}
-            />
 
             {/* Aurora Forecast Overlay */}
             <AuroraOverlay
