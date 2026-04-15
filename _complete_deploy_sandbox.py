@@ -120,6 +120,12 @@ try:
         error = stderr.read().decode()
         if error:
             print(f"Error: {error}")
+        if exit_status == 137:
+            print(
+                "    Hint: 137 often means the build was OOM-killed. "
+                "The Dockerfile deps stage uses a 2048MB Node heap cap; "
+                "add swap on the VM or run the build on a host with more RAM."
+            )
         sys.exit(1)
     
     print(f">> Docker image built successfully")

@@ -12,22 +12,26 @@
 # =========================
 # Stage 1: Dependencies
 # =========================
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
-# Prevent npm dependency resolution from OOMing in constrained Docker builds.
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Smaller heap for `npm ci` on RAM-limited build hosts (sandbox VM). A 4GB V8 limit
+# on a 2–4GB VM causes the kernel OOM killer; 2048MB is enough for resolution/install.
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Fewer concurrent fetches = lower peak memory on small builders
+ENV npm_config_maxsockets=5
 
-# Copy package files
+# Copy package files — patches/ MUST exist before postinstall runs `patch-package`
 COPY package.json package-lock.json ./
+COPY patches ./patches
 
-# Install with npm (legacy-peer-deps for React 19 / Next 15 peer resolution in Docker)
-RUN npm install --legacy-peer-deps
+# Reproducible install (legacy-peer-deps for React 19 / Next 15 peer resolution in Docker)
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 
 # =========================
 # Stage 2: Builder
 # =========================
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Copy dependencies from deps stage (npm or pnpm)
@@ -86,7 +90,7 @@ RUN npm run build
 # =========================
 # Stage 3: Runner
 # =========================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 # Create non-root user
