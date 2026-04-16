@@ -1,0 +1,172 @@
+# =============================================================================
+# Mycosoft Production — BLUE/GREEN ZERO-DOWNTIME OVERLAY
+# =============================================================================
+# Apply ON TOP OF docker-compose.production.yml:
+#
+#   docker compose \
+#     -f docker-compose.production.yml \
+#     -f docker-compose.production.blue-green.yml \
+#     up -d website-proxy website-blue
+#
+# Architecture:
+#   cloudflared → website-proxy:3000 (nginx) → active slot (blue or green)
+#     proxy reads /opt/mycosoft/state/active-slot (contents: "blue" or "green")
+#
+# The single "website" service is REMOVED from the active topology. The proxy
+# is what cloudflared targets, so the public endpoint never blinks even while
+# the idle slot is being rebuilt.
+#
+# Cutover is performed by scripts/blue-green-deploy.sh (NOT docker compose up).
+# =============================================================================
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # NGINX — stable public endpoint; reverse-proxies to whichever slot is active
+  # ───────────────────────────────────────────────────────────────────────────
+  website-proxy:
+    image: nginx:1.27-alpine
+    container_name: mycosoft-website-proxy
+    restart: always
+    ports:
+      - "3000:80" # cloudflared tunnel target — UNCHANGED (still :3000)
+    volumes:
+      - /opt/mycosoft/state:/etc/nginx/state:ro
+      - /opt/mycosoft/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/mycosoft/nginx/conf.d:/etc/nginx/conf.d:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=website-proxy"
+      - "com.mycosoft.critical=true"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # BLUE slot — steady-state production. No host port. Only the proxy talks to it.
+  # ───────────────────────────────────────────────────────────────────────────
+  website-blue:
+    image: ${WEBSITE_IMAGE_BLUE:-${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}}
+    container_name: mycosoft-website-blue
+    expose: ["3000"]
+    env_file: [.env]
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - DEPLOY_SLOT=blue
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
+      - MAS_API_URL=${MAS_API_URL:-http://localhost:8001}
+      - MINDEX_API_URL=${MINDEX_API_URL:-http://localhost:8000}
+      - N8N_URL=${N8N_URL:-http://n8n:5678}
+      - NEMOCLAW_GATEWAY_URL=${NEMOCLAW_GATEWAY_URL:-http://192.168.0.123:18789}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mycosoft.com}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}
+      - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-http://localhost:8001}
+      - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    volumes:
+      - /opt/mycosoft/media/website/assets:/app/public/assets:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+      ollama:   {condition: service_started}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=website"
+      - "com.mycosoft.slot=blue"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # GREEN slot — idle most of the time. Deploy script pulls new image into
+  # WEBSITE_IMAGE_GREEN and starts it. Profile keeps it off by default so
+  # `docker compose up` (routine restart) doesn't start both.
+  # ───────────────────────────────────────────────────────────────────────────
+  website-green:
+    image: ${WEBSITE_IMAGE_GREEN:-ghcr.io/mycosoftlabs/website:production-latest}
+    container_name: mycosoft-website-green
+    expose: ["3000"]
+    env_file: [.env]
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - DEPLOY_SLOT=green
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.3}
+      - MAS_API_URL=${MAS_API_URL:-http://localhost:8001}
+      - MINDEX_API_URL=${MINDEX_API_URL:-http://localhost:8000}
+      - N8N_URL=${N8N_URL:-http://n8n:5678}
+      - NEMOCLAW_GATEWAY_URL=${NEMOCLAW_GATEWAY_URL:-http://192.168.0.123:18789}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://mycosoft.com}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://mycosoft.com}
+      - NEXT_PUBLIC_MAS_API_URL=${NEXT_PUBLIC_MAS_API_URL:-http://localhost:8001}
+      - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    volumes:
+      - /opt/mycosoft/media/website/assets:/app/public/assets:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis:    {condition: service_healthy}
+      ollama:   {condition: service_started}
+    profiles: ["green"] # only starts when `--profile green` is passed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - mycosoft-network
+    labels:
+      - "com.mycosoft.service=website"
+      - "com.mycosoft.slot=green"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Retire the legacy "website" service (replaced by blue/green + proxy).
+  # Kept under a disabled profile so legacy scripts don't crash on missing key.
+  # ───────────────────────────────────────────────────────────────────────────
+  website:
+    image: ${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}
+    profiles: ["legacy-do-not-use"]
+    command: ["echo", "Replaced by website-blue/website-green via docker-compose.production.blue-green.yml"]

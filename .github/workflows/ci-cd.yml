@@ -384,53 +384,44 @@ jobs:
             echo "Env vars injected"
           ENVSCRIPT2
 
-      - name: Pull image and deploy
+      - name: Blue/Green deploy (zero-downtime cutover + Cloudflare purge)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ssh-retry production bash -s <<'BUILD'
+          ssh-retry production bash -s <<BUILD
             set -euo pipefail
-            exec 9>/tmp/mycosoft-prod-deploy.lock
-            flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
 
+            echo "=== Pulling latest deploy scripts + compose overlay from main ==="
+            git fetch origin main
+            git checkout origin/main -- \
+              docker-compose.production.blue-green.yml \
+              deploy/nginx/nginx.conf \
+              deploy/nginx/conf.d/website.conf.template \
+              scripts/blue-green-deploy.sh \
+              scripts/blue-green-bootstrap.sh
+            chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
+
             echo "=== Authenticating with GHCR ==="
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-            echo "=== Pulling Pre-Built Docker Image from GHCR ==="
-            IMAGE_NAME_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-            docker pull ghcr.io/${IMAGE_NAME_LC}:production-latest
+            IMAGE_NAME_LC=\$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+            export IMAGE="ghcr.io/\${IMAGE_NAME_LC}:production-latest"
+            echo "=== Deploying image: \$IMAGE ==="
 
-            PREV_IMAGE=$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
-            echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
-            echo "Previous image: ${PREV_IMAGE:-none}"
-
-            free_host_port_3000() {
-              echo "=== Freeing host :3000 (compose website + all publishers) ==="
-              (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
-              for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
-                [ -z "$cid" ] && continue
-                docker stop "$cid" 2>/dev/null || true
-                docker rm -f "$cid" 2>/dev/null || true
-              done
-              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
-            }
-
-            echo "=== Preparing deterministic restart ==="
-            free_host_port_3000
-
-            echo "=== Starting Container ==="
-            export WEBSITE_IMAGE="ghcr.io/${IMAGE_NAME_LC}:production-latest"
-            if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
-              echo "Compose deploy failed. Attempting rollback container..."
-              if [ -n "${PREV_IMAGE}" ]; then
-                free_host_port_3000
-                docker run -d --name website-live -p 3000:3000 \
-                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-                  --restart unless-stopped "${PREV_IMAGE}" || true
-              fi
-              exit 1
+            echo "=== First-run bootstrap (idempotent) ==="
+            # If the nginx proxy container doesn't exist yet, convert the legacy
+            # single-container deploy into blue/green. No-op on subsequent runs.
+            if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
+              echo "Blue/green not yet bootstrapped on this VM — running bootstrap"
+              ./scripts/blue-green-bootstrap.sh
             fi
+
+            echo "=== Running blue/green cutover ==="
+            export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
+            export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
+            export PUBLIC_HOST='mycosoft.com'
+            ./scripts/blue-green-deploy.sh
           BUILD
 
       - name: Run database migrations

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Blue/Green One-Time VM Bootstrap
+# =============================================================================
+# Runs ONCE on the production VM to:
+#   1. Create /opt/mycosoft/state/ and /opt/mycosoft/nginx/conf.d/
+#   2. Copy nginx.conf + render initial website.conf pointing at BLUE
+#   3. Create the `active-slot` file = "blue"
+#   4. Start proxy + blue container (green stays off)
+#   5. Update cloudflared: still points at origin :3000, now nginx lives there
+#   6. Stop the OLD single `website` container (port 3000 gets handed to proxy)
+#
+# Idempotent — safe to re-run. Does NOT wipe state if it already exists.
+# =============================================================================
+set -euo pipefail
+
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/mycosoft/website}"
+STATE_DIR="${STATE_DIR:-/opt/mycosoft/state}"
+NGINX_DIR="${NGINX_DIR:-/opt/mycosoft/nginx}"
+COMPOSE_FILES=(
+  "-f" "docker-compose.production.yml"
+  "-f" "docker-compose.production.blue-green.yml"
+)
+
+log() { echo "[bootstrap] $*"; }
+cd "$DEPLOY_DIR"
+
+# 1. Directories
+mkdir -p "$STATE_DIR" "$NGINX_DIR/conf.d"
+chmod 755 "$STATE_DIR" "$NGINX_DIR" "$NGINX_DIR/conf.d"
+
+# 2. Seed state file
+if [[ ! -s "$STATE_DIR/active-slot" ]]; then
+  echo "blue" > "$STATE_DIR/active-slot"
+  log "Seeded active-slot = blue"
+else
+  log "active-slot already present: $(cat "$STATE_DIR/active-slot")"
+fi
+
+# 3. Install nginx.conf
+cp "$DEPLOY_DIR/deploy/nginx/nginx.conf" "$NGINX_DIR/nginx.conf"
+log "Installed $NGINX_DIR/nginx.conf"
+
+# 4. Render initial website.conf for whatever slot is currently active
+ACTIVE=$(cat "$STATE_DIR/active-slot")
+sed "s|__ACTIVE_SLOT__|$ACTIVE|g" \
+  "$DEPLOY_DIR/deploy/nginx/conf.d/website.conf.template" \
+  > "$NGINX_DIR/conf.d/website.conf"
+log "Rendered $NGINX_DIR/conf.d/website.conf pointing at $ACTIVE"
+
+# 5. Free port 3000 from the OLD single-container deploy (if present)
+#    Important: we do this BEFORE starting proxy so port bind succeeds.
+for name in mycosoft-website website-website-1 website-live; do
+  if docker ps --format '{{.Names}}' | grep -qx "$name"; then
+    log "Removing legacy container: $name"
+    docker stop -t 30 "$name" || true
+    docker rm -f "$name" || true
+  fi
+done
+
+# 6. Start blue + proxy via compose (green stays off via profile)
+log "Starting website-blue + website-proxy"
+docker compose "${COMPOSE_FILES[@]}" up -d --no-deps website-blue website-proxy
+
+# 7. Wait for proxy to answer /healthz
+log "Waiting for website-proxy /healthz"
+for i in {1..30}; do
+  if curl -fsS -o /dev/null http://localhost:3000/healthz; then
+    log "Proxy is up (took ${i}×2s)"
+    break
+  fi
+  sleep 2
+done
+
+# 8. Print status
+docker compose "${COMPOSE_FILES[@]}" ps
+log "Bootstrap complete. Active slot: $(cat "$STATE_DIR/active-slot")"
+log "Next deploy: ./scripts/blue-green-deploy.sh"

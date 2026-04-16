@@ -1,0 +1,62 @@
+# =============================================================================
+# Website origin — served to cloudflared tunnel
+# =============================================================================
+# This file is a TEMPLATE. The deploy script renders it into
+# /opt/mycosoft/nginx/conf.d/website.conf with __ACTIVE_SLOT__ replaced by
+# literally `blue` or `green` at every cutover, then reloads nginx.
+#
+# Why a rendered file instead of `if` at runtime: nginx's `if` inside
+# `location` is discouraged and misbehaves with proxy_pass. A rendered
+# upstream is O(0) per request and rock-solid.
+# =============================================================================
+
+server {
+  listen 80 default_server;
+  server_name _;
+
+  # Liveness probe (used by docker healthcheck + CI/CD)
+  location = /healthz {
+    add_header Cache-Control "no-store" always;
+    add_header X-Active-Slot __ACTIVE_SLOT__ always;
+    return 200 "ok\n";
+  }
+
+  # The only line that changes between cutovers:
+  set $slot __ACTIVE_SLOT__;
+
+  # Forward everything to the active slot
+  location / {
+    # Proxy to the rendered upstream (website_blue or website_green)
+    proxy_pass http://website___ACTIVE_SLOT__;
+
+    # Standard reverse-proxy headers
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Active-Slot     __ACTIVE_SLOT__;
+
+    # Next.js router / RSC header passthrough
+    proxy_set_header RSC                      $http_rsc;
+    proxy_set_header Next-Router-State-Tree   $http_next_router_state_tree;
+    proxy_set_header Next-Router-Prefetch     $http_next_router_prefetch;
+    proxy_set_header Next-Router-Segment-Prefetch $http_next_router_segment_prefetch;
+
+    # If the active slot becomes unhealthy, serve the PREVIOUS slot's
+    # last successful response (zero user-visible errors during rollback).
+    proxy_next_upstream error timeout http_502 http_503 http_504;
+    proxy_next_upstream_tries 2;
+    proxy_next_upstream_timeout 10s;
+  }
+
+  # WebSocket endpoints (Next.js HMR in dev; realtime in prod)
+  location /_next/webpack-hmr {
+    proxy_pass http://website___ACTIVE_SLOT__;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host       $host;
+    proxy_read_timeout 3600s;
+  }
+}
