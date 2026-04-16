@@ -173,10 +173,13 @@ services:
       - "com.mycosoft.slot=green"
 
   # ───────────────────────────────────────────────────────────────────────────
-  # Retire the legacy "website" service (replaced by blue/green + proxy).
-  # Kept under a disabled profile so legacy scripts don't crash on missing key.
+  # The legacy `website` service from the base compose file is intentionally
+  # NOT overridden here. Profile-gating it (as we previously tried) broke
+  # compose validation because `cloudflared: depends_on: website` (from base)
+  # resolves to a profile-gated service = "undefined service" at validation.
+  #
+  # Instead we leave `website` defined in the base file and just never start
+  # it with `docker compose up`. The bootstrap script removes the running
+  # `mycosoft-website` container via `docker rm`, and subsequent `compose up`
+  # commands only target `website-blue`/`website-proxy`.
   # ───────────────────────────────────────────────────────────────────────────
-  website:
-    image: ${WEBSITE_IMAGE:-ghcr.io/mycosoftlabs/website:production-latest}
-    profiles: ["legacy-do-not-use"]
-    command: ["echo", "Replaced by website-blue/website-green via docker-compose.production.blue-green.yml"]
