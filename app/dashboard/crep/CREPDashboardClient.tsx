@@ -1761,6 +1761,7 @@ export default function CREPDashboardPage() {
   const [aircraft, setAircraft] = useState<AircraftEntity[]>([]);
   const [vessels, setVessels] = useState<VesselEntity[]>([]);
   const [buoys, setBuoys] = useState<any[]>([]);
+  const [militaryBases, setMilitaryBases] = useState<any[]>([]);
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   // Persistent observation store — merge incoming data, never fully replace (prevents blink)
@@ -1930,6 +1931,8 @@ export default function CREPDashboardPage() {
     showMining: false,
     showOilGas: false,
     showWaterPollution: false,
+    // Military & Defense – off by default (sensitive, user opts in)
+    showMilitaryBases: false,
     // Sensors – on by default
     showMycoBrain: true,
     showSporeBase: true,
@@ -2021,7 +2024,7 @@ export default function CREPDashboardPage() {
     events_human: { status: "planned_real", source: "Event Feeds" },
     militaryAir: { status: "planned_real", source: "—" },
     militaryNavy: { status: "planned_real", source: "—" },
-    militaryBases: { status: "planned_real", source: "—" },
+    militaryBases: { status: "real", source: "OSM+MINDEX" },
     tanks: { status: "planned_real", source: "—" },
     militaryDrones: { status: "planned_real", source: "—" },
     factories: { status: "planned_real", source: "Industrial Registries" },
@@ -2515,6 +2518,31 @@ export default function CREPDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MILITARY BASES FETCH — OSM + MINDEX military installations (every 5 minutes)
+  // Fetches military bases, airfields, ranges, barracks, training areas globally
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const fetchMilitary = async () => {
+      try {
+        const res = await fetch("/api/oei/military");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.facilities && Array.isArray(data.facilities)) {
+            console.log(`[CREP] Military: ${data.facilities.length} facilities loaded from ${data.source || "overpass"}`);
+            setMilitaryBases(data.facilities);
+          }
+        }
+      } catch (e) {
+        console.warn("[CREP] Military: Failed to fetch military data:", e);
+      }
+    };
+
+    fetchMilitary();
+    const interval = setInterval(fetchMilitary, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Infrastructure data fetched via map onLoad + moveend handler above (not useEffect)
   // This avoids React strict mode double-render abort issues with AbortController
 
@@ -2822,6 +2850,7 @@ export default function CREPDashboardPage() {
       metalOutput: groundFilter.showMining,
       oilGas: groundFilter.showOilGas,
       waterPollution: groundFilter.showWaterPollution,
+      militaryBases: groundFilter.showMilitaryBases,
     };
     setLayers(prev => prev.map(l =>
       l.id in layerMap ? { ...l, enabled: layerMap[l.id] } : l
@@ -2839,6 +2868,7 @@ export default function CREPDashboardPage() {
       storms: "showStorms", lightning: "showLightning", tornadoes: "showTornadoes",
       mycobrain: "showMycoBrain", sporebase: "showSporeBase", smartfence: "showSmartFence",
       partners: "showPartnerNetworks",
+      military: "showMilitaryBases", militarybases: "showMilitaryBases",
     };
     const setLayerEnabled = (layerId: string, enabled: boolean) => {
       setLayers((prev) => prev.map((l) => (l.id === layerId ? { ...l, enabled } : l)));
@@ -3857,6 +3887,53 @@ export default function CREPDashboardPage() {
   }, [buoys, layers]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MILITARY BASES DATA PUMP — Push military facility data into MapLibre source
+  // Also toggles layer visibility based on layer enabled state
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map || militaryBases.length === 0) return;
+
+    // Expose for click handler lookup
+    if (typeof window !== "undefined") (window as any).__crep_military = militaryBases;
+
+    const milLayerEnabled = layers.find(l => l.id === "militaryBases")?.enabled ?? false;
+
+    // Toggle visibility of military layers
+    const vis = milLayerEnabled ? "visible" : "none";
+    try {
+      if (map.getLayer("crep-live-military-glow")) map.setLayoutProperty("crep-live-military-glow", "visibility", vis);
+      if (map.getLayer("crep-live-military-dot")) map.setLayoutProperty("crep-live-military-dot", "visibility", vis);
+    } catch {}
+
+    const timer = setTimeout(() => {
+      const m = mapNativeRef.current;
+      if (!m) return;
+      try {
+        const milSrc = m.getSource?.("crep-live-military") as any;
+        if (milSrc?.setData) {
+          const fc = {
+            type: "FeatureCollection" as const,
+            features: milLayerEnabled ? militaryBases.filter((f: any) => f.lat != null && f.lng != null && Math.abs(f.lat) <= 90 && Math.abs(f.lng) <= 180).map((f: any) => ({
+              type: "Feature" as const,
+              properties: {
+                id: f.id,
+                name: f.name,
+                facility_type: f.type,
+                operator: f.operator,
+                country: f.country,
+              },
+              geometry: { type: "Point" as const, coordinates: [f.lng, f.lat] },
+            })) : [],
+          };
+          milSrc.setData(fc);
+        }
+      } catch {}
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [militaryBases, layers]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
   // Runs via requestAnimationFrame, independent of React state. Pushes positions
   // directly into the MapLibre "crep-live-satellites" source and generates orbit
@@ -4603,6 +4680,56 @@ export default function CREPDashboardPage() {
                 });
                 map.on("mouseenter", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-buoys-dot", () => { map.getCanvas().style.cursor = ""; });
+
+                // ═══════════════════════════════════════════════════════════
+                // MILITARY BASES — Red-orange dots (OSM + MINDEX)
+                // Military installations, bases, airfields, ranges globally
+                // Default: hidden (sensitive data, user opts in)
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-live-military", { type: "geojson", data: emptyFC });
+                // Outer glow
+                map.addLayer({ id: "crep-live-military-glow", type: "circle", source: "crep-live-military",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 7, 6, 10, 10, 14, 14, 18],
+                    "circle-color": "#16a34a", "circle-opacity": 0.3, "circle-blur": 0.8 },
+                  layout: { visibility: "none" }});
+                // Inner dot
+                map.addLayer({ id: "crep-live-military-dot", type: "circle", source: "crep-live-military",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 6, 5, 10, 7, 14, 10],
+                    "circle-color": "#16a34a", "circle-opacity": 1,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
+                    "circle-stroke-color": "#ffffff" },
+                  layout: { visibility: "none" }});
+                // Click handler
+                map.on("click", "crep-live-military-dot", (e: any) => {
+                  const props = e.features?.[0]?.properties;
+                  if (props) {
+                    lastEntityPickTimeRef.current = Date.now();
+                    try {
+                      const milId = props.id;
+                      const matched = (window as any).__crep_military?.find((m: any) => m.id === milId);
+                      if (matched) {
+                        setSelectedInfraAsset({
+                          type: "military",
+                          id: matched.id,
+                          name: matched.name || "Military Facility",
+                          lat: matched.lat,
+                          lng: matched.lng,
+                          properties: {
+                            ...matched.tags,
+                            facility_type: matched.type,
+                            operator: matched.operator,
+                            country: matched.country,
+                            military: matched.type,
+                          },
+                        });
+                      }
+                    } catch {}
+                  }
+                });
+                map.on("mouseenter", "crep-live-military-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-live-military-dot", () => { map.getCanvas().style.cursor = ""; });
 
                 console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels, buoy lime-green");
                 // Initial data pump — fill entity sources 1s after creation so aircraft/sats show immediately.
@@ -5912,6 +6039,12 @@ export default function CREPDashboardPage() {
               <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-lime-400" title={`${buoys.length} ocean buoys (NOAA NDBC)`}>
                 <Waves className="w-3 h-3 inline-block mr-1" />
                 {buoys.length} BUOYS
+              </div>
+            )}
+            {layers.find(l => l.id === "militaryBases")?.enabled && militaryBases.length > 0 && (
+              <div className="px-2 py-1 rounded bg-black/60 backdrop-blur text-green-400" title={`${militaryBases.length} military installations (OSM+MINDEX)`}>
+                <Shield className="w-3 h-3 inline-block mr-1" />
+                {militaryBases.length} MIL
               </div>
             )}
             {layers.find(l => l.id === "satellites")?.enabled && satellites.length > 0 && (

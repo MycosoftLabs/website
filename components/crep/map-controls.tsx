@@ -142,6 +142,8 @@ export interface GroundFilter {
   showMining: boolean
   showOilGas: boolean
   showWaterPollution: boolean
+  // Military & Defense
+  showMilitaryBases: boolean
   // Sensors & Devices
   showMycoBrain: boolean
   showSporeBase: boolean
