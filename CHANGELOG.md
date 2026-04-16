@@ -269,6 +269,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Cap power plant circle radius — clamp MW to 5000 max, 20px limit
 - *(crep)* Throttle iNaturalist API calls — 3 concurrent max with 200ms delay to avoid 429 rate limit
 - *(crep)* Remove EntityDeckLayer (duplicate dots), aircraft/vessel glow-only icons
+- *(crep)* Enable all filters, kill setInterval, add GFW+AISHub, military on
+- *(crep)* Military shield icons with red perimeter zones, distinct from all other features
 
 ### CREP
 
@@ -299,6 +301,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -512,6 +515,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Earth2 HD tile raster layers and smoke test
 - *(crep)* Multi-source vessels, NOAA buoys, aircraft/vessel icons, controls fix
 - *(crep)* Multi-source entity registries — vessels, aircraft, satellites
+- *(crep)* Military bases/facilities layer — OSM + MINDEX
 
 ### Fix
 
