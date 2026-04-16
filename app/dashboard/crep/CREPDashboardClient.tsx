@@ -1937,7 +1937,7 @@ export default function CREPDashboardPage() {
     showMycoBrain: true,
     showSporeBase: true,
     showSmartFence: true,
-    showPartnerNetworks: false,
+    showPartnerNetworks: true,
   });
 
   // Earth Observation imagery (NASA GIBS layers) – all off by default
@@ -2050,15 +2050,15 @@ export default function CREPDashboardPage() {
     // PRIMARY LAYERS - FUNGAL/MINDEX DATA (ENABLED BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
-    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
+    { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
     { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
     { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
-    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
+    { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
     { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
-    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
-    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
+    { id: "biodiversity", name: "Biodiversity Hotspots", category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#a855f7", description: "High biodiversity concentration areas" },
+    { id: "weather", name: "Weather Overlay", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#3b82f6", description: "Temperature, precipitation, wind - affects fungal growth" },
     { id: "buoys", name: "Ocean Buoys (NDBC)", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#84cc16", description: "NOAA NDBC ocean buoys - wave height, water temp, wind, pressure (~1300 stations)" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // ENVIRONMENTAL EVENTS - ENABLED BY DEFAULT (natural earth-bound events)
@@ -2079,47 +2079,47 @@ export default function CREPDashboardPage() {
     { id: "aviationRoutes", name: "Flight Trajectories", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#38bdf8", description: "Aircraft route paths airport-to-airport" },
     { id: "ships", name: "Ships (AIS Live)", category: "infrastructure", icon: <Ship className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "AISstream live vessel positions" },
     { id: "shipRoutes", name: "Ship Trajectories", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#2dd4bf", description: "Vessel route paths port-to-port" },
-    { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
-    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
-    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
-    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
+    { id: "fishing", name: "Fishing Fleets", category: "infrastructure", icon: <Fish className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "Global Fishing Watch data" },
+    { id: "containers", name: "Container Ships", category: "infrastructure", icon: <Container className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#06b6d4", description: "Shipping container trajectories" },
+    { id: "vehicles", name: "Land Vehicles", category: "infrastructure", icon: <Car className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#f59e0b", description: "Aggregate vehicle traffic patterns" },
+    { id: "drones", name: "Drones & UAVs", category: "infrastructure", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "Known drone activity and flights" },
     { id: "satellites", name: "Satellites (TLE Live)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#c084fc", description: "CelesTrak live satellite positions" },
     // Human Activity
-    { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
-    { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
-    { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
+    { id: "population", name: "Population Density", category: "human", icon: <Users className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#3b82f6", description: "Global population density heatmap" },
+    { id: "humanMovement", name: "Human Movement", category: "human", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6366f1", description: "Aggregated human mobility patterns" },
+    { id: "events_human", name: "Human Events", category: "human", icon: <Bell className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Gatherings, protests, migrations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
-    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
-    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
-    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
-    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
+    { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
+    { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
+    { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
+    { id: "militaryDrones", name: "Military UAVs", category: "military", icon: <Target className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Military drone operations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // POLLUTION & INDUSTRY (OFF BY DEFAULT)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     { id: "factories", name: "Factories & Plants", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Industrial facilities globally" },
-    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
-    { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
-    { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
+    { id: "co2Sources", name: "COâ‚‚ Emission Sources", category: "pollution", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "Major COâ‚‚ emitters and hotspots" },
+    { id: "methaneSources", name: "Methane Sources", category: "pollution", icon: <Gauge className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#dc2626", description: "Methane leaks and emission sources" },
+    { id: "oilGas", name: "Oil & Gas Infrastructure", category: "pollution", icon: <Fuel className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#78350f", description: "Refineries, pipelines, platforms" },
     { id: "powerPlants", name: "Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Thermal, nuclear, renewable plants — OpenGridWorks-style" },
-    { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
-    { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
+    { id: "metalOutput", name: "Metal & Mining", category: "pollution", icon: <Wrench className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#a16207", description: "Mining operations and output" },
+    { id: "waterPollution", name: "Water Contamination", category: "pollution", icon: <Droplet className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#0284c7", description: "Water pollution events and sources" },
     // TELECOM & INFRASTRUCTURE — OpenGridWorks-style (Apr 2026)
     { id: "submarineCables", name: "Submarine Cables", category: "telecom", icon: <Cable className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Undersea fiber optic cables" },
     { id: "dataCenters", name: "Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#7c3aed", description: "Data centers worldwide from OSM" },
-    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
+    { id: "cellTowers", name: "Cell Towers", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#8b5cf6", description: "Cellular tower locations" },
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // NVIDIA EARTH-2 AI WEATHER LAYERS
     // Advanced AI-powered weather forecasting from NVIDIA Earth-2 platform
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
-    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
-    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
-    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
-    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
-    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
+    { id: "earth2Forecast", name: "Earth-2 AI Forecast", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#06b6d4", description: "NVIDIA Atlas: 15-day medium-range AI forecast" },
+    { id: "earth2Nowcast", name: "Earth-2 Nowcast", category: "environment", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#22d3ee", description: "NVIDIA StormScope: 0-6hr storm prediction" },
+    { id: "earth2Spore", name: "Spore Dispersal AI", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#10b981", description: "AI-powered fungal spore dispersal modeling" },
+    { id: "earth2Wind", name: "Wind Vectors", category: "environment", icon: <Wind className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#3b82f6", description: "High-resolution wind field visualization" },
+    { id: "earth2Temp", name: "Temperature Heatmap", category: "environment", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#ef4444", description: "AI-downscaled temperature overlay" },
+    { id: "earth2Precip", name: "Precipitation", category: "environment", icon: <Droplets className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#0ea5e9", description: "CorrDiff high-resolution precipitation" },
     // ═══════════════════════════════════════════════════════════════════════════
     // EARTH OBSERVATION IMAGERY — controlled by on-map MapLayersPopup
     // GIBS rendering handled via eoImageryFilter state + GibsBaseLayers
@@ -2127,17 +2127,17 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
+    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL TELECOM (non-duplicate)
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
+    { id: "signalHeatmap", name: "Signal Coverage", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.4, color: "#a855f7", description: "Approximate cellular signal coverage heatmap" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL FACILITIES (real data via Overpass API)
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
-    { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
-    { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
+    { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
+    { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
+    { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -2477,8 +2477,25 @@ export default function CREPDashboardPage() {
         // MINDEX contains THOUSANDS of pre-imported iNaturalist/GBIF observations
         // with photos, coordinates, names, timestamps, and source links
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // FUNGAL: Fetched ONLY by bounds effect below – viewport-based like iNaturalist.
-        // Removed unbounded fetch to prevent overwriting bounds-based data every 15s.
+        // FUNGAL: Viewport-based fetching happens in the bounds effect below.
+        // Pre-load: seed the species catalog from MINDEX, fall back to search API.
+        try {
+          const proxyRes = await fetch("/api/mindex/proxy/species?limit=500");
+          const proxyData = proxyRes.ok ? await proxyRes.json() : null;
+          const proxyEntities = proxyData?.entities || proxyData?.results || proxyData?.data || [];
+          if (proxyEntities.length === 0) {
+            // Fallback: try species search API for initial catalog data
+            const searchRes = await fetch("/api/crep/species/search?q=fungi&limit=100");
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              console.log(`[CREP] Species pre-load fallback: ${searchData.results?.length || 0} species from ${searchData.source || "search"}`);
+            }
+          } else {
+            console.log(`[CREP] Species pre-load: ${proxyEntities.length} species from MINDEX proxy`);
+          }
+        } catch {
+          // Non-critical: species pre-load is supplementary to viewport fetching
+        }
       } catch (error) {
         console.warn("Failed to fetch CREP data:", error);
       } finally {
@@ -2610,6 +2627,10 @@ export default function CREPDashboardPage() {
         const data = await res.json();
         const raw = data.observations && Array.isArray(data.observations) ? data.observations : [];
         const formatted = raw.map((o: Record<string, unknown>) => formatObs(o));
+        // Persist new observations to MINDEX (fire-and-forget)
+        if (formatted.length > 0) {
+          import('@/lib/crep/species-catalog').then(m => m.ingestBatchToMINDEX(formatted)).catch(() => {});
+        }
         // MERGE into persistent store — never fully replace (prevents data blink)
         const store = fungalStoreRef.current;
         for (const obs of formatted) {
