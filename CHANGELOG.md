@@ -271,6 +271,10 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Remove EntityDeckLayer (duplicate dots), aircraft/vessel glow-only icons
 - *(crep)* Enable all filters, kill setInterval, add GFW+AISHub, military on
 - *(crep)* Military shield icons with red perimeter zones, distinct from all other features
+- *(crep)* Military Overpass query — limit bbox to 5deg, skip relations, cap 500 results
+- *(crep)* Military bases loaded as permanent infra via MINDEX + Overpass fallback
+- *(crep)* Military bases load directly from static TIGER GeoJSON, skip MINDEX
+- *(crep)* Military perimeters — brighter fill (15%), thicker line (1.5-4px), debug logs
 
 ### CREP
 
@@ -301,6 +305,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -516,6 +521,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Multi-source vessels, NOAA buoys, aircraft/vessel icons, controls fix
 - *(crep)* Multi-source entity registries — vessels, aircraft, satellites
 - *(crep)* Military bases/facilities layer — OSM + MINDEX
+- *(crep)* Military base perimeter polygons — real boundary outlines from OSM
+- *(crep)* 858 US military base perimeter polygons from TIGER/Census
 
 ### Fix
 
