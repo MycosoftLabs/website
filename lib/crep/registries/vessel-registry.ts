@@ -11,6 +11,8 @@
  *   4. VesselFinder free API (if VESSELFINDER_API_KEY exists)
  *   5. BarentsWatch (Norway) — free public AIS positions
  *   6. Danish Maritime Authority — free AIS data feed
+ *   7. Global Fishing Watch — fishing events with vessel positions (last 24h)
+ *   8. AISHub — community AIS data sharing (rate-limited: 1 req/min)
  *
  * Each source has a 10 s timeout. Sources without required API keys are
  * skipped silently. All errors are caught per-source so one failure never
@@ -58,8 +60,14 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const MARINETRAFFIC_API_KEY = process.env.MARINETRAFFIC_API_KEY || ""
 const VESSELFINDER_API_KEY = process.env.VESSELFINDER_API_KEY || ""
+const GFW_TOKEN = process.env.GLOBAL_FISHING_WATCH_TOKEN || ""
+const AISHUB_USERNAME = process.env.AISHUB_USERNAME || ""
 
 const SOURCE_TIMEOUT_MS = 10_000
+
+// AISHub rate limit: max 1 request per minute
+let lastAISHubFetch = 0
+const AISHUB_MIN_INTERVAL = 61_000 // 61 seconds
 
 // =============================================================================
 // SOURCE FETCHERS
@@ -229,6 +237,126 @@ async function fetchFromDMA(): Promise<VesselRecord[]> {
   })
 }
 
+/**
+ * Source 7 — Global Fishing Watch — fishing events with vessel positions (last 24h)
+ * Uses the GFW Events API to retrieve fishing/encounter/port_visit events.
+ * Each event includes lat/lng from event geometry and vessel identity info.
+ */
+async function fetchFromGFW(): Promise<VesselRecord[]> {
+  if (!GFW_TOKEN) return []
+
+  const now = new Date()
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const startDate = dayAgo.toISOString().split("T")[0]
+  const endDate = now.toISOString().split("T")[0]
+
+  const url =
+    `https://gateway.api.globalfishingwatch.org/v3/events` +
+    `?datasets[0]=public-global-fishing-events:latest` +
+    `&start-date=${startDate}&end-date=${endDate}&limit=1000`
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${GFW_TOKEN}`,
+    },
+  })
+  if (!res.ok) return []
+  const data = await res.json()
+  const events: any[] = Array.isArray(data) ? data : data.entries ?? data.events ?? []
+
+  return events
+    .filter((e: any) => {
+      const coords = e.position ?? e.geometry?.coordinates
+      return coords != null
+    })
+    .map((e: any) => {
+      // position may be {lat, lon} or geometry may be GeoJSON Point
+      const lat =
+        e.position?.lat ??
+        (e.geometry?.coordinates ? e.geometry.coordinates[1] : 0)
+      const lng =
+        e.position?.lon ??
+        e.position?.lng ??
+        (e.geometry?.coordinates ? e.geometry.coordinates[0] : 0)
+
+      const vesselId = e.vessel?.id ?? e.vesselId ?? e.id ?? String(Date.now())
+      const mmsi = e.vessel?.ssvid ?? e.vessel?.mmsi ?? ""
+      const name = e.vessel?.name ?? e.vessel?.shipname ?? "Unknown"
+      const flag = e.vessel?.flag ?? null
+      const eventType = e.type ?? e.eventType ?? "fishing"
+
+      return {
+        id: `gfw_${vesselId}`,
+        mmsi: String(mmsi),
+        name: flag ? `${name} [${flag}]` : name,
+        lat: parseFloat(String(lat)) || 0,
+        lng: parseFloat(String(lng)) || 0,
+        sog: null, // fishing events don't carry speed
+        cog: null,
+        heading: null,
+        shipType: "fishing" as any,
+        destination: eventType !== "fishing" ? eventType : null,
+        source: "gfw" as const,
+        timestamp:
+          e.end ?? e.start ?? e.timestamp ?? new Date().toISOString(),
+      }
+    })
+}
+
+/**
+ * Source 8 — AISHub — community AIS data sharing network
+ * IMPORTANT: Rate limited to max 1 request per 60 seconds.
+ * Returns empty if called within 61 s of last successful fetch.
+ *
+ * Response format (format=1, human-readable):
+ *   MMSI, TIME, LONGITUDE, LATITUDE, COG (0.1 deg), SOG (0.1 kn),
+ *   HEADING, ROT, NAVSTAT, IMO, NAME, CALLSIGN, TYPE, DRAUGHT, DEST, ETA
+ */
+async function fetchFromAISHub(): Promise<VesselRecord[]> {
+  if (!AISHUB_USERNAME) return []
+
+  // Enforce rate limit — max 1 request per minute
+  const now = Date.now()
+  if (now - lastAISHubFetch < AISHUB_MIN_INTERVAL) return []
+  lastAISHubFetch = now
+
+  const url =
+    `https://data.aishub.net/ws.php` +
+    `?username=${encodeURIComponent(AISHUB_USERNAME)}` +
+    `&format=1&output=json&compress=0`
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+    headers: { Accept: "application/json" },
+  })
+  if (!res.ok) return []
+  const data = await res.json()
+
+  // AISHub returns [ metaObject, dataArray ] or { ERROR: ... }
+  const vessels: any[] = Array.isArray(data)
+    ? Array.isArray(data[1]) ? data[1] : data
+    : data.data ?? data.vessels ?? []
+
+  return vessels.map((v: any) => ({
+    id: `aishub_${v.MMSI ?? v.mmsi ?? Date.now()}`,
+    mmsi: String(v.MMSI ?? v.mmsi ?? ""),
+    name: v.NAME ?? v.name ?? "Unknown",
+    lat: parseFloat(v.LATITUDE ?? v.latitude ?? 0),
+    lng: parseFloat(v.LONGITUDE ?? v.longitude ?? 0),
+    sog: v.SOG != null ? parseFloat(v.SOG) / 10 : null,
+    cog: v.COG != null ? parseFloat(v.COG) / 10 : null,
+    heading: v.HEADING != null ? parseFloat(v.HEADING) : null,
+    shipType: v.TYPE != null ? parseInt(v.TYPE) : null,
+    destination: v.DEST ?? v.destination ?? null,
+    source: "aishub" as const,
+    timestamp: v.TIME ?? v.time ?? new Date().toISOString(),
+  }))
+}
+
 // =============================================================================
 // NORMALISATION
 // =============================================================================
@@ -343,6 +471,8 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
     { name: "vesselfinder", fn: fetchFromVesselFinder },
     { name: "barentswatch", fn: fetchFromBarentsWatch },
     { name: "dma", fn: fetchFromDMA },
+    { name: "gfw", fn: fetchFromGFW },
+    { name: "aishub", fn: fetchFromAISHub },
   ]
 
   const results = await Promise.allSettled(

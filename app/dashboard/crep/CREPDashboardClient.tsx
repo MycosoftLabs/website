@@ -1925,14 +1925,14 @@ export default function CREPDashboardPage() {
     showLightning: true,
     showTornadoes: true,
     showFloods: true,
-    // Infrastructure – off by default
-    showFactories: false,
-    showPowerPlants: false,
-    showMining: false,
-    showOilGas: false,
-    showWaterPollution: false,
-    // Military & Defense – off by default (sensitive, user opts in)
-    showMilitaryBases: false,
+    // Infrastructure – ON by default (must match layer enabled state)
+    showFactories: true,
+    showPowerPlants: true,
+    showMining: true,
+    showOilGas: true,
+    showWaterPollution: true,
+    // Military & Defense – on by default for CREP/FUSARIUM
+    showMilitaryBases: true,
     // Sensors – on by default
     showMycoBrain: true,
     showSporeBase: true,
@@ -2091,7 +2091,7 @@ export default function CREPDashboardPage() {
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // MILITARY & DEFENSE (OFF BY DEFAULT - DEMO/TOGGLEABLE)
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
+    { id: "militaryBases", name: "Military Bases (Live)", category: "military", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#16a34a", description: "Real military installations via OSM — US + global" },
     { id: "militaryAir", name: "Military Aircraft", category: "military", icon: <Plane className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#f59e0b", description: "Military aviation tracking via ADS-B" },
     { id: "militaryNavy", name: "Naval Vessels", category: "military", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#eab308", description: "Military ship movements via AIS" },
     { id: "tanks", name: "Ground Forces", category: "military", icon: <CrosshairIcon className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#d97706", description: "Tanks, carriers, ground vehicles" },
@@ -3673,26 +3673,13 @@ export default function CREPDashboardPage() {
     lastKnownRef.current = next;
   }, [filteredAircraft, filteredVessels]);
 
-  // Tick: every 2 seconds extrapolate positions from last known + velocity.
-  // This updates React state → triggers deckEntities recompute → data pump to MapLibre.
-  // 2s interval keeps animation smooth enough while NOT blocking UI with constant re-renders.
-  // At 2s intervals with 2000+ entities, the browser has 1.75s of idle time between updates
-  // for processing click events, scroll, and other interactions.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const next: Record<string, [number, number]> = {};
-      for (const [id, last] of Object.entries(lastKnownRef.current)) {
-        const dtSec = (now - last.ts) / 1000;
-        if (dtSec > MAX_EXTRAPOLATION_MS / 1000) continue;
-        const lng = last.lng + last.velLng * dtSec;
-        const lat = Math.max(-90, Math.min(90, last.lat + last.velLat * dtSec));
-        next[id] = [lng, lat];
-      }
-      setExtrapolatedCoords((prev) => (Object.keys(next).length === 0 ? prev : { ...prev, ...next }));
-    }, 2000); // 0.5 FPS — smooth enough for position updates, leaves UI thread free
-    return () => clearInterval(interval);
-  }, []);
+  // ██████████████████████████████████████████████████████████████████████████
+  // DO NOT ADD A setInterval/setExtrapolatedCoords HERE.
+  // Position updates are handled by requestAnimationFrame (rAF tick above).
+  // setExtrapolatedCoords triggers React re-renders every 2s on the entire
+  // 6000-line component → locks all controls. The rAF tick updates MapLibre
+  // sources directly with ZERO React involvement.
+  // ██████████████████████████████████████████████████████████████████████████
 
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
     const lastKnown = lastKnownRef.current;
@@ -3803,7 +3790,7 @@ export default function CREPDashboardPage() {
     // Expose for onLoad initial pump (React state not accessible from map callback)
     if (typeof window !== "undefined") (window as any).__crep_deckEntities = result;
     return result;
-  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, extrapolatedCoords, layers]);
+  }, [filteredAircraft, filteredVessels, filteredSatellites, visibleFungalObservations, streamedEntities, layers]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MAPLIBRE NATIVE ENTITY LAYERS — bypasses deck.gl entirely for reliability.
