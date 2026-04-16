@@ -4674,20 +4674,40 @@ export default function CREPDashboardPage() {
                 // Default: hidden (sensitive data, user opts in)
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-military", { type: "geojson", data: emptyFC });
-                // Outer glow
+                // Generate military shield icon via canvas
+                const milCanvas = document.createElement("canvas");
+                milCanvas.width = 32; milCanvas.height = 32;
+                const milCtx = milCanvas.getContext("2d")!;
+                milCtx.fillStyle = "white";
+                milCtx.beginPath();
+                // Shield shape
+                milCtx.moveTo(16, 2); milCtx.lineTo(28, 8); milCtx.lineTo(26, 20);
+                milCtx.lineTo(16, 30); milCtx.lineTo(6, 20); milCtx.lineTo(4, 8);
+                milCtx.closePath(); milCtx.fill();
+                // Star cutout in center
+                milCtx.fillStyle = "rgba(0,0,0,0.3)";
+                milCtx.beginPath();
+                milCtx.moveTo(16, 10); milCtx.lineTo(18, 16); milCtx.lineTo(24, 16);
+                milCtx.lineTo(19, 20); milCtx.lineTo(21, 26); milCtx.lineTo(16, 22);
+                milCtx.lineTo(11, 26); milCtx.lineTo(13, 20); milCtx.lineTo(8, 16);
+                milCtx.lineTo(14, 16); milCtx.closePath(); milCtx.fill();
+                map.addImage("military-shield", milCtx.getImageData(0, 0, 32, 32), { sdf: true });
+                // Perimeter zone — large red-tinted translucent circle (restricted area feel)
                 map.addLayer({ id: "crep-live-military-glow", type: "circle", source: "crep-live-military",
                   paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 7, 6, 10, 10, 14, 14, 18],
-                    "circle-color": "#16a34a", "circle-opacity": 0.3, "circle-blur": 0.8 },
-                  layout: { visibility: "none" }});
-                // Inner dot
-                map.addLayer({ id: "crep-live-military-dot", type: "circle", source: "crep-live-military",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 6, 5, 10, 7, 14, 10],
-                    "circle-color": "#16a34a", "circle-opacity": 1,
-                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
-                    "circle-stroke-color": "#ffffff" },
-                  layout: { visibility: "none" }});
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 10, 6, 16, 10, 30, 14, 50],
+                    "circle-color": "#dc2626", "circle-opacity": 0.08,
+                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2, 14, 3],
+                    "circle-stroke-color": "#dc2626", "circle-stroke-opacity": 0.4 },
+                  layout: { visibility: "visible" }});
+                // Shield icon (symbol layer — red, distinct from all other features)
+                map.addLayer({ id: "crep-live-military-dot", type: "symbol", source: "crep-live-military",
+                  layout: {
+                    "icon-image": "military-shield",
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.4, 6, 0.6, 10, 0.9, 14, 1.4],
+                    "icon-allow-overlap": true, "icon-ignore-placement": true,
+                    visibility: "visible" },
+                  paint: { "icon-color": "#dc2626", "icon-halo-color": "#000", "icon-halo-width": 1.5 }});
                 // Click handler
                 map.on("click", "crep-live-military-dot", (e: any) => {
                   const props = e.features?.[0]?.properties;
