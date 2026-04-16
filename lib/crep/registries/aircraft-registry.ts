@@ -57,7 +57,7 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 
 const ADSBX_API_KEY = process.env.ADSBX_API_KEY || ""
 
-const SOURCE_TIMEOUT_MS = 10_000
+const SOURCE_TIMEOUT_MS = 5_000 // 5s per source — fast fail, don't block rendering
 
 // =============================================================================
 // SOURCE FETCHERS
@@ -171,7 +171,8 @@ async function fetchFromADSBExchange(): Promise<AircraftRecord[]> {
  * Source 5 — ADSB.lol (free community ADS-B, no key needed)
  */
 async function fetchFromADSBLol(): Promise<AircraftRecord[]> {
-  const url = "https://api.adsb.lol/v2/ladd"
+  // /v2/all returns ALL aircraft (~5000-8000), not just LADD-listed ones
+  const url = "https://api.adsb.lol/v2/all"
   const res = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
@@ -209,13 +210,16 @@ async function fetchFromADSBLol(): Promise<AircraftRecord[]> {
 function normaliseGeneric(a: any, source: string): AircraftRecord {
   const coords = a.location?.coordinates ?? a.geometry?.coordinates
   const props = a.properties ?? {}
+  // FR24 connector returns location: { latitude, longitude } — extract these
+  const locLat = a.location?.latitude ?? a.location?.lat
+  const locLng = a.location?.longitude ?? a.location?.lng
 
   return {
     id: a.id ?? `${source}-${a.icao24 ?? a.icao ?? Date.now()}`,
     icao: String(a.icao24 ?? a.icao ?? props.icao24 ?? "").trim(),
-    callsign: String(a.callsign ?? props.callsign ?? "").trim() || "Unknown",
-    lat: coords ? coords[1] : parseFloat(a.lat ?? a.latitude ?? 0),
-    lng: coords ? coords[0] : parseFloat(a.lng ?? a.longitude ?? 0),
+    callsign: String(a.callsign ?? a.name ?? props.callsign ?? "").trim() || "Unknown",
+    lat: coords ? coords[1] : (locLat ?? parseFloat(a.lat ?? a.latitude ?? 0)),
+    lng: coords ? coords[0] : (locLng ?? parseFloat(a.lng ?? a.longitude ?? 0)),
     altitude: a.altitude ?? a.alt ?? props.altitude ?? null,
     heading: a.heading ?? a.track ?? props.heading ?? null,
     velocity: a.velocity ?? a.speed ?? props.velocity ?? null,
@@ -269,11 +273,16 @@ function deduplicateByICAO(allAircraft: AircraftRecord[]): AircraftRecord[] {
   const map = new Map<string, AircraftRecord>()
 
   for (const a of allAircraft) {
-    if (!a.icao || a.icao === "") continue
     // Filter out invalid coordinates
     if (a.lat === 0 && a.lng === 0) continue
 
-    const key = a.icao.toLowerCase()
+    // Use ICAO for dedup when available, otherwise use callsign or id as key
+    const key = (a.icao && a.icao !== "")
+      ? a.icao.toLowerCase()
+      : (a.callsign && a.callsign !== "Unknown")
+        ? `cs-${a.callsign.toLowerCase()}`
+        : a.id // fallback to unique id (no dedup, just include)
+
     const existing = map.get(key)
     if (existing) {
       map.set(key, mergeAircraft(existing, a))

@@ -62,7 +62,7 @@ export class MapWebSocketClient {
     // Connect to PersonaPlex Bridge CREP command channel
     this.url = options.url || "ws://localhost:8999/ws/crep/commands"
     this.reconnectInterval = options.reconnectInterval || 3000
-    this.maxReconnectAttempts = options.maxReconnectAttempts || 10
+    this.maxReconnectAttempts = options.maxReconnectAttempts || 3
     
     this.onConnect = options.onConnect
     this.onDisconnect = options.onDisconnect
@@ -120,9 +120,9 @@ export class MapWebSocketClient {
       this.ws.onclose = () => {
         this.isConnecting = false
         this.stopPing()
-        console.log("[MapWS] Disconnected")
+        if (this.reconnectAttempts === 0) console.log("[MapWS] Disconnected")
         this.onDisconnect?.()
-        
+
         this.scheduleReconnect()
       }
     } catch (e) {
@@ -161,7 +161,7 @@ export class MapWebSocketClient {
     this.reconnectAttempts++
     const delay = this.reconnectInterval * Math.min(this.reconnectAttempts, 5)
     
-    console.log(`[MapWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`)
+    if (this.reconnectAttempts === 1) console.log(`[MapWS] Reconnecting (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
     
     this.reconnectTimer = setTimeout(() => {
       this.connect()

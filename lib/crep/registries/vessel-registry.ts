@@ -63,7 +63,7 @@ const VESSELFINDER_API_KEY = process.env.VESSELFINDER_API_KEY || ""
 const GFW_TOKEN = process.env.GLOBAL_FISHING_WATCH_TOKEN || ""
 const AISHUB_USERNAME = process.env.AISHUB_USERNAME || ""
 
-const SOURCE_TIMEOUT_MS = 10_000
+const SOURCE_TIMEOUT_MS = 5_000 // 5s per source — fast fail, don't block rendering
 
 // AISHub rate limit: max 1 request per minute
 let lastAISHubFetch = 0

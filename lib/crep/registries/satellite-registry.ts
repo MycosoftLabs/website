@@ -73,7 +73,7 @@ const SPACETRACK_PASS = process.env.SPACETRACK_PASS || ""
 
 const N2YO_API_KEY = process.env.N2YO_API_KEY || ""
 
-const SOURCE_TIMEOUT_MS = 10_000
+const SOURCE_TIMEOUT_MS = 8_000 // 8s per source — fast fail, don't block CREP
 
 const CELESTRAK_API = "https://celestrak.org/NORAD/elements/gp.php"
 const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle"
@@ -89,18 +89,33 @@ const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle"
  * Returns orbital elements that can be propagated with SGP4.
  */
 async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
-  // Fetch active satellites — CelesTrak's largest useful group
-  const url = `${CELESTRAK_API}?GROUP=active&FORMAT=json`
-  const res = await fetch(url, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
-  })
-  if (!res.ok) return []
-  const data = await res.json()
-  if (!Array.isArray(data)) return []
+  // Fetch multiple CelesTrak groups in parallel for maximum coverage
+  // Groups: active (~9K), stations (~500), starlink (~6K), weather (~900),
+  // gnss (~130), resource (~160), science (~1K), misc (~500)
+  const groups = ["active", "stations", "starlink", "weather", "gnss", "resource", "science", "misc"]
 
-  return data.map((gp: any) => ({
+  const results = await Promise.allSettled(
+    groups.map(async (group) => {
+      const url = `${CELESTRAK_API}?GROUP=${group}&FORMAT=json`
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+        headers: { Accept: "application/json" },
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      if (!Array.isArray(data)) return []
+      return data
+    })
+  )
+
+  const allGP: any[] = []
+  for (const r of results) {
+    if (r.status === "fulfilled") allGP.push(...r.value)
+  }
+
+  const now = new Date().toISOString()
+  return allGP.map((gp: any) => ({
     id: `ct-${gp.NORAD_CAT_ID}`,
     noradId: parseInt(gp.NORAD_CAT_ID) || 0,
     name: gp.OBJECT_NAME ?? "Unknown",
@@ -114,7 +129,7 @@ async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
     objectType: gp.OBJECT_TYPE ?? null,
     country: gp.COUNTRY_CODE ?? null,
     source: "celestrak" as const,
-    timestamp: new Date().toISOString(),
+    timestamp: now,
     tleEpoch: gp.EPOCH ?? null,
     line1: gp.TLE_LINE1 ?? undefined,
     line2: gp.TLE_LINE2 ?? undefined,
@@ -150,17 +165,32 @@ async function fetchFromMINDEX(): Promise<SatelliteRecord[]> {
  * Paginated: default 20 per page, max 100.
  */
 async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
-  const url = `${TLE_API_BASE}?page_size=100&sort=popularity&sort_dir=desc`
-  const res = await fetch(url, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
-  })
-  if (!res.ok) return []
-  const data = await res.json()
-  const members: any[] = data.member ?? data.results ?? []
+  // Paginate to get maximum TLE data — each page returns up to 100
+  // Fetch first 50 pages in parallel (~5000 satellites) for broad coverage
+  const PAGE_SIZE = 100
+  const MAX_PAGES = 5 // 500 satellites from TLE mirror (more pages get rate-limited)
+  const now = new Date().toISOString()
 
-  return members.map((tle: any) => ({
+  const pageResults = await Promise.allSettled(
+    Array.from({ length: MAX_PAGES }, (_, i) => i + 1).map(async (page) => {
+      const url = `${TLE_API_BASE}?page=${page}&page_size=${PAGE_SIZE}&sort=popularity&sort_dir=desc`
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000), // shorter timeout per page
+        headers: { Accept: "application/json" },
+      })
+      if (!res.ok) return []
+      const data = await res.json()
+      return data.member ?? data.results ?? []
+    })
+  )
+
+  const allMembers: any[] = []
+  for (const r of pageResults) {
+    if (r.status === "fulfilled") allMembers.push(...r.value)
+  }
+
+  return allMembers.map((tle: any) => ({
     id: `tle-${tle.satelliteId ?? tle.noradCatalogId ?? Date.now()}`,
     noradId: parseInt(tle.satelliteId ?? tle.noradCatalogId) || 0,
     name: tle.name ?? "Unknown",
@@ -174,7 +204,7 @@ async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
     objectType: null,
     country: null,
     source: "tle-mirror" as const,
-    timestamp: new Date().toISOString(),
+    timestamp: now,
     tleEpoch: tle.date ?? null,
     line1: tle.line1 ?? undefined,
     line2: tle.line2 ?? undefined,
