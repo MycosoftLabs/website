@@ -1,6 +1,14 @@
 "use client"
 
-import Link from "next/link"
+// Footer uses plain <a href> elements (not Next.js <Link>) deliberately.
+// Every internal footer click does a full-page hard navigation, which:
+//   (a) sidesteps the Next.js App Router first-click RSC-abort bug where the
+//       URL updates via history.pushState but the React tree doesn't
+//       re-render until a second click (see header.tsx for the same fix),
+//   (b) trades the small "prefetch + SPA transition" nicety for bulletproof
+//       single-click reliability across every page and every link.
+// External links also use <a> with target="_blank".
+
 import { Twitter, Youtube, Github } from "lucide-react"
 
 export function Footer() {
@@ -13,24 +21,24 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Company</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <Link href="/about" className="hover:text-foreground transition-colors">
+                <a href="/about" className="hover:text-foreground transition-colors">
                   About Us
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/science" className="hover:text-foreground transition-colors">
+                <a href="/science" className="hover:text-foreground transition-colors">
                   Research
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/devices" className="hover:text-foreground transition-colors">
+                <a href="/devices" className="hover:text-foreground transition-colors">
                   Devices
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/apps" className="hover:text-foreground transition-colors">
+                <a href="/apps" className="hover:text-foreground transition-colors">
                   Applications
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -40,29 +48,29 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">AI</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <Link href="/ai" className="hover:text-foreground transition-colors">
+                <a href="/ai" className="hover:text-foreground transition-colors">
                   AI Overview
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/myca" className="hover:text-foreground transition-colors">
+                <a href="/myca" className="hover:text-foreground transition-colors">
                   MYCA
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/ai/avani" className="hover:text-foreground transition-colors">
+                <a href="/ai/avani" className="hover:text-foreground transition-colors">
                   AVANI
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/docs" className="hover:text-foreground transition-colors">
+                <a href="/docs" className="hover:text-foreground transition-colors">
                   Documentation
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/natureos" className="hover:text-foreground transition-colors">
+                <a href="/natureos" className="hover:text-foreground transition-colors">
                   NatureOS
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -72,14 +80,14 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Legal</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <Link href="/privacy" className="hover:text-foreground transition-colors">
+                <a href="/privacy" className="hover:text-foreground transition-colors">
                   Privacy Policy
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/terms" className="hover:text-foreground transition-colors">
+                <a href="/terms" className="hover:text-foreground transition-colors">
                   Terms of Service
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

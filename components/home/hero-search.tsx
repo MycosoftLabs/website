@@ -12,7 +12,7 @@
  * - Session memory integration
  */
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion"
 import { useTheme } from "next-themes"
@@ -189,8 +189,8 @@ export function HeroSearch() {
     }
   }, [router])
 
-  // Click outside handler - use `click` instead of `mousedown` so first-click
-  // navigation on page links is not interrupted by an early state update.
+  // Click outside handler — use `click` (not `mousedown`) so link navigations
+  // aren't intercepted before React's event delegation.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {

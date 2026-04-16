@@ -403,35 +403,35 @@ export function Header() {
 
         {/* Desktop Navigation with Individual Dropdowns */}
         <nav ref={navRef} className="hidden md:flex items-center gap-1">
-          {/* Search - Next.js Link handles hash navigation + prefetch */}
-          <Link
+          {/* Search - plain <a> for single-click hard nav (avoids Next.js App Router dev-mode RSC abort) */}
+          <a
             href="/search"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group cursor-pointer"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Search className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors duration-300" />
             <span>Search</span>
-          </Link>
+          </a>
 
-          {/* About Us - Direct Link (Next.js Link for prefetch + client-side nav) */}
-          <Link
+          {/* About Us - plain <a> for single-click hard nav */}
+          <a
             href="/about"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Users className="h-4 w-4 text-muted-foreground group-hover:text-green-400 transition-colors duration-300" />
             <span>About Us</span>
-          </Link>
+          </a>
 
-          {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
-          <Link
+          {/* Agent Access — plain <a> for single-click hard nav */}
+          <a
             href="/agent"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Key className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
             <span>Agent Access</span>
-          </Link>
+          </a>
 
           {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}
           <NavDropdown
@@ -498,16 +498,16 @@ export function Header() {
             globalTimeoutRef={globalDropdownTimeoutRef}
           />
 
-          {/* Security - Direct Link (no dropdown) */}
+          {/* Security - plain <a> for single-click hard nav */}
           {user && (
-            <Link
+            <a
               href="/security"
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
               onMouseEnter={() => setOpenDropdown(null)}
             >
               <Lock className="h-4 w-4 text-muted-foreground group-hover:text-red-400 transition-colors duration-300" />
               <span>Security</span>
-            </Link>
+            </a>
           )}
         </nav>
 

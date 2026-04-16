@@ -2,12 +2,13 @@ import type React from "react"
 import type { Viewport } from "next"
 import { GeistSans } from "geist/font/sans"
 
-// CRITICAL: Revalidate every 60s so deploys invalidate CDN cache within 1 minute.
-// Default Next.js static caching was `s-maxage=31536000` (1 YEAR on CDN), causing
-// production fixes to never reach users because Cloudflare served stale HTML
-// from before the deploy. `revalidate = 60` caps cache at 60 seconds. Cascades
-// to every route via layout.
-export const revalidate = 60
+// NOTE: do NOT set `export const revalidate = X` on the root layout.
+// In Next.js 15.1, combining layout-level revalidate with statically
+// prerendered pages (e.g. `/`) causes a client-router bug where the first
+// navigation OUT OF the prerendered page updates the URL but not the
+// rendered tree (content freezes until a second click). For CDN cache
+// invalidation, use route-level `revalidate` on dynamic pages or rely
+// on the per-deploy Cloudflare purge instead.
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeColorSync } from "@/components/theme-color-sync"
 import { AuthProvider } from "@/contexts/auth-context"

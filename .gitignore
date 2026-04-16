@@ -48,3 +48,4 @@ Sporebase/
 
 # NAS-backed media (handled on sandbox via mount)
 public/assets/
+credentials.local

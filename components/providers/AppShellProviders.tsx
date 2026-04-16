@@ -118,16 +118,12 @@ export function AppShellProviders({ children }: { children: React.ReactNode }) {
     : undefined
 
   // Build the page layout (MYCAFloatingButton goes inside MYCAProvider below)
-  // key={pathname} on <main> forces React to unmount the old page and mount the
-  // new one on every route change. Fixes the double-click navigation bug where
-  // URL changed but the previous page's React tree stayed rendered (React 18
-  // concurrent rendering would hold the old UI during navigation transitions).
   const pageLayout = (
     <>
       {/* suppressHydrationWarning: Cursor IDE browser may inject attributes into the DOM */}
       <div className="min-h-dvh flex flex-col relative" suppressHydrationWarning>
         <Header />
-        <main key={pathname} className="flex-1 relative w-full overflow-x-hidden">{content}</main>
+        <main className="flex-1 relative w-full overflow-x-hidden">{content}</main>
         <Footer />
       </div>
       {showFloating && enableVoice ? (

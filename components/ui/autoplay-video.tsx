@@ -25,17 +25,32 @@ function shouldProbeEmptyMp4(url: string): boolean {
 }
 
 /**
- * Dev asset resolution:
- * - Prefer same-origin first so locally copied `public/assets/*` files work.
- * - Keep prod/sandbox origin as a fallback for assets that only exist remotely.
- * - `NEXT_PUBLIC_DEV_ASSETS_ORIGIN=local|same` forces same-origin only.
+ * Dev asset resolution: SAME-ORIGIN ONLY.
+ *
+ * We used to add `https://mycosoft.com` as a cross-origin fallback in dev so
+ * videos would still play without the full NAS mount. But the browser
+ * CORS-blocks those fetches (ERR_BLOCKED_BY_ORB), the video fires `error`,
+ * AutoplayVideo advances to the next source, key={activeSrc} remounts the
+ * <video>, new load begins — and every few hundred milliseconds this loop
+ * saturates the browser's network queue with hundreds of aborted requests,
+ * starving the RSC fetch that Next.js needs for client-side navigation.
+ *
+ * Symptom: first click on a header link from / updates the URL via
+ * history.pushState but the React tree never updates because the /about
+ * RSC fetch was aborted by the video storm. Only a second click (after the
+ * storm quiets) completes navigation.
+ *
+ * Opt-in cross-origin fallback: set NEXT_PUBLIC_DEV_ASSETS_ORIGIN=<url> to
+ * an origin that serves /assets/* with proper CORS headers.
  */
 function resolveAssetUrls(src: string, isDev: boolean): string[] {
   if (typeof src !== "string" || !src) return []
   if (!isDev || !src.startsWith("/assets/")) return [src]
-  const raw = process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN?.trim().toLowerCase()
-  if (raw === "local" || raw === "same") return [src]
-  const origin = (process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN || "https://mycosoft.com").replace(/\/$/, "")
+  const raw = process.env.NEXT_PUBLIC_DEV_ASSETS_ORIGIN?.trim() || ""
+  const lowered = raw.toLowerCase()
+  if (!raw || lowered === "local" || lowered === "same") return [src]
+  // Only add the cross-origin variant if the operator explicitly configures it.
+  const origin = raw.replace(/\/$/, "")
   return [src, `${origin}${src}`]
 }
 
@@ -193,7 +208,16 @@ export function AutoplayVideo({
       if (hideUntilPlaying) setPlaying(true)
     }
     const onWaiting = () => scheduleStall()
+    // Only advance on terminal media errors (MEDIA_ERR_SRC_NOT_SUPPORTED /
+    // MEDIA_ERR_NETWORK). Aborted requests during navigation show up as
+    // generic `error` events too — advancing on those causes a remount loop
+    // that storms the network and starves out other fetches.
     const onError = () => {
+      const code = v.error?.code
+      const terminal =
+        code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED ||
+        code === MediaError.MEDIA_ERR_NETWORK
+      if (!terminal) return
       clearStall()
       const L = listRef.current
       setIndex((i) => {
