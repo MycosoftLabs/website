@@ -542,7 +542,10 @@ jobs:
     needs: [check-fast]
     if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main'
     environment: production
-    timeout-minutes: 15
+    # 30 min: build-on-VM + blue/green cutover can exceed the old 15-min budget
+    # for a large Next.js image. If this still isn't enough, switch to pulling
+    # production-latest from GHCR instead of building on the VM.
+    timeout-minutes: 30
     steps:
       - name: Checkout (for composite action)
         uses: actions/checkout@v4
@@ -592,61 +595,46 @@ jobs:
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 
-      - name: Build and deploy on VM
+      - name: Build on VM + blue/green cutover (zero-downtime, CF purge)
         run: |
-          ssh-retry production bash -s <<'BUILD'
+          ssh-retry production bash -s <<BUILD
             set -euo pipefail
-            exec 9>/tmp/mycosoft-prod-deploy.lock
-            flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
 
             echo "=== Building Docker image locally ==="
             docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL="$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
+              --build-arg NEXT_PUBLIC_SUPABASE_URL="\$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
+              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
               -f Dockerfile.production \
               -t mycosoft-website:local \
               .
 
             echo "=== Ensuring NAS is mounted ==="
             sudo mount -a 2>/dev/null || true
-            echo "--- FSTAB DUMP ---"
-            cat /etc/fstab
-            echo "--- MOUNTS ---"
-            df -h
 
-            PREV_IMAGE=$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
-            echo "${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
+            chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
 
-            free_host_port_3000() {
-              echo "=== Freeing host :3000 (compose website + all publishers) ==="
-              (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
-              for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
-                [ -z "$cid" ] && continue
-                docker stop "$cid" 2>/dev/null || true
-                docker rm -f "$cid" 2>/dev/null || true
-              done
-              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
-            }
-            free_host_port_3000
-
-            echo "=== Starting Container ==="
-            export WEBSITE_IMAGE="mycosoft-website:local"
-            if ! docker compose -f docker-compose.production.yml up -d --no-deps --remove-orphans website; then
-              echo "Compose deploy failed. Attempting rollback container..."
-              if [ -n "${PREV_IMAGE}" ]; then
-                free_host_port_3000
-                docker run -d --name website-live -p 3000:3000 \
-                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-                  --restart unless-stopped "${PREV_IMAGE}" || true
-              fi
-              exit 1
+            echo "=== First-run bootstrap (idempotent) ==="
+            if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
+              echo "Blue/green not yet bootstrapped — running bootstrap"
+              export WEBSITE_IMAGE="mycosoft-website:local"
+              ./scripts/blue-green-bootstrap.sh
             fi
 
-            echo "=== Running Database Migrations ==="
-            docker compose -f docker-compose.production.yml exec -T website npm run db:migrate --if-present 2>/dev/null || echo "Migration skipped"
+            echo "=== Running blue/green cutover with local image ==="
+            export IMAGE="mycosoft-website:local"
+            export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
+            export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
+            export PUBLIC_HOST='mycosoft.com'
+            ./scripts/blue-green-deploy.sh
 
-            echo "=== Instant deploy complete at $(date) ==="
+            echo "=== Running Database Migrations ==="
+            # Active slot is whatever the state file says after cutover
+            SLOT=\$(cat /opt/mycosoft/state/active-slot 2>/dev/null || echo "blue")
+            docker exec "mycosoft-website-\${SLOT}" npm run db:migrate --if-present 2>/dev/null \
+              || echo "Migration skipped"
+
+            echo "=== Instant blue/green deploy complete at \$(date) ==="
           BUILD
 
       - name: Health check
