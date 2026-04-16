@@ -1,19 +1,19 @@
 /**
  * AISStream Vessel API Route - Feb 18, 2026 (updated Apr 2026)
- * Real-time AIS vessel tracking via WebSocket with multi-source fallback
+ * Real-time AIS vessel tracking via multi-source Vessel Registry
  *
- * Source priority:
- *   1. AISStream WebSocket (primary — live AIS data)
- *   2. MINDEX cache (/api/mindex/proxy/vessels — PostGIS cached vessel data)
- *   3. MarineTraffic API (if MARINETRAFFIC_API_KEY env var exists)
+ * Uses the Vessel Registry to aggregate ALL available maritime data sources
+ * (AISStream, MINDEX, MarineTraffic, VesselFinder, BarentsWatch, DMA) in
+ * parallel with MMSI-based deduplication.
  *
- * Results cached for 30 seconds to prevent overwhelming the dev server
+ * Results cached for 30 seconds to prevent overwhelming the dev server.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
 import { ingestVessels } from "@/lib/oei/mindex-ingest"
+import { fetchAllVesselsWithMeta, type VesselRecord } from "@/lib/crep/registries/vessel-registry"
 
 export const dynamic = "force-dynamic"
 
@@ -90,89 +90,13 @@ function ensureAISStream(): void {
 // Kick off the stream immediately when this module is first loaded by Next.js
 ensureAISStream()
 
-// ── Fallback: MINDEX cache ────────────────────────────────────────────────────
-
-const MINDEX_URL =
-  process.env.MINDEX_API_URL ||
-  process.env.NEXT_PUBLIC_MINDEX_URL ||
-  "http://192.168.0.189:8000"
-
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
-
-/**
- * Fetch cached vessel data from MINDEX PostGIS earth layer.
- * Returns normalised vessel array or empty array on failure.
- */
-async function fetchMINDEXVessels(): Promise<{ vessels: unknown[]; ok: boolean }> {
-  try {
-    const url = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=vessels&lat_min=-90&lat_max=90&lng_min=-180&lng_max=180&limit=2000`
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(10000),
-      headers: { Accept: "application/json", "X-API-Key": MINDEX_API_KEY },
-    })
-    if (!res.ok) return { vessels: [], ok: false }
-    const data = await res.json()
-    // MINDEX returns { features: [...] } or { entities: [...] }
-    const entities: unknown[] = data.features ?? data.entities ?? data.vessels ?? []
-    return { vessels: entities, ok: entities.length > 0 }
-  } catch {
-    return { vessels: [], ok: false }
-  }
-}
-
-// ── Fallback: MarineTraffic API ──────────────────────────────────────────────
-
-const MARINETRAFFIC_API_KEY = process.env.MARINETRAFFIC_API_KEY || ""
-
-/**
- * Fetch vessel positions from MarineTraffic PS07 endpoint (if API key exists).
- * Only called when AISStream and MINDEX both return 0 results.
- */
-async function fetchMarineTrafficVessels(): Promise<{ vessels: unknown[]; ok: boolean }> {
-  if (!MARINETRAFFIC_API_KEY) return { vessels: [], ok: false }
-  try {
-    // PS07 = vessel positions export service (JSON format)
-    const url = `https://services.marinetraffic.com/api/exportvessels/v:8/${MARINETRAFFIC_API_KEY}/timespan:60/protocol:jsono`
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(15000),
-      headers: { Accept: "application/json" },
-    })
-    if (!res.ok) return { vessels: [], ok: false }
-    const data = await res.json()
-    const rawVessels: unknown[] = Array.isArray(data) ? data : []
-    // Normalise MarineTraffic fields to match AISStream schema
-    const normalised = rawVessels.map((v: any) => ({
-      id: v.MMSI || `mt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      mmsi: v.MMSI,
-      name: v.SHIPNAME,
-      location: { type: "Point" as const, coordinates: [parseFloat(v.LON), parseFloat(v.LAT)] },
-      sog: parseFloat(v.SPEED) / 10, // MT gives speed in 1/10 knot
-      cog: parseFloat(v.COURSE) / 10,
-      heading: parseFloat(v.HEADING),
-      shipType: parseInt(v.SHIPTYPE) || 0,
-      destination: v.DESTINATION,
-      navStatus: parseInt(v.STATUS) || null,
-      lastSeen: v.TIMESTAMP || new Date().toISOString(),
-      provenance: { source: "marinetraffic", timestamp: new Date().toISOString() },
-    }))
-    return { vessels: normalised, ok: normalised.length > 0 }
-  } catch {
-    return { vessels: [], ok: false }
-  }
-}
-
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 /**
  * GET /api/oei/aisstream
- * Returns real-time AIS vessel positions with multi-source fallback.
- *
- * Source priority:
- *   1. AISStream WebSocket (primary)
- *   2. MINDEX cache (fallback 1)
- *   3. MarineTraffic API (fallback 2, requires MARINETRAFFIC_API_KEY env var)
+ * Returns real-time AIS vessel positions from ALL available maritime sources
+ * via the Vessel Registry (AISStream, MINDEX, MarineTraffic, VesselFinder,
+ * BarentsWatch, Danish Maritime Authority).
  *
  * Query params:
  * - lamin, lamax, lomin, lomax  -- bounding box filter
@@ -211,55 +135,61 @@ export async function GET(request: NextRequest) {
     // Ensure stream is running (no-op if already started)
     ensureAISStream()
 
-    const query = {
-      bounds: lamin && lamax && lomin && lomax
-        ? { south: parseFloat(lamin), north: parseFloat(lamax), west: parseFloat(lomin), east: parseFloat(lomax) }
-        : undefined,
-      mmsi: mmsi ? mmsi.split(",") : undefined,
-      limit,
-    }
+    // ── Multi-source fetch via Vessel Registry ────────────────────────────
+    const registryResult = await fetchAllVesselsWithMeta()
+    let vessels: VesselRecord[] = registryResult.vessels
 
-    // ── Source 1: AISStream WebSocket ──────────────────────────────────────
-    let vessels = client.getCachedVessels(query)
-    let activeSource = "aisstream"
-
+    // If the registry got nothing, wait briefly for AISStream cold start
     if (vessels.length === 0 && client.hasApiKey()) {
       const waited = Date.now() - startTime
       const remaining = INIT_WAIT_MS - waited
       if (remaining > 500) {
         await new Promise(resolve => setTimeout(resolve, remaining))
-        vessels = client.getCachedVessels(query)
+        // Re-fetch from registry after AIS stream has had time to populate
+        const retry = await fetchAllVesselsWithMeta()
+        vessels = retry.vessels
       }
     }
 
-    // ── Source 2: MINDEX cache (fallback) ─────────────────────────────────
-    if (vessels.length === 0) {
-      console.log("[AISStream] 0 vessels from WebSocket -- trying MINDEX cache...")
-      const mindexResult = await fetchMINDEXVessels()
-      if (mindexResult.ok) {
-        vessels = mindexResult.vessels as typeof vessels
-        activeSource = "mindex-cache"
-        console.log(`[AISStream] MINDEX cache returned ${vessels.length} vessels`)
-      }
+    // Apply bounding box filter if provided
+    if (lamin && lamax && lomin && lomax) {
+      const south = parseFloat(lamin)
+      const north = parseFloat(lamax)
+      const west = parseFloat(lomin)
+      const east = parseFloat(lomax)
+      vessels = vessels.filter(
+        (v) => v.lat >= south && v.lat <= north && v.lng >= west && v.lng <= east
+      )
     }
 
-    // ── Source 3: MarineTraffic API (fallback 2) ──────────────────────────
-    if (vessels.length === 0 && MARINETRAFFIC_API_KEY) {
-      console.log("[AISStream] 0 vessels from MINDEX -- trying MarineTraffic API...")
-      const mtResult = await fetchMarineTrafficVessels()
-      if (mtResult.ok) {
-        vessels = mtResult.vessels as typeof vessels
-        activeSource = "marinetraffic"
-        console.log(`[AISStream] MarineTraffic returned ${vessels.length} vessels`)
-      }
+    // Apply MMSI filter if provided
+    if (mmsi) {
+      const mmsiSet = new Set(mmsi.split(",").map((m) => m.trim()))
+      vessels = vessels.filter((v) => mmsiSet.has(v.mmsi))
+    }
+
+    // Apply limit
+    if (limit && vessels.length > limit) {
+      vessels = vessels.slice(0, limit)
     }
 
     const latency = Date.now() - startTime
+    const activeSource = Object.entries(registryResult.sources)
+      .filter(([, c]) => c > 0)
+      .map(([s]) => s)
+      .join("+") || "none"
 
     if (publish) {
+      const query = {
+        bounds: lamin && lamax && lomin && lomax
+          ? { south: parseFloat(lamin), north: parseFloat(lamax), west: parseFloat(lomin), east: parseFloat(lomax) }
+          : undefined,
+        mmsi: mmsi ? mmsi.split(",") : undefined,
+        limit,
+      }
       const result = await client.publishCachedVessels(query)
-      logDataCollection("aisstream", "aisstream.com", result.entities.length, latency, true, "memory")
-      ingestVessels("aisstream", result.entities as any)
+      logDataCollection("vessel-registry", "multi-source", result.entities.length, latency, true, "memory")
+      ingestVessels("vessel-registry", result.entities as any)
       const responseData = {
         success: true,
         published: result.published,
@@ -268,19 +198,21 @@ export async function GET(request: NextRequest) {
         isLive: streamRunning,
         available: result.entities.length > 0,
         source: activeSource,
+        sources: registryResult.sources,
         timestamp: new Date().toISOString(),
         cached: false,
       }
       return NextResponse.json(responseData)
     } else {
-      logDataCollection(activeSource, activeSource === "aisstream" ? "aisstream.com" : activeSource, vessels.length, latency, true, "memory")
-      if (activeSource === "aisstream") ingestVessels("aisstream", vessels as any)
+      logDataCollection("vessel-registry", "multi-source", vessels.length, latency, true, "memory")
+      ingestVessels("vessel-registry", vessels as any)
       const responseData = {
         success: true,
         total: vessels.length,
         vessels,
         isLive: streamRunning,
         source: activeSource,
+        sources: registryResult.sources,
         available: vessels.length > 0,
         timestamp: new Date().toISOString(),
         cached: false,
@@ -292,7 +224,7 @@ export async function GET(request: NextRequest) {
         timestamp: now,
         expiresAt: now + CACHE_TTL_MS,
       })
-      console.log(`[AISStream] Cache SET (TTL: ${CACHE_TTL_MS / 1000}s, source: ${activeSource})`)
+      console.log(`[AISStream] Cache SET (TTL: ${CACHE_TTL_MS / 1000}s, sources: ${activeSource})`)
 
       return NextResponse.json(responseData)
     }
@@ -300,31 +232,13 @@ export async function GET(request: NextRequest) {
     console.error("[AISStream] Error:", error)
     logAPIError("aisstream", "aisstream.com", String(error))
 
-    // Last-resort: try MINDEX even on exception path
-    try {
-      const mindexResult = await fetchMINDEXVessels()
-      if (mindexResult.ok) {
-        console.log(`[AISStream] Error recovery: MINDEX cache returned ${mindexResult.vessels.length} vessels`)
-        return NextResponse.json({
-          success: true,
-          total: mindexResult.vessels.length,
-          vessels: mindexResult.vessels,
-          isLive: false,
-          source: "mindex-cache-recovery",
-          available: true,
-          timestamp: new Date().toISOString(),
-          cached: false,
-        })
-      }
-    } catch {}
-
     // Return empty data on error instead of error status (graceful fallback)
     return NextResponse.json({
       success: false,
       total: 0,
       vessels: [],
       isLive: false,
-      source: "aisstream",
+      source: "vessel-registry",
       available: false,
       timestamp: new Date().toISOString(),
       error: String(error),
