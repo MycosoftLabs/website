@@ -276,6 +276,9 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Military bases load directly from static TIGER GeoJSON, skip MINDEX
 - *(crep)* Military perimeters — brighter fill (15%), thicker line (1.5-4px), debug logs
 - *(crep)* Registry merge preserves valid coordinates — never overwrite with 0,0
+- Site-wide double-click navigation bug
+- Mobile-nav Search link also had preventDefault+router.push pattern
+- Reverse Cursor commit 03484cce navigation bugs + remove video fallbacks
 
 ### CREP
 
@@ -394,6 +397,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - CREP session report April 14-15 2026 — full changelog
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 
 ### Features
@@ -604,6 +608,10 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Infra
+
+- Zero-downtime blue/green deploy with nginx switch + Cloudflare purge
 
 ### Merge
 
