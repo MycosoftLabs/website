@@ -34,7 +34,9 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/mycosoft/website}"
 STATE_DIR="${STATE_DIR:-/opt/mycosoft/state}"
 NGINX_DIR="${NGINX_DIR:-/opt/mycosoft/nginx}"
-LOG_FILE="${LOG_FILE:-/var/log/mycosoft-deploys.log}"
+# Default log path must be writable by the non-root SSH user. /var/log/ requires
+# sudo so we fall back to /tmp. Operators can override with LOG_FILE env.
+LOG_FILE="${LOG_FILE:-/tmp/mycosoft-deploys.log}"
 COMPOSE_FILES=(
   "-f" "docker-compose.production.yml"
   "-f" "docker-compose.production.blue-green.yml"
