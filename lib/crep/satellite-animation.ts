@@ -26,8 +26,10 @@ interface SatelliteInput {
 
 // ─── Animation Controller ────────────────────────────────────────────────────
 
-/** Minimum milliseconds between propagation ticks (~10 FPS) */
-const TICK_INTERVAL_MS = 100
+/** Minimum milliseconds between propagation ticks (~1 FPS for smooth visible movement).
+ *  At 10fps satellites appeared to blink/jump because the position deltas were too small
+ *  for MapLibre to interpolate visually. At 1fps the movement is clearly directional. */
+const TICK_INTERVAL_MS = 1000
 
 /** How often to recalculate orbit paths (every 60s) */
 const ORBIT_PATH_INTERVAL_MS = 60000

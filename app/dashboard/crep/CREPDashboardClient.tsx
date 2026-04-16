@@ -4458,19 +4458,34 @@ export default function CREPDashboardPage() {
                 // At high zoom: shows callsign label
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-aircraft", { type: "geojson", data: emptyFC });
-                // Outer glow (large, blurred — looks like radar blip)
+                // Generate aircraft icon via canvas (guaranteed to work — no external file)
+                const acCanvas = document.createElement("canvas");
+                acCanvas.width = 32; acCanvas.height = 32;
+                const acCtx = acCanvas.getContext("2d")!;
+                acCtx.fillStyle = "white";
+                acCtx.beginPath();
+                // Plane silhouette pointing UP
+                acCtx.moveTo(16, 2); acCtx.lineTo(20, 10); acCtx.lineTo(28, 14);
+                acCtx.lineTo(28, 17); acCtx.lineTo(20, 15); acCtx.lineTo(19, 24);
+                acCtx.lineTo(22, 27); acCtx.lineTo(22, 29); acCtx.lineTo(16, 27);
+                acCtx.lineTo(10, 29); acCtx.lineTo(10, 27); acCtx.lineTo(13, 24);
+                acCtx.lineTo(12, 15); acCtx.lineTo(4, 17); acCtx.lineTo(4, 14);
+                acCtx.lineTo(12, 10); acCtx.closePath(); acCtx.fill();
+                map.addImage("aircraft-icon", acCtx.getImageData(0, 0, 32, 32), { sdf: true });
+                // Outer glow
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
                   paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 8, 6, 12, 10, 18, 14, 26],
-                    "circle-color": "#fbbf24", "circle-opacity": 0.25, "circle-blur": 1.0 }});
-                // Inner bright dot
-                map.addLayer({ id: "crep-live-aircraft-dot", type: "circle", source: "crep-live-aircraft",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3.5, 6, 5.5, 10, 9, 14, 14],
-                    "circle-color": "#fbbf24", "circle-opacity": 1,
-                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2, 14, 3],
-                    "circle-stroke-color": "#ffffff" }});
-                // Labels added later when style fonts are known
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 10, 10, 16],
+                    "circle-color": "#fbbf24", "circle-opacity": 0.15, "circle-blur": 1.0 }});
+                // Aircraft ICON (symbol layer — rotates by heading, amber plane shape)
+                map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
+                  layout: {
+                    "icon-image": "aircraft-icon",
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 6, 0.7, 10, 1.0, 14, 1.5],
+                    "icon-rotate": ["get", "heading"],
+                    "icon-rotation-alignment": "map",
+                    "icon-allow-overlap": true, "icon-ignore-placement": true },
+                  paint: { "icon-color": "#fbbf24", "icon-halo-color": "#000", "icon-halo-width": 1 }});
                 // Click + hover
                 map.on("click", "crep-live-aircraft-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
@@ -4525,19 +4540,30 @@ export default function CREPDashboardPage() {
                 // Distinctive: medium, cyan blue, near coastlines
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC });
+                // Generate vessel icon via canvas (arrowhead/ship shape)
+                const vCanvas = document.createElement("canvas");
+                vCanvas.width = 32; vCanvas.height = 32;
+                const vCtx = vCanvas.getContext("2d")!;
+                vCtx.fillStyle = "white";
+                vCtx.beginPath();
+                // Ship/arrowhead pointing UP
+                vCtx.moveTo(16, 2); vCtx.lineTo(27, 28); vCtx.lineTo(16, 22);
+                vCtx.lineTo(5, 28); vCtx.closePath(); vCtx.fill();
+                map.addImage("vessel-icon", vCtx.getImageData(0, 0, 32, 32), { sdf: true });
                 // Outer glow
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
                   paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 7, 6, 10, 10, 16],
-                    "circle-color": "#22d3ee", "circle-opacity": 0.3, "circle-blur": 0.9 }});
-                // Inner dot
-                map.addLayer({ id: "crep-live-vessels-dot", type: "circle", source: "crep-live-vessels",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 6, 5, 10, 8, 14, 12],
-                    "circle-color": "#22d3ee", "circle-opacity": 1,
-                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 1, 10, 2],
-                    "circle-stroke-color": "#ffffff" }});
-                // Labels added later when style fonts are known
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 9, 10, 14],
+                    "circle-color": "#22d3ee", "circle-opacity": 0.2, "circle-blur": 0.9 }});
+                // Vessel ICON (symbol layer — rotates by COG, cyan arrowhead)
+                map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
+                  layout: {
+                    "icon-image": "vessel-icon",
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.4, 6, 0.6, 10, 0.9, 14, 1.3],
+                    "icon-rotate": ["get", "heading"],
+                    "icon-rotation-alignment": "map",
+                    "icon-allow-overlap": true, "icon-ignore-placement": true },
+                  paint: { "icon-color": "#22d3ee", "icon-halo-color": "#000", "icon-halo-width": 1 }});
                 map.on("click", "crep-live-vessels-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
                   if (id) {
@@ -4864,10 +4890,18 @@ export default function CREPDashboardPage() {
                   const features = facilitiesToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  // OpenGridWorks-style: radius scaled by sqrt(capacity_mw)
+                  // 10 MW → radius 3px, 100 MW → 6px, 1000 MW → 10px, 5000 MW → 14px
                   safeAddLayer({
                     id: "crep-plants-circle", type: "circle", source: "crep-plants",
                     paint: {
-                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 5, 8, 8, 12, 12],
+                      "circle-radius": [
+                        "interpolate", ["linear"], ["zoom"],
+                        2, ["max", 2, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.3]],
+                        6, ["max", 3, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.5]],
+                        10, ["max", 4, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.8]],
+                        14, ["max", 5, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 1.2]],
+                      ],
                       "circle-color": ["get", "color"],
                       "circle-opacity": 0.85,
                       "circle-stroke-width": 1,
