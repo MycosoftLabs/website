@@ -240,7 +240,7 @@ export function HeroSearch() {
     const submittedQuery = String(formData.get("q") || query).trim()
     if (submittedQuery) {
       setIsSearching(true)
-      window.location.assign(`/search?q=${encodeURIComponent(submittedQuery)}`)
+      router.push(`/search?q=${encodeURIComponent(submittedQuery)}`)
     }
   }
 
@@ -248,7 +248,7 @@ export function HeroSearch() {
     const submittedQuery = rawQuery.trim()
     if (!submittedQuery) return
     setIsSearching(true)
-    window.location.assign(`/search?q=${encodeURIComponent(submittedQuery)}`)
+    router.push(`/search?q=${encodeURIComponent(submittedQuery)}`)
   }
 
   const toggleVoice = () => {
@@ -475,14 +475,10 @@ export function HeroSearch() {
                   )}
                 </motion.button>
                 
-                {/* Submit Button */}
+                {/* Submit Button — onClick via form submit (handleSearch), no onMouseDown race */}
                 <motion.button
                   type="submit"
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    navigateToSearch(query)
-                  }}
-                  disabled={isSearching}
+                  disabled={isSearching || !query.trim()}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className={cn(
@@ -539,7 +535,7 @@ export function HeroSearch() {
                             type="button"
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => {
-                              window.location.assign(suggestion.url)
+                              router.push(suggestion.url)
                             }}
                             className="flex w-full flex-col px-4 py-3 text-left hover:bg-muted/70"
                           >
@@ -573,7 +569,7 @@ export function HeroSearch() {
               type="button"
               onClick={() => {
                 setQuery(term)
-                window.location.assign(`/search?q=${encodeURIComponent(term)}`)
+                router.push(`/search?q=${encodeURIComponent(term)}`)
               }}
               className={cn(
                 "px-3 py-2 rounded-full text-xs sm:text-sm flex-shrink-0 whitespace-nowrap",

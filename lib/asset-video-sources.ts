@@ -9,7 +9,11 @@
  *   can serve them from the NAS bind mount.
  * - Small UI images can remain local repo assets or remote CDN images.
  * - Helper functions here should keep route URLs stable while allowing NAS
- *   filename aliases and fallback clips.
+ *   filename aliases.
+ *
+ * NO FALLBACK VIDEOS — each page plays its intended video or nothing.
+ * The mushroom/waterfall NAS fallbacks were removed per site-wide policy:
+ * a missing homepage video must never render as a walking mushroom.
  */
 
 export function webVariantPath(canonicalMp4Path: string): string {
@@ -67,26 +71,22 @@ function orderedHomeHeroCanonicalPaths(): string[] {
 
 /**
  * Homepage hero: `NEXT_PUBLIC_HOME_HERO_MP4` first (exact NAS filename), then common aliases.
- * Appends known-good NAS clips last so a 0-byte or missing homepage file still plays real video.
+ * NO mushroom/waterfall fallback — only the homepage's own video plays here.
  */
 export function homeHeroVideoSources(): string[] {
-  const primary = mergeMp4SourceGroups(...orderedHomeHeroCanonicalPaths())
-  if (process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
-    return primary
-  }
-  return mergeWithNasFallbacks([primary])
+  return mergeMp4SourceGroups(...orderedHomeHeroCanonicalPaths())
 }
 
 interface DeviceHeroVideoOptions {
   envUrl?: string
   aliases?: string[]
+  /** @deprecated kept for call-site compatibility; ignored. No fallback videos anywhere. */
   allowMushroomFallback?: boolean
 }
 
 /**
  * Generic NAS-first hero source builder for device pages.
- * Keeps production URLs under `/assets/...` while permitting alternate
- * filenames that may exist on the NAS.
+ * Only returns the page's own canonical paths — never the mushroom fallback.
  */
 export function deviceHeroVideoSources(
   defaultCanonical: string,
@@ -105,16 +105,12 @@ export function deviceHeroVideoSources(
   add(defaultCanonical)
   for (const alias of options.aliases || []) add(alias)
 
-  const primary = mergeMp4SourceGroups(...paths)
-  if (options.allowMushroomFallback === false || process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
-    return primary
-  }
-  return mergeWithNasFallbacks([primary])
+  return mergeMp4SourceGroups(...paths)
 }
 
 /**
  * Device page hero: optional `NEXT_PUBLIC_HYPHAE_HERO_MP4`, then `defaultCanonical`
- * (typically `hero.mp4` on NAS), then alternate filename. Same mushroom fallback flag as homepage.
+ * (typically `hero.mp4` on NAS), then alternate filename. NO mushroom fallback.
  */
 export function hyphaeHeroVideoSources(defaultCanonical: string): string[] {
   const env = process.env.NEXT_PUBLIC_HYPHAE_HERO_MP4?.trim()
@@ -130,25 +126,14 @@ export function hyphaeHeroVideoSources(defaultCanonical: string): string[] {
   add(defaultCanonical)
   add("/assets/hyphae1/Hyphae 1 Hero.mp4")
   add("/assets/hyphae1/hero.mp4")
-  const primary = mergeMp4SourceGroups(...paths)
-  if (process.env.NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK === "false") {
-    return primary
-  }
-  return mergeWithNasFallbacks([primary])
+  return mergeMp4SourceGroups(...paths)
 }
 
-/** Known-good NAS clips when a hero/canonical file is 0 bytes or missing */
-export const NAS_HD_FALLBACK_MP4 = "/assets/mushroom1/mushroom 1 walking.mp4"
-export const NAS_SECONDARY_FALLBACK_MP4 = "/assets/mushroom1/waterfall 1.mp4"
-
 /**
- * Append Mushroom1 “known-good” clips after primaries when empty/missing files should still show video.
- * Opt out with `NEXT_PUBLIC_VIDEO_ALLOW_MUSHROOM_FALLBACK=false`.
+ * @deprecated No fallback videos anywhere on the site. Kept as a pass-through
+ * for legacy call-sites that flatten multiple source groups into one list.
+ * Returns the merged primary sources WITHOUT appending any fallback clips.
  */
 export function mergeWithNasFallbacks(...primaryGroups: string[][]): string[] {
-  return mergeVideoSources(
-    ...primaryGroups,
-    assetMp4Sources(NAS_HD_FALLBACK_MP4),
-    assetMp4Sources(NAS_SECONDARY_FALLBACK_MP4)
-  )
+  return mergeVideoSources(...primaryGroups)
 }

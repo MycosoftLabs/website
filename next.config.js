@@ -66,6 +66,13 @@ const nextConfig = {
     // surface as missing chunks (e.g. ./chunks/vendor-chunks/next.js) or PageNotFoundError in export.
     parallelServerCompiles: false,
     parallelServerBuildTraces: false,
+    // FIX: site-wide double-click navigation bug. Router cache was serving stale
+    // content on first click (URL changed but page content stayed). Force fresh
+    // RSC payload on every navigation — no stale cache.
+    staleTimes: {
+      dynamic: 0,
+      static: 0,
+    },
   },
   // Increase timeout for "Collecting page data" (fixes build failures on large apps)
   staticPageGenerationTimeout: 120,
