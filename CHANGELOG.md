@@ -265,6 +265,9 @@ All notable changes to this project will be documented in this file.
 - *(docker)* Copy patches before npm ci, Node 22, smaller deps heap
 - *(deploy)* Free any container publishing port 3000 before docker run
 - *(crep)* Earth-2 wind resolution parity, env docs, UTF-8 labels
+- *(crep)* Aircraft/vessel icons, satellite speed, MW-scaled power plants
+- *(crep)* Cap power plant circle radius — clamp MW to 5000 max, 20px limit
+- *(crep)* Throttle iNaturalist API calls — 3 concurrent max with 200ms delay to avoid 429 rate limit
 
 ### CREP
 
@@ -295,6 +298,7 @@ All notable changes to this project will be documented in this file.
 - Add search test suite checklist
 - Presence API implementation FEB24_2026
 - Add manual security remediation steps guide
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
@@ -503,6 +507,8 @@ All notable changes to this project will be documented in this file.
 - Dual-canvas rendering + transmission lines + distinct depth layers
 - *(crep)* Board updates, layers, infra widgets; Earth-2 grid/wind MAS paths
 - *(crep)* SGP4 satellite animation, native entity layers, CMMC compliance, full filter system
+- *(crep)* Earth2 HD tile raster layers and smoke test
+- *(crep)* Multi-source vessels, NOAA buoys, aircraft/vessel icons, controls fix
 
 ### Fix
 
