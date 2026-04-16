@@ -5361,33 +5361,21 @@ export default function CREPDashboardPage() {
                   await yieldToUI();
                 }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
 
-                // ── Military bases — dual source: MINDEX cache + Overpass API ──
-                // Try MINDEX first (instant), then also fetch from Overpass API (slower but fresh)
-                batchFetch("military", 5000, (vpResults) => {
-                  const vpMil = vpResults.flatMap((r: any) => r?.entities || []);
-                  if (vpMil.length) renderMilitary(vpMil, "viewport");
-                }).then(async (results) => {
-                  const allMil = results.flatMap((r: any) => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = allMil.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderMilitary(unique, "global");
-                  // If MINDEX had 0, fetch directly from Overpass API
-                  if (unique.length === 0) {
-                    try {
-                      const vpBounds = map.getBounds();
-                      const s = vpBounds?.getSouth() ?? 30, n = vpBounds?.getNorth() ?? 50;
-                      const w = vpBounds?.getWest() ?? -125, e = vpBounds?.getEast() ?? -66;
-                      const res = await fetch(`/api/oei/military?south=${s}&north=${n}&west=${w}&east=${e}&limit=500`);
-                      if (res.ok) {
-                        const data = await res.json();
-                        if (data.facilities?.length) {
-                          renderMilitary(data.facilities, "overpass-direct");
-                        }
+                // ── Military bases — direct from /api/oei/military (static TIGER + seed data) ──
+                // Skip MINDEX (doesn't store polygon perimeters). Load from static GeoJSON directly.
+                (async () => {
+                  try {
+                    const res = await fetch("/api/oei/military?south=15&north=72&west=-180&east=-50&limit=2000");
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (data.facilities?.length) {
+                        renderMilitary(data.facilities, "static-tiger");
+                        console.log(`[CREP/Infra] ${data.facilities.length} military bases loaded (${data.source})`);
                       }
-                    } catch {}
-                  }
-                  await yieldToUI();
-                }).catch((err) => console.warn("[CREP/Infra] Military bases error:", err?.message || err));
+                    }
+                    await yieldToUI();
+                  } catch (err) { console.warn("[CREP/Infra] Military bases error:", err); }
+                })();
 
                 // ── Jurisdiction boundary layers (state/county/FEMA/country) ──
                 // Critical for defense/IC — every data point anchored to its jurisdiction
