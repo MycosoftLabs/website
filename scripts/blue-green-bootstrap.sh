@@ -48,16 +48,30 @@ else
   log "active-slot already present: $(cat "$STATE_DIR/active-slot")"
 fi
 
-# 3. Install nginx.conf
+# 3. Install nginx.conf (OVERWRITE every run — this is how config fixes land)
 cp "$DEPLOY_DIR/deploy/nginx/nginx.conf" "$NGINX_DIR/nginx.conf"
 log "Installed $NGINX_DIR/nginx.conf"
 
-# 4. Render initial website.conf for whatever slot is currently active
+# 4. Render website.conf for whatever slot is currently active (OVERWRITE)
 ACTIVE=$(cat "$STATE_DIR/active-slot")
 sed "s|__ACTIVE_SLOT__|$ACTIVE|g" \
   "$DEPLOY_DIR/deploy/nginx/conf.d/website.conf.template" \
   > "$NGINX_DIR/conf.d/website.conf"
 log "Rendered $NGINX_DIR/conf.d/website.conf pointing at $ACTIVE"
+
+# 4a. If proxy is already running, reload it so updated configs take effect.
+# This handles the case where a previous deploy created the proxy container
+# with broken nginx config — next deploy fixes the config file but the
+# running nginx process is still running the old broken config.
+if docker ps --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
+  log "website-proxy is running — testing + reloading new config"
+  if docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
+    docker exec mycosoft-website-proxy nginx -s reload && log "nginx reloaded OK"
+  else
+    log "nginx -t failed — recreating proxy container with new config"
+    docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate --no-deps website-proxy
+  fi
+fi
 
 # 5. Free port 3000 from the OLD single-container deploy (if present)
 #    Important: we do this BEFORE starting proxy so port bind succeeds.

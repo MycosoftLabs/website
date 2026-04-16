@@ -614,12 +614,12 @@ jobs:
 
             chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
 
-            echo "=== First-run bootstrap (idempotent) ==="
-            if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
-              echo "Blue/green not yet bootstrapped — running bootstrap"
-              export WEBSITE_IMAGE="mycosoft-website:local"
-              ./scripts/blue-green-bootstrap.sh
-            fi
+            # ALWAYS run bootstrap (it's idempotent). This reinstalls nginx
+            # configs even if the proxy container already exists — otherwise
+            # config fixes never reach a running broken proxy.
+            echo "=== Bootstrap (always; idempotent) ==="
+            export WEBSITE_IMAGE="mycosoft-website:local"
+            ./scripts/blue-green-bootstrap.sh
 
             echo "=== Running blue/green cutover with local image ==="
             export IMAGE="mycosoft-website:local"
