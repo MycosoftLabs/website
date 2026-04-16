@@ -3891,6 +3891,8 @@ export default function CREPDashboardPage() {
     try {
       if (map.getLayer("crep-live-military-glow")) map.setLayoutProperty("crep-live-military-glow", "visibility", vis);
       if (map.getLayer("crep-live-military-dot")) map.setLayoutProperty("crep-live-military-dot", "visibility", vis);
+      if (map.getLayer("crep-military-perimeters-fill")) map.setLayoutProperty("crep-military-perimeters-fill", "visibility", vis);
+      if (map.getLayer("crep-military-perimeters-line")) map.setLayoutProperty("crep-military-perimeters-line", "visibility", vis);
     } catch {}
 
     const timer = setTimeout(() => {
@@ -4708,6 +4710,20 @@ export default function CREPDashboardPage() {
                     "icon-allow-overlap": true, "icon-ignore-placement": true,
                     visibility: "visible" },
                   paint: { "icon-color": "#dc2626", "icon-halo-color": "#000", "icon-halo-width": 1.5 }});
+                // Military base PERIMETER polygons — exact boundary outlines from OSM
+                map.addSource("crep-military-perimeters", { type: "geojson", data: emptyFC });
+                // Translucent red fill showing restricted zone
+                map.addLayer({ id: "crep-military-perimeters-fill", type: "fill", source: "crep-military-perimeters",
+                  paint: { "fill-color": "#dc2626", "fill-opacity": 0.06 },
+                  layout: { visibility: "visible" }});
+                // Red dashed perimeter boundary line
+                map.addLayer({ id: "crep-military-perimeters-line", type: "line", source: "crep-military-perimeters",
+                  paint: {
+                    "line-color": "#dc2626",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2, 14, 3],
+                    "line-opacity": 0.7,
+                    "line-dasharray": [4, 2] },
+                  layout: { visibility: "visible" }});
                 // Click handler
                 map.on("click", "crep-live-military-dot", (e: any) => {
                   const props = e.features?.[0]?.properties;
@@ -5294,11 +5310,26 @@ export default function CREPDashboardPage() {
                       geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
                     }));
                   if (!features.length) return;
-                  // Push to the crep-live-military source (created in onLoad with shield icon)
+                  // Push point icons to crep-live-military source
                   try {
                     const src = map.getSource("crep-live-military") as any;
                     if (src?.setData) src.setData({ type: "FeatureCollection", features });
                   } catch {}
+                  // Push polygon perimeters to crep-military-perimeters source
+                  const polyFeatures = entities
+                    .filter((e: any) => e.polygon && e.polygon.length > 2)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: { id: e.id, name: e.name || "Military Zone", type: e.type },
+                      geometry: { type: "Polygon" as const, coordinates: [e.polygon] },
+                    }));
+                  if (polyFeatures.length > 0) {
+                    try {
+                      const polySrc = map.getSource("crep-military-perimeters") as any;
+                      if (polySrc?.setData) polySrc.setData({ type: "FeatureCollection", features: polyFeatures });
+                    } catch {}
+                    console.log(`[CREP/Infra] ${polyFeatures.length} military perimeters → MapLibre`);
+                  }
                   setMilitaryBases(entities.filter((e: any) => e.lat).map((e: any) => ({
                     id: e.id, name: e.name || "Military Facility", lat: e.lat, lng: e.lng,
                     type: e.properties?.military || e.type || "base", operator: e.properties?.operator,

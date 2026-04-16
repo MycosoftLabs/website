@@ -27,7 +27,9 @@ interface MilitaryFacility {
   type: string; // base | airfield | range | naval_base | barracks | training_area | checkpoint | danger_area
   operator: string;
   country: string;
+  polygon?: [number, number][]; // Perimeter boundary coordinates [lng, lat][] if available
   tags: Record<string, string>;
+  properties?: Record<string, any>;
 }
 
 interface CacheEntry {
@@ -152,6 +154,7 @@ interface OverpassElement {
   lat?: number;
   lon?: number;
   center?: { lat: number; lon: number };
+  geometry?: { lat: number; lon: number }[]; // Full polygon coords from `out geom`
   tags?: Record<string, string>;
 }
 
@@ -168,15 +171,16 @@ async function fetchFromOverpass(
   const clampedWest = west;
   const clampedEast = Math.min(east, west + maxSpan);
   const bbox = `${clampedSouth},${clampedWest},${clampedNorth},${clampedEast}`;
-  // Skip relations (too heavy) — nodes and ways only, with 500 result limit
-  const query = `[out:json][timeout:${QUERY_TIMEOUT_S}][maxsize:5000000];
+  // Use `out geom` to get FULL POLYGON GEOMETRY for base perimeters
+  // Nodes get point coords, ways get full coordinate arrays for polygon boundaries
+  const query = `[out:json][timeout:${QUERY_TIMEOUT_S}][maxsize:10000000];
 (
   node["military"](${bbox});
   way["military"](${bbox});
   node["landuse"="military"](${bbox});
   way["landuse"="military"](${bbox});
 );
-out center 500;`;
+out geom 500;`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), QUERY_TIMEOUT_S * 1000);
@@ -199,18 +203,46 @@ out center 500;`;
       .map((el) => {
         const lat = el.lat ?? el.center?.lat;
         const lon = el.lon ?? el.center?.lon;
-        if (lat == null || lon == null) return null;
+        // For ways with geometry, compute center from coords if no center given
+        let centerLat = lat;
+        let centerLon = lon;
+        let polygon: [number, number][] | undefined;
+        if (el.geometry && Array.isArray(el.geometry) && el.geometry.length > 2) {
+          // Extract polygon perimeter coordinates [lng, lat] for GeoJSON
+          polygon = el.geometry.map((g: any) => [g.lon, g.lat]);
+          if (!centerLat || !centerLon) {
+            // Compute centroid from polygon
+            const sumLat = el.geometry.reduce((s: number, g: any) => s + g.lat, 0);
+            const sumLon = el.geometry.reduce((s: number, g: any) => s + g.lon, 0);
+            centerLat = sumLat / el.geometry.length;
+            centerLon = sumLon / el.geometry.length;
+          }
+        }
+        if (centerLat == null || centerLon == null) return null;
 
         const tags = el.tags ?? {};
         return {
           id: `osm-mil-${el.id}`,
           name: tags.name || tags.official_name || tags.alt_name || tags.military || "Unknown",
-          lat,
-          lng: lon,
+          lat: centerLat,
+          lng: centerLon,
           type: classifyMilitaryType(tags),
           operator: tags.operator || tags["operator:short"] || "",
           country: tags["addr:country"] || tags["is_in:country"] || "",
+          polygon, // Full perimeter coordinates if available
           tags,
+          properties: {
+            ...tags,
+            osm_id: el.id,
+            osm_type: el.type,
+            military: tags.military,
+            landuse: tags.landuse,
+            access: tags.access,
+            website: tags.website || tags["contact:website"],
+            phone: tags.phone || tags["contact:phone"],
+            wikidata: tags.wikidata,
+            wikipedia: tags.wikipedia,
+          },
         } as MilitaryFacility;
       })
       .filter(Boolean) as MilitaryFacility[];
