@@ -25,6 +25,17 @@ COMPOSE_FILES=(
 log() { echo "[bootstrap] $*"; }
 cd "$DEPLOY_DIR"
 
+# 0. Validate merged compose project BEFORE we touch anything.
+# This catches config errors (missing dependencies, invalid profiles, etc.)
+# before we stop the legacy container, preventing downtime from a broken compose.
+log "Validating compose project"
+if ! docker compose "${COMPOSE_FILES[@]}" config --quiet 2>&1 | tee /tmp/compose-config.log; then
+  echo "[bootstrap] FATAL: compose project is invalid. See /tmp/compose-config.log"
+  cat /tmp/compose-config.log
+  exit 10
+fi
+log "Compose project is valid"
+
 # 1. Directories
 mkdir -p "$STATE_DIR" "$NGINX_DIR/conf.d"
 chmod 755 "$STATE_DIR" "$NGINX_DIR" "$NGINX_DIR/conf.d"

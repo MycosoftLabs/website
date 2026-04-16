@@ -21,6 +21,16 @@
 
 services:
   # ───────────────────────────────────────────────────────────────────────────
+  # cloudflared — OVERRIDE base file's depends_on to point at the proxy, not the
+  # legacy `website` service (which we no longer start). Without this override,
+  # compose rejects the project as invalid once `website` is profile-gated.
+  # ───────────────────────────────────────────────────────────────────────────
+  cloudflared:
+    depends_on:
+      website-proxy:
+        condition: service_healthy
+
+  # ───────────────────────────────────────────────────────────────────────────
   # NGINX — stable public endpoint; reverse-proxies to whichever slot is active
   # ───────────────────────────────────────────────────────────────────────────
   website-proxy:

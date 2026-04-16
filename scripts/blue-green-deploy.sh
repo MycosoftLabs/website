@@ -132,8 +132,12 @@ wait_healthy() {
 
 purge_cloudflare() {
   if [[ -z "$CF_ZONE_ID" || -z "$CF_API_TOKEN" ]]; then
-    warn "CF_ZONE_ID / CF_API_TOKEN not set — skipping Cloudflare purge"
-    return 0
+    err "CF_ZONE_ID / CF_API_TOKEN are empty — cannot purge Cloudflare cache."
+    err "Set these as GitHub Actions secrets: CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN"
+    err "WITHOUT the purge, Cloudflare keeps serving stale HTML for up to 1 year."
+    # Don't fail the deploy (site is still on new slot via nginx), but fail LOUD
+    # so operators notice and fix the secrets.
+    return 1
   fi
   local resp
   resp=$(curl -sS -X POST \
