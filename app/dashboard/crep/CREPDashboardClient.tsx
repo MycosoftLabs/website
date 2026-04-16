@@ -4890,17 +4890,17 @@ export default function CREPDashboardPage() {
                   const features = facilitiesToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
-                  // OpenGridWorks-style: radius scaled by sqrt(capacity_mw)
-                  // 10 MW → radius 3px, 100 MW → 6px, 1000 MW → 10px, 5000 MW → 14px
+                  // OpenGridWorks-style: radius scaled by sqrt(capacity_mw), CAPPED at 20px max
+                  // Clamp capacity to 5000 MW max for sizing — prevents outliers (1.9M MW) from being huge
                   safeAddLayer({
                     id: "crep-plants-circle", type: "circle", source: "crep-plants",
                     paint: {
                       "circle-radius": [
                         "interpolate", ["linear"], ["zoom"],
-                        2, ["max", 2, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.3]],
-                        6, ["max", 3, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.5]],
-                        10, ["max", 4, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 0.8]],
-                        14, ["max", 5, ["*", ["sqrt", ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]], 1.2]],
+                        2, ["min", 8,  ["max", 2, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 0.3]]],
+                        6, ["min", 12, ["max", 3, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 0.5]]],
+                        10, ["min", 16, ["max", 4, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 0.8]]],
+                        14, ["min", 20, ["max", 5, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 1.2]]],
                       ],
                       "circle-color": ["get", "color"],
                       "circle-opacity": 0.85,
