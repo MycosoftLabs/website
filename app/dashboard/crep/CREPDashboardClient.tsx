@@ -5295,46 +5295,57 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} cell towers → MapLibre (${label})`);
                 };
 
-                // Military base render helper — uses the crep-live-military source (already created in onLoad)
+                // Military base render helper — handles BOTH polygon and point features
+                // Facilities WITH polygon data → crep-military-perimeters source (fill + boundary line)
+                // Facilities WITHOUT polygon → crep-live-military source (shield icon)
                 let milClickBound = false;
                 const renderMilitary = (entities: any[], label: string) => {
-                  const features = entities
-                    .filter((e: any) => e.lat != null && e.lng != null)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: {
-                        id: e.id, name: e.name || e.properties?.name || "Military Facility",
-                        type: e.properties?.military || e.type || "base",
-                        operator: e.properties?.operator || "",
-                      },
-                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
-                    }));
-                  if (!features.length) return;
-                  // Push point icons to crep-live-military source
-                  try {
-                    const src = map.getSource("crep-live-military") as any;
-                    if (src?.setData) src.setData({ type: "FeatureCollection", features });
-                  } catch {}
-                  // Push polygon perimeters to crep-military-perimeters source
-                  const polyFeatures = entities
-                    .filter((e: any) => e.polygon && e.polygon.length > 2)
-                    .map((e: any) => ({
-                      type: "Feature" as const,
-                      properties: { id: e.id, name: e.name || "Military Zone", type: e.type },
-                      geometry: { type: "Polygon" as const, coordinates: [e.polygon] },
-                    }));
+                  const valid = entities.filter((e: any) => e.lat != null && e.lng != null);
+                  if (!valid.length) return;
+
+                  // Split: facilities with polygon vs point-only
+                  const withPolygon = valid.filter((e: any) => e.polygon && e.polygon.length > 2);
+                  const pointOnly = valid.filter((e: any) => !e.polygon || e.polygon.length <= 2);
+
+                  // Push point-only facilities to crep-live-military source (shield icon)
+                  const pointFeatures = pointOnly.map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      id: e.id, name: e.name || e.properties?.name || "Military Facility",
+                      type: e.properties?.military || e.type || "base",
+                      operator: e.properties?.operator || e.operator || "",
+                    },
+                    geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                  }));
+                  if (pointFeatures.length > 0) {
+                    try {
+                      const src = map.getSource("crep-live-military") as any;
+                      if (src?.setData) src.setData({ type: "FeatureCollection", features: pointFeatures });
+                    } catch {}
+                  }
+
+                  // Push polygon perimeters to crep-military-perimeters source (fill + boundary line)
+                  const polyFeatures = withPolygon.map((e: any) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      id: e.id, name: e.name || "Military Zone",
+                      type: e.properties?.military || e.type || "base",
+                      operator: e.properties?.operator || e.operator || "",
+                    },
+                    geometry: { type: "Polygon" as const, coordinates: [e.polygon] },
+                  }));
                   if (polyFeatures.length > 0) {
                     try {
                       const polySrc = map.getSource("crep-military-perimeters") as any;
                       if (polySrc?.setData) polySrc.setData({ type: "FeatureCollection", features: polyFeatures });
                     } catch {}
-                    console.log(`[CREP/Infra] ${polyFeatures.length} military perimeters → MapLibre`);
                   }
-                  setMilitaryBases(entities.filter((e: any) => e.lat).map((e: any) => ({
+
+                  setMilitaryBases(valid.map((e: any) => ({
                     id: e.id, name: e.name || "Military Facility", lat: e.lat, lng: e.lng,
-                    type: e.properties?.military || e.type || "base", operator: e.properties?.operator,
+                    type: e.properties?.military || e.type || "base", operator: e.properties?.operator || e.operator,
                   })));
-                  console.log(`[CREP/Infra] ${features.length} military facilities → MapLibre (${label})`);
+                  console.log(`[CREP/Infra] ${valid.length} military facilities → MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
 
                 batchFetch("cell-towers", 20000, (vpResults) => {

@@ -4,9 +4,14 @@
  * GET /api/oei/military — Fetch military installations, bases, airfields, ranges
  *
  * Data sources (priority order):
- *   1. MINDEX cache  — /api/mindex/proxy/military (PostGIS + Redis)
- *   2. OpenStreetMap  — Overpass API for military=* and landuse=military
- *   3. Results are ingested back to MINDEX for future cache hits
+ *   1. Static GeoJSON — public/data/military-bases.geojson (pre-built via import script)
+ *      Falls back to public/data/military-bases-seed.geojson if main file missing
+ *   2. MINDEX cache  — /api/mindex/proxy/military (PostGIS + Redis)
+ *   3. OpenStreetMap  — Overpass API for military=* and landuse=military
+ *   4. Results are ingested back to MINDEX for future cache hits
+ *
+ * The static file is the PRIMARY source — instant, no external API call.
+ * Overpass is only used as a fallback when no static file exists.
  *
  * Query params:
  *   - south, north, west, east: bounding box (default: continental US)
@@ -14,6 +19,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import * as fs from "fs";
+import * as path from "path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +44,20 @@ interface CacheEntry {
   expires: number;
 }
 
+interface GeoJSONFeature {
+  type: "Feature";
+  properties: Record<string, any>;
+  geometry: {
+    type: string;
+    coordinates: any;
+  };
+}
+
+interface GeoJSONCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -54,6 +75,20 @@ const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key";
 
 // Default bounding box: continental US
 const DEFAULT_BBOX = { south: 24, north: 50, west: -125, east: -66 };
+
+// Static GeoJSON file paths
+const STATIC_FILE_PATH = path.join(
+  process.cwd(),
+  "public",
+  "data",
+  "military-bases.geojson",
+);
+const SEED_FILE_PATH = path.join(
+  process.cwd(),
+  "public",
+  "data",
+  "military-bases-seed.geojson",
+);
 
 // ---------------------------------------------------------------------------
 // In-memory cache
@@ -79,6 +114,187 @@ function getCached(key: string): MilitaryFacility[] | null {
 
 function setCache(key: string, data: MilitaryFacility[]): void {
   cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
+}
+
+// ---------------------------------------------------------------------------
+// Static GeoJSON file cache (loaded once, held in memory)
+// ---------------------------------------------------------------------------
+
+let staticGeoJSON: GeoJSONCollection | null = null;
+let staticGeoJSONLoaded = false;
+
+function loadStaticGeoJSON(): GeoJSONCollection | null {
+  if (staticGeoJSONLoaded) return staticGeoJSON;
+  staticGeoJSONLoaded = true;
+
+  // Try full import file first, then seed file
+  for (const filePath of [STATIC_FILE_PATH, SEED_FILE_PATH]) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const parsed = JSON.parse(raw) as GeoJSONCollection;
+        if (
+          parsed.type === "FeatureCollection" &&
+          Array.isArray(parsed.features) &&
+          parsed.features.length > 0
+        ) {
+          staticGeoJSON = parsed;
+          console.log(
+            `[API/Military] Loaded static GeoJSON from ${path.basename(filePath)}: ${parsed.features.length} features`,
+          );
+          return staticGeoJSON;
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `[API/Military] Failed to load ${path.basename(filePath)}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  console.log("[API/Military] No static GeoJSON file found — will fall back to Overpass");
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Bbox filtering for static GeoJSON features
+// ---------------------------------------------------------------------------
+
+function computeFeatureCentroid(
+  geometry: GeoJSONFeature["geometry"],
+): [number, number] | null {
+  if (geometry.type === "Point") {
+    return geometry.coordinates as [number, number];
+  }
+  if (geometry.type === "Polygon") {
+    const ring = geometry.coordinates[0] as [number, number][];
+    if (!ring || ring.length === 0) return null;
+    let sumLng = 0;
+    let sumLat = 0;
+    for (const [lng, lat] of ring) {
+      sumLng += lng;
+      sumLat += lat;
+    }
+    return [sumLng / ring.length, sumLat / ring.length];
+  }
+  if (geometry.type === "MultiPolygon") {
+    // Use first polygon centroid
+    const firstPoly = geometry.coordinates[0];
+    if (!firstPoly || !firstPoly[0]) return null;
+    const ring = firstPoly[0] as [number, number][];
+    let sumLng = 0;
+    let sumLat = 0;
+    for (const [lng, lat] of ring) {
+      sumLng += lng;
+      sumLat += lat;
+    }
+    return [sumLng / ring.length, sumLat / ring.length];
+  }
+  return null;
+}
+
+function computeFeatureBounds(
+  geometry: GeoJSONFeature["geometry"],
+): { minLng: number; maxLng: number; minLat: number; maxLat: number } | null {
+  let coords: [number, number][] = [];
+
+  if (geometry.type === "Point") {
+    const [lng, lat] = geometry.coordinates as [number, number];
+    return { minLng: lng, maxLng: lng, minLat: lat, maxLat: lat };
+  }
+  if (geometry.type === "Polygon") {
+    coords = (geometry.coordinates[0] || []) as [number, number][];
+  }
+  if (geometry.type === "MultiPolygon") {
+    for (const poly of geometry.coordinates) {
+      coords.push(...((poly[0] || []) as [number, number][]));
+    }
+  }
+
+  if (coords.length === 0) return null;
+
+  let minLng = Infinity,
+    maxLng = -Infinity,
+    minLat = Infinity,
+    maxLat = -Infinity;
+  for (const [lng, lat] of coords) {
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+  return { minLng, maxLng, minLat, maxLat };
+}
+
+function bboxIntersects(
+  featureBounds: { minLng: number; maxLng: number; minLat: number; maxLat: number },
+  south: number,
+  north: number,
+  west: number,
+  east: number,
+): boolean {
+  return !(
+    featureBounds.maxLat < south ||
+    featureBounds.minLat > north ||
+    featureBounds.maxLng < west ||
+    featureBounds.minLng > east
+  );
+}
+
+function filterStaticFeatures(
+  geojson: GeoJSONCollection,
+  south: number,
+  north: number,
+  west: number,
+  east: number,
+  limit: number,
+): MilitaryFacility[] {
+  const facilities: MilitaryFacility[] = [];
+
+  for (const feature of geojson.features) {
+    if (facilities.length >= limit) break;
+
+    // Check if feature intersects bbox
+    const bounds = computeFeatureBounds(feature.geometry);
+    if (bounds && !bboxIntersects(bounds, south, north, west, east)) {
+      continue;
+    }
+
+    // Compute centroid for lat/lng
+    const centroid = computeFeatureCentroid(feature.geometry);
+    if (!centroid) continue;
+
+    const [lng, lat] = centroid;
+    const props = feature.properties || {};
+
+    // Extract polygon coordinates for perimeter rendering
+    let polygon: [number, number][] | undefined;
+    if (feature.geometry.type === "Polygon") {
+      polygon = feature.geometry.coordinates[0] as [number, number][];
+    } else if (feature.geometry.type === "MultiPolygon") {
+      // Use the largest ring from the first polygon
+      polygon = (feature.geometry.coordinates[0]?.[0] || []) as [number, number][];
+    }
+
+    facilities.push({
+      id: props.id || `static-mil-${Math.random().toString(36).slice(2)}`,
+      name: props.name || "Unknown",
+      lat,
+      lng,
+      type: props.type || props.military || "base",
+      operator: props.operator || "",
+      country: props.country || "",
+      polygon: polygon && polygon.length > 2 ? polygon : undefined,
+      tags: props,
+      properties: {
+        ...props,
+        source: "static-geojson",
+      },
+    });
+  }
+
+  return facilities;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +361,7 @@ async function fetchFromMindex(
 }
 
 // ---------------------------------------------------------------------------
-// Source 2: Overpass API
+// Source 2: Overpass API (fallback only — used when no static file exists)
 // ---------------------------------------------------------------------------
 
 interface OverpassElement {
@@ -166,11 +382,9 @@ async function fetchFromOverpass(
 ): Promise<MilitaryFacility[]> {
   // Limit bbox size to 5 degrees max per side to avoid Overpass 504 timeouts
   const maxSpan = 5;
-  const clampedSouth = south;
   const clampedNorth = Math.min(north, south + maxSpan);
-  const clampedWest = west;
   const clampedEast = Math.min(east, west + maxSpan);
-  const bbox = `${clampedSouth},${clampedWest},${clampedNorth},${clampedEast}`;
+  const bbox = `${south},${west},${clampedNorth},${clampedEast}`;
   // Use `out geom` to get FULL POLYGON GEOMETRY for base perimeters
   // Nodes get point coords, ways get full coordinate arrays for polygon boundaries
   const query = `[out:json][timeout:${QUERY_TIMEOUT_S}][maxsize:10000000];
@@ -291,9 +505,17 @@ function deduplicateFacilities(facilities: MilitaryFacility[]): MilitaryFacility
     if (!existing) {
       seen.set(gridKey, f);
     } else {
-      // Keep the one with more data
-      const existingScore = (existing.name !== "Unknown" ? 1 : 0) + (existing.operator ? 1 : 0) + Object.keys(existing.tags).length;
-      const newScore = (f.name !== "Unknown" ? 1 : 0) + (f.operator ? 1 : 0) + Object.keys(f.tags).length;
+      // Keep the one with more data (prefer polygon over point)
+      const existingScore =
+        (existing.name !== "Unknown" ? 1 : 0) +
+        (existing.operator ? 1 : 0) +
+        (existing.polygon ? 5 : 0) +
+        Object.keys(existing.tags).length;
+      const newScore =
+        (f.name !== "Unknown" ? 1 : 0) +
+        (f.operator ? 1 : 0) +
+        (f.polygon ? 5 : 0) +
+        Object.keys(f.tags).length;
       if (newScore > existingScore) {
         seen.set(gridKey, f);
       }
@@ -336,10 +558,40 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // -----------------------------------------------------------------------
+    // PRIMARY SOURCE: Static GeoJSON file (instant, no API call)
+    // -----------------------------------------------------------------------
+    const staticData = loadStaticGeoJSON();
+    if (staticData && staticData.features.length > 0) {
+      const facilities = filterStaticFeatures(
+        staticData,
+        south,
+        north,
+        west,
+        east,
+        limit,
+      );
+
+      // Cache the result
+      setCache(key, facilities);
+
+      return NextResponse.json({
+        source: "static-geojson",
+        timestamp: new Date().toISOString(),
+        total: facilities.length,
+        facilities,
+        bbox: { south, north, west, east },
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // FALLBACK: MINDEX + Overpass (only if no static file)
+    // -----------------------------------------------------------------------
+
     // Try MINDEX first (fastest if available)
     const mindexData = await fetchFromMindex(south, north, west, east, limit);
 
-    // Always fetch from Overpass for comprehensive coverage
+    // Fetch from Overpass for comprehensive coverage
     const overpassData = await fetchFromOverpass(south, north, west, east);
 
     // Merge and deduplicate
