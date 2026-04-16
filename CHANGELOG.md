@@ -394,6 +394,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - CREP session report April 14-15 2026 — full changelog
+- Update changelog [skip ci]
 
 ### Features
 
@@ -528,6 +529,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* 858 US military base perimeter polygons from TIGER/Census
 - *(crep)* ALL layers enabled by default — every data source auto-visible on load
 - *(crep)* Species observation persistence pipeline — MINDEX auto-catalog
+- CREP production-ready — parallel data fetch, LOD rendering, max data sources
 
 ### Fix
 
