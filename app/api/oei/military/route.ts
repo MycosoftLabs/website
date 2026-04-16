@@ -161,16 +161,22 @@ async function fetchFromOverpass(
   west: number,
   east: number,
 ): Promise<MilitaryFacility[]> {
-  const bbox = `${south},${west},${north},${east}`;
-  const query = `[out:json][timeout:${QUERY_TIMEOUT_S}];
+  // Limit bbox size to 5 degrees max per side to avoid Overpass 504 timeouts
+  const maxSpan = 5;
+  const clampedSouth = south;
+  const clampedNorth = Math.min(north, south + maxSpan);
+  const clampedWest = west;
+  const clampedEast = Math.min(east, west + maxSpan);
+  const bbox = `${clampedSouth},${clampedWest},${clampedNorth},${clampedEast}`;
+  // Skip relations (too heavy) — nodes and ways only, with 500 result limit
+  const query = `[out:json][timeout:${QUERY_TIMEOUT_S}][maxsize:5000000];
 (
   node["military"](${bbox});
   way["military"](${bbox});
-  relation["military"](${bbox});
   node["landuse"="military"](${bbox});
   way["landuse"="military"](${bbox});
 );
-out center;`;
+out center 500;`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), QUERY_TIMEOUT_S * 1000);
