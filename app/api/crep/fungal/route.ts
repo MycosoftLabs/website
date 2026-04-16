@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from "next/server"
 import bboxPolygon from "@turf/bbox-polygon"
 import area from "@turf/area"
 import { logDataCollection, logAPIError } from "@/lib/oei/mindex-logger"
+import { ingestBatchToMINDEX } from "@/lib/crep/species-catalog"
 
 const INATURALIST_API = "https://api.inaturalist.org/v1"
 const GBIF_API = "https://api.gbif.org/v1"
@@ -851,6 +852,9 @@ export async function GET(request: NextRequest) {
     // Clone-on-display: async-write new iNat observations to MINDEX
     // This runs in the background — does NOT block the response
     cloneToMINDEX(allObservations)
+
+    // Fire-and-forget: persist ALL observations to MINDEX species catalog for offline access
+    ingestBatchToMINDEX(allObservations).catch(() => {})
 
     // Apply kingdom filter if not "all" and data came from MINDEX (which has mixed kingdoms)
     if (kingdom !== "all") {
