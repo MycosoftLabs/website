@@ -4472,11 +4472,9 @@ export default function CREPDashboardPage() {
                 acCtx.lineTo(12, 15); acCtx.lineTo(4, 17); acCtx.lineTo(4, 14);
                 acCtx.lineTo(12, 10); acCtx.closePath(); acCtx.fill();
                 map.addImage("aircraft-icon", acCtx.getImageData(0, 0, 32, 32), { sdf: true });
-                // Outer glow
+                // No glow for aircraft — icon only (glow made planes look like dots)
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 10, 10, 16],
-                    "circle-color": "#fbbf24", "circle-opacity": 0.15, "circle-blur": 1.0 }});
+                  paint: { "circle-radius": 0, "circle-opacity": 0 }}); // Hidden placeholder for filter sync
                 // Aircraft ICON (symbol layer — rotates by heading, amber plane shape)
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
                   layout: {
@@ -4550,11 +4548,9 @@ export default function CREPDashboardPage() {
                 vCtx.moveTo(16, 2); vCtx.lineTo(27, 28); vCtx.lineTo(16, 22);
                 vCtx.lineTo(5, 28); vCtx.closePath(); vCtx.fill();
                 map.addImage("vessel-icon", vCtx.getImageData(0, 0, 32, 32), { sdf: true });
-                // Outer glow
+                // No glow for vessels — icon only
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 9, 10, 14],
-                    "circle-color": "#22d3ee", "circle-opacity": 0.2, "circle-blur": 0.9 }});
+                  paint: { "circle-radius": 0, "circle-opacity": 0 }}); // Hidden placeholder for filter sync
                 // Vessel ICON (symbol layer — rotates by COG, cyan arrowhead)
                 map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
                   layout: {
@@ -5330,45 +5326,15 @@ export default function CREPDashboardPage() {
               className={cn("absolute top-4 z-20", rightPanelOpen ? "right-[340px]" : "right-4")}
             />
 
-            <EntityDeckLayer
-              map={mapRef}
-              entities={deckEntities}
-              visible={true}
-              extraLayers={infraDeckLayers}
-              useGlobeMode={projectionMode === "globe"}
-              onEntityClick={(entity) => {
-                lastEntityPickTimeRef.current = Date.now();
-                if (entity.type === "aircraft") {
-                  setSelectedOther(null);
-                  setSelectedAircraft(filteredAircraft.find((aircraftEntity) => aircraftEntity.id === entity.id) ?? null);
-                } else if (entity.type === "vessel") {
-                  setSelectedOther(null);
-                  setSelectedVessel(filteredVessels.find((vesselEntity) => vesselEntity.id === entity.id) ?? null);
-                } else if (entity.type === "satellite") {
-                  setSelectedOther(null);
-                  setSelectedSatellite(filteredSatellites.find((satelliteEntity) => satelliteEntity.id === entity.id) ?? null);
-                } else if (entity.type === "fungal") {
-                  setSelectedOther(null);
-                  // Use entity.properties (full observation) - more robust than lookup
-                  const fromProps = entity.properties as unknown as FungalObservation | undefined;
-                  const obs =
-                    fromProps && typeof fromProps.id !== "undefined" && typeof fromProps.latitude === "number" && typeof fromProps.longitude === "number"
-                      ? fromProps
-                      : visibleFungalObservations.find((o) => String(o.id) === String(entity.id?.replace?.("fungal-", "")));
-                  if (obs) {
-                    handleSelectFungal(obs);
-                    // Species widget (FungalMarker popup) shows at icon - same UX as planes/boats/satellites.
-                    // Do NOT open the Intel feed left panel; that is for list-item clicks, not map icon clicks.
-                  }
-                } else if (["weather", "earthquake", "elephant", "device", "fire", "crisis"].includes(entity.type)) {
-                  setSelectedAircraft(null);
-                  setSelectedVessel(null);
-                  setSelectedSatellite(null);
-                  handleSelectFungal(null);
-                  setSelectedOther(entity);
-                }
-              }}
-            />
+            {/* EntityDeckLayer REMOVED — all entities now rendered as MapLibre native layers:
+                Aircraft: crep-live-aircraft (symbol + glow)
+                Satellites: crep-live-satellites (circle + SGP4 animation)
+                Vessels: crep-live-vessels (symbol + glow)
+                Fungal: crep-live-fungal (circle, kingdom-colored)
+                Events: crep-live-events (circle, type-colored)
+                Buoys: crep-live-buoys (circle)
+                Click handlers on each native layer handle selection.
+                This eliminates duplicate dots from deck.gl ScatterplotLayers. */}
 
             {/* Trajectory Lines - Flight Paths and Ship Routes */}
             <TrajectoryLines
