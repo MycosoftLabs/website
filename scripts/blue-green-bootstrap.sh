@@ -65,11 +65,19 @@ log "Rendered $NGINX_DIR/conf.d/website.conf pointing at $ACTIVE"
 # running nginx process is still running the old broken config.
 if docker ps --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
   log "website-proxy is running — testing + reloading new config"
-  if docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
+  if docker exec mycosoft-website-proxy nginx -t 2>&1 | tee /tmp/nginx-test.log | grep -q "syntax is ok"; then
     docker exec mycosoft-website-proxy nginx -s reload && log "nginx reloaded OK"
   else
-    log "nginx -t failed — recreating proxy container with new config"
-    docker compose "${COMPOSE_FILES[@]}" up -d --force-recreate --no-deps website-proxy
+    log "nginx -t failed — dumping output then recreating container"
+    cat /tmp/nginx-test.log
+    # Stop + remove the old proxy FIRST so port 3000 is free for the new one.
+    # Without this, `compose up --force-recreate` hit "port 3000 already
+    # allocated" and the whole deploy aborted without replacing website-blue.
+    log "Stopping current proxy to free port 3000"
+    docker stop -t 10 mycosoft-website-proxy 2>/dev/null || true
+    docker rm -f mycosoft-website-proxy 2>/dev/null || true
+    log "Recreating proxy with new config"
+    docker compose "${COMPOSE_FILES[@]}" up -d --no-deps website-proxy
   fi
 fi
 

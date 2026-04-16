@@ -53,9 +53,14 @@ server {
     proxy_next_upstream_timeout 10s;
   }
 
-  # WebSocket endpoints (Next.js HMR in dev; realtime in prod)
+  # WebSocket endpoints (Next.js HMR in dev; realtime in prod).
+  # Uses the same $upstream_host variable (runtime DNS resolution) as location /
+  # above. Previously hard-coded `website_blue` which referenced a static
+  # upstream block that was removed — nginx -t failed at startup and the
+  # deploy script fell through to container recreate, which hit a port 3000
+  # conflict and bailed out without actually deploying new code.
   location /_next/webpack-hmr {
-    proxy_pass http://website___ACTIVE_SLOT__;
+    proxy_pass http://$upstream_host:3000;
     proxy_http_version 1.1;
     proxy_set_header Upgrade    $http_upgrade;
     proxy_set_header Connection "upgrade";
