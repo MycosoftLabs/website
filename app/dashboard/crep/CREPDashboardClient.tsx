@@ -5279,6 +5279,33 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} cell towers → MapLibre (${label})`);
                 };
 
+                // Military base render helper — uses the crep-live-military source (already created in onLoad)
+                let milClickBound = false;
+                const renderMilitary = (entities: any[], label: string) => {
+                  const features = entities
+                    .filter((e: any) => e.lat != null && e.lng != null)
+                    .map((e: any) => ({
+                      type: "Feature" as const,
+                      properties: {
+                        id: e.id, name: e.name || e.properties?.name || "Military Facility",
+                        type: e.properties?.military || e.type || "base",
+                        operator: e.properties?.operator || "",
+                      },
+                      geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
+                    }));
+                  if (!features.length) return;
+                  // Push to the crep-live-military source (created in onLoad with shield icon)
+                  try {
+                    const src = map.getSource("crep-live-military") as any;
+                    if (src?.setData) src.setData({ type: "FeatureCollection", features });
+                  } catch {}
+                  setMilitaryBases(entities.filter((e: any) => e.lat).map((e: any) => ({
+                    id: e.id, name: e.name || "Military Facility", lat: e.lat, lng: e.lng,
+                    type: e.properties?.military || e.type || "base", operator: e.properties?.operator,
+                  })));
+                  console.log(`[CREP/Infra] ${features.length} military facilities → MapLibre (${label})`);
+                };
+
                 batchFetch("cell-towers", 20000, (vpResults) => {
                   const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
                   const seen = new Set<string>();
@@ -5291,6 +5318,34 @@ export default function CREPDashboardPage() {
                   if (unique.length) renderCellTowers(unique, "global");
                   await yieldToUI();
                 }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
+
+                // ── Military bases — dual source: MINDEX cache + Overpass API ──
+                // Try MINDEX first (instant), then also fetch from Overpass API (slower but fresh)
+                batchFetch("military", 5000, (vpResults) => {
+                  const vpMil = vpResults.flatMap((r: any) => r?.entities || []);
+                  if (vpMil.length) renderMilitary(vpMil, "viewport");
+                }).then(async (results) => {
+                  const allMil = results.flatMap((r: any) => r?.entities || []);
+                  const seen = new Set<string>();
+                  const unique = allMil.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                  if (unique.length) renderMilitary(unique, "global");
+                  // If MINDEX had 0, fetch directly from Overpass API
+                  if (unique.length === 0) {
+                    try {
+                      const vpBounds = map.getBounds();
+                      const s = vpBounds?.getSouth() ?? 30, n = vpBounds?.getNorth() ?? 50;
+                      const w = vpBounds?.getWest() ?? -125, e = vpBounds?.getEast() ?? -66;
+                      const res = await fetch(`/api/oei/military?south=${s}&north=${n}&west=${w}&east=${e}&limit=500`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.facilities?.length) {
+                          renderMilitary(data.facilities, "overpass-direct");
+                        }
+                      }
+                    } catch {}
+                  }
+                  await yieldToUI();
+                }).catch((err) => console.warn("[CREP/Infra] Military bases error:", err?.message || err));
 
                 // ── Jurisdiction boundary layers (state/county/FEMA/country) ──
                 // Critical for defense/IC — every data point anchored to its jurisdiction
