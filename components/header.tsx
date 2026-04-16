@@ -372,12 +372,6 @@ export function Header() {
     router.push("/")
   }
 
-  function hardNavigate(url: string) {
-    if (typeof window !== "undefined") {
-      window.location.assign(url)
-    }
-  }
-
   // Use default logo during SSR to prevent hydration mismatch
   const logoSrc = mounted && (resolvedTheme ?? "dark") === "dark"
     ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mycosoft%20Logo%20(1)-lArPx4fwtqahyHVlnRLWWSfqWLIJpv.png"
@@ -409,47 +403,35 @@ export function Header() {
 
         {/* Desktop Navigation with Individual Dropdowns */}
         <nav ref={navRef} className="hidden md:flex items-center gap-1">
-          {/* Search - Explicit router.push to fix navigation from pages with hash (e.g. /myca#live-demo) */}
-          <a
+          {/* Search - Next.js Link handles hash navigation + prefetch */}
+          <Link
             href="/search"
-            onClick={(e) => {
-              e.preventDefault()
-              router.push("/search")
-            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group cursor-pointer"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Search className="h-4 w-4 text-muted-foreground group-hover:text-blue-400 transition-colors duration-300" />
             <span>Search</span>
-          </a>
+          </Link>
 
-          {/* About Us - Direct Link */}
-          <a
+          {/* About Us - Direct Link (Next.js Link for prefetch + client-side nav) */}
+          <Link
             href="/about"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              hardNavigate("/about")
-            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Users className="h-4 w-4 text-muted-foreground group-hover:text-green-400 transition-colors duration-300" />
             <span>About Us</span>
-          </a>
+          </Link>
 
           {/* Agent Access — MYCA/AVANI live worldstate $1/min */}
-          <a
+          <Link
             href="/agent"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              hardNavigate("/agent")
-            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
             onMouseEnter={() => setOpenDropdown(null)}
           >
             <Key className="h-4 w-4 text-muted-foreground group-hover:text-amber-400 transition-colors duration-300" />
             <span>Agent Access</span>
-          </a>
+          </Link>
 
           {/* AI Dropdown — public IA: Overview, MYCA, AVANI, NLM */}
           <NavDropdown
@@ -518,18 +500,14 @@ export function Header() {
 
           {/* Security - Direct Link (no dropdown) */}
           {user && (
-            <a
+            <Link
               href="/security"
-              onMouseDown={(event) => {
-                event.preventDefault()
-                hardNavigate("/security")
-              }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] group"
               onMouseEnter={() => setOpenDropdown(null)}
             >
               <Lock className="h-4 w-4 text-muted-foreground group-hover:text-red-400 transition-colors duration-300" />
               <span>Security</span>
-            </a>
+            </Link>
           )}
         </nav>
 
