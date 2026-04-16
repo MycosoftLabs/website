@@ -275,6 +275,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Military bases loaded as permanent infra via MINDEX + Overpass fallback
 - *(crep)* Military bases load directly from static TIGER GeoJSON, skip MINDEX
 - *(crep)* Military perimeters — brighter fill (15%), thicker line (1.5-4px), debug logs
+- *(crep)* Registry merge preserves valid coordinates — never overwrite with 0,0
 
 ### CREP
 
@@ -391,6 +392,8 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- CREP session report April 14-15 2026 — full changelog
 
 ### Features
 
@@ -523,6 +526,8 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Military bases/facilities layer — OSM + MINDEX
 - *(crep)* Military base perimeter polygons — real boundary outlines from OSM
 - *(crep)* 858 US military base perimeter polygons from TIGER/Census
+- *(crep)* ALL layers enabled by default — every data source auto-visible on load
+- *(crep)* Species observation persistence pipeline — MINDEX auto-catalog
 
 ### Fix
 
