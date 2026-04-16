@@ -4712,17 +4712,16 @@ export default function CREPDashboardPage() {
                   paint: { "icon-color": "#dc2626", "icon-halo-color": "#000", "icon-halo-width": 1.5 }});
                 // Military base PERIMETER polygons — exact boundary outlines from OSM
                 map.addSource("crep-military-perimeters", { type: "geojson", data: emptyFC });
-                // Translucent red fill showing restricted zone
+                // Translucent red fill showing restricted zone — VISIBLE at all zooms
                 map.addLayer({ id: "crep-military-perimeters-fill", type: "fill", source: "crep-military-perimeters",
-                  paint: { "fill-color": "#dc2626", "fill-opacity": 0.06 },
+                  paint: { "fill-color": "#dc2626", "fill-opacity": 0.15 },
                   layout: { visibility: "visible" }});
-                // Red dashed perimeter boundary line
+                // BRIGHT red perimeter boundary line — thick enough to see at all zooms
                 map.addLayer({ id: "crep-military-perimeters-line", type: "line", source: "crep-military-perimeters",
                   paint: {
                     "line-color": "#dc2626",
-                    "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 10, 2, 14, 3],
-                    "line-opacity": 0.7,
-                    "line-dasharray": [4, 2] },
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 2, 1.5, 6, 2, 10, 3, 14, 4],
+                    "line-opacity": 0.9 },
                   layout: { visibility: "visible" }});
                 // Click handler
                 map.on("click", "crep-live-military-dot", (e: any) => {
@@ -5337,8 +5336,13 @@ export default function CREPDashboardPage() {
                   if (polyFeatures.length > 0) {
                     try {
                       const polySrc = map.getSource("crep-military-perimeters") as any;
-                      if (polySrc?.setData) polySrc.setData({ type: "FeatureCollection", features: polyFeatures });
-                    } catch {}
+                      if (polySrc?.setData) {
+                        polySrc.setData({ type: "FeatureCollection", features: polyFeatures });
+                        console.log(`[CREP/Military] ✅ Pushed ${polyFeatures.length} polygon perimeters to crep-military-perimeters`);
+                      } else {
+                        console.warn("[CREP/Military] ❌ crep-military-perimeters source NOT FOUND");
+                      }
+                    } catch (err) { console.warn("[CREP/Military] Error pushing polygons:", err); }
                   }
 
                   setMilitaryBases(valid.map((e: any) => ({
