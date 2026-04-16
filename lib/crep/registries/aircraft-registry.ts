@@ -241,7 +241,10 @@ function normaliseGeneric(a: any, source: string): AircraftRecord {
 function mergeAircraft(existing: AircraftRecord, incoming: AircraftRecord): AircraftRecord {
   const existingTs = new Date(existing.timestamp).getTime()
   const incomingTs = new Date(incoming.timestamp).getTime()
-  const useIncomingPos = incomingTs >= existingTs
+  // Only use incoming position if it has VALID coordinates (not 0,0)
+  const incomingHasCoords = incoming.lat !== 0 || incoming.lng !== 0
+  const existingHasCoords = existing.lat !== 0 || existing.lng !== 0
+  const useIncomingPos = incomingHasCoords && (!existingHasCoords || incomingTs >= existingTs)
 
   return {
     id: existing.id,

@@ -400,7 +400,9 @@ function normaliseGeneric(v: any, source: string): VesselRecord {
 function mergeVessels(existing: VesselRecord, incoming: VesselRecord): VesselRecord {
   const existingTs = new Date(existing.timestamp).getTime()
   const incomingTs = new Date(incoming.timestamp).getTime()
-  const useIncomingPos = incomingTs >= existingTs
+  const incomingHasCoords = incoming.lat !== 0 || incoming.lng !== 0
+  const existingHasCoords = existing.lat !== 0 || existing.lng !== 0
+  const useIncomingPos = incomingHasCoords && (!existingHasCoords || incomingTs >= existingTs)
 
   return {
     id: existing.id,
