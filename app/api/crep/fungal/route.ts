@@ -471,9 +471,14 @@ async function fetchINaturalistObservations(
     ? [{ name: "Custom", ...bounds }]
     : FUNGAL_HOTSPOT_REGIONS
 
-  await Promise.all(
-    regionsToFetch.flatMap((region) =>
-      taxaToFetch.map(async (taxon) => {
+  // Throttle: stagger requests to avoid iNaturalist 429 rate limit
+  // Process 3 at a time with 200ms delay between batches
+  const allTasks = regionsToFetch.flatMap((region) =>
+    taxaToFetch.map((taxon) => ({ region, taxon }))
+  );
+  for (let i = 0; i < allTasks.length; i += 3) {
+    const batch = allTasks.slice(i, i + 3);
+    await Promise.all(batch.map(async ({ region, taxon }) => {
         try {
           const params = new URLSearchParams({
             iconic_taxa: taxon,
@@ -544,9 +549,10 @@ async function fetchINaturalistObservations(
         } catch (error) {
           console.error(`[CREP/Life] Failed to fetch ${taxon} data for ${region.name}:`, error)
         }
-      })
-    )
-  )
+      }));
+    // 200ms delay between batches to avoid iNaturalist 429 rate limit
+    if (i + 3 < allTasks.length) await new Promise(r => setTimeout(r, 200));
+  }
 
   console.log(`[CREP/Life] Total iNaturalist observations fetched: ${allObservations.length}`)
   return allObservations
