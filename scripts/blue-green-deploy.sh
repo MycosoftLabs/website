@@ -223,9 +223,26 @@ fi
 # ───── MODE: cutover (default) ──────────────────────────────────────────────
 log "MODE=cutover — deploying $IMAGE into idle slot ($IDLE)"
 
-# 1. Pull the new image (docker pull is idempotent, fast if already cached)
-log "Pulling image: $IMAGE"
-docker pull "$IMAGE"
+# 1. Pull the image IF it's a registry reference.
+# Locally-built images (no registry prefix, e.g. `mycosoft-website:local`) or
+# images that already exist in the daemon are used as-is. Without this guard,
+# instant-deploy's locally-built image made `docker pull` fail with
+# "pull access denied" and the cutover bailed out immediately.
+IS_REGISTRY_IMAGE=false
+case "$IMAGE" in
+  *.*/*|*:*/*) IS_REGISTRY_IMAGE=true ;;            # contains a domain/port before /
+  ghcr.io/*|docker.io/*|gcr.io/*|*.azurecr.io/*|*.dkr.ecr.*/*) IS_REGISTRY_IMAGE=true ;;
+esac
+if $IS_REGISTRY_IMAGE; then
+  log "Pulling registry image: $IMAGE"
+  docker pull "$IMAGE" || { err "docker pull failed for $IMAGE"; exit 20; }
+elif docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  log "Using local image (already present): $IMAGE"
+else
+  err "Local image not found in daemon: $IMAGE"
+  err "If this should be pulled from a registry, use a fully-qualified tag (e.g. ghcr.io/org/repo:tag)"
+  exit 21
+fi
 
 # 2. Start idle slot with the new image
 if [[ "$IDLE" == "green" ]]; then
