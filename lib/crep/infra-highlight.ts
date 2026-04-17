@@ -175,38 +175,68 @@ export function highlightLine(map: any, geometry: any, properties?: Record<strin
  * segments (antimeridian splits, per-hop landing segments, OSM multi-ways),
  * clicking one segment looks up the WHOLE line by id and highlights
  * every segment end-to-end.
+ *
+ * Hardened: outer try/catch around everything so a malformed feature
+ * or a missing MapLibre API can never crash the click handler (which
+ * bubbles to React and triggers "missing required error components").
  */
 export function highlightFromEvent(map: any, e: any) {
-  const feature = e.features?.[0]
-  if (!feature) return
+  try {
+    const feature = e?.features?.[0]
+    if (!feature) return
 
-  const geomType = feature.geometry?.type
-  if (geomType === "Point" || geomType === "MultiPoint") {
-    const coords = feature.geometry.coordinates
-    highlightPoint(map, coords[0], coords[1], feature.properties)
-  } else if (geomType === "LineString" || geomType === "MultiLineString") {
+    const geomType = feature.geometry?.type
+    if (geomType === "Point" || geomType === "MultiPoint") {
+      const coords = feature.geometry.coordinates
+      if (Array.isArray(coords) && typeof coords[0] === "number" && typeof coords[1] === "number") {
+        highlightPoint(map, coords[0], coords[1], feature.properties)
+      }
+      return
+    }
+
+    if (geomType !== "LineString" && geomType !== "MultiLineString") return
+
     // Try to find all sibling segments that share the same cable_id / line_id /
     // id within the source. This turns a partial-segment click into a full
     // end-to-end highlight.
-    const sourceId: string | undefined = (feature as any).source || e.features?.[0]?.layer?.source
+    const sourceId: string | undefined =
+      (feature as any).source ||
+      e?.features?.[0]?.layer?.source ||
+      undefined
     const props = feature.properties || {}
     const groupKey =
       props.cable_id ?? props.line_id ?? props.cableId ?? props.lineId ?? props.id
-    if (sourceId && groupKey != null) {
-      const merged = gatherLineByGroupId(map, sourceId, groupKey)
-      if (merged) {
-        highlightLine(map, merged.geometry, { ...props, __fullLine: true, __segments: merged.segmentCount })
-        // Attempt to fit to the full line's extent
-        try {
-          const bounds = computeLineBounds(merged.geometry)
-          if (bounds && (map as any).fitBounds) {
-            (map as any).fitBounds(bounds, { padding: 80, duration: 700, maxZoom: 7 })
+
+    let wholeLineShown = false
+    if (sourceId && groupKey != null && groupKey !== "") {
+      try {
+        const merged = gatherLineByGroupId(map, sourceId, groupKey)
+        if (merged && merged.geometry.coordinates.length > 0) {
+          highlightLine(map, merged.geometry, { ...props, __fullLine: true, __segments: merged.segmentCount })
+          wholeLineShown = true
+          // Attempt to fit to the full line's extent — completely best-effort,
+          // never allowed to crash the click handler.
+          try {
+            const bounds = computeLineBounds(merged.geometry)
+            if (bounds && (map as any)?.fitBounds) {
+              (map as any).fitBounds(bounds, { padding: 80, duration: 700, maxZoom: 7 })
+            }
+          } catch (fitErr) {
+            // fitBounds fails on NaN or degenerate bounds — fall back to single segment
+            console.warn("[CREP/Highlight] fitBounds skipped:", (fitErr as any)?.message)
           }
-        } catch {}
-        return
+        }
+      } catch (mergeErr) {
+        console.warn("[CREP/Highlight] whole-line merge failed, falling back to single segment:", (mergeErr as any)?.message)
       }
     }
-    highlightLine(map, feature.geometry, feature.properties)
+
+    if (!wholeLineShown && feature.geometry) {
+      highlightLine(map, feature.geometry, feature.properties)
+    }
+  } catch (e: any) {
+    // Absolute last-resort swallow — a click must never crash the CREP tree.
+    console.warn("[CREP/Highlight] highlightFromEvent failed:", e?.message || e)
   }
 }
 
@@ -222,20 +252,32 @@ export function gatherLineByGroupId(map: any, sourceId: string, groupKey: any):
   { geometry: { type: "MultiLineString"; coordinates: [number, number][][] }; segmentCount: number } | null {
   try {
     if (!map || typeof map.querySourceFeatures !== "function") return null
-    const features: any[] = map.querySourceFeatures(sourceId) || []
+    if (!sourceId || typeof sourceId !== "string") return null
+    // Guard: the source must actually exist, otherwise querySourceFeatures throws
+    if (typeof map.getSource === "function" && !map.getSource(sourceId)) return null
+    let features: any[] = []
+    try {
+      features = map.querySourceFeatures(sourceId) || []
+    } catch {
+      return null
+    }
+    if (!Array.isArray(features) || !features.length) return null
     const keyStr = String(groupKey)
     const matching = features.filter((f) => {
-      const p = f.properties || {}
+      const p = f?.properties || {}
       return String(p.cable_id ?? p.line_id ?? p.cableId ?? p.lineId ?? p.id ?? "") === keyStr
     })
     if (!matching.length) return null
     const coords: [number, number][][] = []
     for (const m of matching) {
-      const g = m.geometry
-      if (!g) continue
-      if (g.type === "LineString") coords.push(g.coordinates as [number, number][])
-      else if (g.type === "MultiLineString") {
-        for (const line of g.coordinates as [number, number][][]) coords.push(line)
+      const g = m?.geometry
+      if (!g || !g.coordinates) continue
+      if (g.type === "LineString" && Array.isArray(g.coordinates)) {
+        if (g.coordinates.length >= 2) coords.push(g.coordinates as [number, number][])
+      } else if (g.type === "MultiLineString" && Array.isArray(g.coordinates)) {
+        for (const line of g.coordinates as [number, number][][]) {
+          if (Array.isArray(line) && line.length >= 2) coords.push(line)
+        }
       }
     }
     if (!coords.length) return null
@@ -246,18 +288,29 @@ export function gatherLineByGroupId(map: any, sourceId: string, groupKey: any):
 function computeLineBounds(geom: any): [[number, number], [number, number]] | null {
   if (!geom?.coordinates) return null
   let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90
+  let depthLimit = 0
   const walk = (pts: any[]) => {
+    if (!Array.isArray(pts)) return
+    if (++depthLimit > 500000) return // safety cap against pathological nesting
     for (const p of pts) {
-      if (typeof p[0] === "number") {
+      if (!p) continue
+      if (typeof p[0] === "number" && typeof p[1] === "number" &&
+          !Number.isNaN(p[0]) && !Number.isNaN(p[1]) &&
+          Number.isFinite(p[0]) && Number.isFinite(p[1])) {
         if (p[0] < minLng) minLng = p[0]
         if (p[0] > maxLng) maxLng = p[0]
         if (p[1] < minLat) minLat = p[1]
         if (p[1] > maxLat) maxLat = p[1]
-      } else walk(p)
+      } else if (Array.isArray(p)) {
+        walk(p)
+      }
     }
   }
   walk(geom.coordinates)
-  if (minLng === 180 || maxLng === -180) return null
+  // Reject degenerate / unset bounds (the initial sentinel values would
+  // make fitBounds throw)
+  if (minLng === 180 || maxLng === -180 || minLat === 90 || maxLat === -90) return null
+  if (minLng > maxLng || minLat > maxLat) return null
   return [[minLng, minLat], [maxLng, maxLat]]
 }
 
