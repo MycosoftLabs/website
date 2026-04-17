@@ -542,10 +542,11 @@ jobs:
     needs: [check-fast]
     if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main'
     environment: production
-    # 30 min: build-on-VM + blue/green cutover can exceed the old 15-min budget
-    # for a large Next.js image. If this still isn't enough, switch to pulling
-    # production-latest from GHCR instead of building on the VM.
-    timeout-minutes: 30
+    # Build + cutover can take 20-30 min on the 475MB RAM VM (npm install
+    # 7 min, docker COPY of node_modules 5 min, next build 6 min, cutover
+    # 2 min). 45 min gives headroom for all steps + retries.
+    # Proper fix: switch build to GH runner + GHCR pull on VM.
+    timeout-minutes: 45
     steps:
       - name: Checkout (for composite action)
         uses: actions/checkout@v4
@@ -1074,7 +1075,10 @@ jobs:
           BOOTSTRAP
 
       - name: Build on VM + blue/green cutover (zero-downtime, CF purge)
-        timeout-minutes: 20
+        # 475MB RAM VM is slow — npm install ~7min, next build ~6min,
+        # docker COPY of node_modules ~5min. 30 min gives headroom.
+        # Proper fix: build on GH runner + push to GHCR + pull on VM.
+        timeout-minutes: 35
         run: |
           ssh-retry production bash -s <<BUILD
             set -euo pipefail
