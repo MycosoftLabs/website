@@ -186,17 +186,44 @@ async function main() {
   fs.writeFileSync(OUT_PATH, JSON.stringify(bundle))
   console.log(`[ports-etl] wrote ${features.length} ports → ${OUT_PATH}`)
 
-  // Optional: push to MINDEX as the authoritative registry
+  // Optional: push to MINDEX as the authoritative registry.
+  // Targets the website's Next route /api/mindex/ingest/ports (which accepts
+  // { source, data } and forwards to the MINDEX PostGIS service). Prefer
+  // SITE_URL (the website's URL) over MINDEX_URL so we go through the Next
+  // ingest route that has the correct payload contract + VALID_TYPES gate.
+  const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL
   const mindexUrl = process.env.MINDEX_URL || process.env.NEXT_PUBLIC_MINDEX_URL
-  if (mindexUrl) {
+  const ingestBase = siteUrl || mindexUrl
+  if (ingestBase) {
     try {
-      const res = await fetch(`${mindexUrl}/api/mindex/ingest/ports`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json",
-                   "x-mindex-token": process.env.MINDEX_INGEST_TOKEN || "" },
-        body: JSON.stringify({ source: "WPI/NGA", ports: features.map((f: any) => ({ ...f.properties, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] })) }),
-      })
-      console.log(`[ports-etl] MINDEX ingest: ${res.status}`)
+      const portRecords = features.map((f: any) => ({
+        ...f.properties,
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+      }))
+      // POST in chunks of 2000 so we don't blow out request size limits.
+      const CHUNK = 2000
+      let posted = 0
+      for (let i = 0; i < portRecords.length; i += CHUNK) {
+        const chunk = portRecords.slice(i, i + CHUNK)
+        const res = await fetch(`${ingestBase}/api/mindex/ingest/ports`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-mindex-token": process.env.MINDEX_INGEST_TOKEN || "",
+            "x-cron-token": process.env.ETL_CRON_TOKEN || "",
+          },
+          body: JSON.stringify({
+            source: "WPI/NGA Pub 150",
+            timestamp: new Date().toISOString(),
+            data: chunk,
+            metadata: { batch: i / CHUNK + 1, total: Math.ceil(portRecords.length / CHUNK), dedupe_key: "id" },
+          }),
+        })
+        if (res.ok) posted += chunk.length
+        else console.log(`[ports-etl] chunk ${i / CHUNK + 1} → HTTP ${res.status}`)
+      }
+      console.log(`[ports-etl] MINDEX ingest: ${posted}/${portRecords.length} ports posted via ${ingestBase}/api/mindex/ingest/ports`)
     } catch (e: any) {
       console.log(`[ports-etl] MINDEX push failed: ${e?.message}`)
     }

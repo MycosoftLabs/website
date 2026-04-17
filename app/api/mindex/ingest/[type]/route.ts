@@ -6,11 +6,11 @@ const MINDEX_API_URL = process.env.MINDEX_API_URL || "http://localhost:8000"
 
 // Valid ingestion types for CREP data
 const VALID_TYPES = [
-  "aircraft", 
-  "vessels", 
-  "satellites", 
-  "events", 
-  "weather", 
+  "aircraft",
+  "vessels",
+  "satellites",
+  "events",
+  "weather",
   "telemetry",
   // Added Feb 4, 2026 for comprehensive event logging
   "lightning",
@@ -18,6 +18,23 @@ const VALID_TYPES = [
   "smoke",
   "spores",
   "debris",
+  // Added Apr 17, 2026 for Army-proposal multi-domain registry backbone.
+  // Each of these lands in MINDEX as a dedicated entity type so the
+  // PostGIS earth layer can filter / query cleanly per domain.
+  "ports",
+  "submarine-cables",
+  "transmission-lines",
+  "power-plants",
+  "cell-towers",
+  "radio-stations",
+  "radar",
+  "factories",
+  "orbital-objects",
+  "nature-observations",
+  "gbif-occurrences",
+  "obis-occurrences",
+  "air-quality",
+  "earthspots",
 ] as const
 type IngestType = typeof VALID_TYPES[number]
 

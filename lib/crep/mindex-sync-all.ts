@@ -103,7 +103,7 @@ export async function syncAllToMindex(baseUrl: string): Promise<{ sinks: SinkRes
     }, baseUrl),
     timeSink("orbital-objects", "space", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/orbital-objects?includeSatCat=true&includeAnalyst=true&limit=100000`, 120_000)
-      return { type: "debris", items: (j.objects || []).map((o: any) => ({ id: o.id, ...o })) }
+      return { type: "orbital-objects", items: (j.objects || []).map((o: any) => ({ id: o.id, ...o })) }
     }, baseUrl),
     timeSink("debris-catalogued", "space", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/debris?mode=catalogued`, 120_000)
@@ -116,21 +116,28 @@ export async function syncAllToMindex(baseUrl: string): Promise<{ sinks: SinkRes
     // ── GROUND INFRA ──
     timeSink("power-plants", "infrastructure", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/power-plants?limit=50000`)
-      return { type: "telemetry", items: (j.plants || []).map((p: any) => ({ id: p.id, ...p, __entity_type: "power-plant" })) }
+      return { type: "power-plants", items: (j.plants || []).map((p: any) => ({ id: p.id, ...p })) }
     }, baseUrl),
     timeSink("transmission-lines", "infrastructure", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/transmission-lines-global?limit=50000`)
-      return { type: "telemetry", items: (j.lines || []).map((l: any) => ({ id: l.id, ...l, __entity_type: "transmission-line" })) }
+      return { type: "transmission-lines", items: (j.lines || []).map((l: any) => ({ id: l.id, ...l })) }
+    }, baseUrl),
+    timeSink("factories", "infrastructure", async () => {
+      // Factories registry is bbox-scoped; the sync pass uses global-bundle-only
+      // (OSM Overpass is skipped for the unattended run). When an operator
+      // widget pans the map, the live route fills in the viewport.
+      const j = await jsonGet(`${baseUrl}/api/oei/factories?limit=50000`).catch(() => ({ factories: [] }))
+      return { type: "factories", items: (j.factories || []).map((f: any) => ({ id: f.id, ...f })) }
     }, baseUrl),
 
     // ── COMMS ──
     timeSink("radio-stations", "communications", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/radio-stations?limit=20000`)
-      return { type: "telemetry", items: (j.stations || []).map((s: any) => ({ id: s.id, ...s, __entity_type: "radio-station" })) }
+      return { type: "radio-stations", items: (j.stations || []).map((s: any) => ({ id: s.id, ...s })) }
     }, baseUrl),
     timeSink("radar-sites", "communications", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/radar`)
-      return { type: "telemetry", items: (j.sites || []).map((s: any) => ({ id: s.id, ...s, __entity_type: "radar" })) }
+      return { type: "radar", items: (j.sites || []).map((s: any) => ({ id: s.id, ...s })) }
     }, baseUrl),
 
     // ── NATURE / BIODIVERSITY ──
@@ -139,21 +146,21 @@ export async function syncAllToMindex(baseUrl: string): Promise<{ sinks: SinkRes
     timeSink("inat-delta", "nature", async () => {
       const since = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10)
       const j = await jsonGet(`${baseUrl}/api/etl/inat/sync?since=${since}`, 120_000).catch(() => ({ observations: [] }))
-      return { type: "telemetry", items: (j.observations || []).map((o: any) => ({ id: o.id, ...o, __entity_type: "nature-observation" })) }
+      return { type: "nature-observations", items: (j.observations || []).map((o: any) => ({ id: o.id, ...o })) }
     }, baseUrl),
     timeSink("gbif-delta", "nature", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/gbif?limit=5000`)
-      return { type: "telemetry", items: (j.results || []).map((o: any) => ({ id: o.gbifID, ...o, __entity_type: "gbif-occurrence" })) }
+      return { type: "gbif-occurrences", items: (j.results || []).map((o: any) => ({ id: o.gbifID, ...o })) }
     }, baseUrl),
     timeSink("obis-delta", "nature", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/obis?limit=5000`)
-      return { type: "telemetry", items: (j.results || j.occurrences || []).map((o: any) => ({ id: o.id, ...o, __entity_type: "obis-occurrence" })) }
+      return { type: "obis-occurrences", items: (j.results || j.occurrences || []).map((o: any) => ({ id: o.id, ...o })) }
     }, baseUrl),
 
     // ── ENVIRONMENTAL ──
     timeSink("openaq", "environment", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/openaq?limit=20000`)
-      return { type: "weather", items: (j.stations || j.results || []).map((s: any) => ({ id: s.id, ...s, __entity_type: "air-quality" })) }
+      return { type: "air-quality", items: (j.stations || j.results || []).map((s: any) => ({ id: s.id, ...s })) }
     }, baseUrl),
     timeSink("eonet", "events", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/eonet?limit=5000`)
@@ -181,7 +188,7 @@ export async function syncAllToMindex(baseUrl: string): Promise<{ sinks: SinkRes
     // ── SPACE WEATHER → EARTHSPOTS ──
     timeSink("sun-earth-correlation", "events", async () => {
       const j = await jsonGet(`${baseUrl}/api/oei/sun-earth-correlation`)
-      return { type: "events", items: (j.earthspots || []).map((e: any) => ({ id: e.id, ...e, __entity_type: "earthspot" })) }
+      return { type: "earthspots", items: (j.earthspots || []).map((e: any) => ({ id: e.id, ...e })) }
     }, baseUrl),
   ])
   sinks.push(...wave2)
