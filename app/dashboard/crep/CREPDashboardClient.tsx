@@ -4225,8 +4225,8 @@ export default function CREPDashboardPage() {
                     ? "border-green-500/50 text-green-400" 
                     : "border-orange-500/50 text-orange-400"
                 )}>
-                  {leftPanelTab === "fungal" 
-                    ? `${visibleFungalObservations.length}/${fungalObservations.length} FUNGI` 
+                  {leftPanelTab === "fungal"
+                    ? `${visibleFungalObservations.length}/${fungalObservations.length} NATURE`
                     : `${filteredEvents.length} EVENTS`}
               </Badge>
               </div>
@@ -6140,7 +6140,7 @@ export default function CREPDashboardPage() {
                 <DropdownMenuTrigger asChild>
                   <div
                     className="px-2 py-1 rounded bg-green-500/20 backdrop-blur text-green-400 border border-green-500/30 cursor-pointer hover:bg-green-500/30 transition-colors pointer-events-auto"
-                    title={fungalSpeciesFilter ? `${visibleFungalObservations.length} ${fungalSpeciesFilter} - click for species` : `${fungalObservations.length} fungal observations - hover for species filter`}
+                    title={fungalSpeciesFilter ? `${visibleFungalObservations.length} ${fungalSpeciesFilter} - click for species` : `${fungalObservations.length} nature observations - hover for species filter`}
                     onMouseEnter={() => {
                       if (fungalDropdownCloseTimeout.current) {
                         clearTimeout(fungalDropdownCloseTimeout.current);
