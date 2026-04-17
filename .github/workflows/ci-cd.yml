@@ -603,24 +603,49 @@ jobs:
       # image — but even if that hangs, at least the site is back up.
       # ─────────────────────────────────────────────────────────────────────
       - name: Bootstrap (recover nginx / active-slot BEFORE build)
-        timeout-minutes: 5
+        timeout-minutes: 8
         run: |
           ssh-retry production bash -s <<'BOOTSTRAP'
             set -euo pipefail
             cd /opt/mycosoft/website
 
+            echo "=== Checking docker daemon responsiveness ==="
+            # A hung buildkitd from a cancelled CI run can wedge the entire
+            # docker daemon — every subsequent docker/compose command hangs
+            # on the containerd lock. If `docker ps` doesn't respond in 10s,
+            # the daemon is dead and nothing short of restarting it will fix
+            # it. Since the site is already 502 (nothing to lose), restart.
+            if ! timeout 10 docker ps -q >/dev/null 2>&1; then
+              echo "::warning::docker ps timed out — daemon is hung, restarting"
+              # Kill buildkitd + docker-build processes first (they may be
+              # the thing holding the lock).
+              pgrep -x buildkitd 2>/dev/null | xargs -r sudo kill -KILL 2>/dev/null || true
+              pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r sudo kill -KILL 2>/dev/null || true
+              sudo systemctl restart docker 2>&1 || sudo service docker restart 2>&1 || true
+              # Wait up to 60s for docker to come back up.
+              for i in {1..30}; do
+                if timeout 5 docker ps -q >/dev/null 2>&1; then
+                  echo "  docker responsive again (took ${i}×2s)"
+                  break
+                fi
+                sleep 2
+              done
+              # Restart stuck containers (they'll auto-restart if unless-stopped,
+              # but kick them just to be sure).
+              echo "  starting base services"
+              docker start mycosoft-postgres mycosoft-redis mycosoft-ollama 2>/dev/null || true
+            else
+              echo "  docker daemon is responsive"
+            fi
+
             echo "=== Killing any orphan docker-build processes from prior cancelled runs ==="
-            # A cancelled CI run leaves docker-build + buildkit workers
-            # running on the VM, holding the containerd lock. Future
-            # compose / docker commands then hang indefinitely. Clean up.
             pgrep -x buildkitd 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
             pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
             pgrep -f 'docker buildx' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
             sleep 2
-            # Force kill anything still alive
             pgrep -x buildkitd 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
             pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
-            # Prune builder cache to release disk + kill orphan buildkit
+            # Prune builder cache with short timeout — if this hangs, skip it
             timeout 30 docker builder prune -f 2>/dev/null || echo "  builder prune timed out — continuing"
 
             chmod +x scripts/blue-green-bootstrap.sh scripts/blue-green-deploy.sh
