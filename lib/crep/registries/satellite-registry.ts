@@ -98,20 +98,49 @@ async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
   const results = await Promise.allSettled(
     groups.map(async (group) => {
       const url = `${CELESTRAK_API}?GROUP=${group}&FORMAT=json`
-      const res = await fetch(url, {
-        cache: "no-store",
-        // CelesTrak can be slow under load; give each group 15s
-        signal: AbortSignal.timeout(15_000),
-        headers: {
-          Accept: "application/json",
-          // CelesTrak's Cloudflare layer 403s default Node UA. Identify ourselves.
-          "User-Agent": UA,
-        },
-      })
-      if (!res.ok) return []
-      const data = await res.json()
-      if (!Array.isArray(data)) return []
-      return data
+      try {
+        const res = await fetch(url, {
+          cache: "no-store",
+          // CelesTrak can be slow under load; give each group 15s
+          signal: AbortSignal.timeout(15_000),
+          headers: {
+            Accept: "application/json",
+            // CelesTrak's Cloudflare layer 403s default Node UA. Identify ourselves.
+            "User-Agent": UA,
+          },
+        })
+        if (!res.ok) {
+          console.warn(`[CREP/Sat/CelesTrak] group=${group} status=${res.status}`)
+          return [] as any[]
+        }
+        const text = await res.text()
+        // Diagnostic: CelesTrak can return HTML (Cloudflare block), plaintext,
+        // or an empty array. Log so we can see why data is missing on prod.
+        if (!text || text.length < 10) {
+          console.warn(`[CREP/Sat/CelesTrak] group=${group} empty body`)
+          return [] as any[]
+        }
+        let data: any
+        try {
+          data = JSON.parse(text)
+        } catch {
+          console.warn(`[CREP/Sat/CelesTrak] group=${group} non-JSON body (first 80): ${text.slice(0, 80)}`)
+          return [] as any[]
+        }
+        if (!Array.isArray(data)) {
+          console.warn(`[CREP/Sat/CelesTrak] group=${group} not array: ${typeof data}`)
+          return [] as any[]
+        }
+        if (data.length === 0) {
+          console.warn(`[CREP/Sat/CelesTrak] group=${group} returned empty array`)
+        } else {
+          console.log(`[CREP/Sat/CelesTrak] group=${group} fetched ${data.length}`)
+        }
+        return data
+      } catch (err) {
+        console.warn(`[CREP/Sat/CelesTrak] group=${group} fetch error: ${(err as Error)?.message}`)
+        return [] as any[]
+      }
     })
   )
 
@@ -119,6 +148,7 @@ async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
   for (const r of results) {
     if (r.status === "fulfilled") allGP.push(...r.value)
   }
+  console.log(`[CREP/Sat/CelesTrak] total across ${groups.length} groups: ${allGP.length}`)
 
   const now = new Date().toISOString()
   return allGP.map((gp: any) => ({
@@ -171,23 +201,32 @@ async function fetchFromMINDEX(): Promise<SatelliteRecord[]> {
  * Paginated: default 20 per page, max 100.
  */
 async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
-  // Paginate to get maximum TLE data — each page returns up to 100
-  // Fetch first 50 pages in parallel (~5000 satellites) for broad coverage
+  // Paginate to get maximum TLE data — each page returns up to 100.
+  // 30 pages × 100 = 3000 satellites. Mirror rate-limits past ~30 pages.
   const PAGE_SIZE = 100
-  const MAX_PAGES = 5 // 500 satellites from TLE mirror (more pages get rate-limited)
+  const MAX_PAGES = 30
+  const UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
   const now = new Date().toISOString()
 
   const pageResults = await Promise.allSettled(
     Array.from({ length: MAX_PAGES }, (_, i) => i + 1).map(async (page) => {
       const url = `${TLE_API_BASE}?page=${page}&page_size=${PAGE_SIZE}&sort=popularity&sort_dir=desc`
-      const res = await fetch(url, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(15_000), // shorter timeout per page
-        headers: { Accept: "application/json" },
-      })
-      if (!res.ok) return []
-      const data = await res.json()
-      return data.member ?? data.results ?? []
+      try {
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
+          headers: { Accept: "application/json", "User-Agent": UA },
+        })
+        if (!res.ok) {
+          if (page <= 3) console.warn(`[CREP/Sat/TLE] page=${page} status=${res.status}`)
+          return [] as any[]
+        }
+        const data = await res.json()
+        return data.member ?? data.results ?? []
+      } catch (err) {
+        if (page <= 3) console.warn(`[CREP/Sat/TLE] page=${page} error: ${(err as Error)?.message}`)
+        return [] as any[]
+      }
     })
   )
 
@@ -195,6 +234,7 @@ async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
   for (const r of pageResults) {
     if (r.status === "fulfilled") allMembers.push(...r.value)
   }
+  console.log(`[CREP/Sat/TLE] fetched ${allMembers.length} across ${MAX_PAGES} pages`)
 
   return allMembers.map((tle: any) => ({
     id: `tle-${tle.satelliteId ?? tle.noradCatalogId ?? Date.now()}`,

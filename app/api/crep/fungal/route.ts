@@ -559,6 +559,103 @@ async function fetchINaturalistObservations(
   return allObservations
 }
 
+/**
+ * Fast single-call iNaturalist fetch for quick-mode instant-paint.
+ *
+ * Unlike fetchINaturalistObservations which fans out across 10 regions × 10
+ * taxa (100 calls, ~5-10s), this makes ONE global call with no taxon filter,
+ * no retries, and a tight 5s timeout. Purpose: if MINDEX is unreachable from
+ * the prod container, the user still sees species dots in <2s instead of an
+ * empty map.
+ */
+async function fetchINaturalistQuick(
+  limit: number,
+  bounds?: { north: number; south: number; east: number; west: number },
+  kingdom?: string,
+): Promise<FungalObservation[]> {
+  try {
+    const params = new URLSearchParams({
+      quality_grade: "research,needs_id",
+      per_page: String(Math.min(limit, 200)),
+      order: "desc",
+      order_by: "observed_on",
+      geo: "true",
+      photos: "true",
+    })
+
+    // Only constrain by taxon when the user explicitly asked for one
+    if (kingdom && kingdom !== "all") {
+      params.set("iconic_taxa", kingdom)
+    }
+
+    // Only constrain by bounds when the dashboard is zoomed in
+    if (bounds) {
+      params.set("nelat", String(bounds.north))
+      params.set("nelng", String(bounds.east))
+      params.set("swlat", String(bounds.south))
+      params.set("swlng", String(bounds.west))
+    }
+
+    const res = await fetch(`${INATURALIST_API}/observations?${params}`, {
+      headers: { "Accept": "application/json" },
+      signal: AbortSignal.timeout(5000),
+      next: { revalidate: 60 },
+    })
+
+    if (!res.ok) {
+      console.warn(`[CREP/Fungal] Quick iNat returned ${res.status}`)
+      return []
+    }
+
+    const data = await res.json()
+    const results = Array.isArray(data.results) ? data.results : []
+
+    const obs = results
+      .filter((o: any) => o.geojson?.coordinates || o.location)
+      .map((o: any) => {
+        let lat = o.geojson?.coordinates?.[1]
+        let lng = o.geojson?.coordinates?.[0]
+        if (lat == null || lng == null) {
+          const parts = o.location?.split(",")
+          if (parts?.length >= 2) {
+            lat = parseFloat(parts[0])
+            lng = parseFloat(parts[1])
+          }
+        }
+        const iconic = o.taxon?.iconic_taxon_name || "Unknown"
+        return {
+          id: `inat-${o.id}`,
+          species: o.taxon?.preferred_common_name || o.taxon?.name || "Unknown",
+          scientificName: o.taxon?.name || "Unknown",
+          commonName: o.taxon?.preferred_common_name,
+          latitude: Number(lat) || 0,
+          longitude: Number(lng) || 0,
+          timestamp: o.observed_on || o.created_at,
+          source: "iNaturalist" as const,
+          verified: o.quality_grade === "research",
+          observer: o.user?.login || "Anonymous",
+          imageUrl: o.photos?.[0]?.url?.replace("square", "medium"),
+          thumbnailUrl: o.photos?.[0]?.url,
+          location: o.place_guess,
+          notes: o.description,
+          hasGps: true,
+          geocodeStatus: "complete" as const,
+          kingdom: iconic,
+          iconicTaxon: iconic,
+          taxonId: o.taxon?.id,
+          externalId: String(o.id),
+          sourceUrl: `https://www.inaturalist.org/observations/${o.id}`,
+        }
+      })
+
+    console.log(`[CREP/Fungal] Quick iNat: ${obs.length} observations fetched`)
+    return obs
+  } catch (error) {
+    console.warn("[CREP/Fungal] Quick iNat fetch error:", (error as Error)?.message)
+    return []
+  }
+}
+
 // GBIF kingdom keys for all-life coverage
 const GBIF_KINGDOMS: Record<string, string> = {
   Fungi: "5", Plantae: "6", Animalia: "1", Chromista: "4", Protozoa: "7", Bacteria: "3",
@@ -829,10 +926,24 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Skip live iNaturalist / GBIF fetches in quickMode so the response is
-    // near-instant (~300-800ms from MINDEX alone). The dashboard calls the
-    // full (non-quick) endpoint as a background enrichment step to bring in
-    // fresh observations that aren't yet ingested into MINDEX.
+    // QUICK MODE FALLBACK: run a minimal iNat fetch IN PARALLEL with MINDEX.
+    // If MINDEX returns data, we merge. If MINDEX returns 0 (prod container
+    // can't reach MINDEX, or MINDEX is down), we still have ~500 obs paint
+    // in <2s instead of showing the user a blank map. Single call, no
+    // per-region fanout, no retries — lightweight and fast.
+    if (quickMode) {
+      fetchPromises.push(
+        fetchINaturalistQuick(limit || 500, bounds, kingdom).catch((err) => {
+          console.warn("[CREP/Fungal] Quick iNat fallback failed:", err?.message)
+          return [] as FungalObservation[]
+        })
+      )
+    }
+
+    // Skip full live iNaturalist / GBIF fetches in quickMode so the response
+    // is near-instant. The dashboard calls the full (non-quick) endpoint as a
+    // background enrichment step to bring in fresh observations that aren't
+    // yet ingested into MINDEX.
     if (!quickMode) {
       // Always fetch iNaturalist live (unless source=mindex only)
       if (!source || source === "all" || source === "inat" || fallbackOnly) {

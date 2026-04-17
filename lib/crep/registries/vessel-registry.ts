@@ -176,9 +176,15 @@ async function fetchFromBarentsWatch(): Promise<VesselRecord[]> {
   const res = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+    },
   })
-  if (!res.ok) return []
+  if (!res.ok) {
+    console.warn(`[VesselRegistry/BarentsWatch] status=${res.status}`)
+    return []
+  }
   const data = await res.json()
   const vessels: any[] = Array.isArray(data) ? data : data.features ?? data.data ?? []
 
@@ -211,9 +217,15 @@ async function fetchFromDMA(): Promise<VesselRecord[]> {
   const res = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+    },
   })
-  if (!res.ok) return []
+  if (!res.ok) {
+    console.warn(`[VesselRegistry/DMA] status=${res.status}`)
+    return []
+  }
   const data = await res.json()
   const vessels: any[] = Array.isArray(data) ? data : data.features ?? data.aisPositions ?? []
 
