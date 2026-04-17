@@ -259,6 +259,72 @@ async function fetchFromTLEMirror(): Promise<SatelliteRecord[]> {
 }
 
 /**
+ * Source 3b — SatNOGS-DB (satnogs.org)
+ *
+ * Open satellite database run by the Libre Space Foundation. Returns
+ * latest TLEs from multiple sources (Space-Track, CelesTrak, amateur
+ * tracking). No authentication required. Works when CelesTrak is down.
+ *
+ * API: https://db.satnogs.org/api/tle/?format=json&page_size=N
+ */
+async function fetchFromSatNogs(): Promise<SatelliteRecord[]> {
+  const PAGE_SIZE = 100
+  const MAX_PAGES = 20 // 2000 satellites — enough for interactive globe
+  const UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
+  const now = new Date().toISOString()
+
+  const pageResults = await Promise.allSettled(
+    Array.from({ length: MAX_PAGES }, (_, i) => i + 1).map(async (page) => {
+      const url = `https://db.satnogs.org/api/tle/?format=json&page=${page}&page_size=${PAGE_SIZE}`
+      try {
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
+          headers: { Accept: "application/json", "User-Agent": UA },
+        })
+        if (!res.ok) {
+          if (page <= 3) console.warn(`[CREP/Sat/SatNOGS] page=${page} status=${res.status}`)
+          return [] as any[]
+        }
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      } catch (err) {
+        if (page <= 3) console.warn(`[CREP/Sat/SatNOGS] page=${page} error: ${(err as Error)?.message}`)
+        return [] as any[]
+      }
+    }),
+  )
+
+  const all: any[] = []
+  for (const r of pageResults) {
+    if (r.status === "fulfilled") all.push(...r.value)
+  }
+  console.log(`[CREP/Sat/SatNOGS] fetched ${all.length} across ${MAX_PAGES} pages`)
+
+  return all
+    .filter((s: any) => s.tle1 && s.tle2 && s.norad_cat_id)
+    .map((s: any) => ({
+      id: `satnogs-${s.norad_cat_id}`,
+      noradId: parseInt(String(s.norad_cat_id)) || 0,
+      name: (s.tle0 || "").replace(/^0\s*/, "").trim() || "Unknown",
+      lat: 0,
+      lng: 0,
+      altitude: null,
+      velocity: null,
+      inclination: null,
+      period: null,
+      orbitType: null,
+      objectType: null,
+      country: null,
+      source: "satnogs" as const,
+      timestamp: now,
+      tleEpoch: s.updated ?? null,
+      line1: s.tle1 ?? undefined,
+      line2: s.tle2 ?? undefined,
+    }))
+}
+
+/**
  * Source 4 — Space-Track.org (official USSPACECOM TLE source)
  *
  * Requires SPACETRACK_USER + SPACETRACK_PASS. Authenticates via cookie,
@@ -629,6 +695,7 @@ export async function fetchAllSatellites(): Promise<SatelliteRecord[]> {
 export async function fetchAllSatellitesWithMeta(): Promise<SatelliteRegistryResult> {
   const sourceFetchers: Array<{ name: string; fn: () => Promise<SatelliteRecord[]> }> = [
     { name: "celestrak", fn: fetchFromCelesTrak },
+    { name: "satnogs", fn: fetchFromSatNogs },       // open DB; works when CelesTrak is down
     { name: "mindex", fn: fetchFromMINDEX },
     { name: "tle-mirror", fn: fetchFromTLEMirror },
     { name: "spacetrack", fn: fetchFromSpaceTrack },
