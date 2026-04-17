@@ -3832,63 +3832,75 @@ export default function CREPDashboardPage() {
   // ██████████████████████████████████████████████████████████████████████████
   // AIRCRAFT + VESSEL DEAD-RECKONING — rAF loop, updates MapLibre DIRECTLY.
   //
-  // Reads last-known position+velocity from lastKnownRef and extrapolates at
-  // ~5 FPS into the crep-live-aircraft / crep-live-vessels sources via
-  // setData(). Zero React re-renders — writes straight to MapLibre's GPU-
-  // backed source. Runs forever once started, stops on unmount.
+  // Reads mapNativeRef.current FRESH each tick (the map isn't ready at mount
+  // so we can't capture it once). Reads lastKnownRef (position + velocity)
+  // and extrapolates at ~5 FPS into crep-live-aircraft / crep-live-vessels
+  // sources via setData(). Zero React re-renders.
   //
+  // Preserves the `heading` property from lastKnownRef entries (previously
+  // I set heading=0, which rotated all planes north — they were still there
+  // but all pointing the same direction, so they looked "fake" in motion).
   // Satellites have their own SGP4 animation module (see below).
   // ██████████████████████████████████████████████████████████████████████████
   useEffect(() => {
-    const map = mapNativeRef.current;
-    if (!map) return;
     let rafId: number | null = null;
     let last = 0;
     const TICK_MS = 200; // 5 FPS — smooth enough, cheap enough
 
     const tick = (ts: number) => {
+      const map = mapNativeRef.current; // fresh each tick — not captured at mount
+      if (!map || typeof map.getSource !== "function") {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
       if (ts - last >= TICK_MS) {
         last = ts;
         const lk = lastKnownRef.current;
-        const nowMs = ts;
+        const nowMs = Date.now();
         try {
-          // Aircraft
-          const acSrc = map.getSource?.("crep-live-aircraft") as any;
-          if (acSrc?.setData && Object.keys(lk).length > 0) {
-            // Find aircraft IDs in lk by filtering those known to be aircraft
-            // (vessels + aircraft share lk; we tag them by filtering
-            // against filteredAircraft/filteredVessels below via ref)
-            const acFeats: any[] = [];
-            const vFeats: any[] = [];
-            for (const [id, a] of Object.entries(lk)) {
-              const dtSec = (nowMs - a.ts) / 1000;
-              const lng = a.lng + a.velLng * dtSec;
-              const lat = a.lat + a.velLat * dtSec;
-              // Tag aircraft vs vessel by presence in filtered* — use ref
-              // to avoid React dep loops
-              const kind = aircraftIdSetRef.current.has(id) ? "aircraft" : vesselIdSetRef.current.has(id) ? "vessel" : null;
-              if (!kind) continue;
-              const feat = {
-                type: "Feature" as const,
-                properties: { id, heading: 0 /* heading pushed via LOD pump */ },
-                geometry: { type: "Point" as const, coordinates: [lng, lat] },
-              };
-              if (kind === "aircraft") acFeats.push(feat);
-              else vFeats.push(feat);
-            }
-            if (acFeats.length) acSrc.setData({ type: "FeatureCollection", features: acFeats });
-            const vSrc = map.getSource?.("crep-live-vessels") as any;
-            if (vSrc?.setData && vFeats.length) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+          const acFeats: any[] = [];
+          const vFeats: any[] = [];
+          for (const id of Object.keys(lk)) {
+            const a = lk[id];
+            if (!a) continue;
+            const dtSec = (nowMs - a.ts) / 1000;
+            const lng = a.lng + a.velLng * dtSec;
+            const lat = a.lat + a.velLat * dtSec;
+            const kind = aircraftIdSetRef.current.has(id)
+              ? "aircraft"
+              : vesselIdSetRef.current.has(id)
+              ? "vessel"
+              : null;
+            if (!kind) continue;
+            // Heading from velocity vector (rAF keeps icons pointing the
+            // right way). If velocity is effectively zero, leave as 0.
+            const speed = Math.hypot(a.velLng, a.velLat);
+            const heading = speed > 1e-9 ? (Math.atan2(a.velLng, a.velLat) * 180 / Math.PI + 360) % 360 : 0;
+            const feat = {
+              type: "Feature" as const,
+              properties: { id, heading },
+              geometry: { type: "Point" as const, coordinates: [lng, lat] },
+            };
+            if (kind === "aircraft") acFeats.push(feat);
+            else vFeats.push(feat);
+          }
+          if (acFeats.length > 0) {
+            const acSrc = map.getSource("crep-live-aircraft") as any;
+            if (acSrc?.setData) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+          }
+          if (vFeats.length > 0) {
+            const vSrc = map.getSource("crep-live-vessels") as any;
+            if (vSrc?.setData) vSrc.setData({ type: "FeatureCollection", features: vFeats });
           }
         } catch {
-          // map torn down; loop will exit via next cleanup
+          // source missing or map torn down; keep looping
         }
       }
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => { if (rafId != null) cancelAnimationFrame(rafId); };
-  }, []); // mount once
+  }, []); // mount once — ref is read fresh each tick
 
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
     const lastKnown = lastKnownRef.current;
@@ -4808,6 +4820,9 @@ export default function CREPDashboardPage() {
             onLoad={(map: any) => {
               setMapRef(map);
               mapNativeRef.current = map; // Direct ref for entity data pump
+              // Expose for debug / external animation loops that run at
+              // module scope and need to find the map without a React ref.
+              if (typeof window !== "undefined") (window as any).__crep_map = map;
               // Register PMTiles protocol for vector tile sources
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
