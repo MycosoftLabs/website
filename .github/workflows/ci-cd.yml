@@ -659,17 +659,20 @@ jobs:
             mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state 2>&1
             ls -la /opt/mycosoft/nginx/ /opt/mycosoft/state/ 2>&1 | head -10
 
-            # Use sudo -n for cp if regular cp fails (permissions from old root-created file)
-            if ! cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf 2>&1; then
-              echo "  cp failed; trying with sudo -n"
-              sudo -n cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf 2>&1
-            fi
-            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /tmp/website.conf.$$
-            if ! cp /tmp/website.conf.$$ /opt/mycosoft/nginx/conf.d/website.conf 2>&1; then
-              echo "  cp website.conf failed; trying sudo -n"
-              sudo -n cp /tmp/website.conf.$$ /opt/mycosoft/nginx/conf.d/website.conf 2>&1
-            fi
-            rm -f /tmp/website.conf.$$
+            # CRITICAL: Write IN-PLACE to preserve inode. The host paths are
+            # bind-mounted into the container as FILES. cp replaces the file
+            # (new inode), but the container's bind mount tracks the ORIGINAL
+            # inode, so it keeps seeing the STALE content. Use cat with
+            # output-redirect (> keeps inode if file exists, or truncate -s 0
+            # then append) to preserve the inode.
+            cat /opt/mycosoft/website/deploy/nginx/nginx.conf > /opt/mycosoft/nginx/nginx.conf 2>&1 || {
+              echo "  direct write failed; trying sudo -n"
+              sudo -n tee /opt/mycosoft/nginx/nginx.conf < /opt/mycosoft/website/deploy/nginx/nginx.conf >/dev/null 2>&1
+            }
+            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf 2>&1 || {
+              echo "  website.conf write failed; trying sudo -n"
+              sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template | sudo -n tee /opt/mycosoft/nginx/conf.d/website.conf >/dev/null
+            }
             echo "$LIVE" > /opt/mycosoft/state/active-slot 2>&1 || sudo -n tee /opt/mycosoft/state/active-slot <<<"$LIVE" >/dev/null
             echo "wrote state=$LIVE + rendered website.conf"
 
