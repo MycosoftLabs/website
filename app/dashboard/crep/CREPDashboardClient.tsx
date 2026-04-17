@@ -224,7 +224,10 @@ import { useGroundStation } from "@/lib/ground-station/context";
 // HMR (same crash pattern as signal-heatmap-layer). Static is safe because
 // the module is client-only and guards against map being undefined.
 import GibsBaseLayers from "@/components/crep/layers/gibs-base-layers";
-const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-overlay"), { ssr: false });
+// Static import — same ChunkLoadError pattern as signal-heatmap-layer and
+// gibs-base-layers. Layer is client-only ("use client") with mapReady guards,
+// so there's no benefit to code-splitting and every benefit to HMR stability.
+import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 // Statically imported (was dynamic). The chunk for this file was hitting
 // a ChunkLoadError during HMR rebuilds — "loading chunk_app-pages-
 // heatmap-browser_components_crep_layers_signal-heatmap-layer_tsx failed"
