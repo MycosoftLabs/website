@@ -683,30 +683,31 @@ jobs:
             echo "--- state/active-slot ---"
             cat /opt/mycosoft/state/active-slot
 
-            # Step 4: Force-reload nginx. Try SIGHUP first (zero-downtime), fall
-            # back to docker kill+compose up if HUP can't land.
-            echo "=== nginx -t FULL output ==="
+            # Step 4: FORCE RECREATE the proxy every time. SIGHUP was sent in
+            # the prior attempt but /healthz still served stale slot=green —
+            # signal isn't being honored or the process is wedged. Only way
+            # to guarantee fresh config is to kill and recreate.
+            echo "=== nginx -t FULL output (current container) ==="
             timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
-            NGINX_T_EXIT=$?
-            echo "  nginx -t exit code: $NGINX_T_EXIT"
+            echo "  nginx -t exit code: $?"
 
-            if [ "$NGINX_T_EXIT" = "0" ]; then
-              timeout 10 docker kill -s HUP mycosoft-website-proxy 2>&1 | head -3
-              echo "  HUP sent"
-            else
-              echo "  nginx -t failed — recreating proxy"
-              timeout 10 docker rm -f mycosoft-website-proxy 2>&1 | head -3
-              cd /opt/mycosoft/website
-              timeout 60 docker compose \
-                -f docker-compose.production.yml \
-                -f docker-compose.production.blue-green.yml \
-                up -d --no-deps website-proxy 2>&1 | tail -15
+            echo "=== FORCE-RECREATING proxy container ==="
+            timeout 15 docker rm -f mycosoft-website-proxy 2>&1 | head -3
+            cd /opt/mycosoft/website
 
-              # Test the NEW container's nginx -t too
-              sleep 5
-              echo "=== New proxy nginx -t output ==="
-              timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
-            fi
+            # --force-recreate to guarantee new container even if compose thinks nothing changed
+            timeout 60 docker compose \
+              -f docker-compose.production.yml \
+              -f docker-compose.production.blue-green.yml \
+              up -d --no-deps --force-recreate website-proxy 2>&1 | tail -15
+
+            sleep 5
+            echo "=== New proxy nginx -t output ==="
+            timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
+            echo "  new proxy nginx -t exit code: $?"
+
+            echo "=== Confirm new proxy is reading NEW config (look for 'blue' in served healthz) ==="
+            timeout 5 curl -sf -o /dev/null -w "  direct http://localhost:3000/healthz = %{http_code} slot=%header{x-active-slot}\n" http://localhost:3000/healthz
 
             # Step 5: Verify with DNS cache headroom
             sleep 10
