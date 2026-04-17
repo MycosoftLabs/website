@@ -595,31 +595,52 @@ jobs:
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 
+      # ─────────────────────────────────────────────────────────────────────
+      # BOOTSTRAP FIRST — critical for recovery. If prior cutover left nginx
+      # broken (site 502ing), we MUST fix it before docker build (which can
+      # hang for 30+ minutes). Bootstrap uses the image that's already on
+      # the VM. The subsequent cutover step will build + promote the NEW
+      # image — but even if that hangs, at least the site is back up.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Bootstrap (recover nginx / active-slot BEFORE build)
+        run: |
+          ssh-retry production bash -s <<'BOOTSTRAP'
+            set -euo pipefail
+            cd /opt/mycosoft/website
+            chmod +x scripts/blue-green-bootstrap.sh scripts/blue-green-deploy.sh
+            echo "=== Ensuring NAS is mounted ==="
+            sudo mount -a 2>/dev/null || true
+            echo "=== Bootstrap (always; idempotent — fixes nginx, recovers active slot) ==="
+            # Use whatever image is CURRENTLY running in the active/idle
+            # slot as WEBSITE_IMAGE. If there's no :local image, bootstrap
+            # will use whichever image is already pulled.
+            export WEBSITE_IMAGE="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'mycosoft-website:(local|production-latest)' | head -1 || echo 'mycosoft-website:local')"
+            echo "Using WEBSITE_IMAGE=$WEBSITE_IMAGE"
+            ./scripts/blue-green-bootstrap.sh
+            echo "=== Bootstrap complete. Site should be up on active slot. ==="
+          BOOTSTRAP
+
       - name: Build on VM + blue/green cutover (zero-downtime, CF purge)
+        timeout-minutes: 20
         run: |
           ssh-retry production bash -s <<BUILD
             set -euo pipefail
             cd /opt/mycosoft/website
 
             echo "=== Building Docker image locally ==="
+            # Prune dangling images to reclaim disk (common cause of hung builds)
+            docker image prune -f 2>/dev/null || true
+            docker builder prune -f --filter="until=24h" 2>/dev/null || true
+
             docker build \
               --build-arg NEXT_PUBLIC_SUPABASE_URL="\$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
               --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
               -f Dockerfile.production \
               -t mycosoft-website:local \
+              --progress=plain \
               .
 
-            echo "=== Ensuring NAS is mounted ==="
-            sudo mount -a 2>/dev/null || true
-
             chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
-
-            # ALWAYS run bootstrap (it's idempotent). This reinstalls nginx
-            # configs even if the proxy container already exists — otherwise
-            # config fixes never reach a running broken proxy.
-            echo "=== Bootstrap (always; idempotent) ==="
-            export WEBSITE_IMAGE="mycosoft-website:local"
-            ./scripts/blue-green-bootstrap.sh
 
             echo "=== Running blue/green cutover with local image ==="
             export IMAGE="mycosoft-website:local"
