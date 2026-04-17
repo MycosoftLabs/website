@@ -23,7 +23,12 @@ interface OverpassElement {
 // ---------------------------------------------------------------------------
 
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+// Infrastructure locations change on timescale of months-years, not seconds.
+// Architectural rule (Morgan, 2026-04-17): permanent infra LOCATIONS cache
+// aggressively. The widgets that show STATE (e.g. is this plant online?) are
+// separate endpoints. 24h TTL prevents hammering Overpass and keeps map paint
+// instant for repeat viewports.
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const QUERY_TIMEOUT = 25; // seconds
 const MAX_CONCURRENT = 2;
 
@@ -210,25 +215,41 @@ export async function GET(request: NextRequest) {
       if (result.cached) anyCached = true;
     }
 
+    // Infrastructure locations don't change frequently. Cache at every
+    // layer — browser, Cloudflare, Next data cache — to kill repeat fetches.
+    // s-maxage=86400 (CDN 24h), max-age=3600 (browser 1h), stale-while-revalidate
+    // keeps old data visible while a background refresh runs.
+    const cacheHeaders = {
+      "Cache-Control":
+        "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      Vary: "Accept-Encoding",
+    };
+
     // If single type, return typed response; otherwise aggregate
     if (types.length === 1) {
-      return NextResponse.json({
-        type: types[0],
+      return NextResponse.json(
+        {
+          type: types[0],
+          features: allFeatures,
+          total: allFeatures.length,
+          cached: anyCached,
+          bbox,
+        },
+        { headers: cacheHeaders },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        type: "multi",
+        types,
         features: allFeatures,
         total: allFeatures.length,
         cached: anyCached,
         bbox,
-      });
-    }
-
-    return NextResponse.json({
-      type: "multi",
-      types,
-      features: allFeatures,
-      total: allFeatures.length,
-      cached: anyCached,
-      bbox,
-    });
+      },
+      { headers: cacheHeaders },
+    );
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Internal server error";
