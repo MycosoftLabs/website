@@ -6,9 +6,13 @@
  *
  * GET /api/oei/eonet
  * Query params:
- * - limit: max events (default 100)
+ * - limit: max events (default 2000, max 5000) — covers full active global set
  * - status: "open" | "closed" (default open)
  * - category: wildfires, volcanoes, severeStorms, floods, etc.
+ *
+ * NOTE (Apr 2026): limits bumped from 100→2000 default, 300→5000 max so the
+ * Army-proposal event coverage is complete (NASA EONET currently tracks
+ * ~1,500 active events globally, no reason to cap smaller than that).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -44,7 +48,7 @@ function mapEONETCategoryToType(category: string): EONETEvent["type"] {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const limit = Math.min(parseInt(searchParams.get("limit") || "100"), 300);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "2000"), 5000);
   const status = searchParams.get("status") || "open";
   const category = searchParams.get("category");
 

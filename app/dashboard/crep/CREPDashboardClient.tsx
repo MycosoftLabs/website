@@ -220,7 +220,10 @@ import {
 import { useGroundStation } from "@/lib/ground-station/context";
 
 // Phase 2-6: New CREP layers and panels
-const GibsBaseLayers = dynamic(() => import("@/components/crep/layers/gibs-base-layers"), { ssr: false });
+// Static import — the dynamic() version was hitting ChunkLoadError during
+// HMR (same crash pattern as signal-heatmap-layer). Static is safe because
+// the module is client-only and guards against map being undefined.
+import GibsBaseLayers from "@/components/crep/layers/gibs-base-layers";
 const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-overlay"), { ssr: false });
 // Statically imported (was dynamic). The chunk for this file was hitting
 // a ChunkLoadError during HMR rebuilds — "loading chunk_app-pages-
@@ -230,6 +233,7 @@ const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-over
 // split savings aren't worth the reliability cost.
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
+import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2151,14 +2155,25 @@ export default function CREPDashboardPage() {
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
     { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
+    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
   
-  // Earth-2 AI Weather state - use complete default filter with temperature enabled
+  // Earth-2 AI Weather state — live weather stack ON by default for the
+  // Army-proposal demo: clouds, precipitation, spore-dispersal, storm-cells.
+  // Heavy layers (temp / wind vectors / pressure / humidity) stay off at
+  // mount; the user toggles them from the Data Filters panel.
   const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
     ...DEFAULT_EARTH2_FILTER,
-    showTemperature: false, // All Earth2 layers off by default — user opts in
+    showTemperature: false,
+    showWind: false,
+    showPressure: false,
+    showHumidity: false,
+    showClouds: true,
+    showPrecipitation: true,
+    showSporeDispersal: true,
+    showStormCells: true,
     forecastHours: 24,
   });
 
@@ -3523,17 +3538,16 @@ export default function CREPDashboardPage() {
              lng >= mapBounds.west && lng <= mapBounds.east;
     });
     
-    // Step 2: Zoom-based limits - events are typically fewer than fungal data
-    // so limits are more conservative
+    // Step 2: Zoom-based limits — limits raised for Army-proposal coverage.
+    // Every active global wildfire, earthquake, storm, volcano, lightning,
+    // tornado, space-weather event must be visible even at world view.
     let maxEvents: number;
     if (mapZoom < 2) {
-      maxEvents = 200;  // World view - show all significant events
+      maxEvents = 5000;   // World view — show all active global events
     } else if (mapZoom < 3) {
-      maxEvents = 500;
-    } else if (mapZoom < 4) {
-      maxEvents = 1000;
+      maxEvents = 10000;
     } else {
-      maxEvents = Infinity; // Show all at zoom 4+
+      maxEvents = Infinity; // zoom 3+: no cap
     }
     
     // Step 3: If within limit, show ALL in viewport
@@ -6576,6 +6590,17 @@ export default function CREPDashboardPage() {
                 return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
               } catch { return undefined }
             })() : undefined}
+          />
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SUN ↔ EARTH IMPACT LAYER (Apr 2026)
+              Live solar flares, CMEs, aurora ovals, subsolar earthspot,
+              and hypothesis correlation lines to active tropical cyclones.
+              ═══════════════════════════════════════════════════════════════ */}
+          <SunEarthImpactLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "sunEarthImpact")?.enabled ?? false}
+            showCorrelationLines={true}
           />
 
           {/* ═══════════════════════════════════════════════════════════════

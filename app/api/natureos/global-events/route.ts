@@ -81,10 +81,13 @@ const CACHE_TTL = 60000; // 1 minute cache
 
 async function fetchUSGSEarthquakes(): Promise<GlobalEvent[]> {
   try {
-    // Fetch earthquakes from the last 24 hours, magnitude 2.5+
+    // Full USGS catalog — past 7 days, all magnitudes (down to M1.0 regional).
+    // Earlier versions used 2.5_day.geojson (~150 quakes); the 1.0_week feed
+    // returns every tracked global event (~8,000–15,000). Army-contract
+    // deliverable requires all active seismic activity.
     const res = await fetch(
-      "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
-      { signal: AbortSignal.timeout(10000) }
+      "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/1.0_week.geojson",
+      { signal: AbortSignal.timeout(20000) }
     );
     
     if (!res.ok) throw new Error("USGS API error");
@@ -217,7 +220,7 @@ async function fetchNOAASpaceWeather(): Promise<GlobalEvent[]> {
 async function fetchNASAEONET(): Promise<GlobalEvent[]> {
   try {
     const res = await fetch(
-      "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=100",
+      "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=5000",
       { signal: AbortSignal.timeout(15000) }
     );
     
@@ -267,7 +270,7 @@ export async function GET() {
   // Return cached data if still valid
   if (cachedEvents.length > 0 && now - lastFetchTime < CACHE_TTL) {
     return NextResponse.json({
-      events: cachedEvents.slice(0, 500), // Return up to 500 events
+      events: cachedEvents.slice(0, 10000), // Full global coverage — no artificial cap
       lastUpdated: new Date().toISOString(),
       sources: {
         usgs: "online",
@@ -310,7 +313,7 @@ export async function GET() {
   }
   
   return NextResponse.json({
-    events: allEvents.slice(0, 500), // Uncapped - return up to 500 events
+    events: allEvents.slice(0, 10000), // Full active global set
     lastUpdated: new Date().toISOString(),
     sources: {
       usgs: earthquakes.length > 0 ? "online" : "offline",
