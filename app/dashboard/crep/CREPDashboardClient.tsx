@@ -242,6 +242,10 @@ import { GlobeToggle, type ProjectionMode } from "@/components/crep/controls/glo
 // PMTiles Protocol Registration (Apr 2026)
 import { registerPMTilesProtocol } from "@/lib/crep/pmtiles-source";
 
+// Static infrastructure bundle — zero-latency point markers (Morgan rule, Apr 2026)
+// Permanent facility LOCATIONS don't change per-request. Load once on mount.
+import { MAJOR_PORTS, MAJOR_DATACENTERS } from "@/lib/crep/static-infra";
+
 // OpenGridWorks-style Infrastructure Layers (Apr 2026)
 import { usePowerPlantLayers, type PowerPlant } from "@/components/crep/layers/power-plant-bubbles";
 import { ScatterplotLayer as InfraScatterplotLayer, PathLayer as InfraPathLayer } from "@deck.gl/layers";
@@ -4908,6 +4912,67 @@ export default function CREPDashboardPage() {
                     console.warn(`[CREP/Infra] Layer ${spec.id}:`, e.message);
                   }
                 };
+
+                // ════════════════════════════════════════════════════════
+                // ZERO-LATENCY STATIC LAYER — permanent infra locations
+                // (ports, data centers) bundled with the client. No network
+                // round-trip, no MINDEX query, no Overpass fetch. Paints
+                // INSTANTLY on map load.
+                // ════════════════════════════════════════════════════════
+                try {
+                  const portFeatures = MAJOR_PORTS.map((p) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      id: p.id, name: p.name, country: p.country,
+                      teuM: p.teuM ?? null, kind: p.kind, layer: "port",
+                    },
+                    geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+                  }));
+                  safeAddSource("crep-static-ports", { type: "geojson", data: { type: "FeatureCollection", features: portFeatures } });
+                  safeAddLayer({
+                    id: "crep-static-ports-circle", type: "circle", source: "crep-static-ports",
+                    paint: {
+                      "circle-radius": [
+                        "interpolate", ["linear"], ["zoom"],
+                        2, ["max", 2, ["*", ["sqrt", ["max", 0.5, ["to-number", ["get", "teuM"], 1]]], 0.8]],
+                        6, ["max", 3, ["*", ["sqrt", ["max", 0.5, ["to-number", ["get", "teuM"], 1]]], 1.4]],
+                        10, ["max", 4, ["*", ["sqrt", ["max", 0.5, ["to-number", ["get", "teuM"], 1]]], 2.2]],
+                      ],
+                      "circle-color": "#0891b2",  // cyan-600 — anchors & shipping
+                      "circle-opacity": 0.75,
+                      "circle-stroke-width": 1,
+                      "circle-stroke-color": "#0e7490",
+                    },
+                  });
+                  console.log(`[CREP/Static] ${portFeatures.length} major ports rendered (zero-latency)`);
+                } catch (e) {
+                  console.warn("[CREP/Static] port layer failed:", e);
+                }
+
+                try {
+                  const dcFeatures = MAJOR_DATACENTERS.map((d) => ({
+                    type: "Feature" as const,
+                    properties: {
+                      id: d.id, name: d.name, operator: d.operator,
+                      region: d.region, country: d.country, layer: "data_center",
+                    },
+                    geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
+                  }));
+                  safeAddSource("crep-static-dcs", { type: "geojson", data: { type: "FeatureCollection", features: dcFeatures } });
+                  safeAddLayer({
+                    id: "crep-static-dcs-circle", type: "circle", source: "crep-static-dcs",
+                    paint: {
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4, 10, 6],
+                      "circle-color": "#7c3aed",  // violet-600 — data centers
+                      "circle-opacity": 0.8,
+                      "circle-stroke-width": 1,
+                      "circle-stroke-color": "#5b21b6",
+                    },
+                  });
+                  console.log(`[CREP/Static] ${dcFeatures.length} hyperscale DCs rendered (zero-latency)`);
+                } catch (e) {
+                  console.warn("[CREP/Static] DC layer failed:", e);
+                }
 
                 // Use reasonable bounds that PostGIS can handle efficiently
                 // Full global for now — MINDEX returns up to 2000 per query
