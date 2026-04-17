@@ -38,7 +38,7 @@ function shortHash(value: string): string {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 function buildProofTree(data: MerkleProofResponse) {

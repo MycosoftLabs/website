@@ -25,7 +25,7 @@ type Template = "dna" | "taxa" | "observation" | "json"
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 export function OrdinalsViewer({ className }: { className?: string }) {

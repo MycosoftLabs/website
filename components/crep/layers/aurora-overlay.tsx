@@ -63,9 +63,21 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
   } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const addedRef = useRef(false);
-  // Track blob URLs we created so we can revoke them on cleanup / refresh
+  // Track blob URLs we created so we can revoke them later — but only after
+  // MapLibre has finished loading them. Eager revocation was causing
+  // AJAXError: Failed to fetch (0): blob:... because MapLibre was still
+  // mid-fetch when we freed the blob.
   const blobUrlsRef = useRef<string[]>([]);
-  const revokeBlobUrls = () => {
+  const scheduleRevoke = (url: string, delayMs = 10_000) => {
+    if (!url) return;
+    // Give MapLibre ample time to finish its internal image-source load
+    // before we free the underlying blob. 10s is a conservative upper
+    // bound for even slow cold loads.
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, delayMs);
+  };
+  const revokeAllBlobUrls = () => {
+    // Used only on unmount / disable — MapLibre source is already gone so
+    // immediate revoke is safe here.
     for (const u of blobUrlsRef.current) {
       try { URL.revokeObjectURL(u); } catch {}
     }
@@ -94,7 +106,7 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      revokeBlobUrls();
+      revokeAllBlobUrls();
     };
   }, [enabled]);
 
@@ -111,12 +123,15 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
           if (map.getSource(source)) try { map.removeSource(source); } catch {}
         }
         addedRef.current = false;
-        revokeBlobUrls(); // free object URL memory
+        revokeAllBlobUrls(); // source is gone, immediate revoke is safe
       }
       return;
     }
 
+    let cancelled = false;
+
     const addOverlays = () => {
+      if (cancelled) return;
       // Convert any data: URIs to blob: URLs — MapLibre's AJAX loader
       // cannot fetch data: URIs and throws AJAXError on very long base64.
       const northUrl = auroraData.northernHemisphere
@@ -125,68 +140,84 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
       const southUrl = auroraData.southernHemisphere
         ? dataUriToBlobUrl(auroraData.southernHemisphere)
         : null;
-      // Release any previously-created blob URLs before replacing
-      revokeBlobUrls();
+
+      // Capture OLD URLs for delayed revoke AFTER the new source is using
+      // the new URL. We do not revoke eagerly — MapLibre still fetches
+      // the blob asynchronously and eager revoke was causing AJAXError.
+      const prevUrls = [...blobUrlsRef.current];
+      blobUrlsRef.current = [];
 
       // Northern hemisphere
       if (northUrl) {
         blobUrlsRef.current.push(northUrl);
-        if (!map.getSource(AURORA_SOURCE_N)) {
-          map.addSource(AURORA_SOURCE_N, {
-            type: "image",
-            url: northUrl,
-            coordinates: [
-              [BOUNDS_NORTH[0], BOUNDS_NORTH[3]], // top-left
-              [BOUNDS_NORTH[2], BOUNDS_NORTH[3]], // top-right
-              [BOUNDS_NORTH[2], BOUNDS_NORTH[1]], // bottom-right
-              [BOUNDS_NORTH[0], BOUNDS_NORTH[1]], // bottom-left
-            ],
-          });
-        } else {
-          try { (map.getSource(AURORA_SOURCE_N) as any).updateImage?.({ url: northUrl }); } catch {}
-        }
-        if (!map.getLayer(AURORA_LAYER_N)) {
-          map.addLayer({
-            id: AURORA_LAYER_N,
-            type: "raster",
-            source: AURORA_SOURCE_N,
-            paint: {
-              "raster-opacity": opacity,
-              "raster-fade-duration": 500,
-            },
-          });
+        try {
+          if (!map.getSource(AURORA_SOURCE_N)) {
+            map.addSource(AURORA_SOURCE_N, {
+              type: "image",
+              url: northUrl,
+              coordinates: [
+                [BOUNDS_NORTH[0], BOUNDS_NORTH[3]], // top-left
+                [BOUNDS_NORTH[2], BOUNDS_NORTH[3]], // top-right
+                [BOUNDS_NORTH[2], BOUNDS_NORTH[1]], // bottom-right
+                [BOUNDS_NORTH[0], BOUNDS_NORTH[1]], // bottom-left
+              ],
+            });
+          } else {
+            try { (map.getSource(AURORA_SOURCE_N) as any).updateImage?.({ url: northUrl }); } catch {}
+          }
+          if (!map.getLayer(AURORA_LAYER_N)) {
+            map.addLayer({
+              id: AURORA_LAYER_N,
+              type: "raster",
+              source: AURORA_SOURCE_N,
+              paint: {
+                "raster-opacity": opacity,
+                "raster-fade-duration": 500,
+              },
+            });
+          }
+        } catch (e) {
+          console.warn("[CREP/Aurora] north source setup failed:", e);
         }
       }
 
       // Southern hemisphere
       if (southUrl) {
         blobUrlsRef.current.push(southUrl);
-        if (!map.getSource(AURORA_SOURCE_S)) {
-          map.addSource(AURORA_SOURCE_S, {
-            type: "image",
-            url: southUrl,
-            coordinates: [
-              [BOUNDS_SOUTH[0], BOUNDS_SOUTH[3]], // top-left
-              [BOUNDS_SOUTH[2], BOUNDS_SOUTH[3]], // top-right
-              [BOUNDS_SOUTH[2], BOUNDS_SOUTH[1]], // bottom-right
-              [BOUNDS_SOUTH[0], BOUNDS_SOUTH[1]], // bottom-left
-            ],
-          });
-        } else {
-          try { (map.getSource(AURORA_SOURCE_S) as any).updateImage?.({ url: southUrl }); } catch {}
-        }
-        if (!map.getLayer(AURORA_LAYER_S)) {
-          map.addLayer({
-            id: AURORA_LAYER_S,
-            type: "raster",
-            source: AURORA_SOURCE_S,
-            paint: {
-              "raster-opacity": opacity,
-              "raster-fade-duration": 500,
-            },
-          });
+        try {
+          if (!map.getSource(AURORA_SOURCE_S)) {
+            map.addSource(AURORA_SOURCE_S, {
+              type: "image",
+              url: southUrl,
+              coordinates: [
+                [BOUNDS_SOUTH[0], BOUNDS_SOUTH[3]], // top-left
+                [BOUNDS_SOUTH[2], BOUNDS_SOUTH[3]], // top-right
+                [BOUNDS_SOUTH[2], BOUNDS_SOUTH[1]], // bottom-right
+                [BOUNDS_SOUTH[0], BOUNDS_SOUTH[1]], // bottom-left
+              ],
+            });
+          } else {
+            try { (map.getSource(AURORA_SOURCE_S) as any).updateImage?.({ url: southUrl }); } catch {}
+          }
+          if (!map.getLayer(AURORA_LAYER_S)) {
+            map.addLayer({
+              id: AURORA_LAYER_S,
+              type: "raster",
+              source: AURORA_SOURCE_S,
+              paint: {
+                "raster-opacity": opacity,
+                "raster-fade-duration": 500,
+              },
+            });
+          }
+        } catch (e) {
+          console.warn("[CREP/Aurora] south source setup failed:", e);
         }
       }
+
+      // Revoke the PREVIOUS generation of blob URLs on a delay — MapLibre
+      // should have finished swapping to the new URL by then.
+      for (const u of prevUrls) scheduleRevoke(u, 10_000);
 
       addedRef.current = true;
     };
@@ -198,6 +229,7 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
     }
 
     return () => {
+      cancelled = true;
       if (map && addedRef.current) {
         for (const [layer, source] of [
           [AURORA_LAYER_N, AURORA_SOURCE_N],

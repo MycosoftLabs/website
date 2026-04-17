@@ -48,7 +48,7 @@ function shortText(value: string | undefined, max = 36) {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 export function CryptoMonitor({ className, channelId = "crypto-ops" }: CryptoMonitorProps) {

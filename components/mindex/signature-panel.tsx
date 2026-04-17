@@ -52,7 +52,7 @@ function shortHash(value: string | null | undefined): string {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 export function SignaturePanel({ className }: SignaturePanelProps) {

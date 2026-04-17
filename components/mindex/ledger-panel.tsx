@@ -62,7 +62,7 @@ function fetcher(url: string) {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 function normalizeIds(value: string): string[] {

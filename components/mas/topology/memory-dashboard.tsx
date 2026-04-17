@@ -320,7 +320,7 @@ function MemoryEntryDialog({
             Close
           </Button>
           <Button variant="outline" onClick={() => {
-            navigator.clipboard.writeText(JSON.stringify(entry, null, 2))
+            navigator.clipboard?.writeText(JSON.stringify(entry, null, 2)).catch(() => {})
           }}>
             <Copy className="h-4 w-4 mr-2" />
             Copy JSON

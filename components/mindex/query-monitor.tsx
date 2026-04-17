@@ -41,7 +41,7 @@ function nowIso() {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 function highlight(code: string, lang: "sql" | "json"): string {

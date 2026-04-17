@@ -74,7 +74,7 @@ function nowIso() {
 
 function copyToClipboard(text: string) {
   if (!text) return
-  void navigator.clipboard?.writeText(text)
+  navigator.clipboard?.writeText(text).catch(() => {})
 }
 
 function riskColor(risk: Risk) {
