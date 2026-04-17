@@ -2518,6 +2518,62 @@ export default function CREPDashboardPage() {
   // Infrastructure data fetched via map onLoad + moveend handler above (not useEffect)
   // This avoids React strict mode double-render abort issues with AbortController
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INSTANT NATURE-DATA PAINT — fires on mount, BEFORE the map is ready.
+  // Hits MINDEX directly (no bounds, no iNat/GBIF) via `?quick=true` and gets
+  // 2K observations in ~300-800ms. The viewport-based fetch below still runs
+  // once the map is ready and refines the set. This eliminates the 3-minute
+  // wait users saw before ANY species dots appeared.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch("/api/crep/fungal?quick=true&limit=2000", {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const raw = (data.observations && Array.isArray(data.observations)) ? data.observations : [];
+        if (raw.length === 0) return;
+        const store = fungalStoreRef.current;
+        for (const o of raw) {
+          const id = String((o as any).id ?? (o as any).externalId ?? "");
+          if (!id) continue;
+          const lat = Number((o as any).latitude ?? (o as any).lat ?? 0);
+          const lng = Number((o as any).longitude ?? (o as any).lng ?? 0);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) continue;
+          store.set(id, {
+            id,
+            observed_on: (o as any).timestamp || (o as any).observed_on || "",
+            latitude: lat,
+            longitude: lng,
+            species: (o as any).commonName || (o as any).species || (o as any).scientificName || "Unknown",
+            taxon_id: Number((o as any).taxon_id ?? 0),
+            taxon: {
+              id: Number((o as any).taxon_id ?? 0),
+              name: (o as any).scientificName || (o as any).species || "Unknown",
+              preferred_common_name: (o as any).commonName || (o as any).species,
+              rank: "species",
+            },
+            photos: ((o as any).imageUrl || (o as any).thumbnailUrl) ? [{ id: 1, url: String((o as any).imageUrl || (o as any).thumbnailUrl), license: "CC-BY-NC" }] : [],
+            quality_grade: (o as any).verified ? "research" : "needs_id",
+            user: (o as any).observer,
+            source: (o as any).source,
+            location: (o as any).location,
+            kingdom: (o as any).kingdom || (o as any).iconicTaxon || "Fungi",
+            iconicTaxon: (o as any).iconicTaxon || (o as any).kingdom || "Fungi",
+          } as FungalObservation);
+        }
+        setFungalObservations(Array.from(store.values()));
+        console.log(`[CREP] ⚡ Instant MINDEX paint: ${raw.length} observations in ${data.meta?.total ?? raw.length}ms`);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") console.warn("[CREP] Instant MINDEX paint failed:", e);
+      }
+    })();
+    return () => ctrl.abort();
+  }, []); // mount only
+
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
   // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
   useEffect(() => {
@@ -3971,15 +4027,45 @@ export default function CREPDashboardPage() {
       entityStreamClientRef.current = new EntityStreamClient();
     }
 
-    entityStreamClientRef.current.connect((incomingEntity) => {
+    // THROTTLED STREAM — the previous implementation called setStreamedEntities
+    // on EVERY incoming WebSocket message (up to hundreds/second). With 50K
+    // entities in state, each setState triggered a full React re-render + the
+    // deckEntities useMemo + the LOD data pump — fully stalling the main
+    // thread within ~5 minutes of streaming. That's the "UI unclickable after
+    // 5 min" symptom.
+    //
+    // Now we buffer messages in a ref and flush to React state ONCE per
+    // animation frame (max 60Hz, typically batched into ~10-20Hz when the
+    // browser is busy). This keeps the UI responsive while still showing
+    // fresh entity positions.
+    const buffer = new Map<string, UnifiedEntity>();
+    let frame: number | null = null;
+    const flush = () => {
+      if (buffer.size === 0) { frame = null; return; }
+      const updates = Array.from(buffer.values());
+      buffer.clear();
       setStreamedEntities((previous) => {
         const next = new Map(previous.map((entity) => [entity.id, entity]));
-        next.set(incomingEntity.id, incomingEntity);
-        return [...next.values()].slice(-50000);
+        for (const e of updates) next.set(e.id, e);
+        // Cap at 50K entries (drop oldest by insertion order)
+        if (next.size > 50000) {
+          const excess = next.size - 50000;
+          const keys = Array.from(next.keys()).slice(0, excess);
+          for (const k of keys) next.delete(k);
+        }
+        return Array.from(next.values());
       });
+      frame = null;
+    };
+
+    entityStreamClientRef.current.connect((incomingEntity) => {
+      buffer.set(incomingEntity.id, incomingEntity);
+      if (frame === null) frame = requestAnimationFrame(flush);
     });
 
     return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      buffer.clear();
       entityStreamClientRef.current?.disconnect();
       entityStreamClientRef.current = null;
     };

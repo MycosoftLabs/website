@@ -724,6 +724,10 @@ export async function GET(request: NextRequest) {
   const source = searchParams.get("source") // "mindex" | "inat" | "gbif" | "all"
   const fallbackOnly = searchParams.get("fallback") === "true" // Force external API fallback
   const noCache = searchParams.get("nocache") === "true" // Force cache bypass
+  // FAST PATH: `?quick=true` or `?source=mindex-only` returns MINDEX-only in <500ms.
+  // Skips iNat/GBIF live fetches entirely. Used by the dashboard for instant
+  // first-paint, then the full dual-source fetch runs as background enrichment.
+  const quickMode = searchParams.get("quick") === "true" || searchParams.get("source") === "mindex-only"
   // Kingdom filter: "Fungi", "Plantae", "Animalia", "all" (default: "all")
   const kingdom = searchParams.get("kingdom") || "all"
 
@@ -816,7 +820,7 @@ export async function GET(request: NextRequest) {
     const fetchPromises: Promise<FungalObservation[]>[] = []
 
     // Always fetch MINDEX (local DB — fast, no rate limits)
-    if (!fallbackOnly && (!source || source === "all" || source === "mindex")) {
+    if (!fallbackOnly && (!source || source === "all" || source === "mindex" || quickMode)) {
       fetchPromises.push(
         fetchMINDEXObservations(limit, bounds).catch((err) => {
           console.warn("[CREP/Fungal] MINDEX fetch failed:", err?.message)
@@ -825,24 +829,30 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Always fetch iNaturalist live (unless source=mindex only)
-    if (!source || source === "all" || source === "inat" || fallbackOnly) {
-      fetchPromises.push(
-        fetchINaturalistObservations(limit || 2000, bounds, kingdom).catch((err) => {
-          console.warn("[CREP/Life] iNaturalist fetch failed:", err?.message)
-          return [] as FungalObservation[]
-        })
-      )
-    }
+    // Skip live iNaturalist / GBIF fetches in quickMode so the response is
+    // near-instant (~300-800ms from MINDEX alone). The dashboard calls the
+    // full (non-quick) endpoint as a background enrichment step to bring in
+    // fresh observations that aren't yet ingested into MINDEX.
+    if (!quickMode) {
+      // Always fetch iNaturalist live (unless source=mindex only)
+      if (!source || source === "all" || source === "inat" || fallbackOnly) {
+        fetchPromises.push(
+          fetchINaturalistObservations(limit || 2000, bounds, kingdom).catch((err) => {
+            console.warn("[CREP/Life] iNaturalist fetch failed:", err?.message)
+            return [] as FungalObservation[]
+          })
+        )
+      }
 
-    // Optionally include GBIF
-    if (!source || source === "all" || source === "gbif") {
-      fetchPromises.push(
-        fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom).catch((err) => {
-          console.warn("[CREP/Life] GBIF fetch failed:", err?.message)
-          return [] as FungalObservation[]
-        })
-      )
+      // Optionally include GBIF
+      if (!source || source === "all" || source === "gbif") {
+        fetchPromises.push(
+          fetchGBIFObservations(limit ? Math.ceil(limit * 0.3) : 500, kingdom).catch((err) => {
+            console.warn("[CREP/Life] GBIF fetch failed:", err?.message)
+            return [] as FungalObservation[]
+          })
+        )
+      }
     }
 
     const results = await Promise.all(fetchPromises)
