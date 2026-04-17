@@ -1726,6 +1726,40 @@ function syncToMINDEX(source: "aircraft" | "vessels" | "satellites", entities: R
 export default function CREPDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ════════════════════════════════════════════════════════════════════
+  // Silence MapLibre AJAXError unhandled rejections so the Next.js dev
+  // error overlay doesn't pop up over the dashboard (blocks all clicks →
+  // "no widgets selectable"). MapLibre surfaces image-source load
+  // failures as async rejections that don't bubble to any try/catch at
+  // the component level. These are non-fatal — the affected raster layer
+  // simply doesn't paint and the rest of the map works fine.
+  // ════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const isMapLibreAjax = (msg: string) =>
+      /AJAXError/.test(msg) && /(blob:|https?:\/\/)/.test(msg);
+    const onUnhandled = (e: PromiseRejectionEvent) => {
+      const reason = e.reason as any;
+      const msg = reason?.message || String(reason);
+      if (isMapLibreAjax(msg)) {
+        e.preventDefault();  // keep Next dev overlay from surfacing
+        console.warn("[CREP] silenced non-fatal MapLibre AJAXError:", msg.slice(0, 140));
+      }
+    };
+    const onError = (e: ErrorEvent) => {
+      const msg = e?.error?.message || e?.message || "";
+      if (isMapLibreAjax(msg)) {
+        e.preventDefault();
+        console.warn("[CREP] silenced non-fatal MapLibre AJAXError (error):", msg.slice(0, 140));
+      }
+    };
+    window.addEventListener("unhandledrejection", onUnhandled);
+    window.addEventListener("error", onError);
+    return () => {
+      window.removeEventListener("unhandledrejection", onUnhandled);
+      window.removeEventListener("error", onError);
+    };
+  }, []);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState("mission");
@@ -2134,7 +2168,7 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
+    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL TELECOM (non-duplicate)
     // ═══════════════════════════════════════════════════════════════════════════
