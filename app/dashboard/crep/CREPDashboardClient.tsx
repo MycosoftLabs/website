@@ -2149,7 +2149,7 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
     { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
     { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
     { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
@@ -2158,25 +2158,25 @@ export default function CREPDashboardPage() {
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
     { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
-    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
+    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
   
-  // Earth-2 AI Weather state — live weather stack ON by default for the
-  // Army-proposal demo: clouds, precipitation, spore-dispersal, storm-cells.
-  // Heavy layers (temp / wind vectors / pressure / humidity) stay off at
-  // mount; the user toggles them from the Data Filters panel.
+  // Earth-2 AI Weather state — ALL OFF by default. The clouds +
+  // precipitation layers paint full-globe 0.25° rasters on every frame
+  // (≈1M cells × 2 layers = dashboard-wide lag). Operator opts each layer
+  // on from the Data Filters panel when they want it.
   const [earth2Filter, setEarth2Filter] = useState<Earth2Filter>({
     ...DEFAULT_EARTH2_FILTER,
     showTemperature: false,
     showWind: false,
     showPressure: false,
     showHumidity: false,
-    showClouds: true,
-    showPrecipitation: true,
-    showSporeDispersal: true,
-    showStormCells: true,
+    showClouds: false,
+    showPrecipitation: false,
+    showSporeDispersal: false,
+    showStormCells: false,
     forecastHours: 24,
   });
 
@@ -3541,16 +3541,21 @@ export default function CREPDashboardPage() {
              lng >= mapBounds.west && lng <= mapBounds.east;
     });
     
-    // Step 2: Zoom-based limits — limits raised for Army-proposal coverage.
-    // Every active global wildfire, earthquake, storm, volcano, lightning,
-    // tornado, space-weather event must be visible even at world view.
+    // Step 2: Zoom-based render caps. The upstream data feeds are now
+    // uncapped (EONET 2000+, USGS 1.0_week 8k-15k earthquakes, etc.) but
+    // rendering every event as a React marker at world view was melting
+    // the dashboard. We keep the DATA complete (counts reflect full set)
+    // but only RENDER the highest-severity subset on map, increasing the
+    // render budget as the operator zooms in.
     let maxEvents: number;
     if (mapZoom < 2) {
-      maxEvents = 5000;   // World view — show all active global events
+      maxEvents = 600;    // World view — critical + high severity only
     } else if (mapZoom < 3) {
-      maxEvents = 10000;
+      maxEvents = 1500;
+    } else if (mapZoom < 5) {
+      maxEvents = 3500;
     } else {
-      maxEvents = Infinity; // zoom 3+: no cap
+      maxEvents = 10000;  // Regional — render everything that's in view
     }
     
     // Step 3: If within limit, show ALL in viewport
