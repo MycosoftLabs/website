@@ -36,6 +36,32 @@ if ! docker compose "${COMPOSE_FILES[@]}" config --quiet 2>&1 | tee /tmp/compose
 fi
 log "Compose project is valid"
 
+# 0a. Free host port 3000 FIRST — before the nginx reload/recreate step below.
+# A prior deploy may have left zombie containers ('website-website-1',
+# 'website-live', 'mycosoft-website', or a compose-created one with a
+# different project-prefixed name) bound to :3000. If we leave them, the
+# proxy's `docker compose up --force-recreate` fails with
+#   Bind for 0.0.0.0:3000 failed: port is already allocated
+# and the whole deploy aborts silently.
+log "Clearing host port 3000 of stale publishers"
+STALE_ON_3000=$(docker ps -q --filter publish=3000 --filter name='^((?!mycosoft-website-proxy).)*$' 2>/dev/null || true)
+for cid in $STALE_ON_3000; do
+  name=$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null | sed 's|^/||')
+  if [[ "$name" != "mycosoft-website-proxy" ]]; then
+    log "  stopping $name ($cid)"
+    docker stop -t 10 "$cid" 2>/dev/null || true
+    docker rm -f "$cid" 2>/dev/null || true
+  fi
+done
+# Legacy names we know about (belt-and-suspenders)
+for name in mycosoft-website website-website-1 website-website-2 website-live website_website_1; do
+  if docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
+    log "  removing legacy container: $name"
+    docker stop -t 10 "$name" 2>/dev/null || true
+    docker rm -f "$name" 2>/dev/null || true
+  fi
+done
+
 # 1. Directories
 mkdir -p "$STATE_DIR" "$NGINX_DIR/conf.d"
 chmod 755 "$STATE_DIR" "$NGINX_DIR" "$NGINX_DIR/conf.d"
