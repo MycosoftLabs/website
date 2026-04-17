@@ -229,6 +229,7 @@ const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-over
 // server-only-safe (guards against map being undefined), so the code-
 // split savings aren't worth the reliability cost.
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
+import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2137,6 +2138,19 @@ export default function CREPDashboardPage() {
     { id: "hospitals", name: "Hospitals", category: "facilities", icon: <Cross className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ec4899", description: "Hospital locations from OpenStreetMap" },
     { id: "fireStations", name: "Fire Stations", category: "facilities", icon: <Flame className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "Fire station locations from OSM" },
     { id: "universities", name: "Universities", category: "facilities", icon: <BookOpen className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#6d28d9", description: "University and college locations" },
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
+    // ═══════════════════════════════════════════════════════════════════════════
+    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+    { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
+    { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
+    { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
+    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
+    { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst" },
+    { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
+    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
+    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -6531,6 +6545,37 @@ export default function CREPDashboardPage() {
             towers={cellTowerPoints}
             opacity={0.4}
             signalType="cellular"
+          />
+
+          {/* ═══════════════════════════════════════════════════════════════
+              PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverables
+              • Global seaports (WPI + MarineCadastre + OSM + MINDEX)
+              • Radar sites (NEXRAD + Mycosoft SDR + FAA ASR)
+              • Radio stations (Radio-Browser + KiwiSDR + FCC LMS)
+              • Global power plants (WRI 34,936 / 167 countries, bundled)
+              • Factories (Climate TRACE + OSM + GEM + MINDEX)
+              • Orbital debris catalogued + 1.2M statistical cloud
+              ═══════════════════════════════════════════════════════════════ */}
+          <ProposalOverlays
+            map={mapRef}
+            enabled={{
+              ports:          layers.find(l => l.id === "ports")?.enabled ?? false,
+              radar:          layers.find(l => l.id === "radar")?.enabled ?? false,
+              radioStations:  layers.find(l => l.id === "radioStations")?.enabled ?? false,
+              powerPlantsG:   layers.find(l => l.id === "powerPlantsG")?.enabled ?? false,
+              factories:      layers.find(l => l.id === "factoriesG")?.enabled ?? false,
+              orbitalDebris:  layers.find(l => l.id === "orbitalDebris")?.enabled ?? false,
+              debrisCloud:    layers.find(l => l.id === "debrisCloud")?.enabled ?? false,
+              txLinesGlobal:  layers.find(l => l.id === "txLinesGlobal")?.enabled ?? false,
+              cellTowersG:    layers.find(l => l.id === "cellTowersG")?.enabled ?? false,
+            }}
+            bbox={mapZoom > 5 ? (() => {
+              try {
+                if (!mapRef?.getBounds) return undefined
+                const b = mapRef.getBounds()
+                return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
+              } catch { return undefined }
+            })() : undefined}
           />
 
           {/* ═══════════════════════════════════════════════════════════════
