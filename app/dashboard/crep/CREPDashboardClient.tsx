@@ -2578,6 +2578,86 @@ export default function CREPDashboardPage() {
     return () => ctrl.abort();
   }, []); // mount only
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LIVE NATURE STREAM (SSE) — dots pop onto the map as iNat publishes them
+  // Backend (/api/crep/nature-stream) polls iNat every 60s for new observations
+  // and pushes each as a "nature" event. Simultaneously writes to MINDEX so
+  // the CREP-live stream and MINDEX persistence happen at the same moment.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+
+    const connect = () => {
+      if (stopped) return;
+      try {
+        es = new EventSource("/api/crep/nature-stream");
+        es.addEventListener("hello", (e: MessageEvent) => {
+          try {
+            const payload = JSON.parse(e.data);
+            console.log("[CREP/NatureStream] connected:", payload);
+          } catch {}
+        });
+        es.addEventListener("nature", (e: MessageEvent) => {
+          try {
+            const o = JSON.parse(e.data) as {
+              id: string; source: string; species: string; scientificName: string;
+              commonName?: string; lat: number; lng: number; timestamp: string;
+              iconicTaxon?: string; kingdom?: string; photos?: string[];
+              sourceUrl?: string; observer?: string; placeGuess?: string;
+            };
+            if (!o?.id || !Number.isFinite(o.lat) || !Number.isFinite(o.lng)) return;
+            const store = fungalStoreRef.current;
+            store.set(o.id, {
+              id: o.id,
+              observed_on: o.timestamp || new Date().toISOString(),
+              latitude: o.lat,
+              longitude: o.lng,
+              species: o.commonName || o.species || o.scientificName || "Unknown",
+              taxon_id: 0,
+              taxon: {
+                id: 0,
+                name: o.scientificName || o.species || "Unknown",
+                preferred_common_name: o.commonName || o.species,
+                rank: "species",
+              },
+              photos: (o.photos?.[0]) ? [{ id: 1, url: o.photos[0], license: "CC-BY-NC" }] : [],
+              quality_grade: "needs_id",
+              user: o.observer,
+              source: o.source,
+              location: o.placeGuess,
+              kingdom: o.kingdom || o.iconicTaxon || "Unknown",
+              iconicTaxon: o.iconicTaxon || o.kingdom || "Unknown",
+            } as unknown as FungalObservation);
+            setFungalObservations(Array.from(store.values()));
+          } catch (err) {
+            // malformed event; ignore
+          }
+        });
+        es.onerror = () => {
+          // Server disconnected us or the maxDuration expired (5 min). Reconnect.
+          if (es) { try { es.close(); } catch {} }
+          es = null;
+          if (!stopped) {
+            reconnectTimer = setTimeout(connect, 5_000);
+          }
+        };
+      } catch (e) {
+        console.warn("[CREP/NatureStream] connect failed; will retry in 10s:", e);
+        reconnectTimer = setTimeout(connect, 10_000);
+      }
+    };
+
+    connect();
+
+    return () => {
+      stopped = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (es) { try { es.close(); } catch {} }
+    };
+  }, []); // mount only
+
   // Bounds-based fungal refetch – when map loads or user pans/zooms, fetch observations for viewport only (iNaturalist-style)
   // LOD: Pass zoom-derived limit to API for faster loads – fewer observations when zoomed out (Mar 11, 2026)
   useEffect(() => {
