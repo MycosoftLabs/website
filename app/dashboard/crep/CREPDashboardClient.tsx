@@ -5004,7 +5004,13 @@ export default function CREPDashboardPage() {
                 console.log("[CREP/Infra] Loading permanent infrastructure into MapLibre...");
 
                 // Safe source/layer add — handles HMR re-runs where source already exists
+                // Helpers must be resilient: the map may be torn down (React
+                // re-mount, HMR, navigation) between the async fetch kicking
+                // off and the callback trying to addSource. Guard against
+                // that by checking for the map + style being available.
+                const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function");
                 const safeAddSource = (id: string, spec: any) => {
+                  if (!mapReady()) return;
                   try {
                     if (map.getSource(id)) {
                       (map.getSource(id) as any).setData(spec.data);
@@ -5016,6 +5022,7 @@ export default function CREPDashboardPage() {
                   }
                 };
                 const safeAddLayer = (spec: any) => {
+                  if (!mapReady()) return;
                   try {
                     if (map.getLayer(spec.id)) {
                       map.removeLayer(spec.id);
@@ -5615,6 +5622,7 @@ export default function CREPDashboardPage() {
                 const renderMilitary = (entities: any[], label: string) => {
                   const valid = entities.filter((e: any) => e.lat != null && e.lng != null);
                   if (!valid.length) return;
+                  if (!mapReady()) return; // map torn down between fetch and callback
 
                   // Split: facilities with polygon vs point-only
                   const withPolygon = valid.filter((e: any) => e.polygon && e.polygon.length > 2);
@@ -5630,7 +5638,7 @@ export default function CREPDashboardPage() {
                     },
                     geometry: { type: "Point" as const, coordinates: [e.lng, e.lat] },
                   }));
-                  if (pointFeatures.length > 0) {
+                  if (pointFeatures.length > 0 && mapReady()) {
                     try {
                       const src = map.getSource("crep-live-military") as any;
                       if (src?.setData) src.setData({ type: "FeatureCollection", features: pointFeatures });
@@ -5647,14 +5655,12 @@ export default function CREPDashboardPage() {
                     },
                     geometry: { type: "Polygon" as const, coordinates: [e.polygon] },
                   }));
-                  if (polyFeatures.length > 0) {
+                  if (polyFeatures.length > 0 && mapReady()) {
                     try {
                       const polySrc = map.getSource("crep-military-perimeters") as any;
                       if (polySrc?.setData) {
                         polySrc.setData({ type: "FeatureCollection", features: polyFeatures });
-                        console.log(`[CREP/Military] ✅ Pushed ${polyFeatures.length} polygon perimeters to crep-military-perimeters`);
-                      } else {
-                        console.warn("[CREP/Military] ❌ crep-military-perimeters source NOT FOUND");
+                        console.log(`[CREP/Military] Pushed ${polyFeatures.length} polygon perimeters`);
                       }
                     } catch (err) { console.warn("[CREP/Military] Error pushing polygons:", err); }
                   }

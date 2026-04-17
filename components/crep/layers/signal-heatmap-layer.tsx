@@ -66,7 +66,11 @@ export default function SignalHeatmapLayer({
   useEffect(() => {
     if (!map) return;
 
+    // Guard against map torn down between mount and async callback
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function");
+
     const addLayer = () => {
+      if (!mapReady()) return;
       if (enabled && towers.length > 0) {
         const geojson = generateHeatmapData(towers, signalType);
 
@@ -132,8 +136,9 @@ export default function SignalHeatmapLayer({
     }
 
     return () => {
-      if (map.getLayer(LAYER_ID)) try { map.removeLayer(LAYER_ID); } catch {}
-      if (map.getSource(SOURCE_ID)) try { map.removeSource(SOURCE_ID); } catch {}
+      if (!mapReady()) return;
+      try { if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID); } catch {}
+      try { if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID); } catch {}
       addedRef.current = false;
     };
   }, [map, enabled, towers, opacity, signalType]);
@@ -141,9 +146,12 @@ export default function SignalHeatmapLayer({
   // Update opacity
   useEffect(() => {
     if (!map || !addedRef.current) return;
-    if (map.getLayer(LAYER_ID)) {
-      map.setPaintProperty(LAYER_ID, "heatmap-opacity", opacity);
-    }
+    if (!(map as any).style || typeof map.getLayer !== "function") return;
+    try {
+      if (map.getLayer(LAYER_ID)) {
+        map.setPaintProperty(LAYER_ID, "heatmap-opacity", opacity);
+      }
+    } catch {}
   }, [map, opacity]);
 
   return null;
