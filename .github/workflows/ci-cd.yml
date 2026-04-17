@@ -603,10 +603,26 @@ jobs:
       # image — but even if that hangs, at least the site is back up.
       # ─────────────────────────────────────────────────────────────────────
       - name: Bootstrap (recover nginx / active-slot BEFORE build)
+        timeout-minutes: 5
         run: |
           ssh-retry production bash -s <<'BOOTSTRAP'
             set -euo pipefail
             cd /opt/mycosoft/website
+
+            echo "=== Killing any orphan docker-build processes from prior cancelled runs ==="
+            # A cancelled CI run leaves docker-build + buildkit workers
+            # running on the VM, holding the containerd lock. Future
+            # compose / docker commands then hang indefinitely. Clean up.
+            pgrep -x buildkitd 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
+            pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
+            pgrep -f 'docker buildx' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
+            sleep 2
+            # Force kill anything still alive
+            pgrep -x buildkitd 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
+            pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
+            # Prune builder cache to release disk + kill orphan buildkit
+            timeout 30 docker builder prune -f 2>/dev/null || echo "  builder prune timed out — continuing"
+
             chmod +x scripts/blue-green-bootstrap.sh scripts/blue-green-deploy.sh
             echo "=== Ensuring NAS is mounted ==="
             sudo mount -a 2>/dev/null || true
@@ -616,7 +632,37 @@ jobs:
             # will use whichever image is already pulled.
             export WEBSITE_IMAGE="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'mycosoft-website:(local|production-latest)' | head -1 || echo 'mycosoft-website:local')"
             echo "Using WEBSITE_IMAGE=$WEBSITE_IMAGE"
-            ./scripts/blue-green-bootstrap.sh
+            # Wrap bootstrap in timeout so it can't hang the whole workflow.
+            # Normal run is 30s-2min; if it takes more than 4 min something
+            # is wrong and we want to fail fast so the next step still runs.
+            timeout 240 ./scripts/blue-green-bootstrap.sh || {
+              ec=$?
+              echo "::warning::Bootstrap timed out or failed (exit=$ec) — attempting minimal recovery inline"
+              # Minimal inline recovery: just fix nginx config + reload, without
+              # touching compose. This is the shortest path to getting the site
+              # back up if bootstrap itself is the thing hanging.
+              STATE_DIR=/opt/mycosoft/state
+              NGINX_DIR=/opt/mycosoft/nginx
+              mkdir -p "$NGINX_DIR/conf.d"
+              cp deploy/nginx/nginx.conf "$NGINX_DIR/nginx.conf"
+              ACTIVE=$(cat "$STATE_DIR/active-slot" 2>/dev/null || echo blue)
+              # Flip active if container is dead
+              if ! docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-$ACTIVE"; then
+                OTHER=$([ "$ACTIVE" = "blue" ] && echo green || echo blue)
+                if docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-$OTHER"; then
+                  echo "  minimal-recovery: flipping active-slot $ACTIVE -> $OTHER"
+                  echo "$OTHER" > "$STATE_DIR/active-slot"
+                  ACTIVE=$OTHER
+                fi
+              fi
+              sed "s|__ACTIVE_SLOT__|$ACTIVE|g" deploy/nginx/conf.d/website.conf.template > "$NGINX_DIR/conf.d/website.conf"
+              if docker ps --format '{{.Names}}' | grep -qx mycosoft-website-proxy; then
+                if timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
+                  timeout 10 docker exec mycosoft-website-proxy nginx -s reload || echo "  reload failed"
+                  echo "  minimal-recovery: nginx reloaded pointing at $ACTIVE"
+                fi
+              fi
+            }
             echo "=== Bootstrap complete. Site should be up on active slot. ==="
           BOOTSTRAP
 
