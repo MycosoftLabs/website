@@ -714,18 +714,9 @@ jobs:
             echo "-- /_ping (should return OK) --"
             timeout 5 curl -s --unix-socket /var/run/docker.sock http://localhost/_ping 2>&1 | head -c 100
             echo ""
-            echo "-- /containers/json (list containers) --"
-            timeout 10 curl -s --unix-socket /var/run/docker.sock http://localhost/containers/json 2>&1 | python3 -c "
-import sys,json
-try:
-    d = json.load(sys.stdin)
-    for c in d[:10]:
-        names = c.get('Names', [])
-        print(f\"  {names[0] if names else '?'} | image={c.get('Image')} | state={c.get('State')} | status={c.get('Status')}\")
-except Exception as e:
-    print(f'  parse err: {e}')
-    sys.stdout.write(sys.stdin.read()[:500])
-" 2>&1 | head -25
+            echo "-- /containers/json (list containers, first 500 chars raw) --"
+            timeout 10 curl -s --unix-socket /var/run/docker.sock http://localhost/containers/json 2>&1 | head -c 500
+            echo ""
             echo ""
             echo "-- Try RESTARTING proxy via socket API (POST /containers/{id}/restart) --"
             timeout 10 curl -sf -X POST --unix-socket /var/run/docker.sock "http://localhost/containers/mycosoft-website-proxy/restart?t=5" -w "  HTTP %{http_code}\n" 2>&1 | head -3
