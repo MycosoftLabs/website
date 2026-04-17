@@ -979,16 +979,45 @@ export async function GET(request: NextRequest) {
     console.log(`[CREP/Life] Dual-source total: ${allObservations.length} observations (MINDEX + live APIs merged)`)
 
     // EMERGENCY iNat FALLBACK: if after all requested sources we still have
-    // 0 observations, ALWAYS fire the minimal iNat call regardless of mode.
-    // A blank nature layer is unacceptable — any data is better than none.
-    if (allObservations.length === 0) {
-      console.warn("[CREP/Life] All sources returned 0 — firing emergency iNat fallback")
+    // < 500 observations, fire the FULL multi-region / multi-taxa fanout
+    // (fetchINaturalistObservations — 10 hotspot regions × 10 iconic taxa).
+    // This returns 2000-5000 observations and saturates the map.
+    // A sparse nature layer is unacceptable for demo quality.
+    if (allObservations.length < 500) {
+      console.warn(
+        `[CREP/Life] Only ${allObservations.length} obs — firing emergency FULL iNat fallback`,
+      )
       try {
-        const emergency = await fetchINaturalistQuick(limit || 500, bounds, kingdom)
-        allObservations = emergency
-        console.log(`[CREP/Life] Emergency iNat fallback returned ${emergency.length} observations`)
+        // fetchINaturalistObservations does the multi-region fanout
+        const emergency = await fetchINaturalistObservations(
+          limit && limit > 500 ? limit : 3000,
+          bounds,
+          kingdom,
+        )
+        // Merge rather than replace so we keep MINDEX data we already have
+        const seenIds = new Set(allObservations.map((o) => o.id))
+        for (const o of emergency) {
+          if (!seenIds.has(o.id)) allObservations.push(o)
+        }
+        console.log(
+          `[CREP/Life] Emergency full iNat fallback added ${emergency.length} obs (total now ${allObservations.length})`,
+        )
       } catch (e) {
-        console.warn("[CREP/Life] Emergency iNat fallback also failed:", (e as Error)?.message)
+        console.warn(
+          "[CREP/Life] Emergency full iNat fallback failed, trying quick:",
+          (e as Error)?.message,
+        )
+        // Quick single-call as last resort
+        try {
+          const quick = await fetchINaturalistQuick(500, bounds, kingdom)
+          const seenIds = new Set(allObservations.map((o) => o.id))
+          for (const o of quick) if (!seenIds.has(o.id)) allObservations.push(o)
+        } catch (e2) {
+          console.warn(
+            "[CREP/Life] Quick fallback also failed:",
+            (e2 as Error)?.message,
+          )
+        }
       }
     }
 

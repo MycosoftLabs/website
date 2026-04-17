@@ -3774,12 +3774,21 @@ export default function CREPDashboardPage() {
     return filtered;
   }, [satellites, satelliteFilter, mapZoom]);
 
+  // Refs used by the rAF dead-reckoning loop to tag entities by kind.
+  // (Declared here so both the sync-below useEffect AND the animation
+  // loop below can update / read them without React dep churn.)
+  const aircraftIdSetRef = useRef<Set<string>>(new Set());
+  const vesselIdSetRef = useRef<Set<string>>(new Set());
+
   // Sync last-known position + velocity (deg/s) for extrapolation when API data changes
   useEffect(() => {
     const degPerSecPerKnot = 1 / 216000; // 1 knot = 1 nm/hr = 1/60 deg/hr = 1/216000 deg/s
     const next: Record<string, { lng: number; lat: number; velLng: number; velLat: number; ts: number }> = {};
+    const acIds = new Set<string>();
+    const vIds = new Set<string>();
     const now = Date.now();
     for (const a of filteredAircraft) {
+      acIds.add(a.id);
       const lng = (a.location as any)?.longitude ?? a.location?.coordinates?.[0] ?? 0;
       const lat = (a.location as any)?.latitude ?? a.location?.coordinates?.[1] ?? 0;
       const headingDeg = typeof a.heading === "number" ? a.heading : ((a as any).properties?.heading ?? 0);
@@ -3796,6 +3805,7 @@ export default function CREPDashboardPage() {
       }
     }
     for (const v of filteredVessels) {
+      vIds.add(v.id);
       const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
       const lng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
       const lat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
@@ -3815,15 +3825,70 @@ export default function CREPDashboardPage() {
     // Satellites are no longer extrapolated here — they use real-time SGP4 propagation
     // via the satellite-animation module (requestAnimationFrame at ~10 FPS).
     lastKnownRef.current = next;
+    aircraftIdSetRef.current = acIds;
+    vesselIdSetRef.current = vIds;
   }, [filteredAircraft, filteredVessels]);
 
   // ██████████████████████████████████████████████████████████████████████████
-  // DO NOT ADD A setInterval/setExtrapolatedCoords HERE.
-  // Position updates are handled by requestAnimationFrame (rAF tick above).
-  // setExtrapolatedCoords triggers React re-renders every 2s on the entire
-  // 6000-line component → locks all controls. The rAF tick updates MapLibre
-  // sources directly with ZERO React involvement.
+  // AIRCRAFT + VESSEL DEAD-RECKONING — rAF loop, updates MapLibre DIRECTLY.
+  //
+  // Reads last-known position+velocity from lastKnownRef and extrapolates at
+  // ~5 FPS into the crep-live-aircraft / crep-live-vessels sources via
+  // setData(). Zero React re-renders — writes straight to MapLibre's GPU-
+  // backed source. Runs forever once started, stops on unmount.
+  //
+  // Satellites have their own SGP4 animation module (see below).
   // ██████████████████████████████████████████████████████████████████████████
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map) return;
+    let rafId: number | null = null;
+    let last = 0;
+    const TICK_MS = 200; // 5 FPS — smooth enough, cheap enough
+
+    const tick = (ts: number) => {
+      if (ts - last >= TICK_MS) {
+        last = ts;
+        const lk = lastKnownRef.current;
+        const nowMs = ts;
+        try {
+          // Aircraft
+          const acSrc = map.getSource?.("crep-live-aircraft") as any;
+          if (acSrc?.setData && Object.keys(lk).length > 0) {
+            // Find aircraft IDs in lk by filtering those known to be aircraft
+            // (vessels + aircraft share lk; we tag them by filtering
+            // against filteredAircraft/filteredVessels below via ref)
+            const acFeats: any[] = [];
+            const vFeats: any[] = [];
+            for (const [id, a] of Object.entries(lk)) {
+              const dtSec = (nowMs - a.ts) / 1000;
+              const lng = a.lng + a.velLng * dtSec;
+              const lat = a.lat + a.velLat * dtSec;
+              // Tag aircraft vs vessel by presence in filtered* — use ref
+              // to avoid React dep loops
+              const kind = aircraftIdSetRef.current.has(id) ? "aircraft" : vesselIdSetRef.current.has(id) ? "vessel" : null;
+              if (!kind) continue;
+              const feat = {
+                type: "Feature" as const,
+                properties: { id, heading: 0 /* heading pushed via LOD pump */ },
+                geometry: { type: "Point" as const, coordinates: [lng, lat] },
+              };
+              if (kind === "aircraft") acFeats.push(feat);
+              else vFeats.push(feat);
+            }
+            if (acFeats.length) acSrc.setData({ type: "FeatureCollection", features: acFeats });
+            const vSrc = map.getSource?.("crep-live-vessels") as any;
+            if (vSrc?.setData && vFeats.length) vSrc.setData({ type: "FeatureCollection", features: vFeats });
+          }
+        } catch {
+          // map torn down; loop will exit via next cleanup
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => { if (rafId != null) cancelAnimationFrame(rafId); };
+  }, []); // mount once
 
   const deckEntities = useMemo<UnifiedEntity[]>(() => {
     const lastKnown = lastKnownRef.current;
@@ -4113,10 +4178,31 @@ export default function CREPDashboardPage() {
     const map = mapNativeRef.current;
     if (!map || filteredSatellites.length === 0) return;
 
-    // Build satellite inputs with orbital elements in properties
-    const satInputs = filteredSatellites.map((s) => ({
+    // Build satellite inputs with orbital elements in properties.
+    // NOTE: satellite-registry returns line1/line2/meanMotion/etc at the
+    // TOP level of each record. SGP4Propagator only reads `.properties.*`,
+    // so we merge top-level orbital fields INTO properties here. Without
+    // this merge, no satellites get TLE data → no SGP4 propagation → the
+    // satellite layer never visibly moves.
+    const satInputs = filteredSatellites.map((s: any) => ({
       id: s.id,
-      properties: (s as any).properties || {},
+      properties: {
+        ...(s.properties || {}),
+        // TLE strings (preferred)
+        line1: s.line1 ?? s.properties?.line1,
+        line2: s.line2 ?? s.properties?.line2,
+        // Epoch + individual Keplerian elements (fallback)
+        noradId: s.noradId ?? s.properties?.noradId,
+        name: s.name ?? s.properties?.name,
+        epoch: s.tleEpoch ?? s.properties?.epoch,
+        meanMotion: s.meanMotion ?? s.properties?.meanMotion,
+        eccentricity: s.eccentricity ?? s.properties?.eccentricity,
+        inclination: s.inclination ?? s.properties?.inclination,
+        raAscNode: s.raAscNode ?? s.properties?.raAscNode,
+        argPericenter: s.argPericenter ?? s.properties?.argPericenter,
+        meanAnomaly: s.meanAnomaly ?? s.properties?.meanAnomaly,
+        bstar: s.bstar ?? s.properties?.bstar,
+      },
     }));
 
     if (!isSatelliteAnimationRunning()) {
