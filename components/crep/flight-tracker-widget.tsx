@@ -61,14 +61,22 @@ interface FlightTrackerData {
 
 function AircraftIcon({ heading = 0, isGround = false }: { heading?: number; isGround?: boolean }) {
   return (
-    <div 
+    <div
       className={cn(
-        "relative transition-transform",
-        isGround ? "text-gray-500" : "text-amber-400"
+        "relative w-8 h-8 flex items-center justify-center shrink-0 rounded bg-gradient-to-br",
+        isGround
+          ? "from-gray-700/40 to-gray-900/60 ring-1 ring-gray-700/40"
+          : "from-amber-500/20 to-amber-900/30 ring-1 ring-amber-500/30",
       )}
-      style={{ transform: `rotate(${heading}deg)` }}
+      title={isGround ? "On ground" : "Airborne"}
     >
-      <Plane className="w-4 h-4 fill-current" />
+      {/* Actual detailed plane sprite from public/crep/icons/aircraft.svg */}
+      <img
+        src="/crep/icons/aircraft.svg"
+        alt="aircraft"
+        className="w-7 h-7 transition-transform duration-300"
+        style={{ transform: `rotate(${heading}deg)`, filter: isGround ? "grayscale(1) opacity(0.6)" : "drop-shadow(0 0 3px rgba(251,191,36,0.5))" }}
+      />
     </div>
   )
 }

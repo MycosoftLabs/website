@@ -69,25 +69,31 @@ const vesselTypeConfig: Record<VesselType, { label: string; color: string }> = {
 }
 
 function VesselIcon({ type, heading = 0 }: { type?: string; heading?: number }) {
-  const typeColors: Record<string, string> = {
-    cargo: "bg-green-500/20 text-green-400",
-    tanker: "bg-red-500/20 text-red-400",
-    passenger: "bg-cyan-500/20 text-cyan-400",
-    fishing: "bg-amber-500/20 text-amber-400",
-    default: "bg-blue-500/20 text-blue-400",
-  }
-  
-  const colorClass = typeColors[type?.toLowerCase() || "default"] || typeColors.default
-  
+  const t = type?.toLowerCase() || "default"
+  const ringClass = t.includes("cargo")
+    ? "ring-1 ring-green-500/40 bg-gradient-to-br from-green-500/20 to-green-900/30"
+    : t.includes("tanker")
+    ? "ring-1 ring-red-500/40 bg-gradient-to-br from-red-500/20 to-red-900/30"
+    : t.includes("passenger")
+    ? "ring-1 ring-cyan-500/40 bg-gradient-to-br from-cyan-500/20 to-cyan-900/30"
+    : t.includes("fishing")
+    ? "ring-1 ring-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-900/30"
+    : "ring-1 ring-blue-500/40 bg-gradient-to-br from-blue-500/20 to-blue-900/30"
+
   return (
-    <div 
+    <div
       className={cn(
-        "w-6 h-6 rounded flex items-center justify-center",
-        colorClass
+        "w-9 h-9 rounded flex items-center justify-center shrink-0",
+        ringClass,
       )}
-      style={{ transform: heading ? `rotate(${heading}deg)` : undefined }}
     >
-      <Ship className="w-3.5 h-3.5" />
+      {/* Actual detailed cargo-ship sprite with bow pointing in heading direction */}
+      <img
+        src="/crep/icons/vessel.svg"
+        alt={type || "vessel"}
+        className="w-8 h-8 transition-transform duration-300"
+        style={{ transform: `rotate(${heading}deg)`, filter: "drop-shadow(0 0 3px rgba(34,211,238,0.55))" }}
+      />
     </div>
   )
 }

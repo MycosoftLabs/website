@@ -70,16 +70,29 @@ function SatelliteIcon({ type }: { type: string }) {
   const isStation = type.includes("Station")
   const isComm = type.includes("Communication")
   const isNav = type.includes("Navigation")
-  
+
+  const ringClass = isStation
+    ? "ring-1 ring-cyan-500/40 bg-gradient-to-br from-cyan-500/20 to-cyan-900/30"
+    : isComm
+    ? "ring-1 ring-blue-500/40 bg-gradient-to-br from-blue-500/20 to-blue-900/30"
+    : isNav
+    ? "ring-1 ring-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-900/30"
+    : "ring-1 ring-purple-500/40 bg-gradient-to-br from-purple-500/20 to-purple-900/30"
+
   return (
-    <div className={cn(
-      "w-6 h-6 rounded flex items-center justify-center",
-      isStation ? "bg-cyan-500/20 text-cyan-400" 
-        : isComm ? "bg-blue-500/20 text-blue-400"
-        : isNav ? "bg-amber-500/20 text-amber-400"
-        : "bg-purple-500/20 text-purple-400"
-    )}>
-      <Satellite className="w-3.5 h-3.5" />
+    <div
+      className={cn(
+        "w-9 h-9 rounded flex items-center justify-center shrink-0",
+        ringClass,
+      )}
+    >
+      {/* Actual detailed satellite sprite */}
+      <img
+        src="/crep/icons/satellite.svg"
+        alt={type || "satellite"}
+        className="w-8 h-8"
+        style={{ filter: "drop-shadow(0 0 3px rgba(192,132,252,0.55))" }}
+      />
     </div>
   )
 }

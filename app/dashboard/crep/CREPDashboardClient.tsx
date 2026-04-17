@@ -4833,39 +4833,57 @@ export default function CREPDashboardPage() {
               // MapLibre native = 100% reliable, no deck.gl issues.
               // ════════════════════════════════════════════════════════════
               const emptyFC = { type: "FeatureCollection" as const, features: [] as any[] };
+
+              // ─────────────────────────────────────────────────────────────
+              // Helper: rasterize an SVG URL into an HTMLImageElement, then
+              // register with map.addImage(). Using non-SDF mode preserves
+              // the full-color detailed artwork (gradients, shadows, etc.)
+              // SDF would strip it down to a one-color mask → dots again.
+              // ─────────────────────────────────────────────────────────────
+              const SPRITE_SIZE = 128; // high-res so planes stay crisp zoomed in
+              const loadDetailedIcon = (url: string, name: string, size = SPRITE_SIZE): Promise<void> =>
+                new Promise((resolve) => {
+                  const img = new Image(size, size);
+                  img.crossOrigin = "anonymous";
+                  img.onload = () => {
+                    try {
+                      const c = document.createElement("canvas");
+                      c.width = size; c.height = size;
+                      const ctx = c.getContext("2d")!;
+                      ctx.clearRect(0, 0, size, size);
+                      ctx.drawImage(img, 0, 0, size, size);
+                      const data = ctx.getImageData(0, 0, size, size);
+                      if (!map.hasImage(name)) map.addImage(name, data, { pixelRatio: 2 });
+                    } catch (e) { console.warn(`[CREP/icons] rasterize failed for ${name}:`, e); }
+                    resolve();
+                  };
+                  img.onerror = () => {
+                    console.warn(`[CREP/icons] failed to load ${url} — using fallback silhouette`);
+                    resolve();
+                  };
+                  img.src = url;
+                });
+
               try {
                 // ═══════════════════════════════════════════════════════════
-                // ✈ AIRCRAFT — Bright amber/gold with pulsing glow + trail
-                // Distinctive: large, bright, white-bordered, trail line
-                // At high zoom: shows callsign label
+                // ✈ AIRCRAFT — Detailed plane sprite (fuselage + wings +
+                // engines + cabin windows + nav lights) loaded from SVG.
+                // Colored artwork preserved (not flat amber dot).
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-aircraft", { type: "geojson", data: emptyFC });
-                // Generate aircraft icon via canvas (guaranteed to work — no external file)
-                const acCanvas = document.createElement("canvas");
-                acCanvas.width = 32; acCanvas.height = 32;
-                const acCtx = acCanvas.getContext("2d")!;
-                acCtx.fillStyle = "white";
-                acCtx.beginPath();
-                // Plane silhouette pointing UP
-                acCtx.moveTo(16, 2); acCtx.lineTo(20, 10); acCtx.lineTo(28, 14);
-                acCtx.lineTo(28, 17); acCtx.lineTo(20, 15); acCtx.lineTo(19, 24);
-                acCtx.lineTo(22, 27); acCtx.lineTo(22, 29); acCtx.lineTo(16, 27);
-                acCtx.lineTo(10, 29); acCtx.lineTo(10, 27); acCtx.lineTo(13, 24);
-                acCtx.lineTo(12, 15); acCtx.lineTo(4, 17); acCtx.lineTo(4, 14);
-                acCtx.lineTo(12, 10); acCtx.closePath(); acCtx.fill();
-                map.addImage("aircraft-icon", acCtx.getImageData(0, 0, 32, 32), { sdf: true });
-                // No glow for aircraft — icon only (glow made planes look like dots)
+                void loadDetailedIcon("/crep/icons/aircraft.svg", "aircraft-icon");
+                // Placeholder so the ordering below stays predictable
                 map.addLayer({ id: "crep-live-aircraft-glow", type: "circle", source: "crep-live-aircraft",
-                  paint: { "circle-radius": 0, "circle-opacity": 0 }}); // Hidden placeholder for filter sync
-                // Aircraft ICON (symbol layer — rotates by heading, amber plane shape)
+                  paint: { "circle-radius": 0, "circle-opacity": 0 }});
+                // Aircraft ICON (symbol layer — rotates by heading, detailed plane sprite)
                 map.addLayer({ id: "crep-live-aircraft-dot", type: "symbol", source: "crep-live-aircraft",
                   layout: {
                     "icon-image": "aircraft-icon",
-                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 6, 0.7, 10, 1.0, 14, 1.5],
+                    // Detailed sprite → render at ~22–50px screen size
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.18, 6, 0.24, 10, 0.34, 14, 0.48],
                     "icon-rotate": ["get", "heading"],
                     "icon-rotation-alignment": "map",
-                    "icon-allow-overlap": true, "icon-ignore-placement": true },
-                  paint: { "icon-color": "#fbbf24", "icon-halo-color": "#000", "icon-halo-width": 1 }});
+                    "icon-allow-overlap": true, "icon-ignore-placement": true }});
                 // Click + hover
                 map.on("click", "crep-live-aircraft-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
@@ -4879,22 +4897,25 @@ export default function CREPDashboardPage() {
                 map.on("mouseleave", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = ""; });
 
                 // ═══════════════════════════════════════════════════════════
-                // 🛰 SATELLITES — Violet/purple with cross-hatch glow
-                // Distinctive: smaller, purple, fast-moving, orbit trail
+                // 🛰 SATELLITES — Detailed satellite sprite (solar panels +
+                // bus body + dish + antennas) loaded from SVG. Not a dot.
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-satellites", { type: "geojson", data: emptyFC });
-                // Outer glow
+                void loadDetailedIcon("/crep/icons/satellite.svg", "satellite-icon");
+                // Faint purple halo so they stay visible at low zoom
                 map.addLayer({ id: "crep-live-satellites-glow", type: "circle", source: "crep-live-satellites",
                   paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 6, 6, 9, 10, 14],
-                    "circle-color": "#c084fc", "circle-opacity": 0.3, "circle-blur": 0.9 }});
-                // Inner dot
-                map.addLayer({ id: "crep-live-satellites-dot", type: "circle", source: "crep-live-satellites",
-                  paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4, 10, 7, 14, 11],
-                    "circle-color": "#c084fc", "circle-opacity": 1,
-                    "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 2, 0.5, 10, 1.5],
-                    "circle-stroke-color": "#ffffff" }});
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 5, 6, 7, 10, 10],
+                    "circle-color": "#c084fc", "circle-opacity": 0.18, "circle-blur": 0.95 }});
+                // Detailed sprite
+                map.addLayer({ id: "crep-live-satellites-dot", type: "symbol", source: "crep-live-satellites",
+                  layout: {
+                    "icon-image": "satellite-icon",
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.16, 6, 0.22, 10, 0.32, 14, 0.46],
+                    // Slow spin from SGP4 heading if present — otherwise stay put
+                    "icon-rotate": ["coalesce", ["get", "heading"], 0],
+                    "icon-rotation-alignment": "viewport",
+                    "icon-allow-overlap": true, "icon-ignore-placement": true }});
                 // Labels added later when style fonts are known
                 map.on("click", "crep-live-satellites-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
@@ -4916,32 +4937,20 @@ export default function CREPDashboardPage() {
                   paint: { "line-color": "#c084fc", "line-width": 1, "line-opacity": 0.4, "line-dasharray": [4, 4] }});
 
                 // ═══════════════════════════════════════════════════════════
-                // 🚢 VESSELS — Bright cyan/teal with ocean glow
-                // Distinctive: medium, cyan blue, near coastlines
+                // 🚢 VESSELS — Detailed cargo-ship sprite (hull + deck +
+                // bridge superstructure + stack + lifeboats) from SVG.
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-vessels", { type: "geojson", data: emptyFC });
-                // Generate vessel icon via canvas (arrowhead/ship shape)
-                const vCanvas = document.createElement("canvas");
-                vCanvas.width = 32; vCanvas.height = 32;
-                const vCtx = vCanvas.getContext("2d")!;
-                vCtx.fillStyle = "white";
-                vCtx.beginPath();
-                // Ship/arrowhead pointing UP
-                vCtx.moveTo(16, 2); vCtx.lineTo(27, 28); vCtx.lineTo(16, 22);
-                vCtx.lineTo(5, 28); vCtx.closePath(); vCtx.fill();
-                map.addImage("vessel-icon", vCtx.getImageData(0, 0, 32, 32), { sdf: true });
-                // No glow for vessels — icon only
+                void loadDetailedIcon("/crep/icons/vessel.svg", "vessel-icon");
                 map.addLayer({ id: "crep-live-vessels-glow", type: "circle", source: "crep-live-vessels",
-                  paint: { "circle-radius": 0, "circle-opacity": 0 }}); // Hidden placeholder for filter sync
-                // Vessel ICON (symbol layer — rotates by COG, cyan arrowhead)
+                  paint: { "circle-radius": 0, "circle-opacity": 0 }});
                 map.addLayer({ id: "crep-live-vessels-dot", type: "symbol", source: "crep-live-vessels",
                   layout: {
                     "icon-image": "vessel-icon",
-                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.4, 6, 0.6, 10, 0.9, 14, 1.3],
+                    "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.14, 6, 0.22, 10, 0.34, 14, 0.5],
                     "icon-rotate": ["get", "heading"],
                     "icon-rotation-alignment": "map",
-                    "icon-allow-overlap": true, "icon-ignore-placement": true },
-                  paint: { "icon-color": "#22d3ee", "icon-halo-color": "#000", "icon-halo-width": 1 }});
+                    "icon-allow-overlap": true, "icon-ignore-placement": true }});
                 map.on("click", "crep-live-vessels-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
                   if (id) {
