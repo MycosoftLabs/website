@@ -152,6 +152,21 @@ function classifyQuery(query: string, intent: SearchIntent): QueryClassification
 // WIDGET ROUTING
 // =============================================================================
 
+/** Broad conservation + taxonomic-group queries — prioritize narrative (Answers) over a single species card */
+function isConservationThematicQuery(query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (q.length < 4) return false
+  const conservation =
+    /\b(endangered|threatened|vulnerable|critically\s+endangered|extinction|conservation|recover(y|ies)|iucn|red\s*list|protected\s+species|biodiversity|habitat\s+loss)\b/i.test(
+      q
+    )
+  const taxonGroup =
+    /\b(mammals?|birds?|reptiles?|amphibians?|fishes?|\bfish\b|plants?|fungi|mushrooms?|species|wildlife|fauna|vertebrates?|invertebrates?|animals?|trees?|corals?)\b/i.test(
+      q
+    )
+  return conservation && taxonGroup
+}
+
 function determinePrimaryWidget(
   intent: SearchIntent,
   worldview: { crep: boolean; earth2: boolean; map: boolean },
@@ -181,6 +196,22 @@ function determinePrimaryWidget(
       primaryWidget: "map",
       primaryWidgetSize: { width: 2, height: 3 },
       secondaryWidgets: getSecondaryWidgets(intent, "map"),
+    }
+  }
+
+  // Conservation / threatened taxa groups → synthesis first, multi-widget context (not one species hero)
+  if (
+    isConservationThematicQuery(intent.originalQuery) &&
+    (classification === "hybrid" || classification === "data_query")
+  ) {
+    const secondarySet = new Set<WidgetType>(["species", "research", "genetics", "chemistry"])
+    for (const w of getSecondaryWidgets(intent, "answers")) {
+      if (w !== "answers") secondarySet.add(w)
+    }
+    return {
+      primaryWidget: "answers",
+      primaryWidgetSize: { width: 2, height: 3 },
+      secondaryWidgets: [...secondarySet],
     }
   }
 

@@ -52,6 +52,11 @@ import {
 } from "@/lib/search/widget-physics"
 import { detectWorldviewIntent } from "@/lib/search/world-view-suggestions"
 import { classifyAndRoute, type SearchRoute } from "@/lib/search/search-intelligence-router"
+import { mergeSearchRouteWithMasSuggestions } from "@/lib/search/merge-intention-route"
+import {
+  searchRouteToFluidSnapshot,
+  type FluidSearchContext,
+} from "@/lib/search/fluid-search-context"
 import { useTypingPlaceholder } from "@/hooks/use-typing-placeholder"
 import { useVoiceSearch } from "@/hooks/use-voice-search"
 import { useMYCAContext } from "@/hooks/use-myca-context"
@@ -74,6 +79,20 @@ const FallbackWidget = nextDynamic(() => import("./widgets").then((m) => ({ defa
 const EmbeddingAtlasWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.EmbeddingAtlasWidget })), { ssr: false })
 const CameraWidget = nextDynamic(() => import("./widgets").then((m) => ({ default: m.CameraWidget })), { ssr: false })
 const CREPDashboardClient = nextDynamic(() => import("@/app/dashboard/crep/CREPDashboardClient"), { ssr: false })
+
+/** CREP search + unified Earth intelligence can return the same EONET item with different id strings. */
+function dedupeKeyForCrepMergedRow(r: Record<string, unknown>): string {
+  const rawId = String(r.id ?? "").trim()
+  const eonetNum = rawId.match(/eonet[-_:]?(\d+)/i)?.[1]
+  if (eonetNum) return `eonet:${eonetNum}`
+  if (rawId) return `id:${rawId}`
+  const t = String(r.type ?? "")
+  const title = String(r.title ?? "").toLowerCase().replace(/\s+/g, " ").slice(0, 100)
+  const lat = Number(r.latitude ?? (r as { lat?: number }).lat ?? 0).toFixed(2)
+  const lng = Number(r.longitude ?? (r as { lng?: number }).lng ?? 0).toFixed(2)
+  const ts = String(r.timestamp ?? "").slice(0, 10)
+  return `${t}|${lat}|${lng}|${title}|${ts}`
+}
 
 export type WidgetType = "species" | "chemistry" | "genetics" | "research" | "answers" | "media" | "location" | "news"
   | "crep" | "earth" | "fallback" | "embedding_atlas" | "cameras"
@@ -249,7 +268,7 @@ export function FluidSearchCanvas({
   const prevResultsKeyRef = useRef("")
   const [localQuery, setLocalQuery] = useState(initialQuery || "")
   // Multi-widget grid: track multiple expanded widgets instead of single focused
-  const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(new Set(["species"]))
+  const [expandedWidgets, setExpandedWidgets] = useState<Set<WidgetType>>(() => new Set(["species", "answers"]))
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null)
   const [minimizedTypes, setMinimizedTypes] = useState<Set<WidgetType>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
@@ -257,7 +276,12 @@ export function FluidSearchCanvas({
   const [showCrepDashboard, setShowCrepDashboard] = useState(false)
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  
+  /** After mount: SWR cache + sessionStorage may differ from SSR — use for layout/icon to avoid hydration mismatch. */
+  const [clientUiReady, setClientUiReady] = useState(false)
+  useEffect(() => {
+    setClientUiReady(true)
+  }, [])
+
   // MYCA Memory integration — only when logged in; no persistence for anonymous
   const searchMemory = useSearchMemory({ 
     userId: user?.id ?? "",
@@ -374,8 +398,20 @@ export function FluidSearchCanvas({
   })
 
   // MYCA intention tracking
-  const { trackSearch, trackWidgetFocus, trackNotepadAdd, trackVoice, suggestions } = useMYCAContext({ enabled: true })
-  const { sendMessage: sendMycaMessage, messages: mycaMessages } = useMYCA()
+  const {
+    trackSearch,
+    trackWidgetFocus,
+    trackNotepadAdd,
+    trackVoice,
+    suggestions,
+    sessionId: intentionSessionId,
+  } = useMYCAContext({ enabled: true })
+  const {
+    sendMessage: sendMycaMessage,
+    messages: mycaMessages,
+    sessionId: mycaSessionId,
+    conversationId: mycaConversationId,
+  } = useMYCA()
 
   // Unified voice context (global, driven by UnifiedVoiceProvider in layout)
   const unifiedVoice = useVoice()
@@ -486,13 +522,55 @@ export function FluidSearchCanvas({
     )
   }, [])
 
+  /** Merge MAS /api/myca/intention widget hints with classifyAndRoute */
+  const effectiveSearchRoute = useMemo(() => {
+    const q = localQuery.trim()
+    if (q.length < 2) return null
+    const base = classifyAndRoute(q)
+    const w = suggestions.widgets
+    if (w?.length) return mergeSearchRouteWithMasSuggestions(base, w)
+    return base
+  }, [localQuery, suggestions.widgets])
+
+  /** Single contract for unified POST + MYCA Answers threading */
+  const fluidSearchContext = useMemo((): FluidSearchContext | undefined => {
+    const q = localQuery.trim()
+    if (q.length < 2) return undefined
+    const route = effectiveSearchRoute ?? classifyAndRoute(q)
+    const hist = mycaMessages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-24)
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+    return {
+      sessionId: mycaSessionId || intentionSessionId || undefined,
+      userId: user?.id,
+      conversationId: mycaConversationId ?? undefined,
+      route: searchRouteToFluidSnapshot(route),
+      recentQueries: recentSearches.slice(0, 12),
+      ...(hist.length ? { history: hist } : {}),
+    }
+  }, [
+    localQuery,
+    effectiveSearchRoute,
+    mycaSessionId,
+    intentionSessionId,
+    user?.id,
+    mycaConversationId,
+    mycaMessages,
+    recentSearches,
+  ])
+
   // Search hook - fetch ALL data types across all Earth Intelligence domains
   const {
     species, compounds, genetics, research, aiAnswer,
     liveResults,
     events, aircraft, vessels, satellites, weather,
     emissions, infrastructure, devices, spaceWeather, cameras,
-    isLoading: rawIsLoading, isValidating, totalCount, error, message,
+    isLoading: rawIsLoading,
+    isValidating,
+    totalCount,
+    error,
+    message,
     refresh: searchRefresh,
   } = useUnifiedSearch(localQuery, {
     types: ["species", "compounds", "genetics", "research",
@@ -502,6 +580,7 @@ export function FluidSearchCanvas({
     limit: 20,
     lat: userLocation?.lat,
     lng: userLocation?.lng,
+    fluidContext: fluidSearchContext,
   })
 
   // Timeout guard: if loading takes longer than 15s, stop showing skeleton
@@ -525,6 +604,75 @@ export function FluidSearchCanvas({
 
   // Debounced query for additional endpoints
   const debouncedQuery = useDebounce(localQuery, 300)
+
+  const lastEmittedRouteQueryRef = useRef("")
+  const prevSearchBusyRef = useRef(false)
+  const searchPipelineBusy = (rawIsLoading || isValidating) && !searchTimedOut
+
+  useEffect(() => {
+    ctx.setIsLoading(searchPipelineBusy)
+  }, [ctx, searchPipelineBusy])
+
+  // Emit routing for URL-driven and debounced queries (not only Enter) so the activity panel stays in sync
+  useEffect(() => {
+    const q = debouncedQuery?.trim()
+    if (!q || q.length < 2) {
+      lastEmittedRouteQueryRef.current = ""
+      return
+    }
+    if (lastEmittedRouteQueryRef.current === q) return
+    lastEmittedRouteQueryRef.current = q
+    const route = classifyAndRoute(q)
+    ctx.emit("search:route", {
+      query: q,
+      classification: route.classification,
+      primaryWidget: route.primaryWidget,
+      intent: route.intent.type,
+      useMycaLLM: route.useMycaLLM,
+      liveResultTypes: route.liveResultTypes,
+    })
+  }, [debouncedQuery, ctx])
+
+  useEffect(() => {
+    const q = debouncedQuery?.trim()
+    if (!q || q.length < 2) {
+      prevSearchBusyRef.current = false
+      return
+    }
+    const busy = searchPipelineBusy
+    if (busy && !prevSearchBusyRef.current) {
+      ctx.emit("search:progress", {
+        query: q,
+        phase: "started",
+        message:
+          "Unified search: MINDEX, iNaturalist observations, literature, genetics — MYCA synthesis when ready.",
+      })
+      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+        ctx.setLeftPanelOpen(true)
+      }
+    }
+    if (!busy && prevSearchBusyRef.current) {
+      ctx.emit("search:progress", {
+        phase: "complete",
+        query: q,
+        counts: {
+          species: species.length,
+          compounds: compounds.length,
+          genetics: genetics.length,
+          research: research.length,
+        },
+      })
+    }
+    prevSearchBusyRef.current = busy
+  }, [
+    debouncedQuery,
+    searchPipelineBusy,
+    species.length,
+    compounds.length,
+    genetics.length,
+    research.length,
+    ctx,
+  ])
 
   // ── Context-aware news query ─────────────────────────────────────────────
   // Combines the current query, species/compound/genetics names from visible
@@ -721,7 +869,15 @@ export function FluidSearchCanvas({
       }
     }
 
-    return merged
+    const rowSeen = new Set<string>()
+    const deduped: Record<string, unknown>[] = []
+    for (const row of merged) {
+      const k = dedupeKeyForCrepMergedRow(row)
+      if (rowSeen.has(k)) continue
+      rowSeen.add(k)
+      deduped.push(row)
+    }
+    return deduped
   }, [crepResults, aircraft, vessels, events, satellites, devices, spaceWeather])
 
   const earth2Data = earth2RawData?.available ? earth2RawData : null
@@ -1042,10 +1198,11 @@ export function FluidSearchCanvas({
 
   // Widget configs with depth layers - ALL widget types enabled (including worldview: CREP, Earth2, map)
   const widgetConfigs: WidgetConfig[] = useMemo(() => {
-    // Dynamic icon for species based on first result's kingdom
+    // Kingdom emoji depends on live results — SWR cache can differ on first client paint vs SSR
     const firstKingdom = (species[0]?.taxonomy?.kingdom || "").toLowerCase()
     const firstPhylum = (species[0]?.taxonomy?.phylum || "").toLowerCase()
-    const speciesIcon = firstKingdom === "fungi" ? "🍄" :
+    const speciesIcon = !clientUiReady ? "🔬" :
+                        firstKingdom === "fungi" ? "🍄" :
                         firstKingdom === "plantae" ? "🌳" :
                         firstKingdom === "animalia" && firstPhylum === "chordata" ? "🦅" :
                         firstKingdom === "animalia" && firstPhylum === "arthropoda" ? "🦋" :
@@ -1074,19 +1231,19 @@ export function FluidSearchCanvas({
     { type: "space_weather", label: "Space Weather", icon: "☀️", gradient: "from-yellow-500/30 to-red-500/20", hasData: len(spaceWeather) > 0, depth: getParallaxDepth("space_weather") },
     { type: "cameras", label: "Cameras", icon: "📹", gradient: "from-slate-500/30 to-cyan-500/20", hasData: len(cameras) > 0, depth: getParallaxDepth("cameras") },
     { type: "embedding_atlas", label: "Atlas", icon: "🔮", gradient: "from-violet-500/30 to-purple-500/20", hasData: true, depth: getParallaxDepth("embedding_atlas") },
-  ]}, [len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
+  ]}, [clientUiReady, len(species), len(compounds), len(genetics), len(research), len(mediaResults), len(locationResults), len(newsResults), mergedCrepData.length, earth2Data, len(mapObservations), suggestions?.widgets, suggestions?.queries, mycaMessages, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather), len(cameras), species])
 
   // Always show all widgets in the dock/pills so users can explore or open them before a data-driven search
   const activeWidgets = widgetConfigs
   
-  // Get saved widget order from sessionStorage
-  const savedWidgetOrder = useMemo(() => {
-    if (typeof window === "undefined") return []
+  /** Empty until after mount — reading sessionStorage during first client render breaks SSR/client HTML parity. */
+  const [savedWidgetOrder, setSavedWidgetOrder] = useState<string[]>([])
+  useEffect(() => {
     try {
       const saved = sessionStorage.getItem("search-widget-order")
-      return saved ? JSON.parse(saved) : []
+      setSavedWidgetOrder(saved ? JSON.parse(saved) : [])
     } catch {
-      return []
+      setSavedWidgetOrder([])
     }
   }, [])
   
@@ -1159,7 +1316,10 @@ export function FluidSearchCanvas({
     if (!localQuery || localQuery.length < 2) return
 
     setIsInputFocused(false)
-    const route = classifyAndRoute(localQuery)
+    const route = mergeSearchRouteWithMasSuggestions(
+      classifyAndRoute(localQuery),
+      suggestions.widgets
+    )
     setSearchRoute(route)
     
     // Instantly layout widgets based on the predicted route before data even arrives
@@ -1209,7 +1369,7 @@ export function FluidSearchCanvas({
     })
     
     ctx.setQuery(localQuery)
-  }, [localQuery, species, compounds, sendMycaMessage, ctx, packeryReady, reloadItems, packeryLayout])
+  }, [localQuery, species, compounds, sendMycaMessage, ctx, packeryReady, reloadItems, packeryLayout, suggestions.widgets])
 
   // Smart auto-expand: uses intelligence router + data availability.
   // Primary widget gets resized to fill viewport; secondary widgets arranged around it.
@@ -1217,7 +1377,7 @@ export function FluidSearchCanvas({
     if (isLoading) return
     if (!localQuery || localQuery.length < 2) return
 
-    const route = searchRoute || classifyAndRoute(localQuery)
+    const route = effectiveSearchRoute ?? classifyAndRoute(localQuery)
 
     // Build data signature including all Earth Intelligence domains
     const dataMap: Record<string, number> = {
@@ -1303,7 +1463,7 @@ export function FluidSearchCanvas({
       if (route.worldview.earth2 || route.worldview.map) next.delete("earth" as WidgetType)
       return next
     })
-  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, searchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
+  }, [isLoading, localQuery, species.length, compounds.length, genetics.length, research.length, mergedCrepData.length, earth2Data, mapObservations.length, effectiveSearchRoute, len(events), len(aircraft), len(vessels), len(satellites), len(weather), len(emissions), len(infrastructure), len(devices), len(spaceWeather)]) // eslint-disable-line
 
   // Map from widgetType → DOM element for auto-scroll-into-view
   const widgetElRefs = useRef<Partial<Record<WidgetType, HTMLDivElement | null>>>({})
@@ -1565,7 +1725,10 @@ export function FluidSearchCanvas({
                   )}
                   style={{ 
                     width: getWidgetWidth(currentSize.width),
-                    order: config.hasData || expandedWidgets.has(config.type) ? -1 : 0
+                    // hasData from SWR can differ on first client paint vs SSR — only apply after mount
+                    order: (clientUiReady
+                      ? (config.hasData || expandedWidgets.has(config.type))
+                      : expandedWidgets.has(config.type)) ? -1 : 0
                   }}
                   draggable
                   onDragStart={(e: React.DragEvent<HTMLDivElement>) => {

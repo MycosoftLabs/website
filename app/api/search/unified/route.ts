@@ -16,6 +16,8 @@ import {
   type LifeScienceScope,
 } from "@/lib/search/world-view-suggestions"
 import { callMASSearchExecute, mapMASResponseToUnified } from "@/lib/search/mas-search-proxy"
+import { buildFluidContextForMas, type FluidSearchContext } from "@/lib/search/fluid-search-context"
+import { resolveUnifiedAiNarrative } from "@/lib/search/unified-narrative"
 import { searchEarthIntelligence, detectEarthDomains } from "@/lib/search/earth-search-connectors"
 
 export const dynamic = "force-dynamic"
@@ -89,6 +91,28 @@ function isGenericLifeSearchQuery(q: string): boolean {
   if (!s) return true
   return /^(species|mushrooms?|plants?|animals?|wildlife|biodiversity|flora|fauna|fungi)$/i.test(s)
 }
+
+/**
+ * Broad ecology/conservation queries should use the full user phrase for iNat/NCBI,
+ * not a single derived "taxon" token (e.g. "Endangered" from "Endangered mammals").
+ */
+function queryLooksThematicForBiodiversitySearch(q: string): boolean {
+  const s = q.toLowerCase()
+  return /\b(endangered|threatened|vulnerable|critically|extinct|extinction|\bcr\b|red\s*list|iucn|cites|conservation|rewild|re-?wild|poach|poaching|habitat\s+loss|biodiversity|invasive\s+species|native\s+species|endemic|rare\b)\b/i.test(s)
+}
+
+/** Ecology English — not genus/species names for derivedTaxonHintForLifeQuery */
+const NON_TAXON_HINT_WORDS = new Set([
+  "endangered", "threatened", "vulnerable", "extinct", "extinction", "rare",
+  "endemic", "native", "invasive", "conservation", "wildlife", "wild",
+  "critically", "species", "habitat", "ecology", "biodiversity", "marine",
+  "freshwater", "terrestrial", "common", "abundant", "widespread",
+])
+
+/** Class Aves — iconic birds on iNaturalist */
+const INAT_AVES_ID = "3"
+/** Class Mammalia */
+const INAT_MAMMALIA_CLASS_ID = "40151"
 
 // ---------------------------------------------------------------------------
 // Shared interfaces for API response shapes
@@ -272,7 +296,24 @@ interface PubChemProperties {
 
 interface INaturalistObservation {
   id: number
-  taxon?: { preferred_common_name?: string; name?: string }
+  taxon?: {
+    id?: number
+    preferred_common_name?: string
+    name?: string
+    iconic_taxon_name?: string
+    ancestor_ids?: number[]
+    ancestors?: Array<{ rank?: string; name?: string }>
+    wikipedia_summary?: string
+    observations_count?: number
+    rank?: string
+    default_photo?: {
+      id?: number
+      square_url?: string
+      medium_url?: string
+      large_url?: string
+      attribution?: string
+    }
+  }
   place_guess?: string
   observed_on?: string
   created_at?: string
@@ -671,6 +712,7 @@ function derivedTaxonHintForLifeQuery(query: string, lifeScope: LifeScienceScope
 
   if (words.length === 1 && latinToken.test(words[0])) {
     const w = words[0]
+    if (NON_TAXON_HINT_WORDS.has(w.toLowerCase())) return null
     if (w.length < 4 && !hadNoiseRemoved && !scopedKingdom) return null
     if (!hadNoiseRemoved && !scopedKingdom && w.length < 5) return null
     return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
@@ -678,6 +720,7 @@ function derivedTaxonHintForLifeQuery(query: string, lifeScope: LifeScienceScope
 
   if (words.length === 2 && latinToken.test(words[0]) && latinToken.test(words[1])) {
     const [a, b] = words
+    if (NON_TAXON_HINT_WORDS.has(a.toLowerCase()) || NON_TAXON_HINT_WORDS.has(b.toLowerCase())) return null
     if (a.length < 2 || b.length < 2) return null
     if (ENGLISH_TAXON_PREFIXES.has(a.toLowerCase())) return null
     if (!hadNoiseRemoved && !scopedKingdom) return null
@@ -944,13 +987,108 @@ async function searchFungiForCompound(compoundName: string, limit: number): Prom
   }
 }
 
+/** Narrow thematic geo observations (e.g. mammals + text q) — not a single taxon_name phrase */
+function thematicObservationTaxonId(fullQuery: string, lifeScope: LifeScienceScope): string | undefined {
+  if (/\bmammals?\b/i.test(fullQuery)) return INAT_MAMMALIA_CLASS_ID
+  if (/\b(birds?)\b/i.test(fullQuery)) return INAT_AVES_ID
+  return inatTaxonIdForLifeScope(lifeScope)
+}
+
+/** When taxon autocomplete returns nothing (thematic English queries), derive species cards from observation taxa */
+function speciesResultsFromINatObservations(
+  raw: INaturalistObservation[],
+  lifeScope: LifeScienceScope,
+  max: number
+): SpeciesResult[] {
+  const seen = new Set<number>()
+  const out: SpeciesResult[] = []
+  for (const obs of raw) {
+    const t = obs.taxon
+    if (!t?.id) continue
+    if (seen.has(t.id)) continue
+    const taxonRow: INaturalistTaxon = {
+      id: t.id,
+      name: t.name,
+      preferred_common_name: t.preferred_common_name,
+      iconic_taxon_name: t.iconic_taxon_name,
+      ancestor_ids: t.ancestor_ids,
+      ancestors: t.ancestors,
+      wikipedia_summary: t.wikipedia_summary,
+      default_photo: t.default_photo,
+      observations_count: t.observations_count,
+      rank: t.rank,
+    }
+    if (!kingdomInScope(taxonRow, lifeScope)) continue
+    const label = (t.name || t.preferred_common_name || "").trim()
+    if (!label) continue
+    seen.add(t.id)
+
+    const taxonomy: Record<string, string> = {
+      kingdom: kingdomLabelFromTaxon(taxonRow, lifeScope),
+      phylum: "",
+      class: "",
+      order: "",
+      family: "",
+      genus: "",
+    }
+    for (const a of t.ancestors || []) {
+      const rank = (a.rank || "").toLowerCase()
+      if (rank === "phylum") taxonomy.phylum = a.name || ""
+      else if (rank === "class") taxonomy.class = a.name || ""
+      else if (rank === "order") taxonomy.order = a.name || ""
+      else if (rank === "family") taxonomy.family = a.name || ""
+      else if (rank === "genus") taxonomy.genus = a.name || ""
+    }
+    if (!taxonomy.genus && t.name?.includes(" ")) taxonomy.genus = t.name.split(" ")[0]
+
+    out.push({
+      id: `inat-${t.id}`,
+      scientificName: t.name || "",
+      commonName: t.preferred_common_name || t.name || "",
+      taxonomy,
+      description:
+        t.wikipedia_summary?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
+        || descriptionFallbackForScope(lifeScope, t.name || ""),
+      photos: t.default_photo
+        ? [
+            {
+              id: String(t.default_photo.id || t.id),
+              url: t.default_photo.square_url || "",
+              medium_url: t.default_photo.medium_url || t.default_photo.square_url || "",
+              large_url: t.default_photo.large_url || t.default_photo.medium_url || "",
+              attribution: t.default_photo.attribution || "iNaturalist",
+            },
+          ]
+        : [],
+      observationCount: t.observations_count || 0,
+      rank: t.rank || "species",
+      _source: "iNaturalist",
+    })
+    if (out.length >= max) break
+  }
+  return out
+}
+
 async function searchINaturalistLiveObservations(
   query: string,
   limit: number,
   lat?: string,
   lng?: string,
-  lifeScope: LifeScienceScope = "any"
-) {
+  lifeScope: LifeScienceScope = "any",
+  rawUserQuery?: string
+): Promise<{
+  rows: Array<{
+    id: string
+    species: string
+    location: string
+    date: string
+    imageUrl: string | undefined
+    lat: number | undefined
+    lng: number | undefined
+  }>
+  speciesFromTaxa: SpeciesResult[]
+}> {
+  const empty = { rows: [], speciesFromTaxa: [] as SpeciesResult[] }
   try {
     const params = new URLSearchParams({
       "has[]": "geo",
@@ -961,7 +1099,17 @@ async function searchINaturalistLiveObservations(
       quality_grade: "research,needs_id",
     })
 
-    if (query && !isGenericLifeSearchQuery(query)) {
+    const full = (rawUserQuery || query).trim()
+    const thematic =
+      Boolean(full) && queryLooksThematicForBiodiversitySearch(full)
+
+    if (thematic && full.length >= 2) {
+      const scopeId = thematicObservationTaxonId(full, lifeScope)
+      if (scopeId) params.set("taxon_id", scopeId)
+      else params.set("iconic_taxa", iconicTaxaParamForLifeScope(lifeScope))
+      const qText = stripLifeScienceEnglishNoise(full, lifeScope).trim() || full
+      if (qText.length >= 2) params.set("q", qText)
+    } else if (query && !isGenericLifeSearchQuery(query)) {
       params.set("taxon_name", query)
     } else {
       params.set("iconic_taxa", iconicTaxaParamForLifeScope(lifeScope))
@@ -976,9 +1124,11 @@ async function searchINaturalistLiveObservations(
     const res = await fetch(`https://api.inaturalist.org/v1/observations?${params.toString()}`, {
       signal: AbortSignal.timeout(4000),
     })
-    if (!res.ok) return []
+    if (!res.ok) return empty
     const data = await res.json()
-    return (data.results || []).map((obs: INaturalistObservation) => ({
+    const results = (data.results || []) as INaturalistObservation[]
+    const speciesFromTaxa = speciesResultsFromINatObservations(results, lifeScope, Math.min(limit, 20))
+    const rows = results.map((obs: INaturalistObservation) => ({
       id: `inat-obs-${obs.id}`,
       species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown species",
       location: obs.place_guess || "Unknown location",
@@ -987,8 +1137,9 @@ async function searchINaturalistLiveObservations(
       lat: obs.geojson?.coordinates?.[1],
       lng: obs.geojson?.coordinates?.[0],
     }))
+    return { rows, speciesFromTaxa }
   } catch {
-    return []
+    return empty
   }
 }
 
@@ -1195,27 +1346,6 @@ async function searchExaWeb(query: string, limit: number, origin: string) {
 // AI answer
 // ---------------------------------------------------------------------------
 
-async function getAIAnswer(query: string, origin: string) {
-  try {
-    const url = new URL(`${origin}/api/search/ai`)
-    url.searchParams.set("q", query)
-    url.searchParams.set("integrated", "true")
-    const res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(30000),
-    })
-    if (!res.ok) return undefined
-    const data = await res.json()
-    if (!data?.result?.answer) return undefined
-    return {
-      text: data.result.answer,
-      confidence: data.result.confidence || 0.8,
-      sources: [data.result.source || "ai"],
-    }
-  } catch {
-    return undefined
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Deduplication
 // ---------------------------------------------------------------------------
@@ -1260,6 +1390,21 @@ function ensureUniqueIds(arr: any[], prefix: string): any[] {
     })
 }
 
+/** MAS + MINDEX + iNat can list the same taxon with different ids — keep first (MAS / MINDEX order). */
+function deduplicateSpeciesByScientificName(arr: SpeciesResult[]): SpeciesResult[] {
+  const seenNames = new Set<string>()
+  const out: SpeciesResult[] = []
+  for (const item of arr) {
+    const nameKey = (item.scientificName || "").trim().toLowerCase().replace(/\s+/g, " ")
+    if (nameKey) {
+      if (seenNames.has(nameKey)) continue
+      seenNames.add(nameKey)
+    }
+    out.push(item)
+  }
+  return out
+}
+
 // ---------------------------------------------------------------------------
 // GET handler
 // ---------------------------------------------------------------------------
@@ -1287,6 +1432,19 @@ export async function GET(request: NextRequest) {
 
   const lat = searchParams.get("lat") || undefined
   const lng = searchParams.get("lng") || undefined
+
+  /** Base64(JSON) fluid context from Fluid Search (session, route, history) — see POST body `fluidContext` */
+  let fluidContext: FluidSearchContext | undefined
+  const fluidHdr = request.headers.get("x-fluid-search-context")
+  if (fluidHdr) {
+    try {
+      fluidContext = JSON.parse(
+        Buffer.from(fluidHdr, "base64").toString("utf8")
+      ) as FluidSearchContext
+    } catch {
+      fluidContext = undefined
+    }
+  }
 
   if (!query || query.length < 2) {
     return NextResponse.json({
@@ -1319,9 +1477,11 @@ export async function GET(request: NextRequest) {
     const derivedTaxon = hasLifeScienceIntent(baseQuery)
       ? derivedTaxonHintForLifeQuery(baseQuery, lifeScope)
       : null
-    /** NCBI [Organism] + fungal iNat taxa: strip "mushroom" → genus (e.g. Amanita). */
-    const bioOrganismLabel = scientificName || derivedTaxon || baseQuery.trim()
-    const geneticsTargetTaxon = scientificName || derivedTaxon
+    const thematicBio = queryLooksThematicForBiodiversitySearch(baseQuery)
+    /** NCBI [Organism] + fungal iNat taxa: strip "mushroom" → genus (e.g. Amanita). Thematic queries use the full phrase, not a lone token like "Endangered". */
+    const bioOrganismLabel =
+      scientificName || (!thematicBio && derivedTaxon ? derivedTaxon : null) || baseQuery.trim()
+    const geneticsTargetTaxon = scientificName || (!thematicBio && derivedTaxon ? derivedTaxon : null)
     const queryLower = baseQuery.toLowerCase()
     const isKnownCompound = Object.keys(COMPOUND_TO_FUNGI).some(k => queryLower.includes(k) || k.includes(queryLower))
 
@@ -1331,7 +1491,7 @@ export async function GET(request: NextRequest) {
       mindexResults,
       mindexResearch,
       inatSpecies,
-      liveResults,
+      liveBundle,
       crossRefResearch,
       openAlexResearch,
       exaResearch,
@@ -1339,7 +1499,6 @@ export async function GET(request: NextRequest) {
       speciesGeneticsRaw,      // targeted NCBI by resolved scientific name
       speciesCompoundsRaw,     // PubChem compounds for this specific species
       compoundFungiRaw,        // fungi that produce this compound (for compound queries)
-      aiAnswer,
       earthResults,            // ALL Earth Intelligence domains in parallel
       masPayload,              // Canonical MAS Orchestrator
     ] = await Promise.all([
@@ -1349,8 +1508,10 @@ export async function GET(request: NextRequest) {
         ? searchINaturalist(bioOrganismLabel, Math.min(limit, 10), lifeScope).catch(() => [])
         : Promise.resolve([]),
       (types.includes("species") && !skipBio)
-        ? searchINaturalistLiveObservations(bioOrganismLabel, Math.min(limit, 12), lat, lng, lifeScope).catch(() => [])
-        : Promise.resolve([]),
+        ? searchINaturalistLiveObservations(bioOrganismLabel, Math.min(limit, 12), lat, lng, lifeScope, baseQuery).catch(
+            () => ({ rows: [], speciesFromTaxa: [] as SpeciesResult[] })
+          )
+        : Promise.resolve({ rows: [], speciesFromTaxa: [] as SpeciesResult[] }),
       types.includes("research") ? searchCrossRefResearch(baseQuery, limit, lifeScope).catch(() => []) : Promise.resolve([]),
       types.includes("research") ? searchOpenAlexResearch(baseQuery, Math.min(limit, 5), lifeScope).catch(() => []) : Promise.resolve([]),
       types.includes("research") && includeWeb ? searchExaWeb(baseQuery, Math.min(limit, 6), origin).catch(() => []) : Promise.resolve([]),
@@ -1370,12 +1531,25 @@ export async function GET(request: NextRequest) {
       (types.includes("species") && !skipBio && isKnownCompound)
         ? searchFungiForCompound(baseQuery, Math.min(limit, 8)).catch(() => [])
         : Promise.resolve([]),
-      includeAI ? getAIAnswer(baseQuery, origin).catch(() => undefined) : Promise.resolve(undefined),
       // Earth Intelligence: events, aircraft, vessels, satellites, weather, emissions,
       // infrastructure, devices, space weather — all searched in parallel internally
       searchEarthIntelligence(baseQuery, origin, limit).catch(() => null),
-      USE_MAS_SEARCH ? callMASSearchExecute({ query: baseQuery, limit }, AbortSignal.timeout(15000)).catch(() => null) : Promise.resolve(null),
+      USE_MAS_SEARCH
+        ? callMASSearchExecute(
+            {
+              query: baseQuery,
+              limit,
+              search_context: buildFluidContextForMas(fluidContext),
+              session_id: fluidContext?.sessionId,
+              user_id: fluidContext?.userId,
+            },
+            AbortSignal.timeout(15000)
+          ).catch(() => null)
+        : Promise.resolve(null),
     ])
+
+    const liveResults = liveBundle.rows
+    const liveSpeciesFromTaxa = liveBundle.speciesFromTaxa
 
     // Merge NCBI sequences: generic + species-targeted (deduplicate by accession)
     const ncbiSeqMap = new Map<string, GeneticsResult>()
@@ -1425,13 +1599,18 @@ export async function GET(request: NextRequest) {
     // Merge: MINDEX primary (enriched), iNaturalist secondary
     // Use pre-fetched compound-fungi results if species is empty (ran in parallel)
     const compoundFungi: SpeciesResult[] = compoundFungiRaw || []
-    const inatSpeciesAll = inatSpecies.length > 0 || mindexSpecies.length > 0
-      ? inatSpecies
-      : compoundFungi  // Use compound-derived fungi when no direct species match
+    const inatSpeciesAll =
+      inatSpecies.length > 0 || mindexSpecies.length > 0
+        ? inatSpecies
+        : compoundFungi.length > 0
+          ? compoundFungi
+          : liveSpeciesFromTaxa
 
-    const species = ensureUniqueIds(
-      [...(masMappedResults.species || []), ...deduplicateSpecies(mindexSpecies, inatSpeciesAll)],
-      "sp"
+    const species = deduplicateSpeciesByScientificName(
+      ensureUniqueIds(
+        [...(masMappedResults.species || []), ...deduplicateSpecies(mindexSpecies, inatSpeciesAll)],
+        "sp"
+      )
     ).slice(0, limit)
 
     // Merge compounds: MINDEX first, then species-specific from PubChem, then NCBI-derived
@@ -1484,6 +1663,22 @@ export async function GET(request: NextRequest) {
       + earthEvents.length + earthAircraft.length + earthVessels.length + earthSatellites.length
       + earthWeather.length + earthEmissions.length + earthInfrastructure.length
       + earthDevices.length + earthSpaceWeather.length + earthCameras.length
+
+    /** Single narrative: MAS `focus` when substantive, else one POST /api/search/ai (see unified-narrative.ts). */
+    let aiAnswer: string | undefined
+    if (includeAI) {
+      aiAnswer = await resolveUnifiedAiNarrative({
+        origin,
+        baseQuery,
+        masPayload,
+        fluidContext,
+        species,
+        compounds,
+        genetics,
+        research,
+        useMasSearch: USE_MAS_SEARCH,
+      })
+    }
 
     // ── MINDEX auto-store: fire-and-forget background ingestion for EVERYTHING ──
     // This ensures every search result gets stored in MINDEX so future searches
@@ -1616,4 +1811,85 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     )
   }
+}
+
+/** POST with JSON body so Fluid Search can send `fluidContext` without huge query strings. */
+export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>
+  try {
+    body = (await request.json()) as Record<string, unknown>
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const qRaw =
+    typeof body.q === "string"
+      ? body.q
+      : typeof body.query === "string"
+        ? body.query
+        : ""
+  const q = qRaw.trim()
+
+  const emptyEarly = {
+    species: [],
+    compounds: [],
+    genetics: [],
+    research: [],
+    events: [],
+    aircraft: [],
+    vessels: [],
+    satellites: [],
+    weather: [],
+    emissions: [],
+    infrastructure: [],
+    devices: [],
+    space_weather: [],
+    cameras: [],
+  }
+
+  if (!q || q.length < 2) {
+    return NextResponse.json({
+      query: q || "",
+      results: emptyEarly,
+      totalCount: 0,
+      timing: { total: 0, mindex: 0 },
+      source: "live",
+    })
+  }
+
+  const typesArr = Array.isArray(body.types)
+    ? (body.types as unknown[]).map(String)
+    : typeof body.types === "string"
+      ? body.types.split(",").map((t) => t.trim()).filter(Boolean)
+      : ["species", "compounds", "genetics", "research"]
+  const typesStr = typesArr.join(",")
+
+  const limit = Math.min(
+    parseInt(String(body.limit ?? 20), 10) || 20,
+    100
+  )
+  const includeAI = body.ai === true
+  const includeWeb = body.include_web === true
+  const lat = body.lat != null ? String(body.lat) : undefined
+  const lng = body.lng != null ? String(body.lng) : undefined
+
+  const url = new URL(request.url)
+  url.searchParams.set("q", q)
+  url.searchParams.set("types", typesStr)
+  url.searchParams.set("limit", String(limit))
+  if (includeAI) url.searchParams.set("ai", "true")
+  if (includeWeb) url.searchParams.set("include_web", "true")
+  if (lat) url.searchParams.set("lat", lat)
+  if (lng) url.searchParams.set("lng", lng)
+
+  const headers = new Headers(request.headers)
+  if (body.fluidContext && typeof body.fluidContext === "object") {
+    headers.set(
+      "x-fluid-search-context",
+      Buffer.from(JSON.stringify(body.fluidContext), "utf8").toString("base64")
+    )
+  }
+
+  const forwarded = new NextRequest(url, { method: "GET", headers })
+  return GET(forwarded)
 }

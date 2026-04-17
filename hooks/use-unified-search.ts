@@ -34,7 +34,6 @@ import {
   type SpaceWeatherResult,
   type CameraResult,
 } from "@/lib/search/unified-search-sdk"
-
 // Re-export types for convenience
 export type {
   SpeciesResult,
@@ -125,6 +124,7 @@ export function useUnifiedSearch(
     types = ["species", "compounds", "genetics", "research"],
     limit = 20,
     includeAI = false,
+    fluidContext,
   } = options
 
   // Debounce the query - ensure string type
@@ -138,9 +138,9 @@ export function useUnifiedSearch(
     }
     return [
       normalizedQuery,
-      JSON.stringify({ types, limit, includeAI }),
+      JSON.stringify({ types, limit, includeAI, fluidContext }),
     ] as [string, string]
-  }, [enabled, normalizedQuery, types, limit, includeAI])
+  }, [enabled, normalizedQuery, types, limit, includeAI, fluidContext])
 
   // SWR with aggressive caching
   const { data, error, isLoading, isValidating, mutate } = useSWR(
@@ -191,8 +191,8 @@ export function useUnifiedSearch(
   }, [mutate])
 
   const prefetch = useCallback((prefetchQuery: string) => {
-    unifiedSearch.prefetch(prefetchQuery, { types, limit, includeAI })
-  }, [types, limit, includeAI])
+    unifiedSearch.prefetch(prefetchQuery, { types, limit, includeAI, fluidContext })
+  }, [types, limit, includeAI, fluidContext])
 
   // Calculate empty state indicators
   const isSpeciesEmpty = species.length === 0

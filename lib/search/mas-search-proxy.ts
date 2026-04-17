@@ -5,6 +5,11 @@
  * to the website unified search shape (species, compounds, genetics, research).
  * Used by app/api/search/unified and unified-v2 to proxy to MAS instead of
  * direct MINDEX/provider calls.
+ *
+ * **Narrative (unified search, Apr 17, 2026):** The website does not run a second
+ * independent LLM in parallel with MAS. `search_context` carries the fluid route;
+ * the unified route picks MAS `focus` when substantive, else a single POST to
+ * `/api/search/ai`. See `lib/search/unified-narrative.ts`.
  */
 
 const MAS_API_URL = process.env.MAS_API_URL || "http://localhost:8001"

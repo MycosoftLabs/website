@@ -7,7 +7,10 @@
  * - Intelligent prefetching
  * - Response caching with TTL
  * - Streaming response support preparation
+ * - Optional `fluidContext` → POST /api/search/unified (Apr 17, 2026)
  */
+
+import type { FluidSearchContext } from "./fluid-search-context"
 
 export interface SpeciesResult {
   id: string
@@ -291,6 +294,8 @@ export interface SearchOptions {
   signal?: AbortSignal
   lat?: number
   lng?: number
+  /** When set, uses POST so search route + MYCA threading reach MAS without huge URLs */
+  fluidContext?: FluidSearchContext
 }
 
 // In-flight request deduplication
@@ -319,6 +324,7 @@ export class UnifiedSearchClient {
       limit = 20,
       includeAI = false,
       signal,
+      fluidContext,
     } = options
 
     // Normalize query
@@ -333,8 +339,11 @@ export class UnifiedSearchClient {
       }
     }
 
-    // Build cache key
-    const cacheKey = `${normalizedQuery}:${types.sort().join(",")}:${limit}:${includeAI}`
+    // Build cache key — include serialized fluid context so distinct routes do not collide
+    const fluidKey = fluidContext
+      ? JSON.stringify(fluidContext)
+      : ""
+    const cacheKey = `${normalizedQuery}:${types.sort().join(",")}:${limit}:${includeAI}:${fluidKey}`
 
     // Check local cache first (ultra-fast)
     const cached = localCache.get(cacheKey)
@@ -348,26 +357,31 @@ export class UnifiedSearchClient {
       return inflight
     }
 
-    // Build URL
-    const params = new URLSearchParams({
-      q: normalizedQuery,
-      types: types.join(","),
-      limit: limit.toString(),
-    })
-    if (includeAI) {
-      params.set("ai", "true")
-    }
-    if (options.lat !== undefined && options.lng !== undefined) {
-      params.set("lat", options.lat.toString())
-      params.set("lng", options.lng.toString())
-    }
-
-    // Execute request
-    const requestPromise = this.executeRequest(
-      `${this.baseUrl}?${params.toString()}`,
-      signal,
-      cacheKey
-    )
+    // Execute request — POST when fluid routing / threading is present
+    const requestPromise = fluidContext
+      ? this.executePostRequest(
+          normalizedQuery,
+          types,
+          limit,
+          includeAI,
+          options.lat,
+          options.lng,
+          fluidContext,
+          signal
+        )
+      : (() => {
+          const params = new URLSearchParams({
+            q: normalizedQuery,
+            types: types.join(","),
+            limit: limit.toString(),
+          })
+          if (includeAI) params.set("ai", "true")
+          if (options.lat !== undefined && options.lng !== undefined) {
+            params.set("lat", options.lat.toString())
+            params.set("lng", options.lng.toString())
+          }
+          return this.executeRequest(`${this.baseUrl}?${params.toString()}`, signal, cacheKey)
+        })()
 
     // Store as in-flight
     inflightRequests.set(cacheKey, requestPromise)
@@ -382,6 +396,68 @@ export class UnifiedSearchClient {
     } finally {
       // Remove from in-flight after completion
       inflightRequests.delete(cacheKey)
+    }
+  }
+
+  private async executePostRequest(
+    q: string,
+    types: ResultBucketKey[],
+    limit: number,
+    includeAI: boolean,
+    lat: number | undefined,
+    lng: number | undefined,
+    fluidContext: FluidSearchContext,
+    signal?: AbortSignal
+  ): Promise<UnifiedSearchResponse> {
+    const startTime = performance.now()
+    try {
+      const response = await fetch(this.baseUrl, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          q,
+          types: types.join(","),
+          limit,
+          ai: includeAI,
+          ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}),
+          fluidContext,
+        }),
+        signal: signal || AbortSignal.timeout(45000),
+      })
+      if (!response.ok) {
+        throw new Error(`Search request failed: ${response.status}`)
+      }
+      const data = await response.json()
+      return {
+        ...data,
+        timing: {
+          ...data.timing,
+          clientRoundTrip: performance.now() - startTime,
+        },
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return {
+          query: "",
+          results: { ...EMPTY_RESULTS.results },
+          totalCount: 0,
+          timing: { total: performance.now() - startTime, mindex: 0 },
+          source: "cache",
+          error: "Search timed out. Try again or check your connection.",
+        }
+      }
+      console.error("Unified search error:", error)
+      return {
+        query: "",
+        results: { ...EMPTY_RESULTS.results },
+        totalCount: 0,
+        timing: { total: performance.now() - startTime, mindex: 0 },
+        source: "cache",
+        error: error instanceof Error ? error.message : "Search failed",
+      }
     }
   }
 

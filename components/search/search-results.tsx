@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { useSearchResults } from "./use-search"
 import { findSimilarTerms } from "@/lib/utils/fuzzy-search"
 import { useRouter } from "next/navigation"
+import { pushSearchRoute } from "@/lib/navigation/fast-router"
 import { Badge } from "@/components/ui/badge"
 import { searchTracker } from "@/lib/services/search-tracker"
 
@@ -99,7 +100,7 @@ export function SearchResults({ query }: SearchResultsProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      router.push(`/search?q=${encodeURIComponent(result.term)}`)
+                      pushSearchRoute(router, `/search?q=${encodeURIComponent(result.term)}`)
                     }}
                   >
                     {result.term}
@@ -188,7 +189,7 @@ export function SearchResults({ query }: SearchResultsProps) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  router.push(`/search?q=${encodeURIComponent(relatedQuery)}`)
+                  pushSearchRoute(router, `/search?q=${encodeURIComponent(relatedQuery)}`)
                 }}
               >
                 {relatedQuery}

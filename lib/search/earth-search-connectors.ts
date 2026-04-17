@@ -31,6 +31,24 @@ import type {
   CameraResult,
 } from "./unified-search-sdk"
 
+/** Collapse duplicate EONET rows (different id strings) or same lat/lng/title/time from multiple sources. */
+function deduplicateEarthEvents(events: EventResult[]): EventResult[] {
+  const seen = new Set<string>()
+  const out: EventResult[] = []
+  for (const e of events) {
+    const id = String(e.id || "").trim()
+    const lat = Number(e.lat)
+    const lng = Number(e.lng)
+    const fp = `${e.type}|${lat.toFixed(2)}|${lng.toFixed(2)}|${(e.title || "").toLowerCase().replace(/\s+/g, " ").slice(0, 100)}|${(e.timestamp || "").slice(0, 10)}`
+    const eonetNum = id.match(/eonet[-_:]?(\d+)/i)?.[1]
+    const key = eonetNum ? `eonet:${eonetNum}` : fp
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(e)
+  }
+  return out
+}
+
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
@@ -666,7 +684,7 @@ export async function searchEarthIntelligence(
   if (mindexEarth) {
     // Map MINDEX results to our typed format — MINDEX returns domain-keyed arrays
     return {
-      events: (mindexEarth.events as EventResult[]) || [],
+      events: deduplicateEarthEvents((mindexEarth.events as EventResult[]) || []),
       aircraft: (mindexEarth.aircraft as AircraftResult[]) || [],
       vessels: (mindexEarth.vessels as VesselResult[]) || [],
       satellites: (mindexEarth.satellites as SatelliteResult[]) || [],
@@ -730,7 +748,18 @@ export async function searchEarthIntelligence(
     }
   }
 
-  return { events, aircraft, vessels, satellites, weather, emissions, infrastructure, devices, space_weather, cameras }
+  return {
+    events: deduplicateEarthEvents(events),
+    aircraft,
+    vessels,
+    satellites,
+    weather,
+    emissions,
+    infrastructure,
+    devices,
+    space_weather,
+    cameras,
+  }
 }
 
 // ---------------------------------------------------------------------------

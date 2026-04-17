@@ -97,12 +97,15 @@ function EventIcon({ type }: { type: ActivityEvent["type"] }) {
 
 export function ActivityStreamPanel() {
   const ctx = useSearchContext()
+  const { isLoading: searchContextLoading } = ctx
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sseConnected, setSseConnected] = useState(false)
   const [searchHistory, setSearchHistory] = useState<SearchHierarchyNode[]>([])
   const [expandedSection, setExpandedSection] = useState<"activity" | "searches" | "both">("both")
+  /** Expanded by default during active unified search so MYCA pipeline is visible */
+  const [showDropdown, setShowDropdown] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
   const searchHistoryRef = useRef<SearchHierarchyNode[]>([])
 
@@ -232,6 +235,66 @@ export function ActivityStreamPanel() {
     return () => clearTimeout(timer)
   }, [sseConnected, fetchActivity])
 
+  // Keep the consciousness trail open while unified search is running (desktop loads with panel open too)
+  useEffect(() => {
+    if (searchContextLoading) setShowDropdown(true)
+  }, [searchContextLoading])
+
+  // Live pipeline: fetch start / completion from FluidSearchCanvas + unified hook
+  useEffect(() => {
+    const unsub = ctx.on(
+      "search:progress",
+      (payload: {
+        phase?: string
+        query?: string
+        message?: string
+        counts?: Record<string, number>
+      }) => {
+        const phase = payload?.phase
+        if (phase === "started") {
+          setShowDropdown(true)
+          setEvents((prev) =>
+            [
+              {
+                id: `prog-${Date.now()}`,
+                type: "search",
+                title: `Searching${payload.query ? `: ${payload.query}` : ""}`,
+                summary:
+                  payload.message ||
+                  "Querying databases and assembling results…",
+                timestamp: new Date().toISOString(),
+              },
+              ...prev,
+            ].slice(0, 50)
+          )
+        }
+        if (phase === "complete" && payload.counts) {
+          const parts = Object.entries(payload.counts)
+            .filter(([, n]) => typeof n === "number" && n > 0)
+            .map(([k, n]) => `${n as number} ${k}`)
+          setEvents((prev) =>
+            [
+              {
+                id: `done-${Date.now()}`,
+                type: "discovery",
+                title: payload.query
+                  ? `Ready: ${payload.query}`
+                  : "Results merged",
+                summary:
+                  parts.length > 0
+                    ? parts.join(", ")
+                    : "No structured hits yet — open Answers / Research for context.",
+                timestamp: new Date().toISOString(),
+              },
+              ...prev,
+            ].slice(0, 50)
+          )
+        }
+      }
+    )
+    return unsub
+  }, [ctx])
+
   // ── Search hierarchy tracking ──
   // Listen for search route events from FluidSearchCanvas
   useEffect(() => {
@@ -316,7 +379,6 @@ export function ActivityStreamPanel() {
     return () => clearInterval(interval)
   }, [])
 
-  const [showDropdown, setShowDropdown] = useState(false)
   const latestEvent = events[0] || null
 
   return (
@@ -327,7 +389,12 @@ export function ActivityStreamPanel() {
         onClick={() => setShowDropdown(!showDropdown)}
       >
         <div className="flex items-center gap-3 w-full">
-          <Brain className="h-4 w-4 text-violet-500 animate-pulse shrink-0" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Brain className="h-4 w-4 text-violet-500 animate-pulse" />
+            {searchContextLoading && (
+              <Loader2 className="h-3.5 w-3.5 text-amber-400 animate-spin" aria-hidden />
+            )}
+          </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span className="text-xs font-semibold text-white/90 truncate">
               {latestEvent ? latestEvent.title : "Myca is idling..."}
