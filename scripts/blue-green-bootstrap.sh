@@ -74,6 +74,25 @@ else
   log "active-slot already present: $(cat "$STATE_DIR/active-slot")"
 fi
 
+# 2a. RECOVERY — if a previous cutover failed mid-flip (nginx -t failed, both
+# blue+green confs are broken, or the active slot's container died), pick
+# whichever color IS actually running and flip active-slot to it. Without
+# this, we'd render website.conf pointing at a dead upstream and every
+# request would 502 even if nginx itself reloads cleanly.
+ACTIVE=$(cat "$STATE_DIR/active-slot")
+OTHER=$([ "$ACTIVE" = "blue" ] && echo "green" || echo "blue")
+active_running() {
+  docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-${1}" 2>/dev/null
+}
+if ! active_running "$ACTIVE"; then
+  if active_running "$OTHER"; then
+    log "RECOVERY: active=$ACTIVE is down but $OTHER is running — flipping active-slot to $OTHER"
+    echo "$OTHER" > "$STATE_DIR/active-slot"
+  else
+    log "RECOVERY: neither $ACTIVE nor $OTHER is running — will let compose bring up website-$ACTIVE below"
+  fi
+fi
+
 # 3. Install nginx.conf (OVERWRITE every run — this is how config fixes land)
 cp "$DEPLOY_DIR/deploy/nginx/nginx.conf" "$NGINX_DIR/nginx.conf"
 log "Installed $NGINX_DIR/nginx.conf"
@@ -117,9 +136,13 @@ for name in mycosoft-website website-website-1 website-live; do
   fi
 done
 
-# 6. Start blue + proxy via compose (green stays off via profile)
-log "Starting website-blue + website-proxy"
-docker compose "${COMPOSE_FILES[@]}" up -d --no-deps website-blue website-proxy
+# 6. Start WHICHEVER-IS-ACTIVE + proxy via compose (other slot stays off via profile).
+# Bootstrap used to always start `website-blue`, which would fail every deploy
+# after a successful cutover — green is the real active slot, not blue.
+# We now start whichever color the state file says is active.
+ACTIVE=$(cat "$STATE_DIR/active-slot")
+log "Starting website-${ACTIVE} + website-proxy"
+docker compose "${COMPOSE_FILES[@]}" up -d --no-deps "website-${ACTIVE}" website-proxy
 
 # 7. Wait for proxy to answer /healthz
 log "Waiting for website-proxy /healthz"
