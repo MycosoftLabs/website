@@ -603,6 +603,9 @@ jobs:
       # image — but even if that hangs, at least the site is back up.
       # ─────────────────────────────────────────────────────────────────────
       - name: SURGICAL recovery — detect live slot, rewire nginx, HUP the proxy
+        if: false  # PERMANENTLY DISABLED 2026-04-17: this step can take down the
+                   # proxy. Never enable. Any nginx/proxy changes MUST go through
+                   # the blue/green cutover path which only modifies the IDLE slot.
         timeout-minutes: 4
         run: |
           ssh-retry production bash -s <<'SURGICAL'
@@ -934,9 +937,11 @@ jobs:
           AGGR
 
       - name: Bootstrap (recover nginx / active-slot BEFORE build)
+        if: false  # PERMANENTLY DISABLED 2026-04-17: this step ran docker daemon
+                   # recovery that could wedge the VM and leave the site 502ing.
+                   # Never re-enable. Use blue/green cutover (below) for deploys.
         timeout-minutes: 8
-        continue-on-error: true  # If bootstrap re-wedges docker, SURGICAL recovery already
-                                  # handled the site recovery — don't block the pipeline on it.
+        continue-on-error: true
         run: |
           # Skip bootstrap entirely if the site is already healthy — no need
           # to touch docker again and risk wedging it.
