@@ -24,7 +24,7 @@ def load_credentials():
     for fname in (".credentials.local", ".env.local"):
         creds_file = Path(__file__).parent / fname
         if creds_file.exists():
-            for line in creds_file.read_text().splitlines():
+            for line in creds_file.read_text(encoding="utf-8", errors="replace").splitlines():
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
                     os.environ[key.strip()] = value.strip().strip('"\'')
