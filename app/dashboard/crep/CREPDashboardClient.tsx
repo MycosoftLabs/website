@@ -222,7 +222,13 @@ import { useGroundStation } from "@/lib/ground-station/context";
 // Phase 2-6: New CREP layers and panels
 const GibsBaseLayers = dynamic(() => import("@/components/crep/layers/gibs-base-layers"), { ssr: false });
 const AuroraOverlay = dynamic(() => import("@/components/crep/layers/aurora-overlay"), { ssr: false });
-const SignalHeatmapLayer = dynamic(() => import("@/components/crep/layers/signal-heatmap-layer"), { ssr: false });
+// Statically imported (was dynamic). The chunk for this file was hitting
+// a ChunkLoadError during HMR rebuilds — "loading chunk_app-pages-
+// heatmap-browser_components_crep_layers_signal-heatmap-layer_tsx failed"
+// — which crashed the whole CREP dashboard tree. It's <200 lines and
+// server-only-safe (guards against map being undefined), so the code-
+// split savings aren't worth the reliability cost.
+import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
