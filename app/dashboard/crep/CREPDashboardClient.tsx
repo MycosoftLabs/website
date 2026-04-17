@@ -5486,6 +5486,37 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} substations → MapLibre (${label})`);
                 };
 
+                // ════════════════════════════════════════════════════════
+                // STATIC SUBSTATIONS — 76,065 US power substations bundled
+                // as points in public/data/crep/substations-us.geojson.
+                // Paints instantly, MINDEX enrichment still runs after.
+                // ════════════════════════════════════════════════════════
+                (async () => {
+                  try {
+                    const res = await fetch("/data/crep/substations-us.geojson", { cache: "default" });
+                    if (!res.ok) return;
+                    const gj = await res.json();
+                    const entities = (gj.features || []).map((f: any, i: number) => ({
+                      id: `osm-sub-${i}`,
+                      name: f.properties?.n ?? "Substation",
+                      lat: f.geometry.coordinates[1],
+                      lng: f.geometry.coordinates[0],
+                      properties: {
+                        voltage_kv: Math.round((f.properties?.v ?? 0) / 1000),
+                        operator: f.properties?.op,
+                        substation_type: f.properties?.sub,
+                      },
+                      source: "osm-static",
+                    }));
+                    if (entities.length && mapReady()) {
+                      renderSubstations(entities, "static-osm");
+                      console.log(`[CREP/Static] ${entities.length} substations rendered (zero-latency)`);
+                    }
+                  } catch (e) {
+                    console.warn("[CREP/Static] substations load failed:", (e as Error)?.message);
+                  }
+                })();
+
                 batchFetch("substations", 20000, (vpResults) => {
                   const vpSubs = vpResults.flatMap(r => r?.entities || []);
                   const seen = new Set<string>();
