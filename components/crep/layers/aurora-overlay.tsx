@@ -28,6 +28,34 @@ const BOUNDS_SOUTH: [number, number, number, number] = [-180, -90, 180, -40];
 
 const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
+/**
+ * Convert a base64 data URI to a blob: URL.
+ *
+ * MapLibre's ajax loader (type: "image" source) can't fetch data: URIs — it
+ * calls fetch(url) which throws AJAXError for very long base64 strings.
+ * Blob URLs are plain `blob:...` references that MapLibre fetches cleanly.
+ *
+ * Returns the blob URL string. Caller is responsible for revoking it via
+ * URL.revokeObjectURL() when the source is removed to avoid memory leaks.
+ */
+function dataUriToBlobUrl(dataUri: string): string | null {
+  try {
+    if (!dataUri.startsWith("data:")) return dataUri; // already a URL, pass through
+    const [prefix, b64] = dataUri.split(",");
+    const mimeMatch = /data:([^;,]+)/.exec(prefix);
+    const mime = mimeMatch?.[1] || "image/jpeg";
+    const bin = atob(b64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    console.warn("[CREP/Aurora] data URI → blob conversion failed:", e);
+    return null;
+  }
+}
+
 export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: AuroraOverlayProps) {
   const [auroraData, setAuroraData] = useState<{
     northernHemisphere?: string;
@@ -35,6 +63,14 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
   } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const addedRef = useRef(false);
+  // Track blob URLs we created so we can revoke them on cleanup / refresh
+  const blobUrlsRef = useRef<string[]>([]);
+  const revokeBlobUrls = () => {
+    for (const u of blobUrlsRef.current) {
+      try { URL.revokeObjectURL(u); } catch {}
+    }
+    blobUrlsRef.current = [];
+  };
 
   // Fetch aurora data
   useEffect(() => {
@@ -58,6 +94,7 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      revokeBlobUrls();
     };
   }, [enabled]);
 
@@ -74,17 +111,30 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
           if (map.getSource(source)) try { map.removeSource(source); } catch {}
         }
         addedRef.current = false;
+        revokeBlobUrls(); // free object URL memory
       }
       return;
     }
 
     const addOverlays = () => {
+      // Convert any data: URIs to blob: URLs — MapLibre's AJAX loader
+      // cannot fetch data: URIs and throws AJAXError on very long base64.
+      const northUrl = auroraData.northernHemisphere
+        ? dataUriToBlobUrl(auroraData.northernHemisphere)
+        : null;
+      const southUrl = auroraData.southernHemisphere
+        ? dataUriToBlobUrl(auroraData.southernHemisphere)
+        : null;
+      // Release any previously-created blob URLs before replacing
+      revokeBlobUrls();
+
       // Northern hemisphere
-      if (auroraData.northernHemisphere) {
+      if (northUrl) {
+        blobUrlsRef.current.push(northUrl);
         if (!map.getSource(AURORA_SOURCE_N)) {
           map.addSource(AURORA_SOURCE_N, {
             type: "image",
-            url: auroraData.northernHemisphere,
+            url: northUrl,
             coordinates: [
               [BOUNDS_NORTH[0], BOUNDS_NORTH[3]], // top-left
               [BOUNDS_NORTH[2], BOUNDS_NORTH[3]], // top-right
@@ -92,6 +142,8 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
               [BOUNDS_NORTH[0], BOUNDS_NORTH[1]], // bottom-left
             ],
           });
+        } else {
+          try { (map.getSource(AURORA_SOURCE_N) as any).updateImage?.({ url: northUrl }); } catch {}
         }
         if (!map.getLayer(AURORA_LAYER_N)) {
           map.addLayer({
@@ -107,11 +159,12 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
       }
 
       // Southern hemisphere
-      if (auroraData.southernHemisphere) {
+      if (southUrl) {
+        blobUrlsRef.current.push(southUrl);
         if (!map.getSource(AURORA_SOURCE_S)) {
           map.addSource(AURORA_SOURCE_S, {
             type: "image",
-            url: auroraData.southernHemisphere,
+            url: southUrl,
             coordinates: [
               [BOUNDS_SOUTH[0], BOUNDS_SOUTH[3]], // top-left
               [BOUNDS_SOUTH[2], BOUNDS_SOUTH[3]], // top-right
@@ -119,6 +172,8 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
               [BOUNDS_SOUTH[0], BOUNDS_SOUTH[1]], // bottom-left
             ],
           });
+        } else {
+          try { (map.getSource(AURORA_SOURCE_S) as any).updateImage?.({ url: southUrl }); } catch {}
         }
         if (!map.getLayer(AURORA_LAYER_S)) {
           map.addLayer({

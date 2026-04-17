@@ -169,7 +169,10 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
   return (
     <div className="relative">
       {mainHref ? (
-        <Link
+        /* Plain <a> matches Search/About links: avoids dev-mode soft-nav race
+           where first click appears to do nothing (dropdown close + client
+           transition compete). */
+        <a
           href={mainHref}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
@@ -177,7 +180,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
           className={buttonClasses}
         >
           {buttonContent}
-        </Link>
+        </a>
       ) : (
         <button
           onMouseEnter={handleMouseEnter}
@@ -255,7 +258,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
                       ease: [0.16, 1, 0.3, 1]
                     }}
                   >
-                    <Link
+                    <a
                       href={item.href}
                       onClick={onClose}
                       className={cn(
@@ -309,7 +312,7 @@ function NavDropdown({ label, icon: Icon, items, isOpen, onOpen, onClose, accent
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </motion.div>
-                    </Link>
+                    </a>
                   </motion.div>
                 )
               })}
