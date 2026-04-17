@@ -5853,6 +5853,37 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${valid.length} military facilities → MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
 
+                // ── Cell / communications towers — static bundled + idleLoad ──
+                // Primary source: public/data/crep/cell-towers-us.geojson
+                // (192 OSM communications towers). MINDEX batchFetch still
+                // runs to enrich from the wider 400k-tower dataset when
+                // reachable. Note: OSM tower coverage is sparse vs FCC ASR
+                // (~300k structures); future: add FCC dump as a fallback.
+                idleLoad(async () => {
+                  try {
+                    const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "default" });
+                    if (!res.ok) return;
+                    const gj = await res.json();
+                    const entities = (gj.features || []).map((f: any, i: number) => ({
+                      id: `osm-tower-${i}`,
+                      name: f.properties?.n ?? "Cell/Comm Tower",
+                      lat: f.geometry.coordinates[1],
+                      lng: f.geometry.coordinates[0],
+                      properties: {
+                        operator: f.properties?.op,
+                        height_m: f.properties?.h,
+                      },
+                      source: "osm-static",
+                    }));
+                    if (entities.length && mapReady()) {
+                      renderCellTowers(entities, "static-osm");
+                      console.log(`[CREP/Static] ${entities.length} cell towers rendered (idle-loaded)`);
+                    }
+                  } catch (e) {
+                    console.warn("[CREP/Static] cell-towers static load failed:", (e as Error)?.message);
+                  }
+                });
+
                 batchFetch("cell-towers", 20000, (vpResults) => {
                   const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
                   const seen = new Set<string>();
@@ -5866,21 +5897,58 @@ export default function CREPDashboardPage() {
                   await yieldToUI();
                 }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
 
-                // ── Military bases — direct from /api/oei/military (static TIGER + seed data) ──
-                // Skip MINDEX (doesn't store polygon perimeters). Load from static GeoJSON directly.
-                (async () => {
+                // ── Military bases — direct static file, idle-loaded ──
+                // Bypass the /api/oei/military API layer entirely (saves
+                // ~200-500 ms of server round-trip). The file is bundled
+                // under public/data/ and served statically by Next.js so
+                // it hits the browser HTTP cache instantly on re-visits.
+                // idleLoad lets the map paint first; a 7 MB GeoJSON parse
+                // would otherwise block the first frame.
+                idleLoad(async () => {
                   try {
-                    const res = await fetch("/api/oei/military?south=15&north=72&west=-180&east=-50&limit=2000");
-                    if (res.ok) {
-                      const data = await res.json();
-                      if (data.facilities?.length) {
-                        renderMilitary(data.facilities, "static-tiger");
-                        console.log(`[CREP/Infra] ${data.facilities.length} military bases loaded (${data.source})`);
+                    const res = await fetch("/data/military-bases.geojson", { cache: "default" });
+                    if (!res.ok) return;
+                    const gj = await res.json();
+                    const feats = gj.features || [];
+                    if (!feats.length) return;
+                    // Convert GeoJSON features to the shape renderMilitary expects
+                    const facilities = feats.map((f: any, i: number) => {
+                      const p = f.properties || {};
+                      const g = f.geometry;
+                      // Pull lat/lng from centroid (for point) or first ring of polygon
+                      let lat = 0, lng = 0, polygon: [number, number][] | undefined;
+                      if (g?.type === "Point" && Array.isArray(g.coordinates)) {
+                        [lng, lat] = g.coordinates;
+                      } else if (g?.type === "Polygon" && Array.isArray(g.coordinates?.[0])) {
+                        polygon = g.coordinates[0];
+                        // Cheap centroid: average of ring vertices
+                        const ring = g.coordinates[0];
+                        let sx = 0, sy = 0;
+                        for (const pt of ring) { sx += pt[0]; sy += pt[1]; }
+                        lng = sx / ring.length;
+                        lat = sy / ring.length;
+                      } else if (g?.type === "MultiPolygon" && Array.isArray(g.coordinates?.[0]?.[0])) {
+                        polygon = g.coordinates[0][0];
+                        const ring = g.coordinates[0][0];
+                        let sx = 0, sy = 0;
+                        for (const pt of ring) { sx += pt[0]; sy += pt[1]; }
+                        lng = sx / ring.length;
+                        lat = sy / ring.length;
                       }
-                    }
-                    await yieldToUI();
-                  } catch (err) { console.warn("[CREP/Infra] Military bases error:", err); }
-                })();
+                      return {
+                        id: p.id ?? `mil-${i}`,
+                        name: p.name ?? p.FULL_NAME ?? "Military Facility",
+                        type: p.military ?? p.type ?? "base",
+                        operator: p.operator ?? p.COMPONENT ?? "",
+                        lat, lng, polygon,
+                        properties: p,
+                      };
+                    });
+                    if (mapReady()) renderMilitary(facilities, "static-file");
+                  } catch (err) {
+                    console.warn("[CREP/Infra] Military static load failed:", err);
+                  }
+                });
 
                 // ── Jurisdiction boundary layers (state/county/FEMA/country) ──
                 // Critical for defense/IC — every data point anchored to its jurisdiction
