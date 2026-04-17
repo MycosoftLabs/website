@@ -5486,12 +5486,25 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} substations → MapLibre (${label})`);
                 };
 
+                // Defer heavy parsing until the browser is idle so the map's
+                // first paint doesn't stall on 14 MB + 12 MB GeoJSON. If
+                // requestIdleCallback is unavailable (Safari) fall back to
+                // setTimeout.
+                const idleLoad = (fn: () => void) => {
+                  if (typeof requestIdleCallback === "function") {
+                    requestIdleCallback(() => fn(), { timeout: 3000 });
+                  } else {
+                    setTimeout(fn, 500);
+                  }
+                };
+
                 // ════════════════════════════════════════════════════════
-                // STATIC SUBSTATIONS — 76,065 US power substations bundled
-                // as points in public/data/crep/substations-us.geojson.
-                // Paints instantly, MINDEX enrichment still runs after.
+                // STATIC SUBSTATIONS — 76,065 US power substations.
+                // Deferred via idleLoad so the 12MB GeoJSON doesn't block
+                // first paint. The renderSubstations layer has its own
+                // minzoom guard so it won't clutter the world view.
                 // ════════════════════════════════════════════════════════
-                (async () => {
+                idleLoad(async () => {
                   try {
                     const res = await fetch("/data/crep/substations-us.geojson", { cache: "default" });
                     if (!res.ok) return;
@@ -5510,12 +5523,12 @@ export default function CREPDashboardPage() {
                     }));
                     if (entities.length && mapReady()) {
                       renderSubstations(entities, "static-osm");
-                      console.log(`[CREP/Static] ${entities.length} substations rendered (zero-latency)`);
+                      console.log(`[CREP/Static] ${entities.length} substations rendered (idle-loaded)`);
                     }
                   } catch (e) {
                     console.warn("[CREP/Static] substations load failed:", (e as Error)?.message);
                   }
-                })();
+                });
 
                 batchFetch("substations", 20000, (vpResults) => {
                   const vpSubs = vpResults.flatMap(r => r?.entities || []);
@@ -5589,12 +5602,10 @@ export default function CREPDashboardPage() {
                 };
 
                 // ════════════════════════════════════════════════════════
-                // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV bundled
-                // in public/data/crep/. Paints INSTANTLY on map load with
-                // zero MINDEX round-trip. MINDEX fetch still runs below to
-                // enrich with live status when reachable.
+                // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV.
+                // Deferred via idleLoad (declared above).
                 // ════════════════════════════════════════════════════════
-                (async () => {
+                idleLoad(async () => {
                   try {
                     const res = await fetch("/data/crep/transmission-lines-us-major.geojson", { cache: "default" });
                     if (!res.ok) return;
@@ -5623,14 +5634,17 @@ export default function CREPDashboardPage() {
                             0, 1, 100, 1.5, 345, 2, 500, 2.5, 735, 3],
                           "line-opacity": 0.75,
                         },
-                        minzoom: 3,
+                        // minzoom 4 so they only draw when the user is close
+                        // enough to benefit. At world view 22k lines would
+                        // clutter the globe and slow rendering.
+                        minzoom: 4,
                       });
-                      console.log(`[CREP/Static] ${features.length} transmission lines rendered (zero-latency)`);
+                      console.log(`[CREP/Static] ${features.length} transmission lines rendered (idle-loaded, zoom>=4)`);
                     }
                   } catch (e) {
                     console.warn("[CREP/Static] transmission-lines load failed:", (e as Error)?.message);
                   }
-                })();
+                });
 
                 batchFetch("transmission-lines", 20000, (vpResults) => {
                   const vpLines = vpResults.flatMap(r => r?.entities || []);
