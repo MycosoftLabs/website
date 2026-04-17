@@ -2369,18 +2369,22 @@ export default function CREPDashboardPage() {
         // PARALLEL FETCH — Aircraft, Vessels, Satellites, Space Weather
         // All fetched simultaneously so one slow source doesn't block others.
         // Each has independent error handling — one failure never kills the rest.
+        // NO AbortSignal.timeout here — it was aborting in-flight StrictMode
+        // second-mount fetches and silently wiping state. If a fetch is slow
+        // we'd rather have the data late than lose it entirely.
         // ═══════════════════════════════════════════════════════════════
-        // Client-side timeout: abort if any single fetch takes >12s
-        const fetchWithTimeout = (url: string) => fetch(url, { signal: AbortSignal.timeout(12_000) });
+        const fetchWithTimeout = (url: string) => fetch(url);
 
         const [aircraftResult, vesselResult, satelliteResult, spaceWxResult] = await Promise.allSettled([
           // Aircraft (all sources via registry)
           fetchWithTimeout("/api/oei/flightradar24").then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
-            if (data.aircraft && Array.isArray(data.aircraft)) {
-              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"}`);
-              setAircraft(data.aircraft);
+            if (data.aircraft && Array.isArray(data.aircraft) && data.aircraft.length > 0) {
+              // Functional setState: survives mount races because React
+              // always passes the CURRENT value even to a stale setter.
+              setAircraft(() => data.aircraft);
+              console.log(`[CREP] Aircraft: ${data.aircraft.length} loaded from ${data.source || "registry"} → setAircraft called`);
               syncToMINDEX("aircraft", data.aircraft);
             }
             return data;
@@ -2389,9 +2393,9 @@ export default function CREPDashboardPage() {
           fetchWithTimeout("/api/oei/aisstream").then(async (res) => {
             if (!res.ok) return null;
             const data = await res.json();
-            if (data.vessels && Array.isArray(data.vessels)) {
-              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"}`);
-              setVessels(data.vessels);
+            if (data.vessels && Array.isArray(data.vessels) && data.vessels.length > 0) {
+              setVessels(() => data.vessels);
+              console.log(`[CREP] Vessels: ${data.vessels.length} loaded from ${data.source || "aisstream"} → setVessels called`);
               syncToMINDEX("vessels", data.vessels);
             }
             return data;
@@ -2401,9 +2405,9 @@ export default function CREPDashboardPage() {
             if (!res.ok) return null;
             initialSatelliteLoadDoneRef.current = true;
             const data = await res.json();
-            if (data.satellites && Array.isArray(data.satellites)) {
-              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"}`);
-              setSatellites(data.satellites);
+            if (data.satellites && Array.isArray(data.satellites) && data.satellites.length > 0) {
+              setSatellites(() => data.satellites);
+              console.log(`[CREP] Satellites: ${data.satellites.length} loaded from ${data.source || "registry"} → setSatellites called`);
               syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]);
             }
             return data;
@@ -3657,9 +3661,17 @@ export default function CREPDashboardPage() {
       return true;
     });
     
-    // No density cap — show ALL aircraft. MapLibre native layers handle 50K+ features.
+    // ZOOM-BASED LOD: keep rendering responsive at world view. At low zoom
+    // we still show ALL aircraft because they're spread globally, but if
+    // count exceeds the zoom cap we sample uniformly. Essentially we never
+    // hand the renderer more markers than it can smoothly animate.
+    const zoomCap = mapZoom < 3 ? 3000 : mapZoom < 5 ? 8000 : Infinity;
+    if (filtered.length > zoomCap) {
+      const stride = Math.ceil(filtered.length / zoomCap);
+      filtered = filtered.filter((_, i) => i % stride === 0);
+    }
     return filtered;
-  }, [aircraft, aircraftFilter]);
+  }, [aircraft, aircraftFilter, mapZoom]);
 
   // ===========================================================================
   // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
@@ -3667,7 +3679,7 @@ export default function CREPDashboardPage() {
   // shipType 0 = unknown (position-only AIS) → treat as other/pleasure
   // ===========================================================================
   const filteredVessels = useMemo(() => {
-    return vessels.filter(v => {
+    let filtered = vessels.filter(v => {
       const shipType = typeof v.shipType === "number" ? v.shipType : (v as any).properties?.shipTypeNum ?? 0;
       const shipTypeStr = (
         (v as any).properties?.shipType ?? (v as any).tags?.[0] ?? (v as any).description ?? ""
@@ -3699,14 +3711,23 @@ export default function CREPDashboardPage() {
 
       return true;
     });
-  }, [vessels, vesselFilter]);
+
+    // ZOOM-BASED LOD: vessels can hit 30k+ from AISstream. Cap at world
+    // view to keep the UI fluid, let full data render at zoom >= 5.
+    const zoomCap = mapZoom < 3 ? 4000 : mapZoom < 5 ? 10000 : Infinity;
+    if (filtered.length > zoomCap) {
+      const stride = Math.ceil(filtered.length / zoomCap);
+      filtered = filtered.filter((_, i) => i % stride === 0);
+    }
+    return filtered;
+  }, [vessels, vesselFilter, mapZoom]);
 
   // ===========================================================================
   // FILTER SATELLITES: show only if sat matches at least one enabled category
   // (Fixes discrepancies when combining Stations / Comms / Starlink toggles)
   // ===========================================================================
   const filteredSatellites = useMemo(() => {
-    return satellites.filter(sat => {
+    let filtered = satellites.filter(sat => {
       const objectType = (sat.objectType || sat.properties?.objectType || "").toLowerCase();
       const name = (sat.name || "").toLowerCase();
 
@@ -3737,7 +3758,15 @@ export default function CREPDashboardPage() {
 
       return true;
     });
-  }, [satellites, satelliteFilter]);
+
+    // ZOOM-BASED LOD: SatNOGS can return 2k+ satellites. Sample at low zoom.
+    const zoomCap = mapZoom < 3 ? 2000 : mapZoom < 5 ? 5000 : Infinity;
+    if (filtered.length > zoomCap) {
+      const stride = Math.ceil(filtered.length / zoomCap);
+      filtered = filtered.filter((_, i) => i % stride === 0);
+    }
+    return filtered;
+  }, [satellites, satelliteFilter, mapZoom]);
 
   // Sync last-known position + velocity (deg/s) for extrapolation when API data changes
   useEffect(() => {
@@ -4227,21 +4256,25 @@ export default function CREPDashboardPage() {
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
-          {/* Entity counts: planes / boats / satellites (visible so user can see when they are 0) */}
+          {/* Entity counts: planes / boats / sats / nature (visible so user can see when they are 0) */}
           <div
             className="flex items-center gap-2 px-2 py-1 rounded bg-black/40 border border-gray-600/40"
-            title="Aircraft from FlightRadar24, vessels from AISStream, satellites from CelesTrak. Only shown when LIVE is on."
+            title="Aircraft from FlightRadar24+OpenSky+ADSB.lol, vessels from AISStream+BarentsWatch+DMA+SDR, satellites from SatNOGS+CelesTrak+TLE mirror, nature from MINDEX+iNaturalist+GBIF"
           >
-            <span className={cn("text-[9px] font-mono", aircraft.length === 0 ? "text-amber-400" : "text-gray-400")}>
+            <span className={cn("text-[9px] font-mono", aircraft.length === 0 ? "text-amber-400" : "text-sky-400")}>
               Planes: {aircraft.length}
             </span>
             <span className="text-gray-600">|</span>
-            <span className={cn("text-[9px] font-mono", vessels.length === 0 ? "text-amber-400" : "text-gray-400")}>
+            <span className={cn("text-[9px] font-mono", vessels.length === 0 ? "text-amber-400" : "text-teal-400")}>
               Boats: {vessels.length}
             </span>
             <span className="text-gray-600">|</span>
-            <span className={cn("text-[9px] font-mono", satellites.length === 0 ? "text-amber-400" : "text-gray-400")}>
+            <span className={cn("text-[9px] font-mono", satellites.length === 0 ? "text-amber-400" : "text-purple-400")}>
               Sats: {satellites.length}
+            </span>
+            <span className="text-gray-600">|</span>
+            <span className={cn("text-[9px] font-mono", fungalObservations.length === 0 ? "text-amber-400" : "text-green-400")}>
+              Nature: {fungalObservations.length}
             </span>
           </div>
           {criticalCount > 0 && (
