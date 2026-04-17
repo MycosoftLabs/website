@@ -602,8 +602,95 @@ jobs:
       # the VM. The subsequent cutover step will build + promote the NEW
       # image — but even if that hangs, at least the site is back up.
       # ─────────────────────────────────────────────────────────────────────
-      - name: AGGRESSIVE recovery — restart containers + force-recreate nginx proxy
-        timeout-minutes: 5
+      - name: SURGICAL recovery — detect live slot, rewire nginx, HUP the proxy
+        timeout-minutes: 4
+        run: |
+          ssh-retry production bash -s <<'SURGICAL'
+            set +e  # never fail on individual command errors
+
+            echo "=== SURGICAL recovery at $(date -u +%FT%TZ) ==="
+
+            # Step 1: Probe BOTH color containers' /api/health via docker exec
+            # (bypasses nginx entirely). This tells us which slot's Node is alive.
+            LIVE=""
+            for color in blue green; do
+              name="mycosoft-website-$color"
+              if timeout 8 docker exec "$name" wget -qO- http://localhost:3000/api/health 2>/dev/null | head -c 80; then
+                echo " -> $color responds"
+                [ -z "$LIVE" ] && LIVE=$color
+              else
+                echo " -> $color no response"
+              fi
+            done
+            echo ""
+            echo "LIVE_SLOT=$LIVE"
+
+            # Step 2: If neither is live, try starting blue from any on-disk image.
+            if [ -z "$LIVE" ]; then
+              echo "=== Neither live — attempting to bring up blue from VM-local image ==="
+              IMG=$(timeout 5 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep 'mycosoft-website' | head -1)
+              echo "  image: ${IMG:-<none>}"
+              if [ -n "$IMG" ]; then
+                timeout 10 docker rm -f mycosoft-website-blue 2>/dev/null
+                cd /opt/mycosoft/website
+                WEBSITE_IMAGE_BLUE="$IMG" timeout 60 docker compose \
+                  -f docker-compose.production.yml \
+                  -f docker-compose.production.blue-green.yml \
+                  up -d --no-deps website-blue 2>&1 | tail -10
+                # Wait up to 60s for blue to become live
+                for i in {1..30}; do
+                  if timeout 5 docker exec mycosoft-website-blue wget -qO- http://localhost:3000/api/health 2>/dev/null | grep -q status; then
+                    LIVE=blue
+                    echo " -> blue came up after ${i}x2s"
+                    break
+                  fi
+                  sleep 2
+                done
+              fi
+            fi
+
+            if [ -z "$LIVE" ]; then
+              echo "::error::No live slot available and cannot start one"
+              exit 0
+            fi
+
+            # Step 3: Render website.conf pointing at live slot
+            echo "=== Pointing nginx at $LIVE ==="
+            mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
+            cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
+            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf
+            echo "$LIVE" > /opt/mycosoft/state/active-slot
+            echo "wrote state=$LIVE + rendered website.conf"
+            grep -E "proxy_pass|X-Active-Slot" /opt/mycosoft/nginx/conf.d/website.conf | head -5
+
+            # Step 4: Force-reload nginx. Try SIGHUP first (zero-downtime), fall
+            # back to docker kill+compose up if HUP can't land.
+            if timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
+              timeout 10 docker kill -s HUP mycosoft-website-proxy 2>&1 | head -3
+              echo "  HUP sent"
+            else
+              echo "  nginx -t failed — recreating proxy"
+              timeout 10 docker rm -f mycosoft-website-proxy 2>/dev/null
+              cd /opt/mycosoft/website
+              timeout 60 docker compose \
+                -f docker-compose.production.yml \
+                -f docker-compose.production.blue-green.yml \
+                up -d --no-deps website-proxy 2>&1 | tail -10
+            fi
+
+            # Step 5: Verify with DNS cache headroom
+            sleep 10
+            echo "=== Verify ==="
+            timeout 8 curl -sf -o /dev/null -w "  /healthz via proxy = %{http_code} slot=%header{x-active-slot}\n" http://localhost:3000/healthz
+            timeout 8 curl -sf -o /dev/null -w "  / via proxy = %{http_code}\n" http://localhost:3000/
+            timeout 8 curl -sf -o /dev/null -w "  /api/health via proxy = %{http_code}\n" http://localhost:3000/api/health
+
+            echo "::notice::SURGICAL recovery complete; active=$LIVE"
+            exit 0
+          SURGICAL
+
+      - name: Legacy aggressive recovery — DISABLED in favor of SURGICAL above
+        if: false
         run: |
           ssh-retry production bash -s <<'AGGR'
             set +e  # never fail — best effort
@@ -779,7 +866,16 @@ jobs:
 
       - name: Bootstrap (recover nginx / active-slot BEFORE build)
         timeout-minutes: 8
+        continue-on-error: true  # If bootstrap re-wedges docker, SURGICAL recovery already
+                                  # handled the site recovery — don't block the pipeline on it.
         run: |
+          # Skip bootstrap entirely if the site is already healthy — no need
+          # to touch docker again and risk wedging it.
+          if timeout 5 curl -sf -o /dev/null -w "%{http_code}" https://mycosoft.com/api/health 2>/dev/null | grep -qE "^(200|301|302)$"; then
+            echo "Site already healthy — skipping bootstrap to avoid re-wedging docker"
+            exit 0
+          fi
+
           ssh-retry production bash -s <<'BOOTSTRAP'
             set -euo pipefail
             cd /opt/mycosoft/website
