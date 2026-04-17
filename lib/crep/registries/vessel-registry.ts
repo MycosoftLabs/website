@@ -378,23 +378,54 @@ async function fetchFromAISHub(): Promise<VesselRecord[]> {
  * Handles GeoJSON Point locations, flat lat/lng fields, and nested properties.
  */
 function normaliseGeneric(v: any, source: string): VesselRecord {
-  const coords = v.location?.coordinates ?? v.geometry?.coordinates
+  // AISstream cache entities use `location: { latitude, longitude, source }`
+  // MINDEX entities may use GeoJSON `location.coordinates: [lng, lat]`
+  // Some providers use flat `v.lat` / `v.lng`, others wrap in `v.properties`.
+  // Try ALL known shapes in order of specificity.
   const props = v.properties ?? {}
 
+  // Try explicit latitude/longitude first (AISstream VesselEntity shape)
+  let lat: number = parseFloat(
+    v.location?.latitude ??
+      v.latitude ??
+      v.lat ??
+      props.latitude ??
+      props.lat ??
+      0
+  )
+  let lng: number = parseFloat(
+    v.location?.longitude ??
+      v.longitude ??
+      v.lng ??
+      props.longitude ??
+      props.lng ??
+      0
+  )
+
+  // Fallback: GeoJSON-style [lng, lat] coordinates array
+  if ((!lat || !lng) && (v.location?.coordinates || v.geometry?.coordinates)) {
+    const coords = v.location?.coordinates ?? v.geometry?.coordinates
+    if (Array.isArray(coords) && coords.length >= 2) {
+      lng = Number(coords[0]) || lng
+      lat = Number(coords[1]) || lat
+    }
+  }
+
   return {
-    id: v.id ?? `${source}-${v.mmsi ?? v.UserID ?? Date.now()}`,
+    id: v.id ?? `${source}-${v.mmsi ?? v.UserID ?? props.mmsi ?? Date.now()}`,
     mmsi: String(v.mmsi ?? v.UserID ?? props.mmsi ?? ""),
-    name: v.name ?? v.shipName ?? props.shipName ?? "Unknown",
-    lat: coords ? coords[1] : parseFloat(v.lat ?? v.latitude ?? 0),
-    lng: coords ? coords[0] : parseFloat(v.lng ?? v.longitude ?? 0),
+    name: v.name ?? v.shipName ?? props.shipName ?? props.name ?? "Unknown",
+    lat: Number.isFinite(lat) ? lat : 0,
+    lng: Number.isFinite(lng) ? lng : 0,
     sog: v.sog ?? v.speed ?? props.sog ?? null,
     cog: v.cog ?? v.course ?? props.cog ?? null,
     heading: v.heading ?? v.trueHeading ?? props.heading ?? null,
-    shipType: v.shipType ?? props.shipType ?? null,
+    shipType: v.shipType ?? props.shipType ?? props.shipTypeNum ?? null,
     destination: v.destination ?? props.destination ?? null,
     source,
     timestamp:
       v.lastSeen ??
+      v.lastSeenAt ??
       v.timestamp ??
       v.provenance?.collectedAt ??
       new Date().toISOString(),

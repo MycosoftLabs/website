@@ -76,7 +76,8 @@ const N2YO_API_KEY = process.env.N2YO_API_KEY || ""
 const SOURCE_TIMEOUT_MS = 8_000 // 8s per source — fast fail, don't block CREP
 
 const CELESTRAK_API = "https://celestrak.org/NORAD/elements/gp.php"
-const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle"
+// Note: TLE mirror now requires trailing slash (returns 301 without it)
+const TLE_API_BASE = "https://tle.ivanstanojevic.me/api/tle/"
 
 // =============================================================================
 // SOURCE FETCHERS
