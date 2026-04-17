@@ -656,26 +656,56 @@ jobs:
 
             # Step 3: Render website.conf pointing at live slot
             echo "=== Pointing nginx at $LIVE ==="
-            mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
-            cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
-            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf
-            echo "$LIVE" > /opt/mycosoft/state/active-slot
+            mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state 2>&1
+            ls -la /opt/mycosoft/nginx/ /opt/mycosoft/state/ 2>&1 | head -10
+
+            # Use sudo -n for cp if regular cp fails (permissions from old root-created file)
+            if ! cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf 2>&1; then
+              echo "  cp failed; trying with sudo -n"
+              sudo -n cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf 2>&1
+            fi
+            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /tmp/website.conf.$$
+            if ! cp /tmp/website.conf.$$ /opt/mycosoft/nginx/conf.d/website.conf 2>&1; then
+              echo "  cp website.conf failed; trying sudo -n"
+              sudo -n cp /tmp/website.conf.$$ /opt/mycosoft/nginx/conf.d/website.conf 2>&1
+            fi
+            rm -f /tmp/website.conf.$$
+            echo "$LIVE" > /opt/mycosoft/state/active-slot 2>&1 || sudo -n tee /opt/mycosoft/state/active-slot <<<"$LIVE" >/dev/null
             echo "wrote state=$LIVE + rendered website.conf"
-            grep -E "proxy_pass|X-Active-Slot" /opt/mycosoft/nginx/conf.d/website.conf | head -5
+
+            echo "=== ACTUAL file contents on disk ==="
+            echo "--- nginx.conf (first 30 lines) ---"
+            head -30 /opt/mycosoft/nginx/nginx.conf
+            echo "--- nginx.conf log_format line ---"
+            grep -A3 "log_format" /opt/mycosoft/nginx/nginx.conf | head -5
+            echo "--- website.conf first 30 lines ---"
+            head -30 /opt/mycosoft/nginx/conf.d/website.conf
+            echo "--- state/active-slot ---"
+            cat /opt/mycosoft/state/active-slot
 
             # Step 4: Force-reload nginx. Try SIGHUP first (zero-downtime), fall
             # back to docker kill+compose up if HUP can't land.
-            if timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
+            echo "=== nginx -t FULL output ==="
+            timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
+            NGINX_T_EXIT=$?
+            echo "  nginx -t exit code: $NGINX_T_EXIT"
+
+            if [ "$NGINX_T_EXIT" = "0" ]; then
               timeout 10 docker kill -s HUP mycosoft-website-proxy 2>&1 | head -3
               echo "  HUP sent"
             else
               echo "  nginx -t failed — recreating proxy"
-              timeout 10 docker rm -f mycosoft-website-proxy 2>/dev/null
+              timeout 10 docker rm -f mycosoft-website-proxy 2>&1 | head -3
               cd /opt/mycosoft/website
               timeout 60 docker compose \
                 -f docker-compose.production.yml \
                 -f docker-compose.production.blue-green.yml \
-                up -d --no-deps website-proxy 2>&1 | tail -10
+                up -d --no-deps website-proxy 2>&1 | tail -15
+
+              # Test the NEW container's nginx -t too
+              sleep 5
+              echo "=== New proxy nginx -t output ==="
+              timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
             fi
 
             # Step 5: Verify with DNS cache headroom
