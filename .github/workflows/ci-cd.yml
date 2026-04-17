@@ -602,11 +602,93 @@ jobs:
       # the VM. The subsequent cutover step will build + promote the NEW
       # image — but even if that hangs, at least the site is back up.
       # ─────────────────────────────────────────────────────────────────────
-      - name: AGGRESSIVE recovery — force-recreate nginx proxy pointing at a live slot
+      - name: AGGRESSIVE recovery — restart containers + force-recreate nginx proxy
         timeout-minutes: 5
         run: |
           ssh-retry production bash -s <<'AGGR'
             set +e  # never fail — best effort
+
+            echo "=== 0. Probe current state (pre-recovery) ==="
+            timeout 10 docker ps -a --format '{{.Names}} | {{.Status}} | {{.Image}}' 2>&1 | head -20
+
+            echo "=== 0a. Force-restart BOTH color containers (current ones may be hung/unresponsive) ==="
+            # Even if docker ps says "Up (healthy)", the Node process inside
+            # may be stuck/OOM. Hard restart both to reset state.
+            for color in blue green; do
+              name="mycosoft-website-$color"
+              if timeout 5 docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null | grep -q true; then
+                echo "  restarting $name"
+                timeout 30 docker restart -t 5 "$name" 2>&1 | head -3
+              fi
+            done
+            # Give Node a few seconds to come up
+            sleep 8
+
+            echo "=== 0b. Which slot has a LIVE /api/health endpoint? ==="
+            LIVE_SLOT=""
+            for color in blue green; do
+              name="mycosoft-website-$color"
+              if timeout 10 docker exec "$name" curl -sf http://localhost:3000/api/health 2>&1 | head -c 100; then
+                echo " -> $color is LIVE"
+                LIVE_SLOT="$color"
+                break
+              fi
+              echo "  $color not responding"
+            done
+
+            if [ -n "$LIVE_SLOT" ]; then
+              echo "=== 0c. Point nginx at $LIVE_SLOT ==="
+              mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
+              cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
+              sed "s|__ACTIVE_SLOT__|$LIVE_SLOT|g" \
+                /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template \
+                > /opt/mycosoft/nginx/conf.d/website.conf
+              echo "$LIVE_SLOT" > /opt/mycosoft/state/active-slot
+
+              # Hard-reload nginx (stop + start in case reload fails)
+              timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -5
+              timeout 10 docker exec mycosoft-website-proxy nginx -s reload 2>&1 | head -3 || {
+                echo "  reload failed; restarting proxy"
+                timeout 15 docker restart -t 5 mycosoft-website-proxy 2>&1 | head -3
+              }
+
+              # Verify
+              sleep 3
+              timeout 5 curl -sf http://localhost:3000/api/health >/dev/null && echo "  ✓ /api/health via proxy is LIVE" || echo "  ✗ /api/health via proxy still failing"
+              timeout 5 curl -sf -o /dev/null -w "  / = HTTP %{http_code}\n" http://localhost:3000/
+              echo "::notice::Recovery complete — active slot=$LIVE_SLOT"
+              exit 0
+            fi
+
+            echo "=== 0d. Neither color is live — nuking + recreating from scratch ==="
+            cd /opt/mycosoft/website
+            # Find any image tagged with our website that's already on the VM
+            IMG=$(timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E 'mycosoft-website:(local|production-latest|latest)' | head -1)
+            if [ -z "$IMG" ]; then
+              IMG=$(timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep 'website' | head -1)
+            fi
+            echo "  using image: $IMG"
+            if [ -n "$IMG" ]; then
+              # Remove any existing blue container and recreate
+              timeout 10 docker rm -f mycosoft-website-blue 2>/dev/null
+              export WEBSITE_IMAGE="$IMG"
+              export WEBSITE_IMAGE_BLUE="$IMG"
+              timeout 60 docker compose -f docker-compose.production.yml -f docker-compose.production.blue-green.yml up -d --no-deps website-blue 2>&1 | tail -20
+              sleep 10
+              timeout 10 docker ps --format '{{.Names}} | {{.Status}}' | grep website-blue
+
+              # Point nginx at blue
+              mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
+              cp deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
+              sed "s|__ACTIVE_SLOT__|blue|g" deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf
+              echo blue > /opt/mycosoft/state/active-slot
+              timeout 15 docker restart -t 5 mycosoft-website-proxy
+              sleep 3
+              timeout 5 curl -sf -o /dev/null -w "  / = HTTP %{http_code}\n" http://localhost:3000/
+            else
+              echo "::error::No website image found on VM — build step must complete"
+            fi
+            exit 0
 
             echo "=== 1. Show sudo permissions ==="
             sudo -n -l 2>&1 | head -30
