@@ -102,10 +102,18 @@ async function fetchFromMINDEX(): Promise<AircraftRecord[]> {
  */
 async function fetchFromOpenSky(): Promise<AircraftRecord[]> {
   const url = "https://opensky-network.org/api/states/all"
+  // OpenSky payload is ~2-4MB globally, can take 5-12s. Use a longer timeout
+  // specifically for this source since it's our largest single-source returns
+  // (~6500 global aircraft vs FR24's ~1500).
   const res = await fetch(url, {
     cache: "no-store",
-    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+    headers: {
+      Accept: "application/json",
+      // Some upstream CDNs block default Node fetch UA with 403. Identify
+      // ourselves so OpenSky doesn't rate-limit us as a scraper.
+      "User-Agent": "Mycosoft-CREP/1.0 (+https://mycosoft.com)",
+    },
   })
   if (!res.ok) return []
   const data = await res.json()
@@ -169,18 +177,32 @@ async function fetchFromADSBExchange(): Promise<AircraftRecord[]> {
 
 /**
  * Source 5 — ADSB.lol (free community ADS-B, no key needed)
+ *
+ * Note: /v2/all was removed from ADSB.lol in 2025. The remaining public
+ * endpoints are subset feeds: /v2/mil (military), /v2/ladd (LADD),
+ * /v2/pia (PIA). We pull from mil to add defense-interesting aircraft
+ * that OpenSky / FR24 sometimes miss.
  */
 async function fetchFromADSBLol(): Promise<AircraftRecord[]> {
-  // /v2/all returns ALL aircraft (~5000-8000), not just LADD-listed ones
-  const url = "https://api.adsb.lol/v2/all"
-  const res = await fetch(url, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-    headers: { Accept: "application/json" },
-  })
-  if (!res.ok) return []
-  const data = await res.json()
-  const aircraft: any[] = data.ac ?? data.aircraft ?? []
+  const UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
+  const endpoints = [
+    "https://api.adsb.lol/v2/mil",
+    "https://api.adsb.lol/v2/ladd",
+  ]
+  const results = await Promise.allSettled(
+    endpoints.map(async (url) => {
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
+        headers: { Accept: "application/json", "User-Agent": UA },
+      })
+      if (!res.ok) return [] as any[]
+      const data = await res.json()
+      return (data.ac ?? data.aircraft ?? []) as any[]
+    })
+  )
+  const aircraft: any[] = []
+  for (const r of results) if (r.status === "fulfilled") aircraft.push(...r.value)
 
   return aircraft
     .filter((a) => a.lat != null && a.lon != null)

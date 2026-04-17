@@ -93,14 +93,20 @@ async function fetchFromCelesTrak(): Promise<SatelliteRecord[]> {
   // Groups: active (~9K), stations (~500), starlink (~6K), weather (~900),
   // gnss (~130), resource (~160), science (~1K), misc (~500)
   const groups = ["active", "stations", "starlink", "weather", "gnss", "resource", "science", "misc"]
+  const UA = "Mycosoft-CREP/1.0 (+https://mycosoft.com)"
 
   const results = await Promise.allSettled(
     groups.map(async (group) => {
       const url = `${CELESTRAK_API}?GROUP=${group}&FORMAT=json`
       const res = await fetch(url, {
         cache: "no-store",
-        signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS),
-        headers: { Accept: "application/json" },
+        // CelesTrak can be slow under load; give each group 15s
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          Accept: "application/json",
+          // CelesTrak's Cloudflare layer 403s default Node UA. Identify ourselves.
+          "User-Agent": UA,
+        },
       })
       if (!res.ok) return []
       const data = await res.json()
