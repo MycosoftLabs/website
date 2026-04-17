@@ -1,0 +1,66 @@
+name: iNat → MINDEX delta sync
+
+# Run every 10 minutes — pulls last hour of new iNaturalist observations
+# and bulk-writes them to MINDEX via /api/etl/inat/sync.
+#
+# MINDEX dedups on (source, source_id) so re-running is safe. Worst-case
+# a late-arriving delta is just re-upserted.
+#
+# Setup required:
+#   1. ETL_CRON_TOKEN secret — some shared secret; set on the repo + on
+#      the deployed website env.
+#   2. SITE_URL secret — https://mycosoft.com (or staging if testing)
+#
+# If you don't want this to run (e.g. to avoid hammering iNat during
+# dev), disable the workflow in GitHub Actions UI.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub cron uses UTC.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      sinceIso:
+        description: "ISO8601 timestamp — fetch iNat obs created AFTER this (default: 1h ago)"
+        required: false
+        type: string
+      maxPages:
+        description: "Max pages of 200 obs to pull this run (default: 10 = 2000 obs)"
+        required: false
+        default: "10"
+        type: string
+
+# Don't let multiple crons pile up if iNat is slow
+concurrency:
+  group: inat-delta-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger delta sync on production
+        run: |
+          set -euo pipefail
+          SITE_URL="${{ secrets.SITE_URL }}"
+          TOKEN="${{ secrets.ETL_CRON_TOKEN }}"
+          if [ -z "$SITE_URL" ] || [ -z "$TOKEN" ]; then
+            echo "::error::Missing SITE_URL or ETL_CRON_TOKEN secret"
+            exit 1
+          fi
+
+          BODY=$(jq -n \
+            --arg since "${{ github.event.inputs.sinceIso }}" \
+            --arg max "${{ github.event.inputs.maxPages }}" \
+            '({} + (if $since != "" then {sinceIso: $since} else {} end)
+                + (if $max != "" then {maxPages: ($max|tonumber)} else {} end))')
+          echo "Body: $BODY"
+
+          curl -fsSL \
+            -X POST "$SITE_URL/api/etl/inat/sync" \
+            -H "Content-Type: application/json" \
+            -H "x-cron-token: $TOKEN" \
+            -d "$BODY" \
+            --max-time 180 \
+            -w "\nHTTP %{http_code} | time %{time_total}s\n"
