@@ -88,9 +88,17 @@ function getCachedData(): CachedData | null {
 }
 
 function setCachedData(observations: FungalObservation[], sources: { mindex: number; iNaturalist: number; gbif: number }): void {
+  // NEVER cache empty/near-empty responses. An empty cache entry with a
+  // 5-minute TTL would serve every request as blank for 5 min and suppress
+  // the fallback path. If we have nothing useful, don't cache — retry next
+  // request.
+  if (observations.length < 10) {
+    console.log(`[CREP/Fungal] Skipping cache: only ${observations.length} observations — will retry next request`)
+    return
+  }
   const payloadSize = new Blob([JSON.stringify(observations)]).size
   if (payloadSize > MAX_CACHE_PAYLOAD_BYTES) {
-    console.log(`[CREP/Fungal] ⚠️ Skipping cache: payload ${(payloadSize / 1024 / 1024).toFixed(2)}MB exceeds ${(MAX_CACHE_PAYLOAD_BYTES / 1024 / 1024).toFixed(1)}MB limit`)
+    console.log(`[CREP/Fungal] Skipping cache: payload ${(payloadSize / 1024 / 1024).toFixed(2)}MB exceeds ${(MAX_CACHE_PAYLOAD_BYTES / 1024 / 1024).toFixed(1)}MB limit`)
     return
   }
   dataCache = {
@@ -98,7 +106,7 @@ function setCachedData(observations: FungalObservation[], sources: { mindex: num
     timestamp: Date.now(),
     sources,
   }
-  console.log(`[CREP/Fungal] 💾 Cached ${observations.length} observations (${(payloadSize / 1024).toFixed(0)}KB)`)
+  console.log(`[CREP/Fungal] Cached ${observations.length} observations (${(payloadSize / 1024).toFixed(0)}KB)`)
 }
 
 export interface FungalObservation {
@@ -969,6 +977,20 @@ export async function GET(request: NextRequest) {
     const results = await Promise.all(fetchPromises)
     allObservations = results.flat()
     console.log(`[CREP/Life] Dual-source total: ${allObservations.length} observations (MINDEX + live APIs merged)`)
+
+    // EMERGENCY iNat FALLBACK: if after all requested sources we still have
+    // 0 observations, ALWAYS fire the minimal iNat call regardless of mode.
+    // A blank nature layer is unacceptable — any data is better than none.
+    if (allObservations.length === 0) {
+      console.warn("[CREP/Life] All sources returned 0 — firing emergency iNat fallback")
+      try {
+        const emergency = await fetchINaturalistQuick(limit || 500, bounds, kingdom)
+        allObservations = emergency
+        console.log(`[CREP/Life] Emergency iNat fallback returned ${emergency.length} observations`)
+      } catch (e) {
+        console.warn("[CREP/Life] Emergency iNat fallback also failed:", (e as Error)?.message)
+      }
+    }
 
     // Clone-on-display: async-write new iNat observations to MINDEX
     // This runs in the background — does NOT block the response
