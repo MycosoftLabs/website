@@ -5551,6 +5551,50 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} TX lines → MapLibre (${label})`);
                 };
 
+                // ════════════════════════════════════════════════════════
+                // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV bundled
+                // in public/data/crep/. Paints INSTANTLY on map load with
+                // zero MINDEX round-trip. MINDEX fetch still runs below to
+                // enrich with live status when reachable.
+                // ════════════════════════════════════════════════════════
+                (async () => {
+                  try {
+                    const res = await fetch("/data/crep/transmission-lines-us-major.geojson", { cache: "default" });
+                    if (!res.ok) return;
+                    const gj = await res.json();
+                    const features = (gj.features || []).map((f: any, i: number) => ({
+                      type: "Feature" as const,
+                      properties: {
+                        id: `osm-tx-${i}`,
+                        name: f.properties?.n ?? "Transmission line",
+                        operator: f.properties?.op,
+                        voltage_kv: Math.round((f.properties?.v ?? 0) / 1000),
+                        status: "Active",
+                        source: "osm-static",
+                      },
+                      geometry: f.geometry,
+                    }));
+                    if (features.length && mapReady()) {
+                      safeAddSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
+                      safeAddLayer({
+                        id: "crep-txlines-line", type: "line", source: "crep-txlines",
+                        paint: {
+                          "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                            0, "#9ca3af", 31, "#fb923c", 100, "#ec4899", 230, "#a855f7",
+                            345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
+                          "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                            0, 1, 100, 1.5, 345, 2, 500, 2.5, 735, 3],
+                          "line-opacity": 0.75,
+                        },
+                        minzoom: 3,
+                      });
+                      console.log(`[CREP/Static] ${features.length} transmission lines rendered (zero-latency)`);
+                    }
+                  } catch (e) {
+                    console.warn("[CREP/Static] transmission-lines load failed:", (e as Error)?.message);
+                  }
+                })();
+
                 batchFetch("transmission-lines", 20000, (vpResults) => {
                   const vpLines = vpResults.flatMap(r => r?.entities || []);
                   const seen = new Set<string>();
