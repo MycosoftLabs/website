@@ -706,23 +706,27 @@ jobs:
             timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
             echo "  new proxy nginx -t exit code: $?"
 
-            echo "=== DIAGNOSTIC: List everything in conf.d and dump all .conf files ==="
+            echo "=== DIAGNOSTIC: HOST state ==="
+            echo "-- host /opt/mycosoft/nginx/conf.d/ --"
             ls -la /opt/mycosoft/nginx/conf.d/
-            echo "--- ALL .conf files concatenated ---"
-            for f in /opt/mycosoft/nginx/conf.d/*.conf; do
-              echo "===== $f ====="
-              cat "$f"
-              echo ""
-            done
+            echo "-- host /opt/mycosoft/state/ --"
+            ls -la /opt/mycosoft/state/
+            echo "-- host state/active-slot --"
+            cat /opt/mycosoft/state/active-slot
+            echo "-- host website.conf X-Active-Slot lines --"
+            grep "X-Active-Slot" /opt/mycosoft/nginx/conf.d/website.conf
 
-            echo "=== What nginx sees INSIDE the new container ==="
-            timeout 5 docker exec mycosoft-website-proxy ls -la /etc/nginx/conf.d/
-            timeout 5 docker exec mycosoft-website-proxy sh -c 'for f in /etc/nginx/conf.d/*.conf; do echo "=== $f ==="; cat "$f"; done' 2>&1 | head -80
+            echo "=== DIAGNOSTIC: CONTAINER state ==="
+            echo "-- docker ps for proxy --"
+            timeout 10 docker ps --filter name=mycosoft-website-proxy --format '{{.Names}} | {{.Status}} | {{.Image}} | created={{.CreatedAt}}'
+            echo "-- proxy volume mounts --"
+            timeout 10 docker inspect mycosoft-website-proxy --format='{{range .Mounts}}{{.Source}} -> {{.Destination}} (ro={{.RW}}) type={{.Type}}{{"\n"}}{{end}}'
+            echo "-- inside container: ls /etc/nginx/conf.d/ --"
+            timeout 15 docker exec mycosoft-website-proxy sh -c 'ls -la /etc/nginx/conf.d/ ; echo "" ; echo "-- grep X-Active-Slot --" ; grep -n "X-Active-Slot" /etc/nginx/conf.d/*.conf 2>/dev/null ; echo "" ; echo "-- full website.conf --" ; cat /etc/nginx/conf.d/website.conf 2>/dev/null | head -40 ; echo "" ; echo "-- full default.conf if exists --" ; cat /etc/nginx/conf.d/default.conf 2>/dev/null | head -20'
 
-            echo "=== Confirm new proxy is reading NEW config (look for 'blue' in served healthz) ==="
-            timeout 5 curl -sf -o /dev/null -w "  direct http://localhost:3000/healthz = %{http_code} slot=%header{x-active-slot}\n" http://localhost:3000/healthz
-            echo "=== Curl WITH headers ==="
-            timeout 5 curl -sv http://localhost:3000/healthz 2>&1 | head -40
+            echo "=== VERIFY with long-form curl ==="
+            timeout 5 curl -sv http://localhost:3000/healthz 2>&1 | head -30
+            timeout 5 curl -sv http://localhost:3000/ 2>&1 | head -30
 
             # Step 5: Verify with DNS cache headroom
             sleep 10
