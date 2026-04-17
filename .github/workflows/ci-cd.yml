@@ -609,19 +609,44 @@ jobs:
             set -euo pipefail
             cd /opt/mycosoft/website
 
+            echo "=== Checking what sudo permissions CI user has ==="
+            sudo -n -l 2>&1 | head -20 || echo "  sudo -n -l failed (no cached credentials)"
+
             echo "=== Checking docker daemon responsiveness ==="
             # A hung buildkitd from a cancelled CI run can wedge the entire
             # docker daemon — every subsequent docker/compose command hangs
-            # on the containerd lock. If `docker ps` doesn't respond in 10s,
-            # the daemon is dead and nothing short of restarting it will fix
-            # it. Since the site is already 502 (nothing to lose), restart.
+            # on the containerd lock.
             if ! timeout 10 docker ps -q >/dev/null 2>&1; then
-              echo "::warning::docker ps timed out — daemon is hung, restarting"
-              # Kill buildkitd + docker-build processes first (they may be
-              # the thing holding the lock).
-              pgrep -x buildkitd 2>/dev/null | xargs -r sudo kill -KILL 2>/dev/null || true
-              pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r sudo kill -KILL 2>/dev/null || true
-              sudo systemctl restart docker 2>&1 || sudo service docker restart 2>&1 || true
+              echo "::warning::docker ps timed out — daemon is hung"
+
+              # PATH 1: Kill buildkitd WITHOUT sudo — if the current user
+              # owns the buildkitd process (because it was spawned by an
+              # earlier `docker build` from CI), regular kill works.
+              echo "  attempting user-level buildkitd kill"
+              pgrep -x buildkitd 2>/dev/null | while read pid; do
+                echo "    found buildkitd pid=$pid owner=$(ps -o user= -p $pid 2>/dev/null)"
+                kill -KILL "$pid" 2>/dev/null || true
+              done
+              pgrep -f 'docker[- ]build' 2>/dev/null | while read pid; do
+                echo "    found docker-build pid=$pid"
+                kill -KILL "$pid" 2>/dev/null || true
+              done
+
+              # PATH 2: Try sudo -n (only works if NOPASSWD is set for this)
+              echo "  attempting sudo -n systemctl restart docker"
+              if timeout 30 sudo -n systemctl restart docker 2>&1; then
+                echo "  sudo systemctl succeeded"
+              elif timeout 30 sudo -n service docker restart 2>&1; then
+                echo "  sudo service succeeded"
+              else
+                echo "  sudo -n blocked — no NOPASSWD rule for docker restart"
+              fi
+
+              # PATH 3: Try docker socket directly via curl (bypasses docker CLI)
+              echo "  attempting direct socket poke"
+              timeout 10 curl -s --unix-socket /var/run/docker.sock http://localhost/_ping 2>&1 | head -c 100
+              echo ""
+
               # Wait up to 60s for docker to come back up.
               for i in {1..30}; do
                 if timeout 5 docker ps -q >/dev/null 2>&1; then
@@ -630,9 +655,21 @@ jobs:
                 fi
                 sleep 2
               done
-              # Restart stuck containers (they'll auto-restart if unless-stopped,
-              # but kick them just to be sure).
-              echo "  starting base services"
+
+              # If docker is STILL dead: try killing the nginx master from
+              # inside /proc (doesn't need daemon). If nginx dies, docker
+              # auto-restart will bring it back — fresh container, fresh config.
+              if ! timeout 5 docker ps -q >/dev/null 2>&1; then
+                echo "::warning::docker still dead; attempting nginx host-level kill"
+                # Find nginx master PID on host — only works if we own it.
+                # Most Docker installs run container root as host root, so
+                # this normally fails for a non-root user. Try anyway.
+                pgrep -f 'nginx: master process' | head -1 | while read pid; do
+                  echo "    nginx master pid=$pid; sending HUP"
+                  kill -HUP "$pid" 2>/dev/null && echo "    HUP sent" || echo "    kill failed (not owner)"
+                done
+              fi
+
               docker start mycosoft-postgres mycosoft-redis mycosoft-ollama 2>/dev/null || true
             else
               echo "  docker daemon is responsive"
