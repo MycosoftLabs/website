@@ -40,6 +40,11 @@ node_modules
 # Local data/cache (do not commit)
 .data/
 data/
+# BUT: public/data/ contains real bundled infrastructure GeoJSON that
+# the client serves as static assets (submarine cables, military bases,
+# airport perimeters, etc.). These files are committed by design.
+!public/data/
+!public/data/**
 __pycache__/
 videos/
 Mushroom1/

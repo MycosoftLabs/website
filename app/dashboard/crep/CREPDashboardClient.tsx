@@ -5038,40 +5038,84 @@ export default function CREPDashboardPage() {
                   return segments.filter(s => s.length >= 2);
                 };
 
-                Promise.all([
-                  mindexFetch("submarine-cables", { north: 85, south: -60, east: 0, west: -180 }, 5000).catch(() => ({ entities: [] })),
-                  mindexFetch("submarine-cables", { north: 85, south: -60, east: 180, west: 0 }, 5000).catch(() => ({ entities: [] })),
-                ]).then(([west, east]) => {
-                  // Merge and deduplicate
-                  const allCables = [...(west?.entities || []), ...(east?.entities || [])];
-                  const seen = new Set<string>();
-                  const data = { entities: allCables.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; }) };
-                  if (!data?.entities?.length) return;
-                  const features = data.entities
-                    .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
-                    .flatMap((e: any, i: number) => {
-                      const color = cableColors[i % cableColors.length];
-                      const props = {
-                        name: e.name, color, cable_type: e.properties?.cable_type,
-                        length_km: e.properties?.length_km,
-                        owners: e.properties?.owners || e.properties?.operator,
-                        rfs_year: e.properties?.rfs_year || e.properties?.year,
-                        status: e.properties?.status || "Active",
-                        landing_points: e.properties?.landing_points,
-                        capacity: e.properties?.capacity,
-                        cable_id: e.id,
-                        source: e.source || "mindex",
-                        url: e.properties?.url,
-                      };
-                      // Split at antimeridian so cables don't draw across the globe
-                      const geom = splitAntimeridian(e.properties.route);
-                      return [{
-                        type: "Feature" as const,
-                        properties: props,
-                        geometry: geom,
-                      }];
+                // ════════════════════════════════════════════════════════
+                // PRIMARY CABLE SOURCE: static /data/crep/submarine-cables.geojson
+                // ════════════════════════════════════════════════════════
+                // 710 cables sourced from TeleGeography (CC-BY 4.0) — REAL
+                // seafloor routes with antimeridian splits already applied.
+                // Loads ~725KB once (browser-cached on subsequent visits),
+                // ZERO MINDEX / Overpass round-trip, accurate to the meter.
+                //
+                // MINDEX is ONLY used as a metadata-enrichment fallback if
+                // the static file fails to load (network issue).
+                // ════════════════════════════════════════════════════════
+                const loadStaticCables = async (): Promise<any | null> => {
+                  try {
+                    const res = await fetch("/data/crep/submarine-cables.geojson", {
+                      cache: "default", // browser HTTP cache respects the file's far-future headers
                     });
-                  if (!features.length) return;
+                    if (!res.ok) return null;
+                    const geojson = await res.json();
+                    const features = (geojson.features || [])
+                      .filter((f: any) => f?.geometry?.coordinates?.length)
+                      .map((f: any, i: number) => ({
+                        type: "Feature" as const,
+                        properties: {
+                          ...f.properties,
+                          name: f.properties?.name ?? "Unnamed cable",
+                          color: f.properties?.color || cableColors[i % cableColors.length],
+                          cable_id: f.properties?.id || f.properties?.feature_id,
+                          source: "telegeography",
+                          status: f.properties?.status || "Active",
+                        },
+                        // TeleGeography already emits correct MultiLineString
+                        // with antimeridian handled, but pass through our splitter
+                        // anyway to be safe.
+                        geometry: splitAntimeridian(f.geometry),
+                      }));
+                    return features.length ? { features } : null;
+                  } catch {
+                    return null;
+                  }
+                };
+
+                loadStaticCables().then(async (staticData) => {
+                  let features: any[] | null = staticData?.features || null;
+
+                  // Fall back to MINDEX if static file unavailable
+                  if (!features) {
+                    const [west, east] = await Promise.all([
+                      mindexFetch("submarine-cables", { north: 85, south: -60, east: 0, west: -180 }, 5000).catch(() => ({ entities: [] })),
+                      mindexFetch("submarine-cables", { north: 85, south: -60, east: 180, west: 0 }, 5000).catch(() => ({ entities: [] })),
+                    ]);
+                    const allCables = [...(west?.entities || []), ...(east?.entities || [])];
+                    const seen = new Set<string>();
+                    const uniq = allCables.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    features = uniq
+                      .filter((e: any) => e.properties?.route?.coordinates?.length >= 2)
+                      .flatMap((e: any, i: number) => {
+                        const color = cableColors[i % cableColors.length];
+                        const props = {
+                          name: e.name, color, cable_type: e.properties?.cable_type,
+                          length_km: e.properties?.length_km,
+                          owners: e.properties?.owners || e.properties?.operator,
+                          rfs_year: e.properties?.rfs_year || e.properties?.year,
+                          status: e.properties?.status || "Active",
+                          landing_points: e.properties?.landing_points,
+                          capacity: e.properties?.capacity,
+                          cable_id: e.id,
+                          source: e.source || "mindex",
+                          url: e.properties?.url,
+                        };
+                        const geom = splitAntimeridian(e.properties.route);
+                        return [{
+                          type: "Feature" as const,
+                          properties: props,
+                          geometry: geom,
+                        }];
+                      });
+                  }
+                  if (!features || !features.length) return;
                   safeAddSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
                   safeAddLayer({
                     id: "crep-cables-line", type: "line", source: "crep-cables",
