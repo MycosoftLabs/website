@@ -20,6 +20,7 @@
  */
 
 import { getAISStreamClient } from "@/lib/oei/connectors/aisstream-ships"
+import { getSdrVesselsAsRecords } from "@/lib/crep/sdr-vessel-cache"
 
 // =============================================================================
 // TYPES
@@ -518,6 +519,9 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
     { name: "dma", fn: fetchFromDMA },
     { name: "gfw", fn: fetchFromGFW },
     { name: "aishub", fn: fetchFromAISHub },
+    // User-owned SDR receivers (RTL-SDR + rtl-ais / AIS-catcher) that POST
+    // position reports to /api/vessels/ingest. Pulls from in-memory cache.
+    { name: "sdr", fn: async () => getSdrVesselsAsRecords() },
   ]
 
   const results = await Promise.allSettled(
