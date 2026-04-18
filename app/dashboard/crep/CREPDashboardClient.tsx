@@ -271,6 +271,14 @@ import { MapLayersPopup } from "@/components/crep/controls/map-layers-popup";
 import { InfrastructureStatsPanel } from "@/components/crep/panels/infrastructure-stats-panel";
 import { mindexFetch } from "@/lib/crep/mindex-cache-client";
 import { ALL_FETCH_REGIONS, regionToBounds, TOTAL_FETCH_REGIONS } from "@/lib/crep/geo-regions";
+import {
+  applyLODToEvents,
+  applyLODToNature,
+  applyLODToMovers,
+  getLODForZoom,
+  cullByBbox,
+  expandedBbox,
+} from "@/lib/crep/lod-policy";
 import { addJurisdictionLayers } from "@/lib/crep/jurisdiction-layers";
 import { initHighlightLayers, highlightPoint, highlightLine, highlightFromEvent, clearHighlight } from "@/lib/crep/infra-highlight";
 import { executeCrepCommand, type MapCommandHandlers } from "@/hooks/useMapWebSocket";
@@ -3300,28 +3308,26 @@ export default function CREPDashboardPage() {
              lng >= (mapBounds.west - padding) && lng <= (mapBounds.east + padding);
     });
     
-    // Step 2: Zoom-based limits - MORE generous at higher zoom levels
-    let maxMarkers: number;
-    let lodLevel: string;
-    if (mapZoom < 2) {
-      maxMarkers = 2000;
-      lodLevel = "world";
-    } else if (mapZoom < 3) {
-      maxMarkers = 5000;
-      lodLevel = "multi-continent";
-    } else if (mapZoom < 4) {
-      maxMarkers = 10000;
-      lodLevel = "continent";
-    } else if (mapZoom < 5) {
-      maxMarkers = 20000;
-      lodLevel = "large-country";
-    } else if (mapZoom < 6) {
-      maxMarkers = 30000;
-      lodLevel = "country";
-    } else {
-      // At zoom 6+, show everything in viewport
-      maxMarkers = Infinity;
-      lodLevel = "local";
+    // Recency-first LOD for nature (Fix D — Apr 18, 2026)
+    // At low zoom: only research-grade + recent observations (high-signal).
+    // At high zoom: all historical data in viewport (full fidelity).
+    // applyLODToNature handles timeWindow + qualityGrade filtering and
+    // returns at most lod.nature.maxRendered items. After that we still
+    // run the spatial grid so the surviving set is evenly distributed.
+    const preLodCount = inViewport.length
+    const lodFilteredNature = applyLODToNature(
+      inViewport as any,
+      mapZoom,
+    ) as typeof inViewport;
+    const lod = getLODForZoom(mapZoom);
+    const maxMarkers: number = lod.nature.maxRendered;
+    const lodLevel = lod.tier;
+    // Swap downstream "inViewport" reference to the LOD-filtered set by
+    // mutating in place (inViewport is const, so no reassignment).
+    inViewport.length = 0;
+    inViewport.push(...lodFilteredNature);
+    if (Math.random() < 0.03) {
+      console.log(`[CREP/LOD] Nature z=${mapZoom.toFixed(1)} tier=${lodLevel} viewport=${preLodCount} → ${inViewport.length} after recency+quality`);
     }
     
     // Step 3: If within limit, show ALL in viewport
@@ -3645,43 +3651,17 @@ export default function CREPDashboardPage() {
              lng >= mapBounds.west && lng <= mapBounds.east;
     });
     
-    // Step 2: Zoom-based render caps. The upstream data feeds are now
-    // uncapped (EONET 2000+, USGS 1.0_week 8k-15k earthquakes, etc.) but
-    // rendering every event as a React marker at world view was melting
-    // the dashboard. We keep the DATA complete (counts reflect full set)
-    // but only RENDER the highest-severity subset on map, increasing the
-    // render budget as the operator zooms in.
-    let maxEvents: number;
-    if (mapZoom < 2) {
-      maxEvents = 600;    // World view — critical + high severity only
-    } else if (mapZoom < 3) {
-      maxEvents = 1500;
-    } else if (mapZoom < 5) {
-      maxEvents = 3500;
-    } else {
-      maxEvents = 10000;  // Regional — render everything that's in view
-    }
-    
-    // Step 3: If within limit, show ALL in viewport
-    if (inViewport.length <= maxEvents) {
-      return inViewport;
-    }
-    
-    // Step 4: Prioritize by severity (critical/extreme first) then sample
-    const critical = inViewport.filter(e => e.severity === "critical" || e.severity === "extreme");
-    const high = inViewport.filter(e => e.severity === "high");
-    const rest = inViewport.filter(e => e.severity !== "critical" && e.severity !== "extreme" && e.severity !== "high");
-    
-    // Take all critical, then fill with high, then rest
-    const result = [...critical];
-    if (result.length < maxEvents) {
-      result.push(...high.slice(0, maxEvents - result.length));
-    }
-    if (result.length < maxEvents) {
-      result.push(...rest.slice(0, maxEvents - result.length));
-    }
-    
-    return result;
+    // Step 2: Apply recency-first LOD policy (Fix D — Apr 18, 2026).
+    // Replaces hardcoded zoom-tier caps with lib/crep/lod-policy.ts, which
+    // enforces Morgan's vision: zoom OUT = shorter time window + higher
+    // severity threshold + smaller cap (newest high-signal events only),
+    // zoom IN = longer time window + all severity + bigger cap (history).
+    //
+    // applyLODToEvents also:
+    //   • filters out events whose timestamp is outside the tier's window
+    //   • sorts by severity desc, then timestamp desc
+    //   • slices to the tier's maxRendered budget
+    return applyLODToEvents(inViewport, mapZoom);
   }, [typeFilteredEvents, mapZoom, mapBounds]);
 
   // For backward compatibility - use visibleEvents for rendering
@@ -3807,17 +3787,15 @@ export default function CREPDashboardPage() {
       return true;
     });
     
-    // ZOOM-BASED LOD: keep rendering responsive at world view. At low zoom
-    // we still show ALL aircraft because they're spread globally, but if
-    // count exceeds the zoom cap we sample uniformly. Essentially we never
-    // hand the renderer more markers than it can smoothly animate.
-    const zoomCap = mapZoom < 3 ? 3000 : mapZoom < 5 ? 8000 : Infinity;
-    if (filtered.length > zoomCap) {
-      const stride = Math.ceil(filtered.length / zoomCap);
-      filtered = filtered.filter((_, i) => i % stride === 0);
+    // Recency-first LOD (Fix D): zoom-tier defines aircraft budget.
+    // Source-level bbox culling (Fix F): if the tier wants bboxFilter,
+    // drop anything outside 2× the current viewport before slicing.
+    const lod = getLODForZoom(mapZoom);
+    if (lod.movers.bboxFilter && mapBounds) {
+      filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
     }
-    return filtered;
-  }, [aircraft, aircraftFilter, mapZoom]);
+    return applyLODToMovers(filtered, "aircraft", mapZoom);
+  }, [aircraft, aircraftFilter, mapZoom, mapBounds]);
 
   // ===========================================================================
   // FILTER VESSELS: INCLUSION - show only if vessel matches at least one enabled category
@@ -3858,13 +3836,12 @@ export default function CREPDashboardPage() {
       return true;
     });
 
-    // ZOOM-BASED LOD: vessels can hit 30k+ from AISstream. Cap at world
-    // view to keep the UI fluid, let full data render at zoom >= 5.
-    const zoomCap = mapZoom < 3 ? 4000 : mapZoom < 5 ? 10000 : Infinity;
-    if (filtered.length > zoomCap) {
-      const stride = Math.ceil(filtered.length / zoomCap);
-      filtered = filtered.filter((_, i) => i % stride === 0);
+    // Recency-first LOD (Fix D) + source-level bbox cull (Fix F)
+    const lod = getLODForZoom(mapZoom);
+    if (lod.movers.bboxFilter && mapBounds) {
+      filtered = cullByBbox(filtered as any, expandedBbox(mapBounds)) as typeof filtered;
     }
+    filtered = applyLODToMovers(filtered, "vessels", mapZoom);
     return filtered;
   }, [vessels, vesselFilter, mapZoom]);
 
@@ -3905,13 +3882,9 @@ export default function CREPDashboardPage() {
       return true;
     });
 
-    // ZOOM-BASED LOD: SatNOGS can return 2k+ satellites. Sample at low zoom.
-    const zoomCap = mapZoom < 3 ? 2000 : mapZoom < 5 ? 5000 : Infinity;
-    if (filtered.length > zoomCap) {
-      const stride = Math.ceil(filtered.length / zoomCap);
-      filtered = filtered.filter((_, i) => i % stride === 0);
-    }
-    return filtered;
+    // Recency-first LOD (Fix D): satellites are orbit-wide, so bbox culling
+    // isn't meaningful — always use the tier's budget.
+    return applyLODToMovers(filtered, "satellites", mapZoom);
   }, [satellites, satelliteFilter, mapZoom]);
 
   // Refs used by the rAF dead-reckoning loop to tag entities by kind.
