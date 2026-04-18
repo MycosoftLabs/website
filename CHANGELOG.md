@@ -405,6 +405,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -596,6 +597,7 @@ All notable changes to this project will be documented in this file.
 - *(docker)* Shrink build context — ignore .cursor, nested node_modules, Playwright caches
 - Instant-deploy uses blue/green + CF purge; raise timeout 15→30m
 - Re-trigger deploy [fast]
+- *(crep)* Add generated PMTiles for substations, transmission, power plants
 
 ### Performance
 
