@@ -237,6 +237,9 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
+// v2 engine — loaded dynamically so the base CREP bundle doesn't pull in
+// Cesium (500KB+) unless the ?engine=cesium flag is set.
+const CesiumEarth = dynamic(() => import("@/components/crep/earth/CesiumEarth"), { ssr: false });
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -1783,6 +1786,19 @@ export default function CREPDashboardPage() {
   // Globe/Map projection mode (Apr 2026 — OpenGridWorks-style)
   // Globe always — shows 3D sphere zoomed out, naturally flat 2D when zoomed in
   const [projectionMode, setProjectionMode] = useState<ProjectionMode>("globe");
+
+  // ════════════════════════════════════════════════════════════════════
+  // CREP Earth v2 FEATURE FLAG (Apr 18, 2026)
+  // Activate via /dashboard/crep?engine=cesium. Defaults to MapLibre so
+  // current production users see no change until the Cesium path is
+  // QA-verified. See docs/CREP_EARTH_V2_PLAN.md + docs/CREP_EARTH_V2_AUDIT.md.
+  // ════════════════════════════════════════════════════════════════════
+  const [engine, setEngine] = useState<"maplibre" | "cesium">("maplibre");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const param = new URLSearchParams(window.location.search).get("engine");
+    if (param === "cesium") setEngine("cesium");
+  }, []);
   
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LEVEL OF DETAIL (LOD) SYSTEM - Google Earth-style zoom-based rendering
@@ -4922,6 +4938,21 @@ export default function CREPDashboardPage() {
               pointer-events: auto !important;
             }
           `}</style>
+          {/* v2 Cesium Earth engine — activated by ?engine=cesium. Phase 2
+              skeleton renders an opaque atmospheric globe with the base-mode
+              switcher. Live-entity layer parity with MapLibre lands in Phase 5. */}
+          {engine === "cesium" ? (
+            <CesiumEarth
+              initialCamera={userLocation
+                ? { lng: userLocation.lng, lat: userLocation.lat, height: 5_000_000 }
+                : undefined}
+              onReady={(viewer: any) => {
+                if (typeof window !== "undefined") (window as any).__crep_cesium_viewer = viewer;
+                console.log("[CREP/v2] Cesium viewer ready — layer wiring pending Phase 5");
+              }}
+              className="h-full"
+            />
+          ) : (
           <MapComponent
             center={userLocation ? [userLocation.lng, userLocation.lat] : [-98.5, 39.8]}
             zoom={userLocation ? 5 : 4}
@@ -6697,6 +6728,7 @@ export default function CREPDashboardPage() {
               </MapMarker>
             ))}
           </MapComponent>
+          )}
 
           {/* Signal Coverage Heatmap */}
           <SignalHeatmapLayer
