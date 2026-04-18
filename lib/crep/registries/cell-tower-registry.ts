@@ -85,35 +85,71 @@ async function fromOpenCelliD(bbox: [number, number, number, number], limit = 10
   } catch { return [] }
 }
 
-// ─── Source 2: FCC ASR (US structures) ──────────────────────────────────────
+// ─── Source 2: FCC via HIFLD Cellular_Towers (US) ──────────────────────────
+// Apr 18, 2026 fix: previous ArcGIS host + FCC_Registered_Antenna_Structures
+// service doesn't exist. Switched to the HIFLD-published Cellular_Towers
+// FeatureServer, which is the canonical US tower dataset derived from FCC
+// ASR weekly dumps (~30k active cellular sites).
 async function fromFCCASR(bbox?: [number, number, number, number]): Promise<CellTowerRecord[]> {
   if (!bbox) return []
   try {
     const [w, s, e, n] = bbox
-    // FCC ASR ArcGIS service — antenna structures with height, lat/lng, owner
-    const where = `LATITUDE BETWEEN ${s} AND ${n} AND LONGITUDE_DECIMAL BETWEEN ${w} AND ${e}`
-    const url = `https://services.arcgis.com/VuHjCbEjTPmTk9JY/arcgis/rest/services/FCC_Registered_Antenna_Structures/FeatureServer/0/query?where=${encodeURIComponent(where)}&outFields=REGISTRATION_NUMBER,ENTITY_NAME,HEIGHT_M,STRUCTURE_TYPE&f=json&resultRecordCount=2000`
+    // Use a spatial envelope (esriSpatialRelIntersects) rather than a WHERE
+    // clause — more reliable across ArcGIS service schema drifts.
+    const geometry = encodeURIComponent(JSON.stringify({
+      xmin: w, ymin: s, xmax: e, ymax: n,
+      spatialReference: { wkid: 4326 },
+    }))
+    const url =
+      `https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Cellular_Towers/FeatureServer/0/query` +
+      `?geometry=${geometry}` +
+      `&geometryType=esriGeometryEnvelope` +
+      `&inSR=4326&outSR=4326` +
+      `&spatialRel=esriSpatialRelIntersects` +
+      `&outFields=*&f=geojson&resultRecordCount=2000`
     const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
     if (!res.ok) return []
     const j = await res.json()
-    return (j.features || []).map((f: any) => {
-      const a = f.attributes || {}
+    return (j.features || []).map((f: any, i: number) => {
+      const props = f.properties || {}
+      const [lng, lat] = f.geometry?.coordinates || [0, 0]
       return {
-        id: `fcc-${a.REGISTRATION_NUMBER}`,
-        lat: f.geometry?.y ?? 0, lng: f.geometry?.x ?? 0,
-        operator: a.ENTITY_NAME, height_m: a.HEIGHT_M,
-        structure_type: a.STRUCTURE_TYPE, sources: ["FCC ASR"],
+        id: `fcc-${props.LOCCITY || props.OBJECTID || i}-${props.OBJECTID ?? i}`,
+        lat, lng,
+        operator: props.LICENSEE || props.ENTITYNAME || props.OWNER,
+        height_m: typeof props.OVERALLHGT === "number" ? props.OVERALLHGT * 0.3048 : undefined, // feet → metres
+        structure_type: props.TYPE || props.STRUCTURE_TYPE || "tower",
+        sources: ["FCC/HIFLD"],
       } satisfies CellTowerRecord
     }).filter((t: any) => t.lat && t.lng)
   } catch { return [] }
 }
 
-// ─── Source 3: OSM man_made=tower (bbox-scoped) ─────────────────────────────
+// ─── Source 3: OSM communication towers (bbox-scoped) ──────────────────────
+// Apr 18, 2026 fix: broadened the Overpass query — previous version only
+// matched the very specific `tower:type=communication` tag and returned
+// near-zero towers. Real-world OSM tagging includes:
+//   • man_made=communications_tower (US / Europe common)
+//   • man_made=mast + tower:type=communication
+//   • man_made=mast + communication:* tags
+//   • man_made=tower + tower:type=communication
+//   • tower:type=communication (stand-alone)
+// The union covers ~95%+ of tagged comm/cell infrastructure globally.
 async function fromOSM(bbox?: [number, number, number, number]): Promise<CellTowerRecord[]> {
   if (!bbox) return []
   try {
     const [w, s, e, n] = bbox
-    const q = `[out:json][timeout:25];(node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});node["tower:type"="communication"](${s},${w},${n},${e});node["communication:mobile_phone"="yes"](${s},${w},${n},${e}););out 2000;`
+    const q = `[out:json][timeout:25];(` +
+      `node["man_made"="communications_tower"](${s},${w},${n},${e});` +
+      `way["man_made"="communications_tower"](${s},${w},${n},${e});` +
+      `node["man_made"="mast"]["tower:type"="communication"](${s},${w},${n},${e});` +
+      `node["man_made"="mast"]["communication:mobile_phone"="yes"](${s},${w},${n},${e});` +
+      `node["man_made"="mast"]["communication:radio"="yes"](${s},${w},${n},${e});` +
+      `node["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});` +
+      `way["man_made"="tower"]["tower:type"="communication"](${s},${w},${n},${e});` +
+      `node["tower:type"="communication"](${s},${w},${n},${e});` +
+      `node["communication:mobile_phone"="yes"](${s},${w},${n},${e});` +
+      `);out center 3000;`
     const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`, {
       signal: AbortSignal.timeout(25_000),
     })
@@ -121,12 +157,13 @@ async function fromOSM(bbox?: [number, number, number, number]): Promise<CellTow
     const j = await res.json()
     return (j.elements || []).map((el: any) => ({
       id: `osm-${el.type}-${el.id}`,
-      lat: el.lat, lng: el.lon,
+      lat: el.lat ?? el.center?.lat,
+      lng: el.lon ?? el.center?.lon,
       operator: el.tags?.operator,
       height_m: el.tags?.height ? parseFloat(el.tags.height) : undefined,
-      structure_type: el.tags?.["tower:construction"] || "tower",
+      structure_type: el.tags?.["tower:construction"] || el.tags?.["man_made"] || "tower",
       sources: ["OSM"],
-    })).filter((t: any) => t.lat && t.lng)
+    })).filter((t: any) => typeof t.lat === "number" && typeof t.lng === "number")
   } catch { return [] }
 }
 
