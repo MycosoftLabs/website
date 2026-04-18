@@ -1900,7 +1900,77 @@ export default function CREPDashboardPage() {
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
   }, []);
-  
+
+  // ════════════════════════════════════════════════════════════════════
+  // LIVE ENTITY PUMP (Fix B — Apr 18, 2026)
+  // ════════════════════════════════════════════════════════════════════
+  // Independent of the main fetchData() effect so MycoBrain / global-events
+  // timeouts can never block aircraft/vessels/satellites from loading.
+  // Runs on mount + every 30s thereafter. Each fetch is error-isolated.
+  //
+  // QA audit on Apr 18 found these routes never fired on mount, leaving
+  // top-bar stuck at 0 Planes / 0 Boats / 0 Sats. Likely cause: the main
+  // fetchData chain was awaiting slow upstream calls serially before
+  // reaching Promise.allSettled. Extracting the pump into its own effect
+  // removes that failure mode entirely.
+  // ════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    let cancelled = false;
+
+    const pumpLive = async () => {
+      if (cancelled) return;
+      console.log("[CREP/pump] live-entity tick at", new Date().toISOString());
+
+      // Each fetch is independent — Promise.allSettled + per-call try/catch
+      await Promise.allSettled([
+        (async () => {
+          try {
+            const res = await fetch("/api/oei/flightradar24", { signal: AbortSignal.timeout(25000) });
+            if (!res.ok || cancelled) return;
+            const data = await res.json();
+            if (Array.isArray(data.aircraft) && data.aircraft.length > 0) {
+              setAircraft(() => data.aircraft);
+              console.log(`[CREP/pump] aircraft: ${data.aircraft.length}`);
+              try { syncToMINDEX("aircraft", data.aircraft); } catch {}
+            }
+          } catch (e) { console.warn("[CREP/pump] aircraft:", (e as Error)?.message); }
+        })(),
+        (async () => {
+          try {
+            const res = await fetch("/api/oei/aisstream", { signal: AbortSignal.timeout(25000) });
+            if (!res.ok || cancelled) return;
+            const data = await res.json();
+            if (Array.isArray(data.vessels) && data.vessels.length > 0) {
+              setVessels(() => data.vessels);
+              console.log(`[CREP/pump] vessels: ${data.vessels.length}`);
+              try { syncToMINDEX("vessels", data.vessels); } catch {}
+            }
+          } catch (e) { console.warn("[CREP/pump] vessels:", (e as Error)?.message); }
+        })(),
+        (async () => {
+          try {
+            const res = await fetch("/api/oei/satellites?category=active&mode=registry", { signal: AbortSignal.timeout(25000) });
+            if (!res.ok || cancelled) return;
+            initialSatelliteLoadDoneRef.current = true;
+            const data = await res.json();
+            if (Array.isArray(data.satellites) && data.satellites.length > 0) {
+              setSatellites(() => data.satellites);
+              console.log(`[CREP/pump] satellites: ${data.satellites.length}`);
+              try { syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]); } catch {}
+            }
+          } catch (e) { console.warn("[CREP/pump] satellites:", (e as Error)?.message); }
+        })(),
+      ]);
+    };
+
+    pumpLive();
+    const interval = setInterval(pumpLive, 30_000); // 30s refresh
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
   // Filter states for map controls
   const [aircraftFilter, setAircraftFilter] = useState<AircraftFilter>({
     showAirborne: true,
@@ -5456,62 +5526,112 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color)`);
                 }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
-                // ── Power plants + data centers ──
-                // Fetch by state/province/country-level sub-regions for complete data coverage
-                // Each jurisdiction is its own fetch region — guarantees no gaps in US coverage
-                // ALL_FETCH_REGIONS = 51 US states + 13 CA provinces + 6 MX + 18 EU + 11 AS + 5 AF + 4 OC + 8 SA = ~116 regions
-                const allRegionBounds = ALL_FETCH_REGIONS.map(regionToBounds);
+                // ══════════════════════════════════════════════════════════
+                // VIEWPORT-SCOPED INFRA FETCH (Fix A — Apr 18, 2026)
+                // ══════════════════════════════════════════════════════════
+                // Previous approach fanned out 116 parallel MINDEX queries per
+                // source (1 per state/province/country bbox) on mount. That
+                // meant 4 sources × 116 bboxes = 464 concurrent 30-second
+                // requests, 97+116 of which timed out per audit. The
+                // substations source ended up with ZERO features after 2,530
+                // cumulative seconds of wasted requests + 51 MB of transfer.
+                //
+                // New approach: fetch ONLY the viewport bbox, only when
+                // zoomed in enough to benefit from MINDEX live infra (zoom
+                // ≥ 5). At lower zoom, the bundled static GeoJSONs in
+                // public/data/crep/ provide US-wide coverage. LRU-cached by
+                // bbox for 60s. Debounced on moveend.
+                //
+                // Result: ~4 requests per mount (one per source) instead
+                // of 464. ~200 ms each instead of 26+ seconds.
+                // ══════════════════════════════════════════════════════════
 
-                // ── Viewport-first loading ──
-                // Step 1: Get current viewport bounds from the map
-                const vpBounds = map.getBounds();
-                const vp = vpBounds ? {
-                  north: vpBounds.getNorth(),
-                  south: vpBounds.getSouth(),
-                  east: vpBounds.getEast(),
-                  west: vpBounds.getWest(),
-                } : null;
+                const INFRA_MINZOOM = 5 // below this, bundled static data only
+                const BBOX_TTL_MS = 60_000
+                const bboxCache = new Map<string, { ts: number; data: any[] }>()
+                const bboxKey = (src: string, b: any) =>
+                  `${src}:${b.west.toFixed(2)},${b.south.toFixed(2)},${b.east.toFixed(2)},${b.north.toFixed(2)}`
 
-                // Step 2: Sort ALL regions by proximity to viewport center for fastest visible-area paint
-                const vpCenter = vp ? { lat: (vp.north + vp.south) / 2, lng: (vp.east + vp.west) / 2 } : { lat: 39.8, lng: -98.5 };
-                const sortedRegions = [...allRegionBounds].sort((a, b) => {
-                  const aDist = Math.abs((a.north + a.south) / 2 - vpCenter.lat) + Math.abs((a.east + a.west) / 2 - vpCenter.lng);
-                  const bDist = Math.abs((b.north + b.south) / 2 - vpCenter.lat) + Math.abs((b.east + b.west) / 2 - vpCenter.lng);
-                  return aDist - bDist;
-                });
+                const getViewportBbox = () => {
+                  try {
+                    const b = map.getBounds()
+                    if (!b) return null
+                    return {
+                      north: b.getNorth(),
+                      south: b.getSouth(),
+                      east: b.getEast(),
+                      west: b.getWest(),
+                    }
+                  } catch { return null }
+                }
 
-                console.log(`[CREP/Infra] Full parallel fetch: ${sortedRegions.length} regions, sorted by proximity to viewport center`);
-
-                // Step 3: Blast ALL regions in parallel — 10Gb network can handle it.
-                // Render incrementally: first 20 regions fire onFirstBatch callback, rest accumulate.
-                const FIRST_BATCH_SIZE = 20; // Render as soon as closest 20 regions complete
                 const batchFetch = async (source: string, limit: number, onFirstBatch?: (results: any[]) => void) => {
-                  // Split: first 20 (closest) vs rest (all at once, no batching)
-                  const firstRegions = sortedRegions.slice(0, FIRST_BATCH_SIZE);
-                  const restRegions = sortedRegions.slice(FIRST_BATCH_SIZE);
-
-                  // Fire first batch immediately
-                  const firstPromise = Promise.all(
-                    firstRegions.map(b => mindexFetch(source as any, b, limit).catch(() => ({ entities: [], total: 0 })))
-                  );
-                  // Fire ALL remaining in parallel simultaneously (no batching — fast network)
-                  const restPromise = Promise.all(
-                    restRegions.map(b => mindexFetch(source as any, b, limit).catch(() => ({ entities: [], total: 0 })))
-                  );
-
-                  // As soon as first batch resolves, render it immediately
-                  const firstResults = await firstPromise;
-                  console.log(`[CREP/Infra] ${source}: first ${firstRegions.length} regions done`);
-                  if (onFirstBatch) {
-                    try { onFirstBatch(firstResults); } catch (_) {}
+                  const zoom = map.getZoom()
+                  if (zoom < INFRA_MINZOOM) {
+                    // Below zoom 5 → bundled static GeoJSON is sufficient
+                    if (onFirstBatch) try { onFirstBatch([]) } catch {}
+                    return []
                   }
-                  // Yield once for UI responsiveness
-                  await new Promise(resolve => setTimeout(resolve, 0));
+                  const bbox = getViewportBbox()
+                  if (!bbox) {
+                    if (onFirstBatch) try { onFirstBatch([]) } catch {}
+                    return []
+                  }
+                  const key = bboxKey(source, bbox)
+                  const cached = bboxCache.get(key)
+                  if (cached && Date.now() - cached.ts < BBOX_TTL_MS) {
+                    if (onFirstBatch) try { onFirstBatch(cached.data) } catch {}
+                    return cached.data
+                  }
+                  try {
+                    const result = await mindexFetch(source as any, bbox, limit)
+                    const results = [result]
+                    bboxCache.set(key, { ts: Date.now(), data: results })
+                    console.log(`[CREP/Infra] ${source}: 1 viewport request → ${result?.entities?.length || 0} features`)
+                    if (onFirstBatch) try { onFirstBatch(results) } catch {}
+                    return results
+                  } catch (e) {
+                    console.warn(`[CREP/Infra] ${source} viewport fetch failed:`, (e as Error)?.message)
+                    if (onFirstBatch) try { onFirstBatch([]) } catch {}
+                    return []
+                  }
+                }
 
-                  // Wait for rest (already in flight — just awaiting)
-                  const restResults = await restPromise;
-                  return [...firstResults, ...restResults];
-                };
+                // Refetch infra on significant viewport change. Debounced 350ms.
+                let moveendTimer: any = null
+                let lastFetchBboxKey = ""
+                const scheduleInfraRefetch = () => {
+                  if (moveendTimer) clearTimeout(moveendTimer)
+                  moveendTimer = setTimeout(() => {
+                    const zoom = map.getZoom()
+                    if (zoom < INFRA_MINZOOM) return
+                    const bbox = getViewportBbox()
+                    if (!bbox) return
+                    // Only refetch if bbox moved materially (cache key changed)
+                    const newKey = bboxKey("any", bbox)
+                    if (newKey === lastFetchBboxKey) return
+                    lastFetchBboxKey = newKey
+                    // Re-run all four loaders
+                    for (const [src, onBatch] of [
+                      ["facilities", (rs: any[]) => {
+                        const all = rs.flatMap(r => r?.entities || [])
+                        const seen = new Set<string>()
+                        const unique = all.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true })
+                        if (unique.length) renderFacilities(unique, "viewport-refetch")
+                      }],
+                      ["substations", (rs: any[]) => {
+                        const all = rs.flatMap(r => r?.entities || [])
+                        const seen = new Set<string>()
+                        const unique = all.filter(e => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true })
+                        if (unique.length) renderSubstations(unique, "viewport-refetch")
+                      }],
+                    ] as const) {
+                      batchFetch(src, 5000).catch(() => {})
+                        .then((rs) => { try { (onBatch as any)(rs) } catch {} })
+                    }
+                  }, 350)
+                }
+                map.on("moveend", scheduleInfraRefetch)
 
                 // Helper: convert raw facility entities → GeoJSON features
                 const facilitiesToFeatures = (entities: any[]) => entities
