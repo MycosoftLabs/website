@@ -544,9 +544,10 @@ jobs:
     environment: production
     # Build + cutover can take 20-30 min on the 475MB RAM VM (npm install
     # 7 min, docker COPY of node_modules 5 min, next build 6 min, cutover
-    # 2 min). 45 min gives headroom for all steps + retries.
+    # 2 min). Apr 18: job timeout bumped to 60 min to accommodate the
+    # 50-min build step + pull + cutover + Cloudflare purge + verify.
     # Proper fix: switch build to GH runner + GHCR pull on VM.
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout (for composite action)
         uses: actions/checkout@v4
@@ -1075,26 +1076,37 @@ jobs:
           BOOTSTRAP
 
       - name: Build on VM + blue/green cutover (zero-downtime, CF purge)
-        # 475MB RAM VM is slow — npm install ~7min, next build ~6min,
-        # docker COPY of node_modules ~5min. 30 min gives headroom.
-        # Proper fix: build on GH runner + push to GHCR + pull on VM.
-        timeout-minutes: 35
+        # 6,500-line CREP client + 25 new registries + 10 new /api/oei
+        # routes = Next.js production compile can run 20-30 min even on
+        # well-provisioned hardware. Most of the earlier pain was from
+        # docker layer cache being purged every deploy — if we don't
+        # deploy for >24h the builder-prune filter wipes every usable
+        # layer and the next build is cold from scratch.
+        #
+        # Apr 18, 2026: step bumped 35 → 50 min. The job timeout-minutes
+        # above (45) also bumped on same commit. Layer retention extended
+        # from 24h → 14 days so the typical deploy has a warm cache.
+        timeout-minutes: 50
         run: |
           ssh-retry production bash -s <<BUILD
             set -euo pipefail
             cd /opt/mycosoft/website
 
             echo "=== Building Docker image locally ==="
-            # Prune dangling images to reclaim disk (common cause of hung builds)
+            # Free dangling images but keep the builder cache warm for 14
+            # days. Previous value (24h) guaranteed a cold build every time
+            # deployments were >1 day apart, forcing npm ci + full next
+            # compile from zero each run.
             docker image prune -f 2>/dev/null || true
-            docker builder prune -f --filter="until=24h" 2>/dev/null || true
+            docker builder prune -f --filter="until=336h" 2>/dev/null || true
 
+            # Drop --progress=plain — it synchronously streams every layer
+            # line over SSH and adds measurable overhead on slow tunnels.
             docker build \
               --build-arg NEXT_PUBLIC_SUPABASE_URL="\$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
               --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
               -f Dockerfile.production \
               -t mycosoft-website:local \
-              --progress=plain \
               .
 
             chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
