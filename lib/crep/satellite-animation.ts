@@ -16,6 +16,7 @@
  */
 
 import { SGP4Propagator, type SatellitePosition } from "./sgp4-propagator"
+import { getSGP4Worker, type WorkerSatInput } from "./sgp4-worker-client"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,14 @@ let lastTickTime = 0
 let lastOrbitPathTime = 0
 let running = false
 let currentSatellites: SatelliteInput[] = []
+// Fix E — Apr 18, 2026: SGP4 propagation runs in a Web Worker when available,
+// so the main thread stays at 60 FPS even with 15k+ satellites. If the worker
+// fails to construct (SSR, strict CSP, old browser), we fall back to the
+// main-thread SGP4Propagator below.
+let worker: ReturnType<typeof getSGP4Worker> | null = null
+let useWorker = false
+let workerPropagationInFlight = false
+let lastWorkerPositions: SatellitePosition[] = []
 
 // ─── GeoJSON Builders ────────────────────────────────────────────────────────
 
@@ -132,7 +141,7 @@ function orbitPathsToFeatureCollection(
 function tick(timestamp: number) {
   if (!running) return
 
-  // Throttle to ~10 FPS
+  // Throttle to the tick interval
   if (timestamp - lastTickTime < TICK_INTERVAL_MS) {
     animationFrameId = requestAnimationFrame(tick)
     return
@@ -140,27 +149,49 @@ function tick(timestamp: number) {
   lastTickTime = timestamp
 
   const map = mapRef
-  const prop = propagator
-  if (!map || !prop || prop.size === 0) {
+  if (!map) {
     animationFrameId = requestAnimationFrame(tick)
     return
   }
 
   const now = new Date()
 
-  // ── Propagate positions ─────────────────────────────────────────────────
-  const positions = prop.propagateAll(now)
-
-  // Push to MapLibre satellite source
-  const satSource = map.getSource?.("crep-live-satellites") as any
-  if (satSource?.setData) {
-    satSource.setData(positionsToFeatureCollection(positions))
-  }
-
-  // ── Orbit paths (recalculated periodically, not every frame) ────────────
-  if (timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS) {
-    lastOrbitPathTime = timestamp
-    updateOrbitPaths(prop, now, map)
+  if (useWorker && worker) {
+    // Worker path: request propagation off-main-thread. Only fire a new
+    // request if the previous one has already returned — prevents queue
+    // buildup if the worker briefly lags behind the tick rate.
+    if (!workerPropagationInFlight) {
+      workerPropagationInFlight = true
+      worker.propagate(now).then((positions) => {
+        workerPropagationInFlight = false
+        // Worker returns the raw SatellitePosition shape (minus 'id: ' prefix logic);
+        // coerce id field in case it changed.
+        lastWorkerPositions = positions as unknown as SatellitePosition[]
+        const satSource = map.getSource?.("crep-live-satellites") as any
+        if (satSource?.setData) {
+          satSource.setData(positionsToFeatureCollection(lastWorkerPositions))
+        }
+      }).catch(() => { workerPropagationInFlight = false })
+    }
+  } else {
+    // Fallback: main-thread propagation (original behaviour).
+    const prop = propagator
+    if (!prop || prop.size === 0) {
+      animationFrameId = requestAnimationFrame(tick)
+      return
+    }
+    const positions = prop.propagateAll(now)
+    const satSource = map.getSource?.("crep-live-satellites") as any
+    if (satSource?.setData) {
+      satSource.setData(positionsToFeatureCollection(positions))
+    }
+    // Orbit paths (only when using main-thread propagator — worker doesn't
+    // compute orbit tracks yet; they're recomputed every 60s on main thread
+    // anyway so they don't block the render tick.)
+    if (timestamp - lastOrbitPathTime > ORBIT_PATH_INTERVAL_MS) {
+      lastOrbitPathTime = timestamp
+      updateOrbitPaths(prop, now, map)
+    }
   }
 
   // Schedule next frame
@@ -209,16 +240,47 @@ export function startSatelliteAnimation(
 
   mapRef = map
   currentSatellites = satellites
-  propagator = new SGP4Propagator()
 
-  const loaded = propagator.loadSatellites(satellites)
-  console.log(
-    `[SatAnim] Started — ${loaded}/${satellites.length} satellites loaded for SGP4 propagation`
-  )
+  // Fix E (Apr 18, 2026): try the Web Worker first. If it's supported we
+  // hand the TLEs to the worker and SGP4 math runs off the main thread.
+  // If not supported (SSR, strict CSP), fall back to main-thread propagator.
+  worker = getSGP4Worker()
+  if (worker.isSupported) {
+    useWorker = true
+    // worker.onReady fires once satellite.js has been imported into the
+    // worker scope. We wait for that before sending the load payload so
+    // the first propagate() call doesn't race the importScripts.
+    const sendLoad = () => {
+      if (!worker) return
+      const tles: WorkerSatInput[] = satellites
+        .map((s) => {
+          const p = (s.properties || {}) as any
+          const l1 = p.line1 || (s as any).line1
+          const l2 = p.line2 || (s as any).line2
+          const noradId = p.noradId ?? (s as any).noradId ?? parseInt(String(s.id)) ?? 0
+          if (!l1 || !l2) return null
+          return { id: String(s.id), noradId, line1: l1, line2: l2 }
+        })
+        .filter((x): x is WorkerSatInput => x !== null)
+      worker.load(tles)
+      console.log(`[SatAnim] Started (Worker) — ${tles.length}/${satellites.length} satellites with valid TLEs`)
+    }
+    if (worker.isReady) sendLoad()
+    else worker.onReady(sendLoad)
+  } else {
+    // Fallback: main-thread propagator
+    useWorker = false
+    propagator = new SGP4Propagator()
+    const loaded = propagator.loadSatellites(satellites)
+    console.log(
+      `[SatAnim] Started (main-thread fallback) — ${loaded}/${satellites.length} satellites loaded for SGP4 propagation`
+    )
+  }
 
   running = true
   lastTickTime = 0
   lastOrbitPathTime = 0
+  workerPropagationInFlight = false
   animationFrameId = requestAnimationFrame(tick)
 }
 
@@ -233,6 +295,13 @@ export function stopSatelliteAnimation(): void {
   }
   propagator?.clear()
   propagator = null
+  if (worker) {
+    try { worker.clear() } catch {}
+    // Don't terminate — keep singleton for next start
+  }
+  useWorker = false
+  workerPropagationInFlight = false
+  lastWorkerPositions = []
   mapRef = null
   currentSatellites = []
 }
@@ -243,10 +312,23 @@ export function stopSatelliteAnimation(): void {
  */
 export function updateSatelliteAnimation(satellites: SatelliteInput[]): void {
   currentSatellites = satellites
-  if (propagator) {
+  if (useWorker && worker) {
+    const tles: WorkerSatInput[] = satellites
+      .map((s) => {
+        const p = (s.properties || {}) as any
+        const l1 = p.line1 || (s as any).line1
+        const l2 = p.line2 || (s as any).line2
+        const noradId = p.noradId ?? (s as any).noradId ?? parseInt(String(s.id)) ?? 0
+        if (!l1 || !l2) return null
+        return { id: String(s.id), noradId, line1: l1, line2: l2 }
+      })
+      .filter((x): x is WorkerSatInput => x !== null)
+    worker.load(tles)
+    console.log(`[SatAnim] Updated (Worker) — ${tles.length} satellites loaded`)
+  } else if (propagator) {
     const loaded = propagator.loadSatellites(satellites)
     if (loaded > 0) {
-      console.log(`[SatAnim] Updated — ${propagator.size} satellites loaded`)
+      console.log(`[SatAnim] Updated (main-thread) — ${propagator.size} satellites loaded`)
     }
   }
 }
