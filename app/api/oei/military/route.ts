@@ -22,6 +22,8 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 
+import { env } from "@/lib/env";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -66,12 +68,24 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const QUERY_TIMEOUT_S = 30;
 
-const MINDEX_URL =
-  process.env.MINDEX_API_URL ||
-  process.env.NEXT_PUBLIC_MINDEX_URL ||
-  "http://192.168.0.189:8000";
+function mindexAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = {
+    Accept: "application/json",
+    ...extra,
+  };
+  const internal = env.mindexInternalToken?.trim();
+  if (internal) {
+    h["X-Internal-Token"] = internal;
+  }
+  if (env.mindexApiKey) {
+    h["X-API-Key"] = env.mindexApiKey;
+  }
+  return h;
+}
 
-const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key";
+function mindexBaseUrl(): string {
+  return env.mindexApiBaseUrl.replace(/\/$/, "");
+}
 
 // Default bounding box: continental US
 const DEFAULT_BBOX = { south: 24, north: 50, west: -125, east: -66 };
@@ -330,13 +344,10 @@ async function fetchFromMindex(
   limit: number,
 ): Promise<MilitaryFacility[] | null> {
   try {
-    const url = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=military&lat_min=${south}&lat_max=${north}&lng_min=${west}&lng_max=${east}&limit=${limit}`;
+    const url = `${mindexBaseUrl()}/api/mindex/earth/map/bbox?layer=military&lat_min=${south}&lat_max=${north}&lng_min=${west}&lng_max=${east}&limit=${limit}`;
     const res = await fetch(url, {
       cache: "no-store",
-      headers: {
-        "X-Api-Key": MINDEX_API_KEY,
-        Accept: "application/json",
-      },
+      headers: mindexAuthHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
@@ -473,19 +484,32 @@ out geom 500;`;
 
 async function ingestToMindex(facilities: MilitaryFacility[]): Promise<void> {
   if (facilities.length === 0) return;
+  if (!env.mindexInternalToken?.trim() && !env.mindexApiKey) {
+    return;
+  }
+  const ts = new Date().toISOString();
+  const entities = facilities.slice(0, 500).map((f) => ({
+    source: "overpass",
+    source_id: f.id,
+    name: f.name,
+    entity_type: f.type,
+    lat: f.lat,
+    lng: f.lng,
+    occurred_at: ts,
+    properties: {
+      operator: f.operator,
+      country: f.country,
+      branch: f.tags?.branch ?? f.tags?.military ?? "",
+      tags: f.tags,
+      ...(f.properties ?? {}),
+    },
+  }));
   try {
-    await fetch(`${MINDEX_URL}/api/mindex/ingest/military`, {
+    await fetch(`${mindexBaseUrl()}/api/mindex/earth/ingest`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": MINDEX_API_KEY,
-      },
-      body: JSON.stringify({
-        source: "overpass",
-        facilities: facilities.slice(0, 500), // cap ingest batch
-        timestamp: new Date().toISOString(),
-      }),
-      signal: AbortSignal.timeout(5000),
+      headers: mindexAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ layer: "military", entities }),
+      signal: AbortSignal.timeout(15000),
     });
   } catch {
     // Non-critical — silent fail

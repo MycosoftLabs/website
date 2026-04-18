@@ -15,6 +15,7 @@ const VALID_TYPES = [
   "weather",
   "telemetry",
   "lightning",
+  "military",
   "fires",
   "smoke",
   "spores",
@@ -47,6 +48,9 @@ const OBSERVATION_INGEST_TYPES = new Set<string>([
 /**
  * CREP ingest type → MINDEX earth `layer` (see mindex_api/routers/earth.py `insert_queries`).
  * Types not listed here are rejected with 422 until wired.
+ *
+ * Broad environmental / event sinks use `facilities` (infra.facilities) so lat/lng points persist
+ * without new PostGIS tables; refine with dedicated layers when schemas exist.
  */
 const EARTH_LAYER_BY_TYPE: Partial<Record<string, string>> = {
   ports: "ports",
@@ -54,6 +58,16 @@ const EARTH_LAYER_BY_TYPE: Partial<Record<string, string>> = {
   vessels: "vessels",
   satellites: "satellites",
   military: "military",
+  events: "facilities",
+  weather: "facilities",
+  telemetry: "facilities",
+  lightning: "facilities",
+  fires: "facilities",
+  smoke: "facilities",
+  spores: "facilities",
+  debris: "satellites",
+  "air-quality": "facilities",
+  earthspots: "facilities",
   "transmission-lines": "power_grid",
   "power-plants": "facilities",
   factories: "facilities",
