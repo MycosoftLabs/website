@@ -21,7 +21,13 @@ name: Mycosoft CI/CD
 
 concurrency:
   group: ci-cd-${{ github.ref }}
-  cancel-in-progress: true
+  # Apr 18, 2026: cancel-in-progress is branch-aware. On main we NEVER cancel
+  # an in-flight run (that's what corrupted blue/green cutovers and caused
+  # multiple 502s when pushes stacked). Pushes on main QUEUE until the
+  # previous deploy completes. On develop / PRs we still cancel for fast
+  # iteration. Per-job `production-deploy` concurrency keeps deploys
+  # serialised even if somehow a main run starts while another is active.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 on:
   push:
@@ -529,27 +535,104 @@ jobs:
   # ===========================================================================
   # GENERATE CHANGELOG
   # ===========================================================================
-  # ===========================================================================
-  # INSTANT DEPLOY — triggered when [fast] is in the commit message
-  # Builds directly on the VM, skipping CI lint/test/GHCR. ~2-5 min.
-  # ===========================================================================
-  instant-deploy:
-    name: Instant Deploy (fast)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INSTANT DEPLOY (Apr 18, 2026 — Option B rewrite)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Old approach: build on VM for [fast] commits. Took 15-30 min and left
+  # nginx pointing at a dead slot whenever a new push cancelled a mid-cutover
+  # deploy. That pattern caused repeated 502s.
+  #
+  # New approach (matches the proven non-[fast] `build` + `deploy-production`
+  # pair, minus lint/test gates):
+  #   Phase A  instant-build       GH runner → docker buildx (GHA cache) →
+  #                                 push to GHCR as fast-${sha} + production-latest
+  #                                 ~2-4 min warm cache, ~10-15 min cold.
+  #   Phase B  instant-deploy      SSH to VM → docker pull → blue/green
+  #                                 cutover (scripts/blue-green-deploy.sh).
+  #                                 ~1-2 min. Concurrency-serialised on
+  #                                 `production-deploy` so new deploys QUEUE
+  #                                 instead of cancelling a live cutover.
+  #
+  # Why this fixes the structural 502 cause:
+  #   • Top-level `concurrency.cancel-in-progress` is branch-aware; main
+  #     never cancels an in-flight run.
+  #   • Per-job `production-deploy` group with `cancel-in-progress: false`
+  #     is the belt to the top-level suspenders.
+  #   • The VM never runs `docker build`, so there's no 15-30 min window
+  #     where concurrent pushes can collide with a build.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  instant-build:
+    name: Instant Build (fast) — GH runner → GHCR
     runs-on: ubuntu-latest
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: false
+    timeout-minutes: 30
     needs: [check-fast]
     if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main'
-    environment: production
-    # Build + cutover can take 20-30 min on the 475MB RAM VM (npm install
-    # 7 min, docker COPY of node_modules 5 min, next build 6 min, cutover
-    # 2 min). Apr 18: job timeout bumped to 60 min to accommodate the
-    # 50-min build step + pull + cutover + Cloudflare purge + verify.
-    # Proper fix: switch build to GH runner + GHCR pull on VM.
-    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build-push.outputs.digest }}
     steps:
-      - name: Checkout (for composite action)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=production-latest
+            type=raw,value=fast-${{ github.sha }}
+
+      - name: Build and push (GHA cache + GHCR)
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=https://mycosoft.com
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+
+  instant-deploy:
+    name: Instant Deploy (fast) — VM pull + blue/green cutover
+    runs-on: ubuntu-latest
+    concurrency:
+      # KEY: Serialise all production deploys. New deploys WAIT for the
+      # previous one to finish rather than cancelling it. This is what
+      # closes the mid-cutover 502 hole.
+      group: production-deploy
+      cancel-in-progress: false
+    needs: [check-fast, instant-build]
+    if: needs.check-fast.outputs.is_fast == 'true' && github.ref == 'refs/heads/main' && needs.instant-build.result == 'success'
+    environment: production
+    # No on-VM build any more → 15 min is plenty for pull (~20s for a
+    # warm base image) + cutover (~90s) + health check (~30s) + CF purge.
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (for composite action + deploy scripts)
         uses: actions/checkout@v4
 
       - name: Setup SSH via Cloudflare Tunnel
@@ -563,14 +646,21 @@ jobs:
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           require-cloudflare-access: true
 
-      - name: Pull latest code on VM
+      - name: Sync deploy scripts + compose overlay from main
         run: |
           ssh-retry production bash -s <<'SCRIPT'
             set -e
             cd /opt/mycosoft/website
             git fetch origin main
-            git reset --hard origin/main
-            echo "Code synced to $(git rev-parse --short HEAD)"
+            git checkout origin/main -- \
+              docker-compose.production.yml \
+              docker-compose.production.blue-green.yml \
+              deploy/nginx/nginx.conf \
+              deploy/nginx/conf.d/website.conf.template \
+              scripts/blue-green-deploy.sh \
+              scripts/blue-green-bootstrap.sh 2>/dev/null || true
+            chmod +x scripts/blue-green-*.sh 2>/dev/null || true
+            echo "Deploy scripts synced to $(git rev-parse --short origin/main)"
           SCRIPT
 
       - name: Inject environment variables
@@ -597,573 +687,67 @@ jobs:
             echo 'DATABASE_URL=postgresql://mycosoft:mycosoft@postgres:5432/mycosoft' >> .env
           ENVSCRIPT2
 
-      # ─────────────────────────────────────────────────────────────────────
-      # BOOTSTRAP FIRST — critical for recovery. If prior cutover left nginx
-      # broken (site 502ing), we MUST fix it before docker build (which can
-      # hang for 30+ minutes). Bootstrap uses the image that's already on
-      # the VM. The subsequent cutover step will build + promote the NEW
-      # image — but even if that hangs, at least the site is back up.
-      # ─────────────────────────────────────────────────────────────────────
-      - name: SURGICAL recovery — detect live slot, rewire nginx, HUP the proxy
-        if: false  # PERMANENTLY DISABLED 2026-04-17: this step can take down the
-                   # proxy. Never enable. Any nginx/proxy changes MUST go through
-                   # the blue/green cutover path which only modifies the IDLE slot.
-        timeout-minutes: 4
-        run: |
-          ssh-retry production bash -s <<'SURGICAL'
-            set +e  # never fail on individual command errors
-
-            echo "=== SURGICAL recovery at $(date -u +%FT%TZ) ==="
-
-            # Step 1: Probe BOTH color containers' /api/health via docker exec
-            # (bypasses nginx entirely). This tells us which slot's Node is alive.
-            LIVE=""
-            for color in blue green; do
-              name="mycosoft-website-$color"
-              if timeout 8 docker exec "$name" wget -qO- http://localhost:3000/api/health 2>/dev/null | head -c 80; then
-                echo " -> $color responds"
-                [ -z "$LIVE" ] && LIVE=$color
-              else
-                echo " -> $color no response"
-              fi
-            done
-            echo ""
-            echo "LIVE_SLOT=$LIVE"
-
-            # Step 2: If neither is live, try starting blue from any on-disk image.
-            if [ -z "$LIVE" ]; then
-              echo "=== Neither live — attempting to bring up blue from VM-local image ==="
-              IMG=$(timeout 5 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep 'mycosoft-website' | head -1)
-              echo "  image: ${IMG:-<none>}"
-              if [ -n "$IMG" ]; then
-                timeout 10 docker rm -f mycosoft-website-blue 2>/dev/null
-                cd /opt/mycosoft/website
-                WEBSITE_IMAGE_BLUE="$IMG" timeout 60 docker compose \
-                  -f docker-compose.production.yml \
-                  -f docker-compose.production.blue-green.yml \
-                  up -d --no-deps website-blue 2>&1 | tail -10
-                # Wait up to 60s for blue to become live
-                for i in {1..30}; do
-                  if timeout 5 docker exec mycosoft-website-blue wget -qO- http://localhost:3000/api/health 2>/dev/null | grep -q status; then
-                    LIVE=blue
-                    echo " -> blue came up after ${i}x2s"
-                    break
-                  fi
-                  sleep 2
-                done
-              fi
-            fi
-
-            if [ -z "$LIVE" ]; then
-              echo "::error::No live slot available and cannot start one"
-              exit 0
-            fi
-
-            # Step 3: Render website.conf pointing at live slot
-            echo "=== Pointing nginx at $LIVE ==="
-            mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state 2>&1
-            ls -la /opt/mycosoft/nginx/ /opt/mycosoft/state/ 2>&1 | head -10
-
-            # CRITICAL: Write IN-PLACE to preserve inode. The host paths are
-            # bind-mounted into the container as FILES. cp replaces the file
-            # (new inode), but the container's bind mount tracks the ORIGINAL
-            # inode, so it keeps seeing the STALE content. Use cat with
-            # output-redirect (> keeps inode if file exists, or truncate -s 0
-            # then append) to preserve the inode.
-            cat /opt/mycosoft/website/deploy/nginx/nginx.conf > /opt/mycosoft/nginx/nginx.conf 2>&1 || {
-              echo "  direct write failed; trying sudo -n"
-              sudo -n tee /opt/mycosoft/nginx/nginx.conf < /opt/mycosoft/website/deploy/nginx/nginx.conf >/dev/null 2>&1
-            }
-            sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf 2>&1 || {
-              echo "  website.conf write failed; trying sudo -n"
-              sed "s|__ACTIVE_SLOT__|$LIVE|g" /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template | sudo -n tee /opt/mycosoft/nginx/conf.d/website.conf >/dev/null
-            }
-            echo "$LIVE" > /opt/mycosoft/state/active-slot 2>&1 || sudo -n tee /opt/mycosoft/state/active-slot <<<"$LIVE" >/dev/null
-            echo "wrote state=$LIVE + rendered website.conf"
-
-            echo "=== ACTUAL file contents on disk ==="
-            echo "--- nginx.conf (first 30 lines) ---"
-            head -30 /opt/mycosoft/nginx/nginx.conf
-            echo "--- nginx.conf log_format line ---"
-            grep -A3 "log_format" /opt/mycosoft/nginx/nginx.conf | head -5
-            echo "--- website.conf first 30 lines ---"
-            head -30 /opt/mycosoft/nginx/conf.d/website.conf
-            echo "--- state/active-slot ---"
-            cat /opt/mycosoft/state/active-slot
-
-            # Step 4: FORCE RECREATE the proxy every time. SIGHUP was sent in
-            # the prior attempt but /healthz still served stale slot=green —
-            # signal isn't being honored or the process is wedged. Only way
-            # to guarantee fresh config is to kill and recreate.
-            echo "=== nginx -t FULL output (current container) ==="
-            timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
-            echo "  nginx -t exit code: $?"
-
-            echo "=== FORCE-RECREATING proxy container ==="
-            timeout 15 docker rm -f mycosoft-website-proxy 2>&1 | head -3
-            cd /opt/mycosoft/website
-
-            # --force-recreate to guarantee new container even if compose thinks nothing changed
-            timeout 60 docker compose \
-              -f docker-compose.production.yml \
-              -f docker-compose.production.blue-green.yml \
-              up -d --no-deps --force-recreate website-proxy 2>&1 | tail -15
-
-            sleep 5
-            echo "=== New proxy nginx -t output ==="
-            timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -20
-            echo "  new proxy nginx -t exit code: $?"
-
-            echo "=== Test Docker daemon via direct socket (bypasses CLI) ==="
-            # If daemon is alive on socket but CLI is broken, we can rescue via HTTP API.
-            echo "-- /_ping (should return OK) --"
-            timeout 5 curl -s --unix-socket /var/run/docker.sock http://localhost/_ping 2>&1 | head -c 100
-            echo ""
-            echo "-- /containers/json (list containers, first 500 chars raw) --"
-            timeout 10 curl -s --unix-socket /var/run/docker.sock http://localhost/containers/json 2>&1 | head -c 500
-            echo ""
-            echo ""
-            echo "-- Try RESTARTING proxy via socket API (POST /containers/{id}/restart) --"
-            timeout 10 curl -sf -X POST --unix-socket /var/run/docker.sock "http://localhost/containers/mycosoft-website-proxy/restart?t=5" -w "  HTTP %{http_code}\n" 2>&1 | head -3
-
-            sleep 8
-            echo "-- Post-restart direct curl via proxy --"
-            timeout 5 curl -sI http://localhost:3000/healthz 2>&1 | head -10
-
-            echo "=== DIAGNOSTIC: HOST state ==="
-            echo "-- host /opt/mycosoft/nginx/conf.d/ --"
-            ls -la /opt/mycosoft/nginx/conf.d/
-            echo "-- host /opt/mycosoft/state/ --"
-            ls -la /opt/mycosoft/state/
-            echo "-- host state/active-slot --"
-            cat /opt/mycosoft/state/active-slot
-            echo "-- host website.conf X-Active-Slot lines --"
-            grep "X-Active-Slot" /opt/mycosoft/nginx/conf.d/website.conf
-
-            echo "=== DIAGNOSTIC: CONTAINER state ==="
-            echo "-- docker ps for proxy --"
-            timeout 10 docker ps --filter name=mycosoft-website-proxy --format '{{.Names}} | {{.Status}} | {{.Image}} | created={{.CreatedAt}}'
-            echo "-- proxy volume mounts --"
-            timeout 10 docker inspect mycosoft-website-proxy --format='{{range .Mounts}}{{.Source}} -> {{.Destination}} (ro={{.RW}}) type={{.Type}}{{"\n"}}{{end}}'
-            echo "-- inside container: ls /etc/nginx/conf.d/ --"
-            timeout 15 docker exec mycosoft-website-proxy sh -c 'ls -la /etc/nginx/conf.d/ ; echo "" ; echo "-- grep X-Active-Slot --" ; grep -n "X-Active-Slot" /etc/nginx/conf.d/*.conf 2>/dev/null ; echo "" ; echo "-- full website.conf --" ; cat /etc/nginx/conf.d/website.conf 2>/dev/null | head -40 ; echo "" ; echo "-- full default.conf if exists --" ; cat /etc/nginx/conf.d/default.conf 2>/dev/null | head -20'
-
-            echo "=== VERIFY with long-form curl ==="
-            timeout 5 curl -sv http://localhost:3000/healthz 2>&1 | head -30
-            timeout 5 curl -sv http://localhost:3000/ 2>&1 | head -30
-
-            # Step 5: Verify with DNS cache headroom
-            sleep 10
-            echo "=== Verify ==="
-            timeout 8 curl -sf -o /dev/null -w "  /healthz via proxy = %{http_code} slot=%header{x-active-slot}\n" http://localhost:3000/healthz
-            timeout 8 curl -sf -o /dev/null -w "  / via proxy = %{http_code}\n" http://localhost:3000/
-            timeout 8 curl -sf -o /dev/null -w "  /api/health via proxy = %{http_code}\n" http://localhost:3000/api/health
-
-            echo "::notice::SURGICAL recovery complete; active=$LIVE"
-            exit 0
-          SURGICAL
-
-      - name: Legacy aggressive recovery — DISABLED in favor of SURGICAL above
-        if: false
-        run: |
-          ssh-retry production bash -s <<'AGGR'
-            set +e  # never fail — best effort
-
-            echo "=== 0. Probe current state (pre-recovery) ==="
-            timeout 10 docker ps -a --format '{{.Names}} | {{.Status}} | {{.Image}}' 2>&1 | head -20
-
-            echo "=== 0a. Force-restart BOTH color containers (current ones may be hung/unresponsive) ==="
-            # Even if docker ps says "Up (healthy)", the Node process inside
-            # may be stuck/OOM. Hard restart both to reset state.
-            for color in blue green; do
-              name="mycosoft-website-$color"
-              if timeout 5 docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null | grep -q true; then
-                echo "  restarting $name"
-                timeout 30 docker restart -t 5 "$name" 2>&1 | head -3
-              fi
-            done
-            # Give Node a few seconds to come up
-            sleep 8
-
-            echo "=== 0b. Which slot has a LIVE /api/health endpoint? ==="
-            LIVE_SLOT=""
-            for color in blue green; do
-              name="mycosoft-website-$color"
-              if timeout 10 docker exec "$name" curl -sf http://localhost:3000/api/health 2>&1 | head -c 100; then
-                echo " -> $color is LIVE"
-                LIVE_SLOT="$color"
-                break
-              fi
-              echo "  $color not responding"
-            done
-
-            if [ -n "$LIVE_SLOT" ]; then
-              echo "=== 0c. Point nginx at $LIVE_SLOT ==="
-              mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
-              cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
-              sed "s|__ACTIVE_SLOT__|$LIVE_SLOT|g" \
-                /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template \
-                > /opt/mycosoft/nginx/conf.d/website.conf
-              echo "$LIVE_SLOT" > /opt/mycosoft/state/active-slot
-
-              # Hard-reload nginx (stop + start in case reload fails)
-              timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | head -5
-              timeout 10 docker exec mycosoft-website-proxy nginx -s reload 2>&1 | head -3 || {
-                echo "  reload failed; restarting proxy"
-                timeout 15 docker restart -t 5 mycosoft-website-proxy 2>&1 | head -3
-              }
-
-              # Verify
-              sleep 3
-              timeout 5 curl -sf http://localhost:3000/api/health >/dev/null && echo "  ✓ /api/health via proxy is LIVE" || echo "  ✗ /api/health via proxy still failing"
-              timeout 5 curl -sf -o /dev/null -w "  / = HTTP %{http_code}\n" http://localhost:3000/
-              echo "::notice::Recovery complete — active slot=$LIVE_SLOT"
-              exit 0
-            fi
-
-            echo "=== 0d. Neither color is live — nuking + recreating from scratch ==="
-            cd /opt/mycosoft/website
-            # Find any image tagged with our website that's already on the VM
-            IMG=$(timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E 'mycosoft-website:(local|production-latest|latest)' | head -1)
-            if [ -z "$IMG" ]; then
-              IMG=$(timeout 10 docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep 'website' | head -1)
-            fi
-            echo "  using image: $IMG"
-            if [ -n "$IMG" ]; then
-              # Remove any existing blue container and recreate
-              timeout 10 docker rm -f mycosoft-website-blue 2>/dev/null
-              export WEBSITE_IMAGE="$IMG"
-              export WEBSITE_IMAGE_BLUE="$IMG"
-              timeout 60 docker compose -f docker-compose.production.yml -f docker-compose.production.blue-green.yml up -d --no-deps website-blue 2>&1 | tail -20
-              sleep 10
-              timeout 10 docker ps --format '{{.Names}} | {{.Status}}' | grep website-blue
-
-              # Point nginx at blue
-              mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
-              cp deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
-              sed "s|__ACTIVE_SLOT__|blue|g" deploy/nginx/conf.d/website.conf.template > /opt/mycosoft/nginx/conf.d/website.conf
-              echo blue > /opt/mycosoft/state/active-slot
-              timeout 15 docker restart -t 5 mycosoft-website-proxy
-              sleep 3
-              timeout 5 curl -sf -o /dev/null -w "  / = HTTP %{http_code}\n" http://localhost:3000/
-            else
-              echo "::error::No website image found on VM — build step must complete"
-            fi
-            exit 0
-
-            echo "=== 1. Show sudo permissions ==="
-            sudo -n -l 2>&1 | head -30
-
-            echo "=== 2. Kill any buildkitd / docker-build processes (any owner we can) ==="
-            for name in buildkitd docker-buildx 'docker build' 'docker-build'; do
-              pgrep -f "$name" 2>/dev/null | while read pid; do
-                owner=$(ps -o user= -p "$pid" 2>/dev/null)
-                echo "  found $name pid=$pid owner=$owner"
-                kill -9 "$pid" 2>/dev/null && echo "    killed"
-                sudo -n kill -9 "$pid" 2>/dev/null && echo "    sudo-killed"
-              done
-            done
-
-            echo "=== 3. Try sudo -n for every plausible docker-restart command ==="
-            for cmd in \
-              "systemctl restart docker" \
-              "systemctl start docker" \
-              "service docker restart" \
-              "/usr/bin/systemctl restart docker" \
-              "/bin/systemctl restart docker"; do
-              echo "  trying: sudo -n $cmd"
-              if timeout 20 sudo -n $cmd 2>&1 | head -5; then
-                echo "    SUCCESS"
-                break
-              fi
-            done
-
-            echo "=== 4. Probe docker with 5s timeout ==="
-            if timeout 5 docker ps 2>&1 | head -5; then
-              echo "  docker IS responsive"
-              DOCKER_OK=1
-            else
-              echo "  docker STILL wedged"
-              DOCKER_OK=0
-            fi
-
-            if [ "$DOCKER_OK" = "1" ]; then
-              echo "=== 5. Identify which slot has a live container ==="
-              BLUE_UP=0; GREEN_UP=0
-              timeout 5 docker ps --format '{{.Names}} {{.Status}}' | grep -q 'mycosoft-website-blue .*Up' && BLUE_UP=1
-              timeout 5 docker ps --format '{{.Names}} {{.Status}}' | grep -q 'mycosoft-website-green .*Up' && GREEN_UP=1
-              echo "  blue=$BLUE_UP green=$GREEN_UP"
-
-              ACTIVE="green"
-              [ "$BLUE_UP" = "1" ] && ACTIVE="blue"
-              [ "$BLUE_UP" = "0" ] && [ "$GREEN_UP" = "1" ] && ACTIVE="green"
-
-              # If NEITHER is up, try to bring blue back
-              if [ "$BLUE_UP" = "0" ] && [ "$GREEN_UP" = "0" ]; then
-                echo "  neither slot up — starting website-blue"
-                cd /opt/mycosoft/website
-                timeout 60 docker compose -f docker-compose.production.yml -f docker-compose.production.blue-green.yml up -d --no-deps website-blue 2>&1 | tail -20
-                ACTIVE="blue"
-              fi
-
-              echo "=== 6. Render nginx conf pointing at $ACTIVE ==="
-              mkdir -p /opt/mycosoft/nginx/conf.d /opt/mycosoft/state
-              cp /opt/mycosoft/website/deploy/nginx/nginx.conf /opt/mycosoft/nginx/nginx.conf
-              sed "s|__ACTIVE_SLOT__|$ACTIVE|g" \
-                /opt/mycosoft/website/deploy/nginx/conf.d/website.conf.template \
-                > /opt/mycosoft/nginx/conf.d/website.conf
-              echo "$ACTIVE" > /opt/mycosoft/state/active-slot
-              echo "  state written"
-
-              echo "=== 7. Force-recreate website-proxy ==="
-              timeout 10 docker stop -t 5 mycosoft-website-proxy 2>&1 | head -3
-              timeout 10 docker rm -f mycosoft-website-proxy 2>&1 | head -3
-              timeout 30 docker run -d \
-                --name mycosoft-website-proxy \
-                --network mycosoft-network \
-                --restart always \
-                -p 3000:80 \
-                -v /opt/mycosoft/state:/etc/nginx/state:ro \
-                -v /opt/mycosoft/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
-                -v /opt/mycosoft/nginx/conf.d:/etc/nginx/conf.d:ro \
-                nginx:1.27-alpine 2>&1 | tail -5
-
-              echo "=== 8. Verify ==="
-              sleep 3
-              timeout 5 curl -sf http://localhost:3000/healthz && echo "" && echo "  healthz OK"
-              timeout 5 curl -sf -o /dev/null -w "  root HTTP %{http_code}\n" http://localhost:3000/
-            else
-              echo "::error::Docker daemon still wedged — Morgan needs to SSH + sudo systemctl restart docker"
-            fi
-            exit 0  # Always succeed so subsequent steps can still try
-          AGGR
-
-      - name: Bootstrap (recover nginx / active-slot BEFORE build)
-        if: false  # PERMANENTLY DISABLED 2026-04-17: this step ran docker daemon
-                   # recovery that could wedge the VM and leave the site 502ing.
-                   # Never re-enable. Use blue/green cutover (below) for deploys.
-        timeout-minutes: 8
-        continue-on-error: true
-        run: |
-          # Skip bootstrap entirely if the site is already healthy — no need
-          # to touch docker again and risk wedging it.
-          if timeout 5 curl -sf -o /dev/null -w "%{http_code}" https://mycosoft.com/api/health 2>/dev/null | grep -qE "^(200|301|302)$"; then
-            echo "Site already healthy — skipping bootstrap to avoid re-wedging docker"
-            exit 0
-          fi
-
-          ssh-retry production bash -s <<'BOOTSTRAP'
-            set -euo pipefail
-            cd /opt/mycosoft/website
-
-            echo "=== Checking what sudo permissions CI user has ==="
-            sudo -n -l 2>&1 | head -20 || echo "  sudo -n -l failed (no cached credentials)"
-
-            echo "=== Checking docker daemon responsiveness ==="
-            # A hung buildkitd from a cancelled CI run can wedge the entire
-            # docker daemon — every subsequent docker/compose command hangs
-            # on the containerd lock.
-            if ! timeout 10 docker ps -q >/dev/null 2>&1; then
-              echo "::warning::docker ps timed out — daemon is hung"
-
-              # PATH 1: Kill buildkitd WITHOUT sudo — if the current user
-              # owns the buildkitd process (because it was spawned by an
-              # earlier `docker build` from CI), regular kill works.
-              echo "  attempting user-level buildkitd kill"
-              pgrep -x buildkitd 2>/dev/null | while read pid; do
-                echo "    found buildkitd pid=$pid owner=$(ps -o user= -p $pid 2>/dev/null)"
-                kill -KILL "$pid" 2>/dev/null || true
-              done
-              pgrep -f 'docker[- ]build' 2>/dev/null | while read pid; do
-                echo "    found docker-build pid=$pid"
-                kill -KILL "$pid" 2>/dev/null || true
-              done
-
-              # PATH 2: Try sudo -n (only works if NOPASSWD is set for this)
-              echo "  attempting sudo -n systemctl restart docker"
-              if timeout 30 sudo -n systemctl restart docker 2>&1; then
-                echo "  sudo systemctl succeeded"
-              elif timeout 30 sudo -n service docker restart 2>&1; then
-                echo "  sudo service succeeded"
-              else
-                echo "  sudo -n blocked — no NOPASSWD rule for docker restart"
-              fi
-
-              # PATH 3: Try docker socket directly via curl (bypasses docker CLI)
-              echo "  attempting direct socket poke"
-              timeout 10 curl -s --unix-socket /var/run/docker.sock http://localhost/_ping 2>&1 | head -c 100
-              echo ""
-
-              # Wait up to 60s for docker to come back up.
-              for i in {1..30}; do
-                if timeout 5 docker ps -q >/dev/null 2>&1; then
-                  echo "  docker responsive again (took ${i}×2s)"
-                  break
-                fi
-                sleep 2
-              done
-
-              # If docker is STILL dead: try killing the nginx master from
-              # inside /proc (doesn't need daemon). If nginx dies, docker
-              # auto-restart will bring it back — fresh container, fresh config.
-              if ! timeout 5 docker ps -q >/dev/null 2>&1; then
-                echo "::warning::docker still dead; attempting nginx host-level kill"
-                # Find nginx master PID on host — only works if we own it.
-                # Most Docker installs run container root as host root, so
-                # this normally fails for a non-root user. Try anyway.
-                pgrep -f 'nginx: master process' | head -1 | while read pid; do
-                  echo "    nginx master pid=$pid; sending HUP"
-                  kill -HUP "$pid" 2>/dev/null && echo "    HUP sent" || echo "    kill failed (not owner)"
-                done
-              fi
-
-              docker start mycosoft-postgres mycosoft-redis mycosoft-ollama 2>/dev/null || true
-            else
-              echo "  docker daemon is responsive"
-            fi
-
-            echo "=== Killing any orphan docker-build processes from prior cancelled runs ==="
-            pgrep -x buildkitd 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
-            pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
-            pgrep -f 'docker buildx' 2>/dev/null | xargs -r kill -TERM 2>/dev/null || true
-            sleep 2
-            pgrep -x buildkitd 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
-            pgrep -f 'docker[- ]build' 2>/dev/null | xargs -r kill -KILL 2>/dev/null || true
-            # Prune builder cache with short timeout — if this hangs, skip it
-            timeout 30 docker builder prune -f 2>/dev/null || echo "  builder prune timed out — continuing"
-
-            chmod +x scripts/blue-green-bootstrap.sh scripts/blue-green-deploy.sh
-            echo "=== Ensuring NAS is mounted ==="
-            sudo mount -a 2>/dev/null || true
-            echo "=== Bootstrap (always; idempotent — fixes nginx, recovers active slot) ==="
-            # Use whatever image is CURRENTLY running in the active/idle
-            # slot as WEBSITE_IMAGE. If there's no :local image, bootstrap
-            # will use whichever image is already pulled.
-            export WEBSITE_IMAGE="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'mycosoft-website:(local|production-latest)' | head -1 || echo 'mycosoft-website:local')"
-            echo "Using WEBSITE_IMAGE=$WEBSITE_IMAGE"
-            # Wrap bootstrap in timeout so it can't hang the whole workflow.
-            # Normal run is 30s-2min; if it takes more than 4 min something
-            # is wrong and we want to fail fast so the next step still runs.
-            timeout 240 ./scripts/blue-green-bootstrap.sh || {
-              ec=$?
-              echo "::warning::Bootstrap timed out or failed (exit=$ec) — attempting minimal recovery inline"
-              # Minimal inline recovery: just fix nginx config + reload, without
-              # touching compose. This is the shortest path to getting the site
-              # back up if bootstrap itself is the thing hanging.
-              STATE_DIR=/opt/mycosoft/state
-              NGINX_DIR=/opt/mycosoft/nginx
-              mkdir -p "$NGINX_DIR/conf.d"
-              cp deploy/nginx/nginx.conf "$NGINX_DIR/nginx.conf"
-              ACTIVE=$(cat "$STATE_DIR/active-slot" 2>/dev/null || echo blue)
-              # Flip active if container is dead
-              if ! docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-$ACTIVE"; then
-                OTHER=$([ "$ACTIVE" = "blue" ] && echo green || echo blue)
-                if docker ps --format '{{.Names}}' | grep -qx "mycosoft-website-$OTHER"; then
-                  echo "  minimal-recovery: flipping active-slot $ACTIVE -> $OTHER"
-                  echo "$OTHER" > "$STATE_DIR/active-slot"
-                  ACTIVE=$OTHER
-                fi
-              fi
-              sed "s|__ACTIVE_SLOT__|$ACTIVE|g" deploy/nginx/conf.d/website.conf.template > "$NGINX_DIR/conf.d/website.conf"
-              if docker ps --format '{{.Names}}' | grep -qx mycosoft-website-proxy; then
-                if timeout 10 docker exec mycosoft-website-proxy nginx -t 2>&1 | grep -q "syntax is ok"; then
-                  timeout 10 docker exec mycosoft-website-proxy nginx -s reload || echo "  reload failed"
-                  echo "  minimal-recovery: nginx reloaded pointing at $ACTIVE"
-                fi
-              fi
-            }
-            echo "=== Bootstrap complete. Site should be up on active slot. ==="
-          BOOTSTRAP
-
-      - name: Build on VM + blue/green cutover (zero-downtime, CF purge)
-        # 6,500-line CREP client + 25 new registries + 10 new /api/oei
-        # routes = Next.js production compile can run 20-30 min even on
-        # well-provisioned hardware. Most of the earlier pain was from
-        # docker layer cache being purged every deploy — if we don't
-        # deploy for >24h the builder-prune filter wipes every usable
-        # layer and the next build is cold from scratch.
-        #
-        # Apr 18, 2026: step bumped 35 → 50 min. The job timeout-minutes
-        # above (45) also bumped on same commit. Layer retention extended
-        # from 24h → 14 days so the typical deploy has a warm cache.
-        timeout-minutes: 50
+      - name: Pull GHCR image + blue/green cutover (zero-downtime)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ssh-retry production bash -s <<BUILD
             set -euo pipefail
             cd /opt/mycosoft/website
 
-            echo "=== Building Docker image locally ==="
-            # Free dangling images but keep the builder cache warm for 14
-            # days. Previous value (24h) guaranteed a cold build every time
-            # deployments were >1 day apart, forcing npm ci + full next
-            # compile from zero each run.
-            docker image prune -f 2>/dev/null || true
-            docker builder prune -f --filter="until=336h" 2>/dev/null || true
+            echo "=== Authenticating with GHCR ==="
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
-            # Drop --progress=plain — it synchronously streams every layer
-            # line over SSH and adds measurable overhead on slow tunnels.
-            docker build \
-              --build-arg NEXT_PUBLIC_SUPABASE_URL="\$(grep NEXT_PUBLIC_SUPABASE_URL .env | cut -d= -f2-)" \
-              --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="\$(grep NEXT_PUBLIC_SUPABASE_ANON_KEY .env | cut -d= -f2-)" \
-              -f Dockerfile.production \
-              -t mycosoft-website:local \
-              .
+            IMAGE_NAME_LC=\$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+            # Pin to the SHA tag so concurrent deploys can't mix images.
+            export IMAGE="ghcr.io/\${IMAGE_NAME_LC}:fast-${{ github.sha }}"
+            echo "=== Pulling: \$IMAGE ==="
+            docker pull -q "\$IMAGE"
 
-            chmod +x scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh
+            echo "=== First-run bootstrap (idempotent) ==="
+            # If blue/green hasn't been set up on this host, bootstrap once.
+            if ! docker ps -a --format '{{.Names}}' | grep -qx 'mycosoft-website-proxy'; then
+              echo "Blue/green not yet bootstrapped — running bootstrap"
+              ./scripts/blue-green-bootstrap.sh
+            fi
 
-            echo "=== Running blue/green cutover with local image ==="
-            export IMAGE="mycosoft-website:local"
+            echo "=== Running blue/green cutover ==="
             export CF_ZONE_ID='${{ secrets.CLOUDFLARE_ZONE_ID }}'
             export CF_API_TOKEN='${{ secrets.CLOUDFLARE_API_TOKEN }}'
             export PUBLIC_HOST='mycosoft.com'
             ./scripts/blue-green-deploy.sh
-
-            echo "=== Running Database Migrations ==="
-            # Active slot is whatever the state file says after cutover
-            SLOT=\$(cat /opt/mycosoft/state/active-slot 2>/dev/null || echo "blue")
-            docker exec "mycosoft-website-\${SLOT}" npm run db:migrate --if-present 2>/dev/null \
-              || echo "Migration skipped"
-
-            echo "=== Instant blue/green deploy complete at \$(date) ==="
           BUILD
 
-      - name: Health check
+      - name: Run database migrations
+        continue-on-error: true
         run: |
           ssh-retry production bash -s <<'SCRIPT'
-          set -euo pipefail
-          OK=0
+            set -e
+            cd /opt/mycosoft/website
+            SLOT=$(cat /opt/mycosoft/state/active-slot 2>/dev/null || echo "blue")
+            docker exec "mycosoft-website-${SLOT}" npm run db:migrate --if-present 2>/dev/null \
+              || echo "Migration skipped (no migrations or db not ready)"
+          SCRIPT
+
+      - name: Health check (origin)
+        run: |
+          ssh-retry production bash -s <<'SCRIPT'
+          set -e
           for i in 1 2 3 4 5 6; do
             if curl -sf http://localhost:3000/api/health; then
               echo ""
-              echo "Healthy on attempt $i"
-              OK=1
-              break
+              echo "Origin health check passed on attempt $i"
+              exit 0
             fi
+            echo "Attempt $i: not ready, waiting 5s..."
             sleep 5
           done
-          if [ "$OK" -ne 1 ]; then
-            echo "::error::Health check timeout"
-            PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
-            if [ -n "$PREV_IMAGE" ]; then
-              free_host_port_3000() {
-                (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
-                for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
-                  [ -z "$cid" ] && continue
-                  docker stop "$cid" 2>/dev/null || true
-                  docker rm -f "$cid" 2>/dev/null || true
-                done
-                docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
-              }
-              free_host_port_3000
-              docker run -d --name website-live -p 3000:3000 \
-                -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
-            fi
-            exit 1
-          fi
+          echo "::error::Origin health check did not pass within 30s"
+          exit 1
           SCRIPT
 
       - name: Purge Cloudflare cache
+        if: success()
         continue-on-error: true
         run: |
           if [ -n "${{ secrets.CLOUDFLARE_ZONE_ID }}" ] && [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
@@ -1171,8 +755,8 @@ jobs:
               "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
               -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d '{"purge_everything":true}'
-            echo "Cache purged"
+              -d '{"purge_everything":true}' \
+              && echo "" && echo "Cloudflare cache purged"
           fi
 
       - name: Public endpoint verification
@@ -1194,21 +778,21 @@ jobs:
       - name: Log deployment
         continue-on-error: true
         run: |
-          ssh production "echo '${{ github.sha }} instant-deployed at $(date)' >> /var/log/mycosoft-deployments.log"
+          ssh-retry production "echo '${{ github.sha }} (fast) deployed at $(date)' >> /var/log/mycosoft-deployments.log"
 
       - name: Notify deployment
+        if: always()
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.24.0
-        if: always() && env.SLACK_WEBHOOK_URL != ''
         with:
           payload: |
             {
-              "text": "Mycosoft instant-deployed to production",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Mycosoft Production Instant Deploy*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}\nMode: instant (build on VM, no CI)"
+                    "text": "*Mycosoft Production Instant Deploy*\nCommit: `${{ github.sha }}`\nStatus: ${{ job.status }}\nMode: instant (GH runner build → GHCR → VM pull)"
                   }
                 }
               ]
