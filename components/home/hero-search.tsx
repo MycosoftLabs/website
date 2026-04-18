@@ -24,6 +24,7 @@ import { useDebounce } from "@/hooks/use-debounce"
 import { getRotatedSuggestions, DEFAULT_TRY_SUGGESTIONS } from "@/lib/search/world-view-suggestions"
 import { AutoplayVideo } from "@/components/ui/autoplay-video"
 import { homeHeroVideoSources } from "@/lib/asset-video-sources"
+import Link from "next/link"
 import {
   Search,
   Mic,
@@ -33,6 +34,7 @@ import {
   X,
   Command,
   Brain,
+  Globe2,
 } from "lucide-react"
 
 /**
@@ -474,7 +476,29 @@ export function HeroSearch() {
                     <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
                   )}
                 </motion.button>
-                
+
+                {/* Earth Simulator button — instant CREP access (Apr 18, 2026).
+                    Naming plan: for public / NatureOS users this is "Earth
+                    Simulator"; inside FUSARIUM the same endpoint is CREP
+                    with military data added. Same route for now; product
+                    naming diverges on the destination pages. */}
+                <Link
+                  href="/dashboard/crep"
+                  aria-label="Earth Simulator"
+                  title="Earth Simulator — live 3D globe"
+                  className={cn(
+                    "group relative p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300",
+                    "bg-gradient-to-br from-cyan-500/15 via-sky-500/15 to-emerald-500/15",
+                    "dark:from-cyan-500/25 dark:via-sky-500/25 dark:to-emerald-500/25",
+                    "border border-cyan-500/30 dark:border-cyan-400/40",
+                    "text-cyan-700 dark:text-cyan-200",
+                    "hover:shadow-[0_0_18px_rgba(6,182,212,0.35)] hover:border-cyan-400/60",
+                  )}
+                >
+                  <span className="absolute inset-0 rounded-lg sm:rounded-xl bg-cyan-400/10 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Globe2 className="relative h-4 w-4 sm:h-5 sm:w-5 animate-[spin_24s_linear_infinite] group-hover:text-cyan-400" />
+                </Link>
+
                 {/* Submit Button — onClick via form submit (handleSearch), no onMouseDown race */}
                 <motion.button
                   type="submit"
