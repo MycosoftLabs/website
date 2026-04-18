@@ -5559,6 +5559,11 @@ export default function CREPDashboardPage() {
                       "circle-stroke-width": 1,
                       "circle-stroke-color": "rgba(0,0,0,0.3)",
                     },
+                    // With OEI + MINDEX + WRI bundle fused the live plants
+                    // source can exceed 40k at zoom 4, tanking FPS. Gate at
+                    // zoom 4 so world+continent view stays fast; operator
+                    // still sees the full grid at state+ zoom.
+                    minzoom: 4,
                   });
                   setPowerPlants(entities.filter((e: any) => e.lat).map((e: any) => ({
                     id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
@@ -5634,14 +5639,17 @@ export default function CREPDashboardPage() {
                   safeAddLayer({
                     id: "crep-subs-circle", type: "circle", source: "crep-substations",
                     paint: {
-                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 7, 4, 12, 7],
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 9, 3.5, 12, 6],
                       "circle-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
                         0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
                       "circle-opacity": 0.7,
                       "circle-stroke-width": 0.5,
                       "circle-stroke-color": "rgba(0,0,0,0.2)",
                     },
-                    minzoom: 4,
+                    // 93k HIFLD substations at zoom 4 = 2 FPS. Gate at zoom 6
+                    // so world-view stays responsive; operator sees infra when
+                    // they drill in.
+                    minzoom: 6,
                   });
                   if (!subsClickBound) {
                     subsClickBound = true;
@@ -5756,7 +5764,10 @@ export default function CREPDashboardPage() {
                         0, 1, 100, 1.5, 345, 2, 500, 2.5, 735, 3],
                       "line-opacity": 0.75,
                     },
-                    minzoom: 3,
+                    // 20k transmission lines at zoom 3 = render storm. Gate
+                    // at zoom 5 so the contiguous-US grid only paints when
+                    // the operator is at continental/state level.
+                    minzoom: 5,
                   });
                   if (!txClickBound) {
                     txClickBound = true;
