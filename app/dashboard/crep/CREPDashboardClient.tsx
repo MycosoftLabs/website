@@ -5965,13 +5965,21 @@ export default function CREPDashboardPage() {
                   safeAddLayer({
                     id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
                     paint: {
-                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 10, 3, 14, 6],
-                      "circle-color": "#22c55e",
-                      "circle-opacity": 0.6,
-                      "circle-stroke-width": 0.5,
-                      "circle-stroke-color": "rgba(0,0,0,0.2)",
+                      // Apr 18, 2026: widened radius + earlier zoom visibility.
+                      // Previous gate was minzoom:6 + 1.5px radius = invisible
+                      // in practice at any continental/country zoom. With only
+                      // ~192 bundled + live-feed towers in viewport there's no
+                      // perf reason to hide them at world view.
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 3.5, 8, 5, 12, 7, 16, 10],
+                      "circle-color": "#c084fc",          // brighter violet — stands out on dark basemap
+                      "circle-opacity": 0.85,
+                      "circle-stroke-width": 1,
+                      "circle-stroke-color": "#ffffff",
+                      "circle-stroke-opacity": 0.7,
                     },
-                    minzoom: 6,
+                    // Drop minzoom gate entirely — the sparse bundled set
+                    // (~192 US features) + any live MINDEX/FCC/OSM hits
+                    // render from world view upward.
                   });
                   if (!towersClickBound) {
                     towersClickBound = true;
