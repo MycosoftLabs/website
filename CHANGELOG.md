@@ -282,6 +282,7 @@ All notable changes to this project will be documented in this file.
 - *(deploy)* Read .credentials.local as UTF-8 on Windows
 - *(crep-etl)* WPI ports fetch via NGA CSV when GeoJSON returns 403; regenerate ports-global.geojson
 - *(api)* Wire CREP MINDEX ingest proxy to real MINDEX writers
+- *(api)* Wire CREP ingest 422 types; fix military earth/ingest
 
 ### CREP
 
@@ -400,6 +401,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - CREP session report April 14-15 2026 — full changelog
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
