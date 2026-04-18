@@ -279,6 +279,9 @@ All notable changes to this project will be documented in this file.
 - Site-wide double-click navigation bug
 - Mobile-nav Search link also had preventDefault+router.push pattern
 - Reverse Cursor commit 03484cce navigation bugs + remove video fallbacks
+- *(deploy)* Read .credentials.local as UTF-8 on Windows
+- *(crep-etl)* WPI ports fetch via NGA CSV when GeoJSON returns 403; regenerate ports-global.geojson
+- *(api)* Wire CREP MINDEX ingest proxy to real MINDEX writers
 
 ### CREP
 
@@ -397,6 +400,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - CREP session report April 14-15 2026 — full changelog
+- Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 
@@ -534,6 +538,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* ALL layers enabled by default — every data source auto-visible on load
 - *(crep)* Species observation persistence pipeline — MINDEX auto-catalog
 - CREP production-ready — parallel data fetch, LOD rendering, max data sources
+- *(search)* Fluid Search M1 unified context, narrative merge, tests
 
 ### Fix
 
@@ -587,6 +592,8 @@ All notable changes to this project will be documented in this file.
 - GitHub Actions lint+build; sandbox deploy candidate health + rollback
 - Main uses Mycosoft CI/CD deploy; PR-only Website CI; Dockerfile site URL arg
 - *(docker)* Shrink build context — ignore .cursor, nested node_modules, Playwright caches
+- Instant-deploy uses blue/green + CF purge; raise timeout 15→30m
+- Re-trigger deploy [fast]
 
 ### Performance
 
@@ -609,6 +616,11 @@ All notable changes to this project will be documented in this file.
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
 
+### Diagnostic
+
+- List all conf.d files host+container, full curl -v on healthz [fast]
+- Deep inspect of proxy container (mounts, inside-container files, curl -v) [fast]
+
 ### Infra
 
 - Zero-downtime blue/green deploy with nginx switch + Cloudflare purge
@@ -621,6 +633,10 @@ All notable changes to this project will be documented in this file.
 
 - Compact nav bars, sidebar closed on mobile, CREP ssr fix, more content space
 - Comprehensive UX overhaul - phone/tablet/desktop breakpoint strategy across entire site
+
+### Ops
+
+- ETL_CRON_TOKEN sandbox sync, UTF-8 env read, inat backfill launcher
 
 ### Security
 
