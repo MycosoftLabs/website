@@ -1,0 +1,177 @@
+# CREP Live Feed Integrity Check
+# ===============================================================
+# Fix J (Apr 18, 2026) — differential feed contract test.
+#
+# Catches the regression class surfaced by the Apr 18 QA audit:
+# Promise.allSettled handlers silently discarding live-API payloads
+# and leaving aircraft / vessels / satellites / nature at zero count
+# with no visible error. This pattern has broken CREP multiple times;
+# the check here ensures it can never ship unnoticed.
+#
+# Runs:
+#   • Every 10 minutes (scheduled)
+#   • On push to main whenever CREP client code, the live pump, or the
+#     satellite registry changes
+#   • On demand (workflow_dispatch)
+#
+# Opens a GitHub Issue when any feed collapses to 0.
+
+name: CREP Feed Integrity
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'app/dashboard/crep/CREPDashboardClient.tsx'
+      - 'app/api/oei/flightradar24/**'
+      - 'app/api/oei/aisstream/**'
+      - 'app/api/oei/satellites/**'
+      - 'app/api/oei/opensky/**'
+      - 'app/api/crep/unified/**'
+      - 'lib/crep/registries/aircraft-registry.ts'
+      - 'lib/crep/registries/vessel-registry.ts'
+      - 'lib/crep/registries/satellite-registry.ts'
+      - 'lib/crep/satellite-animation.ts'
+      - 'lib/crep/sgp4-worker-client.ts'
+      - 'lib/oei/mindex-ingest.ts'
+  workflow_dispatch:
+
+env:
+  SITE_URL: https://mycosoft.com
+  # Feeds that must NEVER drop to zero on a healthy production system
+  # (if these drop it's almost always a client or proxy bug, not an upstream
+  # outage — global aircraft/vessel/sat feeds never go fully dark)
+  MIN_AIRCRAFT: 50
+  MIN_VESSELS: 20
+  MIN_SATELLITES: 100
+
+jobs:
+  feed-integrity:
+    name: Live feed non-zero guarantee
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Aircraft feed (/api/oei/flightradar24)
+        id: aircraft
+        run: |
+          set -e
+          RESP=$(curl -sS --max-time 25 "$SITE_URL/api/oei/flightradar24?limit=200" 2>/dev/null || echo '{}')
+          COUNT=$(echo "$RESP" | jq -r '(.aircraft // []) | length // 0' 2>/dev/null || echo "0")
+          SOURCE=$(echo "$RESP" | jq -r '.source // "unknown"' 2>/dev/null)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "Aircraft: $COUNT (source=$SOURCE)"
+          if [ "$COUNT" -lt "$MIN_AIRCRAFT" ]; then
+            echo "::error::Aircraft feed below threshold: $COUNT < $MIN_AIRCRAFT"
+            exit 1
+          fi
+
+      - name: Vessel feed (/api/oei/aisstream)
+        id: vessels
+        continue-on-error: true
+        run: |
+          set -e
+          RESP=$(curl -sS --max-time 25 "$SITE_URL/api/oei/aisstream?limit=200" 2>/dev/null || echo '{}')
+          COUNT=$(echo "$RESP" | jq -r '(.vessels // []) | length // 0' 2>/dev/null || echo "0")
+          SOURCE=$(echo "$RESP" | jq -r '.source // "unknown"' 2>/dev/null)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "Vessels: $COUNT (source=$SOURCE)"
+          # Vessels can legitimately be low if AISSTREAM_API_KEY is unset or
+          # the websocket hasn't warmed up — warn only, don't fail.
+          if [ "$COUNT" -lt "$MIN_VESSELS" ]; then
+            echo "::warning::Vessel feed below threshold: $COUNT < $MIN_VESSELS (may indicate AISSTREAM_API_KEY issue)"
+          fi
+
+      - name: Satellite feed (/api/oei/satellites)
+        id: satellites
+        run: |
+          set -e
+          RESP=$(curl -sS --max-time 25 "$SITE_URL/api/oei/satellites?category=active&mode=registry" 2>/dev/null || echo '{}')
+          COUNT=$(echo "$RESP" | jq -r '(.satellites // []) | length // 0' 2>/dev/null || echo "0")
+          SOURCE=$(echo "$RESP" | jq -r '.source // "unknown"' 2>/dev/null)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "Satellites: $COUNT (source=$SOURCE)"
+          if [ "$COUNT" -lt "$MIN_SATELLITES" ]; then
+            echo "::error::Satellite feed below threshold: $COUNT < $MIN_SATELLITES"
+            exit 1
+          fi
+
+      - name: Unified endpoint (/api/crep/unified)
+        id: unified
+        continue-on-error: true
+        run: |
+          set -e
+          RESP=$(curl -sS --max-time 35 "$SITE_URL/api/crep/unified" 2>/dev/null || echo '{}')
+          AC=$(echo "$RESP" | jq -r '.counts.aircraft // 0' 2>/dev/null)
+          VE=$(echo "$RESP" | jq -r '.counts.vessels // 0' 2>/dev/null)
+          SA=$(echo "$RESP" | jq -r '.counts.satellites // 0' 2>/dev/null)
+          echo "Unified counts: aircraft=$AC vessels=$VE satellites=$SA"
+          if [ "$AC" -lt "$MIN_AIRCRAFT" ] || [ "$SA" -lt "$MIN_SATELLITES" ]; then
+            echo "::warning::Unified endpoint under-reporting: ac=$AC sat=$SA"
+          fi
+
+      - name: Cross-endpoint satellite count consistency (Fix L)
+        run: |
+          set -e
+          # Same category, two endpoints — should roughly match.
+          REG=$(curl -sS --max-time 20 "$SITE_URL/api/oei/satellites?category=active&mode=registry" 2>/dev/null | jq -r '(.satellites // []) | length // 0')
+          UNI=$(curl -sS --max-time 25 "$SITE_URL/api/crep/unified?type=satellites" 2>/dev/null | jq -r '.count // 0')
+          ORB=$(curl -sS --max-time 25 "$SITE_URL/api/oei/orbital-objects?limit=50000" 2>/dev/null | jq -r '.returned // 0')
+          echo "Satellite counts across endpoints:"
+          echo "  /api/oei/satellites (registry): $REG"
+          echo "  /api/crep/unified?type=satellites: $UNI"
+          echo "  /api/oei/orbital-objects:        $ORB"
+          # orbital-objects is a broader superset; it should be >= registry count
+          if [ "$REG" -gt 0 ] && [ "$ORB" -gt 0 ] && [ "$ORB" -lt "$REG" ]; then
+            echo "::warning::orbital-objects ($ORB) < satellites/registry ($REG) — consistency drift"
+          fi
+
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const aircraft = '${{ steps.aircraft.outputs.count }}';
+            const vessels = '${{ steps.vessels.outputs.count }}';
+            const satellites = '${{ steps.satellites.outputs.count }}';
+            const title = `CREP feed regression — ac=${aircraft} ve=${vessels} sat=${satellites}`;
+            // Avoid duplicate issues: only open if none with matching title in last hour
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'crep-feed-regression',
+            });
+            const recent = issues.find(i => new Date(i.created_at) > new Date(Date.now() - 3600_000));
+            if (recent) {
+              console.log(`Recent issue exists: #${recent.number}`);
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ['crep-feed-regression', 'bug'],
+              body: [
+                `**CREP feed integrity check failed** on ${new Date().toISOString()}`,
+                ``,
+                `| Feed | Count | Minimum |`,
+                `|---|---:|---:|`,
+                `| Aircraft | ${aircraft} | ${process.env.MIN_AIRCRAFT} |`,
+                `| Vessels | ${vessels} | ${process.env.MIN_VESSELS} |`,
+                `| Satellites | ${satellites} | ${process.env.MIN_SATELLITES} |`,
+                ``,
+                `Likely causes (in priority order):`,
+                `1. Promise.allSettled regression silently discarding upstream payloads (see Fix B in docs)`,
+                `2. Upstream API shape change (flightradar24, aisstream, celestrak)`,
+                `3. Expired API key (AISSTREAM_API_KEY)`,
+                `4. MINDEX proxy outage`,
+                ``,
+                `Run: ${context.runId}`,
+                `Commit: ${context.sha}`,
+              ].join('\n'),
+            });

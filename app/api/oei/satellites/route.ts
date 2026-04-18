@@ -31,9 +31,16 @@ interface CacheEntry {
 }
 
 const satelliteCache = new Map<string, CacheEntry>()
-const REGISTRY_CACHE_TTL_MS = 30_000 // 30 seconds for registry mode
-const LEGACY_CACHE_TTL_MS = 120_000 // 2 minutes for legacy mode
-const CACHE_STALE_MS = 300_000 // 5 minutes before forced refresh
+// Apr 18, 2026 (Fix G): TTLs bumped to respect CelesTrak's current guidance
+// of "no more than once every two hours" for heavy groups. Downstream
+// clients (incl. the Fix B live-entity pump polling every 30s) hit this
+// cache repeatedly; we only refresh upstream at most once per TTL per key.
+// Registry mode (CelesTrak + Space-Track + UCS + N2YO + MINDEX fanout) gets
+// 15 min since the other sources have their own rate limits; legacy mode
+// (single CelesTrak call) gets the strict 2 h cadence.
+const REGISTRY_CACHE_TTL_MS = 15 * 60_000    // 15 minutes for registry mode
+const LEGACY_CACHE_TTL_MS = 2 * 3600_000     // 2 hours — CelesTrak policy
+const CACHE_STALE_MS = 3 * 3600_000           // 3 hours before forced refresh
 
 const validCategories: SatelliteCategory[] = [
   "stations",
