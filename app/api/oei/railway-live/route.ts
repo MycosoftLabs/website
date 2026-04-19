@@ -22,104 +22,116 @@ import { NextRequest, NextResponse } from "next/server"
 export const runtime = "nodejs"
 export const revalidate = 30 // seconds of edge cache
 
-// Apr 19, 2026 (r2): multiple candidate URLs — Amtrak moved the service
-// a couple times. Hit them in order; first one returning valid JSON wins.
-const AMTRAK_URL_CANDIDATES = [
-  // Current ArcGIS GeoJSON feature service (as of 2026-04)
-  "https://services9.arcgis.com/D6WfuPl1ZYm5zmRT/arcgis/rest/services/AmtrakTrains/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&resultRecordCount=2000",
-  // Legacy maps.amtrak.com JSON service
-  "https://maps.amtrak.com/services/MapDataService/trains/getTrainsData",
-  // Older www.amtrak.com JSON service
-  "https://www.amtrak.com/services/MapDataService/trains/getTrainsData",
-]
+// Apr 19, 2026 (r3): Amtrak's official public feed is now AES-encrypted
+// (anti-scraping). Community aggregator api.amtraker.com handles the
+// decryption + serves a clean JSON endpoint. Use it as the primary source.
+// Also pull MBTA GTFS-RT for Boston trolleys/commuter rail to prove the
+// GTFS-RT pipeline — MBTA's unkeyed cdn.mbta.com/realtime JSON endpoint
+// is reliable and updates every 15 s.
+const AMTRAKER_URL = "https://api-v3.amtraker.com/v3/trains"
+const MBTA_URL = "https://cdn.mbta.com/realtime/VehiclePositions.json"
 
 async function fetchAmtrak(): Promise<any[]> {
-  for (const url of AMTRAK_URL_CANDIDATES) {
-    try {
-      const res = await fetch(url, {
-        headers: {
-          // Amtrak's public endpoints reject default fetch UAs.
-          "User-Agent": "Mozilla/5.0 (compatible; MycosoftCREP/1.0; +https://mycosoft.com)",
-          Accept: "application/json, application/geo+json, text/plain, */*",
-        },
-        signal: AbortSignal.timeout(12_000),
-        next: { revalidate: 30 },
-      })
-      if (!res.ok) continue
-      const ct = (res.headers.get("content-type") || "").toLowerCase()
-      if (!ct.includes("json")) continue
-      const data = await res.json()
-
-      // Shape 1: GeoJSON FeatureCollection (ArcGIS service).
-      if (data?.type === "FeatureCollection" && Array.isArray(data.features)) {
-        return data.features
-          .filter((f: any) => f.geometry?.coordinates?.length === 2)
-          .map((f: any) => {
-            const p = f.properties || {}
-            const [lng, lat] = f.geometry.coordinates
-            return {
-              id: `amtrak-${p.TrainNum || p.ObjectID || p.OBJECTID || `${lng},${lat}`}`,
-              trainNum: p.TrainNum || p.TrainNumber || null,
-              name: p.RouteName || p.TrainName || `Amtrak ${p.TrainNum || ""}`.trim(),
-              routeName: p.RouteName || null,
-              operator: "Amtrak",
-              lat: Number(lat),
-              lng: Number(lng),
-              heading: Number(p.Heading) || 0,
-              speed: Number(p.Velocity) || Number(p.Speed) || 0,
-              state: p.EventCode || null,
-              status: p.TrainState || p.Status || null,
-              timestamp: p.LastValTS || p.LastUpdate || new Date().toISOString(),
-              source: "amtrak",
-            }
-          })
-      }
-
-      // Shape 2: Dict keyed by trainNum OR array of records (legacy MapDataService).
-      const list: any[] = Array.isArray(data) ? data : Object.values(data)
-      return list
-        .filter((t: any) => t && t.lat != null && t.lon != null)
-        .map((t: any) => ({
-          id: `amtrak-${t.TrainNum || t.trainID || t.objectID || t.lat + "," + t.lon}`,
-          trainNum: t.TrainNum || t.trainID || null,
-          name: t.RouteName || t.name || `Amtrak ${t.TrainNum || ""}`.trim(),
-          routeName: t.RouteName || null,
+  try {
+    const res = await fetch(AMTRAKER_URL, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MycosoftCREP/1.0; +https://mycosoft.com)",
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(15_000),
+      next: { revalidate: 30 },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    // amtraker shape: { "1": [{routeName, trainNum, lat, lon, ...}], "2": [...], ... }
+    const out: any[] = []
+    for (const [, arr] of Object.entries(data)) {
+      if (!Array.isArray(arr)) continue
+      for (const t of arr as any[]) {
+        if (t?.lat == null || t?.lon == null) continue
+        out.push({
+          id: `amtrak-${t.trainID || t.trainNum || `${t.lat},${t.lon}`}`,
+          trainNum: t.trainNum || null,
+          name: t.routeName || `Amtrak ${t.trainNum || ""}`.trim(),
+          routeName: t.routeName || null,
           operator: "Amtrak",
           lat: Number(t.lat),
           lng: Number(t.lon),
-          heading: Number(t.Heading) || 0,
-          speed: Number(t.Velocity) || Number(t.speed) || 0,
-          state: t.EventCode || t.eventCode || null,
-          status: t.TrainState || t.state || null,
-          timestamp: t.LastValTS || t.lastUpdate || new Date().toISOString(),
+          heading: Number(t.heading) || 0,
+          speed: Number(t.velocity) || Number(t.speed) || 0,
+          state: t.eventCode || null,
+          status: t.trainTimely || t.trainState || null,
+          timestamp: t.lastValTS || t.lastUpdate || new Date().toISOString(),
           source: "amtrak",
-        }))
-    } catch {
-      // try next candidate
+        })
+      }
     }
+    return out
+  } catch {
+    return []
   }
-  return []
+}
+
+async function fetchMBTA(): Promise<any[]> {
+  try {
+    const res = await fetch(MBTA_URL, {
+      signal: AbortSignal.timeout(12_000),
+      next: { revalidate: 20 },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    const entities = data?.entity || []
+    return entities
+      .filter((e: any) => e?.vehicle?.position?.latitude && e?.vehicle?.position?.longitude)
+      .map((e: any) => {
+        const v = e.vehicle
+        const p = v.position || {}
+        // GTFS-RT route_type-ish inference from stop_id / route_id isn't
+        // reliable without the schedule feed; for now label all as "MBTA".
+        return {
+          id: `mbta-${e.id || v.vehicle?.id || `${p.latitude},${p.longitude}`}`,
+          trainNum: v.vehicle?.label || null,
+          name: `MBTA ${v.trip?.route_id || ""}`.trim() || "MBTA vehicle",
+          routeName: v.trip?.route_id || null,
+          operator: "MBTA",
+          lat: Number(p.latitude),
+          lng: Number(p.longitude),
+          heading: Number(p.bearing) || 0,
+          speed: Number(p.speed) || 0,
+          state: v.current_status || null,
+          status: null,
+          timestamp: v.timestamp
+            ? new Date(Number(v.timestamp) * 1000).toISOString()
+            : new Date().toISOString(),
+          source: "mbta-gtfs-rt",
+        }
+      })
+  } catch {
+    return []
+  }
 }
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const limit = Math.min(Number(url.searchParams.get("limit") || 2000), 5000)
 
-  const trains = (await fetchAmtrak()).slice(0, limit)
+  // Fetch both in parallel; each is fail-isolated.
+  const [amtrak, mbta] = await Promise.all([fetchAmtrak(), fetchMBTA()])
+  const trains = [...amtrak, ...mbta].slice(0, limit)
 
   return NextResponse.json(
     {
       source: "railway-live",
       total: trains.length,
-      operators: { amtrak: trains.length },
+      operators: { amtrak: amtrak.length, mbta: mbta.length },
       trains,
       generatedAt: new Date().toISOString(),
-      note: "Amtrak starter feed. UK Network Rail / DB HAFAS / GTFS-RT commuter feeds pending (v3 §A.9.3).",
+      note: "Amtrak via amtraker.com community aggregator (decrypts Amtrak's AES-encrypted feed). MBTA via GTFS-RT. UK Network Rail / DB HAFAS / Caltrain / LIRR pending (v3 §A.9.3).",
     },
     {
       headers: {
         "Cache-Control": "public, s-maxage=25, stale-while-revalidate=120",
-        "X-Source": "amtrak-live",
+        "X-Source": "amtraker+mbta-gtfs-rt",
       },
     },
   )
