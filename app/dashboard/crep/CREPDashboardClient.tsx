@@ -6058,30 +6058,32 @@ export default function CREPDashboardPage() {
                   safeAddLayer({
                     id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
                     paint: {
-                      // Apr 19, 2026 (Morgan): neon green, smaller, NOT glowy
-                      // until hovered. Previously violet + white stroke made them
-                      // look like substations and blocked underlying features.
-                      // Hover state brightens + enlarges so selection is obvious
-                      // without permanent visual noise.
+                      // Apr 19, 2026 (Morgan bug report: "no cell phone data
+                      // shows at all … it was all there a day ago as little
+                      // green dots"). Previous default z2=1 px + opacity 0.55
+                      // was sub-pixel on retina and effectively invisible at
+                      // world view. Bumped to 2 px / opacity 0.85 so the
+                      // "little green dots" Morgan saw yesterday actually
+                      // render today. Hover still enlarges + adds stroke.
                       "circle-radius": [
                         "case",
                         ["boolean", ["feature-state", "hover"], false],
-                        ["interpolate", ["linear"], ["zoom"], 2, 2.5, 5, 3.5, 8, 5, 12, 7, 16, 10],
-                        ["interpolate", ["linear"], ["zoom"], 2, 1,   5, 1.6, 8, 2.4, 12, 3.5, 16, 5.5],
+                        ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 4, 8, 5.5, 12, 7, 16, 10],
+                        ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
                       ],
                       "circle-color": "#39ff14",        // neon green (cell tower signature)
                       "circle-opacity": [
                         "case",
                         ["boolean", ["feature-state", "hover"], false], 1.0,
-                        0.55,
+                        0.85,
                       ],
                       "circle-stroke-width": [
                         "case",
                         ["boolean", ["feature-state", "hover"], false], 1.2,
-                        0,
+                        0.3,
                       ],
                       "circle-stroke-color": "#ffffff",
-                      "circle-stroke-opacity": 0.85,
+                      "circle-stroke-opacity": 0.6,
                     },
                     // No minzoom gate — render from world view upward.
                   });
@@ -6242,29 +6244,32 @@ export default function CREPDashboardPage() {
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                         paint: {
-                          // Apr 19, 2026 (Morgan): neon green, smaller, not glowy
-                          // unless hovered. Matches the instant-bundle layer so
-                          // there's no visual shift when Tier 1 → Tier 2 upgrade
-                          // happens. Hover ring appears on mouseenter only.
+                          // Apr 19, 2026 (Morgan bug report): previous default
+                          // z2=0.8 px was sub-pixel on retina and the 615k dots
+                          // became invisible at world view. Morgan saw the 192
+                          // US static bundle's 2 px dots yesterday, then when
+                          // Tier 2 took over the layer "disappeared". Bumped
+                          // floor to 2 px at world view. Still "smaller + not
+                          // glowy" per Morgan's earlier ask — just not vanishing.
                           "circle-radius": [
                             "case",
                             ["boolean", ["feature-state", "hover"], false],
-                            ["interpolate", ["linear"], ["zoom"], 2, 2.5, 5, 3.5, 8, 5, 12, 7, 16, 10],
-                            ["interpolate", ["linear"], ["zoom"], 2, 0.8, 5, 1.4, 8, 2.2, 12, 3.2, 16, 5],
+                            ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 4, 8, 5.5, 12, 7, 16, 10],
+                            ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
                             "case",
                             ["boolean", ["feature-state", "hover"], false], 1.0,
-                            0.5,
+                            0.85,
                           ],
                           "circle-stroke-width": [
                             "case",
                             ["boolean", ["feature-state", "hover"], false], 1.2,
-                            0,
+                            0.3,
                           ],
                           "circle-stroke-color": "#ffffff",
-                          "circle-stroke-opacity": 0.85,
+                          "circle-stroke-opacity": 0.6,
                         },
                       });
 
