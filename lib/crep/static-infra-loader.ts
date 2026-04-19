@@ -51,7 +51,13 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
   cellTowersGlobal: {
     sourceId: "crep-celltowers-global",
     pmtilesLayerName: "cell_towers",
-    pmtilesUrl: "/data/crep/tiles/cell-towers-global.pmtiles",
+    // Apr 19, 2026: the 41 MB cell-towers-global.pmtiles 404s from the
+    // default Next.js static handler on prod (other <20 MB pmtiles in the
+    // same directory serve fine — exact cause unknown, likely a size
+    // threshold in Next.js standalone runtime). Route it through our
+    // explicit fs-streaming API route instead. The route still serves
+    // the smaller tiles too, so we use it uniformly.
+    pmtilesUrl: "/api/crep/tiles/cell-towers-global.pmtiles",
     // Fallback: the full cell-towers-global.geojson (MINDEX+OpenCelliD+OSM)
     // when the PMTiles archive hasn't been generated yet. If THAT file is
     // also missing, CREP falls back to the bundled 192-feature US set.
@@ -62,7 +68,7 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
   cellTowersUsTwInstant: {
     sourceId: "crep-celltowers-us-tw-instant",
     pmtilesLayerName: "cell_towers",
-    pmtilesUrl: "/data/crep/tiles/cell-towers-us-tw-instant.pmtiles",
+    pmtilesUrl: "/api/crep/tiles/cell-towers-us-tw-instant.pmtiles",
     geojsonUrl: "/data/crep/cell-towers-us-tw-instant.geojson",
     label: "US + Taiwan cell towers (instant bundle)",
   },
