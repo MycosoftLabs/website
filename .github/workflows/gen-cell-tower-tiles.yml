@@ -1,0 +1,111 @@
+name: Gen Cell-Tower Tiles (on-demand)
+
+# Generates cell-towers-global.geojson + cell-towers-global.pmtiles on a
+# GH Ubuntu runner by harvesting OSM + OpenCelliD. Opens a PR with the
+# artifacts so Morgan can review before they hit main.
+#
+# MINDEX NAS is on LAN only, so this workflow uses --no-mindex. For the
+# MINDEX Taiwan + US slice, run the ETL locally on Morgan's machine:
+#
+#   node scripts/etl/crep/fetch-celltowers-global.mjs --no-ocid --no-osm
+#   ./scripts/etl/crep/gen-celltower-pmtiles.sh
+#
+# Trigger manually: Actions → Gen Cell-Tower Tiles → Run workflow
+#
+# Required secret: OPENCELLID_KEY
+#   Get one free at https://opencellid.org/ (register + request token).
+#   Add to repo secrets: Settings → Secrets and variables → Actions → New repo secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Which sources to harvest (comma-separated subset of: osm,ocid)"
+        default: "osm,ocid"
+      osm_step:
+        description: "OSM bbox tile step in degrees (30=72 tiles, 60=18 tiles)"
+        default: "30"
+  schedule:
+    # Weekly refresh on Sundays at 06:00 UTC — OSM changes slowly, OpenCelliD
+    # publishes daily but weekly is plenty for CREP's use case.
+    - cron: "0 6 * * 0"
+
+concurrency:
+  group: gen-cell-tower-tiles
+  cancel-in-progress: false
+
+jobs:
+  harvest-and-tile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tippecanoe + pmtiles CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tippecanoe
+          # go-pmtiles CLI from GitHub release
+          PMTILES_VERSION="1.22.1"
+          curl -sL "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin pmtiles
+
+      - name: Harvest cell towers
+        env:
+          OPENCELLID_KEY: ${{ secrets.OPENCELLID_KEY }}
+        run: |
+          ARGS="--no-mindex"
+          if [[ ! "${{ github.event.inputs.sources }}" =~ osm  ]] && [[ -n "${{ github.event.inputs.sources }}" ]]; then ARGS="$ARGS --no-osm"; fi
+          if [[ ! "${{ github.event.inputs.sources }}" =~ ocid ]] && [[ -n "${{ github.event.inputs.sources }}" ]]; then ARGS="$ARGS --no-ocid"; fi
+          ARGS="$ARGS --osm-step=${{ github.event.inputs.osm_step || '30' }}"
+          echo "Running: node scripts/etl/crep/fetch-celltowers-global.mjs $ARGS"
+          node scripts/etl/crep/fetch-celltowers-global.mjs $ARGS
+
+      - name: Generate PMTiles
+        run: bash scripts/etl/crep/gen-celltower-pmtiles.sh
+
+      - name: Report artifact sizes
+        run: |
+          ls -lh public/data/crep/cell-towers-global.geojson || true
+          ls -lh public/data/crep/tiles/cell-towers-global.pmtiles || true
+
+      - name: Open PR with refreshed tiles
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(crep): refresh cell-tower tiles from OSM + OpenCelliD"
+          title: "chore(crep): refresh cell-tower tiles"
+          body: |
+            Automated regeneration of the global cell tower catalog.
+
+            Sources: ${{ github.event.inputs.sources || 'osm,ocid (default)' }}
+            OSM step: ${{ github.event.inputs.osm_step || '30' }}°
+
+            Regenerates:
+            - `public/data/crep/cell-towers-global.geojson`
+            - `public/data/crep/tiles/cell-towers-global.pmtiles`
+
+            MINDEX NAS (Taiwan + US LAN slice) is **not** included — that data
+            must be harvested on Morgan's machine since the NAS is LAN-only.
+            Merge this PR first, then on Morgan's box run:
+
+            ```
+            node scripts/etl/crep/fetch-celltowers-global.mjs --no-ocid --no-osm
+            bash scripts/etl/crep/gen-celltower-pmtiles.sh
+            ```
+
+            to add the MINDEX slice and regenerate the tile archive.
+          branch: chore/refresh-cell-tower-tiles
+          delete-branch: true
+          add-paths: |
+            public/data/crep/cell-towers-global.geojson
+            public/data/crep/tiles/cell-towers-global.pmtiles

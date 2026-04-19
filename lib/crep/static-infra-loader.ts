@@ -48,6 +48,16 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     geojsonUrl: "/data/crep/power-plants-global.geojson",
     label: "Global power plants (WRI)",
   },
+  cellTowersGlobal: {
+    sourceId: "crep-celltowers-global",
+    pmtilesLayerName: "cell_towers",
+    pmtilesUrl: "/data/crep/tiles/cell-towers-global.pmtiles",
+    // Fallback: the full cell-towers-global.geojson (MINDEX+OpenCelliD+OSM)
+    // when the PMTiles archive hasn't been generated yet. If THAT file is
+    // also missing, CREP falls back to the bundled 192-feature US set.
+    geojsonUrl: "/data/crep/cell-towers-global.geojson",
+    label: "Global cell towers (MINDEX + OpenCelliD + OSM)",
+  },
 }
 
 /**

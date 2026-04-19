@@ -256,6 +256,9 @@ import { GlobeToggle, type ProjectionMode } from "@/components/crep/controls/glo
 // PMTiles Protocol Registration (Apr 2026)
 import { registerPMTilesProtocol } from "@/lib/crep/pmtiles-source";
 
+// Static-infra PMTiles-first loader (preferred path for bulk vector layers)
+import { addInfraSourceWithFallback, layerSpecForMode, INFRA_LAYERS } from "@/lib/crep/static-infra-loader";
+
 // Static infrastructure bundle — zero-latency point markers (Morgan rule, Apr 2026)
 // Permanent facility LOCATIONS don't change per-request. Load once on mount.
 import { MAJOR_PORTS, MAJOR_DATACENTERS } from "@/lib/crep/static-infra";
@@ -5943,7 +5946,11 @@ export default function CREPDashboardPage() {
                   await yieldToUI();
                 }).catch((err) => console.warn("[CREP/Infra] TX lines error:", err?.message || err));
 
-                // ── Cell towers (antennas) — show at zoom 6+ (viewport-first) ──
+                // ── Cell towers (antennas) — render from world view (viewport-first) ──
+                // Apr 18, 2026: dropped the previous zoom:6+ gate. Cell towers
+                // now render at every zoom level; density stays manageable
+                // because the bundled set is ~192 points and live MINDEX/FCC
+                // hits are bbox-scoped.
                 const towersToFeatures = (entities: any[]) => entities
                   .filter((e: any) => e.lat != null && e.lng != null)
                   .map((e: any) => ({
@@ -6059,13 +6066,56 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${valid.length} military facilities → MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
 
-                // ── Cell / communications towers — static bundled + idleLoad ──
-                // Primary source: public/data/crep/cell-towers-us.geojson
-                // (192 OSM communications towers). MINDEX batchFetch still
-                // runs to enrich from the wider 400k-tower dataset when
-                // reachable. Note: OSM tower coverage is sparse vs FCC ASR
-                // (~300k structures); future: add FCC dump as a fallback.
+                // ── Cell / communications towers — PMTiles-first, bundled fallback ──
+                // Apr 18, 2026: Global cell tower layer preferred path is
+                // now PMTiles vector tiles generated from MINDEX NAS
+                // (Taiwan + US already loaded) + OpenCelliD 47M catalog +
+                // OSM global comm/mast tags. See scripts/etl/crep/
+                // fetch-celltowers-global.mjs + gen-celltower-pmtiles.sh.
+                //
+                // Loading order (first hit wins):
+                //   1. cell-towers-global.pmtiles   — vector tiles, instant per-tile load
+                //   2. cell-towers-global.geojson   — bundled combined set (when PMTiles
+                //                                     hasn't been generated yet)
+                //   3. cell-towers-us.geojson       — 192-feature legacy bundle
+                //   4. batchFetch("cell-towers")    — live MINDEX bbox-scoped
+                let cellTowerPMTilesActive = false;
                 idleLoad(async () => {
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.cellTowersGlobal);
+                    if (result.mode === "pmtiles" || result.mode === "geojson") {
+                      const spec = layerSpecForMode(result.mode, INFRA_LAYERS.cellTowersGlobal);
+                      safeAddLayer({
+                        id: "crep-celltowers-global-circle",
+                        type: "circle",
+                        source: result.sourceId,
+                        ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                        paint: {
+                          // Pre-clustered by tippecanoe at z0-11; match legacy palette
+                          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.8, 5, 2.6, 8, 3.5, 12, 5, 16, 8],
+                          "circle-color": "#c084fc",
+                          "circle-opacity": 0.82,
+                          "circle-stroke-width": 0.6,
+                          "circle-stroke-color": "#ffffff",
+                          "circle-stroke-opacity": 0.55,
+                        },
+                      });
+                      cellTowerPMTilesActive = true;
+                      console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active → crep-celltowers-global-circle`);
+                    }
+                  } catch (e) {
+                    console.warn("[CREP/Infra] cell-towers PMTiles path failed:", (e as Error)?.message);
+                  }
+                });
+
+                // ── Legacy static 192-feature bundle (fallback when PMTiles isn't built) ──
+                // Only fires if the PMTiles-preferred path above hasn't already
+                // registered a global source — otherwise we'd double-paint the
+                // same US towers. The legacy path stays so that a fresh clone
+                // of the repo (where gen-celltower-pmtiles.sh hasn't run yet)
+                // still shows at least 192 US towers.
+                idleLoad(async () => {
+                  if (cellTowerPMTilesActive) return;
                   try {
                     const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "default" });
                     if (!res.ok) return;
@@ -6090,18 +6140,26 @@ export default function CREPDashboardPage() {
                   }
                 });
 
-                batchFetch("cell-towers", 20000, (vpResults) => {
-                  const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = vpTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderCellTowers(unique, "viewport");
-                }).then(async (results) => {
-                  const allTowers = results.flatMap((r: any) => r?.entities || []);
-                  const seen = new Set<string>();
-                  const unique = allTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                  if (unique.length) renderCellTowers(unique, "global");
-                  await yieldToUI();
-                }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
+                // Live MINDEX viewport enrichment — only run when we do NOT
+                // have a PMTiles global source. When PMTiles is active the
+                // archive already covers the full catalog at every zoom and
+                // batchFetch replays would just trigger redundant server work.
+                if (!cellTowerPMTilesActive) {
+                  batchFetch("cell-towers", 20000, (vpResults) => {
+                    if (cellTowerPMTilesActive) return;
+                    const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = vpTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderCellTowers(unique, "viewport");
+                  }).then(async (results) => {
+                    if (cellTowerPMTilesActive) return;
+                    const allTowers = results.flatMap((r: any) => r?.entities || []);
+                    const seen = new Set<string>();
+                    const unique = allTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
+                    if (unique.length) renderCellTowers(unique, "global");
+                    await yieldToUI();
+                  }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
+                }
 
                 // ── Military bases — direct static file, idle-loaded ──
                 // Bypass the /api/oei/military API layer entirely (saves
@@ -6284,6 +6342,7 @@ export default function CREPDashboardPage() {
                     const infraLayerIds = [
                       "crep-cables-line", "crep-plants-circle", "crep-subs-circle",
                       "crep-txlines-line", "crep-celltowers-circle",
+                      "crep-celltowers-global-circle",
                     ];
                     for (const id of infraLayerIds) {
                       if (mapRef.getLayer(id)) {
