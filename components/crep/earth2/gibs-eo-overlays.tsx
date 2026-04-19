@@ -30,6 +30,14 @@ interface CrepGibsEoOverlaysProps {
 export function CrepGibsEoOverlays({ map, eoImageryFilter, beforeId }: CrepGibsEoOverlaysProps) {
   const addedRef = useRef<Set<string>>(new Set());
 
+  // Apr 19, 2026 (companion fix to gibs-base-layers.tsx anti-blink): depend
+  // on primitive flags so the effect only reruns when a toggle changes,
+  // not every parent render.
+  const showModis = !!eoImageryFilter.showModis;
+  const showViirs = !!eoImageryFilter.showViirs;
+  const showAirs = !!eoImageryFilter.showAirs;
+  const showLandsat = !!eoImageryFilter.showLandsat;
+
   useEffect(() => {
     if (!map) return;
 
@@ -91,11 +99,11 @@ export function CrepGibsEoOverlays({ map, eoImageryFilter, beforeId }: CrepGibsE
       });
     };
 
-    addOrRemoveLayer(GIBS_LAYER_CONFIGS.modis, !!eoImageryFilter.showModis);
-    addOrRemoveLayer(GIBS_LAYER_CONFIGS.viirs, !!eoImageryFilter.showViirs);
-    addOrRemoveLayer(GIBS_LAYER_CONFIGS.airs, !!eoImageryFilter.showAirs);
-    addOrRemoveLayer(GIBS_LAYER_CONFIGS.landsat, !!eoImageryFilter.showLandsat);
-  }, [map, eoImageryFilter.showModis, eoImageryFilter.showViirs, eoImageryFilter.showAirs, eoImageryFilter.showLandsat, beforeId]);
+    addOrRemoveLayer(GIBS_LAYER_CONFIGS.modis, showModis);
+    addOrRemoveLayer(GIBS_LAYER_CONFIGS.viirs, showViirs);
+    addOrRemoveLayer(GIBS_LAYER_CONFIGS.airs, showAirs);
+    addOrRemoveLayer(GIBS_LAYER_CONFIGS.landsat, showLandsat);
+  }, [map, showModis, showViirs, showAirs, showLandsat, beforeId]);
 
   // Cleanup on unmount
   useEffect(() => {

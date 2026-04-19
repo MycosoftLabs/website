@@ -2277,7 +2277,8 @@ export default function CREPDashboardPage() {
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
     { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
-    { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: false, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green" },
+    { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green" },
+    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
@@ -3107,9 +3108,30 @@ export default function CREPDashboardPage() {
       id: l.id, name: l.name, enabled: l.enabled,
       category: l.category, opacity: l.opacity,
     }));
+    // Apr 19, 2026 (Morgan: "no live rail data widgets for movement of
+    // trains"): overlay components (ProposalOverlays, etc.) call this
+    // hook from click handlers to open the shared InfraAsset panel.
+    // Keeps the widget pipeline centralized in the dashboard.
+    (window as any).__crep_selectAsset = (payload: any) => {
+      if (!payload || payload.lat == null || payload.lng == null) return;
+      lastEntityPickTimeRef.current = Date.now();
+      try {
+        const m = mapNativeRef.current;
+        if (m) highlightPoint(m, payload.lng, payload.lat);
+      } catch { /* ignore */ }
+      setSelectedInfraAsset({
+        type: payload.type || "asset",
+        id: payload.id,
+        name: payload.name || "Asset",
+        lat: payload.lat,
+        lng: payload.lng,
+        properties: payload.properties || {},
+      });
+    };
     return () => {
       try { delete (window as any).__crep_setLayer; } catch { /* noop */ }
       try { delete (window as any).__crep_layers; } catch { /* noop */ }
+      try { delete (window as any).__crep_selectAsset; } catch { /* noop */ }
     };
   }, [layers]);
 
@@ -7051,6 +7073,7 @@ export default function CREPDashboardPage() {
               cellTowersG:    layers.find(l => l.id === "cellTowersG")?.enabled ?? false,
               bathymetry:     layers.find(l => l.id === "bathymetry")?.enabled ?? false,
               topography:     layers.find(l => l.id === "topography")?.enabled ?? false,
+              satImagery:     layers.find(l => l.id === "satImagery")?.enabled ?? false,
               railwayTracks:  layers.find(l => l.id === "railwayTracks")?.enabled ?? false,
               railwayTrains:  layers.find(l => l.id === "railwayTrains")?.enabled ?? false,
               droneNoFly:     layers.find(l => l.id === "droneNoFly")?.enabled ?? false,

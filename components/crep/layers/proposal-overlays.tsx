@@ -44,6 +44,8 @@ interface Props {
     bathymetry?: boolean
     /** Land hillshade from AWS Terrain Tiles (Mapzen terrarium DEM → MapLibre native hillshade). 30 m res, free, no key. */
     topography?: boolean
+    /** ESRI World Imagery HD satellite basemap — Google-Earth-level detail to zoom 19, free, no key. */
+    satImagery?: boolean
     railwayTracks?: boolean
     railwayTrains?: boolean
     droneNoFly?: boolean
@@ -647,6 +649,72 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     })
   }, [map, enabled.topography])
 
+  // ─── 9c. Satellite Imagery HD — ESRI World Imagery ─────────────────────
+  // Morgan: "we need google earth maps level high detail images of the
+  // zoomed in satelite iamges as live as possible for all map".
+  // ESRI's World Imagery service is public (no API key), serves to z19,
+  // is refreshed from commercial + aerial imagery. Drop-in Google-Earth
+  // replacement for the basemap tile layer.
+  //
+  // Placed ABOVE the basemap but BELOW all overlays + labels so it
+  // replaces the gray basemap without hiding markers.
+  useEffect(() => {
+    if (!map) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+
+    if (!enabled.satImagery) {
+      try {
+        if (map.getLayer("crep-satimagery-raster")) map.setLayoutProperty("crep-satimagery-raster", "visibility", "none")
+      } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.satImagery) {
+      try {
+        if (map.getLayer("crep-satimagery-raster")) map.setLayoutProperty("crep-satimagery-raster", "visibility", "visible")
+      } catch { /* ignore */ }
+      return
+    }
+    loadedRef.current.satImagery = true
+
+    idleLoad(async () => {
+      try {
+        const srcId = "crep-satimagery"
+        if (!map.getSource(srcId)) {
+          map.addSource(srcId, {
+            type: "raster",
+            tiles: [
+              "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            ],
+            tileSize: 256,
+            attribution: "Tiles © Esri — World Imagery (DigitalGlobe, GeoEye, i-cubed, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo)",
+            minzoom: 0,
+            maxzoom: 19,
+            scheme: "xyz",
+          })
+          // Insert right after the basemap layer — above any basemap
+          // raster but below point markers + labels.
+          const style = map.getStyle()
+          const firstOverlay = style.layers.find(
+            (l: any) => l.id.startsWith("crep-") && !l.id.startsWith("crep-boundaries"),
+          ) as any
+          const beforeId = firstOverlay?.id
+          map.addLayer(
+            {
+              id: "crep-satimagery-raster",
+              type: "raster",
+              source: srcId,
+              layout: { visibility: "visible" },
+              paint: { "raster-opacity": 1.0, "raster-fade-duration": 0 },
+            },
+            beforeId,
+          )
+        }
+        console.log(`[ProposalOverlays] satellite imagery (HD): ESRI World Imagery attached, z0–19`)
+      } catch (e: any) { console.warn("[ProposalOverlays/satImagery]", e.message) }
+    })
+  }, [map, enabled.satImagery])
+
   // ─── 10. Railway Tracks — OpenRailwayMap global infrastructure ─────────
   // OpenRailwayMap publishes open raster tiles of OSM-tagged railway infra
   // (tracks, electrification, stations, signals). Use it as a themed
@@ -767,6 +835,39 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
           })
           map.on("mouseenter", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "" })
+          // Apr 19, 2026 (Morgan: "widgets for movement of trains or
+          // trollyes if possible"). Click fires the global
+          // __crep_selectAsset hook if present — the parent dashboard
+          // (CREPDashboardClient) wires it to open the InfraAsset panel.
+          // Fallback: dispatch a CustomEvent that other widget consumers
+          // can subscribe to.
+          map.on("click", "crep-trains-live-square", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const coords = e.lngLat
+            const payload = {
+              type: "train",
+              id: p.id,
+              name: p.name || `Train ${p.id}`,
+              lat: coords?.lat ?? 0,
+              lng: coords?.lng ?? 0,
+              properties: {
+                operator: p.operator || "Amtrak",
+                speed_mph: p.speed_mph,
+                heading: p.heading,
+                state: p.state,
+                status: p.status,
+              },
+            }
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") hook(payload)
+            } catch { /* ignore */ }
+            try {
+              window.dispatchEvent(new CustomEvent("crep:train:click", { detail: payload }))
+            } catch { /* ignore */ }
+          })
         } else {
           (map.getSource("crep-trains-live") as any).setData(fc)
         }
