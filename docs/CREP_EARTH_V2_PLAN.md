@@ -524,6 +524,84 @@ scope:
 - Cesium ion token + terrain pipeline. Phase 3.
 - STAC/COG/Zarr catalog. §A.1.
 
+### A.9 New data sources — Morgan's Apr 19, 2026 ask
+
+Additional layers for CREP v2/v3. All MUST flow through MINDEX ingest
+(per Morgan rule) and be bbox-scoped at query time. None should be
+hardcoded into the Docker image except the "instant" subset (see
+`cell-towers-us-tw-instant.geojson` precedent).
+
+#### A.9.1 Drone maps — live drone activity heatmap
+
+- **Source:** https://thedronemap.com/ (commercial, no public API
+  documented). Investigate partner API vs OSINT scraping path.
+- **Fallback:** OpenSky ADS-B drone filter (most consumer drones don't
+  broadcast). Commercial: DroneDeploy enterprise, AirMap, Skydio fleet.
+- **Layer id:** `droneActivity` (new). Category: telecom or new `aerial`.
+- **Visual:** dashed circles or small triangle glyphs — distinguish
+  from piloted aircraft (solid plane icons) and towers (static dots/rings).
+- **Status:** scope review needed before building. OSS equivalents are
+  limited — likely requires a MINDEX connector to a partner API.
+
+#### A.9.2 Drone no-fly zones + altitude limits
+
+- **Sources:**
+  - https://flyk.com/map?drone — consumer app, TDLR / D-Flight / AIXM
+    data, Europe-heavy.
+  - https://map.godrone.nl/ — Netherlands specific, good model reference.
+  - **Canonical:** OpenAIP (https://www.openaip.net/) — global airspace
+    class + NOTAM data, OpenAPI-compatible JSON.
+- **Layer id:** `droneNoFlyZones` (new). Polygon layer, class-colored
+  (CTR red, CTA orange, TRA amber, parks green).
+- **Extras:** altitude-limit halos around airports, dynamic NOTAM
+  overlay (Super Bowl TFRs etc.) via FAA NOTAM system.
+- **Status:** OpenAIP is canonical; MINDEX connector needed.
+
+#### A.9.3 Railway infrastructure + live train positions
+
+- **Sources:**
+  - **OpenRailwayMap** (https://www.openrailwaymap.org/) — OSM-based
+    infra (tracks, signals, stations, electrification). Public vector-
+    tile TMS at https://www.openrailwaymap.org/api — use as underlay.
+  - **Live trains** (country-specific):
+    - US: Amtrak Track-A-Train JSON; GTFS-RT feeds for commuter rails
+      (Caltrain / LIRR / MBTA) at https://gtfs.org/realtime/feeds/.
+    - UK: Network Rail Open Rail Data (SCHEDULE + MOVEMENT, register
+      required).
+    - EU: Deutsche Bahn HAFAS, SNCF Open Data, multiple per-country.
+  - **Starter:** Amtrak + one GTFS-RT commuter feed proves the pattern
+    in 2–3 days.
+- **Layer ids:**
+  - `railwayTracks` — OpenRailwayMap tile service underlay.
+  - `railwayTrainsLive` — animated point layer, 30 s update interval.
+  - `railwayStations` — symbol layer on top.
+- **Visual:** tracks as thin grey-steel lines; live trains as small
+  filled squares colored by operator (distinct from aircraft planes
+  and vessel chevrons already on the map).
+- **Status:** OpenRailwayMap tile integration is straightforward;
+  live train layer needs a canonical starter feed.
+
+#### A.9.4 Live-streaming event animation
+
+Per Morgan: earthquakes / fires / lightning must appear ANIMATED on the
+map as they happen, no full reload. Current state: `batchFetch` polls
+every 30 s but each poll replaces the source data, so new features don't
+"pop in" — they just suddenly exist on the next poll.
+
+- **Mechanism:** feature-state `freshness` (0..1) decaying on the client
+  over 10 s since first-seen. Paint expression pulses opacity + radius
+  while freshness > 0, then settles into the normal styling.
+- **Client-side diff:** keep a `Set<featureId>` of previously-seen ids;
+  on each poll, new ids get freshness=1 + ripple animation; leaving
+  features stay visible until bbox changes.
+- **Sources:** no change — USGS earthquakes, FIRMS wildfires, NLDN /
+  GLM lightning, NOAA HRRR cells all poll as today.
+- **Layer ids affected:** `earthquakes`, `wildfires`, `lightning`,
+  `stormTracks` (any time-indexed point/line layer).
+- **Implementation home:** extend `applyLODToEvents()` in
+  `lib/crep/lod-policy.ts` to inject freshness; CREPDashboardClient
+  maintains the Set<id> map.
+
 ### A.8 Report items noted as outdated
 
 These claims in the ChatGPT research report do not reflect the current
