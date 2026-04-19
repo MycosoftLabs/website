@@ -40,7 +40,10 @@ interface Props {
     debrisCloud?: boolean
     txLinesGlobal?: boolean
     cellTowersG?: boolean
+    /** Ocean depth shading (GEBCO 2024 WMS — low/medium detail, free). */
     bathymetry?: boolean
+    /** Land hillshade from AWS Terrain Tiles (Mapzen terrarium DEM → MapLibre native hillshade). 30 m res, free, no key. */
+    topography?: boolean
     railwayTracks?: boolean
     railwayTrains?: boolean
     droneNoFly?: boolean
@@ -568,6 +571,81 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }
     })
   }, [map, enabled.bathymetry])
+
+  // ─── 9b. Land Topography — AWS Terrain Tiles → MapLibre hillshade ──────
+  // Morgan asked for "topology maps on land and bathymetry on water … with
+  // different level of high detail for both". GEBCO covers ocean well but
+  // its land resolution is coarse (~200 m). AWS Terrain Tiles publishes the
+  // Mapzen terrarium DEM globally at ~30 m, free, no key. Hand that to
+  // MapLibre's native `hillshade` layer type and the GPU does the shading
+  // — much crisper land relief than GEBCO.
+  //
+  // Toggle-able: on-by-default just like bathymetry; separate control so
+  // users can turn off land hillshade if they want pure basemap.
+  useEffect(() => {
+    if (!map) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+
+    if (!enabled.topography) {
+      try {
+        if (map.getLayer("crep-topo-hillshade")) map.setLayoutProperty("crep-topo-hillshade", "visibility", "none")
+      } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.topography) {
+      try {
+        if (map.getLayer("crep-topo-hillshade")) map.setLayoutProperty("crep-topo-hillshade", "visibility", "visible")
+      } catch { /* ignore */ }
+      return
+    }
+    loadedRef.current.topography = true
+
+    idleLoad(async () => {
+      try {
+        const srcId = "crep-topo-dem"
+        if (!map.getSource(srcId)) {
+          map.addSource(srcId, {
+            type: "raster-dem",
+            tiles: [
+              "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png",
+            ],
+            tileSize: 256,
+            encoding: "terrarium",
+            maxzoom: 15,
+            attribution: "© Mapzen / AWS Terrain Tiles",
+          })
+          // Place hillshade just above bathymetry (if present) but below
+          // all point markers. Compute insertion point.
+          const style = map.getStyle()
+          const firstPointLayer = style.layers.find(
+            (l: any) => l.type === "circle" || l.type === "symbol" || l.type === "line",
+          ) as any
+          const beforeId = firstPointLayer?.id
+          map.addLayer(
+            {
+              id: "crep-topo-hillshade",
+              type: "hillshade",
+              source: srcId,
+              layout: { visibility: "visible" },
+              paint: {
+                // Cool/warm shading accents highs + lows without obscuring
+                // the basemap tiles. Opacity 0.45 so contours + labels
+                // remain readable over mountains.
+                "hillshade-shadow-color": "#0b1220",
+                "hillshade-highlight-color": "#f8fafc",
+                "hillshade-accent-color": "#27272a",
+                "hillshade-illumination-direction": 335,
+                "hillshade-exaggeration": 0.55,
+              },
+            },
+            beforeId,
+          )
+        }
+        console.log(`[ProposalOverlays] topography: AWS Terrain Tiles hillshade attached (DEM z0–15)`)
+      } catch (e: any) { console.warn("[ProposalOverlays/topography]", e.message) }
+    })
+  }, [map, enabled.topography])
 
   // ─── 10. Railway Tracks — OpenRailwayMap global infrastructure ─────────
   // OpenRailwayMap publishes open raster tiles of OSM-tagged railway infra
