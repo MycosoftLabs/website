@@ -493,11 +493,35 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   // GEBCO's WMTS is the canonical free global ocean-depth + land-elevation
   // map. Renders underneath all other layers so cell towers / cables /
   // fires still sit on top, but oceans + mountain ranges get texture.
+  //
+  // Apr 19, 2026 (Morgan): must be toggle-able on/off from the filter
+  // panel. Effect now handles BOTH enable (attach + set visible) and
+  // disable (set visibility: "none" on existing layer — cheaper than
+  // remove/re-add across many toggles).
   useEffect(() => {
-    if (!map || !enabled.bathymetry) return
-    if (loadedRef.current.bathymetry) return
+    if (!map) return
     const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
     if (!mapReady()) return
+
+    // Disable path: layer is present but toggle flipped off.
+    if (!enabled.bathymetry) {
+      try {
+        if (map.getLayer("crep-bathymetry-raster")) {
+          map.setLayoutProperty("crep-bathymetry-raster", "visibility", "none")
+        }
+      } catch { /* ignore */ }
+      return
+    }
+
+    // Enable path: attach once, or just flip visibility back to visible.
+    if (loadedRef.current.bathymetry) {
+      try {
+        if (map.getLayer("crep-bathymetry-raster")) {
+          map.setLayoutProperty("crep-bathymetry-raster", "visibility", "visible")
+        }
+      } catch { /* ignore */ }
+      return
+    }
     loadedRef.current.bathymetry = true
 
     idleLoad(async () => {
@@ -525,6 +549,7 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               id: "crep-bathymetry-raster",
               type: "raster",
               source: srcId,
+              layout: { visibility: "visible" },
               paint: {
                 // Low opacity so the basemap's contours still show through;
                 // GEBCO provides just enough ocean-depth color to kill the
@@ -548,11 +573,21 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   // OpenRailwayMap publishes open raster tiles of OSM-tagged railway infra
   // (tracks, electrification, stations, signals). Use it as a themed
   // underlay above the basemap but below point markers. No API key.
+  //
+  // Toggle-able (see bathymetry comment): enable path attaches, disable
+  // path flips visibility to "none".
   useEffect(() => {
-    if (!map || !enabled.railwayTracks) return
-    if (loadedRef.current.railwayTracks) return
+    if (!map) return
     const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
     if (!mapReady()) return
+    if (!enabled.railwayTracks) {
+      try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "none") } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.railwayTracks) {
+      try { if (map.getLayer("crep-railway-raster")) map.setLayoutProperty("crep-railway-raster", "visibility", "visible") } catch { /* ignore */ }
+      return
+    }
     loadedRef.current.railwayTracks = true
 
     idleLoad(async () => {
@@ -597,10 +632,22 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   // services, not commuter). Updates every ~30 s. Proxied through /api/oei/
   // railway-live to dodge CORS + add ETL-side caching. Starter feed; UK
   // Network Rail + EU HAFAS + GTFS-RT live-train feeds are §A.9.3 work.
+  //
+  // Toggle-able — same pattern as bathymetry/railwayTracks above.
   useEffect(() => {
-    if (!map || !enabled.railwayTrains) return
-    if (loadedRef.current.railwayTrains) return
-    loadedRef.current.railwayTrains = true
+    if (!map) return
+    if (!enabled.railwayTrains) {
+      try { if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "none") } catch { /* ignore */ }
+      return
+    }
+    // On re-enable, flip visibility back; fetchAndPaint below will refresh
+    // data too. On first enable, loadedRef prevents duplicate initial
+    // attaches but the 30 s polling interval still runs.
+    if (loadedRef.current.railwayTrains) {
+      try { if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "visible") } catch { /* ignore */ }
+    } else {
+      loadedRef.current.railwayTrains = true
+    }
 
     const fetchAndPaint = async () => {
       try {
@@ -659,9 +706,25 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   // Polygon layer over restricted / prohibited / special-use airspace.
   // Colored by class: CTR red, CTA orange, TRA amber, parks green. See
   // /api/oei/drone-no-fly for the backend fetch (proxies OpenAIP + FAA).
+  //
+  // Toggle-able — enable path attaches once, disable path flips both fill
+  // + outline layers to visibility: "none".
   useEffect(() => {
-    if (!map || !enabled.droneNoFly) return
-    if (loadedRef.current.droneNoFly) return
+    if (!map) return
+    if (!enabled.droneNoFly) {
+      try {
+        if (map.getLayer("crep-drone-no-fly-fill")) map.setLayoutProperty("crep-drone-no-fly-fill", "visibility", "none")
+        if (map.getLayer("crep-drone-no-fly-outline")) map.setLayoutProperty("crep-drone-no-fly-outline", "visibility", "none")
+      } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.droneNoFly) {
+      try {
+        if (map.getLayer("crep-drone-no-fly-fill")) map.setLayoutProperty("crep-drone-no-fly-fill", "visibility", "visible")
+        if (map.getLayer("crep-drone-no-fly-outline")) map.setLayoutProperty("crep-drone-no-fly-outline", "visibility", "visible")
+      } catch { /* ignore */ }
+      return
+    }
     loadedRef.current.droneNoFly = true
 
     idleLoad(async () => {
