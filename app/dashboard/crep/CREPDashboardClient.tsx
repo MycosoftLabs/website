@@ -6058,18 +6058,16 @@ export default function CREPDashboardPage() {
                   safeAddLayer({
                     id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
                     paint: {
-                      // Apr 19, 2026 (Morgan bug report: "no cell phone data
-                      // shows at all … it was all there a day ago as little
-                      // green dots"). Previous default z2=1 px + opacity 0.55
-                      // was sub-pixel on retina and effectively invisible at
-                      // world view. Bumped to 2 px / opacity 0.85 so the
-                      // "little green dots" Morgan saw yesterday actually
-                      // render today. Hover still enlarges + adds stroke.
+                      // Apr 19, 2026 (critical fix — see crep-celltowers-global-
+                      // circle above). MapLibre only allows ONE zoom interpolate
+                      // per expression; the previous `case hover?zoomInterp:
+                      // zoomInterp` violated that rule and caused the layer to
+                      // never register. Multiply pattern: one zoom ramp, one
+                      // hover multiplier. Same visual result, valid spec.
                       "circle-radius": [
-                        "case",
-                        ["boolean", ["feature-state", "hover"], false],
-                        ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 4, 8, 5.5, 12, 7, 16, 10],
+                        "*",
                         ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
+                        ["case", ["boolean", ["feature-state", "hover"], false], 1.6, 1.0],
                       ],
                       "circle-color": "#39ff14",        // neon green (cell tower signature)
                       "circle-opacity": [
@@ -6244,18 +6242,17 @@ export default function CREPDashboardPage() {
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                         paint: {
-                          // Apr 19, 2026 (Morgan bug report): previous default
-                          // z2=0.8 px was sub-pixel on retina and the 615k dots
-                          // became invisible at world view. Morgan saw the 192
-                          // US static bundle's 2 px dots yesterday, then when
-                          // Tier 2 took over the layer "disappeared". Bumped
-                          // floor to 2 px at world view. Still "smaller + not
-                          // glowy" per Morgan's earlier ask — just not vanishing.
+                          // Apr 19, 2026 (critical fix): MapLibre only allows
+                          // ONE zoom-based interpolate per expression. The prior
+                          // `case hover ? zoomInterp : zoomInterp` had TWO and
+                          // MapLibre rejected the entire layer → cell towers
+                          // silently disappeared site-wide (Morgan: "no cell
+                          // phone data shows at all"). Switch to a single zoom
+                          // interpolate multiplied by a hover factor.
                           "circle-radius": [
-                            "case",
-                            ["boolean", ["feature-state", "hover"], false],
-                            ["interpolate", ["linear"], ["zoom"], 2, 3, 5, 4, 8, 5.5, 12, 7, 16, 10],
+                            "*",
                             ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
+                            ["case", ["boolean", ["feature-state", "hover"], false], 1.6, 1.0],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
