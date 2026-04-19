@@ -26,7 +26,7 @@
  * to build the vector tile archive for instant MapLibre loading.
  */
 
-import { promises as fs } from "node:fs"
+import { promises as fs, createWriteStream } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { gunzip as _gunzip } from "node:zlib"
@@ -51,6 +51,19 @@ const SKIP_OSM = flag("no-osm")
 const MINDEX_URL = optVal("mindex-url", process.env.MINDEX_API_URL || "http://192.168.0.189:8000")
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || "local-dev-key"
 const OSM_STEP = parseInt(optVal("osm-step", "30"), 10)
+
+// Morgan (Apr 18, 2026): Taiwan + US hardcoded as the "instant-load" slice.
+// OpenCelliD's 4.8M global dedup is too large to JSON.stringify in one pass
+// (exceeds Node's 512 MB string limit) AND we don't need the whole world
+// bundled — prod ships country-scoped static tiles for Taiwan + US and
+// fetches the rest live if users pan elsewhere.
+// MCCs: 310–316 = United States (multiple carrier blocks), 466 = Taiwan.
+const COUNTRIES_DEFAULT = "310,311,312,313,314,315,316,466"
+const COUNTRIES = new Set(
+  (optVal("countries", COUNTRIES_DEFAULT) || COUNTRIES_DEFAULT)
+    .split(",").map((s) => parseInt(s.trim(), 10)).filter(Number.isFinite),
+)
+const ALL_COUNTRIES = flag("all-countries")  // escape hatch — emits the full 4.8M set
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
@@ -131,14 +144,19 @@ async function harvestOpenCelliD() {
     log(`OpenCelliD: ${(buf.length / 1e6).toFixed(1)} MB gzipped; decompressing...`)
     const csv = (await gunzip(buf)).toString("utf8")
     const lines = csv.split("\n")
-    log(`OpenCelliD: ${lines.length.toLocaleString()} rows; deduping at 4-decimal grid (~11 m)...`)
+    const countryNote = ALL_COUNTRIES
+      ? "ALL countries"
+      : `MCC ∈ {${Array.from(COUNTRIES).join(",")}}`
+    log(`OpenCelliD: ${lines.length.toLocaleString()} rows; filter=${countryNote}; deduping at 4-decimal grid (~11 m)...`)
     // Header: radio,mcc,net,area,cell,unit,lon,lat,range,samples,changeable,created,updated,averageSignal
     const dedup = new Map()
+    let filteredOut = 0
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(",")
       if (cols.length < 8) continue
-      const radio = cols[0]
       const mcc = +cols[1]
+      if (!ALL_COUNTRIES && !COUNTRIES.has(mcc)) { filteredOut++; continue }
+      const radio = cols[0]
       const lon = +cols[6]
       const lat = +cols[7]
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
@@ -152,7 +170,7 @@ async function harvestOpenCelliD() {
       }
     }
     const features = Array.from(dedup.values())
-    log(`OpenCelliD: ${features.length.toLocaleString()} unique sites after dedup`)
+    log(`OpenCelliD: ${features.length.toLocaleString()} unique sites after dedup (${filteredOut.toLocaleString()} filtered by MCC)`)
     return features
   } catch (e) { log(`OpenCelliD: ERROR ${e.message}`); return [] }
 }
@@ -265,13 +283,28 @@ async function main() {
   for (const arr of [mindex, ocid, osm]) for (const f of arr) add(f)
 
   const features = Array.from(merged.values())
-  const fc = {
-    type: "FeatureCollection",
-    features,
+
+  // Stream-write to avoid JSON.stringify's ~512 MB max string length limit.
+  // With Taiwan+US default (~1M features at ~150 bytes each) we'd be at ~150 MB,
+  // borderline. Streaming keeps memory flat and scales to the full 4.8M set
+  // when --all-countries is passed.
+  log(`writing ${features.length.toLocaleString()} features to ${OUT_FILE} (streaming)...`)
+  const stream = createWriteStream(OUT_FILE, { encoding: "utf8" })
+  const write = (chunk) =>
+    new Promise((res, rej) => (stream.write(chunk) ? res() : stream.once("drain", res))) // eslint-disable-line no-unused-vars
+  const meta = {
     generatedAt: new Date().toISOString(),
     sources: { mindex: mindex.length, ocid: ocid.length, osm: osm.length, merged: features.length },
+    countries: ALL_COUNTRIES ? "all" : Array.from(COUNTRIES),
   }
-  await fs.writeFile(OUT_FILE, JSON.stringify(fc))
+  await write(`{"type":"FeatureCollection","generatedAt":${JSON.stringify(meta.generatedAt)},"sources":${JSON.stringify(meta.sources)},"countries":${JSON.stringify(meta.countries)},"features":[`)
+  for (let i = 0; i < features.length; i++) {
+    if (i > 0) await write(",")
+    await write(JSON.stringify(features[i]))
+    if (i > 0 && i % 100000 === 0) log(`  ...wrote ${i.toLocaleString()}/${features.length.toLocaleString()}`)
+  }
+  await write("]}\n")
+  await new Promise((res) => stream.end(res))
   log(`✓ wrote ${features.length.toLocaleString()} features to ${OUT_FILE}`)
   log(`  Next: run scripts/etl/crep/gen-celltower-pmtiles.sh to build PMTiles archive`)
 }

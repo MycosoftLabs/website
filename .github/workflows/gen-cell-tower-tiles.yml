@@ -21,7 +21,10 @@ on:
     inputs:
       sources:
         description: "Which sources to harvest (comma-separated subset of: osm,ocid)"
-        default: "osm,ocid"
+        default: "ocid"
+      countries:
+        description: "OpenCelliD MCC filter (comma-separated; 'all' = full 4.8M global). Default: US+Taiwan."
+        default: "310,311,312,313,314,315,316,466"
       osm_step:
         description: "OSM bbox tile step in degrees (30=72 tiles, 60=18 tiles)"
         default: "30"
@@ -64,9 +67,16 @@ jobs:
         env:
           OPENCELLID_KEY: ${{ secrets.OPENCELLID_KEY }}
         run: |
+          SRC="${{ github.event.inputs.sources || 'ocid' }}"
+          COUNTRIES="${{ github.event.inputs.countries || '310,311,312,313,314,315,316,466' }}"
           ARGS="--no-mindex"
-          if [[ ! "${{ github.event.inputs.sources }}" =~ osm  ]] && [[ -n "${{ github.event.inputs.sources }}" ]]; then ARGS="$ARGS --no-osm"; fi
-          if [[ ! "${{ github.event.inputs.sources }}" =~ ocid ]] && [[ -n "${{ github.event.inputs.sources }}" ]]; then ARGS="$ARGS --no-ocid"; fi
+          if [[ ! "$SRC" =~ osm  ]]; then ARGS="$ARGS --no-osm"; fi
+          if [[ ! "$SRC" =~ ocid ]]; then ARGS="$ARGS --no-ocid"; fi
+          if [[ "$COUNTRIES" == "all" ]]; then
+            ARGS="$ARGS --all-countries"
+          else
+            ARGS="$ARGS --countries=$COUNTRIES"
+          fi
           ARGS="$ARGS --osm-step=${{ github.event.inputs.osm_step || '30' }}"
           echo "Running: node scripts/etl/crep/fetch-celltowers-global.mjs $ARGS"
           node scripts/etl/crep/fetch-celltowers-global.mjs $ARGS
