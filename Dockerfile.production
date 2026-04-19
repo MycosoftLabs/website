@@ -1,6 +1,9 @@
 # Mycosoft.com Production Dockerfile
 # This is the main Mycosoft website with NatureOS, MIndex, MYCA integrations
 # Uses Node.js 20 to satisfy modern dependency native bindings (Tailwind oxide, Vitest ecosystem)
+# Apr 19, 2026: bust BuildKit GHA cache — railway-live + drone-no-fly routes
+# compiled in build log but runtime 404. Changing the top of the Dockerfile
+# invalidates every downstream layer and forces a clean npm run build.
 
 FROM node:20-bookworm-slim AS base
 ARG NEXTAUTH_SECRET=change-me-before-prod
