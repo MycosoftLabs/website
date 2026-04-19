@@ -3943,8 +3943,15 @@ export default function CREPDashboardPage() {
     const now = Date.now();
     for (const a of filteredAircraft) {
       acIds.add(a.id);
-      const lng = (a.location as any)?.longitude ?? a.location?.coordinates?.[0] ?? 0;
-      const lat = (a.location as any)?.latitude ?? a.location?.coordinates?.[1] ?? 0;
+      // Apr 19, 2026 (critical rendering bug — see deckEntities map below):
+      // /api/oei/flightradar24 serves flat top-level lat/lng. Old extraction
+      // looked only at entity.location.longitude / entity.location.coordinates,
+      // fell through to 0 for every aircraft → all 2000+ planes pinned at
+      // null island. lastKnownRef stayed empty → animation tick had no
+      // features to paint → blank map.
+      const aa = a as any;
+      const lng = aa.lng ?? aa.longitude ?? aa.location?.longitude ?? aa.location?.coordinates?.[0] ?? aa.geometry?.coordinates?.[0] ?? 0;
+      const lat = aa.lat ?? aa.latitude  ?? aa.location?.latitude  ?? aa.location?.coordinates?.[1] ?? aa.geometry?.coordinates?.[1] ?? 0;
       const headingDeg = typeof a.heading === "number" ? a.heading : ((a as any).properties?.heading ?? 0);
       const h = (headingDeg * Math.PI) / 180;
       const knots = typeof a.velocity === "number" ? a.velocity : ((a as any).properties?.velocity ?? (a as any).properties?.groundSpeed ?? 0) ?? 0;
@@ -3960,9 +3967,11 @@ export default function CREPDashboardPage() {
     }
     for (const v of filteredVessels) {
       vIds.add(v.id);
-      const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
-      const lng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
-      const lat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
+      // Apr 19, 2026 — same flat-lat/lng fix as aircraft above.
+      const vv = v as any;
+      const loc = vv.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+      const lng = vv.lng ?? vv.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? vv.geometry?.coordinates?.[0] ?? 0;
+      const lat = vv.lat ?? vv.latitude  ?? loc?.latitude  ?? loc?.coordinates?.[1] ?? vv.geometry?.coordinates?.[1] ?? 0;
       const sog = v.sog ?? (v as any).properties?.sog;
       const cog = v.cog ?? (v as any).properties?.cog ?? 0;
       if (Number.isFinite(lng) && Number.isFinite(lat) && typeof sog === "number" && sog >= 0) {
@@ -4060,8 +4069,15 @@ export default function CREPDashboardPage() {
     const lastKnown = lastKnownRef.current;
     const sourceEntities = [
       ...filteredAircraft.map((aircraftEntity) => {
-        const apiLng = (aircraftEntity.location as any)?.longitude ?? aircraftEntity.location?.coordinates?.[0] ?? 0;
-        const apiLat = (aircraftEntity.location as any)?.latitude ?? aircraftEntity.location?.coordinates?.[1] ?? 0;
+        // Apr 19, 2026 (critical rendering bug): /api/oei/flightradar24 returns
+        // entities with flat top-level `lat` / `lng` — not nested under
+        // `location`. Previous extraction fell through to `?? 0` for every
+        // aircraft, pinning 2000+ planes at null island and rendering NOTHING
+        // on the map. Add top-level lat/lng + `lat/lng` alternates + the
+        // GeoJSON-style coordinates fallback.
+        const a = aircraftEntity as any;
+        const apiLng = a.lng ?? a.longitude ?? a.location?.longitude ?? a.location?.coordinates?.[0] ?? a.geometry?.coordinates?.[0] ?? 0;
+        const apiLat = a.lat ?? a.latitude  ?? a.location?.latitude  ?? a.location?.coordinates?.[1] ?? a.geometry?.coordinates?.[1] ?? 0;
         const extrap = extrapolatedCoords[aircraftEntity.id];
         const coords: [number, number] = extrap ?? [apiLng, apiLat];
         const anchor = lastKnown[aircraftEntity.id];
@@ -4092,9 +4108,13 @@ export default function CREPDashboardPage() {
       };
       }),
       ...filteredVessels.map((vesselEntity) => {
-        const loc = vesselEntity.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
-        const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? 0;
-        const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? 0;
+        // Apr 19, 2026 (critical rendering bug): /api/oei/aisstream returns
+        // flat lat/lng at top level, not nested under `location`. Same fix
+        // pattern as aircraft above — see comment there.
+        const v = vesselEntity as any;
+        const loc = v.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+        const apiLng = v.lng ?? v.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? v.geometry?.coordinates?.[0] ?? 0;
+        const apiLat = v.lat ?? v.latitude  ?? loc?.latitude  ?? loc?.coordinates?.[1] ?? v.geometry?.coordinates?.[1] ?? 0;
         const extrap = extrapolatedCoords[vesselEntity.id];
         const coords: [number, number] = extrap ?? [apiLng, apiLat];
         const anchor = lastKnown[vesselEntity.id];
@@ -4129,10 +4149,16 @@ export default function CREPDashboardPage() {
       // for the unified entity list (click-selection, sidebar, etc.) but their
       // coordinates are the API fallback position, NOT the live propagated position.
       ...filteredSatellites.map((satelliteEntity) => {
-        const loc = (satelliteEntity as any).location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
+        // Apr 19, 2026 (critical rendering bug): satellite registry endpoint
+        // returns flat lat/lng at top level (see aircraft/vessel fix above).
+        // Add the flat fallbacks here too. The satellite-animation module
+        // overwrites this per-frame with SGP4 propagated positions anyway,
+        // but the initial render + the deckEntities useMemo use these coords.
+        const sat = satelliteEntity as any;
+        const loc = sat.location as { longitude?: number; latitude?: number; coordinates?: [number, number] } | undefined;
         const est = satelliteEntity.estimatedPosition;
-        const apiLng = loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? 0;
-        const apiLat = loc?.latitude ?? loc?.coordinates?.[1] ?? est?.latitude ?? 0;
+        const apiLng = sat.lng ?? sat.longitude ?? loc?.longitude ?? loc?.coordinates?.[0] ?? est?.longitude ?? sat.geometry?.coordinates?.[0] ?? 0;
+        const apiLat = sat.lat ?? sat.latitude  ?? loc?.latitude  ?? loc?.coordinates?.[1] ?? est?.latitude  ?? sat.geometry?.coordinates?.[1] ?? 0;
         const orbitalParams = (satelliteEntity as { orbitalParams?: { velocity?: number; period?: number; inclination?: number } }).orbitalParams;
         const velKmS = orbitalParams?.velocity ?? (satelliteEntity as any).properties?.velocity ?? 0;
         return {
