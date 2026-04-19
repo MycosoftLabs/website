@@ -154,12 +154,44 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
         }))
         const fc = { type: "FeatureCollection" as const, features }
         if (!map.getSource("crep-radio")) {
-          map.addSource("crep-radio", { type: "geojson", data: fc })
+          map.addSource("crep-radio", { type: "geojson", data: fc, generateId: true })
+          // Apr 19, 2026 (Morgan: "new am fm antennas need to be different
+          // from cell towers look on map to see what is what"). Cell towers
+          // are solid neon-green dots; radio stations are hollow BAND-colored
+          // RINGS — the outline-only shape language reads differently at a
+          // glance even when both layers are dense. Colors:
+          //   FM   #a855f7 violet   AM   #ec4899 pink
+          //   TV   #f59e0b amber    SDR  #22d3ee cyan
+          // Hover: ring fills in (feature-state hover expression).
           map.addLayer({
             id: "crep-radio-dot", type: "circle", source: "crep-radio",
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 6, 3, 10, 5, 14, 7],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.4, 6, 2.2, 10, 3.6, 14, 5.5],
+              // Transparent fill by default = ring appearance. Fill comes in on hover.
               "circle-color": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false],
+                [
+                  "match", ["get", "band"],
+                  "FM", "#a855f7",
+                  "AM", "#ec4899",
+                  "TV", "#f59e0b",
+                  "PUBLIC_SDR", "#22d3ee",
+                  "#8b5cf6",
+                ],
+                "rgba(0,0,0,0)",
+              ],
+              "circle-opacity": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false], 0.95,
+                0.0,
+              ],
+              "circle-stroke-width": [
+                "case",
+                ["boolean", ["feature-state", "hover"], false], 2.0,
+                1.4,
+              ],
+              "circle-stroke-color": [
                 "match", ["get", "band"],
                 "FM", "#a855f7",
                 "AM", "#ec4899",
@@ -167,8 +199,29 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
                 "PUBLIC_SDR", "#22d3ee",
                 "#8b5cf6",
               ],
-              "circle-opacity": 0.9, "circle-stroke-width": 0.5, "circle-stroke-color": "#fff",
+              "circle-stroke-opacity": 0.85,
             },
+          })
+          // Hover state wiring (rings fill in when cursor is over)
+          let radioHoverId: string | number | null = null
+          const hoverSet = (id: string | number | null, hover: boolean) => {
+            if (id == null) return
+            try { map.setFeatureState({ source: "crep-radio", id }, { hover }) } catch { /* generateId:true required */ }
+          }
+          map.on("mousemove", "crep-radio-dot", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            if (radioHoverId !== f.id) {
+              hoverSet(radioHoverId, false)
+              radioHoverId = f.id ?? null
+              hoverSet(radioHoverId, true)
+            }
+            map.getCanvas().style.cursor = "pointer"
+          })
+          map.on("mouseleave", "crep-radio-dot", () => {
+            hoverSet(radioHoverId, false)
+            radioHoverId = null
+            map.getCanvas().style.cursor = ""
           })
         } else {
           (map.getSource("crep-radio") as any).setData(fc)
