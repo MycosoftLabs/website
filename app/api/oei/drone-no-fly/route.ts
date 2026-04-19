@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Drone No-Fly Zones — Apr 19, 2026
+ * Drone No-Fly Zones — Apr 19, 2026 (r2: cache-bust)
  *
  * Polygon airspace dataset covering controlled, restricted, prohibited,
  * danger, and temporary-flight-restriction areas. Used by the CREP drone

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Railway Live Trains — Apr 19, 2026
+ * Railway Live Trains — Apr 19, 2026 (r2: cache-bust)
  *
  * Proxies Amtrak's public Track-A-Train GeoJSON feed, normalizes the
  * per-train record shape, and caches briefly so the CREP poll loop
