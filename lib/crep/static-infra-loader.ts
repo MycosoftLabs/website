@@ -35,9 +35,16 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     label: "US substations (HIFLD)",
   },
   transmissionLines: {
-    sourceId: "crep-txlines",
+    // sourceId distinct from the existing "crep-txlines" geojson source
+    // used by the renderTxLines path — CREPDashboardClient wires BOTH so
+    // world-view paints via PMTiles (pre-clustered by tippecanoe) while
+    // the zoom-4+ geojson path keeps voltage-granular routing.
+    sourceId: "crep-txlines-global",
     pmtilesLayerName: "transmission_lines",
-    pmtilesUrl: "/data/crep/tiles/transmission-lines-us-major.pmtiles",
+    // Route through /api/crep/tiles/* for consistency with cell towers
+    // and as a safety net against any future Next.js static-handler
+    // oddities on large PMTiles files.
+    pmtilesUrl: "/api/crep/tiles/transmission-lines-us-major.pmtiles",
     geojsonUrl: "/data/crep/transmission-lines-us-major.geojson",
     label: "US transmission lines (HIFLD ≥345 kV)",
   },

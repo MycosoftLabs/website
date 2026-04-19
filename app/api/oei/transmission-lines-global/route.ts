@@ -27,17 +27,32 @@ interface TxLine {
   coordinates: [number, number][]     // LineString
 }
 
-async function fromStaticUS(baseUrl: string): Promise<TxLine[]> {
+// Apr 19, 2026 (Morgan: "missing lots of powerlines and transmission lines"):
+// Previously this fetched `${baseUrl}/data/crep/transmission-lines-us-major.geojson`
+// but on prod baseUrl resolves to `https://mycosoft.com` — fetching that from
+// INSIDE the Next.js container had to traverse cloudflared tunnel → nginx →
+// back to the same container. That round-trip silently failed and the route
+// returned 0 HIFLD lines forever. Read directly from the filesystem instead;
+// the bundled geojson is at a fixed path in the image.
+async function fromStaticUS(_baseUrl?: string): Promise<TxLine[]> {
   try {
-    const res = await fetch(`${baseUrl}/data/crep/transmission-lines-us-major.geojson`, { cache: "force-cache" })
-    if (!res.ok) return []
-    const fc = await res.json()
+    const fs = await import("node:fs/promises")
+    const path = await import("node:path")
+    const abs = path.join(process.cwd(), "public", "data", "crep", "transmission-lines-us-major.geojson")
+    const raw = await fs.readFile(abs, "utf8")
+    const fc = JSON.parse(raw)
     return (fc?.features || []).map((f: any, i: number) => ({
       id: `hifld-${i}`, source: "HIFLD",
-      voltage_kv: parseFloat(f.properties?.VOLTAGE) || parseFloat(f.properties?.voltage_kv),
-      operator: f.properties?.OWNER || f.properties?.operator,
-      status: f.properties?.STATUS === "IN SERVICE" ? "operating" as const : undefined,
-      country: "US", coordinates: f.geometry?.coordinates || [],
+      voltage_kv:
+        (f.properties?.v != null ? f.properties.v / 1000 : undefined) ||
+        parseFloat(f.properties?.VOLTAGE) ||
+        parseFloat(f.properties?.voltage_kv),
+      operator: f.properties?.OWNER || f.properties?.op || f.properties?.operator,
+      status: (f.properties?.STATUS === "IN SERVICE" || f.properties?.status === "Active")
+        ? "operating" as const
+        : undefined,
+      country: "US",
+      coordinates: f.geometry?.coordinates || [],
     }))
   } catch { return [] }
 }

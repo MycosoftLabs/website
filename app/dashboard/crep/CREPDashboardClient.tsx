@@ -5984,6 +5984,50 @@ export default function CREPDashboardPage() {
                   await yieldToUI();
                 }).catch((err) => console.warn("[CREP/Infra] TX lines error:", err?.message || err));
 
+                // Apr 19, 2026 (Morgan: "missing lots of powerlines and
+                // transmission lines"): ALSO wire the PMTiles vector-tile
+                // path so transmission lines paint at world view via
+                // tippecanoe's automatic simplification / clustering. The
+                // existing geojson path stays minzoom:4 (22k lines would
+                // render-storm at world view), but PMTiles carries the
+                // pre-cluster from tippecanoe so z2–z3 is fast.
+                void (async () => {
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionLines);
+                    if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
+                    const spec = layerSpecForMode(result.mode, INFRA_LAYERS.transmissionLines);
+                    // Use a different layer id so this coexists with the
+                    // existing crep-txlines-line (minzoom:4 geojson path).
+                    // At zoom ≥4 both paint; the geojson path has
+                    // voltage-granular routing, the PMTiles path has
+                    // simplified geometry good for low-zoom overview.
+                    safeAddLayer({
+                      id: "crep-txlines-global-line",
+                      type: "line",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      paint: {
+                        "line-color": ["interpolate", ["linear"],
+                          ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0],
+                          0, "#9ca3af", 31000, "#fb923c", 100000, "#ec4899", 230000, "#a855f7",
+                          345000, "#60a5fa", 500000, "#22d3ee", 735000, "#ffffff"],
+                        "line-width": ["interpolate", ["linear"], ["zoom"],
+                          2, 0.4, 4, 0.7, 6, 1.2, 8, 1.8, 12, 2.6, 16, 3.5],
+                        "line-opacity": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 0.45, 4, 0.6, 8, 0.75, 12, 0.8,
+                        ],
+                      },
+                      // No minzoom — pmtiles carries pre-clustered geometry
+                      // all the way down to z2, so world view renders the
+                      // high-voltage backbone cleanly.
+                    });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionLines.label}: ${result.mode} active → crep-txlines-global-line (no minzoom gate)`);
+                  } catch (e) {
+                    console.warn("[CREP/Infra] transmission-lines PMTiles path failed:", (e as Error)?.message);
+                  }
+                })();
+
                 // ── Cell towers (antennas) — render from world view (viewport-first) ──
                 // Apr 18, 2026: dropped the previous zoom:6+ gate. Cell towers
                 // now render at every zoom level; density stays manageable
@@ -6518,8 +6562,8 @@ export default function CREPDashboardPage() {
                   if (mapRef) {
                     const infraLayerIds = [
                       "crep-cables-line", "crep-plants-circle", "crep-subs-circle",
-                      "crep-txlines-line", "crep-celltowers-circle",
-                      "crep-celltowers-global-circle",
+                      "crep-txlines-line", "crep-txlines-global-line",
+                      "crep-celltowers-circle", "crep-celltowers-global-circle",
                     ];
                     for (const id of infraLayerIds) {
                       if (mapRef.getLayer(id)) {
