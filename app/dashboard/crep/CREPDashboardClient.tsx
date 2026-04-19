@@ -6006,43 +6006,77 @@ export default function CREPDashboardPage() {
                 const renderCellTowers = (entities: any[], label: string) => {
                   const features = towersToFeatures(entities);
                   if (!features.length) return;
-                  safeAddSource("crep-celltowers", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  safeAddSource("crep-celltowers", {
+                    type: "geojson",
+                    data: { type: "FeatureCollection", features },
+                    generateId: true, // required for feature-state hover expressions
+                  });
                   safeAddLayer({
                     id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
                     paint: {
-                      // Apr 18, 2026: widened radius + earlier zoom visibility.
-                      // Previous gate was minzoom:6 + 1.5px radius = invisible
-                      // in practice at any continental/country zoom. With only
-                      // ~192 bundled + live-feed towers in viewport there's no
-                      // perf reason to hide them at world view.
-                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 3.5, 8, 5, 12, 7, 16, 10],
-                      "circle-color": "#c084fc",          // brighter violet — stands out on dark basemap
-                      "circle-opacity": 0.85,
-                      "circle-stroke-width": 1,
+                      // Apr 19, 2026 (Morgan): neon green, smaller, NOT glowy
+                      // until hovered. Previously violet + white stroke made them
+                      // look like substations and blocked underlying features.
+                      // Hover state brightens + enlarges so selection is obvious
+                      // without permanent visual noise.
+                      "circle-radius": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false],
+                        ["interpolate", ["linear"], ["zoom"], 2, 2.5, 5, 3.5, 8, 5, 12, 7, 16, 10],
+                        ["interpolate", ["linear"], ["zoom"], 2, 1,   5, 1.6, 8, 2.4, 12, 3.5, 16, 5.5],
+                      ],
+                      "circle-color": "#39ff14",        // neon green (cell tower signature)
+                      "circle-opacity": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false], 1.0,
+                        0.55,
+                      ],
+                      "circle-stroke-width": [
+                        "case",
+                        ["boolean", ["feature-state", "hover"], false], 1.2,
+                        0,
+                      ],
                       "circle-stroke-color": "#ffffff",
-                      "circle-stroke-opacity": 0.7,
+                      "circle-stroke-opacity": 0.85,
                     },
-                    // Drop minzoom gate entirely — the sparse bundled set
-                    // (~192 US features) + any live MINDEX/FCC/OSM hits
-                    // render from world view upward.
+                    // No minzoom gate — render from world view upward.
                   });
                   if (!towersClickBound) {
                     towersClickBound = true;
+                    // Hover state for the legacy (renderCellTowers) layer
+                    let legacyHoveredId: string | number | null = null;
+                    const legacyHover = (id: string | number | null, hover: boolean) => {
+                      if (id == null) return;
+                      try { map.setFeatureState({ source: "crep-celltowers", id }, { hover }); } catch { /* generateId:true required */ }
+                    };
+                    map.on("mousemove", "crep-celltowers-circle", (e: any) => {
+                      const f = e.features?.[0];
+                      if (!f) return;
+                      if (legacyHoveredId !== f.id) {
+                        legacyHover(legacyHoveredId, false);
+                        legacyHoveredId = f.id ?? null;
+                        legacyHover(legacyHoveredId, true);
+                      }
+                      map.getCanvas().style.cursor = "pointer";
+                    });
+                    map.on("mouseleave", "crep-celltowers-circle", () => {
+                      legacyHover(legacyHoveredId, false);
+                      legacyHoveredId = null;
+                      map.getCanvas().style.cursor = "";
+                    });
                     map.on("click", "crep-celltowers-circle", (e: any) => {
                       const props = e.features?.[0]?.properties;
-                      if (props?.name) {
-                        lastEntityPickTimeRef.current = Date.now();
-                        const coords = e.lngLat;
-                        highlightPoint(map, coords?.lng ?? 0, coords?.lat ?? 0);
-                        setSelectedInfraAsset({
-                          type: "cell_tower", name: props.name,
-                          lat: coords?.lat ?? 0, lng: coords?.lng ?? 0,
-                          properties: typeof props === "object" ? { ...props } : {},
-                        });
-                      }
+                      if (!props) return;
+                      lastEntityPickTimeRef.current = Date.now();
+                      const coords = e.lngLat;
+                      highlightPoint(map, coords?.lng ?? 0, coords?.lat ?? 0);
+                      setSelectedInfraAsset({
+                        type: "cell_tower",
+                        name: props.name || `Cell Tower ${props.id || ""}`.trim(),
+                        lat: coords?.lat ?? 0, lng: coords?.lng ?? 0,
+                        properties: typeof props === "object" ? { ...props } : {},
+                      });
                     });
-                    map.on("mouseenter", "crep-celltowers-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-                    map.on("mouseleave", "crep-celltowers-circle", () => { map.getCanvas().style.cursor = ""; });
                   }
                   console.log(`[CREP/Infra] ${features.length} cell towers → MapLibre (${label})`);
                 };
@@ -6164,15 +6198,86 @@ export default function CREPDashboardPage() {
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                         paint: {
-                          "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.8, 5, 2.6, 8, 3.5, 12, 5, 16, 8],
-                          "circle-color": "#c084fc",
-                          "circle-opacity": 0.82,
-                          "circle-stroke-width": 0.6,
+                          // Apr 19, 2026 (Morgan): neon green, smaller, not glowy
+                          // unless hovered. Matches the instant-bundle layer so
+                          // there's no visual shift when Tier 1 → Tier 2 upgrade
+                          // happens. Hover ring appears on mouseenter only.
+                          "circle-radius": [
+                            "case",
+                            ["boolean", ["feature-state", "hover"], false],
+                            ["interpolate", ["linear"], ["zoom"], 2, 2.5, 5, 3.5, 8, 5, 12, 7, 16, 10],
+                            ["interpolate", ["linear"], ["zoom"], 2, 0.8, 5, 1.4, 8, 2.2, 12, 3.2, 16, 5],
+                          ],
+                          "circle-color": "#39ff14",       // neon green
+                          "circle-opacity": [
+                            "case",
+                            ["boolean", ["feature-state", "hover"], false], 1.0,
+                            0.5,
+                          ],
+                          "circle-stroke-width": [
+                            "case",
+                            ["boolean", ["feature-state", "hover"], false], 1.2,
+                            0,
+                          ],
                           "circle-stroke-color": "#ffffff",
-                          "circle-stroke-opacity": 0.55,
+                          "circle-stroke-opacity": 0.85,
                         },
                       });
-                      console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active → crep-celltowers-global-circle`);
+
+                      // Hover + click wiring for the global (PMTiles / GeoJSON)
+                      // vector layer — previously it rendered but wasn't
+                      // selectable, which is why the dots felt "broken".
+                      let globalHoveredId: string | number | null = null;
+                      const globalSourceHover = (id: string | number | null, hover: boolean) => {
+                        if (id == null) return;
+                        try {
+                          map.setFeatureState(
+                            spec.sourceLayer
+                              ? { source: result.sourceId, sourceLayer: spec.sourceLayer, id }
+                              : { source: result.sourceId, id },
+                            { hover },
+                          );
+                        } catch { /* feature-state only works when the feature has a stable id — PMTiles carries one */ }
+                      };
+                      map.on("mousemove", "crep-celltowers-global-circle", (e: any) => {
+                        const f = e.features?.[0];
+                        if (!f) return;
+                        const fid = f.id;
+                        if (globalHoveredId !== fid) {
+                          globalSourceHover(globalHoveredId, false);
+                          globalHoveredId = fid ?? null;
+                          globalSourceHover(globalHoveredId, true);
+                        }
+                        map.getCanvas().style.cursor = "pointer";
+                      });
+                      map.on("mouseleave", "crep-celltowers-global-circle", () => {
+                        globalSourceHover(globalHoveredId, false);
+                        globalHoveredId = null;
+                        map.getCanvas().style.cursor = "";
+                      });
+                      map.on("click", "crep-celltowers-global-circle", (e: any) => {
+                        const f = e.features?.[0];
+                        if (!f) return;
+                        const props = f.properties || {};
+                        lastEntityPickTimeRef.current = Date.now();
+                        const coords = e.lngLat;
+                        highlightPoint(map, coords?.lng ?? 0, coords?.lat ?? 0);
+                        setSelectedInfraAsset({
+                          type: "cell_tower",
+                          name: props.n || props.name || `Cell Tower ${props.id || ""}`.trim(),
+                          lat: coords?.lat ?? 0,
+                          lng: coords?.lng ?? 0,
+                          properties: {
+                            operator: props.op || props.operator,
+                            height_m: props.h || props.height_m,
+                            radio: props.radio,
+                            mcc: props.mcc,
+                            source: props.src || "pmtiles",
+                          },
+                        });
+                      });
+
+                      console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active → crep-celltowers-global-circle (click + hover wired)`);
                       return;
                     }
                   } catch (e) {
