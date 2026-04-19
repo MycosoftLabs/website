@@ -6,6 +6,7 @@
  * a single deduplicated GeoJSON feature collection:
  *
  *   public/data/crep/cell-towers-global.geojson
+ *   public/data/crep/cell-towers-us-tw-instant.geojson  (US + Taiwan + territories subset)
  *
  * Sources (time-boxed, fail-isolated):
  *   1. MINDEX NAS  —  http://192.168.0.189:8000/api/mindex/earth/map/bbox?layer=antennas
@@ -37,6 +38,8 @@ const __filename = fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename), "..", "..", "..")
 const OUT_DIR = path.join(ROOT, "public", "data", "crep")
 const OUT_FILE = path.join(OUT_DIR, "cell-towers-global.geojson")
+/** Bundled subset for CREP instant load (Taiwan + US + territories); shipped to prod CDN. */
+const OUT_INSTANT = path.join(OUT_DIR, "cell-towers-us-tw-instant.geojson")
 
 const args = process.argv.slice(2)
 const flag = (name) => args.some((a) => a === `--${name}`)
@@ -255,6 +258,54 @@ async function harvestOSM() {
   return features
 }
 
+// ─── US + Taiwan “instant” slice for static CREP load ─────────────────────
+
+/** Points inside Taiwan, contiguous US, AK, HI, PR, Guam — matches defense map focus. */
+function isUsTaiwanInstantSlice(lng, lat) {
+  if (lat >= 21 && lat <= 26.6 && lng >= 118.4 && lng <= 122.6) return true // Taiwan
+  if (lat >= 24 && lat <= 49.6 && lng >= -125 && lng <= -66.5) return true // contiguous US
+  if (lat >= 51 && lat <= 72 && lng >= -179 && lng <= -129) return true // Alaska
+  if (lat >= 18 && lat <= 23.5 && lng >= -161 && lng <= -154) return true // Hawaii
+  if (lat >= 17.8 && lat <= 18.7 && lng >= -67.5 && lng <= -65.2) return true // Puerto Rico
+  if (lat >= 13.1 && lat <= 13.7 && lng >= 144.6 && lng <= 144.95) return true // Guam
+  return false
+}
+
+async function writeInstantGeoJSON(features) {
+  const instant = features.filter((f) => {
+    const [lng, lat] = f.geometry.coordinates
+    return isUsTaiwanInstantSlice(lng, lat)
+  })
+  log(`instant bundle (US + TW + territories): ${instant.length.toLocaleString()} → ${path.basename(OUT_INSTANT)}`)
+  if (instant.length === 0) {
+    await fs.writeFile(OUT_INSTANT, JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8")
+    return
+  }
+  if (instant.length < 500_000) {
+    await fs.writeFile(
+      OUT_INSTANT,
+      JSON.stringify({
+        type: "FeatureCollection",
+        generatedAt: new Date().toISOString(),
+        slice: "us-tw-territories",
+        features: instant,
+      }),
+      "utf8",
+    )
+    return
+  }
+  const stream = createWriteStream(OUT_INSTANT, { encoding: "utf8" })
+  const write = (chunk) => new Promise((res) => (stream.write(chunk) ? res() : stream.once("drain", res)))
+  await write(`{"type":"FeatureCollection","generatedAt":${JSON.stringify(new Date().toISOString())},"slice":"us-tw-territories","features":[`)
+  for (let i = 0; i < instant.length; i++) {
+    if (i > 0) await write(",")
+    await write(JSON.stringify(instant[i]))
+    if (i > 0 && i % 100000 === 0) log(`  instant ... ${i.toLocaleString()}/${instant.length.toLocaleString()}`)
+  }
+  await write("]}\n")
+  await new Promise((res) => stream.end(res))
+}
+
 // ─── Orchestrate + dedupe + write ──────────────────────────────────────────
 
 async function main() {
@@ -284,6 +335,8 @@ async function main() {
 
   const features = Array.from(merged.values())
 
+  await writeInstantGeoJSON(features)
+
   // Stream-write to avoid JSON.stringify's ~512 MB max string length limit.
   // With Taiwan+US default (~1M features at ~150 bytes each) we'd be at ~150 MB,
   // borderline. Streaming keeps memory flat and scales to the full 4.8M set
@@ -307,6 +360,7 @@ async function main() {
   await new Promise((res) => stream.end(res))
   log(`✓ wrote ${features.length.toLocaleString()} features to ${OUT_FILE}`)
   log(`  Next: run scripts/etl/crep/gen-celltower-pmtiles.sh to build PMTiles archive`)
+  log(`  Instant slice: ${OUT_INSTANT} (commit for CREP immediate load)`)
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })

@@ -28,41 +28,55 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-IN="$ROOT/public/data/crep/cell-towers-global.geojson"
 OUT_DIR="$ROOT/public/data/crep/tiles"
-OUT_MBTILES="$OUT_DIR/cell-towers-global.mbtiles"
-OUT_PMTILES="$OUT_DIR/cell-towers-global.pmtiles"
-
 mkdir -p "$OUT_DIR"
-
-if [ ! -f "$IN" ]; then
-  echo "ERROR: $IN not found. Run scripts/etl/crep/fetch-celltowers-global.mjs first." >&2
-  exit 1
-fi
 
 command -v tippecanoe >/dev/null 2>&1 || { echo "ERROR: tippecanoe not installed" >&2; exit 1; }
 command -v pmtiles   >/dev/null 2>&1 || { echo "ERROR: pmtiles CLI not installed"  >&2; exit 1; }
 
-echo "=== cell-towers-global.geojson → cell-towers-global.pmtiles ==="
-echo "Input: $(stat -c%s "$IN" 2>/dev/null || wc -c < "$IN") bytes"
+# Builder: (input, layer, zmax) → PMTiles archive in $OUT_DIR/<basename>.pmtiles
+build_tiles() {
+  local src="$1"
+  local layer="$2"
+  local zmax="$3"
+  local base
+  base="$(basename "$src" .geojson)"
+  local mb="$OUT_DIR/$base.mbtiles"
+  local pm="$OUT_DIR/$base.pmtiles"
 
-tippecanoe \
-  --output="$OUT_MBTILES" \
-  --force \
-  --layer=cell_towers \
-  --minimum-zoom=0 \
-  --maximum-zoom=14 \
-  --cluster-distance=8 \
-  --cluster-maxzoom=11 \
-  --drop-densest-as-needed \
-  --extend-zooms-if-still-dropping \
-  --no-feature-limit \
-  --no-tile-size-limit \
-  "$IN"
+  if [ ! -f "$src" ]; then
+    echo "skip: $(basename "$src") not present"
+    return
+  fi
+  echo "=== $(basename "$src") → $(basename "$pm") (layer=$layer, zmax=$zmax) ==="
+  echo "Input: $(stat -c%s "$src" 2>/dev/null || wc -c < "$src") bytes"
 
-pmtiles convert "$OUT_MBTILES" "$OUT_PMTILES" --force
-rm "$OUT_MBTILES"
+  tippecanoe \
+    --output="$mb" \
+    --force \
+    --layer="$layer" \
+    --minimum-zoom=0 \
+    --maximum-zoom="$zmax" \
+    --cluster-distance=8 \
+    --cluster-maxzoom=11 \
+    --drop-densest-as-needed \
+    --extend-zooms-if-still-dropping \
+    --no-feature-limit \
+    --no-tile-size-limit \
+    "$src"
 
-BYTES=$(wc -c < "$OUT_PMTILES")
-echo "✓ $(basename "$OUT_PMTILES"): $((BYTES / 1024 / 1024)) MB"
+  pmtiles convert "$mb" "$pm" --force
+  rm "$mb"
+  local bytes; bytes=$(wc -c < "$pm")
+  echo "  → $(basename "$pm"): $((bytes / 1024 / 1024)) MB"
+}
+
+# Primary: full global (or country-filtered) catalog. z14 so streets work.
+build_tiles "$ROOT/public/data/crep/cell-towers-global.geojson" cell_towers 14
+
+# Instant bundle (US + Taiwan + territories). Shipped to prod CDN so the
+# CREP dashboard paints towers in 0 round-trips on first map mount.
+build_tiles "$ROOT/public/data/crep/cell-towers-us-tw-instant.geojson" cell_towers 14
+
+echo
 ls -lh "$OUT_DIR"

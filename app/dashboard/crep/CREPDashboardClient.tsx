@@ -6066,24 +6066,59 @@ export default function CREPDashboardPage() {
                   console.log(`[CREP/Infra] ${valid.length} military facilities → MapLibre (${label}): ${polyFeatures.length} polygons, ${pointFeatures.length} points`);
                 };
 
-                // ── Cell / communications towers — PMTiles-first, bundled fallback ──
-                // Apr 18, 2026: Global cell tower layer preferred path is
-                // now PMTiles vector tiles generated from MINDEX NAS
-                // (Taiwan + US already loaded) + OpenCelliD 47M catalog +
-                // OSM global comm/mast tags. See scripts/etl/crep/
-                // fetch-celltowers-global.mjs + gen-celltower-pmtiles.sh.
-                //
-                // Loading order (first hit wins):
-                //   1. cell-towers-global.pmtiles   — vector tiles, instant per-tile load
-                //   2. cell-towers-global.geojson   — bundled combined set (when PMTiles
-                //                                     hasn't been generated yet)
-                //   3. cell-towers-us.geojson       — 192-feature legacy bundle
-                //   4. batchFetch("cell-towers")    — live MINDEX bbox-scoped
-                let cellTowerPMTilesActive = false;
+                // ── Cell / communications towers — instant US+TW bundle, then global PMTiles ──
+                // Taiwan + US (+ territories) ship as cell-towers-us-tw-instant.geojson
+                // (built by fetch-celltowers-global.mjs). Loaded ASAP (no idle deferral).
+                // Global layer: PMTiles → GeoJSON bundle → legacy US sample → live MINDEX.
+                const ctState = { globalLoaded: false, instantRendered: false };
+
+                const stripInstantCellOverlay = () => {
+                  try {
+                    if (map.getLayer("crep-celltowers-circle")) map.removeLayer("crep-celltowers-circle");
+                    if (map.getSource("crep-celltowers")) map.removeSource("crep-celltowers");
+                  } catch {
+                    /* ignore */
+                  }
+                  ctState.instantRendered = false;
+                };
+
+                void (async () => {
+                  try {
+                    const res = await fetch("/data/crep/cell-towers-us-tw-instant.geojson", { cache: "force-cache" });
+                    if (!res.ok) return;
+                    const gj = await res.json();
+                    if (ctState.globalLoaded) return;
+                    const feats = gj.features || [];
+                    if (!feats.length) return;
+                    const entities = feats.map((f: any, i: number) => ({
+                      id: String(f.properties?.id ?? `twus-${i}`),
+                      name: f.properties?.n ?? "Cell tower",
+                      lat: f.geometry.coordinates[1],
+                      lng: f.geometry.coordinates[0],
+                      properties: {
+                        operator: f.properties?.op,
+                        height_m: f.properties?.h,
+                        mcc: f.properties?.mcc,
+                        radio: f.properties?.radio,
+                        src: f.properties?.src ?? "instant-bundle",
+                      },
+                      source: "us-tw-static",
+                    }));
+                    if (!entities.length || !mapReady()) return;
+                    renderCellTowers(entities, "static-us-tw-instant");
+                    ctState.instantRendered = true;
+                    console.log(`[CREP/Static] ${entities.length} US/TW cell towers (instant bundle)`);
+                  } catch (e) {
+                    console.warn("[CREP/Static] cell-towers-us-tw-instant failed:", (e as Error)?.message);
+                  }
+                })();
+
                 idleLoad(async () => {
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.cellTowersGlobal);
                     if (result.mode === "pmtiles" || result.mode === "geojson") {
+                      ctState.globalLoaded = true;
+                      stripInstantCellOverlay();
                       const spec = layerSpecForMode(result.mode, INFRA_LAYERS.cellTowersGlobal);
                       safeAddLayer({
                         id: "crep-celltowers-global-circle",
@@ -6091,7 +6126,6 @@ export default function CREPDashboardPage() {
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                         paint: {
-                          // Pre-clustered by tippecanoe at z0-11; match legacy palette
                           "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.8, 5, 2.6, 8, 3.5, 12, 5, 16, 8],
                           "circle-color": "#c084fc",
                           "circle-opacity": 0.82,
@@ -6100,66 +6134,66 @@ export default function CREPDashboardPage() {
                           "circle-stroke-opacity": 0.55,
                         },
                       });
-                      cellTowerPMTilesActive = true;
                       console.log(`[CREP/Infra] ${INFRA_LAYERS.cellTowersGlobal.label}: ${result.mode} active → crep-celltowers-global-circle`);
+                      return;
                     }
                   } catch (e) {
-                    console.warn("[CREP/Infra] cell-towers PMTiles path failed:", (e as Error)?.message);
+                    console.warn("[CREP/Infra] cell-towers global source failed:", (e as Error)?.message);
                   }
-                });
 
-                // ── Legacy static 192-feature bundle (fallback when PMTiles isn't built) ──
-                // Only fires if the PMTiles-preferred path above hasn't already
-                // registered a global source — otherwise we'd double-paint the
-                // same US towers. The legacy path stays so that a fresh clone
-                // of the repo (where gen-celltower-pmtiles.sh hasn't run yet)
-                // still shows at least 192 US towers.
-                idleLoad(async () => {
-                  if (cellTowerPMTilesActive) return;
-                  try {
-                    const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "default" });
-                    if (!res.ok) return;
-                    const gj = await res.json();
-                    const entities = (gj.features || []).map((f: any, i: number) => ({
-                      id: `osm-tower-${i}`,
-                      name: f.properties?.n ?? "Cell/Comm Tower",
-                      lat: f.geometry.coordinates[1],
-                      lng: f.geometry.coordinates[0],
-                      properties: {
-                        operator: f.properties?.op,
-                        height_m: f.properties?.h,
-                      },
-                      source: "osm-static",
-                    }));
-                    if (entities.length && mapReady()) {
-                      renderCellTowers(entities, "static-osm");
-                      console.log(`[CREP/Static] ${entities.length} cell towers rendered (idle-loaded)`);
+                  if (!ctState.globalLoaded) {
+                    try {
+                      const res = await fetch("/data/crep/cell-towers-us.geojson", { cache: "default" });
+                      if (res.ok) {
+                        const gj = await res.json();
+                        const entities = (gj.features || []).map((f: any, i: number) => ({
+                          id: `osm-tower-${i}`,
+                          name: f.properties?.n ?? "Cell/Comm Tower",
+                          lat: f.geometry.coordinates[1],
+                          lng: f.geometry.coordinates[0],
+                          properties: {
+                            operator: f.properties?.op,
+                            height_m: f.properties?.h,
+                          },
+                          source: "osm-static",
+                        }));
+                        if (entities.length && mapReady()) {
+                          renderCellTowers(entities, "static-osm");
+                          console.log(`[CREP/Static] ${entities.length} cell towers (legacy US bundle)`);
+                        }
+                      }
+                    } catch (e) {
+                      console.warn("[CREP/Static] cell-towers-us.geojson failed:", (e as Error)?.message);
                     }
-                  } catch (e) {
-                    console.warn("[CREP/Static] cell-towers static load failed:", (e as Error)?.message);
+                  }
+
+                  if (!ctState.globalLoaded) {
+                    batchFetch("cell-towers", 20000, (vpResults) => {
+                      if (ctState.globalLoaded) return;
+                      const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
+                      const seen = new Set<string>();
+                      const unique = vpTowers.filter((e: any) => {
+                        if (!e.id || seen.has(e.id)) return false;
+                        seen.add(e.id);
+                        return true;
+                      });
+                      if (unique.length) renderCellTowers(unique, "viewport");
+                    })
+                      .then(async (results) => {
+                        if (ctState.globalLoaded) return;
+                        const allTowers = results.flatMap((r: any) => r?.entities || []);
+                        const seen = new Set<string>();
+                        const unique = allTowers.filter((e: any) => {
+                          if (!e.id || seen.has(e.id)) return false;
+                          seen.add(e.id);
+                          return true;
+                        });
+                        if (unique.length) renderCellTowers(unique, "global");
+                        await yieldToUI();
+                      })
+                      .catch((err) => console.warn("[CREP/Infra] Cell towers batchFetch:", err?.message || err));
                   }
                 });
-
-                // Live MINDEX viewport enrichment — only run when we do NOT
-                // have a PMTiles global source. When PMTiles is active the
-                // archive already covers the full catalog at every zoom and
-                // batchFetch replays would just trigger redundant server work.
-                if (!cellTowerPMTilesActive) {
-                  batchFetch("cell-towers", 20000, (vpResults) => {
-                    if (cellTowerPMTilesActive) return;
-                    const vpTowers = vpResults.flatMap((r: any) => r?.entities || []);
-                    const seen = new Set<string>();
-                    const unique = vpTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                    if (unique.length) renderCellTowers(unique, "viewport");
-                  }).then(async (results) => {
-                    if (cellTowerPMTilesActive) return;
-                    const allTowers = results.flatMap((r: any) => r?.entities || []);
-                    const seen = new Set<string>();
-                    const unique = allTowers.filter((e: any) => { if (!e.id || seen.has(e.id)) return false; seen.add(e.id); return true; });
-                    if (unique.length) renderCellTowers(unique, "global");
-                    await yieldToUI();
-                  }).catch((err) => console.warn("[CREP/Infra] Cell towers error:", err?.message || err));
-                }
 
                 // ── Military bases — direct static file, idle-loaded ──
                 // Bypass the /api/oei/military API layer entirely (saves

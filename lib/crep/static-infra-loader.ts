@@ -58,6 +58,14 @@ export const INFRA_LAYERS: Record<string, InfraLayerConfig> = {
     geojsonUrl: "/data/crep/cell-towers-global.geojson",
     label: "Global cell towers (MINDEX + OpenCelliD + OSM)",
   },
+  /** Taiwan + US + territories — small bundled GeoJSON for instant paint (see fetch-celltowers-global.mjs). */
+  cellTowersUsTwInstant: {
+    sourceId: "crep-celltowers-us-tw-instant",
+    pmtilesLayerName: "cell_towers",
+    pmtilesUrl: "/data/crep/tiles/cell-towers-us-tw-instant.pmtiles",
+    geojsonUrl: "/data/crep/cell-towers-us-tw-instant.geojson",
+    label: "US + Taiwan cell towers (instant bundle)",
+  },
 }
 
 /**
