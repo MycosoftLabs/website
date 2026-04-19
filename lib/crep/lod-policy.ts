@@ -263,6 +263,82 @@ export function expandedBbox(bbox: { north: number; south: number; east: number;
 }
 
 /**
+ * Live-event freshness tracking — Apr 19, 2026.
+ *
+ * Morgan: "make sure all event data is dynamic showing up live on map
+ * as it shows up animated live earthquakes and fires and lightning as
+ * they happen without map reload".
+ *
+ * Current state: batchFetch polls every 30 s and REPLACES the source.
+ * New events don't animate in — they just suddenly exist on next poll.
+ *
+ * This utility computes a per-id freshness map from two consecutive
+ * event arrays. Caller applies the result via map.setFeatureState so
+ * MapLibre paint expressions can reference ["feature-state", "fresh"]
+ * to animate newly-arrived events (pulse radius/opacity for 6-10 s).
+ *
+ * Usage (sketch, in CREPDashboardClient):
+ *
+ *   const prevIdsRef = useRef<Set<string>>(new Set())
+ *   const freshTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+ *   const onEventsRefresh = (events: Array<{id: string}>) => {
+ *     const delta = diffFreshness(prevIdsRef.current, events)
+ *     for (const id of delta.newIds) {
+ *       map.setFeatureState({ source: "crep-earthquakes", id }, { fresh: true })
+ *       // clear after N ms
+ *       const t = setTimeout(() => {
+ *         map.setFeatureState({ source: "crep-earthquakes", id }, { fresh: false })
+ *         freshTimersRef.current.delete(id)
+ *       }, FRESH_DURATION_MS)
+ *       freshTimersRef.current.set(id, t)
+ *     }
+ *     prevIdsRef.current = delta.nextSeenIds
+ *   }
+ */
+export const FRESH_DURATION_MS = 8_000 // paint ripple window
+
+export function diffFreshness<T extends { id?: string | number }>(
+  prevSeenIds: Set<string | number>,
+  nextEvents: T[],
+): {
+  newIds: (string | number)[]
+  nextSeenIds: Set<string | number>
+} {
+  const nextSeenIds = new Set<string | number>()
+  const newIds: (string | number)[] = []
+  for (const e of nextEvents) {
+    if (e.id == null) continue
+    nextSeenIds.add(e.id)
+    if (!prevSeenIds.has(e.id)) newIds.push(e.id)
+  }
+  return { newIds, nextSeenIds }
+}
+
+/**
+ * Paint expression snippets for freshness-aware styling. Paste into a
+ * layer's paint object to make new events pulse larger + brighter.
+ *
+ * Example (earthquakes circle layer):
+ *   paint: {
+ *     "circle-radius": freshnessRadiusExpr(baseRadiusExpr, 2.2),
+ *     "circle-opacity": freshnessOpacityExpr(0.85),
+ *   }
+ */
+export const freshnessRadiusExpr = (baseRadius: any, multiplier = 2.0) => [
+  "case",
+  ["boolean", ["feature-state", "fresh"], false],
+  ["*", baseRadius, multiplier],
+  baseRadius,
+]
+
+export const freshnessOpacityExpr = (baseOpacity = 0.85) => [
+  "case",
+  ["boolean", ["feature-state", "fresh"], false],
+  1.0,
+  baseOpacity,
+]
+
+/**
  * Apply bbox culling to any {lat, lng}-bearing records.
  */
 export function cullByBbox<T extends { lat?: number | null; lng?: number | null }>(

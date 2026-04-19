@@ -14,6 +14,11 @@
  *   orbitalDebris   Catalogued tracked debris (symbol)
  *   debrisCloud     Statistical 1.2 M debris canvas (density cloud)
  *   txLinesGlobal   Global transmission lines
+ *   cellTowersG     OpenCelliD 47M + FCC + OSM cell towers (bbox-scoped)
+ *   bathymetry      Ocean depth shading + land hillshade (GEBCO 2024)
+ *   railwayTracks   OpenRailwayMap global track/station network (raster tiles)
+ *   railwayTrains   Amtrak Track-A-Train live positions
+ *   droneNoFly      FAA UAS restricted areas + OpenAIP airspace polygons
  *
  * Each layer performs its own idleLoad → fetch → addSource/addLayer +
  * setData pattern. Click handlers bubble up through the existing dashboard
@@ -35,6 +40,10 @@ interface Props {
     debrisCloud?: boolean
     txLinesGlobal?: boolean
     cellTowersG?: boolean
+    bathymetry?: boolean
+    railwayTracks?: boolean
+    railwayTrains?: boolean
+    droneNoFly?: boolean
   }
   bbox?: [number, number, number, number]
 }
@@ -479,6 +488,250 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       } catch (e: any) { console.warn("[ProposalOverlays/debrisCloud]", e.message) }
     })
   }, [map, enabled.debrisCloud])
+
+  // ─── 9. Bathymetry + Topography underlay (GEBCO 2024) ──────────────────
+  // GEBCO's WMTS is the canonical free global ocean-depth + land-elevation
+  // map. Renders underneath all other layers so cell towers / cables /
+  // fires still sit on top, but oceans + mountain ranges get texture.
+  useEffect(() => {
+    if (!map || !enabled.bathymetry) return
+    if (loadedRef.current.bathymetry) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+    loadedRef.current.bathymetry = true
+
+    idleLoad(async () => {
+      try {
+        const srcId = "crep-bathymetry"
+        if (!map.getSource(srcId)) {
+          // GEBCO 2024 WMS tiles — shaded relief over ocean + land.
+          // Public, attribution required. Alternative: NOAA ETOPO1.
+          map.addSource(srcId, {
+            type: "raster",
+            tiles: [
+              "https://wms.gebco.net/mapserv?request=GetMap&service=WMS&version=1.1.1&layers=GEBCO_LATEST_SUB_ICE_TOPO&styles=&format=image%2Fpng&srs=EPSG%3A3857&bbox={bbox-epsg-3857}&width=256&height=256",
+            ],
+            tileSize: 256,
+            attribution: "GEBCO Bathymetry 2024",
+            minzoom: 0,
+            maxzoom: 9,
+          })
+          // Find the first non-basemap layer so we insert under it
+          const style = map.getStyle()
+          const firstOverlay = style.layers.find((l) => l.id.startsWith("crep-") && l.id !== "crep-boundaries-country") as any
+          const beforeId = firstOverlay?.id
+          map.addLayer(
+            {
+              id: "crep-bathymetry-raster",
+              type: "raster",
+              source: srcId,
+              paint: {
+                // Low opacity so the basemap's contours still show through;
+                // GEBCO provides just enough ocean-depth color to kill the
+                // flat-gray-ocean problem Morgan reported.
+                "raster-opacity": 0.45,
+                "raster-brightness-min": 0.05,
+                "raster-brightness-max": 0.95,
+              },
+            },
+            beforeId,
+          )
+        }
+        console.log(`[ProposalOverlays] bathymetry: GEBCO 2024 raster attached${
+          map.getLayer("crep-bathymetry-raster") ? "" : " (layer missing)"
+        }`)
+      } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }
+    })
+  }, [map, enabled.bathymetry])
+
+  // ─── 10. Railway Tracks — OpenRailwayMap global infrastructure ─────────
+  // OpenRailwayMap publishes open raster tiles of OSM-tagged railway infra
+  // (tracks, electrification, stations, signals). Use it as a themed
+  // underlay above the basemap but below point markers. No API key.
+  useEffect(() => {
+    if (!map || !enabled.railwayTracks) return
+    if (loadedRef.current.railwayTracks) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+    loadedRef.current.railwayTracks = true
+
+    idleLoad(async () => {
+      try {
+        const srcId = "crep-railway"
+        if (!map.getSource(srcId)) {
+          map.addSource(srcId, {
+            type: "raster",
+            tiles: [
+              "https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+              "https://b.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+              "https://c.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+            ],
+            tileSize: 256,
+            attribution: "© OpenRailwayMap contributors",
+            minzoom: 0,
+            maxzoom: 19,
+          })
+          // Place railway tiles just under point markers but above basemap
+          const style = map.getStyle()
+          const firstPointLayer = style.layers.find(
+            (l: any) => l.type === "circle" || l.type === "symbol",
+          ) as any
+          const beforeId = firstPointLayer?.id
+          map.addLayer(
+            {
+              id: "crep-railway-raster",
+              type: "raster",
+              source: srcId,
+              paint: { "raster-opacity": 0.75 },
+            },
+            beforeId,
+          )
+        }
+        console.log(`[ProposalOverlays] railway tracks: OpenRailwayMap tiles attached`)
+      } catch (e: any) { console.warn("[ProposalOverlays/railwayTracks]", e.message) }
+    })
+  }, [map, enabled.railwayTracks])
+
+  // ─── 11. Railway Live Trains — Amtrak Track-A-Train ────────────────────
+  // Amtrak publishes a public GeoJSON feed of active train positions (named
+  // services, not commuter). Updates every ~30 s. Proxied through /api/oei/
+  // railway-live to dodge CORS + add ETL-side caching. Starter feed; UK
+  // Network Rail + EU HAFAS + GTFS-RT live-train feeds are §A.9.3 work.
+  useEffect(() => {
+    if (!map || !enabled.railwayTrains) return
+    if (loadedRef.current.railwayTrains) return
+    loadedRef.current.railwayTrains = true
+
+    const fetchAndPaint = async () => {
+      try {
+        const res = await fetch("/api/oei/railway-live?limit=1500")
+        if (!res.ok) return
+        const j = await res.json()
+        const features = (j.trains || []).map((t: any) => ({
+          type: "Feature" as const,
+          properties: {
+            id: t.id || t.trainNum,
+            name: t.name || t.routeName,
+            operator: t.operator || "Amtrak",
+            speed_mph: t.speed ?? t.velocity,
+            heading: t.heading ?? 0,
+            state: t.state,
+            status: t.status,
+          },
+          geometry: { type: "Point" as const, coordinates: [t.lng ?? t.longitude, t.lat ?? t.latitude] },
+        })).filter((f: any) =>
+          Number.isFinite(f.geometry.coordinates[0]) &&
+          Number.isFinite(f.geometry.coordinates[1])
+        )
+        const fc = { type: "FeatureCollection" as const, features }
+        if (!map.getSource("crep-trains-live")) {
+          map.addSource("crep-trains-live", { type: "geojson", data: fc, generateId: true })
+          map.addLayer({
+            id: "crep-trains-live-square",
+            type: "circle",
+            source: "crep-trains-live",
+            paint: {
+              // Square-ish large dot to read as distinct from aircraft / vessel.
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 3, 8, 4.5, 12, 6, 16, 9],
+              "circle-color": "#f43f5e",   // rose — unique in the palette
+              "circle-opacity": 0.9,
+              "circle-stroke-width": 0.8,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-opacity": 0.8,
+            },
+          })
+          map.on("mouseenter", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "" })
+        } else {
+          (map.getSource("crep-trains-live") as any).setData(fc)
+        }
+        console.log(`[ProposalOverlays] railway live trains: ${features.length} active`)
+      } catch (e: any) { console.warn("[ProposalOverlays/railwayTrains]", e.message) }
+    }
+
+    idleLoad(fetchAndPaint)
+    // Re-poll every 30s while enabled
+    const timer = setInterval(() => { if (enabled.railwayTrains) fetchAndPaint() }, 30_000)
+    return () => clearInterval(timer)
+  }, [map, enabled.railwayTrains])
+
+  // ─── 12. Drone No-Fly Zones — FAA UAS restricted + OpenAIP airspace ────
+  // Polygon layer over restricted / prohibited / special-use airspace.
+  // Colored by class: CTR red, CTA orange, TRA amber, parks green. See
+  // /api/oei/drone-no-fly for the backend fetch (proxies OpenAIP + FAA).
+  useEffect(() => {
+    if (!map || !enabled.droneNoFly) return
+    if (loadedRef.current.droneNoFly) return
+    loadedRef.current.droneNoFly = true
+
+    idleLoad(async () => {
+      try {
+        const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
+        const res = await fetch(`/api/oei/drone-no-fly?limit=5000${bboxParam}`)
+        if (!res.ok) return
+        const j = await res.json()
+        const features = (j.zones || j.features || []).map((z: any) => ({
+          type: "Feature" as const,
+          properties: {
+            id: z.id,
+            name: z.name,
+            airspace_class: z.airspace_class || z.class,
+            alt_floor_ft: z.alt_floor_ft,
+            alt_ceiling_ft: z.alt_ceiling_ft,
+            source: z.source,
+          },
+          geometry: z.geometry,
+        })).filter((f: any) => f.geometry && (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon"))
+        const fc = { type: "FeatureCollection" as const, features }
+        if (!map.getSource("crep-drone-no-fly")) {
+          map.addSource("crep-drone-no-fly", { type: "geojson", data: fc })
+          map.addLayer({
+            id: "crep-drone-no-fly-fill",
+            type: "fill",
+            source: "crep-drone-no-fly",
+            paint: {
+              "fill-color": [
+                "match", ["get", "airspace_class"],
+                "CTR", "#ef4444",     // red — control zone
+                "CTA", "#f97316",     // orange — controlled area
+                "TRA", "#f59e0b",     // amber — temp restricted
+                "PROHIBITED", "#dc2626",
+                "RESTRICTED", "#f43f5e",
+                "DANGER", "#b91c1c",
+                "#22c55e",            // default: parks / misc = green
+              ],
+              "fill-opacity": 0.18,
+            },
+          })
+          map.addLayer({
+            id: "crep-drone-no-fly-outline",
+            type: "line",
+            source: "crep-drone-no-fly",
+            paint: {
+              "line-color": [
+                "match", ["get", "airspace_class"],
+                "CTR", "#ef4444",
+                "CTA", "#f97316",
+                "TRA", "#f59e0b",
+                "PROHIBITED", "#dc2626",
+                "RESTRICTED", "#f43f5e",
+                "DANGER", "#b91c1c",
+                "#22c55e",
+              ],
+              "line-width": 1.2,
+              "line-opacity": 0.7,
+              "line-dasharray": [2, 2],
+            },
+          })
+          map.on("mouseenter", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-drone-no-fly-fill", () => { map.getCanvas().style.cursor = "" })
+        } else {
+          (map.getSource("crep-drone-no-fly") as any).setData(fc)
+        }
+        console.log(`[ProposalOverlays] drone no-fly zones: ${features.length} polygons`)
+      } catch (e: any) { console.warn("[ProposalOverlays/droneNoFly]", e.message) }
+    })
+  }, [map, enabled.droneNoFly, bbox])
 
   return null
 }
