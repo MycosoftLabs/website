@@ -4,6 +4,9 @@
 # Apr 19, 2026: bust BuildKit GHA cache — railway-live + drone-no-fly routes
 # compiled in build log but runtime 404. Changing the top of the Dockerfile
 # invalidates every downstream layer and forces a clean npm run build.
+# Apr 19, 2026 (r2): bust again — railway-live route body updated but prod
+# still returns old implementation. Cache layer for npm run build is being
+# reused across commits because only route.ts file contents change.
 
 FROM node:20-bookworm-slim AS base
 ARG NEXTAUTH_SECRET=change-me-before-prod
