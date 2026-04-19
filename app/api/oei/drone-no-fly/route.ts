@@ -60,29 +60,44 @@ async function fromOpenAIP(bbox?: [number, number, number, number], limit = 5000
 }
 
 async function fromFAA(bbox?: [number, number, number, number]): Promise<Zone[]> {
-  // FAA's public UAS-restrictions feed is more of a bundle of GeoJSON
-  // files served from NGA/FAA open-data portals than a single API. Best-
-  // effort fetch of the consolidated national dataset; bbox is applied
-  // client-side in our filter below.
-  try {
-    const url = "https://www.faa.gov/uas/open_data/UAS_FacilityMaps.geojson"
-    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
-    if (!res.ok) return []
-    const fc = await res.json()
-    const feats = fc?.features || []
-    return feats
-      .filter((f: any) => f.geometry && (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon"))
-      .map((f: any, i: number): Zone => ({
-        id: `faa-${f.properties?.OBJECTID || f.id || i}`,
-        name: f.properties?.Facility || f.properties?.FACILITY || f.properties?.NAME || "FAA UAS zone",
-        airspace_class: f.properties?.CEILING ? "RESTRICTED" : "CTR",
-        alt_floor_ft: 0,
-        alt_ceiling_ft: f.properties?.CEILING != null ? Number(f.properties.CEILING) : undefined,
-        geometry: f.geometry,
-        source: "faa",
-        country: "US",
-      }))
-  } catch { return [] }
+  // Apr 19, 2026 (r2): FAA migrated their UAS data off the static
+  // UAS_FacilityMaps.geojson URL. The canonical source is now an ArcGIS
+  // FeatureServer. Use it with `where=1%3D1&f=geojson` to get a FeatureCollection.
+  // Known working feature services (try in order):
+  const urls = [
+    "https://services1.arcgis.com/ggbONOX5UcwDEdDu/arcgis/rest/services/UAS_Facility_Maps_EN_v2/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&resultRecordCount=2000",
+    "https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/UASFM_Production/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson&resultRecordCount=2000",
+  ]
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(20_000),
+        headers: { Accept: "application/geo+json, application/json" },
+      })
+      if (!res.ok) continue
+      const ct = (res.headers.get("content-type") || "").toLowerCase()
+      if (!ct.includes("json")) continue
+      const fc = await res.json()
+      const feats = fc?.features || []
+      if (!feats.length) continue
+      return feats
+        .filter((f: any) => f.geometry && (f.geometry.type === "Polygon" || f.geometry.type === "MultiPolygon"))
+        .map((f: any, i: number): Zone => {
+          const p = f.properties || {}
+          return {
+            id: `faa-${p.OBJECTID || p.FID || f.id || i}`,
+            name: p.Facility || p.FACILITY || p.NAME || p.ICAO || "FAA UAS zone",
+            airspace_class: p.CEILING != null ? "RESTRICTED" : "CTR",
+            alt_floor_ft: 0,
+            alt_ceiling_ft: p.CEILING != null ? Number(p.CEILING) : undefined,
+            geometry: f.geometry,
+            source: "faa",
+            country: "US",
+          }
+        })
+    } catch { /* try next */ }
+  }
+  return []
 }
 
 async function fromMindex(bbox?: [number, number, number, number], baseUrl?: string): Promise<Zone[]> {
