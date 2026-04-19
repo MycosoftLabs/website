@@ -290,7 +290,102 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     })
   }, [map, enabled.orbitalDebris])
 
-  // ─── 7. Statistical Debris Cloud ───────────────────────────────────────
+  // ─── 7b. Global Transmission Lines (bbox-scoped, non-US fill-in) ──────
+  // The main dashboard already paints US HIFLD ≥345 kV from the static
+  // bundle unconditionally. This adds OSM + MINDEX lines outside the US
+  // when the operator zooms in. Gated at zoom>=3 via the dashboard's
+  // bbox prop (mapZoom>5). Fetches bbox-scoped results to keep payloads
+  // bounded on large viewports.
+  useEffect(() => {
+    if (!map || !enabled.txLinesGlobal || !bbox) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+
+    idleLoad(async () => {
+      try {
+        const res = await fetch(`/api/oei/transmission-lines-global?bbox=${bbox.join(",")}&limit=10000&includeOSM=true`)
+        if (!res.ok) return
+        const j = await res.json()
+        const features = (j.lines || [])
+          .filter((l: any) => Array.isArray(l.coordinates) && l.coordinates.length >= 2)
+          .map((l: any) => ({
+            type: "Feature" as const,
+            properties: {
+              id: l.id, operator: l.operator, voltage_kv: l.voltage_kv || 0,
+              status: l.status, country: l.country, source: l.source,
+            },
+            geometry: { type: "LineString" as const, coordinates: l.coordinates },
+          }))
+        const fc = { type: "FeatureCollection" as const, features }
+        if (!mapReady()) return
+        if (!map.getSource("crep-txlines-global")) {
+          map.addSource("crep-txlines-global", { type: "geojson", data: fc })
+          map.addLayer({
+            id: "crep-txlines-global-line", type: "line", source: "crep-txlines-global",
+            minzoom: 3,
+            paint: {
+              "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                0, "#9ca3af", 100, "#fb923c", 230, "#ec4899",
+                345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
+              "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                0, 0.8, 230, 1.5, 500, 2.2, 735, 3],
+              "line-opacity": 0.75,
+            },
+          })
+        } else {
+          (map.getSource("crep-txlines-global") as any).setData(fc)
+        }
+        console.log(`[ProposalOverlays] tx lines (global): ${features.length} loaded`)
+      } catch (e: any) { console.warn("[ProposalOverlays/txLinesGlobal]", e.message) }
+    })
+  }, [map, enabled.txLinesGlobal, bbox])
+
+  // ─── 7c. Global Cell Towers (bbox-scoped, supplements PMTiles bundle) ─
+  // PMTiles archive paints the world-scale catalog; this fills in fresh
+  // OpenCelliD + FCC ASR + OSM results for the current viewport when the
+  // operator is zoomed in (bbox prop defined above zoom 5).
+  useEffect(() => {
+    if (!map || !enabled.cellTowersG || !bbox) return
+    const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
+    if (!mapReady()) return
+
+    idleLoad(async () => {
+      try {
+        const res = await fetch(`/api/oei/cell-towers-global?bbox=${bbox.join(",")}&limit=5000`)
+        if (!res.ok) return
+        const j = await res.json()
+        const features = (j.towers || [])
+          .filter((t: any) => Number.isFinite(t.lat) && Number.isFinite(t.lng))
+          .map((t: any) => ({
+            type: "Feature" as const,
+            properties: {
+              id: t.id, operator: t.operator, radio: t.radio,
+              mcc: t.mcc, source: t.source,
+            },
+            geometry: { type: "Point" as const, coordinates: [t.lng, t.lat] },
+          }))
+        const fc = { type: "FeatureCollection" as const, features }
+        if (!mapReady()) return
+        if (!map.getSource("crep-celltowers-bbox")) {
+          map.addSource("crep-celltowers-bbox", { type: "geojson", data: fc })
+          map.addLayer({
+            id: "crep-celltowers-bbox-dot", type: "circle", source: "crep-celltowers-bbox",
+            minzoom: 5,
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 2, 10, 3.5, 14, 6],
+              "circle-color": "#c084fc", "circle-opacity": 0.85,
+              "circle-stroke-width": 0.6, "circle-stroke-color": "#ffffff", "circle-stroke-opacity": 0.6,
+            },
+          })
+        } else {
+          (map.getSource("crep-celltowers-bbox") as any).setData(fc)
+        }
+        console.log(`[ProposalOverlays] cell towers (bbox): ${features.length} loaded`)
+      } catch (e: any) { console.warn("[ProposalOverlays/cellTowersG]", e.message) }
+    })
+  }, [map, enabled.cellTowersG, bbox])
+
+  // ─── 8. Statistical Debris Cloud ───────────────────────────────────────
   useEffect(() => {
     if (!map || !enabled.debrisCloud) return
     if (loadedRef.current.debrisCloud) return

@@ -2249,7 +2249,7 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     // AURORA & SPACE WEATHER VISUAL OVERLAYS
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
+    { id: "auroraOverlay", name: "Aurora Forecast", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.5, color: "#34d399", description: "NOAA SWPC aurora probability overlay on polar regions" },
     // ═══════════════════════════════════════════════════════════════════════════
     // ADDITIONAL TELECOM (non-duplicate)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2264,15 +2264,15 @@ export default function CREPDashboardPage() {
     // ═══════════════════════════════════════════════════════════════════════════
     // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
     // ═══════════════════════════════════════════════════════════════════════════
-    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
-    { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
-    { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
-    { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
-    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
+    { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+    { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
+    { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
+    { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
+    { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
     { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst" },
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
-    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
-    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
+    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
+    { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
@@ -3069,6 +3069,44 @@ export default function CREPDashboardPage() {
       l.id === layerId ? { ...l, opacity } : l
     ));
   }, []);
+
+  // MYCA layer-control bridge.
+  // Gives MYCA (and any browser-side consumer) a single, stable API for
+  // flipping any layer the Data Filter panel controls — no React context,
+  // no import from outside the dashboard tree.
+  //
+  //   window.__crep_setLayer("cellTowersG", true)         → enable
+  //   window.__crep_setLayer("fungi", false)              → disable
+  //   window.__crep_setLayer("satellites")                → toggle
+  //   window.__crep_layers()                              → snapshot of
+  //       [{id, name, enabled, category, opacity}, ...]
+  //
+  // Also dispatches a `crep:layer` CustomEvent on every change so other
+  // parts of the page can react without polling.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_setLayer = (layerId: string, enabled?: boolean) => {
+      let applied: { id: string; enabled: boolean } | null = null;
+      setLayers(prev => prev.map(l => {
+        if (l.id !== layerId) return l;
+        const next = typeof enabled === "boolean" ? enabled : !l.enabled;
+        applied = { id: l.id, enabled: next };
+        return { ...l, enabled: next };
+      }));
+      if (applied) {
+        window.dispatchEvent(new CustomEvent("crep:layer", { detail: applied }));
+      }
+      return applied;
+    };
+    (window as any).__crep_layers = () => layers.map(l => ({
+      id: l.id, name: l.name, enabled: l.enabled,
+      category: l.category, opacity: l.opacity,
+    }));
+    return () => {
+      try { delete (window as any).__crep_setLayer; } catch { /* noop */ }
+      try { delete (window as any).__crep_layers; } catch { /* noop */ }
+    };
+  }, [layers]);
 
   const handleApplyMapPreferences = useCallback((prefs: CrepMapPreferences) => {
     if (mapRef) {
@@ -7073,46 +7111,41 @@ export default function CREPDashboardPage() {
           <div className="h-full flex flex-col">
             {/* Tab Navigation */}
             <Tabs value={rightPanelTab} onValueChange={setRightPanelTab} className="flex flex-col h-full">
-              <TabsList className="w-full grid grid-cols-7 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
-                <TabsTrigger 
-                  value="mission" 
+              <TabsList className="w-full grid grid-cols-6 rounded-none bg-black/40 border-b border-cyan-500/20 h-9">
+                <TabsTrigger
+                  value="mission"
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Target className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="data" 
+                <TabsTrigger
+                  value="data"
                   className="text-[7px] px-0.5 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400 rounded-none"
+                  title="Data Filters — all layer on/off toggles"
                 >
                   <Signal className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="intel" 
+                <TabsTrigger
+                  value="intel"
                   className="text-[7px] px-0.5 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-400 rounded-none"
                 >
                   <Users className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="layers" 
-                  className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
-                >
-                  <Layers className="w-3 h-3" />
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="earth2" 
+                <TabsTrigger
+                  value="earth2"
                   className="text-[7px] px-0.5 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400 rounded-none"
                   title="Earth Modeling (NVIDIA Earth-2 + GIBS)"
                 >
                   <Zap className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="services" 
+                <TabsTrigger
+                  value="services"
                   className="text-[7px] px-0.5 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-400 rounded-none"
                 >
                   <Cpu className="w-3 h-3" />
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="myca" 
+                <TabsTrigger
+                  value="myca"
                   className="text-[7px] px-0.5 data-[state=active]:bg-purple-500/20 data-[state=active]:text-purple-400 rounded-none"
                 >
                   <Bot className="w-3 h-3" />
@@ -7128,8 +7161,102 @@ export default function CREPDashboardPage() {
                 <TabsContent value="data" className="h-full m-0 p-2 overflow-auto">
                   <ScrollArea className="h-full">
                     <div className="space-y-3">
-                      {/* Real-time Data Feeds Header */}
-                      <div className="flex items-center justify-between px-1">
+                      {/* ═══════════════════════════════════════════════════════════
+                          ALL-LAYER TOGGLE GRID — single source of truth for every
+                          data layer on/off. MYCA drives these via window.__crep_setLayer.
+                          Advanced per-filter controls (altitude bands, vessel types,
+                          NOAA severity) live below in OEIMapControls and apply on top
+                          of whichever layers are enabled here.
+                          ═══════════════════════════════════════════════════════════ */}
+                      <div className="flex items-center justify-between px-1 pt-1">
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                          <span className="text-[10px] font-bold text-white">DATA LAYERS</span>
+                        </div>
+                        <Badge variant="outline" className="text-[8px] border-cyan-600 text-cyan-400">
+                          {layers.filter(l => l.enabled).length}/{layers.length}
+                        </Badge>
+                      </div>
+                      <LayerControlPanel
+                        layers={layers}
+                        onToggleLayer={toggleLayer}
+                        onOpacityChange={setLayerOpacity}
+                      />
+
+                      {/* Ground Station Toggle (Mar 2026) */}
+                      <div className="rounded-lg bg-black/40 border border-cyan-500/20 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-black/30">
+                          <div className="flex items-center gap-2">
+                            <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                            <span className="text-[11px] font-semibold text-white">Ground Station</span>
+                          </div>
+                          <Switch
+                            checked={showGroundStation}
+                            onCheckedChange={setShowGroundStation}
+                            className="h-4 w-7 data-[state=checked]:bg-cyan-500"
+                          />
+                        </div>
+                        {showGroundStation && (
+                          <div className="p-2 space-y-1">
+                            <div className="text-[9px] text-gray-500 px-2">
+                              Satellite tracking, SDR control, observation scheduling.
+                              Data syncs bi-directionally with Mindex and the Agent Worldview API.
+                            </div>
+                            <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
+                              className="block text-center text-[9px] text-cyan-400 hover:text-cyan-300 py-1 mx-2 border border-cyan-500/20 rounded mt-1">
+                              Open Full Dashboard
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Conservation Widget Toggles (Feb 17, 2026) */}
+                      <div className="rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-black/30">
+                          <div className="flex items-center gap-2">
+                            <Leaf className="w-3.5 h-3.5 text-green-400" />
+                            <span className="text-[11px] font-semibold text-white">Conservation Widgets</span>
+                          </div>
+                          <Badge variant="outline" className="text-[8px] border-green-600 text-green-400">
+                            {(showSmartFenceWidget ? 1 : 0) + (showPresenceWidget ? 1 : 0)}/2
+                          </Badge>
+                        </div>
+                        <div className="p-2 space-y-1">
+                          <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500/20">
+                                <Zap className="w-3 h-3 text-amber-400" />
+                              </div>
+                              <span className="text-[10px] text-gray-300">SmartFence Network</span>
+                            </div>
+                            <Switch
+                              checked={showSmartFenceWidget}
+                              onCheckedChange={setShowSmartFenceWidget}
+                              className="h-4 w-7 data-[state=checked]:bg-amber-500"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5 h-5 rounded flex items-center justify-center bg-purple-500/20">
+                                <Radio className="w-3 h-3 text-purple-400" />
+                              </div>
+                              <span className="text-[10px] text-gray-300">Presence Detection</span>
+                            </div>
+                            <Switch
+                              checked={showPresenceWidget}
+                              onCheckedChange={setShowPresenceWidget}
+                              className="h-4 w-7 data-[state=checked]:bg-purple-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ═══════════════════════════════════════════════════════════
+                          LIVE DATA FEEDS — streaming status + granular sub-filters.
+                          Sits below DATA LAYERS so the on/off grid stays the primary
+                          control; these advanced filters only apply once a layer is on.
+                          ═══════════════════════════════════════════════════════════ */}
+                      <div className="flex items-center justify-between px-1 pt-2 border-t border-gray-800/50">
                         <div className="flex items-center gap-2">
                           <Signal className="w-3.5 h-3.5 text-amber-400" />
                           <span className="text-[10px] font-bold text-white">LIVE DATA FEEDS</span>
@@ -7291,87 +7418,6 @@ export default function CREPDashboardPage() {
                   <ScrollArea className="h-full">
                     <HumanMachinesPanel liveAircraft={aircraft.length} liveVessels={vessels.length} liveSatellites={satellites.length} />
             </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="layers" className="h-full m-0 p-3 overflow-auto">
-                  <ScrollArea className="h-full">
-                    <LayerControlPanel 
-                      layers={layers}
-                      onToggleLayer={toggleLayer}
-                      onOpacityChange={setLayerOpacity}
-                    />
-                    
-                    {/* Ground Station Toggle (Mar 2026) */}
-                    <div className="mt-4 rounded-lg bg-black/40 border border-cyan-500/20 overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 bg-black/30">
-                        <div className="flex items-center gap-2">
-                          <Radio className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="text-[11px] font-semibold text-white">Ground Station</span>
-                        </div>
-                        <Switch
-                          checked={showGroundStation}
-                          onCheckedChange={setShowGroundStation}
-                          className="h-4 w-7 data-[state=checked]:bg-cyan-500"
-                        />
-                      </div>
-                      {showGroundStation && (
-                        <div className="p-2 space-y-1">
-                          <div className="text-[9px] text-gray-500 px-2">
-                            Satellite tracking, SDR control, observation scheduling.
-                            Data syncs bi-directionally with Mindex and the Agent Worldview API.
-                          </div>
-                          <a href="/natureos/ground-station" target="_blank" rel="noopener noreferrer"
-                            className="block text-center text-[9px] text-cyan-400 hover:text-cyan-300 py-1 mx-2 border border-cyan-500/20 rounded mt-1">
-                            Open Full Dashboard
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Conservation Widget Toggles (Feb 17, 2026) */}
-                    <div className="mt-4 rounded-lg bg-black/40 border border-gray-700/50 overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 bg-black/30">
-                        <div className="flex items-center gap-2">
-                          <Leaf className="w-3.5 h-3.5 text-green-400" />
-                          <span className="text-[11px] font-semibold text-white">Conservation Widgets</span>
-                        </div>
-                        <Badge variant="outline" className="text-[8px] border-green-600 text-green-400">
-                          {(showSmartFenceWidget ? 1 : 0) + (showPresenceWidget ? 1 : 0)}/2
-                        </Badge>
-                      </div>
-                      <div className="p-2 space-y-1">
-                        {/* Smart Fence Widget Toggle */}
-                        <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500/20">
-                              <Zap className="w-3 h-3 text-amber-400" />
-                            </div>
-                            <span className="text-[10px] text-gray-300">SmartFence Network</span>
-                          </div>
-                          <Switch
-                            checked={showSmartFenceWidget}
-                            onCheckedChange={setShowSmartFenceWidget}
-                            className="h-4 w-7 data-[state=checked]:bg-amber-500"
-                          />
-                        </div>
-                        
-                        {/* Presence Detection Widget Toggle */}
-                        <div className="flex items-center justify-between p-2 rounded hover:bg-black/20">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded flex items-center justify-center bg-purple-500/20">
-                              <Radio className="w-3 h-3 text-purple-400" />
-                            </div>
-                            <span className="text-[10px] text-gray-300">Presence Detection</span>
-                          </div>
-                          <Switch
-                            checked={showPresenceWidget}
-                            onCheckedChange={setShowPresenceWidget}
-                            className="h-4 w-7 data-[state=checked]:bg-purple-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </ScrollArea>
                 </TabsContent>
 
                 {/* NVIDIA Earth-2 AI Weather Tab */}
