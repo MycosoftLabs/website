@@ -533,17 +533,22 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       try {
         const srcId = "crep-bathymetry"
         if (!map.getSource(srcId)) {
-          // GEBCO 2024 WMS tiles — shaded relief over ocean + land.
-          // Public, attribution required. Alternative: NOAA ETOPO1.
+          // Apr 19, 2026 (Morgan: "bythemery cannot overlap land toplogy
+          // thats wrong"). Swapped from GEBCO WMS (which renders BOTH
+          // ocean + land) to ESRI's World Ocean Base XYZ tile service —
+          // built as a bathymetry underlay; land areas render as a soft
+          // neutral tone that won't fight the AWS hillshade on land.
+          // Free, public, no API key. z0-14.
           map.addSource(srcId, {
             type: "raster",
             tiles: [
-              "https://wms.gebco.net/mapserv?request=GetMap&service=WMS&version=1.1.1&layers=GEBCO_LATEST_SUB_ICE_TOPO&styles=&format=image%2Fpng&srs=EPSG%3A3857&bbox={bbox-epsg-3857}&width=256&height=256",
+              "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
             ],
             tileSize: 256,
-            attribution: "GEBCO Bathymetry 2024",
+            scheme: "xyz",
+            attribution: "© Esri — Ocean, NOAA, GEBCO",
             minzoom: 0,
-            maxzoom: 9,
+            maxzoom: 14,
           })
           // Find the first non-basemap layer so we insert under it
           const style = map.getStyle()
@@ -556,12 +561,14 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               source: srcId,
               layout: { visibility: "visible" },
               paint: {
-                // Low opacity so the basemap's contours still show through;
-                // GEBCO provides just enough ocean-depth color to kill the
-                // flat-gray-ocean problem Morgan reported.
-                "raster-opacity": 0.45,
-                "raster-brightness-min": 0.05,
-                "raster-brightness-max": 0.95,
+                // Apr 19, 2026 (Morgan fix): ESRI World Ocean Base already
+                // has muted land tones, so we crank opacity high for ocean
+                // detail. To further suppress land contribution, drop
+                // saturation slightly (makes land tones blend into the
+                // basemap gray) without hurting ocean blues.
+                "raster-opacity": 0.8,
+                "raster-saturation": 0.25,
+                "raster-brightness-min": 0.1,
               },
             },
             beforeId,
