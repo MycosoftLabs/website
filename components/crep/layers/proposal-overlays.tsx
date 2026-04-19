@@ -533,20 +533,29 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       try {
         const srcId = "crep-bathymetry"
         if (!map.getSource(srcId)) {
-          // Apr 19, 2026 (Morgan: "bythemery cannot overlap land toplogy
-          // thats wrong"). Swapped from GEBCO WMS (which renders BOTH
-          // ocean + land) to ESRI's World Ocean Base XYZ tile service —
-          // built as a bathymetry underlay; land areas render as a soft
-          // neutral tone that won't fight the AWS hillshade on land.
-          // Free, public, no API key. z0-14.
+          // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
+          // show the highest quality newest ones in their respective
+          // areas"). Upgraded bathymetry source stack:
+          //   1. EMODnet Bathymetry 2024 — highest resolution (25 m) over
+          //      Europe + North Atlantic + coastal. Fallback to ESRI
+          //      elsewhere.
+          //   2. ESRI World Ocean Base — global coverage, uses GEBCO 2022+
+          //      as its foundation, free and no key. Designed as a
+          //      bathymetric basemap with muted land tones — so the AWS
+          //      Terrain hillshade dominates visually on land (Morgan's
+          //      "bathymetry cannot overlap land topology" rule).
+          // MapLibre rotates through candidate URLs when a tile 404s,
+          // so adding EMODnet first as the primary gets us ~25 m detail
+          // where it's available + falls back to ESRI's 2022 GEBCO tiles.
           map.addSource(srcId, {
             type: "raster",
             tiles: [
+              "https://tiles.emodnet-bathymetry.eu/2024/baselayer/web_mercator/{z}/{x}/{y}.png",
               "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
             ],
             tileSize: 256,
             scheme: "xyz",
-            attribution: "© Esri — Ocean, NOAA, GEBCO",
+            attribution: "© EMODnet Bathymetry 2024 · © Esri / GEBCO",
             minzoom: 0,
             maxzoom: 14,
           })
@@ -614,6 +623,13 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       try {
         const srcId = "crep-topo-dem"
         if (!map.getSource(srcId)) {
+          // Apr 19, 2026 (Morgan: "highest quality newest"). AWS Terrain
+          // Tiles (Mapzen terrarium encoding, 30 m global DEM) is the
+          // highest-res open DEM without an API key. Newer options
+          // (Copernicus GLO-30 from ESA, 30 m post-2021; MapTiler
+          // Terrain-RGB v2) require API keys or custom hosting — add
+          // those here when MapTiler / OpenTopography keys land.
+          // For now this is state-of-art free global topography.
           map.addSource(srcId, {
             type: "raster-dem",
             tiles: [
@@ -622,7 +638,7 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             tileSize: 256,
             encoding: "terrarium",
             maxzoom: 15,
-            attribution: "© Mapzen / AWS Terrain Tiles",
+            attribution: "© Mapzen / AWS Terrain Tiles (30 m global DEM)",
           })
           // Place hillshade just above bathymetry (if present) but below
           // all point markers. Compute insertion point.

@@ -6772,28 +6772,12 @@ export default function CREPDashboardPage() {
               />
             </div>
 
-            {/* Live events toast – new events that appeared since load */}
-            {newEventIds.size > 0 && (
-              <div
-                className={cn(
-                  "absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-950/90 px-3 py-2 text-sm text-amber-100 shadow-lg backdrop-blur-sm",
-                  leftPanelOpen && "left-[326px]"
-                )}
-              >
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-400" />
-                <span>
-                  {newEventIds.size} new event{newEventIds.size !== 1 ? "s" : ""} on map
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setNewEventIds(new Set())}
-                  className="ml-1 rounded p-0.5 text-amber-300 hover:bg-amber-800/50 hover:text-amber-100"
-                  aria-label="Dismiss"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            {/* Apr 19, 2026 (Morgan: "popup that says new events on map
+                needs to never show up again its useless"). Toast deleted.
+                newEventIds state is KEPT — the event dots themselves use
+                `isNew={newEventIds.has(event.id)}` to blink a few times
+                when they first render. The notification itself was
+                redundant with the visual blink. */}
 
             <VoiceMapControls
               {...mapCommandHandlers}
