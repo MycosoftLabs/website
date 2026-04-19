@@ -48,8 +48,17 @@ build_tiles() {
     echo "skip: $(basename "$src") not present"
     return
   fi
+  local bytes
+  bytes=$(stat -c%s "$src" 2>/dev/null || wc -c < "$src")
   echo "=== $(basename "$src") → $(basename "$pm") (layer=$layer, zmax=$zmax) ==="
-  echo "Input: $(stat -c%s "$src" 2>/dev/null || wc -c < "$src") bytes"
+  echo "Input: $bytes bytes"
+
+  # Skip empty or near-empty GeoJSON (FeatureCollection header without features)
+  # so an ETL rate-limit doesn't sink the whole workflow.
+  if [ "$bytes" -lt 1024 ]; then
+    echo "skip: input too small ($bytes B) — likely empty FeatureCollection; leaving existing PMTiles archive (if any) untouched"
+    return
+  fi
 
   tippecanoe \
     --output="$mb" \

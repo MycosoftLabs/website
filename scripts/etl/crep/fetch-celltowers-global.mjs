@@ -139,11 +139,42 @@ async function harvestOpenCelliD() {
   const key = process.env.OPENCELLID_KEY
   if (!key) { log("OpenCelliD: OPENCELLID_KEY not set — skipping"); return [] }
   const url = `https://opencellid.org/ocid/downloads?token=${key}&type=full&file=cell_towers.csv.gz`
-  log(`OpenCelliD: downloading full catalog (large, several minutes)...`)
+
+  // OpenCelliD rate-limits bulk downloads aggressively (typically one per
+  // hour per token). When rate-limited the endpoint returns a small HTML /
+  // JSON error page, not the gzip — then gunzip throws "incorrect header
+  // check". Retry with exponential backoff and verify gzip magic (0x1f 0x8b)
+  // before trying to decompress.
+  const MAX_ATTEMPTS = 4
+  let buf = null
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    log(`OpenCelliD: downloading bulk catalog (attempt ${attempt}/${MAX_ATTEMPTS}; can take minutes)...`)
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(1_200_000) })
+      if (!res.ok) {
+        log(`OpenCelliD: HTTP ${res.status}${attempt < MAX_ATTEMPTS ? " — retrying" : ""}`)
+      } else {
+        const candidate = Buffer.from(await res.arrayBuffer())
+        // gzip magic bytes: 0x1f 0x8b
+        if (candidate.length >= 2 && candidate[0] === 0x1f && candidate[1] === 0x8b) {
+          buf = candidate
+          break
+        }
+        const preview = candidate.toString("utf8", 0, Math.min(200, candidate.length))
+        log(`OpenCelliD: non-gzip response (${candidate.length} B) — preview: ${JSON.stringify(preview)}`)
+      }
+    } catch (e) {
+      log(`OpenCelliD: network error: ${e.message}`)
+    }
+    if (attempt < MAX_ATTEMPTS) {
+      const waitMs = Math.min(300_000, 15_000 * Math.pow(2, attempt - 1))
+      log(`OpenCelliD: waiting ${(waitMs / 1000).toFixed(0)} s before retry…`)
+      await sleep(waitMs)
+    }
+  }
+  if (!buf) { log(`OpenCelliD: all ${MAX_ATTEMPTS} attempts failed — skipping`); return [] }
+
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(1_200_000) })
-    if (!res.ok) { log(`OpenCelliD: HTTP ${res.status} — skipping`); return [] }
-    const buf = Buffer.from(await res.arrayBuffer())
     log(`OpenCelliD: ${(buf.length / 1e6).toFixed(1)} MB gzipped; decompressing...`)
     const csv = (await gunzip(buf)).toString("utf8")
     const lines = csv.split("\n")
