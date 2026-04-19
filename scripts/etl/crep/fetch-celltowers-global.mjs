@@ -366,6 +366,29 @@ async function main() {
 
   const features = Array.from(merged.values())
 
+  // Guard: never overwrite a non-empty bundle with zero features. When
+  // OpenCelliD rate-limits or the token rotates, a harvest can silently
+  // produce 0 unique sites — the old behavior then blew away the good
+  // 89 MB bundle via an auto-PR. Check the existing file first; if it
+  // has features and we've got none, abort with a clear error so the PR
+  // step sees no changes.
+  if (features.length === 0 && !flag("allow-empty")) {
+    try {
+      const existing = await fs.readFile(OUT_FILE, "utf8")
+      // Quick feature count — count occurrences of `"type":"Feature"` before
+      // we have to parse 89 MB of JSON. Works for both streamed + standard
+      // FeatureCollection output from this script.
+      const matches = existing.match(/"type":"Feature"/g)
+      const existingCount = matches ? matches.length : 0
+      if (existingCount > 0) {
+        log(`ABORT: harvest yielded 0 features but ${OUT_FILE} already has ${existingCount.toLocaleString()} features — refusing to overwrite with empty bundle. Pass --allow-empty to force.`)
+        process.exit(2)
+      }
+    } catch (e) {
+      // File doesn't exist or unreadable — fine, proceed with empty.
+    }
+  }
+
   await writeInstantGeoJSON(features)
 
   // Stream-write to avoid JSON.stringify's ~512 MB max string length limit.
