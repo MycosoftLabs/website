@@ -6,6 +6,19 @@
 
 @import "tw-animate-css";
 
+/*
+ * Apr 18, 2026: Exclude bulk static-data directories from Tailwind v4
+ * auto-source scanning. The CREP PMTiles archives + streamed single-line
+ * GeoJSON files (cell-towers-global.geojson is 89 MB; cell-towers-global.pmtiles
+ * is 41 MB of binary) blow up the Rust CSS parser with misleading
+ * "Invalid code point" errors during Docker build.
+ *
+ * Tailwind never has HTML class references in these files, so skipping
+ * them has no visual impact.
+ */
+@source not "../public/data";
+@source not "../public/tiles";
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(222.2 84% 4.9%);
