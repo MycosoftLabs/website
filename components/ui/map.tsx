@@ -120,19 +120,47 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       }
     };
 
-    const loadHandler = () => {
+    let onLoadFired = false;
+    const fireOnLoad = () => {
+      if (onLoadFired) return;
+      onLoadFired = true;
       setIsLoaded(true);
-      // Call onLoad callback with the map instance when map is ready
-      if (onLoad) {
-        onLoad(map);
-      }
+      if (onLoad) onLoad(map);
     };
+
+    const loadHandler = () => { fireOnLoad(); };
 
     map.on("load", loadHandler);
     map.on("style.load", styleLoadHandler);
     setMapInstance(map);
 
+    // Apr 19, 2026: the Carto basemap style.json sometimes returns 503 on
+    // first request; MapLibre retries automatically and the style loads
+    // on the second try, BUT the "load" event never fires because it
+    // already fired (for the aborted first attempt) OR MapLibre's internal
+    // state flips loaded=false after the retry. The net effect: onLoad
+    // callback runs NEVER and no CREP layers get added.
+    //
+    // Safety net: poll map.areTilesLoaded() every 500 ms for the first 30 s.
+    // If tiles have loaded + style has 50+ layers (basemap has ~60), fire
+    // onLoad manually. Idempotent via onLoadFired guard.
+    const loadRetryId = setInterval(() => {
+      try {
+        if (onLoadFired) { clearInterval(loadRetryId); return; }
+        const style = map.getStyle?.();
+        const layerCount = style?.layers?.length || 0;
+        if (map.areTilesLoaded?.() && layerCount >= 40) {
+          console.log(`[MapComponent] load event missed; forcing onLoad after basemap style ready (${layerCount} layers)`);
+          fireOnLoad();
+          clearInterval(loadRetryId);
+        }
+      } catch { /* ignore */ }
+    }, 500);
+    const loadRetryTimeout = setTimeout(() => clearInterval(loadRetryId), 30_000);
+
     return () => {
+      clearInterval(loadRetryId);
+      clearTimeout(loadRetryTimeout);
       map.off("load", loadHandler);
       map.off("style.load", styleLoadHandler);
       map.remove();

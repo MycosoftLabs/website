@@ -1815,6 +1815,19 @@ export default function CREPDashboardPage() {
   const [buoys, setBuoys] = useState<any[]>([]);
   const [militaryBases, setMilitaryBases] = useState<any[]>([]);
   const [satellites, setSatellites] = useState<SatelliteEntity[]>([]);
+
+  // Apr 19, 2026 (Morgan: "boats finally visible but no widgets working for
+  // them" — same bug likely for planes + sats). The click handlers in
+  // MapComponent.onLoad capture these entity arrays in a CLOSURE at the
+  // moment the map loads — when all three are still []. Widget lookup
+  // (`filteredX.find(...)`) against the stale empty array never matches.
+  // Expose each latest array on window so the handlers can do a LIVE lookup.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__crep_aircraft = aircraft;
+    (window as any).__crep_vessels = vessels;
+    (window as any).__crep_satellites = satellites;
+  }, [aircraft, vessels, satellites]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   // Persistent observation store — merge incoming data, never fully replace (prevents blink)
   const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());
@@ -2272,6 +2285,8 @@ export default function CREPDashboardPage() {
     { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst" },
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
     { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
+    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — includes 69/115/138/230 kV feeders (Jamacha/Miguel/etc). Hardcoded via scripts/etl/crep/fetch-transmission-full.mjs." },
+    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally)" },
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped" },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
@@ -5094,11 +5109,17 @@ export default function CREPDashboardPage() {
                 // Click + hover
                 map.on("click", "crep-live-aircraft-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
-                  if (id) {
-                    lastEntityPickTimeRef.current = Date.now();
-                    const ac = filteredAircraft.find((a) => a.id === id);
-                    if (ac) setSelectedAircraft(ac);
-                  }
+                  if (!id) return;
+                  lastEntityPickTimeRef.current = Date.now();
+                  // Apr 19, 2026 (Morgan: "no widgets working for them"):
+                  // This handler is a CLOSURE captured in onLoad when
+                  // filteredAircraft was []. A live lookup via window
+                  // ref (populated by the data-pump useEffect) gets the
+                  // current aircraft list regardless of when the click
+                  // happens.
+                  const list = (window as any).__crep_aircraft as any[] | undefined;
+                  const ac = list?.find((a) => a.id === id);
+                  if (ac) setSelectedAircraft(ac);
                 });
                 map.on("mouseenter", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-aircraft-dot", () => { map.getCanvas().style.cursor = ""; });
@@ -5126,11 +5147,12 @@ export default function CREPDashboardPage() {
                 // Labels added later when style fonts are known
                 map.on("click", "crep-live-satellites-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
-                  if (id) {
-                    lastEntityPickTimeRef.current = Date.now();
-                    const sat = filteredSatellites.find((s) => s.id === id);
-                    if (sat) setSelectedSatellite(sat);
-                  }
+                  if (!id) return;
+                  lastEntityPickTimeRef.current = Date.now();
+                  // Live-list lookup (see aircraft handler comment).
+                  const list = (window as any).__crep_satellites as any[] | undefined;
+                  const sat = list?.find((s) => s.id === id);
+                  if (sat) setSelectedSatellite(sat);
                 });
                 map.on("mouseenter", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-satellites-dot", () => { map.getCanvas().style.cursor = ""; });
@@ -5160,11 +5182,12 @@ export default function CREPDashboardPage() {
                     "icon-allow-overlap": true, "icon-ignore-placement": true }});
                 map.on("click", "crep-live-vessels-dot", (e: any) => {
                   const id = e.features?.[0]?.properties?.id;
-                  if (id) {
-                    lastEntityPickTimeRef.current = Date.now();
-                    const v = filteredVessels.find((v) => v.id === id);
-                    if (v) setSelectedVessel(v);
-                  }
+                  if (!id) return;
+                  lastEntityPickTimeRef.current = Date.now();
+                  // Live-list lookup (see aircraft handler comment).
+                  const list = (window as any).__crep_vessels as any[] | undefined;
+                  const v = list?.find((vv) => vv.id === id);
+                  if (v) setSelectedVessel(v);
                 });
                 map.on("mouseenter", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = "pointer"; });
                 map.on("mouseleave", "crep-live-vessels-dot", () => { map.getCanvas().style.cursor = ""; });
@@ -6081,6 +6104,120 @@ export default function CREPDashboardPage() {
                   }
                 })();
 
+                // ─── FULL transmission lines (ALL voltages) — Apr 19, 2026 ───────
+                // Morgan: San Diego missing Jamacha / Miguel / Suncrest feeders.
+                // This layer uses the full HIFLD + OSM + MINDEX dataset generated
+                // by scripts/etl/crep/fetch-transmission-full.mjs. Paints ONLY if
+                // the PMTiles / geojson file has been generated and shipped —
+                // addInfraSourceWithFallback gracefully skips when neither exists.
+                void (async () => {
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionFull);
+                    if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
+                    const spec = layerSpecForMode(result.mode, INFRA_LAYERS.transmissionFull);
+                    safeAddLayer({
+                      id: "crep-txlines-full-line",
+                      type: "line",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      paint: {
+                        // Voltage-graduated color, width scales with zoom.
+                        // Matches OpenGridWorks palette: gray<100k, orange
+                        // 100-230k, pink 230-345k, blue 345-500k, cyan ≥500k.
+                        "line-color": [
+                          "interpolate", ["linear"],
+                          ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0],
+                          0, "#9ca3af",
+                          69000, "#fb923c",
+                          138000, "#ec4899",
+                          230000, "#a855f7",
+                          345000, "#60a5fa",
+                          500000, "#22d3ee",
+                          765000, "#ffffff",
+                        ],
+                        "line-width": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 0.3, 5, 0.6, 8, 1.1, 10, 1.8, 13, 2.6, 16, 3.5,
+                        ],
+                        "line-opacity": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 0.35, 5, 0.55, 8, 0.7, 12, 0.8,
+                        ],
+                      },
+                    });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line`);
+                  } catch (e) {
+                    console.warn("[CREP/Infra] transmission-full PMTiles path failed (file not generated yet?):", (e as Error)?.message);
+                  }
+                })();
+
+                // ─── Global data centers (Apr 19, 2026) ──────────────────────────
+                // OSM + PeeringDB + MINDEX. OpenGridWorks-style glowing squares.
+                // Generated by scripts/etl/crep/fetch-datacenters-global.mjs.
+                // Falls through silently if the file hasn't been generated yet.
+                void (async () => {
+                  try {
+                    const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.dataCentersGlobal);
+                    if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
+                    const spec = layerSpecForMode(result.mode, INFRA_LAYERS.dataCentersGlobal);
+                    // Glow — large blurred square base.
+                    safeAddLayer({
+                      id: "crep-dcs-global-glow",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      paint: {
+                        "circle-radius": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 4, 5, 6, 8, 9, 12, 14, 16, 20,
+                        ],
+                        "circle-color": "#7c3aed",
+                        "circle-opacity": 0.28,
+                        "circle-blur": 1.1,
+                      },
+                    });
+                    // Core dot — brighter square-feel via sharp edge + stroke.
+                    safeAddLayer({
+                      id: "crep-dcs-global-dot",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      paint: {
+                        "circle-radius": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 1.8, 5, 2.4, 8, 3.2, 12, 4.5, 16, 7,
+                        ],
+                        "circle-color": "#a855f7",
+                        "circle-opacity": 0.95,
+                        "circle-stroke-width": 1.0,
+                        "circle-stroke-color": "#ffffff",
+                        "circle-stroke-opacity": 0.8,
+                      },
+                    });
+                    // Click → InfraAsset panel via the shared __crep_selectAsset hook.
+                    map.on("click", "crep-dcs-global-dot", (e: any) => {
+                      const f = e.features?.[0]; if (!f) return;
+                      const p = f.properties || {};
+                      const c = e.lngLat;
+                      try {
+                        const hook = (window as any).__crep_selectAsset;
+                        if (typeof hook === "function") hook({
+                          type: "data_center",
+                          id: p.id,
+                          name: p.n || p.name || "Data Center",
+                          lat: c?.lat ?? 0, lng: c?.lng ?? 0,
+                          properties: { operator: p.op, tier: p.tier, country: p.country, city: p.city, source: p.src },
+                        });
+                      } catch { /* ignore */ }
+                    });
+                    map.on("mouseenter", "crep-dcs-global-dot", () => { map.getCanvas().style.cursor = "pointer"; });
+                    map.on("mouseleave", "crep-dcs-global-dot", () => { map.getCanvas().style.cursor = ""; });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.dataCentersGlobal.label}: ${result.mode} active → crep-dcs-global-dot`);
+                  } catch (e) {
+                    console.warn("[CREP/Infra] data-centers-global PMTiles path failed (file not generated yet?):", (e as Error)?.message);
+                  }
+                })();
+
                 // ── Cell towers (antennas) — render from world view (viewport-first) ──
                 // Apr 18, 2026: dropped the previous zoom:6+ gate. Cell towers
                 // now render at every zoom level; density stays manageable
@@ -6111,16 +6248,16 @@ export default function CREPDashboardPage() {
                   safeAddLayer({
                     id: "crep-celltowers-circle", type: "circle", source: "crep-celltowers",
                     paint: {
-                      // Apr 19, 2026 (critical fix — see crep-celltowers-global-
-                      // circle above). MapLibre only allows ONE zoom interpolate
-                      // per expression; the previous `case hover?zoomInterp:
-                      // zoomInterp` violated that rule and caused the layer to
-                      // never register. Multiply pattern: one zoom ramp, one
-                      // hover multiplier. Same visual result, valid spec.
+                      // Apr 19, 2026 (see crep-celltowers-global-circle above for
+                      // the full bug-history comment). Top-level interpolate on
+                      // zoom, with hover-case inside each stop value.
                       "circle-radius": [
-                        "*",
-                        ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
-                        ["case", ["boolean", ["feature-state", "hover"], false], 1.6, 1.0],
+                        "interpolate", ["linear"], ["zoom"],
+                        2, ["case", ["boolean", ["feature-state", "hover"], false], 3,    2],
+                        5, ["case", ["boolean", ["feature-state", "hover"], false], 4,    2.5],
+                        8, ["case", ["boolean", ["feature-state", "hover"], false], 5.5,  3],
+                        12, ["case", ["boolean", ["feature-state", "hover"], false], 7,    4],
+                        16, ["case", ["boolean", ["feature-state", "hover"], false], 10,   6],
                       ],
                       "circle-color": "#39ff14",        // neon green (cell tower signature)
                       "circle-opacity": [
@@ -6295,17 +6432,22 @@ export default function CREPDashboardPage() {
                         source: result.sourceId,
                         ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                         paint: {
-                          // Apr 19, 2026 (critical fix): MapLibre only allows
-                          // ONE zoom-based interpolate per expression. The prior
-                          // `case hover ? zoomInterp : zoomInterp` had TWO and
-                          // MapLibre rejected the entire layer → cell towers
-                          // silently disappeared site-wide (Morgan: "no cell
-                          // phone data shows at all"). Switch to a single zoom
-                          // interpolate multiplied by a hover factor.
+                          // Apr 19, 2026 (final fix after two bad attempts):
+                          //   1. First version nested TWO interpolates inside a case → rejected
+                          //      ("Only one zoom-based interpolate per expression").
+                          //   2. Second used `*` to multiply interpolate by a hover factor → also
+                          //      rejected ("zoom expression may only be used as input to a top-level
+                          //      step/interpolate"). MapLibre's validator requires `["zoom"]` to be
+                          //      a DIRECT input to interpolate — no wrapping expression allowed.
+                          //   3. Correct pattern: top-level interpolate on zoom, with each stop
+                          //      VALUE being a feature-state case. Legal MapLibre syntax.
                           "circle-radius": [
-                            "*",
-                            ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 2.5, 8, 3, 12, 4, 16, 6],
-                            ["case", ["boolean", ["feature-state", "hover"], false], 1.6, 1.0],
+                            "interpolate", ["linear"], ["zoom"],
+                            2, ["case", ["boolean", ["feature-state", "hover"], false], 3,    2],
+                            5, ["case", ["boolean", ["feature-state", "hover"], false], 4,    2.5],
+                            8, ["case", ["boolean", ["feature-state", "hover"], false], 5.5,  3],
+                            12, ["case", ["boolean", ["feature-state", "hover"], false], 7,    4],
+                            16, ["case", ["boolean", ["feature-state", "hover"], false], 10,   6],
                           ],
                           "circle-color": "#39ff14",       // neon green
                           "circle-opacity": [
