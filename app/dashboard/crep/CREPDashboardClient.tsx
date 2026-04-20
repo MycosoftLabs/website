@@ -237,6 +237,7 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import V3Overlays from "@/components/crep/layers/v3-overlays";
+import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -2353,6 +2354,16 @@ export default function CREPDashboardPage() {
     // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
     // ═══════════════════════════════════════════════════════════════════════════
     { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+
+    // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
+    // Canonical US datasets that OpenGridView uses. See
+    // components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md
+    // for provenance + refresh policy.
+    { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 — 1,479 existing US data centers with building/campus classification + sqft + operator" },
+    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
+    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
+    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
+    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
     { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
     { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
     { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
@@ -7767,6 +7778,21 @@ export default function CREPDashboardPage() {
                 return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
               } catch { return undefined }
             })() : undefined}
+          />
+
+          {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
+              (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
+              canonical US infra datasets, ~40k features total. See
+              components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md. */}
+          <EiaIm3Overlays
+            map={mapRef}
+            enabled={{
+              im3DataCenters: layers.find(l => l.id === "im3DataCenters")?.enabled ?? false,
+              eiaOperating:   layers.find(l => l.id === "eiaOperating")?.enabled   ?? false,
+              eiaPlanned:     layers.find(l => l.id === "eiaPlanned")?.enabled     ?? false,
+              eiaRetired:     layers.find(l => l.id === "eiaRetired")?.enabled     ?? false,
+              eiaCanceled:    layers.find(l => l.id === "eiaCanceled")?.enabled    ?? false,
+            }}
           />
 
           {/* V3 orphan layers — events / facilities / pollution / military
