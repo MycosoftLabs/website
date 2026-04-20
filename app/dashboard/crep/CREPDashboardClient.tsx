@@ -253,6 +253,11 @@ import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer"
 // NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN. 3D extrusions at zoom ≥ 14 give MYCA device-
 // placement logic proper building silhouettes for shadow/LOS calculations.
 import Mapbox3DBuildings from "@/components/crep/layers/mapbox-3d-buildings";
+// Photorealistic 3D Tiles — Google Map Tiles API (worldwide photogrammetry
+// mesh, same one Google Earth uses) with Cesium Ion fallback. Morgan enabled
+// Google Map Tiles API + is adding Cesium Ion key now. Goes live the moment
+// NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN lands.
+import Photorealistic3DTiles from "@/components/crep/layers/photorealistic-3d-tiles";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2409,6 +2414,7 @@ export default function CREPDashboardPage() {
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
     { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)" },
     { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic." },
+    { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14." },
     { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both." },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
@@ -8011,6 +8017,21 @@ export default function CREPDashboardPage() {
             map={mapRef}
             enabled3dBuildings={layers.find(l => l.id === "mapbox3dBuildings")?.enabled ?? false}
             enabledSatelliteStreets={layers.find(l => l.id === "mapboxSatelliteStreets")?.enabled ?? false}
+          />
+
+          {/* Photorealistic 3D city meshes — Google Map Tiles API (preferred,
+              worldwide photogrammetry) with Cesium Ion fallback (asset 2275207).
+              Mounted as its own dedicated non-interleaved MapboxOverlay so it
+              doesn't collide with any other deck.gl layers. Renders at any
+              zoom but most visible above 14; designed to pair with the
+              Mapbox 3D Buildings extrusions as a higher-fidelity alternative.
+              Idle (no-op) when keys aren't set — Morgan is adding the Cesium
+              Ion token now; Google Map Tiles is already enabled via Cursor. */}
+          <Photorealistic3DTiles
+            map={mapRef}
+            enabled={layers.find(l => l.id === "photorealistic3D")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "photorealistic3D")?.opacity ?? 1.0}
+            preferred="auto"
           />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
