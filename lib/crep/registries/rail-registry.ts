@@ -47,7 +47,13 @@ interface SourceResult {
 // =============================================================================
 
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
-const MINDEX_INTERNAL_TOKEN = process.env.MINDEX_INTERNAL_TOKEN || ""
+// Apr 20, 2026: MINDEX env var on VM 189 is named `MINDEX_INTERNAL_TOKENS`
+// (plural, comma-separated). Read both so the client works regardless of
+// which name the website container has set.
+const MINDEX_INTERNAL_TOKEN =
+  process.env.MINDEX_INTERNAL_TOKEN ||
+  (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||
+  ""
 
 const SOURCE_TIMEOUT_MS = 12_000
 

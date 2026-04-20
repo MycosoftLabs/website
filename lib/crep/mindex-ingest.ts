@@ -34,7 +34,15 @@ const MINDEX_BASE =
   process.env.NEXT_PUBLIC_MINDEX_API_URL ||
   "http://192.168.0.189:8000"
 
-const MINDEX_INTERNAL_TOKEN = process.env.MINDEX_INTERNAL_TOKEN || ""
+// Apr 20, 2026 (Cursor verified on VM 189): MINDEX accepts a comma-
+// separated list env var `MINDEX_INTERNAL_TOKENS` (plural). Older docs +
+// my earlier code used the singular `MINDEX_INTERNAL_TOKEN`. Read BOTH
+// so the client is robust regardless of which name prod has set. If the
+// plural form has multiple tokens, use the first one.
+const MINDEX_INTERNAL_TOKEN =
+  process.env.MINDEX_INTERNAL_TOKEN ||
+  (process.env.MINDEX_INTERNAL_TOKENS || "").split(",")[0].trim() ||
+  ""
 const MINDEX_API_KEY = process.env.MINDEX_API_KEY || ""
 
 export interface MindexEntity {
