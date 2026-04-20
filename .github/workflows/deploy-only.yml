@@ -82,7 +82,27 @@ jobs:
             exec 9>/tmp/mycosoft-prod-deploy.lock
             flock -n 9 || { echo "Another production deployment is already running"; exit 1; }
             cd /opt/mycosoft/website
-            PREV_IMAGE=\$(docker ps --filter "publish=3000" --format '{{.Image}}' | head -1 || true)
+
+            # Capture previous Next.js image for rollback. In blue/green mode
+            # the container publishing :3000 is nginx:1.27-alpine (the proxy),
+            # which MUST NOT be used as a rollback image (nginx listens on :80,
+            # not :3000 → Cloudflare 502). Filter out nginx/proxy images and
+            # only accept a Next.js image (ghcr.io/mycosoftlabs/website:* or
+            # the local mycosoft-always-on-* tag maintained by
+            # _rebuild_sandbox.py).
+            PREV_IMAGE=\$(docker ps --filter "publish=3000" --format '{{.Image}}' \\
+              | grep -vE '^(nginx|mycosoft-website-proxy)' \\
+              | grep -E '(ghcr\.io/mycosoftlabs/website|mycosoft-always-on)' \\
+              | head -1 || true)
+            # Multi-layer fallback if no valid image currently publishes :3000.
+            if [ -z "\${PREV_IMAGE}" ]; then
+              if docker image inspect mycosoft-always-on-mycosoft-website:previous >/dev/null 2>&1; then
+                PREV_IMAGE="mycosoft-always-on-mycosoft-website:previous"
+              elif docker image inspect ghcr.io/mycosoftlabs/website:production-latest >/dev/null 2>&1; then
+                PREV_IMAGE="ghcr.io/mycosoftlabs/website:production-latest"
+              fi
+            fi
+            echo "PREV_IMAGE resolved to: \${PREV_IMAGE:-<none>}"
             echo "\${PREV_IMAGE}" >/tmp/mycosoft-prev-image.txt
             export WEBSITE_IMAGE="${IMAGE}"
             free_host_port_3000() {
@@ -95,15 +115,44 @@ jobs:
               done
               docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
             }
+
+            # Rollback docker run — matches _rebuild_sandbox.py exactly: Next.js
+            # image, --env-file, NAS mount, host.docker.internal for MAS/MINDEX/
+            # MycoBrain, full production URL env. Container name is
+            # mycosoft-website (NOT website-live) so free_host_port_3000 and
+            # _rebuild_sandbox.py both clean it up on the next deploy.
+            rollback_to_prev_image() {
+              local img="\$1"
+              [ -z "\$img" ] && { echo "::error::No rollback image available"; return 1; }
+              if echo "\$img" | grep -qE '^(nginx|mycosoft-website-proxy)'; then
+                echo "::error::Refusing to roll back to non-Next.js image: \$img"
+                return 1
+              fi
+              echo "=== Rolling back :3000 to \$img (mycosoft-website pattern) ==="
+              free_host_port_3000
+              docker run -d --name mycosoft-website -p 3000:3000 \\
+                --add-host=host.docker.internal:host-gateway \\
+                -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \\
+                --env-file /opt/mycosoft/website/.env \\
+                -e NODE_ENV=production \\
+                -e PORT=3000 \\
+                -e HOSTNAME=0.0.0.0 \\
+                -e NEXT_PUBLIC_BASE_URL=https://mycosoft.com \\
+                -e NEXTAUTH_URL=https://mycosoft.com \\
+                -e NEXT_PUBLIC_SITE_URL=https://mycosoft.com \\
+                -e MAS_API_URL=http://host.docker.internal:8001 \\
+                -e MINDEX_API_URL=http://host.docker.internal:8000 \\
+                -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \\
+                -e N8N_URL=http://host.docker.internal:5678 \\
+                -e MYCOBRAIN_SERVICE_URL=http://host.docker.internal:8999 \\
+                -e MYCOBRAIN_API_URL=http://host.docker.internal:8999 \\
+                --restart unless-stopped "\$img"
+            }
+
             free_host_port_3000
             if ! docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website; then
               echo "Compose deploy failed. Attempting rollback container..."
-              if [ -n "\${PREV_IMAGE}" ]; then
-                free_host_port_3000
-                docker run -d --name website-live -p 3000:3000 \
-                  -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-                  --restart unless-stopped "\${PREV_IMAGE}" || true
-              fi
+              rollback_to_prev_image "\${PREV_IMAGE}" || echo "::warning::Rollback docker run failed; :3000 may be empty"
               exit 1
             fi
           DEPLOY
@@ -125,21 +174,54 @@ jobs:
           done
           if [ "$OK" -ne 1 ]; then
             echo "::error::Health check did not pass within 30s"
+            # Read the Next.js rollback image captured in the Pull-and-deploy
+            # step. The capture there already excluded nginx/proxy images, so
+            # this file should hold a Next.js image or be empty. Still double-
+            # check here for defence-in-depth.
             PREV_IMAGE="$(cat /tmp/mycosoft-prev-image.txt 2>/dev/null || true)"
+            if echo "$PREV_IMAGE" | grep -qE '^(nginx|mycosoft-website-proxy)'; then
+              echo "::warning::Refusing rollback to non-Next.js image: $PREV_IMAGE"
+              PREV_IMAGE=""
+            fi
+            if [ -z "$PREV_IMAGE" ]; then
+              if docker image inspect mycosoft-always-on-mycosoft-website:previous >/dev/null 2>&1; then
+                PREV_IMAGE="mycosoft-always-on-mycosoft-website:previous"
+              elif docker image inspect ghcr.io/mycosoftlabs/website:production-latest >/dev/null 2>&1; then
+                PREV_IMAGE="ghcr.io/mycosoftlabs/website:production-latest"
+              fi
+            fi
             if [ -n "$PREV_IMAGE" ]; then
-              free_host_port_3000() {
-                (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
-                for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
-                  [ -z "$cid" ] && continue
-                  docker stop "$cid" 2>/dev/null || true
-                  docker rm -f "$cid" 2>/dev/null || true
-                done
-                docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
-              }
-              free_host_port_3000
-              docker run -d --name website-live -p 3000:3000 \
+              echo "=== Rolling back :3000 to $PREV_IMAGE (mycosoft-website pattern) ==="
+              (cd /opt/mycosoft/website && docker compose -f docker-compose.production.yml rm -sf website 2>/dev/null || true)
+              for cid in $(docker ps -q --filter publish=3000 2>/dev/null); do
+                [ -z "$cid" ] && continue
+                docker stop "$cid" 2>/dev/null || true
+                docker rm -f "$cid" 2>/dev/null || true
+              done
+              docker rm -f website-website-1 website-website-2 mycosoft-website website-live 2>/dev/null || true
+              # Match _rebuild_sandbox.py docker run: Next.js image, --env-file,
+              # NAS mount, host.docker.internal for MAS/MINDEX/MycoBrain, full
+              # production URL env. Container name mycosoft-website.
+              docker run -d --name mycosoft-website -p 3000:3000 \
+                --add-host=host.docker.internal:host-gateway \
                 -v /opt/mycosoft/media/website/assets:/app/public/assets:ro \
-                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || true
+                --env-file /opt/mycosoft/website/.env \
+                -e NODE_ENV=production \
+                -e PORT=3000 \
+                -e HOSTNAME=0.0.0.0 \
+                -e NEXT_PUBLIC_BASE_URL=https://mycosoft.com \
+                -e NEXTAUTH_URL=https://mycosoft.com \
+                -e NEXT_PUBLIC_SITE_URL=https://mycosoft.com \
+                -e MAS_API_URL=http://host.docker.internal:8001 \
+                -e MINDEX_API_URL=http://host.docker.internal:8000 \
+                -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+                -e N8N_URL=http://host.docker.internal:5678 \
+                -e MYCOBRAIN_SERVICE_URL=http://host.docker.internal:8999 \
+                -e MYCOBRAIN_API_URL=http://host.docker.internal:8999 \
+                --restart unless-stopped "$PREV_IMAGE" >/dev/null 2>&1 || \
+                echo "::warning::Rollback docker run failed; :3000 may be empty"
+            else
+              echo "::warning::No valid rollback image available; :3000 left empty"
             fi
             exit 1
           fi
