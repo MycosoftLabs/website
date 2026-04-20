@@ -241,6 +241,7 @@ import V3Overlays from "@/components/crep/layers/v3-overlays";
 import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
+import TimelineScrubber from "@/components/crep/eagle-eye/TimelineScrubber";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -6311,15 +6312,29 @@ export default function CREPDashboardPage() {
                   const features = subsToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-substations", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  // Apr 20, 2026 (Morgan OpenPowerGrid parity): neon halo
+                  // behind each substation so voltage class reads clearly
+                  // over sat imagery + basemap.
+                  safeAddLayer({
+                    id: "crep-subs-glow", type: "circle", source: "crep-substations",
+                    paint: {
+                      "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 5, 9, 8, 12, 13],
+                      "circle-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
+                      "circle-opacity": 0.22,
+                      "circle-blur": 1.0,
+                    },
+                    minzoom: 6,
+                  });
                   safeAddLayer({
                     id: "crep-subs-circle", type: "circle", source: "crep-substations",
                     paint: {
                       "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 9, 3.5, 12, 6],
                       "circle-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
                         0, "#9ca3af", 100, "#a855f7", 230, "#60a5fa", 345, "#22d3ee", 500, "#ffffff"],
-                      "circle-opacity": 0.7,
-                      "circle-stroke-width": 0.5,
-                      "circle-stroke-color": "rgba(0,0,0,0.2)",
+                      "circle-opacity": 0.95,
+                      "circle-stroke-width": 0.8,
+                      "circle-stroke-color": "#0b1220",
                     },
                     // 93k HIFLD substations at zoom 4 = 2 FPS. Gate at zoom 6
                     // so world-view stays responsive; operator sees infra when
@@ -6463,6 +6478,22 @@ export default function CREPDashboardPage() {
                   const features = txLinesToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-txlines", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  // Apr 20, 2026 (Morgan OpenPowerGrid parity): wide blurred
+                  // halo behind each TX line so the voltage class reads
+                  // neon-bright over dark basemap and sat imagery.
+                  safeAddLayer({
+                    id: "crep-txlines-glow", type: "line", source: "crep-txlines",
+                    paint: {
+                      "line-color": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, "#9ca3af", 31, "#fb923c", 100, "#ec4899", 230, "#a855f7",
+                        345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
+                      "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
+                        0, 3, 100, 5, 345, 7, 500, 9, 735, 11],
+                      "line-opacity": 0.35,
+                      "line-blur": 3.5,
+                    },
+                    minzoom: 5,
+                  });
                   safeAddLayer({
                     id: "crep-txlines-line", type: "line", source: "crep-txlines",
                     paint: {
@@ -6471,7 +6502,7 @@ export default function CREPDashboardPage() {
                         345, "#60a5fa", 500, "#22d3ee", 735, "#ffffff"],
                       "line-width": ["interpolate", ["linear"], ["get", "voltage_kv"],
                         0, 1, 100, 1.5, 345, 2, 500, 2.5, 735, 3],
-                      "line-opacity": 0.75,
+                      "line-opacity": 0.95,
                     },
                     // 20k transmission lines at zoom 3 = render storm. Gate
                     // at zoom 5 so the contiguous-US grid only paints when
@@ -7875,6 +7906,13 @@ export default function CREPDashboardPage() {
               dispatched by EagleEyeOverlay, resolves the source via
               /api/eagle/stream/[sourceId], mounts the right player. */}
           <VideoWallWidget />
+
+          {/* Eagle Eye TimelineScrubber — bottom-left bar for 24h
+              ephemeral-event filtering. Polls /api/eagle/events + paints
+              per-provider tick density; window selector 1/6/12/24 h;
+              broadcasts crep:eagle:time-window so overlays pick up the
+              window. */}
+          <TimelineScrubber />
 
           {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
               Cursor applied eagle.* MINDEX schema on VM 189 + deployed
