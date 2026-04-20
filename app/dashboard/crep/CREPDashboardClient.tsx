@@ -2849,8 +2849,21 @@ export default function CREPDashboardPage() {
     const { north, south, east, west } = mapBounds;
     if (![north, south, east, west].every(Number.isFinite) || north <= south) return;
 
-    // Server-side LOD: request more data at every zoom level to fill the map
-    const zoomLimit = mapZoom < 2 ? 2000 : mapZoom < 3 ? 5000 : mapZoom < 4 ? 10000 : mapZoom < 5 ? 20000 : undefined; // zoom 5+: no limit
+    // Apr 19, 2026 (Morgan: "massive 3005+m observations of nature are
+    // not shown on level of detail zoom as there should be so much data
+    // records when i zoom into imperial beach chula vista camp pendleton
+    // coronado point loma"). Previous `undefined` at zoom 5+ fell through
+    // to server default of 2000 observations. Dense urban/coastal bboxes
+    // (San Diego, Bay Area, NYC, Tokyo) need 10-20k to saturate. Now
+    // explicitly request 20k at zoom 5+ so the server's pagination loop
+    // (fetchINaturalistObservations page 1-10 × 10 iconic taxa = 20k
+    // ceiling) kicks in and we actually see the observations that exist.
+    const zoomLimit = mapZoom < 2 ? 2000
+      : mapZoom < 3 ? 5000
+      : mapZoom < 4 ? 10000
+      : mapZoom < 5 ? 15000
+      : mapZoom < 7 ? 20000
+      : 30000; // city-level zoom ≥ 7 — ask for up to 30k, server caps at what iNat returns
 
     const ctrl = new AbortController();
     const formatObs = (obs: Record<string, unknown>): FungalObservation => {
@@ -6029,6 +6042,36 @@ export default function CREPDashboardPage() {
                     // still sees the full grid at state+ zoom.
                     minzoom: 4,
                   });
+                  // Apr 19, 2026 (OpenGridView parity): plant name + MW
+                  // label above the circle, e.g. "Peregrine Energy Storage
+                  // LLC · 200 MW". Shown at zoom ≥ 10 to avoid world-view
+                  // text floods.
+                  safeAddLayer({
+                    id: "crep-plants-label",
+                    type: "symbol",
+                    source: "crep-plants",
+                    minzoom: 10,
+                    layout: {
+                      "text-field": [
+                        "case",
+                        [">", ["to-number", ["get", "capacity_mw"], 0], 0],
+                        ["concat", ["get", "name"], " · ", ["to-string", ["get", "capacity_mw"]], " MW"],
+                        ["get", "name"],
+                      ],
+                      "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 12, 18, 14],
+                      "text-offset": [0, 1.1],
+                      "text-anchor": "top",
+                      "text-allow-overlap": false,
+                      "text-optional": true,
+                      "text-max-width": 9,
+                    } as any,
+                    paint: {
+                      "text-color": "#fbbf24",
+                      "text-halo-color": "rgba(0,0,0,0.9)",
+                      "text-halo-width": 1.6,
+                      "text-halo-blur": 0.6,
+                    },
+                  });
                   setPowerPlants(entities.filter((e: any) => e.lat).map((e: any) => ({
                     id: e.id, name: e.name || "Unknown", lat: e.lat, lng: e.lng,
                     capacity_mw: e.properties?.capacity_mw || 0,
@@ -6114,6 +6157,40 @@ export default function CREPDashboardPage() {
                     // so world-view stays responsive; operator sees infra when
                     // they drill in.
                     minzoom: 6,
+                  });
+                  // Apr 19, 2026 (Morgan OpenGridView parity: "every single
+                  // asset name line widget live data from all widgets in
+                  // opengridview … using san diego as discrepency example").
+                  // Substation text labels — "Old Town · 230 kV" style,
+                  // shown at zoom ≥ 10 so the world-view isn't a text
+                  // tornado. text-allow-overlap=false keeps them readable.
+                  safeAddLayer({
+                    id: "crep-subs-label",
+                    type: "symbol",
+                    source: "crep-substations",
+                    minzoom: 10,
+                    layout: {
+                      "text-field": [
+                        "case",
+                        [">", ["to-number", ["get", "voltage_kv"], 0], 0],
+                        ["concat", ["get", "name"], " · ", ["to-string", ["get", "voltage_kv"]], " kV"],
+                        ["get", "name"],
+                      ],
+                      "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 14, 11, 18, 13],
+                      "text-offset": [0, 0.9],
+                      "text-anchor": "top",
+                      "text-allow-overlap": false,
+                      "text-ignore-placement": false,
+                      "text-optional": true,
+                      "text-max-width": 8,
+                      "text-letter-spacing": 0.02,
+                    } as any,
+                    paint: {
+                      "text-color": "#ffffff",
+                      "text-halo-color": "rgba(0,0,0,0.85)",
+                      "text-halo-width": 1.4,
+                      "text-halo-blur": 0.6,
+                    },
                   });
                   if (!subsClickBound) {
                     subsClickBound = true;
@@ -6433,7 +6510,41 @@ export default function CREPDashboardPage() {
                       map.on("mouseenter", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = "pointer"; });
                       map.on("mouseleave", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = ""; });
                     }
-                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line (click + hover wired)`);
+                    // Apr 19, 2026 (OpenGridView parity): voltage labels
+                    // ALONG the transmission lines ("230 kV", "500 kV"
+                    // flowing with the route). symbol-placement: "line"
+                    // repeats the text across the line geometry.
+                    safeAddLayer({
+                      id: "crep-txlines-full-label",
+                      type: "symbol",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      minzoom: 9,
+                      layout: {
+                        "symbol-placement": "line",
+                        "symbol-spacing": 250,
+                        "text-field": [
+                          "concat",
+                          ["to-string", [
+                            "round",
+                            ["/", ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0], 1000],
+                          ]],
+                          " kV",
+                        ],
+                        "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 13, 11, 16, 13],
+                        "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+                        "text-max-angle": 30,
+                        "text-keep-upright": true,
+                      } as any,
+                      paint: {
+                        "text-color": "#60a5fa",
+                        "text-halo-color": "rgba(0,0,0,0.85)",
+                        "text-halo-width": 1.5,
+                        "text-halo-blur": 0.4,
+                      },
+                      filter: [">", ["coalesce", ["to-number", ["get", "v"]], ["to-number", ["get", "VOLTAGE"]], 0], 34000],
+                    });
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line (click + hover wired, kV labels at zoom 9+)`);
                   } catch (e) {
                     console.warn("[CREP/Infra] transmission-full PMTiles path failed (file not generated yet?):", (e as Error)?.message);
                   }
@@ -6502,6 +6613,68 @@ export default function CREPDashboardPage() {
                         "circle-stroke-width": 1.6,
                         "circle-stroke-color": "#ffffff",
                         "circle-stroke-opacity": 0.95,
+                      },
+                    });
+                    // Apr 19, 2026 (Morgan OpenGridView parity: "larger
+                    // glowing blue squares for data centers" + "every single
+                    // asset name"). Load a diamond-shaped white-with-cyan-
+                    // border icon at mount, then overlay a symbol layer
+                    // that draws the diamond ON TOP of the circle so the
+                    // marker reads as a rotated square (OpenGridView's
+                    // signature DC glyph). Label shows "{name}" at zoom ≥ 9.
+                    try {
+                      if (!(map as any).hasImage?.("dc-diamond")) {
+                        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(16 16) rotate(45)" filter="url(#glow)">
+    <rect x="-9" y="-9" width="18" height="18" fill="#bfdbfe" stroke="#22d3ee" stroke-width="1.8"/>
+    <rect x="-5" y="-5" width="10" height="10" fill="#ffffff" opacity="0.95"/>
+  </g>
+</svg>`.trim();
+                        const img = new Image(32, 32);
+                        img.onload = () => {
+                          try {
+                            if (!(map as any).hasImage?.("dc-diamond")) {
+                              map.addImage("dc-diamond", img as any, { pixelRatio: 2 });
+                            }
+                          } catch { /* ignore */ }
+                        };
+                        img.src = `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`;
+                      }
+                    } catch { /* ignore */ }
+                    safeAddLayer({
+                      id: "crep-dcs-global-icon",
+                      type: "symbol",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      minzoom: 3,
+                      layout: {
+                        "icon-image": "dc-diamond",
+                        "icon-size": [
+                          "interpolate", ["linear"], ["zoom"],
+                          3, 0.35, 6, 0.5, 10, 0.75, 14, 1.1,
+                        ],
+                        "icon-allow-overlap": true,
+                        "icon-ignore-placement": true,
+                        "text-field": ["get", "n"],
+                        "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 14, 13],
+                        "text-offset": [0, 1.2],
+                        "text-anchor": "top",
+                        "text-optional": true,
+                        "text-allow-overlap": false,
+                        "text-max-width": 9,
+                      } as any,
+                      paint: {
+                        "text-color": "#bfdbfe",
+                        "text-halo-color": "rgba(0,0,0,0.9)",
+                        "text-halo-width": 1.5,
+                        "text-halo-blur": 0.5,
                       },
                     });
                     // Click → InfraAsset panel via the shared __crep_selectAsset hook.

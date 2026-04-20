@@ -485,14 +485,29 @@ async function fetchINaturalistObservations(
   const allTasks = regionsToFetch.flatMap((region) =>
     taxaToFetch.map((taxon) => ({ region, taxon }))
   );
+  // Apr 19, 2026 (Morgan: "massive 3005+m observations of nature are not
+  // shown at zoom levels … imperial beach chula vista camp pendleton
+  // coronado point loma … almost all of it is missing"). iNaturalist caps
+  // per_page at 200 — previous single-page fetch per (region × taxon) maxed
+  // at ~2000 total. Dense urban/coastal bounds have 10k+ observations. Now:
+  // paginate each (region × taxon) up to PAGES_PER_TAXON pages (10 × 200 =
+  // 2000 per taxon × 10 taxa = 20k ceiling), stopping early when a page
+  // returns < 200 results. Still throttled in batches of 3 concurrent
+  // calls so we don't hit iNat's 60 req/min limit.
+  const PAGES_PER_TAXON = Math.max(1, Math.ceil(perRegionLimit / 200))
   for (let i = 0; i < allTasks.length; i += 3) {
     const batch = allTasks.slice(i, i + 3);
     await Promise.all(batch.map(async ({ region, taxon }) => {
-        try {
+      try {
+        let fetchedForTaxon = 0
+        for (let page = 1; page <= PAGES_PER_TAXON; page++) {
+          // Stop paginating once we've reached the per-taxon budget
+          if (fetchedForTaxon >= perRegionLimit) break
           const params = new URLSearchParams({
             iconic_taxa: taxon,
             quality_grade: "research,needs_id",
-            per_page: String(Math.min(perRegionLimit, 200)),
+            per_page: String(200),
+            page: String(page),
             order: "desc",
             order_by: "observed_on",
             geo: "true",
@@ -509,19 +524,19 @@ async function fetchINaturalistObservations(
           })
 
           if (!response.ok) {
-            console.warn(`[CREP/Life] iNaturalist API error for ${region.name}/${taxon}:`, response.status)
-            return
+            console.warn(`[CREP/Life] iNaturalist API error for ${region.name}/${taxon} page ${page}:`, response.status)
+            break
           }
 
           const data = await response.json()
-          if (data.results?.length > 0) {
-            console.log(`[CREP/Life] Fetched ${data.results.length} ${taxon} from ${region.name}`)
+          const results = Array.isArray(data.results) ? data.results : []
+          if (results.length > 0) {
+            console.log(`[CREP/Life] Fetched ${results.length} ${taxon} from ${region.name} (page ${page})`)
           }
 
-          const regionObs = (data.results || [])
+          const regionObs = results
             .filter((obs: any) => obs.geojson?.coordinates || obs.location)
             .map((obs: any) => {
-              // iNaturalist: geojson.coordinates is [lng, lat]; location is "lat,lng" string
               let lat = obs.geojson?.coordinates?.[1]
               let lng = obs.geojson?.coordinates?.[0]
               if (lat == null || lng == null) {
@@ -532,38 +547,45 @@ async function fetchINaturalistObservations(
                 }
               }
               return {
-              id: `inat-${obs.id}`,
-              species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
-              scientificName: obs.taxon?.name || "Unknown",
-              commonName: obs.taxon?.preferred_common_name,
-              latitude: Number(lat) || 0,
-              longitude: Number(lng) || 0,
-              timestamp: obs.observed_on || obs.created_at,
-              source: "iNaturalist" as const,
-              verified: obs.quality_grade === "research",
-              observer: obs.user?.login || "Anonymous",
-              imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
-              thumbnailUrl: obs.photos?.[0]?.url,
-              location: obs.place_guess || region.name,
-              notes: obs.description,
-              hasGps: true,
-              geocodeStatus: "complete" as const,
-              kingdom: obs.taxon?.iconic_taxon_name || taxon,
-              iconicTaxon: obs.taxon?.iconic_taxon_name || taxon,
-              taxonId: obs.taxon?.id,
-              sourceUrl: `https://www.inaturalist.org/observations/${obs.id}`,
-            }})
+                id: `inat-${obs.id}`,
+                species: obs.taxon?.preferred_common_name || obs.taxon?.name || "Unknown",
+                scientificName: obs.taxon?.name || "Unknown",
+                commonName: obs.taxon?.preferred_common_name,
+                latitude: Number(lat) || 0,
+                longitude: Number(lng) || 0,
+                timestamp: obs.observed_on || obs.created_at,
+                source: "iNaturalist" as const,
+                verified: obs.quality_grade === "research",
+                observer: obs.user?.login || "Anonymous",
+                imageUrl: obs.photos?.[0]?.url?.replace("square", "medium"),
+                thumbnailUrl: obs.photos?.[0]?.url,
+                location: obs.place_guess || region.name,
+                notes: obs.description,
+                hasGps: true,
+                geocodeStatus: "complete" as const,
+                kingdom: obs.taxon?.iconic_taxon_name || taxon,
+                iconicTaxon: obs.taxon?.iconic_taxon_name || taxon,
+                taxonId: obs.taxon?.id,
+                sourceUrl: `https://www.inaturalist.org/observations/${obs.id}`,
+              }
+            })
 
           allObservations.push(...regionObs)
-        } catch (error) {
-          console.error(`[CREP/Life] Failed to fetch ${taxon} data for ${region.name}:`, error)
+          fetchedForTaxon += results.length
+          // Early-exit: no more pages available
+          if (results.length < 200) break
+          // Brief pause between pages of the same taxon
+          if (page < PAGES_PER_TAXON) await new Promise(r => setTimeout(r, 150))
         }
-      }));
-    // 200ms delay between batches to avoid iNaturalist 429 rate limit
+      } catch (error) {
+        console.error(`[CREP/Life] Failed to fetch ${taxon} data for ${region.name}:`, error)
+      }
+    }));
+    // 200ms delay between (region × taxon) batches to avoid iNat 429
     if (i + 3 < allTasks.length) await new Promise(r => setTimeout(r, 200));
   }
 
-  console.log(`[CREP/Life] Total iNaturalist observations fetched: ${allObservations.length}`)
+  console.log(`[CREP/Life] Total iNaturalist observations fetched: ${allObservations.length} (PAGES_PER_TAXON=${PAGES_PER_TAXON})`)
   return allObservations
 }
 
