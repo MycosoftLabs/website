@@ -6338,7 +6338,28 @@ export default function CREPDashboardPage() {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.dataCentersGlobal);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
                     const spec = layerSpecForMode(result.mode, INFRA_LAYERS.dataCentersGlobal);
-                    // Glow — large blurred square base.
+                    // Apr 19, 2026 (Morgan: "larger glowing blue squares for
+                    // data centers, neon like on opengridview"). Three-layer
+                    // stack — outer cyan halo (big blur), mid cyan glow
+                    // (medium blur), core bright-blue pixel (sharp edge +
+                    // white stroke) — reads as a neon-lit data center from
+                    // world view through city zoom.
+                    safeAddLayer({
+                      id: "crep-dcs-global-halo",
+                      type: "circle",
+                      source: result.sourceId,
+                      ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
+                      paint: {
+                        // ~3× larger than the old glow; far wider at deep zoom.
+                        "circle-radius": [
+                          "interpolate", ["linear"], ["zoom"],
+                          2, 8, 5, 13, 8, 20, 12, 32, 16, 48,
+                        ],
+                        "circle-color": "#22d3ee",  // cyan-300
+                        "circle-opacity": 0.18,
+                        "circle-blur": 1.4,
+                      },
+                    });
                     safeAddLayer({
                       id: "crep-dcs-global-glow",
                       type: "circle",
@@ -6347,29 +6368,30 @@ export default function CREPDashboardPage() {
                       paint: {
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          2, 4, 5, 6, 8, 9, 12, 14, 16, 20,
+                          2, 5, 5, 8, 8, 12, 12, 18, 16, 28,
                         ],
-                        "circle-color": "#7c3aed",
-                        "circle-opacity": 0.28,
-                        "circle-blur": 1.1,
+                        "circle-color": "#38bdf8",  // sky-400
+                        "circle-opacity": 0.42,
+                        "circle-blur": 0.8,
                       },
                     });
-                    // Core dot — brighter square-feel via sharp edge + stroke.
                     safeAddLayer({
                       id: "crep-dcs-global-dot",
                       type: "circle",
                       source: result.sourceId,
                       ...(spec.sourceLayer ? { "source-layer": spec.sourceLayer } : {}),
                       paint: {
+                        // Bumped core radius: Morgan's OpenGridView reference
+                        // shows data centers as hero icons, not pinpricks.
                         "circle-radius": [
                           "interpolate", ["linear"], ["zoom"],
-                          2, 1.8, 5, 2.4, 8, 3.2, 12, 4.5, 16, 7,
+                          2, 3, 5, 4.5, 8, 6, 12, 9, 16, 14,
                         ],
-                        "circle-color": "#a855f7",
-                        "circle-opacity": 0.95,
-                        "circle-stroke-width": 1.0,
+                        "circle-color": "#60a5fa",  // blue-400
+                        "circle-opacity": 1.0,
+                        "circle-stroke-width": 1.6,
                         "circle-stroke-color": "#ffffff",
-                        "circle-stroke-opacity": 0.8,
+                        "circle-stroke-opacity": 0.95,
                       },
                     });
                     // Click → InfraAsset panel via the shared __crep_selectAsset hook.
@@ -6973,12 +6995,16 @@ export default function CREPDashboardPage() {
                 Click handlers on each native layer handle selection.
                 This eliminates duplicate dots from deck.gl ScatterplotLayers. */}
 
-            {/* Trajectory Lines - Flight Paths and Ship Routes */}
+            {/* Trajectory Lines — Apr 19, 2026: only for selected entity
+                (Morgan: "plane and vessel and satellite trajectories should
+                only show when one is selected like how seacable or
+                powerlines show when selected"). Passing selectedAircraftId
+                / selectedVesselId limits rendering to that single asset. */}
             <TrajectoryLines
               aircraft={filteredAircraft}
               vessels={filteredVessels}
-              showFlightPaths={layers.find(l => l.id === "aviationRoutes")?.enabled ?? false}
-              showShipRoutes={layers.find(l => l.id === "shipRoutes")?.enabled ?? false}
+              selectedAircraftId={selectedAircraft?.id ?? null}
+              selectedVesselId={selectedVessel?.id ?? null}
             />
 
             {/* Satellite orbit lines and icons come only from EntityDeckLayer (deck.gl);

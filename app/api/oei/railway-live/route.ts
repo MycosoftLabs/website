@@ -31,6 +31,28 @@ export const revalidate = 30 // seconds of edge cache
 const AMTRAKER_URL = "https://api-v3.amtraker.com/v3/trains"
 const MBTA_URL = "https://cdn.mbta.com/realtime/VehiclePositions.json"
 
+// Apr 19, 2026 (Morgan: "i want live mts trolly data in san diego as a start
+// and then we do la and sf"). San Diego MTS trolley + bus live feeds are
+// exposed via Swiftly's public TransitTimeProxy — SDMTS agency key is
+// "sdmts". The JSON endpoint returns a GTFS-RT-equivalent vehicle list. If
+// SDMTS changes the URL path in the future we try a couple of candidates.
+const MTS_URL_CANDIDATES = [
+  "https://realtime.sdmts.com/api/where/vehicles-for-agency/MTS.json?key=TEST",
+  "https://realtime.sdmts.com/Vehicle/VehicleList",
+  "https://www.sdmts.com/api/realtime/vehicles",
+]
+
+// LA Metro — free key (LAMTA) required for GTFS-RT. When LA_METRO_API_KEY is
+// present the fetcher pulls the official GTFS-RT feed for light rail
+// (Metro Rail) + buses; otherwise it's a graceful no-op.
+const LA_METRO_GTFS_RT_URL =
+  "https://api.metro.net/api/v1/vehicles/positions"
+
+// SF 511 — returns all Bay Area agencies (MUNI, Caltrain, BART, etc.) through
+// a single GTFS-RT endpoint. Requires 511_API_KEY env var (free register).
+const SF_511_URL = (agency: string) =>
+  `https://api.511.org/transit/vehiclepositions?api_key=${process.env.SF_511_API_KEY || ""}&agency=${agency}&format=json`
+
 async function fetchAmtrak(): Promise<any[]> {
   try {
     const res = await fetch(AMTRAKER_URL, {
@@ -111,27 +133,220 @@ async function fetchMBTA(): Promise<any[]> {
   }
 }
 
+// ─── MTS (San Diego Metropolitan Transit System) ──────────────────────────
+// SDMTS runs the San Diego Trolley + bus network. Morgan specifically asked
+// for MTS trolley data first, then LA + SF. Their OneBusAway-flavoured JSON
+// API is the easiest public feed to consume — if none of the candidate URLs
+// respond we return [] gracefully so the rest of the pipeline keeps working.
+async function fetchMTS(): Promise<any[]> {
+  for (const url of MTS_URL_CANDIDATES) {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "MycosoftCREP/1.0", Accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) continue
+      const data: any = await res.json()
+      // OneBusAway shape: { data: { list: [{ vehicleId, lastKnownLocation, tripId, ... }] } }
+      const list: any[] =
+        data?.data?.list ||
+        data?.vehicles ||
+        data?.list ||
+        (Array.isArray(data) ? data : [])
+      if (!list.length) continue
+      const out: any[] = []
+      for (const v of list) {
+        const lat =
+          v?.lastKnownLocation?.lat ??
+          v?.location?.lat ??
+          v?.lat ??
+          v?.position?.latitude ??
+          null
+        const lng =
+          v?.lastKnownLocation?.lon ??
+          v?.location?.lon ??
+          v?.lng ??
+          v?.lon ??
+          v?.position?.longitude ??
+          null
+        if (lat == null || lng == null) continue
+        // Trip/route ID patterns distinguish trolley (rail) from bus:
+        // trolley route IDs start with "510|520|530" for Blue/Orange/Green.
+        const routeId = String(v?.tripId || v?.route_id || v?.routeId || "")
+        const isTrolley = /^(510|520|530|5\d{2})/.test(routeId) || /trolley/i.test(v?.routeName || "")
+        out.push({
+          id: `mts-${v.vehicleId || v.id || `${lat},${lng}`}`,
+          trainNum: v.vehicleId || null,
+          name: v.routeName || (isTrolley ? "MTS Trolley" : "MTS Bus"),
+          routeName: v.routeName || routeId || null,
+          operator: "MTS",
+          vehicle_type: isTrolley ? "trolley" : "bus",
+          lat: Number(lat),
+          lng: Number(lng),
+          heading: Number(v.heading ?? v.bearing ?? 0) || 0,
+          speed: Number(v.speed ?? 0) || 0,
+          state: null,
+          status: v.status || null,
+          timestamp: v.lastUpdateTime
+            ? new Date(Number(v.lastUpdateTime)).toISOString()
+            : new Date().toISOString(),
+          source: "mts-sdmts",
+        })
+      }
+      if (out.length) return out
+    } catch {
+      // next candidate
+    }
+  }
+  return []
+}
+
+// ─── LA Metro ─────────────────────────────────────────────────────────────
+async function fetchLAMetro(): Promise<any[]> {
+  try {
+    const res = await fetch(LA_METRO_GTFS_RT_URL, {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const data: any = await res.json()
+    const items: any[] = data?.items || data?.vehicles || data?.entity || []
+    return items
+      .filter((v: any) => {
+        const lat = v?.latitude ?? v?.position?.latitude ?? v?.vehicle?.position?.latitude
+        const lng = v?.longitude ?? v?.position?.longitude ?? v?.vehicle?.position?.longitude
+        return Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+      })
+      .map((v: any) => {
+        const p = v.vehicle?.position || v.position || v
+        const vehLabel = v?.vehicle?.vehicle?.label || v?.id || v?.run_id
+        const routeId = v?.vehicle?.trip?.route_id || v?.route_id || ""
+        const isRail = /^8\d{2}|red|blue|purple|green|gold|expo|k line/i.test(String(routeId))
+        return {
+          id: `lametro-${vehLabel || `${p.latitude},${p.longitude}`}`,
+          trainNum: vehLabel,
+          name: `LA Metro ${routeId}`.trim(),
+          routeName: routeId || null,
+          operator: "LA Metro",
+          vehicle_type: isRail ? "rail" : "bus",
+          lat: Number(p.latitude),
+          lng: Number(p.longitude),
+          heading: Number(p.bearing ?? 0) || 0,
+          speed: Number(p.speed ?? 0) || 0,
+          state: v?.vehicle?.current_status || null,
+          status: null,
+          timestamp: v?.vehicle?.timestamp
+            ? new Date(Number(v.vehicle.timestamp) * 1000).toISOString()
+            : new Date().toISOString(),
+          source: "la-metro",
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
+// ─── SF 511 (MUNI / Caltrain / BART) ──────────────────────────────────────
+async function fetchSF511(agency: "SF" | "CT" | "BA"): Promise<any[]> {
+  if (!process.env.SF_511_API_KEY) return []
+  try {
+    const res = await fetch(SF_511_URL(agency), {
+      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return []
+    const data: any = await res.json()
+    const entities: any[] = data?.Entities || data?.entity || []
+    const opName = agency === "SF" ? "SF MUNI" : agency === "CT" ? "Caltrain" : "BART"
+    return entities
+      .filter((e: any) => e?.Vehicle?.Position?.Latitude != null)
+      .map((e: any) => {
+        const v = e.Vehicle
+        const p = v.Position || {}
+        return {
+          id: `${agency.toLowerCase()}-${v.Vehicle?.Id || `${p.Latitude},${p.Longitude}`}`,
+          trainNum: v.Vehicle?.Id || null,
+          name: `${opName} ${v.Trip?.RouteId || ""}`.trim(),
+          routeName: v.Trip?.RouteId || null,
+          operator: opName,
+          vehicle_type: agency === "BA" ? "rail" : agency === "CT" ? "rail" : /^(N|J|K|L|M|T|F)/.test(v.Trip?.RouteId || "") ? "trolley" : "bus",
+          lat: Number(p.Latitude),
+          lng: Number(p.Longitude),
+          heading: Number(p.Bearing ?? 0) || 0,
+          speed: Number(p.Speed ?? 0) || 0,
+          state: v.CurrentStatus || null,
+          status: null,
+          timestamp: v.Timestamp ? new Date(Number(v.Timestamp) * 1000).toISOString() : new Date().toISOString(),
+          source: `sf-511-${agency.toLowerCase()}`,
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const limit = Math.min(Number(url.searchParams.get("limit") || 2000), 5000)
+  const opFilter = (url.searchParams.get("operator") || "").toLowerCase()
 
-  // Fetch both in parallel; each is fail-isolated.
-  const [amtrak, mbta] = await Promise.all([fetchAmtrak(), fetchMBTA()])
-  const trains = [...amtrak, ...mbta].slice(0, limit)
+  // Apr 19, 2026 (Morgan: "i want live mts trolly data in san diego as a
+  // start and then we do la and sf"). All five feeds fan out in parallel
+  // with independent fail-isolation. `?operator=mts` (or amtrak / mbta /
+  // la-metro / muni / caltrain / bart) trims the result to just that
+  // operator so the train widget can show region-local feeds.
+  const [amtrak, mbta, mts, lametro, muni, caltrain, bart] = await Promise.all([
+    fetchAmtrak(),
+    fetchMBTA(),
+    fetchMTS(),
+    fetchLAMetro(),
+    fetchSF511("SF"),
+    fetchSF511("CT"),
+    fetchSF511("BA"),
+  ])
+
+  let trains = [...amtrak, ...mbta, ...mts, ...lametro, ...muni, ...caltrain, ...bart]
+  if (opFilter) {
+    const match: Record<string, (t: any) => boolean> = {
+      amtrak: (t) => t.source === "amtrak",
+      mbta: (t) => t.source === "mbta-gtfs-rt",
+      mts: (t) => t.source === "mts-sdmts",
+      "la-metro": (t) => t.source === "la-metro",
+      muni: (t) => t.source === "sf-511-sf",
+      caltrain: (t) => t.source === "sf-511-ct",
+      bart: (t) => t.source === "sf-511-ba",
+    }
+    const fn = match[opFilter]
+    if (fn) trains = trains.filter(fn)
+  }
+  trains = trains.slice(0, limit)
 
   return NextResponse.json(
     {
       source: "railway-live",
       total: trains.length,
-      operators: { amtrak: amtrak.length, mbta: mbta.length },
+      operators: {
+        amtrak: amtrak.length,
+        mbta: mbta.length,
+        mts: mts.length,
+        "la-metro": lametro.length,
+        "muni": muni.length,
+        "caltrain": caltrain.length,
+        "bart": bart.length,
+      },
       trains,
       generatedAt: new Date().toISOString(),
-      note: "Amtrak via amtraker.com community aggregator (decrypts Amtrak's AES-encrypted feed). MBTA via GTFS-RT. UK Network Rail / DB HAFAS / Caltrain / LIRR pending (v3 §A.9.3).",
+      note:
+        "Amtrak via amtraker.com (AES-decrypt aggregator). MBTA via GTFS-RT JSON. " +
+        "MTS San Diego via OneBusAway-flavoured JSON (Swiftly backend). " +
+        "LA Metro via Metro.net GTFS-RT. " +
+        "SF 511 (MUNI / Caltrain / BART) requires SF_511_API_KEY env var — register free at 511.org. " +
+        "UK Network Rail / DB HAFAS pending (v3 §A.9.3).",
     },
     {
       headers: {
         "Cache-Control": "public, s-maxage=25, stale-while-revalidate=120",
-        "X-Source": "amtraker+mbta-gtfs-rt",
+        "X-Source": "amtraker+mbta+mts+la-metro+sf-511",
       },
     },
   )

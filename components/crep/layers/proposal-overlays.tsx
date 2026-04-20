@@ -806,55 +806,181 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   useEffect(() => {
     if (!map) return
     if (!enabled.railwayTrains) {
-      try { if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "none") } catch { /* ignore */ }
+      try {
+        if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "none")
+        if (map.getLayer("crep-trains-live-cars-line")) map.setLayoutProperty("crep-trains-live-cars-line", "visibility", "none")
+      } catch { /* ignore */ }
       return
     }
-    // On re-enable, flip visibility back; fetchAndPaint below will refresh
-    // data too. On first enable, loadedRef prevents duplicate initial
-    // attaches but the 30 s polling interval still runs.
+    // On re-enable, flip both icon and cars line visibility back on. On
+    // first enable, loadedRef prevents duplicate initial attaches but the
+    // 30 s polling interval still runs.
     if (loadedRef.current.railwayTrains) {
-      try { if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "visible") } catch { /* ignore */ }
+      try {
+        if (map.getLayer("crep-trains-live-square")) map.setLayoutProperty("crep-trains-live-square", "visibility", "visible")
+        if (map.getLayer("crep-trains-live-cars-line")) map.setLayoutProperty("crep-trains-live-cars-line", "visibility", "visible")
+      } catch { /* ignore */ }
     } else {
       loadedRef.current.railwayTrains = true
     }
+
+    // Apr 19, 2026 (Morgan: "live train must be a train icon with cars of
+    // length if possible animated on the track"). We load a small SVG train
+    // icon into the map image registry once, then use a symbol layer with
+    // icon-rotate bound to the vehicle's heading so the train points the way
+    // it is moving. A second "cars" layer below draws a rose line segment
+    // along the heading bearing so each train reads as "locomotive + cars".
+    // Trolleys get a green hue, buses grey; commuter rail (default) stays
+    // rose. Symbol layer replaces the old circle.
+    const loadTrainIcon = () => {
+      if ((map as any).hasImage?.("train-icon")) return
+      // Inline SVG: side-view train silhouette with a headlamp, 64×32 px.
+      const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32" viewBox="0 0 64 32">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5e7eb"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="6" width="48" height="20" rx="4" ry="4" fill="url(#g)" stroke="#111827" stroke-width="1.5"/>
+  <rect x="52" y="10" width="8" height="12" rx="2" fill="#111827"/>
+  <circle cx="58" cy="16" r="2" fill="#fbbf24"/>
+  <rect x="8" y="10" width="6" height="6" fill="#60a5fa"/>
+  <rect x="18" y="10" width="6" height="6" fill="#60a5fa"/>
+  <rect x="28" y="10" width="6" height="6" fill="#60a5fa"/>
+  <rect x="38" y="10" width="6" height="6" fill="#60a5fa"/>
+  <circle cx="12" cy="28" r="3" fill="#111827"/>
+  <circle cx="24" cy="28" r="3" fill="#111827"/>
+  <circle cx="36" cy="28" r="3" fill="#111827"/>
+  <circle cx="48" cy="28" r="3" fill="#111827"/>
+</svg>`.trim()
+      const img = new Image(64, 32)
+      img.onload = () => {
+        if (!(map as any).hasImage?.("train-icon")) {
+          try { map.addImage("train-icon", img as any, { pixelRatio: 2 }) } catch { /* ignore */ }
+        }
+      }
+      img.src = `data:image/svg+xml;base64,${typeof btoa === "function" ? btoa(svg) : Buffer.from(svg).toString("base64")}`
+    }
+    loadTrainIcon()
 
     const fetchAndPaint = async () => {
       try {
         const res = await fetch("/api/oei/railway-live?limit=1500")
         if (!res.ok) return
         const j = await res.json()
-        const features = (j.trains || []).map((t: any) => ({
+        const features = (j.trains || []).map((t: any) => {
+          const heading = Number(t.heading ?? 0) || 0
+          // Estimate a "cars" trail: 40 m per car at 4 cars default for rail,
+          // 1 car for bus/trolley. We draw a ~120 m line segment tailing the
+          // locomotive in the opposite of the heading bearing. At low zoom
+          // this compresses to a pixel or two but at street zoom it reads as
+          // the carriage length.
+          const carsMeters =
+            t.vehicle_type === "bus" ? 18 :
+            t.vehicle_type === "trolley" ? 90 :
+            t.vehicle_type === "rail" ? 180 :
+            160 // default commuter rail
+          const lat = Number(t.lat ?? t.latitude)
+          const lng = Number(t.lng ?? t.longitude)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+          // Bearing is degrees clockwise from north. To tail the train we go
+          // opposite (+180 deg). Convert to lat/lng offset using an
+          // equirectangular approximation (fine at car-length distances).
+          const tailBrg = ((heading + 180) % 360) * Math.PI / 180
+          const dLat = (Math.cos(tailBrg) * carsMeters) / 111_320
+          const dLng = (Math.sin(tailBrg) * carsMeters) / (111_320 * Math.cos(lat * Math.PI / 180))
+          return {
+            type: "Feature" as const,
+            properties: {
+              id: t.id || t.trainNum,
+              name: t.name || t.routeName,
+              operator: t.operator || "Amtrak",
+              vehicle_type: t.vehicle_type || "rail",
+              speed_mph: t.speed ?? t.velocity,
+              heading,
+              state: t.state,
+              status: t.status,
+              source: t.source,
+              // carLine tail vertex for the cars line layer — stored per
+              // feature so the paint can read ["get", "tail_lng"] without an
+              // extra source.
+              tail_lat: lat + dLat,
+              tail_lng: lng + dLng,
+            },
+            geometry: { type: "Point" as const, coordinates: [lng, lat] },
+          }
+        }).filter(Boolean) as any[]
+        // Build a parallel LineString source for the cars tails. Each
+        // feature connects the train's position to its tail vertex so the
+        // line appears to trail the locomotive.
+        const lineFeatures = features.map((f) => ({
           type: "Feature" as const,
-          properties: {
-            id: t.id || t.trainNum,
-            name: t.name || t.routeName,
-            operator: t.operator || "Amtrak",
-            speed_mph: t.speed ?? t.velocity,
-            heading: t.heading ?? 0,
-            state: t.state,
-            status: t.status,
+          properties: { id: f.properties.id, vehicle_type: f.properties.vehicle_type },
+          geometry: {
+            type: "LineString" as const,
+            coordinates: [
+              f.geometry.coordinates,
+              [f.properties.tail_lng, f.properties.tail_lat],
+            ],
           },
-          geometry: { type: "Point" as const, coordinates: [t.lng ?? t.longitude, t.lat ?? t.latitude] },
-        })).filter((f: any) =>
-          Number.isFinite(f.geometry.coordinates[0]) &&
-          Number.isFinite(f.geometry.coordinates[1])
-        )
+        }))
         const fc = { type: "FeatureCollection" as const, features }
+        const fcLines = { type: "FeatureCollection" as const, features: lineFeatures }
         if (!map.getSource("crep-trains-live")) {
           map.addSource("crep-trains-live", { type: "geojson", data: fc, generateId: true })
+          map.addSource("crep-trains-live-cars", { type: "geojson", data: fcLines })
+          // CARS line — drawn BEFORE the symbol so the icon sits on top of
+          // its own tail.
+          map.addLayer({
+            id: "crep-trains-live-cars-line",
+            type: "line",
+            source: "crep-trains-live-cars",
+            layout: {
+              "line-cap": "round",
+              "line-join": "round",
+            },
+            paint: {
+              "line-color": [
+                "match", ["get", "vehicle_type"],
+                "bus", "#9ca3af",
+                "trolley", "#22d3ee",
+                "rail", "#f43f5e",
+                "#f43f5e",
+              ],
+              "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 14, 3, 18, 6],
+              "line-opacity": 0.85,
+              "line-blur": 0.4,
+            },
+          })
+          // SYMBOL layer — train icon rotated to heading. Rotation alignment
+          // "map" keeps the icon aligned with the actual track direction as
+          // the user pans/tilts the map.
           map.addLayer({
             id: "crep-trains-live-square",
-            type: "circle",
+            type: "symbol",
             source: "crep-trains-live",
-            paint: {
-              // Square-ish large dot to read as distinct from aircraft / vessel.
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 2, 5, 3, 8, 4.5, 12, 6, 16, 9],
-              "circle-color": "#f43f5e",   // rose — unique in the palette
-              "circle-opacity": 0.9,
-              "circle-stroke-width": 0.8,
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-opacity": 0.8,
+            layout: {
+              "icon-image": "train-icon",
+              "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.15, 6, 0.22, 10, 0.35, 14, 0.55, 18, 0.9],
+              "icon-rotate": ["get", "heading"],
+              "icon-rotation-alignment": "map",
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
+              // Icon is designed looking right (+X = forward). OpenStreetMap
+              // bearing 0 = north, so we add -90 to align the drawing.
+              "icon-offset": [0, 0],
+              "symbol-placement": "point",
             },
+            paint: {
+              "icon-color": [
+                "match", ["get", "vehicle_type"],
+                "bus", "#9ca3af",
+                "trolley", "#22d3ee",
+                "#ffffff",
+              ],
+            } as any,
           })
           map.on("mouseenter", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", "crep-trains-live-square", () => { map.getCanvas().style.cursor = "" })
@@ -893,8 +1019,12 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
           })
         } else {
           (map.getSource("crep-trains-live") as any).setData(fc)
+          const lineSrc = map.getSource("crep-trains-live-cars")
+          if (lineSrc) (lineSrc as any).setData(fcLines)
         }
-        console.log(`[ProposalOverlays] railway live trains: ${features.length} active`)
+        const byOp = (j.operators || {}) as Record<string, number>
+        const ops = Object.entries(byOp).filter(([, n]) => n > 0).map(([k, n]) => `${k}:${n}`).join(" ")
+        console.log(`[ProposalOverlays] railway live: ${features.length} vehicles (${ops || "—"})`)
       } catch (e: any) { console.warn("[ProposalOverlays/railwayTrains]", e.message) }
     }
 

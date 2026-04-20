@@ -16,6 +16,18 @@ import type { AircraftEntity, VesselEntity } from "@/types/oei";
 interface TrajectoryLinesProps {
   aircraft?: AircraftEntity[];
   vessels?: VesselEntity[];
+  /**
+   * Apr 19, 2026 (Morgan: "plane and vessel and satellite trajectories
+   * should only show when one is selected like how seacable or powerlines
+   * show when selected"). When these IDs are set the component renders the
+   * single selected entity's trajectory ONLY (great-circle from its current
+   * position to destination). When they're null/undefined no trails render,
+   * regardless of the legacy showFlightPaths / showShipRoutes flags.
+   */
+  selectedAircraftId?: string | null;
+  selectedVesselId?: string | null;
+  /** Legacy — kept for backward compatibility but ignored unless no selection
+   *  is active. `true` + no selection = no trails (changed behaviour). */
   showFlightPaths?: boolean;
   showShipRoutes?: boolean;
 }
@@ -96,19 +108,21 @@ function getGreatCirclePoints(
 export function TrajectoryLines({
   aircraft = [],
   vessels = [],
-  showFlightPaths = true,
-  showShipRoutes = true,
+  selectedAircraftId = null,
+  selectedVesselId = null,
+  showFlightPaths: _showFlightPaths,
+  showShipRoutes: _showShipRoutes,
 }: TrajectoryLinesProps) {
+  void _showFlightPaths; void _showShipRoutes; // retained for compat; logic below uses selection only
   const { map, isLoaded } = useMap();
   const sourceAddedRef = useRef(false);
 
-  // Calculate flight trajectory GeoJSON
+  // Calculate flight trajectory GeoJSON — ONLY the selected aircraft.
   const flightTrajectories = useMemo(() => {
-    if (!showFlightPaths) return { type: "FeatureCollection" as const, features: [] };
-    
+    if (!selectedAircraftId) return { type: "FeatureCollection" as const, features: [] };
+
     const features = aircraft
-      .filter(a => a.origin && a.destination && hasAirport(a.origin) && hasAirport(a.destination))
-      .slice(0, 100) // Limit for performance
+      .filter(a => a.id === selectedAircraftId && a.origin && a.destination && hasAirport(a.origin) && hasAirport(a.destination))
       .map(a => {
         const origin = getAirport(a.origin!);
         const dest = getAirport(a.destination!);
@@ -147,15 +161,14 @@ export function TrajectoryLines({
       .filter(Boolean);
     
     return { type: "FeatureCollection" as const, features };
-  }, [aircraft, showFlightPaths]);
+  }, [aircraft, selectedAircraftId]);
 
-  // Calculate ship trajectory GeoJSON
+  // Calculate ship trajectory GeoJSON — ONLY the selected vessel.
   const shipTrajectories = useMemo(() => {
-    if (!showShipRoutes) return { type: "FeatureCollection" as const, features: [] };
-    
+    if (!selectedVesselId) return { type: "FeatureCollection" as const, features: [] };
+
     const features = vessels
-      .filter(v => v.destination && v.destination in PORTS)
-      .slice(0, 50) // Limit for performance
+      .filter(v => v.id === selectedVesselId && v.destination && v.destination in PORTS)
       .map(v => {
         const dest = PORTS[v.destination || ""];
         
@@ -193,7 +206,7 @@ export function TrajectoryLines({
       .filter(Boolean);
     
     return { type: "FeatureCollection" as const, features };
-  }, [vessels, showShipRoutes]);
+  }, [vessels, selectedVesselId]);
 
   // Add/update trajectory layers on map
   useEffect(() => {
@@ -280,7 +293,7 @@ export function TrajectoryLines({
     };
   }, [map, isLoaded, flightTrajectories, shipTrajectories]);
 
-  // Toggle visibility based on props
+  // Toggle visibility — now driven by whether an entity is selected.
   useEffect(() => {
     if (!map || !isLoaded || !sourceAddedRef.current) return;
 
@@ -289,20 +302,20 @@ export function TrajectoryLines({
         map.setLayoutProperty(
           "flight-trajectory-lines",
           "visibility",
-          showFlightPaths ? "visible" : "none"
+          selectedAircraftId ? "visible" : "none"
         );
       }
       if (map.getLayer("ship-trajectory-lines")) {
         map.setLayoutProperty(
           "ship-trajectory-lines",
           "visibility",
-          showShipRoutes ? "visible" : "none"
+          selectedVesselId ? "visible" : "none"
         );
       }
     } catch {
       // Layer might not exist yet
     }
-  }, [map, isLoaded, showFlightPaths, showShipRoutes]);
+  }, [map, isLoaded, selectedAircraftId, selectedVesselId]);
 
   // This component doesn't render any DOM elements
   // It only manipulates the MapLibre map instance
