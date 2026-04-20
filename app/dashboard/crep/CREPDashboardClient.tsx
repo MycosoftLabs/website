@@ -2187,8 +2187,13 @@ export default function CREPDashboardPage() {
     // Nature Observations - THE PRIMARY DATA SOURCE (all life forms from MINDEX/iNaturalist/GBIF)
     { id: "fungi", name: "Nature Observations", category: "environment", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#22c55e", description: "MINDEX biodiversity data - iNaturalist/GBIF observations (fungi, plants, birds, insects, animals, marine) with GPS" },
     // MycoBrain Devices - Real-time sensor network
-    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "Connected fungal monitoring ESP32-S3 devices" },
-    { id: "sporebase", name: "SporeBase Sensors", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "Environmental spore detection sensors" },
+    { id: "mycobrain", name: "MycoBrain Devices", category: "devices", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 1, color: "#22c55e", description: "All Mycosoft MycoBrain-powered devices (ESP32-S3 + BME688 + MQTT broker/MDP/MMP via Jetson-MycoBrain bridge)" },
+    { id: "devMushroom1", name: "Mushroom 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#a855f7", description: "Mushroom 1 fruiting-body monitor (MycoBrain-powered)" },
+    { id: "devHyphae1", name: "Hyphae 1", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#f97316", description: "Hyphae 1 mycelium-network VOC sensor" },
+    { id: "sporebase", name: "SporeBase", category: "devices", icon: <Cpu className="w-3 h-3" />, enabled: true, opacity: 1, color: "#10b981", description: "SporeBase environmental spore detection sensors" },
+    { id: "devMycoNode", name: "MycoNode", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoNode edge compute node (Jetson + MycoBrain bridge to MQTT / MDP / MMP)" },
+    { id: "devAlarm", name: "Alarm", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#ef4444", description: "Alarm sensor (MycoBrain-powered event trigger)" },
+    { id: "devPsathyrella", name: "Psathyrella (Buoy)", category: "devices", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1, color: "#38bdf8", description: "Psathyrella aquatic MycoBrain buoy — marine spore + water chemistry" },
     { id: "partners", name: "Partner Networks", category: "devices", icon: <Wifi className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#06b6d4", description: "Third-party research stations" },
     { id: "smartfence", name: "Smart Fence Network", category: "devices", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1, color: "#06b6d4", description: "MycoBrain fence sensors for wildlife corridors" },
     // Environment - Context for fungal activity
@@ -4403,6 +4408,68 @@ export default function CREPDashboardPage() {
   }, [militaryBases, layers]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MYCOSOFT DEVICES PUMP — fetch every 30s, filter by per-type toggle,
+  // push into crep-mycosoft-devices source. Empty until devices come online.
+  // Layer click routes to type-specific widget (mushroom1/hyphae1/etc).
+  // Apr 19, 2026 (Morgan): filters must exist even with no devices deployed.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const map = mapNativeRef.current;
+    if (!map) return;
+    const mycoEnabled = !!(layers.find((l) => l.id === "mycobrain")?.enabled ?? true);
+    const enabledTypes = new Set<string>();
+    if (layers.find((l) => l.id === "devMushroom1")?.enabled ?? true) enabledTypes.add("mushroom1");
+    if (layers.find((l) => l.id === "devHyphae1")?.enabled ?? true) enabledTypes.add("hyphae1");
+    if (layers.find((l) => l.id === "sporebase")?.enabled ?? true) enabledTypes.add("sporebase");
+    if (layers.find((l) => l.id === "devMycoNode")?.enabled ?? true) enabledTypes.add("myconode");
+    if (layers.find((l) => l.id === "devAlarm")?.enabled ?? true) enabledTypes.add("alarm");
+    if (layers.find((l) => l.id === "devPsathyrella")?.enabled ?? true) enabledTypes.add("psathyrella");
+
+    const vis = mycoEnabled && enabledTypes.size > 0 ? "visible" : "none";
+    try {
+      if (map.getLayer("crep-mycosoft-devices-glow")) map.setLayoutProperty("crep-mycosoft-devices-glow", "visibility", vis);
+      if (map.getLayer("crep-mycosoft-devices-core")) map.setLayoutProperty("crep-mycosoft-devices-core", "visibility", vis);
+      // Per-type filter via match expression — drop features whose
+      // device_type isn't in the enabled set.
+      const filterExpr: any = ["in", ["get", "device_type"], ["literal", Array.from(enabledTypes)]];
+      if (map.getLayer("crep-mycosoft-devices-glow")) map.setFilter("crep-mycosoft-devices-glow", filterExpr);
+      if (map.getLayer("crep-mycosoft-devices-core")) map.setFilter("crep-mycosoft-devices-core", filterExpr);
+    } catch { /* ignore */ }
+
+    if (!mycoEnabled || enabledTypes.size === 0) return;
+
+    const fetchAndPaint = async () => {
+      try {
+        const res = await fetch("/api/crep/mycosoft-devices?limit=10000", { signal: AbortSignal.timeout(12_000) });
+        if (!res.ok) return;
+        const j = await res.json();
+        const devices: any[] = j.devices || j.data || [];
+        if (typeof window !== "undefined") (window as any).__crep_mycosoft_devices = devices;
+        const features = devices
+          .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng))
+          .map((d) => ({
+            type: "Feature" as const,
+            properties: {
+              id: d.id,
+              device_type: (d.device_type || d.type || "mycobrain").toLowerCase(),
+              name: d.name,
+              status: d.status,
+              mycobrain_id: d.mycobrain_id,
+              last_seen: d.last_seen,
+              firmware: d.firmware,
+            },
+            geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
+          }));
+        const src = map.getSource?.("crep-mycosoft-devices") as any;
+        if (src?.setData) src.setData({ type: "FeatureCollection", features });
+      } catch { /* ignore — endpoint may not exist yet */ }
+    };
+    fetchAndPaint();
+    const poll = setInterval(fetchAndPaint, 30_000);
+    return () => clearInterval(poll);
+  }, [layers]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
   // Runs via requestAnimationFrame, independent of React state. Pushes positions
   // directly into the MapLibre "crep-live-satellites" source and generates orbit
@@ -5309,6 +5376,116 @@ export default function CREPDashboardPage() {
                 map.on("mouseleave", "crep-live-military-dot", () => { map.getCanvas().style.cursor = ""; });
 
                 console.log("[CREP/Live] Native entity layers created — ✈ amber + labels, 🛰 purple + labels, 🚢 cyan + labels, buoy lime-green");
+
+                // ═══════════════════════════════════════════════════════════
+                // MYCOSOFT DEVICES (Apr 19, 2026) — unified source, per-type
+                // styling + click routing. All devices have a MycoBrain
+                // inside; the feature's `device_type` property determines
+                // which dedicated widget opens on click.
+                //
+                // Device types (match lib/mycobrain/types.ts + components/
+                // crep/devices/*-widget.tsx):
+                //   mushroom1   — Mushroom 1 fruiting-body monitor
+                //   hyphae1     — Hyphae 1 mycelium VOC sensor
+                //   sporebase   — SporeBase spore counter
+                //   myconode    — MycoNode edge compute (Jetson + MQTT)
+                //   alarm       — Event-trigger sensor
+                //   psathyrella — Aquatic MycoBrain buoy
+                //
+                // Source populated by /api/crep/mycosoft-devices (proxies
+                // MQTT broker / MDP / MMP via the Jetson-MycoBrain bridge).
+                // Empty until devices come online — filter toggles exist
+                // regardless so the UI is ready.
+                // ═══════════════════════════════════════════════════════════
+                map.addSource("crep-mycosoft-devices", { type: "geojson", data: emptyFC, generateId: true });
+                // Soft halo ring (device identity glow)
+                map.addLayer({
+                  id: "crep-mycosoft-devices-glow",
+                  type: "circle",
+                  source: "crep-mycosoft-devices",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 4, 6, 6, 10, 9, 14, 14],
+                    "circle-color": [
+                      "match", ["get", "device_type"],
+                      "mushroom1",   "#a855f7",
+                      "hyphae1",     "#f97316",
+                      "sporebase",   "#10b981",
+                      "myconode",    "#06b6d4",
+                      "alarm",       "#ef4444",
+                      "psathyrella", "#38bdf8",
+                      "#22c55e",
+                    ],
+                    "circle-opacity": 0.22,
+                    "circle-blur": 0.9,
+                  },
+                });
+                // Inner core dot with white ring (MycoBrain signature)
+                map.addLayer({
+                  id: "crep-mycosoft-devices-core",
+                  type: "circle",
+                  source: "crep-mycosoft-devices",
+                  paint: {
+                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 1.6, 6, 2.5, 10, 4, 14, 6.5],
+                    "circle-color": [
+                      "match", ["get", "device_type"],
+                      "mushroom1",   "#a855f7",
+                      "hyphae1",     "#f97316",
+                      "sporebase",   "#10b981",
+                      "myconode",    "#06b6d4",
+                      "alarm",       "#ef4444",
+                      "psathyrella", "#38bdf8",
+                      "#22c55e",
+                    ],
+                    "circle-opacity": 0.95,
+                    "circle-stroke-width": 1.2,
+                    "circle-stroke-color": "#ffffff",
+                    "circle-stroke-opacity": 0.85,
+                  },
+                });
+
+                // Click → parse device_type → hand payload to the global
+                // device-widget dispatcher. Each widget (mushroom1, hyphae1,
+                // sporebase, myconode, alarm) already exists under
+                // components/crep/devices/ and subscribes to the MycoBrain
+                // MQTT topic on mount. The dispatcher reads the ID prefix
+                // (each device id is `<type>-<serial>`) so the router can
+                // mount the right widget even if device_type is missing.
+                map.on("click", "crep-mycosoft-devices-core", (e: any) => {
+                  const f = e.features?.[0];
+                  if (!f) return;
+                  const p = f.properties || {};
+                  const coords = e.lngLat;
+                  const id: string = p.id || "";
+                  const typeFromId = id.match(/^(mushroom1|hyphae1|sporebase|myconode|alarm|psathyrella)/i)?.[1]?.toLowerCase();
+                  const deviceType = p.device_type || typeFromId || "mycobrain";
+                  lastEntityPickTimeRef.current = Date.now();
+                  try {
+                    const hook = (window as any).__crep_openDeviceWidget as ((payload: any) => void) | undefined;
+                    const payload = {
+                      id, deviceType,
+                      name: p.name || `${deviceType} ${id.slice(-6)}`,
+                      lat: coords?.lat ?? 0,
+                      lng: coords?.lng ?? 0,
+                      status: p.status,
+                      mycobrainId: p.mycobrain_id || p.mycobrainId,
+                      telemetry: p,
+                    };
+                    if (typeof hook === "function") hook(payload);
+                    // Fallback: surface via the generic InfraAsset panel
+                    else {
+                      const genericHook = (window as any).__crep_selectAsset;
+                      if (typeof genericHook === "function") genericHook({
+                        type: "mycobrain_device",
+                        id, name: payload.name,
+                        lat: payload.lat, lng: payload.lng,
+                        properties: { device_type: deviceType, mycobrain_id: payload.mycobrainId, ...p },
+                      });
+                    }
+                    window.dispatchEvent(new CustomEvent("crep:device:click", { detail: payload }));
+                  } catch { /* ignore */ }
+                });
+                map.on("mouseenter", "crep-mycosoft-devices-core", () => { map.getCanvas().style.cursor = "pointer"; });
+                map.on("mouseleave", "crep-mycosoft-devices-core", () => { map.getCanvas().style.cursor = ""; });
                 // Initial data pump — fill entity sources 1s after creation so aircraft/sats show immediately.
                 // The React data pump effect may miss the first render if deckEntities was set before mapNativeRef.
                 setTimeout(() => {
