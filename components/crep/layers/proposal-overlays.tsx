@@ -571,53 +571,115 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     // committed at /data/crep/ne_10m_land.geojson for feature-level use
     // later (coastline line layer, click-to-identify land vs ocean, etc.)
     // but NOT used as a mask anymore.
-    const findBasemapLandInsertionPoint = (): string | undefined => {
+    // Apr 20, 2026 (Morgan v3): "live site has broken bathymetry issue still
+    // and satelite imagry hd when on has the basic map squares from base
+    // map over them that needs to be on top its covering actual rooftops
+    // from hd sat images thats dumb".
+    //
+    // Root cause of both: Carto Dark Matter basemap has NO dedicated
+    // landcover fill — land is just the background color, with water,
+    // roads, and labels on top. So my `/^(landcover|landuse|...)$/` regex
+    // matched nothing and fell through to "first symbol", meaning
+    // bathymetry inserted BEFORE labels → above everything INCLUDING land.
+    // And sat imagery inserted BEFORE first road → roads were drawn OVER
+    // the aerial photos, covering rooftops.
+    //
+    // Correct insertion points:
+    //   SAT IMAGERY — must go ABOVE basemap roads/buildings (so aerial
+    //     covers rooftops) and BELOW labels (so place names still read).
+    //     Helper: findInsertionPointBeforeLabels() → first symbol layer.
+    //   BATHYMETRY — must go ABOVE everything in the basemap (roads,
+    //     water, etc.) and BELOW labels. Paired with a land mask so
+    //     bathymetry is VISIBLE only over water.
+    //   LAND MASK for bathymetry — uses ne_10m_land.geojson (10 MB,
+    //     committed, ~10 m coastline accuracy — every island, bay,
+    //     inlet). Inserted JUST ABOVE bathymetry. Dark-basemap-matching
+    //     color #08111f so it blends invisibly with the basemap land
+    //     tone. Additive: sat imagery inserted with same beforeId will
+    //     stack ABOVE the land mask, so aerial on land is fully visible
+    //     (it covers the mask + basemap entirely).
+    const findInsertionPointBeforeLabels = (): string | undefined => {
       try {
         const style = map.getStyle()
         const layers = style.layers as any[]
-        // Prefer inserting BEFORE the first landcover/landuse/earth fill
-        // so the basemap's OSM land polygons cover bathymetry naturally.
-        for (const l of layers) {
-          if (!l?.id) continue
-          if (/^(landcover|landuse|land_|park|forest|natural_earth|earth)/i.test(l.id)) {
-            return l.id
-          }
-        }
-        // Fallback: insert before the first symbol (labels) layer.
         const sym = layers.find((l) => l.type === "symbol")
         return sym?.id
       } catch { return undefined }
     }
-    // Apr 20, 2026 — insertion point ABOVE basemap landcover (covers land)
-    // but BELOW roads/labels. Used for satellite imagery so aerial shows
-    // everywhere (land AND ocean) without hiding road names + city labels.
-    const findAboveBasemapLandInsertionPoint = (): string | undefined => {
+    // Apr 20, 2026 (Morgan v4): "the dark road lines are actually ok but
+    // they need to be different for structures the sat map data is better
+    // then a square dark box but the roads the lines are good for bad sat
+    // images ect". → sat imagery must go ABOVE building polygons (so
+    // rooftops show from aerial) but BELOW road lines (so roads overlay
+    // the aerial for nav reference). Helper finds the first road/
+    // highway/bridge/tunnel layer in the basemap.
+    const findInsertionPointBeforeRoads = (): string | undefined => {
       try {
         const style = map.getStyle()
         const layers = style.layers as any[]
         for (const l of layers) {
           if (!l?.id) continue
-          if (/^(road|highway|bridge|tunnel|building|admin|boundary)/i.test(l.id)) {
+          if (/^(road|highway|bridge|tunnel|motorway|transit)/i.test(l.id)) {
             return l.id
           }
         }
+        // Fallback to label position if no road layer found (unusual basemap).
         const sym = layers.find((l) => l.type === "symbol")
         return sym?.id
       } catch { return undefined }
     }
-    // expose as property so the satImagery effect can use the same shape
-    ;(map as any).__findAboveLand = findAboveBasemapLandInsertionPoint
+    // Attach high-res land mask to clip bathymetry at ~10 m coastline
+    // accuracy. Only fetched once; persists across bathymetry toggles.
+    const attachLandMask = async (beforeId: string | undefined) => {
+      if (map.getSource("crep-land-mask-10m")) return
+      try {
+        const URLS = [
+          "/data/crep/ne_10m_land.geojson",          // 10 MB, committed, high-res
+          "/data/crep/ne_50m_land.geojson",          // 1.6 MB fallback, coarser
+          "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson",
+        ]
+        let data: any = null
+        for (const u of URLS) {
+          try {
+            const r = await fetch(u, { signal: AbortSignal.timeout(20_000) })
+            if (r.ok) { data = await r.json(); break }
+          } catch { /* try next */ }
+        }
+        if (!data) return
+        if (!map.getSource("crep-land-mask-10m")) {
+          map.addSource("crep-land-mask-10m", { type: "geojson", data })
+          map.addLayer({
+            id: "crep-land-mask-10m-fill",
+            type: "fill",
+            source: "crep-land-mask-10m",
+            paint: {
+              // Carto Dark Matter land tone (near-black with subtle blue).
+              // Sat imagery, when enabled, will render ABOVE this mask so
+              // the mask is only visible when the user has bathymetry on
+              // + sat imagery off.
+              "fill-color": "#08111f",
+              "fill-opacity": 1.0,
+              "fill-antialias": true,
+            },
+          }, beforeId)
+          console.log(`[ProposalOverlays] land mask attached (NE 1:10m, beforeId=${beforeId || "TOP"})`)
+        }
+      } catch (e: any) {
+        console.warn("[ProposalOverlays/land-mask]", e.message)
+      }
+    }
 
     idleLoad(async () => {
       try {
         const srcId = "crep-bathymetry"
-        // Insert BEFORE the basemap's landcover layer so the basemap's own
-        // OSM land polygons clip bathymetry naturally at the coastline
-        // (accurate for every island, bay, inlet in San Diego, the world).
-        // This is the additive-layer fix Morgan asked for: bathymetry only
-        // shows over water, land is never walked-over by the bathymetry
-        // layer itself.
-        const bathyBeforeId = findBasemapLandInsertionPoint()
+        // Insert BEFORE first road layer so bathymetry sits above the
+        // basemap water + any building polygons, but BELOW road lines +
+        // labels. Land mask inserts right after with same beforeId →
+        // stacks on top within the slot (clips bathymetry at the
+        // coastline). Sat imagery, if enabled, inserts on top of the
+        // mask so aerial rooftops show on land. Roads + place labels
+        // remain on top of everything for navigation reference.
+        const bathyBeforeId = findInsertionPointBeforeRoads()
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
           // show the highest quality newest ones in their respective
@@ -673,10 +735,12 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             bathyBeforeId,
           )
         }
-        // No more separate land mask — the basemap's landcover layer
-        // above this insertion point handles the coastline clip at OSM
-        // resolution.
-        console.log(`[ProposalOverlays] bathymetry: ESRI ocean raster attached (coastline-clipped via basemap landcover, beforeId=${bathyBeforeId || "TOP"})`)
+        // Land mask above bathymetry → clips it at the coastline (NE 1:10m,
+        // ~10 m precision). Without this, Carto Dark Matter has no
+        // dedicated landcover layer so bathymetry walks over every
+        // continent.
+        await attachLandMask(bathyBeforeId)
+        console.log(`[ProposalOverlays] bathymetry: ESRI ocean raster + NE 1:10m mask attached (beforeId=${bathyBeforeId || "TOP"})`)
       } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }
     })
   }, [map, enabled.bathymetry])
@@ -821,13 +885,19 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             maxzoom: 19,
             scheme: "xyz",
           })
-          const findAboveLand = (): string | undefined => {
+          // Apr 20, 2026 (Morgan v4): "dark road lines are actually ok but
+          // they need to be different for structures the sat map data is
+          // better then a square dark box". Insert BEFORE first road layer
+          // (so roads DRAW OVER sat imagery for nav reference — Morgan
+          // confirmed this is desired) but AFTER building polygons (so
+          // sat rooftops aren't hidden by basemap building squares).
+          const findBeforeRoads = (): string | undefined => {
             try {
               const style = map.getStyle()
               const layers = style.layers as any[]
               for (const l of layers) {
                 if (!l?.id) continue
-                if (/^(road|highway|bridge|tunnel|building|admin|boundary)/i.test(l.id)) {
+                if (/^(road|highway|bridge|tunnel|motorway|transit)/i.test(l.id)) {
                   return l.id
                 }
               }
@@ -835,7 +905,7 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               return sym?.id
             } catch { return undefined }
           }
-          const beforeId = findAboveLand()
+          const beforeId = findBeforeRoads()
           map.addLayer(
             {
               id: "crep-satimagery-raster",

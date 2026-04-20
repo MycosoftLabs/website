@@ -5978,12 +5978,26 @@ export default function CREPDashboardPage() {
                   }
                   if (!features || !features.length) return;
                   safeAddSource("crep-cables", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  // Apr 20, 2026 (Morgan OpenPowerGrid parity: "all infra
+                  // especially electrical needs a glow to the icons lines
+                  // and needs to stand out better over sat layer"). Add a
+                  // blurred glow halo BEHIND the crisp line so cables
+                  // read neon-bright over dark basemap AND sat imagery.
+                  safeAddLayer({
+                    id: "crep-cables-line-glow", type: "line", source: "crep-cables",
+                    paint: {
+                      "line-color": ["get", "color"],
+                      "line-width": ["interpolate", ["linear"], ["zoom"], 1, 4, 4, 7, 8, 12],
+                      "line-opacity": 0.45,
+                      "line-blur": 3,
+                    },
+                  });
                   safeAddLayer({
                     id: "crep-cables-line", type: "line", source: "crep-cables",
                     paint: {
                       "line-color": ["get", "color"],
                       "line-width": ["interpolate", ["linear"], ["zoom"], 1, 1.5, 4, 2.5, 8, 4],
-                      "line-opacity": 0.8,
+                      "line-opacity": 0.95,
                     },
                   });
                   // Click handler for cable detail widget
@@ -6155,6 +6169,23 @@ export default function CREPDashboardPage() {
                   const features = facilitiesToFeatures(entities);
                   if (!features.length) return;
                   safeAddSource("crep-plants", { type: "geojson", data: { type: "FeatureCollection", features } });
+                  // Apr 20, 2026 (Morgan OpenPowerGrid parity): neon halo
+                  // behind each plant so they stand out over sat imagery.
+                  safeAddLayer({
+                    id: "crep-plants-glow", type: "circle", source: "crep-plants",
+                    paint: {
+                      "circle-radius": [
+                        "interpolate", ["linear"], ["zoom"],
+                        2, ["*", ["+", 4, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 0.6]], 1],
+                        8, ["*", ["+", 6, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 1.5]], 1],
+                        14, ["*", ["+", 8, ["*", ["sqrt", ["min", 5000, ["max", 1, ["to-number", ["get", "capacity_mw"], 10]]]], 2.4]], 1],
+                      ],
+                      "circle-color": ["get", "color"],
+                      "circle-opacity": 0.28,
+                      "circle-blur": 1.1,
+                    },
+                    minzoom: 4,
+                  });
                   // OpenGridWorks-style: radius scaled by sqrt(capacity_mw), CAPPED at 20px max
                   // Clamp capacity to 5000 MW max for sizing — prevents outliers (1.9M MW) from being huge
                   safeAddLayer({

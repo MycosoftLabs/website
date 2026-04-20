@@ -149,10 +149,45 @@ jobs:
                 --restart unless-stopped "\$img"
             }
 
-            free_host_port_3000
-            if ! docker compose -f docker-compose.production.yml up -d --no-build --remove-orphans website; then
-              echo "Compose deploy failed. Attempting rollback container..."
-              rollback_to_prev_image "\${PREV_IMAGE}" || echo "::warning::Rollback docker run failed; :3000 may be empty"
+            # Apr 20, 2026 (Morgan: "site always 100% needs to be up updates
+            # need to switch over only after fix is good no site can ever
+            # come down"). HARD REQUIREMENT: blue/green zero-downtime
+            # cutover is the ONLY permitted deploy path. If the overlay
+            # file or the script isn't on the VM, REFUSE to deploy — do
+            # not fall back to kill-then-start.
+            #
+            # scripts/blue-green-deploy.sh invariants:
+            #   • Start IDLE slot with new image (old slot keeps serving)
+            #   • Wait 3× consecutive /api/health passes (max 180 s)
+            #   • Flip nginx → new slot (instant, atomic reload)
+            #   • Purge Cloudflare cache
+            #   • Public verify (mycosoft.com must return 2xx from new slot)
+            #   • 300 s rollback window, then stop old slot
+            #   • Rollback: restores previous slot + reloads nginx if any
+            #     step after the flip fails.
+            # If ANY step fails before the flip, old slot keeps serving
+            # → zero downtime, zero customer impact.
+            if [ ! -x scripts/blue-green-deploy.sh ] || \\
+               [ ! -f docker-compose.production.blue-green.yml ]; then
+              echo "::error::Blue/green deploy artifacts missing on VM."
+              echo "::error::  scripts/blue-green-deploy.sh  present: \$([ -x scripts/blue-green-deploy.sh ] && echo yes || echo NO)"
+              echo "::error::  docker-compose.production.blue-green.yml present: \$([ -f docker-compose.production.blue-green.yml ] && echo yes || echo NO)"
+              echo "::error::REFUSING to deploy via kill-then-start path. Run"
+              echo "::error::  cd /opt/mycosoft/website && git checkout origin/main --"
+              echo "::error::  scripts/blue-green-deploy.sh scripts/blue-green-bootstrap.sh"
+              echo "::error::  docker-compose.production.blue-green.yml"
+              echo "::error::on the VM, then re-run Fast Deploy."
+              exit 1
+            fi
+            echo "=== Blue/green zero-downtime cutover (scripts/blue-green-deploy.sh) ==="
+            export DEPLOY_DIR="/opt/mycosoft/website"
+            export IMAGE="${IMAGE}"
+            export CF_ZONE_ID="${{ secrets.CLOUDFLARE_ZONE_ID }}"
+            export CF_API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+            export PUBLIC_HOST="mycosoft.com"
+            if ! scripts/blue-green-deploy.sh; then
+              echo "::error::Blue/green cutover failed. Old slot is still serving — site stayed up."
+              echo "::error::See /var/log/mycosoft-deploys.log on VM 187 for the step that failed."
               exit 1
             fi
           DEPLOY
