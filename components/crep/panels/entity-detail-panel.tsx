@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FungalObservation } from "../markers/fungal-marker";
-import { fetchSatelliteMeta, type SatelliteMeta } from "@/lib/crep/satellite-meta";
+import { fetchSatelliteMeta, fetchAircraftMeta, fetchVesselMeta, type SatelliteMeta } from "@/lib/crep/satellite-meta";
 
 // Kingdom-based emoji for all-life observation display
 function getObservationEmoji(obs: FungalObservation): string {
@@ -411,6 +411,19 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
   const aircraftType = aircraft.aircraftType ?? aircraft.aircraft_type ?? "Unknown Aircraft";
   // Handle on_ground variations
   const onGround = aircraft.onGround ?? aircraft.on_ground ?? false;
+
+  // Apr 20, 2026 (Morgan: "all vessles planes and satelites need images in
+  // widget of that object if available"). Wikipedia lookup by ICAO type
+  // code; falls back to raw string if the code isn't in our lookup table.
+  const [meta, setMeta] = useState<SatelliteMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const typeCode = String(aircraftType).split(/[\s(/]/)[0]; // "B738" out of "B738 (737-800)"
+    if (typeCode && typeCode !== "Unknown") {
+      fetchAircraftMeta(typeCode).then((m) => { if (!cancelled) setMeta(m); });
+    }
+    return () => { cancelled = true; };
+  }, [aircraftType]);
   
   return (
     <div className="bg-[#0a1628] border border-blue-500/30 rounded-lg overflow-hidden shadow-2xl">
@@ -427,11 +440,24 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
           <Badge className={cn("text-[10px] px-1.5 py-0.5", onGround ? "bg-gray-500" : "bg-blue-500")}>
             {onGround ? "GROUND" : "FLIGHT"}
           </Badge>
-          <button onClick={onClose} className="p-0.5 rounded hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-0.5 rounded hover:bg-white/10 transition-colors" aria-label="Close">
             <X className="w-4 h-4 text-gray-400" />
           </button>
         </div>
       </div>
+
+      {/* Aircraft type photo from Wikimedia Commons */}
+      {meta?.imageUrl ? (
+        <div className="relative bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={meta.imageUrl} alt={meta.family || aircraftType} className="w-full h-24 object-cover" loading="lazy" />
+          {meta.family ? (
+            <div className="absolute bottom-1 left-2 text-[10px] text-white/90 bg-black/50 px-1.5 py-0.5 rounded">
+              {meta.family}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Compact Content */}
       <div className="p-2 space-y-1.5">
@@ -493,10 +519,20 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
   const speed = vessel.sog ?? vessel.speed ?? (vessel.properties?.sog as number) ?? 0;
   // Handle ship_type variations
   const shipType = vessel.shipType ?? vessel.ship_type ?? "Unknown Vessel";
+  const shipTypeNum = typeof shipType === "number" ? shipType : (typeof (vessel as any).ship_type === "number" ? (vessel as any).ship_type : null);
   // Course over ground (AIS: cog often in properties)
   const cog = vessel.cog ?? vessel.course ?? (vessel.properties?.cog as number) ?? 0;
   const heading = vessel.heading ?? (vessel.properties?.heading as number) ?? cog;
-  
+
+  // Apr 20, 2026 (Morgan: "all vessles planes and satelites need images in
+  // widget"). Wikipedia lookup by vessel name + AIS ship_type code.
+  const [meta, setMeta] = useState<SatelliteMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchVesselMeta(vessel.name || null, shipTypeNum).then((m) => { if (!cancelled) setMeta(m); });
+    return () => { cancelled = true; };
+  }, [vessel.name, shipTypeNum]);
+
   return (
     <div className="bg-[#0a1628] border border-cyan-500/30 rounded-lg overflow-hidden">
       {/* Header */}
@@ -511,11 +547,25 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
         <div className="flex items-center gap-2">
           {vessel.flag && <span className="text-sm">{vessel.flag}</span>}
           <Badge className="bg-cyan-500">{vessel.status || "ACTIVE"}</Badge>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors" aria-label="Close">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
       </div>
+
+      {/* Vessel-class photo from Wikimedia Commons (e.g. Arleigh Burke-class
+          for a DDG, Maersk container ship, generic "Cargo ship" for AIS 7x) */}
+      {meta?.imageUrl ? (
+        <div className="relative bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={meta.imageUrl} alt={meta.family || vessel.name || "Vessel"} className="w-full h-32 object-cover" loading="lazy" />
+          {meta.family ? (
+            <div className="absolute bottom-1 left-2 text-[11px] text-white/90 bg-black/50 px-2 py-0.5 rounded">
+              {meta.family}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Content */}
       <div className="p-4 space-y-4">
@@ -841,7 +891,10 @@ export function EntityDetailPanel({ onClose, fungal, event, aircraft, vessel, sa
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       {/* Compact dialog - max-w-xs (320px) ensures it fits on screen without scrolling */}
-      <DialogContent className="max-w-xs p-0 border-0 bg-transparent shadow-2xl">
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-xs p-0 border-0 bg-transparent shadow-2xl"
+      >
         <VisuallyHidden>
           <DialogTitle>{getTitle()}</DialogTitle>
         </VisuallyHidden>

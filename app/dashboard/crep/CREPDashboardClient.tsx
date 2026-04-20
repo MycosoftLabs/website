@@ -5372,11 +5372,44 @@ export default function CREPDashboardPage() {
                 // ═══════════════════════════════════════════════════════════
                 map.addSource("crep-live-satellites", { type: "geojson", data: emptyFC });
                 void loadDetailedIcon("/crep/icons/satellite.svg", "satellite-icon");
-                // Faint purple halo so they stay visible at low zoom
+                // Apr 20, 2026 (Morgan: "look at how all satelites are shown
+                // with altitude on their globe"). Satellites now color-tiered
+                // by orbital class:
+                //   LEO (<2000 km)  — cyan    — Starlink, ISS, Landsat…
+                //   MEO (2k-20k km) — purple  — GPS, GLONASS, Galileo…
+                //   GEO (>20k km)   — amber   — geostationary comms
+                // Halo size also scales with altitude tier so higher orbits
+                // read as "further away" glyph-size cues. Reads from
+                // feature.properties.altitude (km) pushed by the SGP4 loop.
                 map.addLayer({ id: "crep-live-satellites-glow", type: "circle", source: "crep-live-satellites",
                   paint: {
-                    "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 5, 6, 7, 10, 10],
-                    "circle-color": "#c084fc", "circle-opacity": 0.18, "circle-blur": 0.95 }});
+                    "circle-radius": [
+                      "interpolate", ["linear"], ["zoom"],
+                      2, ["case",
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 20000], 9,
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 2000], 7,
+                        5,
+                      ],
+                      6, ["case",
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 20000], 12,
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 2000], 9,
+                        7,
+                      ],
+                      10, ["case",
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 20000], 16,
+                        [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 2000], 12,
+                        10,
+                      ],
+                    ],
+                    "circle-color": [
+                      "case",
+                      [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 20000], "#fbbf24",  // GEO amber
+                      [">=", ["coalesce", ["to-number", ["get", "altitude_km"]], ["to-number", ["get", "altitude"]], 0], 2000], "#a855f7",   // MEO purple
+                      "#22d3ee",                                                                       // LEO cyan
+                    ],
+                    "circle-opacity": 0.22,
+                    "circle-blur": 0.9,
+                  }});
                 // Detailed sprite
                 map.addLayer({ id: "crep-live-satellites-dot", type: "symbol", source: "crep-live-satellites",
                   layout: {
