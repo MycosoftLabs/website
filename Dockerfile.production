@@ -22,6 +22,20 @@ ARG NEXTAUTH_SECRET=change-me-before-prod
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SITE_URL=https://mycosoft.com
+# Apr 20, 2026 — NEXT_PUBLIC_* is inlined by Next.js at `next build` time,
+# NOT read at runtime. So every NEXT_PUBLIC_* we reference from client code
+# must be passed in as a build-arg here and re-exported as ENV in the
+# builder stage, otherwise the client bundle ships with `undefined` for
+# that key regardless of what sits in /opt/mycosoft/website/.env on prod.
+#   NEXT_PUBLIC_CESIUM_ION_TOKEN          — Cesium Ion photorealistic 3D
+#   NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN       — Mapbox full-scope (3D buildings
+#                                           + satellite streets basemap)
+#   NEXT_PUBLIC_MAPBOX_TOKEN              — legacy fallback name
+#   NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY  — Google Photorealistic 3D Tiles
+ARG NEXT_PUBLIC_CESIUM_ION_TOKEN
+ARG NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+ARG NEXT_PUBLIC_MAPBOX_TOKEN
+ARG NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY
 
 # Install dependencies
 FROM base AS deps
@@ -42,6 +56,15 @@ ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+# Export the new NEXT_PUBLIC_* build-args into the builder stage env so
+# Next.js picks them up during `next build` and inlines them into the
+# client bundle. If the corresponding build-arg wasn't passed, these
+# expand to empty strings and the client code's || fallback kicks in
+# (components gracefully no-op when keys are empty).
+ENV NEXT_PUBLIC_CESIUM_ION_TOKEN=${NEXT_PUBLIC_CESIUM_ION_TOKEN}
+ENV NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
+ENV NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
+ENV NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY}
 # Disable worker threads for better CPU compatibility
 ENV NEXT_PRIVATE_DISABLE_WORKER_THREADS=1
 # Increase memory for large builds

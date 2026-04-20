@@ -10,6 +10,15 @@
 #   Optional: SUPABASE_SERVICE_ROLE_KEY, MAS_API_URL, MINDEX_API_URL, OPENAI_API_KEY, wallet keys
 #   Optional: CLOUDFLARE_ZONE_ID, CLOUDFLARE_API_TOKEN (purge after deploy)
 #
+# CREP map/globe client tokens — inlined at `next build` time via Docker
+# build-args. Add these as GitHub Actions secrets (repo or production env):
+#   NEXT_PUBLIC_CESIUM_ION_TOKEN          — Cesium Ion photorealistic 3D
+#   NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN       — Mapbox full-scope (3D + sat)
+#   NEXT_PUBLIC_MAPBOX_TOKEN              — legacy fallback name
+#   NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY  — Google Photorealistic 3D Tiles
+# If a secret is unset the build-arg expands to empty, and the client code
+# gracefully no-ops that layer. Values MUST match WEBSITE/website/.env.local.
+#
 # Principles (see docs/INSTANT_WEBSITE_UPDATES_FASTER_CICD_MAR15_2026.md):
 #   1. Build in CI, not on the VM — image pushed to GHCR, VM only pulls + restarts
 #   2. GHA layer cache — repeat builds are fast
@@ -225,6 +234,10 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_SITE_URL=${{ github.ref == 'refs/heads/main' && 'https://mycosoft.com' || 'https://sandbox.mycosoft.com' }}
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            NEXT_PUBLIC_CESIUM_ION_TOKEN=${{ secrets.NEXT_PUBLIC_CESIUM_ION_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+            NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}
 
       - name: Build and push Collectors
         continue-on-error: true
@@ -652,6 +665,10 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             NEXT_PUBLIC_SITE_URL=https://mycosoft.com
             NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            NEXT_PUBLIC_CESIUM_ION_TOKEN=${{ secrets.NEXT_PUBLIC_CESIUM_ION_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+            NEXT_PUBLIC_MAPBOX_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+            NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY }}
 
   instant-deploy:
     name: Instant Deploy (fast) — VM pull + blue/green cutover
