@@ -610,23 +610,22 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
           // MapLibre rotates through candidate URLs when a tile 404s,
           // so adding EMODnet first as the primary gets us ~25 m detail
           // where it's available + falls back to ESRI's 2022 GEBCO tiles.
-          // Apr 19, 2026 (Morgan local error: "AJAXError: Failed to fetch
-          // (0): https://tiles.emodnet-bathymetry.eu/..."). EMODnet tile
-          // server sometimes rejects browser requests (CORS / regional DNS
-          // issue). ESRI World Ocean Base is more reliable globally, so
-          // it's now the PRIMARY. EMODnet demoted to secondary — MapLibre
-          // rotates through URLs as a round-robin so if EMODnet 404s /
-          // CORS-fails, the ESRI tile still paints and the console warning
-          // is benign.
+          // Apr 19, 2026 (Morgan local: 15+ console errors "AJAXError: Failed
+          // to fetch (0): https://tiles.emodnet-bathymetry.eu/..."). EMODnet
+          // tile server fails consistently from Morgan's network (CORS /
+          // regional block). MapLibre's tiles array is round-robin (not
+          // fallback), so every tile rotation still hit EMODnet. Removed
+          // entirely — ESRI World Ocean Base alone now. ESRI covers the
+          // globe with GEBCO 2022+ as its foundation; EMODnet's value-add
+          // (25 m European resolution) isn't worth 15 errors/sec.
           map.addSource(srcId, {
             type: "raster",
             tiles: [
               "https://services.arcgisonline.com/arcgis/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
-              "https://tiles.emodnet-bathymetry.eu/2024/baselayer/web_mercator/{z}/{x}/{y}.png",
             ],
             tileSize: 256,
             scheme: "xyz",
-            attribution: "© Esri / GEBCO · © EMODnet Bathymetry 2024",
+            attribution: "© Esri · GEBCO",
             minzoom: 0,
             maxzoom: 14,
           })
