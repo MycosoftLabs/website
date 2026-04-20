@@ -2378,8 +2378,8 @@ export default function CREPDashboardPage() {
     // (YouTube Live + Bluesky/Mastodon/X feeds). Cursor applied the
     // eagle.* MINDEX schema on VM 189 and deployed MediaMTX on MAS 188.
     // See components/crep/layers/eagle-eye-overlay.tsx.
-    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#22d3ee", description: "Registered permanent video sources (Shinobi + 511 traffic + Windy + EarthCam + NPS/USGS webcams). Cyan halo + color-coded core. Click for live stream." },
-    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky/Mastodon video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier." },
+    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "Permanent video sources — Shinobi + 511 traffic + Windy + EarthCam + NPS/USGS + ALERTWildfire / HPWREN fire cams + Surfline surf cams. Cyan halo + color-coded core per provider. Click for live stream. When MINDEX eagle.video_sources is sparse, /api/eagle/sources falls back to direct connector fan-out so icons appear immediately." },
+    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky / Mastodon / Twitch video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier (native > platform-inferred > text-inferred)." },
 
     // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
     // Canonical US datasets that OpenGridView uses. See
@@ -7988,6 +7988,15 @@ export default function CREPDashboardPage() {
               } catch { return undefined }
             })() : undefined}
             mode3d={false}
+            // Wire into the Earth-2 filter so RealisticCloudLayer shares the
+            // same forecast horizon, resolution and GPU-mode routing the
+            // Earth-2 tab uses. gpuMode "off" → cheap free APIs; any other
+            // mode ("earth2"/"voice"/"physics") → routes through MAS_API_URL
+            // → PersonaPlex + 4080a/4080b workstations running NVIDIA
+            // Earth-2 for physics.
+            forecastHours={earth2Filter.forecastHours}
+            resolutionDeg={earth2ApiResolutionDeg}
+            gpuMode={earth2Filter.gpuMode !== "off"}
           />
 
           {/* Mapbox 3D buildings + Satellite Streets hybrid basemap. Uses

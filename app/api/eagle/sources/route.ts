@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 
 /**
- * Eagle Eye — Video source registry (permanent cameras) — Apr 20, 2026
+ * Eagle Eye — Video source registry (permanent cameras) — Apr 20, 2026 v2
  *
  * Queries MINDEX `eagle.video_sources` (Cursor migration ab4781b applied
- * on VM 189) for bbox-scoped permanent camera sources. Registered/static-
- * location feeds only: Shinobi, 511 traffic cams, Windy, EarthCam,
- * Webcamtaxi, NPS, USGS.
+ * on VM 189) for bbox-scoped permanent camera sources.
+ *
+ * v2 (Apr 20, 2026 pm): Morgan — "why dont i see live streams from
+ * ustream and all webcams surf cams traffic cams already as icons on
+ * map ucsd fire cams in san diego ... that should be found in all
+ * sources globally and added to eagle eye".
+ *
+ * MINDEX eagle.video_sources is still being seeded by Cursor (Shinobi
+ * sync blocked on super.json credential retrieval), so this endpoint
+ * now ALSO fans out to every connector directly when MINDEX returns
+ * fewer than MIN_SOURCES rows. That way Eagle Eye cameras populate
+ * right now — Windy + EarthCam + NPS + USGS + ALERTWildfire + HPWREN +
+ * Surfline + 511 traffic + Shinobi (if creds set). MINDEX continues to
+ * be the "warm cache" path; live fan-out is the backup.
  *
  * Shape:
  *   { source, total, by_provider, by_kind,
@@ -33,6 +44,11 @@ type VideoSource = {
   permissions: Record<string, unknown> | null
   updated_at: string | null
 }
+
+// When MINDEX is under this count we fan out to live connectors too.
+// Covers the "empty MINDEX cold start" case while the Shinobi sync is
+// still being wired by Cursor.
+const MIN_SOURCES = 50
 
 const MINDEX_BASE =
   process.env.MINDEX_API_URL ||
@@ -106,14 +122,83 @@ async function fromMindex(
   }
 }
 
+// Live connector fan-out. Invoked when MINDEX is empty so the user
+// sees cameras on the map RIGHT NOW instead of waiting for the Shinobi
+// ingest cron. Each connector is self-isolated.
+async function fromLiveConnectors(origin: string, bbox: string | undefined): Promise<VideoSource[]> {
+  const qp = bbox ? `?bbox=${encodeURIComponent(bbox)}` : ""
+  const endpoints = [
+    `${origin}/api/eagle/connectors/public-webcams${qp}`,
+    `${origin}/api/eagle/connectors/traffic-511${qp}`,
+    `${origin}/api/eagle/connectors/shinobi${qp}`,
+  ]
+  const responses = await Promise.all(
+    endpoints.map((u) =>
+      fetch(u, { signal: AbortSignal.timeout(15_000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ),
+  )
+  const out: VideoSource[] = []
+  for (const j of responses) {
+    if (!j) continue
+    const items: any[] = j.cams || j.sources || j.monitors || []
+    for (const c of items) {
+      const lat = c.lat ?? c.latitude
+      const lng = c.lng ?? c.longitude
+      if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) continue
+      out.push({
+        id: String(c.id || `${c.provider}-${lat}-${lng}`),
+        kind: "permanent",
+        provider: c.provider || "public-webcam",
+        stable_location: true,
+        lat: Number(lat),
+        lng: Number(lng),
+        location_confidence: 1.0,
+        stream_url: c.stream_url ?? null,
+        embed_url: c.embed_url ?? null,
+        media_url: c.media_url ?? null,
+        source_status: c.source_status ?? "online",
+        permissions: c.permissions ?? { access: "public" },
+        updated_at: c.updated_at ?? null,
+      })
+    }
+  }
+  return out
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const bbox = url.searchParams.get("bbox") || undefined
   const kind = url.searchParams.get("kind") || undefined
   const provider = url.searchParams.get("provider") || undefined
   const limit = Math.min(Number(url.searchParams.get("limit") || 10000), 50000)
+  const skipLive = url.searchParams.get("live") === "0"
 
-  const sources = await fromMindex(bbox, kind, provider, limit)
+  let sources = await fromMindex(bbox, kind, provider, limit)
+  let liveUsed = false
+
+  // MINDEX empty or sparse → fall back to live connector fan-out so the
+  // map shows SOMETHING right now instead of being silently empty.
+  if (!skipLive && sources.length < MIN_SOURCES) {
+    const origin = new URL(req.url).origin
+    const live = await fromLiveConnectors(origin, bbox)
+    if (live.length) {
+      // Dedup by provider+id to avoid double-render when MINDEX partially
+      // seeded from the same connectors.
+      const seen = new Set(sources.map((s) => `${s.provider}:${s.id}`))
+      for (const s of live) {
+        const key = `${s.provider}:${s.id}`
+        if (!seen.has(key)) { sources.push(s); seen.add(key) }
+      }
+      liveUsed = true
+    }
+  }
+
+  // Filter by kind/provider if requested (MINDEX already filtered; live
+  // doesn't — apply post-filter here).
+  if (kind) sources = sources.filter((s) => s.kind === kind)
+  if (provider) sources = sources.filter((s) => s.provider === provider)
 
   const byProvider: Record<string, number> = {}
   const byKind: Record<string, number> = {}
@@ -130,15 +215,15 @@ export async function GET(req: NextRequest) {
       by_kind: byKind,
       sources,
       generatedAt: new Date().toISOString(),
-      note:
-        sources.length === 0
-          ? "eagle.video_sources is empty. Seed via /api/eagle/ingest/video_sources (Shinobi monitors, 511 cams, Windy, EarthCam, etc.)"
-          : undefined,
+      live_fanout_used: liveUsed,
+      note: liveUsed
+        ? "MINDEX sparse → fanned out to connectors (public-webcams + 511 + shinobi)"
+        : undefined,
     },
     {
       headers: {
         "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
-        "X-Source": "mindex-eagle",
+        "X-Source": liveUsed ? "mindex-eagle+live-fanout" : "mindex-eagle",
       },
     },
   )

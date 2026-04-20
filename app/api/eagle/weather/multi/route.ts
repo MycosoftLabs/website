@@ -202,13 +202,27 @@ async function fromOpenWeather(lat: number, lng: number): Promise<any> {
   } catch { return {} }
 }
 
-async function fromEarth2(lat: number, lng: number): Promise<any> {
-  // Proxy to MAS earth-2 endpoint if available (optional).
+async function fromEarth2(
+  lat: number,
+  lng: number,
+  opts: { forecastHours?: number; resolutionDeg?: number; gpuMode?: boolean } = {},
+): Promise<any> {
+  // Proxy to MAS earth-2 endpoint if available (optional). When gpuMode is
+  // true, MAS routes to the PersonaPlex + 4080a/4080b workstations running
+  // NVIDIA Earth-2 locally (checkpoint fourcastnet/graphcast/pangu). Without
+  // gpuMode, it returns a cached ERA5-reanalysis interpolation.
   const masUrl = process.env.MAS_API_URL || process.env.NEXT_PUBLIC_MAS_API_URL
   if (!masUrl) return {}
   try {
-    const res = await fetch(`${masUrl.replace(/\/+$/, "")}/earth2/point?lat=${lat}&lng=${lng}`, {
-      signal: AbortSignal.timeout(6_000),
+    const qp = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      fh: String(opts.forecastHours ?? 0),
+      res: String(opts.resolutionDeg ?? 0.25),
+      gpu: opts.gpuMode ? "1" : "0",
+    })
+    const res = await fetch(`${masUrl.replace(/\/+$/, "")}/earth2/point?${qp}`, {
+      signal: AbortSignal.timeout(8_000),
     })
     if (!res.ok) return {}
     return { raw: await res.json() }
@@ -247,6 +261,10 @@ export async function GET(req: NextRequest) {
   const lat = Number(url.searchParams.get("lat"))
   const lng = Number(url.searchParams.get("lng"))
   const bbox = url.searchParams.get("bbox")
+  // Earth-2 routing inputs — forwarded to PersonaPlex/4080 bridge when set.
+  const forecastHours = Number(url.searchParams.get("fh") || 0) || 0
+  const resolutionDeg = Number(url.searchParams.get("res") || 0.25) || 0.25
+  const gpuMode = url.searchParams.get("gpu") === "1"
   let queryLat = lat
   let queryLng = lng
   if ((!Number.isFinite(lat) || !Number.isFinite(lng)) && bbox) {
@@ -265,7 +283,7 @@ export async function GET(req: NextRequest) {
     fromNWS(queryLat, queryLng),
     fromWindyPoint(queryLat, queryLng),
     fromOpenWeather(queryLat, queryLng),
-    fromEarth2(queryLat, queryLng),
+    fromEarth2(queryLat, queryLng, { forecastHours, resolutionDeg, gpuMode }),
   ])
 
   // Merge preference: Open-Meteo base, overwrite with Windy for cloud layers
