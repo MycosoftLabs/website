@@ -1829,6 +1829,75 @@ export default function CREPDashboardPage() {
     (window as any).__crep_vessels = vessels;
     (window as any).__crep_satellites = satellites;
   }, [aircraft, vessels, satellites]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPACE PIGGYBACK (Apr 19, 2026)
+  // Morgan (OpenGridView parity): "they have a button called space piggyback
+  // that zooms in follows and changes close up angle of the satelite".
+  //
+  // The SatelliteDetail widget fires a "crep:satellite:piggyback" event with
+  // the satellite's norad id + name. We flyTo the satellite's current SGP4
+  // position, then every 400 ms look up the LATEST position from the
+  // crep-live-satellites source and easeTo there with a slight pitch so it
+  // feels like a chase-cam. Press Esc or click the map (outside the sat)
+  // to disengage.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [piggybackSatelliteId, setPiggybackSatelliteId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPiggyback = (e: any) => {
+      const d = e?.detail || {};
+      const id = String(d.id ?? d.noradId ?? d.name ?? "");
+      if (!id) return;
+      setPiggybackSatelliteId(id);
+      // Initial flyTo so the user sees immediate action even before the
+      // tracking loop starts.
+      try {
+        const m = mapNativeRef.current as any;
+        if (m?.flyTo && typeof d.lat === "number" && typeof d.lng === "number") {
+          m.flyTo({ center: [d.lng, d.lat], zoom: 5, pitch: 45, duration: 1500 });
+        }
+      } catch { /* ignore */ }
+    };
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") setPiggybackSatelliteId(null); };
+    window.addEventListener("crep:satellite:piggyback", onPiggyback as any);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("crep:satellite:piggyback", onPiggyback as any);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  // Follow loop: every 400 ms while piggyback is active, query the latest
+  // SGP4 position of the target satellite from the map source and re-centre
+  // the camera with a gentle easeTo (short duration = smooth but not
+  // dizzying). Stops immediately when piggybackSatelliteId is null.
+  useEffect(() => {
+    if (!piggybackSatelliteId) return;
+    const interval = setInterval(() => {
+      const m = mapNativeRef.current as any;
+      if (!m || typeof m.getSource !== "function") return;
+      try {
+        const src = m.getSource("crep-live-satellites") as any;
+        const data = src?._data;
+        const features: any[] = data?.features || [];
+        const match = features.find((f: any) => {
+          const p = f?.properties || {};
+          const id = String(p.id ?? p.noradId ?? p.name ?? "");
+          return id === piggybackSatelliteId ||
+                 String(p.noradId ?? "") === piggybackSatelliteId ||
+                 String(p.name ?? "") === piggybackSatelliteId;
+        });
+        if (!match) return;
+        const coords = match.geometry?.coordinates;
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        const [lng, lat] = coords;
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+        m.easeTo({ center: [lng, lat], duration: 380, pitch: 45 });
+      } catch { /* ignore */ }
+    }, 400);
+    return () => clearInterval(interval);
+  }, [piggybackSatelliteId]);
   const [fungalObservations, setFungalObservations] = useState<FungalObservation[]>([]);
   // Persistent observation store — merge incoming data, never fully replace (prevents blink)
   const fungalStoreRef = useRef<Map<string, FungalObservation>>(new Map());

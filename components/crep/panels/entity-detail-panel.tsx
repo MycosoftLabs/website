@@ -18,14 +18,16 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import {
   Leaf, Clock, MapPin, Camera, User, ExternalLink, Award,
   Database, Globe, TreePine, CheckCircle2, AlertCircle, X,
   Plane, Ship, Satellite, AlertTriangle, Activity, ThermometerSun,
-  Wind, Waves, Zap, Flame, Mountain,
+  Wind, Waves, Zap, Flame, Mountain, Target,
 } from "lucide-react";
 import Link from "next/link";
 import { FungalObservation } from "../markers/fungal-marker";
+import { fetchSatelliteMeta, type SatelliteMeta } from "@/lib/crep/satellite-meta";
 
 // Kingdom-based emoji for all-life observation display
 function getObservationEmoji(obs: FungalObservation): string {
@@ -611,7 +613,41 @@ function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; o
   const apogee = sat.orbitalParams?.apogee ?? (sat.properties?.apogee as number | undefined);
   const perigee = sat.orbitalParams?.perigee ?? (sat.properties?.perigee as number | undefined);
   const intlDesignator = (satellite as { intlDesignator?: string }).intlDesignator ?? (sat.properties?.intlDesignator as string | undefined);
-  
+
+  // Apr 19, 2026 (Morgan: "look at how a satelite picture and live data is
+  // on the satelite widget this is minimum needed in crep" + "button called
+  // space piggyback that zooms in follows and changes close up angle").
+  // Wikimedia lookup: fetchSatelliteMeta() strips "STARLINK-5742" → Starlink,
+  // "NOAA 21" → NOAA-21, etc., and hits en.wikipedia.org/api/rest_v1 for a
+  // page summary (thumbnail + extract). 30 min in-memory cache.
+  const [meta, setMeta] = useState<SatelliteMeta | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (satellite?.name) {
+      fetchSatelliteMeta(satellite.name).then((m) => {
+        if (!cancelled) setMeta(m);
+      });
+    }
+    return () => { cancelled = true; };
+  }, [satellite?.name]);
+
+  // Piggyback: dispatch a global event the parent dashboard picks up to
+  // flyTo the satellite + follow its position every SGP4 tick.
+  const triggerPiggyback = () => {
+    try {
+      window.dispatchEvent(new CustomEvent("crep:satellite:piggyback", {
+        detail: {
+          id: satellite.id || noradId || satellite.name,
+          noradId,
+          name: satellite.name,
+          lat: latitude,
+          lng: longitude,
+          altitude: typeof altitude === "number" ? altitude : null,
+        },
+      }));
+    } catch { /* ignore */ }
+  };
+
   return (
     <div className="bg-[#0a1628] border border-purple-500/30 rounded-lg overflow-hidden">
       {/* Header */}
@@ -620,20 +656,96 @@ function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; o
           <Satellite className="w-6 h-6 text-purple-400" />
           <div>
             <h2 className="text-lg font-bold text-white">{satellite.name}</h2>
-            <p className="text-sm text-gray-400">{(objectType as string) || satellite.type}</p>
+            <p className="text-sm text-gray-400">
+              {meta?.family ? `${meta.family}` : (objectType as string) || satellite.type}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {orbitType && <Badge className="bg-purple-500/50 text-purple-200">{orbitType as string}</Badge>}
           <Badge className="bg-purple-500">{(satellite as any).isActive !== false ? 'ACTIVE' : 'INACTIVE'}</Badge>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors" aria-label="Close">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
       </div>
 
+      {/* Satellite image (Wikimedia Commons) — OpenGridView parity */}
+      {meta?.imageUrl ? (
+        <div className="relative bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={meta.imageUrl}
+            alt={satellite.name || "Satellite"}
+            className="w-full h-40 object-cover"
+            loading="lazy"
+          />
+          {meta.imageAttribution ? (
+            <div className="absolute bottom-1 right-2 text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">
+              {meta.imageAttribution}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Content */}
       <div className="p-4 space-y-4">
+        {/* Mission / Purpose block from Wikipedia */}
+        {(meta?.mission || meta?.purpose) ? (
+          <div className="bg-black/40 rounded-lg p-3 border border-gray-700/50 space-y-2">
+            {meta.mission ? (
+              <div className="text-sm">
+                <span className="text-purple-400 font-semibold">Mission </span>
+                <span className="text-gray-200">{meta.mission}</span>
+              </div>
+            ) : null}
+            {meta.purpose ? (
+              <div className="text-sm">
+                <span className="text-purple-400 font-semibold">Purpose </span>
+                <span className="text-gray-300">{meta.purpose}</span>
+              </div>
+            ) : null}
+            {meta.wikipediaUrl ? (
+              <a
+                href={meta.wikipediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-purple-300 hover:text-purple-200"
+              >
+                Read more on Wikipedia <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Source / constellation tags */}
+        <div className="flex flex-wrap gap-2">
+          {meta?.family ? (
+            <Badge className="bg-rose-500/60 text-white text-[10px] tracking-wider uppercase">
+              {meta.family}
+            </Badge>
+          ) : null}
+          {(() => {
+            const src = (satellite as any).source;
+            if (!src) return null;
+            const tags: string[] = String(src).split("+").map((s: string) => s.trim()).filter(Boolean);
+            return Array.from(new Set(tags)).map((t) => (
+              <Badge key={t} className="bg-rose-500/40 text-rose-100 text-[10px] tracking-wider uppercase">
+                {t.replace(/-/g, " ")}
+              </Badge>
+            ));
+          })()}
+        </div>
+
+        {/* Piggyback button — fly to + follow */}
+        <button
+          onClick={triggerPiggyback}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded border border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20 text-purple-200 text-sm font-medium transition-colors"
+        >
+          <Target className="w-4 h-4" />
+          Space piggyback — zoom in + follow orbit
+        </button>
+
         {/* Orbital Info */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-black/40 rounded-lg p-3 border border-gray-700/50">
