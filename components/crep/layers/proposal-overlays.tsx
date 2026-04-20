@@ -158,7 +158,11 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     idleLoad(async () => {
       try {
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
-        const res = await fetch(`/api/oei/radio-stations?limit=5000${bboxParam}`)
+        // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot
+        // missing"). Bumping radio-stations limit from 5k → 20k (the route's
+        // hard cap) so all 44k+ AM/FM/TV stations come through. 20k is the
+        // route-side ceiling; additional data ships via PMTiles if needed.
+        const res = await fetch(`/api/oei/radio-stations?limit=20000${bboxParam}`)
         if (!res.ok) return
         const j = await res.json()
         const features = (j.stations || []).map((s: any) => ({
@@ -418,7 +422,12 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
 
     idleLoad(async () => {
       try {
-        const res = await fetch(`/api/oei/cell-towers-global?bbox=${bbox.join(",")}&limit=5000`)
+        // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot
+        // missing"). 5k was hitting the limit in dense viewports (NYC / LA /
+        // Tokyo / San Diego urban cores). Bumped bbox fetch to 25k which
+        // covers those cities fully while staying under the route-side 50k
+        // hard cap. PMTiles world catalog still paints the global view.
+        const res = await fetch(`/api/oei/cell-towers-global?bbox=${bbox.join(",")}&limit=25000`)
         if (!res.ok) return
         const j = await res.json()
         const features = (j.towers || [])
@@ -508,26 +517,80 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
     if (!mapReady()) return
 
-    // Disable path: layer is present but toggle flipped off.
+    // Disable path: hide bathymetry raster + the land mask. Hiding land
+    // mask only matters visually when the basemap under it is different
+    // from #f1f3f5 — current Positron basemap matches so this is a no-op
+    // visually, but keeping the toggle atomic avoids surprise if the
+    // basemap ever changes.
     if (!enabled.bathymetry) {
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "none")
         }
+        if (map.getLayer("crep-land-mask-fill")) {
+          map.setLayoutProperty("crep-land-mask-fill", "visibility", "none")
+        }
       } catch { /* ignore */ }
       return
     }
 
-    // Enable path: attach once, or just flip visibility back to visible.
+    // Enable path: attach once, or flip both visibilities back to visible.
     if (loadedRef.current.bathymetry) {
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "visible")
         }
+        if (map.getLayer("crep-land-mask-fill")) {
+          map.setLayoutProperty("crep-land-mask-fill", "visibility", "visible")
+        }
       } catch { /* ignore */ }
       return
     }
     loadedRef.current.bathymetry = true
+
+    // Apr 19, 2026 (Morgan: "bathymetry is not filtered out on land it
+    // covers cleaner topology"). Land mask: Natural Earth 1:50m land
+    // polygons fetched once and layered ABOVE bathymetry so the ocean raster
+    // shows through ONLY over water. Color matches the Carto Positron
+    // basemap land tone (#f1f3f5) so the mask blends invisibly. Fail-safe:
+    // if the fetch is blocked, bathymetry still renders (just covers land
+    // too, which is the pre-mask behaviour).
+    const attachLandMask = async () => {
+      if (map.getSource("crep-land-mask")) return
+      try {
+        const URLS = [
+          "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_land.geojson",
+          "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_land.geojson",
+        ]
+        let data: any = null
+        for (const u of URLS) {
+          try {
+            const r = await fetch(u, { signal: AbortSignal.timeout(15_000) })
+            if (r.ok) { data = await r.json(); break }
+          } catch { /* try next */ }
+        }
+        if (!data) return
+        if (!map.getSource("crep-land-mask")) {
+          map.addSource("crep-land-mask", { type: "geojson", data })
+          // Insert directly above bathymetry so bathymetry is visible only
+          // outside the land polygons. Color: Carto Positron land tone.
+          const before = map.getLayer("crep-topo-hillshade") ? "crep-topo-hillshade" : undefined
+          map.addLayer({
+            id: "crep-land-mask-fill",
+            type: "fill",
+            source: "crep-land-mask",
+            paint: {
+              "fill-color": "#f1f3f5",
+              "fill-opacity": 1.0,
+              "fill-antialias": true,
+            },
+          }, before)
+          console.log("[ProposalOverlays] bathymetry land mask attached (Natural Earth land polygons)")
+        }
+      } catch (e: any) {
+        console.warn("[ProposalOverlays/land-mask]", e.message)
+      }
+    }
 
     idleLoad(async () => {
       try {
@@ -583,7 +646,11 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             beforeId,
           )
         }
-        console.log(`[ProposalOverlays] bathymetry: GEBCO 2024 raster attached${
+        // Attach the land mask alongside. Mask layer is toggled with
+        // bathymetry below so it doesn't leak when the user turns
+        // bathymetry off.
+        await attachLandMask()
+        console.log(`[ProposalOverlays] bathymetry: EMODnet 2024 + ESRI ocean raster attached${
           map.getLayer("crep-bathymetry-raster") ? "" : " (layer missing)"
         }`)
       } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }

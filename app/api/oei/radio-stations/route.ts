@@ -20,7 +20,10 @@ export async function GET(req: NextRequest) {
   const band = url.searchParams.get("band")   // AM|FM|TV|PUBLIC_SDR|SW|CB
   const country = url.searchParams.get("country")
   const streamable = url.searchParams.get("streamable") === "true"
-  const limit = Math.min(Number(url.searchParams.get("limit") || 5000), 20000)
+  // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot missing").
+  // Raised hard cap from 20k → 60k to cover the global registry in one call
+  // (Radio-Browser 35k + KiwiSDR 600 + FCC LMS US AM/FM/TV ~15k).
+  const limit = Math.min(Number(url.searchParams.get("limit") || 20000), 60000)
 
   try {
     const baseUrl = `${url.protocol}//${url.host}`

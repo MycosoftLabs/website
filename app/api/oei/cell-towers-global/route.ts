@@ -33,7 +33,11 @@ export async function GET(req: NextRequest) {
   if (bbox.length !== 4 || bbox.some((v) => !Number.isFinite(v))) {
     return NextResponse.json({ error: "bbox malformed" }, { status: 400 })
   }
-  const limit = Math.min(Number(url.searchParams.get("limit") || 5000), 20000)
+  // Apr 19, 2026 (Morgan: "need more am fm cell tower data alot missing").
+  // Default bumped 5k → 15k per bbox + hard cap lifted 20k → 50k. Cell towers
+  // are dense in urban areas, so without this the initial viewport was
+  // missing a huge chunk.
+  const limit = Math.min(Number(url.searchParams.get("limit") || 15000), 50000)
   const radio = url.searchParams.get("radio")
   const mcc = Number(url.searchParams.get("mcc"))
 
