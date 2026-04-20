@@ -1,0 +1,120 @@
+name: Gen Infra Tiles (transmission + data-centers)
+
+# On-demand + weekly regeneration of:
+#   • transmission-lines-us-full.geojson/pmtiles (HIFLD + OSM + MINDEX)
+#   • data-centers-global.geojson/pmtiles (OSM + PeeringDB + MINDEX)
+#
+# Bigger than the cell-tower workflow — HIFLD transmission is ~125k
+# features + OSM scrape is ~100k+, so tippecanoe takes longer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_transmission:
+        description: "Pull HIFLD + OSM transmission lines (all voltages)"
+        default: "yes"
+      include_datacenters:
+        description: "Pull OSM + PeeringDB data centers"
+        default: "yes"
+      include_osm:
+        description: "Include OSM Overpass harvest (slow, 30-90 min)"
+        default: "yes"
+  schedule:
+    # Monthly on the 1st at 07:00 UTC — infra changes slowly
+    - cron: "0 7 1 * *"
+
+concurrency:
+  group: gen-infra-tiles
+  cancel-in-progress: false
+
+jobs:
+  harvest-and-tile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tippecanoe + pmtiles CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tippecanoe
+          PMTILES_VERSION="1.22.1"
+          curl -sL "https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}/go-pmtiles_${PMTILES_VERSION}_Linux_x86_64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin pmtiles
+
+      - name: Harvest transmission lines (full)
+        if: ${{ github.event.inputs.include_transmission != 'no' && github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        run: |
+          ARGS="--no-mindex"
+          if [[ "${{ github.event.inputs.include_osm }}" == "no" ]]; then ARGS="$ARGS --no-osm"; fi
+          echo "Running: node scripts/etl/crep/fetch-transmission-full.mjs $ARGS"
+          node scripts/etl/crep/fetch-transmission-full.mjs $ARGS
+
+      - name: Generate transmission PMTiles
+        if: ${{ github.event.inputs.include_transmission != 'no' && github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        run: bash scripts/etl/crep/gen-transmission-pmtiles.sh
+
+      - name: Harvest data centers (global)
+        if: ${{ github.event.inputs.include_datacenters != 'no' && github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        run: |
+          ARGS="--no-mindex"
+          if [[ "${{ github.event.inputs.include_osm }}" == "no" ]]; then ARGS="$ARGS --no-osm"; fi
+          echo "Running: node scripts/etl/crep/fetch-datacenters-global.mjs $ARGS"
+          node scripts/etl/crep/fetch-datacenters-global.mjs $ARGS
+
+      - name: Generate data-center PMTiles
+        if: ${{ github.event.inputs.include_datacenters != 'no' && github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        run: bash scripts/etl/crep/gen-datacenter-pmtiles.sh
+
+      - name: Report artifact sizes
+        run: |
+          echo "=== GeoJSON ==="
+          ls -lh public/data/crep/transmission-lines-us-full.geojson 2>/dev/null || true
+          ls -lh public/data/crep/data-centers-global.geojson 2>/dev/null || true
+          echo "=== PMTiles ==="
+          ls -lh public/data/crep/tiles/transmission-lines-us-full.pmtiles 2>/dev/null || true
+          ls -lh public/data/crep/tiles/data-centers-global.pmtiles 2>/dev/null || true
+
+      - name: Open PR with refreshed tiles
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(crep): refresh transmission + data-center tiles"
+          title: "chore(crep): refresh transmission + data-center tiles"
+          body: |
+            Automated regeneration of CREP infrastructure tiles.
+
+            **Transmission lines** — HIFLD full (all voltages, not just ≥345 kV)
+            + OSM power=line (distribution + minor transmission) + MINDEX.
+            Fills the gap in San Diego (Jamacha, Miguel, Suncrest branch
+            lines etc.) that the ≥345 kV file missed.
+
+            **Data centers** — OpenStreetMap man_made=data_center +
+            telecom=data_center + PeeringDB facilities + MINDEX. Replaces
+            the 44-entry MAJOR_DATACENTERS static bundle with the global
+            set (typically 5–7k).
+
+            Artifacts:
+            - `public/data/crep/transmission-lines-us-full.geojson`
+            - `public/data/crep/tiles/transmission-lines-us-full.pmtiles`
+            - `public/data/crep/data-centers-global.geojson`
+            - `public/data/crep/tiles/data-centers-global.pmtiles`
+
+            After merge, the CREP client will preferentially load the
+            `-full` transmission tiles (wired in INFRA_LAYERS.transmissionFull).
+          branch: chore/refresh-infra-tiles
+          delete-branch: true
+          add-paths: |
+            public/data/crep/transmission-lines-us-full.geojson
+            public/data/crep/tiles/transmission-lines-us-full.pmtiles
+            public/data/crep/data-centers-global.geojson
+            public/data/crep/tiles/data-centers-global.pmtiles
