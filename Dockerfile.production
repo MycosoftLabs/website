@@ -7,6 +7,9 @@
 # Apr 19, 2026 (r2): bust again — railway-live route body updated but prod
 # still returns old implementation. Cache layer for npm run build is being
 # reused across commits because only route.ts file contents change.
+# Apr 19, 2026 (r3): same issue for /api/crep/mycosoft-devices — freshly
+# added route, compiled in build log but 404s at runtime. Forcing builder
+# layer re-exec so the new route registers.
 
 FROM node:20-bookworm-slim AS base
 ARG NEXTAUTH_SECRET=change-me-before-prod
