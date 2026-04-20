@@ -244,6 +244,15 @@ import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import TimelineScrubber from "@/components/crep/eagle-eye/TimelineScrubber";
 import IntelFeedEagleEyeSection from "@/components/crep/eagle-eye/IntelFeedEagleEyeSection";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
+// Realistic cloud rendering — Three.js volumetric + satellite-texture pipeline
+// driven by /api/eagle/weather/multi (Open-Meteo + NWS + Windy + OWM + Earth-2).
+// Apr 20, 2026 — Morgan: "realistic clouds over the crep map and globe in both
+// 2d and 3d realistically with altitude on 3d and density on both".
+import RealisticCloudLayer from "@/components/crep/layers/realistic-cloud-layer";
+// Mapbox 3D buildings + Satellite Streets basemap. Uses Morgan's new full-scope
+// NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN. 3D extrusions at zoom ≥ 14 give MYCA device-
+// placement logic proper building silhouettes for shadow/LOS calculations.
+import Mapbox3DBuildings from "@/components/crep/layers/mapbox-3d-buildings";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2398,6 +2407,9 @@ export default function CREPDashboardPage() {
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green" },
     { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
+    { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)" },
+    { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic." },
+    { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both." },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
@@ -7944,7 +7956,7 @@ export default function CREPDashboardPage() {
               eagleEyeYoutubeLive:  true,
               eagleEyeBluesky:      true,
               eagleEyeMastodon:     true,
-              eagleEyeTwitch:       false,
+              eagleEyeTwitch:       true,
             }}
             bbox={mapZoom > 3 ? (() => {
               try {
@@ -7953,6 +7965,43 @@ export default function CREPDashboardPage() {
                 return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
               } catch { return undefined }
             })() : undefined}
+          />
+
+          {/* Realistic Cloud Layer — Three.js-bound 2D scaffold (Apr 20, 2026).
+              Three stacked sources: NASA GIBS MODIS True Color cloud texture,
+              RainViewer global radar (2-hr history), and a sun-angle shadow
+              projection driven by /api/eagle/weather/multi (Open-Meteo + NWS
+              + Windy + OWM + Earth-2 aggregator). The 3D volumetric raymarch
+              path mounts later in <ThreeDGlobeView>. Density modulates opacity
+              on both 2D + 3D; altitude bands split in 3D (low 600-1800 m /
+              mid 2500-5500 m / high 7000-12000 m). Morgan: "realistic clouds
+              over the crep map and globe in both 2d and 3d realistically." */}
+          <RealisticCloudLayer
+            map={mapRef}
+            enabled={layers.find(l => l.id === "realisticClouds")?.enabled ?? false}
+            opacity={layers.find(l => l.id === "realisticClouds")?.opacity ?? 0.7}
+            bbox={mapZoom > 2 ? (() => {
+              try {
+                if (!mapRef?.getBounds) return undefined
+                const b = mapRef.getBounds()
+                return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
+              } catch { return undefined }
+            })() : undefined}
+            mode3d={false}
+          />
+
+          {/* Mapbox 3D buildings + Satellite Streets hybrid basemap. Uses
+              Morgan's full-scope NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN. 3D
+              extrusions read building height/min_height from the Composite
+              mapbox-streets-v8 source at zoom ≥ 14 — critical for MYCA
+              device-placement decisions (shadow / LOS against buildings).
+              Satellite Streets is an alternative basemap that beats ESRI
+              World Imagery in most regions and ships roads + labels in one
+              tileset. Apr 20, 2026. */}
+          <Mapbox3DBuildings
+            map={mapRef}
+            enabled3dBuildings={layers.find(l => l.id === "mapbox3dBuildings")?.enabled ?? false}
+            enabledSatelliteStreets={layers.find(l => l.id === "mapboxSatelliteStreets")?.enabled ?? false}
           />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
