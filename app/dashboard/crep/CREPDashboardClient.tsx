@@ -4471,6 +4471,60 @@ export default function CREPDashboardPage() {
   }, [layers]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // PER-LAYER VISIBILITY SYNC (Apr 19, 2026)
+  // Morgan QA: "not one filter on Telecom & Infrastructure works which does
+  // not make sense i see those things on map but none of the filters work"
+  //
+  // Root cause: individual layer toggles in the UI (submarineCables,
+  // dataCenters, cellTowers, radioStations, powerPlantsG, etc.) had no
+  // corresponding setLayoutProperty("visibility", ...) wiring. The only
+  // visibility control was a master "showInfraLayers" flip. Per-layer
+  // toggles flipped `layers[i].enabled` in state but the map never
+  // listened.
+  //
+  // This useEffect iterates the layer registry → known MapLibre layer IDs
+  // mapping on every `layers` change and flips visibility. Layers that
+  // haven't been attached yet are silently skipped — next effect run picks
+  // them up once they're present.
+  // ═══════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    const m = mapNativeRef.current;
+    if (!m) return;
+    const layerIdToMap: Record<string, string[]> = {
+      // Telecom & Infrastructure
+      submarineCables:  ["crep-cables-line"],
+      dataCenters:      ["crep-dcs-global-halo", "crep-dcs-global-glow", "crep-dcs-global-dot"],
+      cellTowers:       ["crep-celltowers-circle", "crep-celltowers-global-circle"],
+      cellTowersG:      ["crep-celltowers-bbox-dot"],
+      radioStations:    ["crep-radio-dot"],
+      powerPlantsG:     ["crep-pp-global-dot"],
+      signalHeatmap:    ["crep-signalheatmap-heat"],
+      // Power grid
+      powerPlants:      ["crep-plants-circle"],
+      substations:      ["crep-subs-circle"],
+      transmissionLines: ["crep-txlines-line", "crep-txlines-full-line"],
+      // Transport / Vehicles
+      ports:            ["crep-ports-global-dot"],
+      railwayTracks:    ["crep-railway-raster"],
+      // Pollution & Industry
+      factories:        ["crep-factories-dot"],
+      // Scientific
+      radar:            ["crep-radar-dot"],
+      orbitalDebris:    ["crep-orbital-debris-dot"],
+      debrisCloud:      ["crep-debris-cloud-heat"],
+    };
+    for (const [layerId, mapIds] of Object.entries(layerIdToMap)) {
+      const enabled = layers.find((l) => l.id === layerId)?.enabled ?? false;
+      const vis = enabled ? "visible" : "none";
+      for (const id of mapIds) {
+        try {
+          if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", vis);
+        } catch { /* layer not attached yet */ }
+      }
+    }
+  }, [layers]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // SGP4 SATELLITE ANIMATION — Real-time propagation at ~10 FPS
   // Runs via requestAnimationFrame, independent of React state. Pushes positions
   // directly into the MapLibre "crep-live-satellites" source and generates orbit
