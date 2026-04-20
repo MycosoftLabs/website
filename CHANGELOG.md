@@ -406,6 +406,9 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
+- *(crep)* Morgan's Apr 19 new data sources — drone + no-fly + railway + live event animation
+- *(crep)* Apr 19 work log — full session context for handoff
 
 ### Features
 
@@ -542,6 +545,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Species observation persistence pipeline — MINDEX auto-catalog
 - CREP production-ready — parallel data fetch, LOD rendering, max data sources
 - *(search)* Fluid Search M1 unified context, narrative merge, tests
+- *(crep)* Enable shipped data layers + wire global tx/cell overlays (#98)
 
 ### Fix
 
@@ -598,6 +602,7 @@ All notable changes to this project will be documented in this file.
 - Instant-deploy uses blue/green + CF purge; raise timeout 15→30m
 - Re-trigger deploy [fast]
 - *(crep)* Add generated PMTiles for substations, transmission, power plants
+- *(crep)* Refresh cell-tower tiles from OSM + OpenCelliD (#97)
 
 ### Performance
 
