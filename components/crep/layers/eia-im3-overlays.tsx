@@ -35,6 +35,11 @@ import type { Map as MapLibreMap } from "maplibre-gl"
 
 export interface EiaIm3Enabled {
   im3DataCenters?: boolean
+  /** Apr 20, 2026 — IM3 gpkg building + campus POLYGON footprints
+   *  (1,374 shapes parsed from the SQLite-packaged GeoPackage). Shown
+   *  only at zoom ≥ 11 so world-view doesn't render thousands of
+   *  tiny polygons. */
+  im3DataCenterFootprints?: boolean
   eiaOperating?: boolean
   eiaPlanned?: boolean
   eiaRetired?: boolean
@@ -146,6 +151,100 @@ function mapReady(map: MapLibreMap): boolean {
 
 export default function EiaIm3Overlays({ map, enabled }: Props) {
   const loadedRef = useRef<Record<string, boolean>>({})
+
+  // ─── IM3 footprint POLYGONS (building + campus) ──────────────────────
+  // Apr 20, 2026 (Morgan OpenGridView parity: building-level DC shapes).
+  // Parsed from the gpkg's `building` + `campus` tables (1,374 polygons).
+  // Rendered as fill + outline at zoom ≥ 11; color = cyan matching the
+  // existing IM3 point glyph palette.
+  useEffect(() => {
+    if (!map) return
+    const sourceId = "crep-im3-footprints"
+    const fillId = "crep-im3-footprint-fill"
+    const lineId = "crep-im3-footprint-line"
+    const on = !!enabled.im3DataCenterFootprints
+    if (!on) {
+      if (!mapReady(map)) return
+      try {
+        if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "none")
+        if (map.getLayer(lineId)) map.setLayoutProperty(lineId, "visibility", "none")
+      } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current[sourceId]) {
+      if (!mapReady(map)) return
+      try {
+        if (map.getLayer(fillId)) map.setLayoutProperty(fillId, "visibility", "visible")
+        if (map.getLayer(lineId)) map.setLayoutProperty(lineId, "visibility", "visible")
+      } catch { /* ignore */ }
+      return
+    }
+    loadedRef.current[sourceId] = true
+    ;(async () => {
+      try {
+        const res = await fetch("/data/crep/im3-datacenter-footprints.geojson")
+        if (!res.ok) return
+        const data = await res.json()
+        if (!mapReady(map)) return
+        if (!map.getSource(sourceId)) {
+          map.addSource(sourceId, { type: "geojson", data })
+          map.addLayer({
+            id: fillId,
+            type: "fill",
+            source: sourceId,
+            minzoom: 11,
+            paint: {
+              "fill-color": [
+                "match", ["get", "atlas_type"],
+                "campus", "#0ea5e9",     // sky-500 — campus (wider boundary)
+                /* building */ "#22d3ee",  // cyan-400 — individual building
+              ],
+              "fill-opacity": ["case", ["==", ["get", "atlas_type"], "campus"], 0.12, 0.32],
+            },
+          })
+          map.addLayer({
+            id: lineId,
+            type: "line",
+            source: sourceId,
+            minzoom: 11,
+            paint: {
+              "line-color": [
+                "match", ["get", "atlas_type"],
+                "campus", "#0ea5e9",
+                "#67e8f9",
+              ],
+              "line-width": ["case", ["==", ["get", "atlas_type"], "campus"], 1.8, 1.2],
+              "line-opacity": 0.9,
+            },
+          })
+          map.on("click", fillId, (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") {
+                hook({
+                  type: "data_center",
+                  id: p.id,
+                  name: p.name || "Data Center",
+                  lat: c?.lat ?? 0,
+                  lng: c?.lng ?? 0,
+                  properties: { ...p, atlas_source: "IM3 footprint (PNNL)" },
+                })
+              }
+            } catch { /* ignore */ }
+          })
+          map.on("mouseenter", fillId, () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", fillId, () => { map.getCanvas().style.cursor = "" })
+          console.log(`[EiaIm3] IM3 footprints: ${(data.features || []).length} polygons loaded → ${sourceId}`)
+        }
+      } catch (e: any) {
+        console.warn("[EiaIm3/footprints]", e?.message)
+      }
+    })()
+  }, [map, enabled.im3DataCenterFootprints])
 
   // ─── Attach each dataset lazily on first enable ────────────────────────
   useEffect(() => {
