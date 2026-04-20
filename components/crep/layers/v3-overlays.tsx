@@ -152,23 +152,67 @@ function wireClick(map: MapLibreMap, layerId: string, type: string, fallbackName
 
 // ─── Fetchers ───────────────────────────────────────────────────────────────
 
-async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires" | "storms" | "lightning" | "tornadoes") {
-  const map: Record<string, string> = {
-    earthquakes: "/api/oei/earthquakes?limit=2000",
-    volcanoes: "/api/oei/volcanoes?limit=500",
-    wildfires: "/api/oei/wildfires?limit=2000",
-    storms: "/api/oei/storms?limit=500",
-    lightning: "/api/oei/lightning?limit=5000",
-    tornadoes: "/api/oei/tornadoes?limit=500",
+// Apr 19, 2026 (Morgan QA: "all of the natural events filters non work none
+// change map except for earthquakes"). Root cause: V3Overlays was fetching
+// from /api/oei/{earthquakes,volcanoes,wildfires,storms,lightning,tornadoes}
+// — none of those routes exist (404). Only earthquakes rendered because they
+// come through a separate pipeline (/api/natureos/global-events + EventMarker
+// layer in CREPDashboardClient).
+//
+// Fix: fetch /api/natureos/global-events ONCE per refresh, distribute its
+// events to each enabled-typed layer by `type` match. Singular API types
+// (earthquake / volcano / wildfire / storm) map to plural filter keys. For
+// types the API doesn't cover (lightning / tornado) the layer stays empty
+// but the filter toggle still controls visibility.
+let _globalEventsCache: { ts: number; events: any[] } = { ts: 0, events: [] }
+async function fetchAllGlobalEvents(): Promise<any[]> {
+  const CACHE_MS = 60_000
+  const now = Date.now()
+  if (now - _globalEventsCache.ts < CACHE_MS && _globalEventsCache.events.length > 0) {
+    return _globalEventsCache.events
   }
-  const url = map[kind]
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(12_000) })
-    if (!r.ok) return []
+    const r = await fetch("/api/natureos/global-events?limit=10000", {
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!r.ok) return _globalEventsCache.events
     const j = await r.json()
-    const arr = j[kind] || j.events || j.features || j.items || []
-    return Array.isArray(arr) ? arr : []
-  } catch { return [] }
+    const events = j?.events || []
+    _globalEventsCache = { ts: now, events }
+    return events
+  } catch {
+    return _globalEventsCache.events
+  }
+}
+
+async function fetchEventsByType(kind: "earthquakes" | "volcanoes" | "wildfires" | "storms" | "lightning" | "tornadoes") {
+  // API types are SINGULAR (earthquake/volcano/wildfire/storm). Map plural
+  // filter keys to the set of API type strings they should claim.
+  const typeMap: Record<string, string[]> = {
+    earthquakes: ["earthquake"],
+    volcanoes: ["volcano"],
+    wildfires: ["wildfire", "fire"],
+    storms: ["storm", "hurricane", "cyclone"],
+    lightning: ["lightning"],
+    tornadoes: ["tornado"],
+  }
+  const wantTypes = new Set(typeMap[kind] || [])
+  const events = await fetchAllGlobalEvents()
+  return events
+    .filter((e: any) => {
+      const t = (e.type || e.category || "").toLowerCase()
+      return wantTypes.has(t)
+    })
+    .map((e: any) => ({
+      id: e.id,
+      lat: e.location?.latitude ?? e.lat,
+      lng: e.location?.longitude ?? e.lng,
+      name: e.title || e.name,
+      magnitude: e.magnitude,
+      severity: e.severity,
+      timestamp: e.timestamp,
+      source: e.source,
+    }))
 }
 
 async function fetchOSMByTag(bbox: [number, number, number, number], amenity: string) {
@@ -472,6 +516,11 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
   }, [map, enabled.earthquakes, enabled.volcanoes, enabled.wildfires, enabled.storms, enabled.lightning, enabled.tornadoes])
 
   // FACILITIES (OSM) — fetch when bbox is set + zoom is high enough.
+  // Apr 19, 2026 (Morgan QA: hospitals/fireStations/universities toggles
+  // not responding). Lowered zoom floor from 5 → 3 so a viewport roughly
+  // the size of the continental US triggers fetches. Overpass can still
+  // time out for huge bboxes (hence the 30 s timeout in fetchOSMByTag),
+  // but the UX feedback now exists even at continental zoom.
   useEffect(() => {
     if (!map || !bbox) return
     const hospitals = enabled.hospitals
@@ -479,7 +528,7 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     const unis = enabled.universities
     if (!hospitals && !fires && !unis) return
     const zoom = map.getZoom()
-    if (zoom < 5) return // avoid flooding Overpass at world view
+    if (zoom < 3) return // avoid flooding Overpass at pure world view
     ;(async () => {
       if (hospitals) setData(map, "crep-hospitals", pointsToFC(await fetchOSMByTag(bbox, "hospital")))
       if (fires) setData(map, "crep-firestations", pointsToFC(await fetchOSMByTag(bbox, "fire_station")))
@@ -487,11 +536,13 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     })()
   }, [map, bbox, enabled.hospitals, enabled.fireStations, enabled.universities])
 
-  // POLLUTION (OSM) — same pattern, higher zoom floor.
+  // POLLUTION (OSM) — zoom floor 3 (not 6) so continental view triggers
+  // queries. Morgan QA: "Pollution & Industry filters do nothing show
+  // nothing have no data".
   useEffect(() => {
     if (!map || !bbox) return
     const any = enabled.oilGas || enabled.methaneSources || enabled.metalOutput || enabled.waterPollution
-    if (!any || map.getZoom() < 6) return
+    if (!any || map.getZoom() < 3) return
     ;(async () => {
       if (enabled.oilGas) setData(map, "crep-oilgas", pointsToFC(await fetchOSMIndustrial(bbox, "oilGas")))
       if (enabled.methaneSources) setData(map, "crep-methanesources", pointsToFC(await fetchOSMIndustrial(bbox, "methaneSources")))
