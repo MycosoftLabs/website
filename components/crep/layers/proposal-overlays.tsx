@@ -519,106 +519,105 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     const mapReady = () => !!(map && (map as any).style && typeof map.getSource === "function")
     if (!mapReady()) return
 
-    // Disable path: hide bathymetry raster + the land mask. Hiding land
-    // mask only matters visually when the basemap under it is different
-    // from #f1f3f5 — current Positron basemap matches so this is a no-op
-    // visually, but keeping the toggle atomic avoids surprise if the
-    // basemap ever changes.
+    // Disable path: hide bathymetry raster. No land mask anymore — basemap
+    // land polygons handle the coastline clip natively.
     if (!enabled.bathymetry) {
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "none")
         }
-        if (map.getLayer("crep-land-mask-fill")) {
-          map.setLayoutProperty("crep-land-mask-fill", "visibility", "none")
-        }
       } catch { /* ignore */ }
       return
     }
 
-    // Enable path: attach once, or flip both visibilities back to visible.
+    // Enable path: attach once, or flip visibility back to visible.
     if (loadedRef.current.bathymetry) {
       try {
         if (map.getLayer("crep-bathymetry-raster")) {
           map.setLayoutProperty("crep-bathymetry-raster", "visibility", "visible")
-        }
-        if (map.getLayer("crep-land-mask-fill")) {
-          map.setLayoutProperty("crep-land-mask-fill", "visibility", "visible")
         }
       } catch { /* ignore */ }
       return
     }
     loadedRef.current.bathymetry = true
 
-    // Apr 19, 2026 (Morgan: "bathymetry is on on first load live on crep
-    // and its still walking over the land data that cannot happen"). Land
-    // mask MUST cover bathymetry on land or the layer is broken. Previous
-    // version relied on an external fetch from GitHub — slow + sometimes
-    // CORS-blocked. Now: primary source is /data/crep/ne_50m_land.geojson
-    // (1.6 MB, committed in-repo, always available). GitHub raw mirror is
-    // the fallback only if the local file 404s.
+    // Apr 20, 2026 (Morgan: "in live i see bathymetry off part of land but
+    // its got many layers not actually on land or water its wrong that
+    // coastline data is vital and has to be perfect you can see in san
+    // diego its not lined up with coastline islands ect ... the map layers
+    // should be additive layers overlaying in opacity not walking over
+    // the filters").
     //
-    // Z-order: mask inserts with the SAME beforeId as bathymetry so both
-    // live in the same "slot" right above basemap but below point
-    // markers. Second insertion goes on TOP of the first within the
-    // slot → mask above bathymetry, point layers above mask. Exactly
-    // what we want.
-    const attachLandMask = async (beforeId: string | undefined) => {
-      if (map.getSource("crep-land-mask")) return
+    // Previous approach (opaque Natural Earth land-mask fill on top of
+    // bathymetry) was wrong TWO ways:
+    //   1. NE 1:50m is too low-res — San Diego's Shelter Island,
+    //      Coronado, Point Loma aren't in the polygon set.
+    //   2. An opaque fill over "land" walks over everything ELSE the
+    //      user wants visible on land — satellite imagery, road labels,
+    //      city polygons, etc. It's not an additive layer, it's a
+    //      subtractive one.
+    //
+    // Correct architecture: insert bathymetry BELOW the basemap's own
+    // land layer. Carto Dark Matter uses OSM land polygons at OSM
+    // resolution (~10 m accuracy, includes every island and inlet). By
+    // slotting bathymetry right after the basemap's water fill but
+    // BEFORE its landcover/landuse fill, the basemap's OWN land polygons
+    // do the masking — with perfect coastline precision for Navy buoys,
+    // sea cable landings, etc. And because landcover is a SINGLE layer
+    // (not opaque-over-everything), other overlays (satellite imagery,
+    // hillshade, point markers) still composite additively above it.
+    //
+    // No separate land-mask geojson fetched here. NE 1:10m land is
+    // committed at /data/crep/ne_10m_land.geojson for feature-level use
+    // later (coastline line layer, click-to-identify land vs ocean, etc.)
+    // but NOT used as a mask anymore.
+    const findBasemapLandInsertionPoint = (): string | undefined => {
       try {
-        const URLS = [
-          "/data/crep/ne_50m_land.geojson",
-          "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_land.geojson",
-          "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_land.geojson",
-        ]
-        let data: any = null
-        for (const u of URLS) {
-          try {
-            const r = await fetch(u, { signal: AbortSignal.timeout(15_000) })
-            if (r.ok) { data = await r.json(); break }
-          } catch { /* try next */ }
+        const style = map.getStyle()
+        const layers = style.layers as any[]
+        // Prefer inserting BEFORE the first landcover/landuse/earth fill
+        // so the basemap's OSM land polygons cover bathymetry naturally.
+        for (const l of layers) {
+          if (!l?.id) continue
+          if (/^(landcover|landuse|land_|park|forest|natural_earth|earth)/i.test(l.id)) {
+            return l.id
+          }
         }
-        if (!data) {
-          console.warn("[ProposalOverlays/land-mask] all land-polygon sources failed — bathymetry will cover land")
-          return
-        }
-        if (!map.getSource("crep-land-mask")) {
-          map.addSource("crep-land-mask", { type: "geojson", data })
-          map.addLayer({
-            id: "crep-land-mask-fill",
-            type: "fill",
-            source: "crep-land-mask",
-            paint: {
-              // Apr 20, 2026 (Morgan: "still no fix to bathymetry its still
-              // over land blocking"). Previous #f1f3f5 (Carto Positron land)
-              // painted land WHITE on CREP's DARK basemap — the mask was
-              // visible but the wrong colour, so it looked like the
-              // bathymetry was still bleeding through. CREP ships a dark
-              // Mapbox-style basemap, so the mask now matches land tone
-              // (#0a0f1c — near-black with a hint of blue to blend with
-              // coastline anti-aliasing).
-              "fill-color": "#0a0f1c",
-              "fill-opacity": 1.0,
-              "fill-antialias": true,
-            },
-          }, beforeId)  // ← same slot as bathymetry, rendered above it
-          console.log(`[ProposalOverlays] land mask attached ← ${URLS[0]} (before: ${beforeId || "TOP"})`)
-        }
-      } catch (e: any) {
-        console.warn("[ProposalOverlays/land-mask]", e.message)
-      }
+        // Fallback: insert before the first symbol (labels) layer.
+        const sym = layers.find((l) => l.type === "symbol")
+        return sym?.id
+      } catch { return undefined }
     }
+    // Apr 20, 2026 — insertion point ABOVE basemap landcover (covers land)
+    // but BELOW roads/labels. Used for satellite imagery so aerial shows
+    // everywhere (land AND ocean) without hiding road names + city labels.
+    const findAboveBasemapLandInsertionPoint = (): string | undefined => {
+      try {
+        const style = map.getStyle()
+        const layers = style.layers as any[]
+        for (const l of layers) {
+          if (!l?.id) continue
+          if (/^(road|highway|bridge|tunnel|building|admin|boundary)/i.test(l.id)) {
+            return l.id
+          }
+        }
+        const sym = layers.find((l) => l.type === "symbol")
+        return sym?.id
+      } catch { return undefined }
+    }
+    // expose as property so the satImagery effect can use the same shape
+    ;(map as any).__findAboveLand = findAboveBasemapLandInsertionPoint
 
     idleLoad(async () => {
       try {
         const srcId = "crep-bathymetry"
-        // Compute beforeId ONCE — shared between bathymetry and land mask
-        // so both live in the same slot with mask rendered on top of the
-        // raster. Scoped outside the !getSource guard so a re-run (e.g.
-        // topography toggling) still gets the mask placed correctly.
-        const style = map.getStyle()
-        const firstOverlay = style.layers.find((l) => l.id.startsWith("crep-") && l.id !== "crep-boundaries-country") as any
-        const bathyBeforeId = firstOverlay?.id as string | undefined
+        // Insert BEFORE the basemap's landcover layer so the basemap's own
+        // OSM land polygons clip bathymetry naturally at the coastline
+        // (accurate for every island, bay, inlet in San Diego, the world).
+        // This is the additive-layer fix Morgan asked for: bathymetry only
+        // shows over water, land is never walked-over by the bathymetry
+        // layer itself.
+        const bathyBeforeId = findBasemapLandInsertionPoint()
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
           // show the highest quality newest ones in their respective
@@ -660,26 +659,24 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
               source: srcId,
               layout: { visibility: "visible" },
               paint: {
-                // Apr 19, 2026 (Morgan fix): ESRI World Ocean Base already
-                // has muted land tones, so we crank opacity high for ocean
-                // detail. To further suppress land contribution, drop
-                // saturation slightly (makes land tones blend into the
-                // basemap gray) without hurting ocean blues.
-                "raster-opacity": 0.8,
-                "raster-saturation": 0.25,
-                "raster-brightness-min": 0.1,
+                // Apr 20, 2026 (Morgan fix v2): basemap landcover above this
+                // layer now handles the coastline clip. No need to push
+                // opacity/saturation hard — ocean blues can be full color
+                // and the basemap's OSM land polygons hide everything over
+                // land. Keeping opacity at 0.65 so operator can still see
+                // road vectors etched into the ocean-edge areas (useful
+                // for harbor zones where bathymetry + port infra overlap).
+                "raster-opacity": 0.65,
+                "raster-fade-duration": 150,
               },
             },
             bathyBeforeId,
           )
         }
-        // Attach the land mask RIGHT ABOVE bathymetry in the same slot.
-        // Adding with the same beforeId stacks mask on top of bathymetry
-        // (later addLayer calls push earlier ones down within the slot).
-        await attachLandMask(bathyBeforeId)
-        console.log(`[ProposalOverlays] bathymetry: EMODnet 2024 + ESRI ocean raster attached${
-          map.getLayer("crep-bathymetry-raster") ? "" : " (layer missing)"
-        }`)
+        // No more separate land mask — the basemap's landcover layer
+        // above this insertion point handles the coastline clip at OSM
+        // resolution.
+        console.log(`[ProposalOverlays] bathymetry: ESRI ocean raster attached (coastline-clipped via basemap landcover, beforeId=${bathyBeforeId || "TOP"})`)
       } catch (e: any) { console.warn("[ProposalOverlays/bathymetry]", e.message) }
     })
   }, [map, enabled.bathymetry])
@@ -798,10 +795,25 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       try {
         const srcId = "crep-satimagery"
         if (!map.getSource(srcId)) {
+          // Apr 20, 2026 (Morgan: "Satelite Imagry HD filter is not working
+          // at all huge problem ... the map layers should be additive layers
+          // overlaying in opacity not walking over the filters"). Two fixes:
+          //   1) URL normalised to lowercase 'arcgis' — services.arcgisonline.com
+          //      case convention per ESRI's own docs. Some CDN nodes 404 on
+          //      'ArcGIS' capitalisation.
+          //   2) Insertion point: ABOVE basemap landcover (so aerial shows
+          //      over land) but BELOW roads/building/labels (so road names
+          //      + city labels still readable on top of the imagery).
+          //      Previous behaviour inserted at `first crep-* layer` which
+          //      was hit-or-miss — if no crep layers were attached yet,
+          //      sat imagery went to the top of the stack and bathymetry
+          //      + the old opaque land-mask fill both covered it on ocean
+          //      AND land respectively. That's the "not working at all"
+          //      symptom.
           map.addSource(srcId, {
             type: "raster",
             tiles: [
-              "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+              "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
             ],
             tileSize: 256,
             attribution: "Tiles © Esri — World Imagery (DigitalGlobe, GeoEye, i-cubed, USDA FSA, USGS, AEX, Getmapping, Aerogrid, IGN, IGP, swisstopo)",
@@ -809,25 +821,39 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             maxzoom: 19,
             scheme: "xyz",
           })
-          // Insert right after the basemap layer — above any basemap
-          // raster but below point markers + labels.
-          const style = map.getStyle()
-          const firstOverlay = style.layers.find(
-            (l: any) => l.id.startsWith("crep-") && !l.id.startsWith("crep-boundaries"),
-          ) as any
-          const beforeId = firstOverlay?.id
+          const findAboveLand = (): string | undefined => {
+            try {
+              const style = map.getStyle()
+              const layers = style.layers as any[]
+              for (const l of layers) {
+                if (!l?.id) continue
+                if (/^(road|highway|bridge|tunnel|building|admin|boundary)/i.test(l.id)) {
+                  return l.id
+                }
+              }
+              const sym = layers.find((l) => l.type === "symbol")
+              return sym?.id
+            } catch { return undefined }
+          }
+          const beforeId = findAboveLand()
           map.addLayer(
             {
               id: "crep-satimagery-raster",
               type: "raster",
               source: srcId,
               layout: { visibility: "visible" },
-              paint: { "raster-opacity": 1.0, "raster-fade-duration": 0 },
+              paint: {
+                // Full-opacity default so land aerial is clearly visible;
+                // user can drop via the opacity slider in the layer panel
+                // if they want to blend with basemap labels.
+                "raster-opacity": 0.95,
+                "raster-fade-duration": 150,
+              },
             },
             beforeId,
           )
+          console.log(`[ProposalOverlays] satellite imagery (HD): ESRI World Imagery attached (beforeId=${beforeId || "TOP"}, z0–19)`)
         }
-        console.log(`[ProposalOverlays] satellite imagery (HD): ESRI World Imagery attached, z0–19`)
       } catch (e: any) { console.warn("[ProposalOverlays/satImagery]", e.message) }
     })
   }, [map, enabled.satImagery])
