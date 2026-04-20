@@ -409,6 +409,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - *(crep)* Morgan's Apr 19 new data sources — drone + no-fly + railway + live event animation
 - *(crep)* Apr 19 work log — full session context for handoff
+- Update changelog [skip ci]
 
 ### Features
 
