@@ -112,6 +112,7 @@
     "gosling.js": "^1.0.7",
     "graphql": "^16.13.0",
     "higlass": "^2.1.9",
+    "hls.js": "^1.6.16",
     "imagesloaded": "^5.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",

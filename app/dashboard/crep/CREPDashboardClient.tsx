@@ -240,6 +240,7 @@ import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import V3Overlays from "@/components/crep/layers/v3-overlays";
 import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
+import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -7867,6 +7868,13 @@ export default function CREPDashboardPage() {
               } catch { return undefined }
             })() : undefined}
           />
+
+          {/* Eagle Eye VideoWallWidget — universal player (hls.js / WebRTC
+              WHEP / iframe / MJPEG) for permanent cameras + ephemeral clips.
+              Listens for crep:eagle:{camera,event}-click CustomEvents
+              dispatched by EagleEyeOverlay, resolves the source via
+              /api/eagle/stream/[sourceId], mounts the right player. */}
+          <VideoWallWidget />
 
           {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
               Cursor applied eagle.* MINDEX schema on VM 189 + deployed
