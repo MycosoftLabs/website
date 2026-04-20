@@ -561,6 +561,41 @@ export async function fetchAllVesselsWithMeta(): Promise<VesselRegistryResult> {
       .join(", ") || "no sources"}`
   )
 
+  // Apr 20, 2026: warm MINDEX crep.vessel_live (fire-and-forget). Ingest
+  // layer name "vessel_live" mirrors rail_live / aircraft_live conventions
+  // Cursor set up in the CREP migration. Skips MINDEX-sourced rows to
+  // avoid round-tripping our own cache.
+  try {
+    const { ingestToMindex } = await import("@/lib/crep/mindex-ingest")
+    const ingestables = deduplicated
+      .filter((v) => v.source !== "mindex")
+      .map((v: any) => ({
+        source: v.source,
+        source_id: String(v.mmsi || v.imo || v.id),
+        name: v.name || null,
+        entity_type: "vessel",
+        lat: v.lat,
+        lng: v.lng,
+        occurred_at: v.timestamp || new Date().toISOString(),
+        properties: {
+          mmsi: v.mmsi,
+          imo: v.imo,
+          callsign: v.callsign,
+          type: v.type,
+          flag: v.flag,
+          operator: v.operator,
+          destination: v.destination,
+          speed: v.speed,
+          heading: v.heading,
+          length_m: v.length_m,
+          width_m: v.width_m,
+          draught_m: v.draught_m,
+        },
+      }))
+    void ingestToMindex({ layer: "vessel_live", entities: ingestables, logPrefix: "[VesselRegistry]" })
+      .catch(() => { /* swallow */ })
+  } catch { /* dynamic import failed; non-fatal */ }
+
   return {
     vessels: deduplicated,
     sources: sourceCounts,

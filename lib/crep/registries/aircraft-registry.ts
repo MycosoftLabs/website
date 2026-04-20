@@ -385,6 +385,41 @@ export async function fetchAllAircraftWithMeta(): Promise<AircraftRegistryResult
       .join(", ") || "no sources"}`
   )
 
+  // Apr 20, 2026: fire-and-forget warm MINDEX crep.aircraft_live with this
+  // fetch so next bbox read hits the cache. See lib/crep/mindex-ingest.ts
+  // — no-op in local dev when MINDEX_INTERNAL_TOKEN / MINDEX_API_KEY are
+  // unset. Awaited for typing clarity but wrapped in catch so a slow
+  // MINDEX never delays the primary return.
+  try {
+    const { ingestToMindex } = await import("@/lib/crep/mindex-ingest")
+    // Exclude MINDEX-sourced records so we don't round-trip our own cache
+    const ingestables = deduplicated
+      .filter((a) => a.source !== "mindex")
+      .map((a) => ({
+        source: a.source,
+        source_id: a.icao || a.callsign || a.id,
+        name: a.callsign || a.icao || null,
+        entity_type: "aircraft",
+        lat: a.lat,
+        lng: a.lng,
+        occurred_at: a.timestamp || new Date().toISOString(),
+        properties: {
+          icao: a.icao,
+          callsign: a.callsign,
+          altitude: a.altitude,
+          velocity: a.velocity,
+          heading: a.heading,
+          origin: a.origin,
+          destination: a.destination,
+          aircraft_type: (a as any).aircraft_type,
+          squawk: (a as any).squawk,
+          on_ground: (a as any).on_ground,
+        },
+      }))
+    void ingestToMindex({ layer: "aircraft_live", entities: ingestables, logPrefix: "[AircraftRegistry]" })
+      .catch(() => { /* swallow */ })
+  } catch { /* dynamic import failed; non-fatal */ }
+
   return {
     aircraft: deduplicated,
     sources: sourceCounts,
