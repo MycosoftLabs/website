@@ -49,6 +49,8 @@ interface Props {
     railwayTracks?: boolean
     railwayTrains?: boolean
     droneNoFly?: boolean
+    /** CCTV / webcam feeds — MINDEX crep.cctv_cameras + Shinobi on MAS VM. */
+    cctv?: boolean
   }
   bbox?: [number, number, number, number]
 }
@@ -1213,6 +1215,121 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
       } catch (e: any) { console.warn("[ProposalOverlays/droneNoFly]", e.message) }
     })
   }, [map, enabled.droneNoFly, bbox])
+
+  // ─── 13. CCTV / Webcam feeds ──────────────────────────────────────────
+  // Apr 20, 2026 (Morgan: "where are all cctv and widgets showing live
+  // streams from those accessible cctv and webcams"). Cursor deployed
+  // Shinobi on MAS VM (192.168.0.188:8080) + created MINDEX
+  // `crep.cctv_cameras` table (bbox query + ingest endpoints). This layer
+  // polls /api/oei/cctv which unions both sources and renders each camera
+  // as a small cyan dot + eye glyph. Click fires __crep_selectAsset with
+  // a "camera" type so the InfraAsset widget opens with the stream URL.
+  useEffect(() => {
+    if (!map) return
+    if (!enabled.cctv) {
+      try {
+        for (const id of ["crep-cctv-core", "crep-cctv-halo"]) {
+          if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none")
+        }
+      } catch { /* ignore */ }
+      return
+    }
+    if (loadedRef.current.cctv) {
+      try {
+        for (const id of ["crep-cctv-core", "crep-cctv-halo"]) {
+          if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible")
+        }
+      } catch { /* ignore */ }
+      return
+    }
+    loadedRef.current.cctv = true
+
+    const fetchAndPaint = async () => {
+      try {
+        const bboxParam = bbox ? `?bbox=${bbox.join(",")}&limit=10000` : "?limit=10000"
+        const res = await fetch(`/api/oei/cctv${bboxParam}`)
+        if (!res.ok) return
+        const j = await res.json()
+        const features = (j.cameras || [])
+          .filter((c: any) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
+          .map((c: any) => ({
+            type: "Feature" as const,
+            properties: {
+              id: c.id,
+              name: c.name || "Camera",
+              stream_url: c.stream_url,
+              stream_type: c.stream_type,
+              operator: c.operator,
+              country: c.country,
+              resolution: c.resolution,
+              auth_required: c.auth_required,
+              source: c.source,
+            },
+            geometry: { type: "Point" as const, coordinates: [c.lng, c.lat] },
+          }))
+        const fc = { type: "FeatureCollection" as const, features }
+        if (!map.getSource("crep-cctv")) {
+          map.addSource("crep-cctv", { type: "geojson", data: fc, generateId: true })
+          // Halo — soft cyan
+          map.addLayer({
+            id: "crep-cctv-halo",
+            type: "circle",
+            source: "crep-cctv",
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 10, 7, 16, 12],
+              "circle-color": "#22d3ee",
+              "circle-opacity": 0.25,
+              "circle-blur": 1.1,
+            },
+          })
+          // Core — sharp white/cyan
+          map.addLayer({
+            id: "crep-cctv-core",
+            type: "circle",
+            source: "crep-cctv",
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.8, 10, 3.2, 16, 6],
+              "circle-color": "#67e8f9",
+              "circle-opacity": 0.95,
+              "circle-stroke-width": 1.0,
+              "circle-stroke-color": "#0b1220",
+              "circle-stroke-opacity": 0.9,
+            },
+          })
+          map.on("click", "crep-cctv-core", (e: any) => {
+            const f = e.features?.[0]
+            if (!f) return
+            const p = f.properties || {}
+            const c = e.lngLat
+            try {
+              const hook = (window as any).__crep_selectAsset
+              if (typeof hook === "function") hook({
+                type: "camera",
+                id: p.id,
+                name: p.name || "Camera",
+                lat: c?.lat ?? 0,
+                lng: c?.lng ?? 0,
+                properties: p,
+              })
+            } catch { /* ignore */ }
+            try {
+              window.dispatchEvent(new CustomEvent("crep:camera:click", { detail: { ...p, lat: c?.lat, lng: c?.lng } }))
+            } catch { /* ignore */ }
+          })
+          map.on("mouseenter", "crep-cctv-core", () => { map.getCanvas().style.cursor = "pointer" })
+          map.on("mouseleave", "crep-cctv-core", () => { map.getCanvas().style.cursor = "" })
+          console.log(`[ProposalOverlays] CCTV: ${features.length} cameras loaded (mindex=${j.sources?.mindex || 0}, shinobi=${j.sources?.shinobi || 0})`)
+        } else {
+          (map.getSource("crep-cctv") as any).setData(fc)
+        }
+      } catch (e: any) { console.warn("[ProposalOverlays/cctv]", e?.message) }
+    }
+
+    idleLoad(fetchAndPaint)
+    // Poll every 5 min — cameras move rarely but Shinobi monitor list may change
+    const timer = setInterval(() => { if (enabled.cctv) fetchAndPaint() }, 300_000)
+    return () => clearInterval(timer)
+  }, [map, enabled.cctv, bbox])
 
   return null
 }

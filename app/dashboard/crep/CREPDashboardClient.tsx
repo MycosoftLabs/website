@@ -130,6 +130,7 @@ import {
   Server,
   Moon,
   GraduationCap,
+  Camera,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -2354,6 +2355,10 @@ export default function CREPDashboardPage() {
     // PROPOSAL OVERLAYS (Apr 2026) — Army contract deliverable coverage
     // ═══════════════════════════════════════════════════════════════════════════
     { id: "ports", name: "Global Seaports", category: "infrastructure", icon: <Anchor className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#14b8a6", description: "3,600+ seaports (WPI/NGA + UNCTAD + MarineCadastre + MINDEX)" },
+    // CCTV / webcam feeds — MINDEX crep.cctv_cameras + Shinobi on MAS VM
+    // (Cursor deployed Apr 20, 2026). Empty registry until seeded; filter
+    // toggle + click widget still work.
+    { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
 
     // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
     // Canonical US datasets that OpenGridView uses. See
@@ -7770,6 +7775,7 @@ export default function CREPDashboardPage() {
               railwayTracks:  layers.find(l => l.id === "railwayTracks")?.enabled ?? false,
               railwayTrains:  layers.find(l => l.id === "railwayTrains")?.enabled ?? false,
               droneNoFly:     layers.find(l => l.id === "droneNoFly")?.enabled ?? false,
+              cctv:           layers.find(l => l.id === "cctv")?.enabled ?? false,
             }}
             bbox={mapZoom > 5 ? (() => {
               try {
