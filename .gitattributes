@@ -1,6 +1,5 @@
 # Auto-detect text files and normalize line endings to LF in repository
 * text=auto eol=lf
-
 # Explicitly declare text files
 *.md text eol=lf
 *.py text eol=lf
@@ -19,12 +18,10 @@
 *.bash text eol=lf
 Dockerfile text eol=lf
 Makefile text eol=lf
-
 # Windows-specific files must have CRLF
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
-
 # Binary files
 *.png binary
 *.jpg binary
@@ -51,3 +48,9 @@ Makefile text eol=lf
 *.woff2 binary
 *.ttf binary
 *.eot binary
+# LFS: transmission-lines-us-full.pmtiles is 120 MB (exceeds GitHub's
+# 100 MB hard limit on regular git blobs). Tracking JUST that file, not
+# `*.pmtiles`, to avoid pulling the existing cell-towers-global (44 MB),
+# power-plants-global (14 MB), substations-us (9 MB), and
+# transmission-lines-us-major (8 MB) regular-blob tiles into LFS.
+public/data/crep/tiles/transmission-lines-us-full.pmtiles filter=lfs diff=lfs merge=lfs -text
