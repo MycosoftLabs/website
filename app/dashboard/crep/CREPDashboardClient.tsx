@@ -2376,7 +2376,7 @@ export default function CREPDashboardPage() {
     // CCTV / webcam feeds — MINDEX crep.cctv_cameras + Shinobi on MAS VM
     // (Cursor deployed Apr 20, 2026). Empty registry until seeded; filter
     // toggle + click widget still work.
-    { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
+    { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
 
     // ═══ Eagle Eye — Video Intelligence Layer (Phase 1 — Apr 20, 2026) ═══
     // Dual-plane: registered cameras (permanent) + ephemeral social video
@@ -2391,17 +2391,17 @@ export default function CREPDashboardPage() {
     // components/crep/layers/eia-im3-overlays.tsx + docs/DATASETS.md
     // for provenance + refresh policy.
     { id: "im3DataCenters", name: "Data Centers (IM3 Atlas)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#22d3ee", description: "PNNL IM3 Open Source Data Center Atlas v2026.02.09 — 1,479 existing US data centers with building/campus classification + sqft + operator" },
-    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom ≥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
-    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
-    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
-    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
-    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
+    { id: "im3DataCenterFootprints", name: "DC Footprints (IM3 buildings)", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22d3ee", description: "IM3 gpkg building + campus POLYGON footprints (1,374 shapes, zoom ≥ 11). Click any footprint to open the InfraAsset widget with building sqft + operator + county." },
+    { id: "eiaOperating", name: "EIA-860M Operating", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#22c55e", description: "US Energy Information Administration February 2026 — 27,716 operating utility-scale generators with technology + capacity" },
+    { id: "eiaPlanned", name: "EIA-860M Planned (Projected)", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#3b82f6", description: "EIA-860M Feb 2026 — 1,946 PLANNED generators with operation year + technology (future grid)" },
+    { id: "eiaRetired", name: "EIA-860M Retired", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#ef4444", description: "EIA-860M Feb 2026 — 7,201 retired generators with retirement year" },
+    { id: "eiaCanceled", name: "EIA-860M Canceled", category: "infrastructure", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#9ca3af", description: "EIA-860M Feb 2026 — 1,605 canceled or postponed generators" },
     { id: "radar", name: "Radar Sites", category: "infrastructure", icon: <Radar className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#38bdf8", description: "NEXRAD + Mycosoft SDR + FAA ASR coverage rings" },
     { id: "radioStations", name: "Radio Stations", category: "telecom", icon: <Radio className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#a855f7", description: "44,000+ AM/FM/TV + KiwiSDR + Mycosoft SDR nodes" },
     { id: "powerPlantsG", name: "Global Power Plants", category: "pollution", icon: <Power className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#fbbf24", description: "34,936 plants across 167 countries (WRI v1.3.0)" },
     { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
-    { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst" },
-    { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
+    { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst" },
+    { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud" },
     { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
     { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — includes 69/115/138/230 kV feeders (Jamacha/Miguel/etc). Hardcoded via scripts/etl/crep/fetch-transmission-full.mjs." },
     { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally)" },
@@ -2411,12 +2411,12 @@ export default function CREPDashboardPage() {
     { id: "railwayTracks", name: "Railway Network", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.75, color: "#a1a1aa", description: "OpenRailwayMap — global tracks + stations + electrification" },
     { id: "railwayTrains", name: "Live Trains", category: "infrastructure", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 0.9, color: "#f43f5e", description: "Amtrak Track-A-Train live positions (30 s refresh)" },
     { id: "droneNoFly", name: "Drone No-Fly Zones", category: "infrastructure", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 0.18, color: "#ef4444", description: "FAA UAS restricted + OpenAIP airspace — CTR red / TRA amber / parks green" },
-    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
-    { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)" },
-    { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic." },
-    { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14." },
-    { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both." },
-    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
+    { id: "satImagery", name: "Satellite Imagery (HD)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#1e40af", description: "ESRI World Imagery — Google-Earth-level detail to zoom 19, free, no key" },
+    { id: "mapboxSatelliteStreets", name: "Mapbox Satellite Streets (HD hybrid)", category: "environment", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 0.95, color: "#0ea5e9", description: "Mapbox satellite-streets-v12 hybrid — high-res aerial + road labels in one tileset, sharper than ESRI (requires NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)" },
+    { id: "mapbox3dBuildings", name: "3D Buildings (Mapbox extrusions)", category: "infrastructure", icon: <Building2 className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#64748b", description: "Mapbox Composite building extrusions at zoom ≥ 14 — real building heights + footprints globally. Feeds MYCA device-placement shadow/LOS logic." },
+    { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14." },
+    { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both." },
+    { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay)." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -4164,9 +4164,51 @@ export default function CREPDashboardPage() {
     }
     // Satellites are no longer extrapolated here — they use real-time SGP4 propagation
     // via the satellite-animation module (requestAnimationFrame at ~10 FPS).
-    lastKnownRef.current = next;
-    aircraftIdSetRef.current = acIds;
-    vesselIdSetRef.current = vIds;
+    //
+    // ── NETCODE RECONCILIATION (Apr 20, 2026 — fixes plane "small loop glitch") ──
+    // Morgan: "planes keep glitching in and out of locations on small loops".
+    // Root cause: we used to do `lastKnownRef.current = next`, which replaced
+    // every entity's anchor with the NEW api-reported position at ts=now. The
+    // rAF dead-reckoning loop had already extrapolated each plane forward of
+    // the old api position; replacing the anchor teleported every plane
+    // BACKWARD to the api position, then rAF would extrapolate forward again
+    // → visible tiny back-and-forth loop every poll cycle (~30 s).
+    //
+    // Fix: merge by id. For each plane already tracked, compare the incoming
+    // api position with the current extrapolated position (derived from the
+    // previous anchor + velocity + elapsed seconds):
+    //   • If drift < 5 km (plane on track): KEEP the extrapolated position
+    //     as the new anchor, update only velocity + ts. No visible jump.
+    //   • If drift ≥ 5 km (major course change, fresh spawn, or data hole):
+    //     snap to api position. Larger-than-5 km glitches were real flips
+    //     anyway; smoothing them would introduce visible lag.
+    const prev = lastKnownRef.current
+    const nowMs = now
+    const mergedNext: typeof next = {}
+    for (const [id, fresh] of Object.entries(next)) {
+      const old = prev[id]
+      if (!old) {
+        mergedNext[id] = fresh
+        continue
+      }
+      const dtSec = (nowMs - old.ts) / 1000
+      const extrapLng = old.lng + old.velLng * dtSec
+      const extrapLat = old.lat + old.velLat * dtSec
+      // Rough meters: 1° lat ≈ 111 km; 1° lng ≈ 111 km × cos(lat).
+      const dLat = (extrapLat - fresh.lat) * 111_000
+      const dLng = (extrapLng - fresh.lng) * 111_000 * Math.cos(fresh.lat * Math.PI / 180)
+      const driftM = Math.hypot(dLat, dLng)
+      if (driftM < 5000) {
+        // Keep extrapolated position, update velocity + ts. No teleport.
+        mergedNext[id] = { lng: extrapLng, lat: extrapLat, velLng: fresh.velLng, velLat: fresh.velLat, ts: nowMs }
+      } else {
+        // Big drift → snap (real divergence, not glitch).
+        mergedNext[id] = fresh
+      }
+    }
+    lastKnownRef.current = mergedNext
+    aircraftIdSetRef.current = acIds
+    vesselIdSetRef.current = vIds
   }, [filteredAircraft, filteredVessels]);
 
   // ██████████████████████████████████████████████████████████████████████████

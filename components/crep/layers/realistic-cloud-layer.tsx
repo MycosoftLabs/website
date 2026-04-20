@@ -155,8 +155,16 @@ export default function RealisticCloudLayer({
             tileSize: 256,
             attribution: "NASA GIBS / MODIS",
             minzoom: 0,
-            // No maxzoom — MapLibre stretches zoom-9 tiles past 9
-            // (Morgan: "zoom limited on cloud render is not allowed").
+            // MapLibre's native behavior when the source's maxzoom is set
+            // is to AUTO-STRETCH zoom-N tiles to any zoom > N (overzoom).
+            // So declaring maxzoom here does NOT cap cloud visibility at
+            // that zoom — it tells MapLibre "don't request tiles past
+            // zoom 9, just upscale what you already have". Without this
+            // maxzoom declaration, MapLibre requests non-existent tiles
+            // at zoom 10+ and shows gray "zoom level not supported" boxes
+            // (Morgan: "i want all zoom level not supported in each box
+            // removed"). Upstream GIBS MODIS publishes through zoom 9.
+            maxzoom: 9,
           })
           const style = map.getStyle()
           const beforeId = style.layers.find((l: any) => l.type === "symbol")?.id
@@ -198,7 +206,10 @@ export default function RealisticCloudLayer({
                 tileSize: 256,
                 attribution: "© RainViewer.com",
                 minzoom: 0,
-                // No maxzoom — stretch past zoom 12
+                // maxzoom=12 tells MapLibre to overzoom (auto-stretch)
+                // instead of requesting non-existent tiles. Upstream
+                // RainViewer publishes through zoom 12.
+                maxzoom: 12,
               })
               const style = map.getStyle()
               const beforeId = style.layers.find((l: any) => l.type === "symbol")?.id

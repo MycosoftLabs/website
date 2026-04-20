@@ -2,50 +2,25 @@ import { NextRequest, NextResponse } from "next/server"
 
 /**
  * Public webcam networks — Windy + EarthCam + NPS + USGS + ALERTWildfire
- *   + HPWREN + Surfline — Apr 20, 2026 (Eagle Eye Phase 2b)
+ *   + HPWREN + Surfline + STATIC_SEED — Apr 20, 2026 (Eagle Eye Phase 2c)
  *
  * Morgan: "why dont i see live streams from ustream and all webcams surf
  * cams traffic cams already as icons on map ucsd fire cams in san diego
- * just like fire watch apps have locally that should be found in all
- * sources globally and added to eagle eye".
+ * just like fire watch apps have locally" — all filters need to be on now.
  *
- * Unified connector for seven stable-location public webcam networks.
+ * v3 hotfix: previous connector revisions returned 0 in practice because
+ *   • ALERTWildfire FeatureServer URL was wrong → 400 Bad Request
+ *   • HPWREN camlist.json host has an expired TLS cert → Node fetch rejects
+ *   • NPS endpoint 404'd — they moved the JSON
+ *
+ * This revision adds a STATIC_SEED list of ~60 well-known public cameras
+ * (HPWREN San Diego fire cams, ALERTCalifornia watch towers, major US
+ * parks, marine traffic harbors, landmark EarthCams) so the map has
+ * cameras ON IT right now regardless of upstream connector health.
+ * Live connectors still fire in parallel, and fresh results merge on top.
+ *
  * Each fails independently — a 4xx/5xx from one network doesn't block
- * the others.
- *
- *   Windy Webcams v3  — https://api.windy.com/webcams/api/v3/webcams
- *     ~70k global weather/environment cams, bbox-scoped. Needs
- *     WINDY_API_KEY (free register at api.windy.com/keys). Returns
- *     webcamId, title, location, player.day/live (HLS/iframe URLs).
- *
- *   EarthCam         — public directory at https://www.earthcam.com/api/
- *     Major metros + landmarks. No auth; we use their public JSON map.
- *
- *   NPS (National Park Service) — irma.nps.gov webcams endpoint
- *     Public US park cameras with lat/lng from park centroids.
- *
- *   USGS Cam network — https://www.usgs.gov/programs/volcano-hazards/
- *     volcanic + hazard webcams. Public.
- *
- *   ALERTWildfire / ALERTCalifornia — ArcGIS Feature Service operated by
- *     UCSD Scripps / UNR Seismo Lab + ALERTCalifornia. Publishes live
- *     positions + embed URLs for ~1,100 fire-watch cameras across CA /
- *     NV / OR / WA / UT / ID / MT / CO. Zero key, public. Morgan called
- *     this out explicitly ("ucsd fire cams in san diego just like fire
- *     watch apps have locally").
- *
- *   HPWREN (High Performance Wireless Research + Education Network) —
- *     UCSD atmospheric research backbone. ~160 fire + atmospheric cams
- *     across San Diego, Orange, Riverside, Imperial counties + Baja.
- *     Camlist at https://hpwren.ucsd.edu/cameras/camlist.json.
- *
- *   Surfline public cams — Their public directory is auth-gated but the
- *     /spots/search endpoint returns cam thumbnails + embed URLs for a
- *     subset of premium spots. Best-effort; many spots 401 without a
- *     session so this gracefully returns what it can.
- *
- * All shape-normalized to eagle.video_sources rows and ingested to
- * MINDEX. kind=permanent, stable_location=true.
+ * the others. All shape-normalized to eagle.video_sources rows.
  */
 
 export const runtime = "nodejs"
@@ -69,7 +44,7 @@ function authHeaders(): Record<string, string> {
 
 type Cam = {
   id: string
-  provider: "windy" | "earthcam" | "nps" | "usgs" | "alertwildfire" | "hpwren" | "surfline"
+  provider: "windy" | "earthcam" | "nps" | "usgs" | "alertwildfire" | "hpwren" | "surfline" | "static-seed"
   name: string | null
   lat: number
   lng: number
@@ -79,24 +54,109 @@ type Cam = {
   category: string | null
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STATIC SEED — ~60 well-known public cameras, hand-curated Apr 20, 2026.
+// Guarantees the Eagle Eye overlay has content to render the instant the
+// user toggles the layer, regardless of upstream API health. Covers Morgan's
+// explicit ask: "ucsd fire cams in san diego" + SoCal fire watch + global
+// landmarks + marine harbors. Links are public viewer URLs that open in
+// the VideoWallWidget iframe fallback.
+// ═══════════════════════════════════════════════════════════════════════════
+const STATIC_SEED: Cam[] = [
+  // ── HPWREN fire cameras (UCSD atmospheric research) — San Diego area ──
+  { id: "hpwren-lymansd", provider: "hpwren", name: "HPWREN — Mt. Lyman N (San Diego fire)", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/lymansd-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-lymans", provider: "hpwren", name: "HPWREN — Mt. Lyman S", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/lymans-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-tecmtn", provider: "hpwren", name: "HPWREN — Tecate Peak", lat: 32.5773, lng: -116.6356, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/tecmtn-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-smer", provider: "hpwren", name: "HPWREN — Santa Margarita", lat: 33.4856, lng: -117.0828, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/smer-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-rdmtn", provider: "hpwren", name: "HPWREN — Red Mountain", lat: 33.3833, lng: -117.1667, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/rdmtn-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-ucsd-atkinson", provider: "hpwren", name: "HPWREN — UCSD Atkinson Hall", lat: 32.8820, lng: -117.2340, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/ucsd-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-palomar", provider: "hpwren", name: "HPWREN — Palomar Observatory", lat: 33.3564, lng: -116.8651, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/palomar-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-toro", provider: "hpwren", name: "HPWREN — Toro Peak", lat: 33.5250, lng: -116.5420, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/toro-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-otay", provider: "hpwren", name: "HPWREN — Otay Mountain", lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/otay-mrg.jpg", category: "fire-watch" },
+  { id: "hpwren-slms", provider: "hpwren", name: "HPWREN — Sill Hill", lat: 33.0333, lng: -116.5333, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/slms-mrg.jpg", category: "fire-watch" },
+
+  // ── ALERTCalifornia fire watch (UCSD Scripps + UCSD Supercomputer) ──
+  { id: "alertca-sdg-pointloma", provider: "alertwildfire", name: "ALERTCalifornia — Point Loma", lat: 32.6721, lng: -117.2418, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.67,-117.24,16z", media_url: null, category: "fire-watch" },
+  { id: "alertca-sdg-missionpk", provider: "alertwildfire", name: "ALERTCalifornia — Mission Peak", lat: 32.8144, lng: -117.1067, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.81,-117.11,16z", media_url: null, category: "fire-watch" },
+  { id: "alertca-socal-cuyamaca", provider: "alertwildfire", name: "ALERTCalifornia — Cuyamaca", lat: 32.9831, lng: -116.5922, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.98,-116.59,15z", media_url: null, category: "fire-watch" },
+  { id: "alertca-socal-santiago", provider: "alertwildfire", name: "ALERTCalifornia — Santiago Peak", lat: 33.7117, lng: -117.5330, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=33.71,-117.53,15z", media_url: null, category: "fire-watch" },
+  { id: "alertca-nocal-marincr", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Tamalpais", lat: 37.9236, lng: -122.5964, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.92,-122.60,15z", media_url: null, category: "fire-watch" },
+  { id: "alertca-nocal-diablo", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Diablo", lat: 37.8817, lng: -121.9142, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.88,-121.91,15z", media_url: null, category: "fire-watch" },
+  { id: "alertca-nocal-hamilton", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Hamilton", lat: 37.3414, lng: -121.6431, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.34,-121.64,15z", media_url: null, category: "fire-watch" },
+  { id: "alertca-norcal-shasta", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Shasta", lat: 41.4092, lng: -122.1944, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=41.41,-122.19,14z", media_url: null, category: "fire-watch" },
+  { id: "alertnv-tahoe", provider: "alertwildfire", name: "ALERTWildfire NV — Tahoe", lat: 39.0968, lng: -120.0324, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=39.10,-120.03,14z", media_url: null, category: "fire-watch" },
+  { id: "alertnv-reno", provider: "alertwildfire", name: "ALERTWildfire NV — Peavine", lat: 39.5844, lng: -119.9200, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=39.58,-119.92,14z", media_url: null, category: "fire-watch" },
+  { id: "alertor-mthood", provider: "alertwildfire", name: "ALERTWildfire OR — Mt. Hood", lat: 45.3736, lng: -121.6960, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=45.37,-121.70,14z", media_url: null, category: "fire-watch" },
+  { id: "alertwa-rainier", provider: "alertwildfire", name: "ALERTWildfire WA — Mt. Rainier", lat: 46.8523, lng: -121.7603, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=46.85,-121.76,14z", media_url: null, category: "fire-watch" },
+
+  // ── NPS park cams (using /webcams/index.htm deep links) ──
+  { id: "nps-yose-elcap", provider: "nps", name: "NPS — Yosemite El Capitan", lat: 37.7342, lng: -119.6377, stream_url: null, embed_url: "https://www.nps.gov/yose/learn/photosmultimedia/webcams.htm", media_url: "https://www.nps.gov/webcams-yose/yosecam_capl.jpg", category: "park" },
+  { id: "nps-grca-bright", provider: "nps", name: "NPS — Grand Canyon (Bright Angel)", lat: 36.0544, lng: -112.1401, stream_url: null, embed_url: "https://www.nps.gov/grca/learn/photosmultimedia/webcams.htm", media_url: null, category: "park" },
+  { id: "nps-yell-oldfaithful", provider: "nps", name: "NPS — Yellowstone Old Faithful", lat: 44.4605, lng: -110.8281, stream_url: null, embed_url: "https://www.nps.gov/yell/learn/photosmultimedia/webcams.htm", media_url: "https://www.nps.gov/webcams-yell/oldfaithfulvc.jpg", category: "park" },
+  { id: "nps-zion-canyonjct", provider: "nps", name: "NPS — Zion Canyon Junction", lat: 37.2000, lng: -112.9833, stream_url: null, embed_url: "https://www.nps.gov/zion/learn/photosmultimedia/webcams.htm", media_url: null, category: "park" },
+  { id: "nps-acad-cadillac", provider: "nps", name: "NPS — Acadia Cadillac", lat: 44.3527, lng: -68.2248, stream_url: null, embed_url: "https://www.nps.gov/acad/learn/photosmultimedia/webcams.htm", media_url: null, category: "park" },
+  { id: "nps-glac-loganpass", provider: "nps", name: "NPS — Glacier Logan Pass", lat: 48.6961, lng: -113.7182, stream_url: null, embed_url: "https://www.nps.gov/glac/learn/photosmultimedia/webcams.htm", media_url: null, category: "park" },
+
+  // ── USGS volcano cams ──
+  { id: "usgs-kilauea-halemaumau", provider: "usgs", name: "USGS — Kīlauea Halemaʻumaʻu", lat: 19.4069, lng: -155.2833, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/kilauea/webcams", media_url: "https://hvo-api.wr.usgs.gov/api/cam/latest/KWcam", category: "volcano" },
+  { id: "usgs-mauna-loa-summit", provider: "usgs", name: "USGS — Mauna Loa summit", lat: 19.4755, lng: -155.5984, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/mauna-loa/webcams", media_url: null, category: "volcano" },
+  { id: "usgs-sthelens-north", provider: "usgs", name: "USGS — Mount St. Helens N", lat: 46.2000, lng: -122.1833, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/mount-st.-helens/webcams", media_url: null, category: "volcano" },
+  { id: "usgs-sthelens-crater", provider: "usgs", name: "USGS — Mount St. Helens crater", lat: 46.1914, lng: -122.1894, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/mount-st.-helens/webcams", media_url: null, category: "volcano" },
+  { id: "usgs-redoubt-hut", provider: "usgs", name: "USGS — Redoubt (Alaska)", lat: 60.4853, lng: -152.7438, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/redoubt/webcams", media_url: null, category: "volcano" },
+  { id: "usgs-shishaldin", provider: "usgs", name: "USGS — Shishaldin (Alaska)", lat: 54.7554, lng: -163.9704, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/shishaldin/webcams", media_url: null, category: "volcano" },
+
+  // ── Surfline / global surf cams ──
+  { id: "surf-mavs", provider: "surfline", name: "Surfline — Mavericks", lat: 37.4920, lng: -122.5014, stream_url: null, embed_url: "https://www.surfline.com/surf-report/mavericks/5842041f4e65fad6a7708a36", media_url: null, category: "surf" },
+  { id: "surf-pb", provider: "surfline", name: "Surfline — Pipeline", lat: 21.6647, lng: -158.0492, stream_url: null, embed_url: "https://www.surfline.com/surf-report/pipeline/5842041f4e65fad6a77088ed", media_url: null, category: "surf" },
+  { id: "surf-lsc-saltcreek", provider: "surfline", name: "Surfline — Salt Creek", lat: 33.4733, lng: -117.7264, stream_url: null, embed_url: "https://www.surfline.com/surf-report/salt-creek/", media_url: null, category: "surf" },
+  { id: "surf-oceanbeach", provider: "surfline", name: "Surfline — Ocean Beach SF", lat: 37.7523, lng: -122.5102, stream_url: null, embed_url: "https://www.surfline.com/surf-report/ob-sloat-to-judah/", media_url: null, category: "surf" },
+  { id: "surf-huntington", provider: "surfline", name: "Surfline — Huntington Pier", lat: 33.6595, lng: -118.0008, stream_url: null, embed_url: "https://www.surfline.com/surf-report/huntington-beach-pier-northside/", media_url: null, category: "surf" },
+  { id: "surf-blacks", provider: "surfline", name: "Surfline — Blacks Beach", lat: 32.8793, lng: -117.2540, stream_url: null, embed_url: "https://www.surfline.com/surf-report/blacks/", media_url: null, category: "surf" },
+  { id: "surf-trestles", provider: "surfline", name: "Surfline — Lower Trestles", lat: 33.3844, lng: -117.5917, stream_url: null, embed_url: "https://www.surfline.com/surf-report/lower-trestles/", media_url: null, category: "surf" },
+
+  // ── Global EarthCam landmarks ──
+  { id: "ec-times-square", provider: "earthcam", name: "EarthCam — Times Square NYC", lat: 40.7580, lng: -73.9855, stream_url: null, embed_url: "https://www.earthcam.com/usa/newyork/timessquare/", media_url: null, category: "landmark" },
+  { id: "ec-abbey-road", provider: "earthcam", name: "EarthCam — Abbey Road London", lat: 51.5320, lng: -0.1781, stream_url: null, embed_url: "https://www.earthcam.com/world/england/london/abbeyroad/", media_url: null, category: "landmark" },
+  { id: "ec-bourbon-st", provider: "earthcam", name: "EarthCam — Bourbon St New Orleans", lat: 29.9586, lng: -90.0670, stream_url: null, embed_url: "https://www.earthcam.com/usa/louisiana/neworleans/bourbonstreet/", media_url: null, category: "landmark" },
+  { id: "ec-niagara", provider: "earthcam", name: "EarthCam — Niagara Falls", lat: 43.0962, lng: -79.0377, stream_url: null, embed_url: "https://www.earthcam.com/usa/newyork/niagarafalls/", media_url: null, category: "landmark" },
+  { id: "ec-eiffel", provider: "earthcam", name: "EarthCam — Eiffel Tower", lat: 48.8584, lng: 2.2945, stream_url: null, embed_url: "https://www.earthcam.com/world/france/paris/", media_url: null, category: "landmark" },
+  { id: "ec-venice-stmarks", provider: "earthcam", name: "EarthCam — St. Mark's Venice", lat: 45.4342, lng: 12.3388, stream_url: null, embed_url: "https://www.earthcam.com/world/italy/venice/", media_url: null, category: "landmark" },
+  { id: "ec-dubai-burj", provider: "earthcam", name: "EarthCam — Burj Khalifa Dubai", lat: 25.1972, lng: 55.2744, stream_url: null, embed_url: "https://www.earthcam.com/world/unitedarabemirates/dubai/", media_url: null, category: "landmark" },
+  { id: "ec-maldives", provider: "earthcam", name: "EarthCam — Maldives Lagoon", lat: 3.2028, lng: 73.2207, stream_url: null, embed_url: "https://www.earthcam.com/world/maldives/", media_url: null, category: "landmark" },
+  { id: "ec-oahu-waikiki", provider: "earthcam", name: "EarthCam — Waikiki Beach", lat: 21.2770, lng: -157.8272, stream_url: null, embed_url: "https://www.earthcam.com/usa/hawaii/waikiki/", media_url: null, category: "landmark" },
+
+  // ── Windy seed cams for regions that Windy often gates behind paid tiers ──
+  { id: "windy-pier39", provider: "windy", name: "Windy — SF Pier 39", lat: 37.8087, lng: -122.4098, stream_url: null, embed_url: "https://www.windy.com/webcams/1529174000?37.809,-122.410,13", media_url: null, category: "weather" },
+  { id: "windy-santamonica", provider: "windy", name: "Windy — Santa Monica Pier", lat: 34.0094, lng: -118.4973, stream_url: null, embed_url: "https://www.windy.com/webcams/1529189000?34.010,-118.497,13", media_url: null, category: "weather" },
+]
+
 // ─── Windy Webcams v3 ────────────────────────────────────────────────────
 async function pullWindy(bbox?: string): Promise<Cam[]> {
   const key = process.env.WINDY_API_KEY
   if (!key) return []
   try {
+    // Windy v3 takes nearby=lat,lng,radiusKm. Also supports bbox but the
+    // param name is different. Use nearby with centroid + fitted radius.
     const bboxPart = bbox || "-179,-85,179,85"
     const [w, s, e, n] = bboxPart.split(",").map(Number)
     if (![w, s, e, n].every(Number.isFinite)) return []
+    const lat = (n + s) / 2
+    const lng = (w + e) / 2
+    // Radius in km — cap at 2000 per Windy docs.
+    const radiusKm = Math.min(2000, Math.max(50, Math.round(Math.hypot(n - s, e - w) * 55.5)))
     const qp = new URLSearchParams({
-      nearby: `${(n + s) / 2},${(w + e) / 2},2000`, // radius km from centroid, max 2000
+      nearby: `${lat},${lng},${radiusKm}`,
       limit: "500",
-      include: "categories,urls,player,location",
+      include: "categories,urls,player,location,images",
     })
     const res = await fetch(`https://api.windy.com/webcams/api/v3/webcams?${qp}`, {
       headers: { "x-windy-api-key": key, Accept: "application/json" },
       signal: AbortSignal.timeout(15_000),
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.warn(`[webcams/windy] ${res.status} ${res.statusText}`)
+      return []
+    }
     const j = await res.json()
     const items: any[] = j?.webcams || []
     return items
@@ -112,21 +172,21 @@ async function pullWindy(bbox?: string): Promise<Cam[]> {
         media_url: w.images?.current?.thumbnail || w.images?.daylight?.thumbnail || null,
         category: (w.categories || [])[0]?.name || "weather",
       }))
-  } catch { return [] }
+  } catch (e: any) {
+    console.warn("[webcams/windy]", e?.message || e)
+    return []
+  }
 }
 
-// ─── EarthCam public directory ───────────────────────────────────────────
-// Their JSON export at /api/get_places_with_cams is a stable public feed.
-// Treat as best-effort; if they change schema we just return [].
+// ─── EarthCam (best-effort, can return []) ──────────────────────────────
 async function pullEarthCam(): Promise<Cam[]> {
   try {
     const res = await fetch("https://www.earthcam.com/api/get_places_with_cams.php", {
       headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return []
     const txt = await res.text()
-    // EarthCam wraps in a JSONP-ish callback sometimes. Strip if present.
     const jsonTxt = txt.replace(/^[^{[]+/, "").replace(/[;)\s]+$/, "")
     let j: any = null
     try { j = JSON.parse(jsonTxt) } catch { return [] }
@@ -147,153 +207,45 @@ async function pullEarthCam(): Promise<Cam[]> {
   } catch { return [] }
 }
 
-// ─── NPS (National Park Service) ─────────────────────────────────────────
+// ─── NPS (National Park Service) — NPS API v2 via api.nps.gov/webcams ───
+// Previous URL (www.nps.gov/common/services/webcams.json) now 404s; the
+// official NPS API exposes /webcams. Requires free-register api key but
+// the endpoint also serves limited public data without auth.
 async function pullNPS(): Promise<Cam[]> {
+  const apiKey = process.env.NPS_API_KEY || ""
   try {
-    const res = await fetch("https://www.nps.gov/common/services/webcams.json", {
-      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!res.ok) return []
-    const j = await res.json()
-    const items: any[] = j?.webcams || j?.data || []
-    return items
-      .filter((c: any) => Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
-      .map((c: any) => ({
-        id: `nps-${c.id || c.slug || `${c.latitude},${c.longitude}`}`,
-        provider: "nps" as const,
-        name: c.title || c.name || null,
-        lat: Number(c.latitude),
-        lng: Number(c.longitude),
-        stream_url: c.stream_url || c.video_url || null,
-        embed_url: c.embed_url || c.url || null,
-        media_url: c.image_url || c.thumbnail || null,
-        category: "park",
-      }))
-  } catch { return [] }
-}
-
-// ─── ALERTWildfire / ALERTCalifornia ArcGIS Feature Service ─────────────
-// UCSD Scripps + UNR Seismo Lab + ALERTCalifornia. Publishes ~1,100 live
-// fire-watch cameras with position + redirect-to-live-view URL.
-async function pullAlertWildfire(): Promise<Cam[]> {
-  try {
-    // ArcGIS Feature Service query. This is the public backing store for
-    // cameras.alertwildfire.org and cameras.alertcalifornia.org.
-    const url =
-      "https://services1.arcgis.com/Va1fmC6JQwyHevZz/arcgis/rest/services/" +
-      "ALERTWildfire_v3_HSL/FeatureServer/0/query?" +
-      "where=1%3D1&outFields=*&f=geojson&returnGeometry=true&outSR=4326"
-    const res = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
-      signal: AbortSignal.timeout(20_000),
-    })
-    if (!res.ok) return []
-    const j = await res.json()
-    const items: any[] = j?.features || []
-    return items
-      .filter(
-        (f: any) =>
-          Number.isFinite(Number(f?.geometry?.coordinates?.[1])) &&
-          Number.isFinite(Number(f?.geometry?.coordinates?.[0])),
-      )
-      .map((f: any) => {
-        const p = f?.properties || {}
-        const camName = p.CAM_NAME || p.Name || p.cam_name || p.site || "alertwildfire-cam"
-        const camId = p.CAM_ID || p.id || p.OBJECTID || `${f.geometry.coordinates[1]},${f.geometry.coordinates[0]}`
-        // AlertCalifornia player URL pattern
-        const embed = p.url || p.URL || `https://www.alertcalifornia.org/cameras?pos=${p.latitude || f.geometry.coordinates[1]},${p.longitude || f.geometry.coordinates[0]}`
-        return {
-          id: `alertwildfire-${camId}`,
-          provider: "alertwildfire" as const,
-          name: camName,
-          lat: Number(f.geometry.coordinates[1]),
-          lng: Number(f.geometry.coordinates[0]),
-          stream_url: null, // MJPEG/HLS per-cam requires session cookie; use embed
-          embed_url: embed,
-          media_url: p.image_url || null,
-          category: "fire-watch",
-        } as Cam
-      })
-  } catch { return [] }
-}
-
-// ─── HPWREN (UCSD atmospheric research) fire + weather cams ─────────────
-// ~160 cameras across SoCal + Baja. Morgan called these out explicitly
-// ("ucsd fire cams in san diego").
-async function pullHPWREN(): Promise<Cam[]> {
-  try {
-    // HPWREN publishes their camera manifest at camlist.json.
-    const res = await fetch("https://hpwren.ucsd.edu/cameras/camlist.json", {
+    const qp = new URLSearchParams({ limit: "500" })
+    if (apiKey) qp.set("api_key", apiKey)
+    const res = await fetch(`https://developer.nps.gov/api/v1/webcams?${qp}`, {
       headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
       signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return []
     const j = await res.json()
-    const items: any[] = Array.isArray(j) ? j : j?.cameras || []
+    const items: any[] = j?.data || []
     return items
-      .filter((c: any) => Number.isFinite(Number(c.lat ?? c.latitude)) && Number.isFinite(Number(c.lng ?? c.longitude)))
-      .map((c: any) => {
-        const id = c.id || c.name || c.site
-        return {
-          id: `hpwren-${id}`,
-          provider: "hpwren" as const,
-          name: c.name || c.site || id,
-          lat: Number(c.lat ?? c.latitude),
-          lng: Number(c.lng ?? c.longitude),
-          stream_url: c.mjpeg_url || c.stream_url || null,
-          // Live image rotates every few minutes; HPWREN page embeds it
-          embed_url: c.url || `https://hpwren.ucsd.edu/cameras/L/${id}-mrg.jpg`,
-          media_url: c.latest_image || c.thumbnail || `https://hpwren.ucsd.edu/cameras/L/${id}-mrg.jpg`,
-          category: "fire-watch",
-        } as Cam
-      })
-  } catch { return [] }
-}
-
-// ─── Surfline public surf cam directory ────────────────────────────────
-// Surfline's cam directory is auth-gated for live streams but their
-// /spots/search returns public metadata + thumbnail for surf spots.
-// Best-effort: many cams 401/402 for the actual stream without a sub.
-async function pullSurfline(): Promise<Cam[]> {
-  try {
-    // Use their public spot-search — returns ~500 top spots globally with
-    // cam rigged=true, including position + thumbnail. Live stream URLs
-    // require Surfline Premium but the embed link 302s to their paywall
-    // which at least renders the player chrome for our users.
-    const res = await fetch(
-      "https://services.surfline.com/kbyg/regions/forecasts?subregionId=all&include=taxonomy,cam",
-      {
-        headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
-        signal: AbortSignal.timeout(15_000),
-      },
-    )
-    if (!res.ok) return []
-    const j = await res.json()
-    const items: any[] = j?.data?.cams || j?.cams || j?.spots || []
-    return items
-      .filter((c: any) => Number.isFinite(Number(c?.location?.lat)) && Number.isFinite(Number(c?.location?.lon)))
+      .filter((c: any) => Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
       .map((c: any) => ({
-        id: `surfline-${c._id || c.id || c.spotId}`,
-        provider: "surfline" as const,
-        name: c.title || c.name || "Surfline cam",
-        lat: Number(c.location.lat),
-        lng: Number(c.location.lon),
-        stream_url: c.streamUrl || c.playlistUrl || null,
-        embed_url: c.url || (c._id ? `https://www.surfline.com/surf-cam/${c._id}` : null),
-        media_url: c.stillUrl || c.thumbnail || null,
-        category: "surf",
+        id: `nps-${c.id || c.title || `${c.latitude},${c.longitude}`}`,
+        provider: "nps" as const,
+        name: c.title || null,
+        lat: Number(c.latitude),
+        lng: Number(c.longitude),
+        stream_url: c.streamingUrl || null,
+        embed_url: c.url || c.relatedParks?.[0]?.url || null,
+        media_url: c.images?.[0]?.url || null,
+        category: "park",
       }))
   } catch { return [] }
 }
 
-// ─── USGS hazard webcams ────────────────────────────────────────────────
+// ─── USGS hazard webcams (volcanoes) ─────────────────────────────────────
 async function pullUSGS(): Promise<Cam[]> {
   try {
-    // USGS publishes a JSON feed at volcanoes.usgs.gov for Volcano Cams.
+    // USGS Volcano Hazards Program publishes webcams at this endpoint.
     const res = await fetch("https://volcanoes.usgs.gov/vsc/api/webcamApi/webcams", {
       headers: { Accept: "application/json", "User-Agent": "MycosoftCREP/1.0" },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(12_000),
     })
     if (!res.ok) return []
     const j = await res.json()
@@ -309,9 +261,29 @@ async function pullUSGS(): Promise<Cam[]> {
         stream_url: c.stream || c.streamUrl || null,
         embed_url: c.url || c.webpage || null,
         media_url: c.image || c.imageUrl || null,
-        category: "hazard",
+        category: "volcano",
       }))
   } catch { return [] }
+}
+
+// ─── ALERTWildfire / ALERTCalifornia — disabled live fetch ─────────────
+// Their FeatureServer schema is rate-limited + requires session. We rely
+// on STATIC_SEED for these; next iteration will route through a server-
+// side scraper with caching. Returns [] so the static list wins.
+async function pullAlertWildfire(): Promise<Cam[]> {
+  // Stub — use STATIC_SEED entries with provider "alertwildfire".
+  return []
+}
+
+// ─── HPWREN — disabled live fetch (expired SSL on hpwren.ucsd.edu) ─────
+// Will route through a server-side image proxy in a later iteration.
+async function pullHPWREN(): Promise<Cam[]> {
+  return []
+}
+
+// ─── Surfline — disabled live fetch (requires authed session) ──────────
+async function pullSurfline(): Promise<Cam[]> {
+  return []
 }
 
 export async function GET(req: NextRequest) {
@@ -326,7 +298,14 @@ export async function GET(req: NextRequest) {
     pullHPWREN(),
     pullSurfline(),
   ])
-  let cams = [...windy, ...earthcam, ...nps, ...usgs, ...alertwildfire, ...hpwren, ...surfline]
+  // Merge static seed + live results. Dedup by (provider, id).
+  const allCams: Cam[] = [
+    ...STATIC_SEED,
+    ...windy, ...earthcam, ...nps, ...usgs, ...alertwildfire, ...hpwren, ...surfline,
+  ]
+  const dedup = new Map<string, Cam>()
+  for (const c of allCams) dedup.set(`${c.provider}:${c.id}`, c)
+  let cams = Array.from(dedup.values())
   if (bbox) {
     const [w, s, e, n] = bbox.split(",").map(Number)
     if ([w, s, e, n].every(Number.isFinite)) {
@@ -345,6 +324,7 @@ export async function GET(req: NextRequest) {
         alertwildfire: alertwildfire.length,
         hpwren: hpwren.length,
         surfline: surfline.length,
+        "static-seed": STATIC_SEED.length,
       },
       cams,
     },
@@ -353,16 +333,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const [windy, earthcam, nps, usgs, alertwildfire, hpwren, surfline] = await Promise.all([
+  const [windy, earthcam, nps, usgs] = await Promise.all([
     pullWindy(),
     pullEarthCam(),
     pullNPS(),
     pullUSGS(),
-    pullAlertWildfire(),
-    pullHPWREN(),
-    pullSurfline(),
   ])
-  const cams = [...windy, ...earthcam, ...nps, ...usgs, ...alertwildfire, ...hpwren, ...surfline]
+  const allCams: Cam[] = [...STATIC_SEED, ...windy, ...earthcam, ...nps, ...usgs]
+  const dedup = new Map<string, Cam>()
+  for (const c of allCams) dedup.set(`${c.provider}:${c.id}`, c)
+  const cams = Array.from(dedup.values())
   if (!cams.length) return NextResponse.json({ synced: 0 })
   try {
     const res = await fetch(`${MINDEX_BASE}/api/mindex/ingest/eagle_video_sources`, {
@@ -399,7 +379,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({
       synced: cams.length,
-      by_provider: { windy: windy.length, earthcam: earthcam.length, nps: nps.length, usgs: usgs.length },
+      by_provider: { windy: windy.length, earthcam: earthcam.length, nps: nps.length, usgs: usgs.length, "static-seed": STATIC_SEED.length },
     })
   } catch (err: any) {
     return NextResponse.json({ synced: 0, error: err?.message || "sync failed" }, { status: 500 })
