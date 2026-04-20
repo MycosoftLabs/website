@@ -242,6 +242,7 @@ import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
 import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import VideoWallWidget from "@/components/crep/eagle-eye/VideoWallWidget";
 import TimelineScrubber from "@/components/crep/eagle-eye/TimelineScrubber";
+import IntelFeedEagleEyeSection from "@/components/crep/eagle-eye/IntelFeedEagleEyeSection";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -4965,6 +4966,16 @@ export default function CREPDashboardPage() {
                   <AlertTriangle className="w-3 h-3" />
                   EVENTS
                 </button>
+              </div>
+              {/* Apr 20, 2026 (Morgan: "modifications of intel feed ...
+                  to include all new data changes features"). Eagle Eye
+                  live counts block — listens for crep:eagle:*-counts
+                  CustomEvents dispatched by EagleEyeOverlay and shows
+                  per-provider tallies (Shinobi / 511 / Windy / EarthCam /
+                  NPS / USGS + YouTube Live / Bluesky / Mastodon / etc.).
+                  Click a provider row to focus the overlay on it. */}
+              <div className="px-3 pb-2">
+                <IntelFeedEagleEyeSection />
               </div>
         </div>
 

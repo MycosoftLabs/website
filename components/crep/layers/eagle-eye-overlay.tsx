@@ -205,6 +205,13 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
         } else {
           (map.getSource("crep-eagle-cams") as any).setData(fc)
         }
+        // Broadcast counts for Intel Feed panel subscribers.
+        try {
+          ;(window as any).__crep_eagle_camera_counts = j.by_provider || {}
+          window.dispatchEvent(new CustomEvent("crep:eagle:camera-counts", {
+            detail: { total: features.length, by_provider: j.by_provider || {} },
+          }))
+        } catch { /* ignore */ }
       } catch (e: any) { console.warn("[EagleEye/cams]", e?.message) }
     }
 
@@ -246,10 +253,23 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     const fetchAndPaint = async () => {
       try {
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
-        const [mindexRes, ytRes] = await Promise.all([
-          fetch(`/api/eagle/events?hoursBack=6&limit=5000${bboxParam}`).catch(() => null),
+        const bboxQ = bbox ? `?bbox=${bbox.join(",")}` : ""
+        // Apr 20, 2026 (Phase 3a): union MINDEX ephemeral events +
+        // YouTube Live + Bluesky + Mastodon video posts. Each connector
+        // returns its own confidence tier; no rescaling here so the
+        // overlay's color ramp (0.8+ native, 0.5-0.8 platform, <0.5
+        // text/OCR/visual) renders correctly per tier.
+        const hoursBack = (window as any).__crep_eagle_time_window?.hoursBack ?? 6
+        const [mindexRes, ytRes, blueskyRes, mastodonRes] = await Promise.all([
+          fetch(`/api/eagle/events?hoursBack=${hoursBack}&limit=5000${bboxParam}`).catch(() => null),
           enabled.eagleEyeYoutubeLive !== false && bbox
             ? fetch(`/api/oei/youtube-live?bbox=${bbox.join(",")}&maxResults=50`).catch(() => null)
+            : Promise.resolve(null),
+          enabled.eagleEyeBluesky !== false
+            ? fetch(`/api/eagle/connectors/bluesky${bboxQ}`).catch(() => null)
+            : Promise.resolve(null),
+          enabled.eagleEyeMastodon !== false
+            ? fetch(`/api/eagle/connectors/mastodon${bboxQ}`).catch(() => null)
             : Promise.resolve(null),
         ])
         const features: any[] = []
@@ -289,6 +309,47 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
                 embed_url: v.embedUrl,
               },
               geometry: { type: "Point", coordinates: [v.lng, v.lat] },
+            })
+          }
+        }
+        // Bluesky video posts with inferred locations
+        if (blueskyRes?.ok) {
+          const j = await blueskyRes.json()
+          for (const e of j.events || []) {
+            if (!Number.isFinite(e.lat) || !Number.isFinite(e.lng)) continue
+            features.push({
+              type: "Feature",
+              properties: {
+                id: e.id,
+                provider: "bluesky",
+                observed_at: e.observed_at,
+                confidence: e.inference_confidence ?? 0.3,
+                thumbnail: e.thumbnail_url,
+                title: e.text_context?.slice(0, 80),
+                embed_url: e.embed_url,
+              },
+              geometry: { type: "Point", coordinates: [e.lng, e.lat] },
+            })
+          }
+        }
+        // Mastodon video posts
+        if (mastodonRes?.ok) {
+          const j = await mastodonRes.json()
+          for (const e of j.events || []) {
+            if (!Number.isFinite(e.lat) || !Number.isFinite(e.lng)) continue
+            features.push({
+              type: "Feature",
+              properties: {
+                id: e.id,
+                provider: "mastodon",
+                observed_at: e.observed_at,
+                confidence: e.inference_confidence ?? 0.3,
+                thumbnail: e.thumbnail_url,
+                title: e.text_context?.slice(0, 80),
+                embed_url: e.embed_url,
+                video_url: e.video_url,
+              },
+              geometry: { type: "Point", coordinates: [e.lng, e.lat] },
             })
           }
         }
@@ -371,10 +432,22 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
           })
           map.on("mouseenter", "crep-eagle-events-core", () => { map.getCanvas().style.cursor = "pointer" })
           map.on("mouseleave", "crep-eagle-events-core", () => { map.getCanvas().style.cursor = "" })
-          console.log(`[EagleEye] ${features.length} ephemeral events loaded (MINDEX + YouTube Live)`)
+          console.log(`[EagleEye] ${features.length} ephemeral events loaded (MINDEX + YouTube + Bluesky + Mastodon)`)
         } else {
           (map.getSource("crep-eagle-events") as any).setData(fc)
         }
+        // Broadcast counts for Intel Feed panel subscribers.
+        try {
+          const countByProvider: Record<string, number> = {}
+          for (const f of features) {
+            const p = (f as any).properties?.provider || "unknown"
+            countByProvider[p] = (countByProvider[p] || 0) + 1
+          }
+          ;(window as any).__crep_eagle_event_counts = countByProvider
+          window.dispatchEvent(new CustomEvent("crep:eagle:event-counts", {
+            detail: { total: features.length, by_provider: countByProvider },
+          }))
+        } catch { /* ignore */ }
       } catch (e: any) { console.warn("[EagleEye/events]", e?.message) }
     }
 
