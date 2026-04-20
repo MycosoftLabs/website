@@ -4626,8 +4626,16 @@ export default function CREPDashboardPage() {
       debrisCloud:      ["crep-debris-cloud-heat"],
     };
     for (const [layerId, mapIds] of Object.entries(layerIdToMap)) {
-      const enabled = layers.find((l) => l.id === layerId)?.enabled ?? false;
-      const vis = enabled ? "visible" : "none";
+      const found = layers.find((l) => l.id === layerId);
+      // Apr 20, 2026 (Morgan: "on live no substations are selctable also").
+      // Previously we did `enabled ?? false` — if the registry ID didn't
+      // exist in the layers array (e.g. "substations" / "transmissionLines"
+      // which were always-on and never added as toggles), enabled became
+      // false → we hid the layer → clicks couldn't register. Now: if the
+      // registry entry is missing, LEAVE visibility alone (default-visible
+      // layers stay that way). Only sync visibility for registered toggles.
+      if (!found) continue;
+      const vis = found.enabled ? "visible" : "none";
       for (const id of mapIds) {
         try {
           if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", vis);

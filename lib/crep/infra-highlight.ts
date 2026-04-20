@@ -214,17 +214,15 @@ export function highlightFromEvent(map: any, e: any) {
         if (merged && merged.geometry.coordinates.length > 0) {
           highlightLine(map, merged.geometry, { ...props, __fullLine: true, __segments: merged.segmentCount })
           wholeLineShown = true
-          // Attempt to fit to the full line's extent — completely best-effort,
-          // never allowed to crash the click handler.
-          try {
-            const bounds = computeLineBounds(merged.geometry)
-            if (bounds && (map as any)?.fitBounds) {
-              (map as any).fitBounds(bounds, { padding: 80, duration: 700, maxZoom: 7 })
-            }
-          } catch (fitErr) {
-            // fitBounds fails on NaN or degenerate bounds — fall back to single segment
-            console.warn("[CREP/Highlight] fitBounds skipped:", (fitErr as any)?.message)
-          }
+          // Apr 20, 2026 (Morgan: "selecting the sea cable shows widget
+          // over a different area thats wrong"). The old behaviour also
+          // fitBounds()-ed to the ENTIRE cable extent — for a transatlantic
+          // cable that jumped the camera across the ocean while the widget
+          // remained anchored to the original click point, making it
+          // appear disconnected from the highlighted feature. Removed the
+          // fitBounds: stay at the user's current zoom, highlight the
+          // full line end-to-end, let them pan/zoom out themselves if
+          // they want to see the whole route.
         }
       } catch (mergeErr) {
         console.warn("[CREP/Highlight] whole-line merge failed, falling back to single segment:", (mergeErr as any)?.message)

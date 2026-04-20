@@ -589,9 +589,15 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             type: "fill",
             source: "crep-land-mask",
             paint: {
-              // Carto Positron land tone. If basemap changes in the
-              // future, adjust here.
-              "fill-color": "#f1f3f5",
+              // Apr 20, 2026 (Morgan: "still no fix to bathymetry its still
+              // over land blocking"). Previous #f1f3f5 (Carto Positron land)
+              // painted land WHITE on CREP's DARK basemap — the mask was
+              // visible but the wrong colour, so it looked like the
+              // bathymetry was still bleeding through. CREP ships a dark
+              // Mapbox-style basemap, so the mask now matches land tone
+              // (#0a0f1c — near-black with a hint of blue to blend with
+              // coastline anti-aliasing).
+              "fill-color": "#0a0f1c",
               "fill-opacity": 1.0,
               "fill-antialias": true,
             },

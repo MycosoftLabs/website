@@ -10,6 +10,12 @@
 # Apr 19, 2026 (r3): same issue for /api/crep/mycosoft-devices — freshly
 # added route, compiled in build log but 404s at runtime. Forcing builder
 # layer re-exec so the new route registers.
+# Apr 20, 2026 (r4): bust again — /api/oei/cctv + /data/crep/im3-*.geojson
+# + /data/crep/eia860m-*.geojson + /data/crep/ne_50m_land.geojson all 404
+# on prod despite CI build + deploy showing success. Container ran a
+# pre-fff92ac8 image (probably stale BuildKit layer or production-latest
+# tag race with Cursor's docker compose --force-recreate). Comment edit
+# invalidates every downstream layer.
 
 FROM node:20-bookworm-slim AS base
 ARG NEXTAUTH_SECRET=change-me-before-prod
