@@ -239,6 +239,7 @@ import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
 import V3Overlays from "@/components/crep/layers/v3-overlays";
 import EiaIm3Overlays from "@/components/crep/layers/eia-im3-overlays";
+import EagleEyeOverlay from "@/components/crep/layers/eagle-eye-overlay";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -2359,6 +2360,14 @@ export default function CREPDashboardPage() {
     // (Cursor deployed Apr 20, 2026). Empty registry until seeded; filter
     // toggle + click widget still work.
     { id: "cctv", name: "CCTV / Webcams", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#67e8f9", description: "Public webcams + Shinobi-ingested CCTV feeds (MINDEX crep.cctv_cameras + Shinobi on MAS VM 192.168.0.188:8080). Click for live stream URL." },
+
+    // ═══ Eagle Eye — Video Intelligence Layer (Phase 1 — Apr 20, 2026) ═══
+    // Dual-plane: registered cameras (permanent) + ephemeral social video
+    // (YouTube Live + Bluesky/Mastodon/X feeds). Cursor applied the
+    // eagle.* MINDEX schema on VM 189 and deployed MediaMTX on MAS 188.
+    // See components/crep/layers/eagle-eye-overlay.tsx.
+    { id: "eagleEyeCameras", name: "Eagle Eye — Cameras", category: "infrastructure", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#22d3ee", description: "Registered permanent video sources (Shinobi + 511 traffic + Windy + EarthCam + NPS/USGS webcams). Cyan halo + color-coded core. Click for live stream." },
+    { id: "eagleEyeEvents", name: "Eagle Eye — Live Events", category: "events", icon: <Camera className="w-3 h-3" />, enabled: false, opacity: 0.9, color: "#fbbf24", description: "Ephemeral social video: YouTube Live broadcasts + Bluesky/Mastodon video posts + X geo-placed media. Pulsing yellow ring, 24 h TTL. Color by location confidence tier." },
 
     // ═══ EIA-860M (Feb 2026) + IM3 Data Center Atlas (v2026.02.09) ═══
     // Canonical US datasets that OpenGridView uses. See
@@ -7820,6 +7829,36 @@ export default function CREPDashboardPage() {
               cctv:           layers.find(l => l.id === "cctv")?.enabled ?? false,
             }}
             bbox={mapZoom > 5 ? (() => {
+              try {
+                if (!mapRef?.getBounds) return undefined
+                const b = mapRef.getBounds()
+                return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
+              } catch { return undefined }
+            })() : undefined}
+          />
+
+          {/* Eagle Eye — dual-plane video intelligence (Apr 20, 2026).
+              Cursor applied eagle.* MINDEX schema on VM 189 + deployed
+              MediaMTX on MAS 188:8554. Phase 1 ships /api/eagle/sources,
+              /api/eagle/events, /api/eagle/stream, + YouTube Live geo
+              search connector. See components/crep/layers/eagle-eye-overlay.tsx.
+              Phases 2-9 queued per docs/EAGLE_EYE_PLAN.md. */}
+          <EagleEyeOverlay
+            map={mapRef}
+            enabled={{
+              eagleEyeCameras:      layers.find(l => l.id === "eagleEyeCameras")?.enabled ?? false,
+              eagleEyeEvents:       layers.find(l => l.id === "eagleEyeEvents")?.enabled ?? false,
+              eagleEyeShinobi:      true,
+              eagleEye511Traffic:   true,
+              eagleEyeWeatherCams:  true,
+              eagleEyeWebcams:      true,
+              eagleEyeNpsUsgs:      true,
+              eagleEyeYoutubeLive:  true,
+              eagleEyeBluesky:      true,
+              eagleEyeMastodon:     true,
+              eagleEyeTwitch:       false,
+            }}
+            bbox={mapZoom > 3 ? (() => {
               try {
                 if (!mapRef?.getBounds) return undefined
                 const b = mapRef.getBounds()
