@@ -1,0 +1,19 @@
+[Unit]
+# Weekly schedule for the CREP satellite tile prefetch.
+# Morgan: "on a weekly bases replacing old tiles".
+#
+# Fires every Sunday at 02:00 UTC (off-peak for Mapbox + ESRI).
+# Persistent=true → catches up if VM was down at fire time.
+Description=Weekly CREP satellite tile prefetch
+Documentation=https://mycosoft.com/dashboard/crep
+
+[Timer]
+OnCalendar=Sun 02:00 UTC
+Persistent=true
+# 10% randomised delay so concurrent deployments across VMs don't
+# all hammer Mapbox / ESRI at the exact same instant.
+RandomizedDelaySec=1800
+Unit=crep-satellite-prefetch.service
+
+[Install]
+WantedBy=timers.target

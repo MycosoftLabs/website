@@ -122,13 +122,24 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
 
     try {
       if (!map.getSource("mapbox-satstreets-src")) {
+        // Route through /api/crep/tiles/satellite/mapbox-sat-streets/{z}/{x}/{y}
+        // which serves from the MINDEX weekly-refreshed tile cache first,
+        // falls back to Mapbox direct on miss, and async writes-back.
+        // Morgan (Apr 20, 2026): "i also want all of the latest mapbox and
+        // hd satelite imagry predownloaded into MINDEX on a weekly bases
+        // replacing old tiles so we always have fallback satelite data
+        // preloaded". The proxy route does the 3-tier resolution; Mapbox
+        // API token stays server-side for the write-back path. If the
+        // proxy itself is unreachable, fall back to direct Mapbox URL.
+        const cachedTileUrl = `/api/crep/tiles/satellite/mapbox-sat-streets/{z}/{x}/{y}.jpg`
+        const directTileUrl = MAPBOX_TOKEN
+          ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
+          : null
         map.addSource("mapbox-satstreets-src", {
           type: "raster",
-          tiles: [
-            `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
-          ],
+          tiles: directTileUrl ? [cachedTileUrl, directTileUrl] : [cachedTileUrl],
           tileSize: 256,
-          attribution: "© Mapbox © OpenStreetMap © Maxar",
+          attribution: "© Mapbox © OpenStreetMap © Maxar · MINDEX weekly cache",
           minzoom: 0,
           maxzoom: 22,
         })

@@ -1,0 +1,61 @@
+[Unit]
+# Weekly CREP satellite tile prefetch — Apr 20, 2026
+# Morgan: "i want all of the latest mapbox and hd satelite imagry
+# predownloaded into MINDEX on a weekly bases replacing old tiles so we
+# always have fallback satelite data preloaded".
+#
+# Runs the prefetch worker that walks the priority bbox list and fills
+# the MINDEX tile cache with fresh Mapbox / ESRI imagery tiles. Takes
+# ~30-60 min per basemap depending on upstream rate limit.
+#
+# Install (on VM 189, as root):
+#   cp deploy/systemd/crep-satellite-prefetch.service /etc/systemd/system/
+#   cp deploy/systemd/crep-satellite-prefetch.timer   /etc/systemd/system/
+#   cp deploy/systemd/crep-satellite-prefetch.env     /etc/mycosoft/
+#   systemctl daemon-reload
+#   systemctl enable --now crep-satellite-prefetch.timer
+#
+# Manual test:
+#   systemctl start crep-satellite-prefetch.service
+#   journalctl -fu crep-satellite-prefetch.service
+#
+# Env file /etc/mycosoft/crep-satellite-prefetch.env must provide:
+#   MAPBOX_ACCESS_TOKEN=pk.ey...
+#   MINDEX_API_URL=http://localhost:8000
+#   MINDEX_INTERNAL_TOKEN=<redacted>
+Description=CREP satellite tile prefetch to MINDEX
+Documentation=https://mycosoft.com/dashboard/crep
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mycosoft
+Group=mycosoft
+WorkingDirectory=/opt/mycosoft/website
+EnvironmentFile=/etc/mycosoft/crep-satellite-prefetch.env
+
+# Run both basemaps in sequence. ESRI has no key quota; Mapbox has a
+# monthly raster tile quota so the default MIN/MAX_ZOOM=0..14 is sized
+# to stay well under the 50k free tier.
+ExecStart=/usr/bin/node /opt/mycosoft/website/scripts/etl/crep/prefetch-satellite-tiles.mjs --basemap=mapbox-sat-streets --max-zoom=14 --concurrency=50
+ExecStart=/usr/bin/node /opt/mycosoft/website/scripts/etl/crep/prefetch-satellite-tiles.mjs --basemap=mapbox-sat         --max-zoom=14 --concurrency=50
+ExecStart=/usr/bin/node /opt/mycosoft/website/scripts/etl/crep/prefetch-satellite-tiles.mjs --basemap=esri-world-imagery --max-zoom=14 --concurrency=50
+
+# Timeouts: 3 basemaps × ~40 min each = 2 hrs budget
+TimeoutStartSec=9000
+
+# Resource caps — the prefetch is IO-bound, not CPU-bound
+CPUQuota=200%
+MemoryMax=1G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=crep-sat-prefetch
+
+# Exit code 0 = success. Exit code 2 = > 10% tile failures (see script).
+# Any non-zero status triggers OnFailure actions in the timer unit.
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target
