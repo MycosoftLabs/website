@@ -241,32 +241,64 @@ export function highlightFromEvent(map: any, e: any) {
 }
 
 /**
- * Walk the vector-tile / GeoJSON source and return the merged geometry of
- * every feature whose id / cable_id / line_id matches `groupKey`.
+ * Apr 19, 2026 (Morgan: "sea cables only highlight part seen in viewport
+ * not entire cable"). MapLibre's querySourceFeatures returns features
+ * CLIPPED to loaded tiles — so clicking a transatlantic cable while
+ * zoomed to one coastline returned just the visible chunk. Registries
+ * (cable loader, tx-line loader) now pre-register their full feature
+ * lists here; gatherLineByGroupId consults the registry FIRST and only
+ * falls through to querySourceFeatures when no registry exists.
+ */
+const featureRegistry = new Map<string, Map<string, any[]>>()
+
+export function registerLineFeatures(sourceId: string, features: any[]) {
+  const byId = new Map<string, any[]>()
+  for (const f of features || []) {
+    const p = f?.properties || {}
+    const key = String(p.cable_id ?? p.line_id ?? p.cableId ?? p.lineId ?? p.id ?? "")
+    if (!key) continue
+    const bucket = byId.get(key)
+    if (bucket) bucket.push(f)
+    else byId.set(key, [f])
+  }
+  featureRegistry.set(sourceId, byId)
+}
+
+/**
+ * Walk the pre-registered feature list (primary) or fall back to
+ * MapLibre's querySourceFeatures (secondary) and return the merged
+ * geometry of every feature whose id / cable_id / line_id matches
+ * `groupKey`.
  *
- * Implementation note: we use querySourceFeatures so we pick up features
- * that are currently loaded but outside the viewport. Callers that need
- * full-catalog coverage can pre-compute the index at source-add time.
+ * The registry path is required for GeoJSON sources whose features
+ * span beyond the current viewport — MapLibre clips those to loaded
+ * tiles when `querySourceFeatures` is called.
  */
 export function gatherLineByGroupId(map: any, sourceId: string, groupKey: any):
   { geometry: { type: "MultiLineString"; coordinates: [number, number][][] }; segmentCount: number } | null {
   try {
-    if (!map || typeof map.querySourceFeatures !== "function") return null
     if (!sourceId || typeof sourceId !== "string") return null
-    // Guard: the source must actually exist, otherwise querySourceFeatures throws
-    if (typeof map.getSource === "function" && !map.getSource(sourceId)) return null
-    let features: any[] = []
-    try {
-      features = map.querySourceFeatures(sourceId) || []
-    } catch {
-      return null
-    }
-    if (!Array.isArray(features) || !features.length) return null
     const keyStr = String(groupKey)
-    const matching = features.filter((f) => {
-      const p = f?.properties || {}
-      return String(p.cable_id ?? p.line_id ?? p.cableId ?? p.lineId ?? p.id ?? "") === keyStr
-    })
+
+    // 1) Registry-first path — full features stashed by the loader.
+    const registry = featureRegistry.get(sourceId)
+    const registryMatches = registry?.get(keyStr)
+    let matching: any[] = Array.isArray(registryMatches) ? registryMatches : []
+
+    // 2) Fallback: querySourceFeatures for sources that didn't register.
+    if (!matching.length) {
+      if (!map || typeof map.querySourceFeatures !== "function") return null
+      if (typeof map.getSource === "function" && !map.getSource(sourceId)) return null
+      let features: any[] = []
+      try { features = map.querySourceFeatures(sourceId) || [] }
+      catch { return null }
+      if (!Array.isArray(features) || !features.length) return null
+      matching = features.filter((f) => {
+        const p = f?.properties || {}
+        return String(p.cable_id ?? p.line_id ?? p.cableId ?? p.lineId ?? p.id ?? "") === keyStr
+      })
+    }
+
     if (!matching.length) return null
     const coords: [number, number][][] = []
     for (const m of matching) {

@@ -4304,13 +4304,27 @@ export default function CREPDashboardPage() {
           };
         };
 
-        const aircraft = deckEntities.filter((e: any) => e.type === "aircraft");
-        const vessels = deckEntities.filter((e: any) => e.type === "vessel");
-        const acSrc = m.getSource?.("crep-live-aircraft") as any;
-        if (acSrc?.setData) acSrc.setData(toFC(aircraft, maxPerSource));
-        // Satellites driven by SGP4 animation module — NOT pushed here.
-        const vSrc = m.getSource?.("crep-live-vessels") as any;
-        if (vSrc?.setData) vSrc.setData(toFC(vessels, maxPerSource));
+        // Apr 19, 2026 (Morgan: "like a broken record plane and boat keeps
+        // going back to where it was" / "boats literally just keep blinking
+        // on and off"). THIS pump used to write aircraft + vessels to
+        // crep-live-aircraft / crep-live-vessels. But the rAF dead-reckoning
+        // loop (above) ALSO writes those sources — at 5 FPS, extrapolating
+        // positions forward using velocity. The two pumps fought: rAF would
+        // advance the plane, then this pump would snap it back to the
+        // filtered (un-extrapolated) position, then rAF would advance again
+        // → visible flicker + apparent "jumping back in time".
+        //
+        // Fix: rAF is the SINGLE source of truth for aircraft + vessel
+        // sources. This pump now no-ops those writes. Satellites stay in
+        // their SGP4 loop. Initial seed of positions into the map happens
+        // via the lastKnownRef useEffect (which is what the rAF reads).
+        // Non-moving categories (buoys, fungi, events, military) still
+        // pump through their own effects further down.
+        const _unused_aircraft = deckEntities.filter((e: any) => e.type === "aircraft");
+        const _unused_vessels = deckEntities.filter((e: any) => e.type === "vessel");
+        void _unused_aircraft; void _unused_vessels;
+        // NOTE: DO NOT setData on crep-live-aircraft / crep-live-vessels
+        // here. The rAF animator at line ~4056 handles them.
       } catch {}
     }, 0);
     return () => clearTimeout(timer);
@@ -5844,8 +5858,16 @@ export default function CREPDashboardPage() {
                   });
                   map.on("mouseenter", "crep-cables-line", () => { map.getCanvas().style.cursor = "pointer"; });
                   map.on("mouseleave", "crep-cables-line", () => { map.getCanvas().style.cursor = ""; });
+                  // Apr 19, 2026 (Morgan: "sea cables only highlight part
+                  // seen in viewport not entire cable"). Register the full
+                  // feature list so highlightFromEvent uses it instead of
+                  // MapLibre's viewport-clipped querySourceFeatures.
+                  try {
+                    const { registerLineFeatures } = await import("@/lib/crep/infra-highlight");
+                    registerLineFeatures("crep-cables", features);
+                  } catch { /* ignore dynamic import failure */ }
                   setInfraCableRoutes(features as any);
-                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color)`);
+                  console.log(`[CREP/Infra] ${features.length} cables → MapLibre (multi-color, registered for full-line highlight)`);
                 }).catch((err) => console.warn("[CREP/Infra] Error:", err?.message || err));
 
                 // ══════════════════════════════════════════════════════════
@@ -6377,7 +6399,41 @@ export default function CREPDashboardPage() {
                         ],
                       },
                     });
-                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line`);
+                    // Apr 19, 2026 (Morgan: "non of the infra power lines
+                    // not clickable no widgets shown no selection"). Add
+                    // click → InfraAsset widget + hover cursor. Click
+                    // dispatches through the shared selection hook so the
+                    // same widget handles major + full TX lines identically.
+                    const txFullClickFired = { bound: false };
+                    if (!txFullClickFired.bound) {
+                      txFullClickFired.bound = true;
+                      map.on("click", "crep-txlines-full-line", (e: any) => {
+                        const f = e.features?.[0];
+                        if (!f) return;
+                        const p = f.properties || {};
+                        const c = e.lngLat;
+                        lastEntityPickTimeRef.current = Date.now();
+                        highlightFromEvent(map, e);
+                        setSelectedInfraAsset({
+                          type: "transmission_line",
+                          id: p.id || p.OBJECTID || `txline-${c?.lat}-${c?.lng}`,
+                          name: p.name || p.NAME || `Transmission Line ${p.v || p.VOLTAGE || ""}`.trim(),
+                          lat: c?.lat ?? 0,
+                          lng: c?.lng ?? 0,
+                          properties: {
+                            voltage_kv: (Number(p.v || p.VOLTAGE) || 0) / 1000,
+                            owner: p.OWNER || p.owner || null,
+                            status: p.STATUS || p.status || null,
+                            source: p.src || "hifld+osm+mindex",
+                            ...p,
+                          },
+                        });
+                        setSelectedPlant(null);
+                      });
+                      map.on("mouseenter", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = "pointer"; });
+                      map.on("mouseleave", "crep-txlines-full-line", () => { map.getCanvas().style.cursor = ""; });
+                    }
+                    console.log(`[CREP/Infra] ${INFRA_LAYERS.transmissionFull.label}: ${result.mode} active → crep-txlines-full-line (click + hover wired)`);
                   } catch (e) {
                     console.warn("[CREP/Infra] transmission-full PMTiles path failed (file not generated yet?):", (e as Error)?.message);
                   }

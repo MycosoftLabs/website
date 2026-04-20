@@ -548,17 +548,24 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     }
     loadedRef.current.bathymetry = true
 
-    // Apr 19, 2026 (Morgan: "bathymetry is not filtered out on land it
-    // covers cleaner topology"). Land mask: Natural Earth 1:50m land
-    // polygons fetched once and layered ABOVE bathymetry so the ocean raster
-    // shows through ONLY over water. Color matches the Carto Positron
-    // basemap land tone (#f1f3f5) so the mask blends invisibly. Fail-safe:
-    // if the fetch is blocked, bathymetry still renders (just covers land
-    // too, which is the pre-mask behaviour).
-    const attachLandMask = async () => {
+    // Apr 19, 2026 (Morgan: "bathymetry is on on first load live on crep
+    // and its still walking over the land data that cannot happen"). Land
+    // mask MUST cover bathymetry on land or the layer is broken. Previous
+    // version relied on an external fetch from GitHub — slow + sometimes
+    // CORS-blocked. Now: primary source is /data/crep/ne_50m_land.geojson
+    // (1.6 MB, committed in-repo, always available). GitHub raw mirror is
+    // the fallback only if the local file 404s.
+    //
+    // Z-order: mask inserts with the SAME beforeId as bathymetry so both
+    // live in the same "slot" right above basemap but below point
+    // markers. Second insertion goes on TOP of the first within the
+    // slot → mask above bathymetry, point layers above mask. Exactly
+    // what we want.
+    const attachLandMask = async (beforeId: string | undefined) => {
       if (map.getSource("crep-land-mask")) return
       try {
         const URLS = [
+          "/data/crep/ne_50m_land.geojson",
           "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_land.geojson",
           "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_land.geojson",
         ]
@@ -569,23 +576,25 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             if (r.ok) { data = await r.json(); break }
           } catch { /* try next */ }
         }
-        if (!data) return
+        if (!data) {
+          console.warn("[ProposalOverlays/land-mask] all land-polygon sources failed — bathymetry will cover land")
+          return
+        }
         if (!map.getSource("crep-land-mask")) {
           map.addSource("crep-land-mask", { type: "geojson", data })
-          // Insert directly above bathymetry so bathymetry is visible only
-          // outside the land polygons. Color: Carto Positron land tone.
-          const before = map.getLayer("crep-topo-hillshade") ? "crep-topo-hillshade" : undefined
           map.addLayer({
             id: "crep-land-mask-fill",
             type: "fill",
             source: "crep-land-mask",
             paint: {
+              // Carto Positron land tone. If basemap changes in the
+              // future, adjust here.
               "fill-color": "#f1f3f5",
               "fill-opacity": 1.0,
               "fill-antialias": true,
             },
-          }, before)
-          console.log("[ProposalOverlays] bathymetry land mask attached (Natural Earth land polygons)")
+          }, beforeId)  // ← same slot as bathymetry, rendered above it
+          console.log(`[ProposalOverlays] land mask attached ← ${URLS[0]} (before: ${beforeId || "TOP"})`)
         }
       } catch (e: any) {
         console.warn("[ProposalOverlays/land-mask]", e.message)
@@ -595,6 +604,13 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     idleLoad(async () => {
       try {
         const srcId = "crep-bathymetry"
+        // Compute beforeId ONCE — shared between bathymetry and land mask
+        // so both live in the same slot with mask rendered on top of the
+        // raster. Scoped outside the !getSource guard so a re-run (e.g.
+        // topography toggling) still gets the mask placed correctly.
+        const style = map.getStyle()
+        const firstOverlay = style.layers.find((l) => l.id.startsWith("crep-") && l.id !== "crep-boundaries-country") as any
+        const bathyBeforeId = firstOverlay?.id as string | undefined
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
           // show the highest quality newest ones in their respective
@@ -629,10 +645,6 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             minzoom: 0,
             maxzoom: 14,
           })
-          // Find the first non-basemap layer so we insert under it
-          const style = map.getStyle()
-          const firstOverlay = style.layers.find((l) => l.id.startsWith("crep-") && l.id !== "crep-boundaries-country") as any
-          const beforeId = firstOverlay?.id
           map.addLayer(
             {
               id: "crep-bathymetry-raster",
@@ -650,13 +662,13 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
                 "raster-brightness-min": 0.1,
               },
             },
-            beforeId,
+            bathyBeforeId,
           )
         }
-        // Attach the land mask alongside. Mask layer is toggled with
-        // bathymetry below so it doesn't leak when the user turns
-        // bathymetry off.
-        await attachLandMask()
+        // Attach the land mask RIGHT ABOVE bathymetry in the same slot.
+        // Adding with the same beforeId stacks mask on top of bathymetry
+        // (later addLayer calls push earlier ones down within the slot).
+        await attachLandMask(bathyBeforeId)
         console.log(`[ProposalOverlays] bathymetry: EMODnet 2024 + ESRI ocean raster attached${
           map.getLayer("crep-bathymetry-raster") ? "" : " (layer missing)"
         }`)
