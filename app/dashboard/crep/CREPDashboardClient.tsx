@@ -236,6 +236,7 @@ import AuroraOverlay from "@/components/crep/layers/aurora-overlay";
 // split savings aren't worth the reliability cost.
 import SignalHeatmapLayer from "@/components/crep/layers/signal-heatmap-layer";
 import ProposalOverlays from "@/components/crep/layers/proposal-overlays";
+import V3Overlays from "@/components/crep/layers/v3-overlays";
 import SunEarthImpactLayer from "@/components/crep/layers/sun-earth-impact-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
@@ -7382,6 +7383,50 @@ export default function CREPDashboardPage() {
               droneNoFly:     layers.find(l => l.id === "droneNoFly")?.enabled ?? false,
             }}
             bbox={mapZoom > 5 ? (() => {
+              try {
+                if (!mapRef?.getBounds) return undefined
+                const b = mapRef.getBounds()
+                return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] as [number, number, number, number]
+              } catch { return undefined }
+            })() : undefined}
+          />
+
+          {/* V3 orphan layers — events / facilities / pollution / military
+              sub-types / transport sub-types / biodiversity / heatmaps.
+              See components/crep/layers/v3-overlays.tsx (Apr 19, 2026). */}
+          <V3Overlays
+            map={mapRef}
+            enabled={{
+              earthquakes:     layers.find(l => l.id === "earthquakes")?.enabled ?? false,
+              volcanoes:       layers.find(l => l.id === "volcanoes")?.enabled ?? false,
+              wildfires:       layers.find(l => l.id === "wildfires")?.enabled ?? false,
+              storms:          layers.find(l => l.id === "storms")?.enabled ?? false,
+              lightning:       layers.find(l => l.id === "lightning")?.enabled ?? false,
+              tornadoes:       layers.find(l => l.id === "tornadoes")?.enabled ?? false,
+              hospitals:       layers.find(l => l.id === "hospitals")?.enabled ?? false,
+              fireStations:    layers.find(l => l.id === "fireStations")?.enabled ?? false,
+              universities:    layers.find(l => l.id === "universities")?.enabled ?? false,
+              oilGas:          layers.find(l => l.id === "oilGas")?.enabled ?? false,
+              methaneSources:  layers.find(l => l.id === "methaneSources")?.enabled ?? false,
+              metalOutput:     layers.find(l => l.id === "metalOutput")?.enabled ?? false,
+              waterPollution:  layers.find(l => l.id === "waterPollution")?.enabled ?? false,
+              population:      layers.find(l => l.id === "population")?.enabled ?? false,
+              humanMovement:   layers.find(l => l.id === "humanMovement")?.enabled ?? false,
+              events_human:    layers.find(l => l.id === "events_human")?.enabled ?? false,
+              signalHeatmap:   layers.find(l => l.id === "signalHeatmap")?.enabled ?? false,
+              militaryAir:     layers.find(l => l.id === "militaryAir")?.enabled ?? false,
+              militaryNavy:    layers.find(l => l.id === "militaryNavy")?.enabled ?? false,
+              tanks:           layers.find(l => l.id === "tanks")?.enabled ?? false,
+              militaryDrones:  layers.find(l => l.id === "militaryDrones")?.enabled ?? false,
+              aviationRoutes:  layers.find(l => l.id === "aviationRoutes")?.enabled ?? false,
+              shipRoutes:      layers.find(l => l.id === "shipRoutes")?.enabled ?? false,
+              fishing:         layers.find(l => l.id === "fishing")?.enabled ?? false,
+              containers:      layers.find(l => l.id === "containers")?.enabled ?? false,
+              vehicles:        layers.find(l => l.id === "vehicles")?.enabled ?? false,
+              drones:          layers.find(l => l.id === "drones")?.enabled ?? false,
+              biodiversity:    layers.find(l => l.id === "biodiversity")?.enabled ?? false,
+            }}
+            bbox={mapZoom > 3 ? (() => {
               try {
                 if (!mapRef?.getBounds) return undefined
                 const b = mapRef.getBounds()
