@@ -99,7 +99,7 @@ The pump-to-MINDEX write direction works. The MINDEX-as-read-source direction is
 **Action items:**
 - [ ] Claude: verify `syncToMINDEX` calls from CREPDashboardClient are actually succeeding (not just fire-and-forget). Add breaker + telemetry.
 - [ ] Cursor: confirm MINDEX `crep.pump_aircraft`, `crep.pump_vessels`, `crep.pump_satellites` tables exist + have recent rows.
-- [ ] Cursor: add MAS cron for iNat + GBIF preload into `crep.project_nature_cache`.
+- [ ] Cursor: add MAS cron for iNat + GBIF preload into `crep.project_nature_cache` (table DDL: `MINDEX/mindex/migrations/crep_project_nature_cache_APR22_2026.sql` — apply on VM 189 Postgres before relying on cache reads).
 
 ---
 

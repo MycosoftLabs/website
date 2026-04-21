@@ -152,26 +152,44 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     return () => { mountedRef.current = false }
   }, [])
 
-  // Fetch data once when enabled (or re-enable after a disable)
+  // Fetch data on mount + auto-refresh every 6 h to pick up the
+  // background SWR refresh of /api/crep/oyster/plume (UCSD PFM scrape)
+  // and /api/crep/oyster/emit (NASA CMR STAC) — both cache 6 h, so a
+  // 6 h layer-side refresh lines up with their natural update cadence.
+  // Skips refresh when document.hidden (don't burn on background tabs).
   useEffect(() => {
     if (!enabled.tijuanaEstuary) {
       fetchAttemptedRef.current = false
       return
     }
-    if (fetchAttemptedRef.current) return
-    fetchAttemptedRef.current = true
-    console.log("[TijuanaEstuary] fetching /api/crep/tijuana-estuary ...")
-    fetch("/api/crep/tijuana-estuary")
-      .then((r) => {
-        console.log("[TijuanaEstuary] response:", r.status)
-        return r.ok ? r.json() : null
-      })
-      .then((j) => {
-        console.log("[TijuanaEstuary] data received:", j ? `oyster=${j.oyster?.name} cameras=${j.cameras?.length} sensors=${j.sensors?.length}` : "null")
-        if (mountedRef.current && j) setData(j)
-      })
-      .catch((e) => { console.warn("[TijuanaEstuary] fetch failed:", e?.message) })
-    // Intentionally no cleanup — strict-mode cleanup was aborting mount-1.
+    const doFetch = (label: string) => {
+      if (typeof document !== "undefined" && document.hidden && label !== "initial") return
+      console.log(`[TijuanaEstuary] ${label} fetch /api/crep/tijuana-estuary ...`)
+      fetch("/api/crep/tijuana-estuary")
+        .then((r) => {
+          console.log(`[TijuanaEstuary] ${label} response:`, r.status)
+          return r.ok ? r.json() : null
+        })
+        .then((j) => {
+          console.log(`[TijuanaEstuary] ${label} data:`, j ? `cameras=${j.cameras?.length} sensors=${j.sensors?.length} plume_source=${j.plume?.source} emit=${j.emit_plumes?.length}` : "null")
+          if (mountedRef.current && j) setData(j)
+        })
+        .catch((e) => { console.warn(`[TijuanaEstuary] ${label} fetch failed:`, e?.message) })
+    }
+
+    if (!fetchAttemptedRef.current) {
+      fetchAttemptedRef.current = true
+      doFetch("initial")
+    }
+    // Every 6 h re-fetch the full oyster payload — picks up PFM plume
+    // scrape refresh + EMIT STAC + fresh NDBC climate obs. Interval
+    // doesn't hammer upstream: each sub-route caches 6 h + serves
+    // instantly via SWR so the 6 h timer aligns with actual freshness.
+    const refreshMs = 6 * 60 * 60 * 1000
+    const iv = setInterval(() => doFetch("refresh"), refreshMs)
+    return () => { clearInterval(iv) }
+    // Intentionally no fetch-cancel cleanup — strict-mode cleanup was
+    // aborting mount-1 in an earlier bug.
   }, [enabled.tijuanaEstuary])
 
   useEffect(() => {

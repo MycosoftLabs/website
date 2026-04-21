@@ -2919,6 +2919,47 @@ export default function CREPDashboardPage() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let stopped = false;
 
+    // Apr 21, 2026 (Morgan: "do that" for faster nature loads). Initial
+    // backfill from MINDEX preloaded cache covering both project bboxes
+    // so the globe paints iNat dots immediately instead of waiting for
+    // the first SSE tick (up to 60 s). The SSE still handles deltas
+    // as new observations arrive; preload is just the first paint.
+    const seedFromPreload = async () => {
+      for (const project of ["oyster", "goffs"] as const) {
+        try {
+          const r = await fetch(`/api/crep/nature/preloaded?project=${project}&limit=200`, { signal: AbortSignal.timeout(4000) });
+          if (!r.ok) continue;
+          const j = await r.json();
+          if (!j?.cache_warm || !Array.isArray(j?.observations)) continue;
+          const store = fungalStoreRef.current;
+          for (const o of j.observations) {
+            if (!o?.id || !Number.isFinite(o.lat) || !Number.isFinite(o.lng)) continue;
+            if (store.has(o.id)) continue;
+            store.set(o.id, {
+              id: o.id,
+              observed_on: o.observed_on || new Date().toISOString(),
+              latitude: o.lat,
+              longitude: o.lng,
+              species: o.name || o.sci_name || "Unknown",
+              taxon_id: 0,
+              taxon: { id: 0, name: o.sci_name || o.name || "Unknown", preferred_common_name: o.name, rank: "species" },
+              photos: o.photo ? [{ id: 1, url: o.photo, license: "CC-BY-NC" }] : [],
+              quality_grade: o.quality_grade || "research",
+              user: o.observer,
+              source: "mindex-preload",
+              iconicTaxon: o.iconic_taxon || "Unknown",
+              kingdom: o.iconic_taxon || "Unknown",
+            } as unknown as FungalObservation);
+          }
+          console.log(`[CREP/NatureStream] preload seed ${project}: ${j.observations.length} observations (cache_warm=${j.cache_warm})`);
+          setFungalObservations(Array.from(store.values()));
+        } catch (e) {
+          // Preload unreachable → fine, SSE will fill in. No log spam.
+        }
+      }
+    };
+    void seedFromPreload();
+
     const connect = () => {
       if (stopped) return;
       try {

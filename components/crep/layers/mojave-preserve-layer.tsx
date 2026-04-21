@@ -94,24 +94,31 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       fetchAttemptedRef.current = false
       return
     }
-    if (fetchAttemptedRef.current) return
-    fetchAttemptedRef.current = true
-    console.log("[MojavePreserveLayer] fetching /api/crep/mojave ...")
-    fetch(APPROX_BOUNDARY_PATH)
-      .then((r) => {
-        console.log("[MojavePreserveLayer] response status:", r.status)
-        return r.ok ? r.json() : null
-      })
-      .then((j) => {
-        console.log("[MojavePreserveLayer] data received:", j ? `source=${j.source} wilderness=${j.wilderness_pois?.length} climate=${j.climate_stations?.length}` : "null")
-        // Only skip setData on a TRUE unmount — not strict-mode's
-        // synthetic cleanup. mountedRef stays true across that.
-        if (mountedRef.current && j) setData(j)
-      })
-      .catch((e) => { console.warn("[MojavePreserveLayer] fetch failed:", e?.message) })
-    // Intentionally no cleanup — strict-mode cleanup was aborting the
-    // first mount's fetch, and a re-run path is already guarded by
-    // fetchAttemptedRef.
+    // Apr 21, 2026 (Morgan: "do that" re: refresh cadence). 6 h interval
+    // to pick up fresh ASOS climate observations (NWS api.weather.gov
+    // updates every ~20 min) + iNat preload cache warmups. Skips
+    // refresh on hidden tabs.
+    const doFetch = (label: string) => {
+      if (typeof document !== "undefined" && document.hidden && label !== "initial") return
+      console.log(`[MojavePreserveLayer] ${label} fetch /api/crep/mojave ...`)
+      fetch(APPROX_BOUNDARY_PATH)
+        .then((r) => {
+          console.log(`[MojavePreserveLayer] ${label} response:`, r.status)
+          return r.ok ? r.json() : null
+        })
+        .then((j) => {
+          console.log(`[MojavePreserveLayer] ${label} data:`, j ? `source=${j.source} wilderness=${j.wilderness_pois?.length} climate_live=${(j.climate_stations||[]).filter((s:any)=>s.observation).length}/${j.climate_stations?.length}` : "null")
+          if (mountedRef.current && j) setData(j)
+        })
+        .catch((e) => { console.warn(`[MojavePreserveLayer] ${label} fetch failed:`, e?.message) })
+    }
+
+    if (!fetchAttemptedRef.current) {
+      fetchAttemptedRef.current = true
+      doFetch("initial")
+    }
+    const iv = setInterval(() => doFetch("refresh"), 6 * 60 * 60 * 1000)
+    return () => { clearInterval(iv) }
   }, [
     enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness,
     enabled.mojaveClimate, enabled.mojaveINat,

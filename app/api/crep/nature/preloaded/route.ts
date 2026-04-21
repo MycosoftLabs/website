@@ -53,10 +53,22 @@ export async function GET(req: NextRequest) {
   const project = (req.nextUrl.searchParams.get("project") || "").toLowerCase()
   const limit = Math.min(500, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || 200)))
   const grade = req.nextUrl.searchParams.get("grade") || "all"
+  const bboxParam = req.nextUrl.searchParams.get("bbox")
 
-  const bbox = PROJECT_BBOX[project]
+  // Apr 21, 2026 (Morgan: extend preload pattern to any iNat consumer):
+  // support arbitrary bbox query so the global biodiversity layer and
+  // SSE nature-stream initial-load path can both use this route.
+  // Priority: explicit ?bbox=w,s,e,n → ?project= → error.
+  let bbox: [number, number, number, number] | undefined
+  if (bboxParam) {
+    const parts = bboxParam.split(",").map(Number)
+    if (parts.length === 4 && parts.every(Number.isFinite)) {
+      bbox = [parts[0], parts[1], parts[2], parts[3]]
+    }
+  }
+  if (!bbox && project) bbox = PROJECT_BBOX[project]
   if (!bbox) {
-    return NextResponse.json({ error: "unknown project", valid: Object.keys(PROJECT_BBOX) }, { status: 400 })
+    return NextResponse.json({ error: "provide ?bbox=w,s,e,n or ?project=oyster|goffs", valid_projects: Object.keys(PROJECT_BBOX) }, { status: 400 })
   }
 
   const started = Date.now()
@@ -66,7 +78,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const [w, s, e, n] = bbox
-    const url = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=project_nature_cache&project_id=${project}&bbox=${w},${s},${e},${n}&limit=${limit}`
+    const projectParam = project ? `&project_id=${project}` : ""
+    const url = `${MINDEX_URL}/api/mindex/earth/map/bbox?layer=project_nature_cache${projectParam}&bbox=${w},${s},${e},${n}&limit=${limit}`
     const res = await fetch(url, {
       headers: { Accept: "application/json", ...authHeaders() },
       signal: AbortSignal.timeout(4000),
