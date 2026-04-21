@@ -438,7 +438,7 @@ type LayerDataStatus = "real" | "planned_real" | "mock";
 interface LayerConfig {
   id: string;
   name: string;
-  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities";
+  category: "events" | "devices" | "environment" | "infrastructure" | "human" | "military" | "pollution" | "imagery" | "telecom" | "facilities" | "projects";
   icon: React.ReactNode;
   enabled: boolean;
   opacity: number;
@@ -649,8 +649,14 @@ const severityColors: Record<string, string> = {
   extreme: "bg-red-600/20 text-red-300 border-red-600/30",
 };
 
-// Layer categories with icons - ORDERED: Biodiversity/Devices FIRST, Transport/Military LAST
+// Layer categories with icons - ORDERED: Projects FIRST (Mycosoft focus),
+// then Biodiversity/Devices, then context layers
 const layerCategories = {
+  // TOP PRIORITY - Mycosoft project zones (Oyster, Goffs, etc.)
+  // Apr 21, 2026 (Morgan: "both need to be there in their own area on
+  // the filters as Project filters"). Collects all project-specific
+  // sub-toggles under one distinct banner above the generic categories.
+  projects: { label: "MYCOSOFT Projects", icon: <Sparkles className="w-3.5 h-3.5" />, color: "text-teal-400" },
   // PRIMARY - Biodiversity and devices (shown first)
   environment: { label: "Biodiversity & Environment", icon: <Leaf className="w-3.5 h-3.5" />, color: "text-emerald-400" },
   devices: { label: "MycoBrain Devices", icon: <Radar className="w-3.5 h-3.5" />, color: "text-green-400" },
@@ -1344,6 +1350,7 @@ function LayerControlPanel({
   // Group layers by category
   const groupedLayers = useMemo(() => {
     const groups: Record<string, LayerConfig[]> = {
+      projects: [],
       events: [],
       devices: [],
       environment: [],
@@ -2303,30 +2310,61 @@ export default function CREPDashboardPage() {
     { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both. OFF by default (Morgan: too much on load) — stacked raster layers + 5-min weather poll add up. Toggle on when you want cloud cover in the view." },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay). OFF by default (Morgan: too much on load) — polls DONKI + NOAA SWPC + aurora oval APIs on mount. Toggle on when space-weather view is the focus." },
 
-    // ── PROJECT OYSTER (MYCODAO + MYCOSOFT) — Tijuana Estuary showcase ──
-    // Apr 20, 2026 (Morgan: "make layers filters for pollution and
-    // specifically a filter section for project oyster with all of these
-    // layers and a perimeter and hotspot of gasses water flows").
-    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley. Master switch for the perimeter, oyster sites, H₂S hotspot, river flow, beach closures, Navy training waters. OFF by default (Apr 20 2026 — Morgan: OOM crash). Toggle on for the SD-TJ border showcase; the IBWC discharge dataset is 1.8 MB + thousands of features get added to the map source." },
-    { id: "projectOysterPerimeter",  name: "Project Oyster — Perimeter polygon",            category: "pollution", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
-    { id: "projectOysterSites",      name: "Project Oyster — Oyster restoration sites",     category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
-    { id: "h2sHotspot",              name: "H₂S hotspot (SDAPCD)",                          category: "pollution", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
-    { id: "tjRiverFlow",             name: "TJ River course + IBWC discharge",              category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
-    { id: "tjBeachClosures",         name: "Sewage beach closures (SD County DEH)",         category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
-    { id: "tjNavyTraining",          name: "Navy training waters affected (Coronado)",      category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
-    { id: "tjEstuaryMonitors",       name: "TJ NERR + estuary research monitors",           category: "pollution", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
+    // ═══════════════════════════════════════════════════════════════
+    // MYCOSOFT PROJECTS — dedicated category (Apr 21, 2026)
+    // Morgan: "both need to be there in their own area on the filters
+    // as Project filters" + "massive increase in data icons showing
+    // cameras, am, fm, cell, power, live naturedata, rails, caves,
+    // places related to goverment, tourism and any sensors or other
+    // devices with live environmental data with heatmaps and overlays
+    // of that data specifically for those projects".
+    // ═══════════════════════════════════════════════════════════════
 
-    // ── MOJAVE NATIONAL PRESERVE + GOFFS (MYCOSOFT project) ──
-    // Apr 21, 2026 (Morgan: "why is there no data at goffs ca we have a
-    // project there need more data ... mojave national reserve all that
-    // park data and climate data and specific site nature data is needed").
-    // Goffs is a Mycosoft biz-dev vertical thesis site. Garret completed
-    // the 16/16 item thesis Apr 18. Data from /api/crep/mojave.
-    { id: "mojavePreserve",   name: "Mojave National Preserve — Boundary",  category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary polygon. Dashed amber outline + 8% fill. Source: NPS Land Resources Division Boundary service (live-fetch with local approx fallback)." },
-    { id: "mojaveGoffs",      name: "Goffs, CA — MYCOSOFT project site",    category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Historic Route 66 community, 34.92° N / -115.07° W, adjacent to Mojave Preserve. Pulsing teal halo + cyan core marker — click for project context + climate + ecology." },
-    { id: "mojaveWilderness", name: "Mojave wilderness POIs",               category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome Joshua tree forest + Kelso Dunes + Mitchell Caverns + Cinder Cones + Hole-in-the-Wall + New York Mts + Castle Peaks + Granite Mts Research Center. 8 landmark markers." },
-    { id: "mojaveClimate",    name: "Mojave climate — ASOS / RAWS / COOP",  category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
-    { id: "mojaveINat",       name: "Mojave iNat observations",             category: "environment", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent research-grade iNaturalist observations in a bbox around Goffs — desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (50 obs/fetch adds points over the preserve)." },
+    // ── PROJECT OYSTER (MYCODAO + MYCOSOFT) — Tijuana Estuary / Imperial Beach / south SD ──
+    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley, Imperial Beach + south San Diego. Master switch for all Oyster sub-layers. ON by default (Apr 21 2026 — Morgan: all project filters on from load)." },
+    { id: "projectOysterPerimeter",  name: "Oyster — Perimeter polygon",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
+    { id: "projectOysterSites",      name: "Oyster — Restoration sites",                       category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
+    { id: "h2sHotspot",              name: "Oyster — H₂S hotspot (SDAPCD)",                    category: "projects", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
+    { id: "tjRiverFlow",             name: "Oyster — TJ River + IBWC discharge",               category: "projects", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
+    { id: "tjBeachClosures",         name: "Oyster — Beach closures (SD DEH)",                  category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
+    { id: "tjNavyTraining",          name: "Oyster — Navy training waters",                    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
+    { id: "tjEstuaryMonitors",       name: "Oyster — NERR research monitors",                  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
+    // NEW (Apr 21, 2026 v2 expansion for Oyster):
+    { id: "oysterCameras",    name: "Oyster — Cameras",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "Surf cams + CBP POE + Caltrans I-5/SR-75 CCTV + NOAA buoy cams + EarthCam Imperial Beach + Coronado skyline cams." },
+    { id: "oysterBroadcast",  name: "Oyster — AM/FM/TV broadcast",  category: "projects", icon: <Radio className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM/TV stations covering SD/TJ cross-border corridor." },
+    { id: "oysterCell",       name: "Oyster — Cell towers",         category: "projects", icon: <Wifi className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#a855f7", description: "Curated cell sites across Imperial Beach, Coronado, Tijuana cross-border overlap." },
+    { id: "oysterPower",      name: "Oyster — Power infrastructure",category: "projects", icon: <Zap className="w-3 h-3" />,     enabled: true, opacity: 1.0, color: "#fbbf24", description: "SDG&E substations, Otay Mesa Generating, South Bay Power Plant, San Onofre (decommissioned), PG&E tie-ins." },
+    { id: "oysterNature",     name: "Oyster — Live iNat observations",category:"projects", icon: <TreePine className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations (~200 per fetch) in TJ Estuary + Imperial Beach + Silver Strand bbox + La Jolla tide pools." },
+    { id: "oysterPlume",      name: "Oyster — UCSD PFM plume tracker", category: "projects", icon: <Waves className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#dc2626", description: "Pacific Forecast Model sewage plume tracker (SCCOOS / Scripps UCSD). Live fecal-indicator-bacteria (FIB) + ocean current modeling for IB / Silver Strand / Coronado." },
+    { id: "oysterEmit",       name: "Oyster — NASA EMIT methane plumes", category: "projects", icon: <Satellite className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f97316", description: "NASA EMIT instrument (ISS) methane + CO2 + mineral dust plume detections over SD-TJ corridor." },
+    { id: "oysterCrossBorder",name: "Oyster — Scripps cross-border",    category: "projects", icon: <AlertTriangle className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#ef4444", description: "Scripps cross-border pollution monitoring network — water quality, aerosol, H2S, volatile organics at IB + border wall." },
+    { id: "oysterRails",      name: "Oyster — Rails + Trolley",     category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "SD Metropolitan Transit Blue Line trolley (San Ysidro → Downtown), BNSF freight, Coaster, Sprinter." },
+    { id: "oysterCaves",      name: "Oyster — Sea caves + coastal",  category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Sunset Cliffs sea caves, La Jolla sea caves, Point Loma grottos — coastal formations in the Oyster bbox." },
+    { id: "oysterGovernment", name: "Oyster — Government facilities",category: "projects", icon: <Shield className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#7dd3fc", description: "CBP San Ysidro POE, Navy bases (NAS North Island, NAB Coronado, NSWC), NOAA SWFSC, EPA Region 9, USCG Sector SD." },
+    { id: "oysterTourism",    name: "Oyster — Tourism + landmarks",  category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Hotel del Coronado, Imperial Beach Pier, Border Field State Park, Balboa Park, USS Midway, Cabrillo Nat'l Monument." },
+    { id: "oysterSensors",    name: "Oyster — Environmental sensors",category: "projects", icon: <Gauge className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air quality, NOAA tide gauges, USGS stream gauges, SDAPCD monitors, SCRIPPS Pier, UCSD Ellen Browning Scripps Pier, TJ NERR sondes." },
+    { id: "oysterHeatmap",    name: "Oyster — Pollution heatmap",    category: "projects", icon: <Cloud className="w-3 h-3" />,   enabled: true, opacity: 0.55, color: "#ef4444", description: "Combined pollution intensity heatmap — H₂S + PM2.5 + sewage concentration + beach bacteria indices." },
+
+    // ── PROJECT GOFFS (MYCOSOFT) — Mojave National Preserve + east Mojave ──
+    // Apr 21, 2026 (Morgan: "why is there no data at goffs ca ... massive
+    // increase in data icons"). Goffs is a Mycosoft biz-dev vertical
+    // thesis site. Garret completed the 16/16 item thesis Apr 18.
+    { id: "mojavePreserve",   name: "Goffs — Mojave Preserve boundary",     category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#facc15", description: "NPS Mojave National Preserve (MOJA) unit boundary. Dashed amber outline + ~20% fill. Live NPS Land Resources Division service." },
+    { id: "mojaveGoffs",      name: "Goffs — MYCOSOFT project site",        category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#22d3ee", description: "MYCOSOFT biz-dev vertical thesis site (Garret, completed Apr 18 2026). Pulsing teal halo + cyan core marker." },
+    { id: "mojaveWilderness", name: "Goffs — Wilderness POIs",               category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#fbbf24", description: "Cima Dome / Kelso Dunes / Mitchell Caverns / Cinder Cones / Hole-in-the-Wall / New York Mts / Castle Peaks / Granite Mts UC Reserve." },
+    { id: "mojaveClimate",    name: "Goffs — Climate stations",              category: "projects", icon: <Thermometer className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#06b6d4", description: "KEED (Needles) + KDAG (Barstow-Daggett) + KIFP (Bullhead) airport ASOS — live temp/humidity/wind from api.weather.gov. Plus Mitchell Caverns + Kelso Depot + Clark Mountain RAWS/COOP stations." },
+    { id: "mojaveINat",       name: "Goffs — Live iNat observations",        category: "projects", icon: <TreePine className="w-3 h-3" />,   enabled: false, opacity: 1.0, color: "#22c55e", description: "Recent iNaturalist observations in a bbox around Goffs — desert tortoise, Joshua tree, creosote, desert bighorn, golden eagle, Mojave yucca, Mojave green rattlesnake. OFF by default (~200 obs per fetch)." },
+    // NEW (Apr 21, 2026 v2 expansion for Goffs):
+    { id: "mojaveCameras",    name: "Goffs — Cameras",                       category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#67e8f9", description: "HPWREN wildfire cams (Clark Mtn, Cima) + ALERTWildfire + Caltrans I-40 CCTV + NPS Kelso Depot + Windy skyline cams." },
+    { id: "mojaveBroadcast",  name: "Goffs — AM/FM broadcast",                category: "projects", icon: <Radio className="w-3 h-3" />,    enabled: false, opacity: 1.0, color: "#8b5cf6", description: "FCC-licensed AM/FM stations covering east Mojave + Colorado River Valley (Needles, Bullhead, Vegas fringe)." },
+    { id: "mojaveCell",       name: "Goffs — Cell towers",                    category: "projects", icon: <Wifi className="w-3 h-3" />,     enabled: false, opacity: 1.0, color: "#a855f7", description: "Curated FCC ASR + OpenCelliD towers in east Mojave (Verizon, AT&T, T-Mobile, FirstNet)." },
+    { id: "mojavePower",      name: "Goffs — Power infrastructure",           category: "projects", icon: <Zap className="w-3 h-3" />,      enabled: true, opacity: 1.0, color: "#fbbf24", description: "Ivanpah Solar (392 MW CSP), Mohave Generating (retired), LUGO/Eldorado/Kramer/Mead substations, LADWP Intermountain HVDC corridor." },
+    { id: "mojaveRails",      name: "Goffs — Rails",                          category: "projects", icon: <Navigation className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#a1a1aa", description: "BNSF Cajon Sub + UP Caliente Sub + Goffs Depot (1902 Santa Fe) + Kelso Depot (1924 UP) + Amtrak Southwest Chief @ Needles." },
+    { id: "mojaveCaves",      name: "Goffs — Caves + lava tubes",             category: "projects", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#78350f", description: "Mitchell Caverns (El Pakiva + Tecopa), Crystal Cave, Amboy Crater lava tubes, Cinder Cone volcanic shafts, Kelbaker lava tube." },
+    { id: "mojaveGovernment", name: "Goffs — Government facilities",          category: "projects", icon: <Shield className="w-3 h-3" />,   enabled: true, opacity: 1.0, color: "#7dd3fc", description: "NPS MOJA HQ, BLM Needles, CBP, Fort Irwin NTC, Edwards AFB, USGS stream gauges, FAA Needles TRACON, DoD Ivanpah Aux Field." },
+    { id: "mojaveTourism",    name: "Goffs — Tourism + landmarks",            category: "projects", icon: <Sparkles className="w-3 h-3" />, enabled: true, opacity: 1.0, color: "#f9a8d4", description: "Goffs Schoolhouse (1914), Kelso Depot, Amboy Crater, Roy's Motel/Cafe, Bagdad Cafe, Tecopa Hot Springs, Primm/Laughlin, Route 66 Museum, Kelbaker/Mojave Road scenic drives." },
+    { id: "mojaveSensors",    name: "Goffs — Environmental sensors",          category: "projects", icon: <Gauge className="w-3 h-3" />,    enabled: true, opacity: 1.0, color: "#06b6d4", description: "EPA AQS air monitors, USGS Colorado River gauges, RAWS fire-weather, tortoise telemetry, SNOTEL snow-water, seismic, light-pollution (Bortle Class 2 dark sky), NSRDB solar radiation." },
+    { id: "mojaveHeatmap",    name: "Goffs — Environmental heatmaps",          category: "projects", icon: <Flame className="w-3 h-3" />,    enabled: true, opacity: 0.55, color: "#ef4444", description: "Fire-risk + biodiversity-density + aridity-index heatmaps across the east Mojave." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -8301,6 +8339,17 @@ export default function CREPDashboardPage() {
               mojaveWilderness: layers.find(l => l.id === "mojaveWilderness")?.enabled ?? true,
               mojaveClimate:    layers.find(l => l.id === "mojaveClimate")?.enabled    ?? true,
               mojaveINat:       layers.find(l => l.id === "mojaveINat")?.enabled       ?? false,
+              // Apr 21, 2026 v2 expansion toggles:
+              mojaveCameras:    layers.find(l => l.id === "mojaveCameras")?.enabled    ?? true,
+              mojaveBroadcast:  layers.find(l => l.id === "mojaveBroadcast")?.enabled  ?? false,
+              mojaveCell:       layers.find(l => l.id === "mojaveCell")?.enabled       ?? false,
+              mojavePower:      layers.find(l => l.id === "mojavePower")?.enabled      ?? true,
+              mojaveRails:      layers.find(l => l.id === "mojaveRails")?.enabled      ?? true,
+              mojaveCaves:      layers.find(l => l.id === "mojaveCaves")?.enabled      ?? true,
+              mojaveGovernment: layers.find(l => l.id === "mojaveGovernment")?.enabled ?? true,
+              mojaveTourism:    layers.find(l => l.id === "mojaveTourism")?.enabled    ?? true,
+              mojaveSensors:    layers.find(l => l.id === "mojaveSensors")?.enabled    ?? true,
+              mojaveHeatmap:    layers.find(l => l.id === "mojaveHeatmap")?.enabled    ?? true,
             }}
           />
           <MojaveSiteWidget />

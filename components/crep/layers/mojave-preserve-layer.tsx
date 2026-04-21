@@ -32,6 +32,17 @@ interface Props {
     mojaveWilderness?: boolean      // wilderness POIs
     mojaveClimate?: boolean         // ASOS/RAWS/COOP climate stations
     mojaveINat?: boolean            // iNaturalist observations
+    // Apr 21, 2026 v2 expansion:
+    mojaveCameras?: boolean         // HPWREN + Caltrans + NPS webcams
+    mojaveBroadcast?: boolean       // AM/FM stations
+    mojaveCell?: boolean            // cell towers
+    mojavePower?: boolean           // substations + plants + TX
+    mojaveRails?: boolean           // BNSF/UP + depots + Amtrak
+    mojaveCaves?: boolean           // Mitchell Caverns, lava tubes
+    mojaveGovernment?: boolean      // NPS/BLM/CBP/DoD sites
+    mojaveTourism?: boolean         // landmarks, visitor centers, Route 66
+    mojaveSensors?: boolean         // AQS + USGS gauges + RAWS + seismic
+    mojaveHeatmap?: boolean         // fire-risk + biodiversity + aridity
   }
 }
 
@@ -67,7 +78,17 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       enabled.mojaveGoffs ||
       enabled.mojaveWilderness ||
       enabled.mojaveClimate ||
-      enabled.mojaveINat
+      enabled.mojaveINat ||
+      enabled.mojaveCameras ||
+      enabled.mojaveBroadcast ||
+      enabled.mojaveCell ||
+      enabled.mojavePower ||
+      enabled.mojaveRails ||
+      enabled.mojaveCaves ||
+      enabled.mojaveGovernment ||
+      enabled.mojaveTourism ||
+      enabled.mojaveSensors ||
+      enabled.mojaveHeatmap
     console.log("[MojavePreserveLayer] fetch effect fired, anyOn=", anyOn, "enabled=", enabled, "fetchAttempted=", fetchAttemptedRef.current)
     if (!anyOn) {
       fetchAttemptedRef.current = false
@@ -91,7 +112,14 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     // Intentionally no cleanup — strict-mode cleanup was aborting the
     // first mount's fetch, and a re-run path is already guarded by
     // fetchAttemptedRef.
-  }, [enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness, enabled.mojaveClimate, enabled.mojaveINat])
+  }, [
+    enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness,
+    enabled.mojaveClimate, enabled.mojaveINat,
+    enabled.mojaveCameras, enabled.mojaveBroadcast, enabled.mojaveCell,
+    enabled.mojavePower, enabled.mojaveRails, enabled.mojaveCaves,
+    enabled.mojaveGovernment, enabled.mojaveTourism, enabled.mojaveSensors,
+    enabled.mojaveHeatmap,
+  ])
 
   // ─── Render once data arrives ──────────────────────────────────────
   useEffect(() => {
@@ -382,8 +410,187 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       bindOnce("mojave-inat-dot", "inat-observation")
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // Apr 21, 2026 v2 expansion: 9 new sub-layer categories + heatmap
+    // overlay. Each defensively guarded by array-presence + safeAdd*
+    // — any single layer can fail without cascading.
+    // ──────────────────────────────────────────────────────────────────
+
+    // ── CAMERAS ──
+    if (Array.isArray(data.cameras) && data.cameras.length > 0 && safeAddSource("mojave-cameras", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.cameras.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-cameras-dot", type: "circle", source: "mojave-cameras", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 12, 7],
+          "circle-color": [ "match", ["get", "provider"], "hpwren", "#ef4444", "alertwildfire", "#f97316", "caltrans", "#06b6d4", "nps", "#84cc16", "windy", "#a855f7", "#67e8f9" ],
+          "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("mojave-cameras-dot", "camera")
+    }
+
+    // ── BROADCAST (AM/FM) ──
+    if (Array.isArray(data.broadcast) && data.broadcast.length > 0 && safeAddSource("mojave-broadcast", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.broadcast.map((b: any) => ({ type: "Feature", properties: { ...b }, geometry: { type: "Point", coordinates: [b.lng, b.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-broadcast-dot", type: "circle", source: "mojave-broadcast", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 12, 6],
+          "circle-color": ["match", ["get", "band"], "am", "#a855f7", "fm", "#8b5cf6", "tv", "#7c3aed", "#8b5cf6"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.2, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("mojave-broadcast-dot", "broadcast")
+    }
+
+    // ── CELL TOWERS ──
+    if (Array.isArray(data.cell_towers) && data.cell_towers.length > 0 && safeAddSource("mojave-cell", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.cell_towers.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-cell-dot", type: "circle", source: "mojave-cell", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 12, 6],
+          "circle-color": ["match", ["get", "carrier"], "Verizon", "#ef4444", "AT&T", "#3b82f6", "T-Mobile", "#ec4899", "FirstNet", "#22c55e", "#a855f7"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.0, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("mojave-cell-dot", "cell")
+    }
+
+    // ── POWER INFRASTRUCTURE ──
+    if (Array.isArray(data.power) && data.power.length > 0 && safeAddSource("mojave-power", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.power.map((p: any) => ({ type: "Feature", properties: { ...p }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-power-dot", type: "circle", source: "mojave-power", minzoom: 3,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["capacity_mw"], 0, 4, 100, 5, 500, 7, 2000, 10],
+          "circle-color": [ "match", ["get", "kind"], "solar", "#facc15", "wind", "#22d3ee", "coal-retired", "#78350f", "substation", "#fbbf24", "hvdc", "#a855f7", "#fbbf24" ],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("mojave-power-dot", "power")
+    }
+
+    // ── RAILS ──
+    if (Array.isArray(data.rails) && data.rails.length > 0 && safeAddSource("mojave-rails", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.rails.map((r: any) => ({ type: "Feature", properties: { ...r }, geometry: { type: "Point", coordinates: [r.lng, r.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-rails-dot", type: "circle", source: "mojave-rails", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 12, 7],
+          "circle-color": "#a1a1aa", "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("mojave-rails-dot", "rail")
+    }
+
+    // ── CAVES ──
+    if (Array.isArray(data.caves) && data.caves.length > 0 && safeAddSource("mojave-caves", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.caves.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-caves-dot", type: "circle", source: "mojave-caves", minzoom: 5,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 4, 12, 7],
+          "circle-color": "#78350f", "circle-stroke-color": "#f59e0b", "circle-stroke-width": 1.4, "circle-opacity": 0.92,
+        },
+      })
+      bindOnce("mojave-caves-dot", "cave")
+    }
+
+    // ── GOVERNMENT ──
+    if (Array.isArray(data.government) && data.government.length > 0 && safeAddSource("mojave-gov", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.government.map((g: any) => ({ type: "Feature", properties: { ...g }, geometry: { type: "Point", coordinates: [g.lng, g.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-gov-dot", type: "circle", source: "mojave-gov", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 12, 7],
+          "circle-color": [ "match", ["get", "agency"], "NPS", "#84cc16", "BLM", "#f59e0b", "CBP", "#3b82f6", "US Army", "#78350f", "USAF", "#0ea5e9", "USGS", "#14b8a6", "FAA", "#a855f7", "#7dd3fc" ],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("mojave-gov-dot", "government")
+    }
+
+    // ── TOURISM ──
+    if (Array.isArray(data.tourism) && data.tourism.length > 0 && safeAddSource("mojave-tourism", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => ({ type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-tourism-dot", type: "circle", source: "mojave-tourism", minzoom: 5,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 3, 12, 6],
+          "circle-color": "#f9a8d4", "circle-stroke-color": "#831843", "circle-stroke-width": 1.2, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("mojave-tourism-dot", "tourism")
+    }
+
+    // ── SENSORS ──
+    if (Array.isArray(data.sensors) && data.sensors.length > 0 && safeAddSource("mojave-sensors", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => ({ type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [s.lng, s.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "mojave-sensors-dot", type: "circle", source: "mojave-sensors", minzoom: 4,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 12, 7],
+          "circle-color": [ "match", ["get", "kind"], "aqi", "#ef4444", "streamflow", "#0ea5e9", "weather", "#f59e0b", "wildlife", "#84cc16", "snow", "#ffffff", "seismic", "#a855f7", "light", "#fbbf24", "solar", "#eab308", "#06b6d4" ],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("mojave-sensors-dot", "sensor")
+    }
+
+    // ── HEATMAPS (fire-risk + biodiversity + aridity combined) ──
+    if (data.heatmaps && safeAddSource("mojave-heatmap", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [
+          ...(data.heatmaps.fireRisk || []).map((p: any) => ({ type: "Feature", properties: { kind: "fire", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+          ...(data.heatmaps.biodiversity || []).map((p: any) => ({ type: "Feature", properties: { kind: "biodiversity", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+          ...(data.heatmaps.aridity || []).map((p: any) => ({ type: "Feature", properties: { kind: "aridity", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+        ],
+      },
+    })) {
+      safeAddLayer({
+        id: "mojave-heatmap-layer", type: "heatmap", source: "mojave-heatmap", minzoom: 2, maxzoom: 13,
+        paint: {
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 2, 0.7, 8, 1.4],
+          "heatmap-color": [
+            "interpolate", ["linear"], ["heatmap-density"],
+            0,    "rgba(0, 0, 0, 0)",
+            0.15, "rgba(29, 78, 216, 0.35)",     // deep blue (aridity / cold)
+            0.35, "rgba(34, 197, 94, 0.55)",     // green (biodiversity)
+            0.55, "rgba(250, 204, 21, 0.70)",    // yellow
+            0.75, "rgba(249, 115, 22, 0.80)",    // orange (fire-risk medium)
+            0.95, "rgba(239, 68, 68, 0.90)",     // red (high-intensity)
+          ],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 2, 22, 8, 60, 12, 90],
+          "heatmap-opacity": 0.75,
+        },
+      }, beforeLabels)
+    }
+
     loadedRef.current = true
-    console.log("[MojavePreserveLayer] render complete — layers added")
+    console.log("[MojavePreserveLayer] render complete — layers added (incl. v2 expansion)")
 
     // Visibility toggles — apply regardless of whether layers were just
     // added or already present (HMR case).
@@ -400,13 +607,30 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     flip("mojave-climate-dot",         !!enabled.mojaveClimate)
     flip("mojave-climate-label",       !!enabled.mojaveClimate)
     flip("mojave-inat-dot",            !!enabled.mojaveINat)
+    // v2 expansion:
+    flip("mojave-cameras-dot",   !!enabled.mojaveCameras)
+    flip("mojave-broadcast-dot", !!enabled.mojaveBroadcast)
+    flip("mojave-cell-dot",      !!enabled.mojaveCell)
+    flip("mojave-power-dot",     !!enabled.mojavePower)
+    flip("mojave-rails-dot",     !!enabled.mojaveRails)
+    flip("mojave-caves-dot",     !!enabled.mojaveCaves)
+    flip("mojave-gov-dot",       !!enabled.mojaveGovernment)
+    flip("mojave-tourism-dot",   !!enabled.mojaveTourism)
+    flip("mojave-sensors-dot",   !!enabled.mojaveSensors)
+    flip("mojave-heatmap-layer", !!enabled.mojaveHeatmap)
 
     return () => {
-      // Nothing — we want sources to persist across prop changes. Full
-      // teardown happens when the dashboard unmounts, which removes
-      // the map entirely.
+      // Nothing — we want sources to persist across prop changes.
     }
-  }, [map, data, enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness, enabled.mojaveClimate, enabled.mojaveINat])
+  }, [
+    map, data,
+    enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness,
+    enabled.mojaveClimate, enabled.mojaveINat,
+    enabled.mojaveCameras, enabled.mojaveBroadcast, enabled.mojaveCell,
+    enabled.mojavePower, enabled.mojaveRails, enabled.mojaveCaves,
+    enabled.mojaveGovernment, enabled.mojaveTourism, enabled.mojaveSensors,
+    enabled.mojaveHeatmap,
+  ])
 
   return null
 }
