@@ -410,6 +410,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Morgan's Apr 19 new data sources — drone + no-fly + railway + live event animation
 - *(crep)* Apr 19 work log — full session context for handoff
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -547,6 +548,7 @@ All notable changes to this project will be documented in this file.
 - CREP production-ready — parallel data fetch, LOD rendering, max data sources
 - *(search)* Fluid Search M1 unified context, narrative merge, tests
 - *(crep)* Enable shipped data layers + wire global tx/cell overlays (#98)
+- *(crep)* Weekly satellite tile cache to MINDEX + cache-aware proxy
 
 ### Fix
 
@@ -625,6 +627,10 @@ All notable changes to this project will be documented in this file.
 
 - All 223+ agents active 24/7 in AI Studio
 - Hyphae 1 updates, device pages, APIs, and public assets
+
+### Diag
+
+- *(crep)* Add live-mover pipeline counters (console + window global)
 
 ### Diagnostic
 
