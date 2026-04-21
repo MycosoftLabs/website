@@ -122,8 +122,15 @@ export async function isPMTilesAvailable(url: string): Promise<boolean> {
   const cached = pmtilesProbeCache.get(url)
   if (cached && Date.now() - cached.ts < PROBE_TTL_MS) return cached.available
   try {
-    const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(3000) })
-    const ok = res.ok && (res.headers.get("content-type") || "").length > 0
+    // Apr 21, 2026 (Morgan OOM audit): HEAD on the Next.js dev static
+    // handler returns 200 but omits `content-type` for .pmtiles files,
+    // so the old `content-type.length > 0` guard always failed locally
+    // → we'd fall back to the 78 MB raw GeoJSON every single time. Fix:
+    // accept any 200/206 (partial) response. Also use a small Range
+    // GET to verify the file has bytes (protects against the rare case
+    // where the handler 200s an empty stream).
+    const res = await fetch(url, { method: "GET", headers: { Range: "bytes=0-1023" }, signal: AbortSignal.timeout(3000) })
+    const ok = (res.ok || res.status === 206) && (res.headers.get("content-length") !== "0")
     pmtilesProbeCache.set(url, { ts: Date.now(), available: ok })
     return ok
   } catch {

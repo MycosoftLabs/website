@@ -1905,36 +1905,72 @@ export default function CREPDashboardPage() {
       if (cancelled) return;
       console.log("[CREP/pump] live-entity tick at", new Date().toISOString());
 
-      // Each fetch is independent — Promise.allSettled + per-call try/catch
+      // Each fetch is independent — Promise.allSettled + per-call try/catch.
+      // Apr 21, 2026 (Morgan OOM audit): per-endpoint circuit-breaker so a
+      // dead upstream stops spamming console + burning CPU on retries.
+      // After 3 consecutive failures, skip for 5 minutes, then retry.
+      const breakerSkip = (key: string): boolean => {
+        const state = (window as any)[key] as { fails: number; skipUntil: number } | undefined
+        if (!state) return false
+        if (state.fails >= 3 && Date.now() < state.skipUntil) return true
+        return false
+      }
+      const breakerMark = (key: string, success: boolean, label: string) => {
+        const state = (window as any)[key] as { fails: number; skipUntil: number } | undefined
+          ?? { fails: 0, skipUntil: 0 }
+        if (success) { state.fails = 0; state.skipUntil = 0 }
+        else {
+          state.fails++
+          if (state.fails >= 3) {
+            state.skipUntil = Date.now() + 5 * 60_000 // back off 5 min
+            if (state.fails === 3) console.warn(`[CREP/pump] ${label} circuit-broken — backing off 5 min.`)
+          }
+        }
+        ;(window as any)[key] = state
+      }
+
       await Promise.allSettled([
         (async () => {
+          if (breakerSkip("__crep_pump_aircraft_breaker")) return
           try {
             const res = await fetch("/api/oei/flightradar24", { signal: AbortSignal.timeout(25000) });
-            if (!res.ok || cancelled) return;
+            if (!res.ok || cancelled) { breakerMark("__crep_pump_aircraft_breaker", false, "aircraft"); return }
             const data = await res.json();
             if (Array.isArray(data.aircraft) && data.aircraft.length > 0) {
               setAircraft(() => data.aircraft);
               console.log(`[CREP/pump] aircraft: ${data.aircraft.length}`);
               try { syncToMINDEX("aircraft", data.aircraft); } catch {}
             }
-          } catch (e) { console.warn("[CREP/pump] aircraft:", (e as Error)?.message); }
+            breakerMark("__crep_pump_aircraft_breaker", true, "aircraft")
+          } catch (e) {
+            breakerMark("__crep_pump_aircraft_breaker", false, "aircraft")
+            const s = (window as any).__crep_pump_aircraft_breaker?.fails ?? 0
+            if (s === 1 || s >= 3) console.warn(`[CREP/pump] aircraft (${s}/3):`, (e as Error)?.message);
+          }
         })(),
         (async () => {
+          if (breakerSkip("__crep_pump_vessels_breaker")) return
           try {
             const res = await fetch("/api/oei/aisstream", { signal: AbortSignal.timeout(25000) });
-            if (!res.ok || cancelled) return;
+            if (!res.ok || cancelled) { breakerMark("__crep_pump_vessels_breaker", false, "vessels"); return }
             const data = await res.json();
             if (Array.isArray(data.vessels) && data.vessels.length > 0) {
               setVessels(() => data.vessels);
               console.log(`[CREP/pump] vessels: ${data.vessels.length}`);
               try { syncToMINDEX("vessels", data.vessels); } catch {}
             }
-          } catch (e) { console.warn("[CREP/pump] vessels:", (e as Error)?.message); }
+            breakerMark("__crep_pump_vessels_breaker", true, "vessels")
+          } catch (e) {
+            breakerMark("__crep_pump_vessels_breaker", false, "vessels")
+            const s = (window as any).__crep_pump_vessels_breaker?.fails ?? 0
+            if (s === 1 || s >= 3) console.warn(`[CREP/pump] vessels (${s}/3):`, (e as Error)?.message);
+          }
         })(),
         (async () => {
+          if (breakerSkip("__crep_pump_satellites_breaker")) return
           try {
             const res = await fetch("/api/oei/satellites?category=active&mode=registry", { signal: AbortSignal.timeout(25000) });
-            if (!res.ok || cancelled) return;
+            if (!res.ok || cancelled) { breakerMark("__crep_pump_satellites_breaker", false, "satellites"); return }
             initialSatelliteLoadDoneRef.current = true;
             const data = await res.json();
             if (Array.isArray(data.satellites) && data.satellites.length > 0) {
@@ -1942,7 +1978,12 @@ export default function CREPDashboardPage() {
               console.log(`[CREP/pump] satellites: ${data.satellites.length}`);
               try { syncToMINDEX("satellites", data.satellites as unknown as Record<string, unknown>[]); } catch {}
             }
-          } catch (e) { console.warn("[CREP/pump] satellites:", (e as Error)?.message); }
+            breakerMark("__crep_pump_satellites_breaker", true, "satellites")
+          } catch (e) {
+            breakerMark("__crep_pump_satellites_breaker", false, "satellites")
+            const s = (window as any).__crep_pump_satellites_breaker?.fails ?? 0
+            if (s === 1 || s >= 3) console.warn(`[CREP/pump] satellites (${s}/3):`, (e as Error)?.message);
+          }
         })(),
       ]);
     };
@@ -2568,9 +2609,16 @@ export default function CREPDashboardPage() {
         }
 
         // Fetch MycoBrain devices - use /api/mycobrain (merges local + MAS registry, fallback when service down)
-        try {
+        // Apr 21, 2026 (Morgan OOM audit): circuit-break after 3 consecutive
+        // failures. Was retrying every fetch cycle forever → spam.
+        const mbKey = "__crep_mycobrain_fails";
+        const failCount = (window as any)[mbKey] ?? 0;
+        if (failCount >= 3) {
+          // Skip silently — endpoint is dead, don't burn retries
+        } else try {
           const devicesRes = await fetch("/api/mycobrain", { signal: AbortSignal.timeout(8000) });
           if (devicesRes.ok) {
+            (window as any)[mbKey] = 0; // reset on success
             const data = await devicesRes.json();
             const rawDevices = data.devices || [];
             // MycoBrain devices - default to San Diego 91910 when no GPS
@@ -2608,9 +2656,15 @@ export default function CREPDashboardPage() {
             });
             console.log(`[CREP] Loaded ${formattedDevices.length} MycoBrain devices (source: ${data.source || "mycobrain"})`);
             setDevices(formattedDevices);
+          } else {
+            (window as any)[mbKey] = failCount + 1;
           }
         } catch (e) {
-          console.warn("[CREP] Failed to fetch MycoBrain devices:", e);
+          (window as any)[mbKey] = failCount + 1;
+          if (failCount === 0 || failCount + 1 >= 3) {
+            console.warn(`[CREP] MycoBrain fetch failed (${failCount + 1}/3):`, (e as Error)?.message);
+            if (failCount + 1 >= 3) console.warn(`[CREP] MycoBrain circuit-broken — giving up.`);
+          }
         }
 
         // ═══════════════════════════════════════════════════════════════
