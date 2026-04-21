@@ -411,6 +411,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Apr 19 work log — full session context for handoff
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -549,6 +550,10 @@ All notable changes to this project will be documented in this file.
 - *(search)* Fluid Search M1 unified context, narrative merge, tests
 - *(crep)* Enable shipped data layers + wire global tx/cell overlays (#98)
 - *(crep)* Weekly satellite tile cache to MINDEX + cache-aware proxy
+- *(crep)* Flight history — trail on map + altitude/speed profiles in widget
+- *(crep)* State DOT CCTV connector (~8k cams) + STATIC_SEED +45 entries
+- *(crep)* Right-click waypoints + WS circuit breaker (stop crash)
+- *(crep)* Glass-morphism DeviceWidget — high-tech device dialog
 
 ### Fix
 
