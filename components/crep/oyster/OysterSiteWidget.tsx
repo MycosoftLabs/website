@@ -91,14 +91,29 @@ export default function OysterSiteWidget() {
   }, [])
 
   // Live NDBC fetch when a buoy sensor is clicked.
+  // Apr 21, 2026: extended id matching so ALL NDBC buoys (46225, 46231,
+  // 46232, future stations) auto-fetch live observations. Previously
+  // only 46232 matched; now any sens-ndbc-*, sens-buoy-*, raw numeric
+  // station id, or `kind: "buoy"` triggers the fetch.
   useEffect(() => {
     if (!site) { setBuoyObs(null); return }
-    const isBuoy = site.kind === "buoy" || (typeof site.id === "string" && /^sens-ndbc-/.test(site.id))
+    const idStr = typeof site.id === "string" ? site.id : ""
+    const isBuoy =
+      site.kind === "buoy" ||
+      /^sens-ndbc-/.test(idStr) ||
+      /^sens-buoy-/.test(idStr) ||
+      /ndbc[-_]?\d/i.test(idStr) ||
+      /buoy.*(\d{4,5})/i.test(String(site.name || ""))
     if (!isBuoy) { setBuoyObs(null); return }
-    // Extract station id from sens-ndbc-46232 or raw 46232
-    const stationId = typeof site.id === "string"
-      ? (site.id.match(/ndbc-?(\w+)/i)?.[1] || site.id.replace(/^sens-|\D+/g, ""))
-      : null
+    // Extract station id from any variant:
+    //   sens-ndbc-46232, ndbc_46232, buoy-46232, raw "46232"
+    //   fallback: pull the first 4-5 digit chunk from name
+    const stationId = (() => {
+      const fromId = idStr.match(/(?:ndbc[-_]?|buoy[-_]?|sens[-_]ndbc[-_]?)?(\d{4,5})/i)?.[1]
+      if (fromId) return fromId
+      const fromName = String(site.name || "").match(/\b(\d{4,5})\b/)?.[1]
+      return fromName || null
+    })()
     if (!stationId) return
     let cancelled = false
     const fetchBuoy = async () => {

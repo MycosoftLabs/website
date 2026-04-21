@@ -114,7 +114,7 @@ function getBrowser(): Promise<Browser> {
   return browserPromise
 }
 
-async function snapshotUrl(viewerUrl: string, selector: string | null, waitMs: number): Promise<Buffer | null> {
+async function snapshotUrl(viewerUrl: string, selector: string | null, waitMs: number, mode: "element" | "fullpage"): Promise<Buffer | null> {
   let page: Page | null = null
   try {
     const browser = await getBrowser()
@@ -127,18 +127,28 @@ async function snapshotUrl(viewerUrl: string, selector: string | null, waitMs: n
     await page.goto(viewerUrl, { waitUntil: "domcontentloaded", timeout: 12_000 })
     // If a video selector was provided, wait for it to mount + start.
     // Otherwise generic wait_ms for any JS player to settle.
-    if (selector) {
+    if (selector && mode === "element") {
       try { await page.waitForSelector(selector, { timeout: 8_000 }) } catch { /* fall through; we'll still screenshot */ }
     }
     if (waitMs > 0) await page.waitForTimeout(waitMs)
     let buf: Buffer
     try {
-      const handle = selector ? await page.$(selector) : null
-      if (handle) {
-        buf = await handle.screenshot({ type: "jpeg", quality: 80 })
+      if (mode === "fullpage") {
+        // Apr 21, 2026 (Morgan: "all data will be within its widgets
+        // live including video streams"). Fullpage mode screenshots
+        // the entire viewer page — used as last-resort fallback in the
+        // SnapshotProxyVideo selector chain so we ALWAYS return an
+        // image rather than bouncing the user to the provider site.
+        buf = await page.screenshot({ type: "jpeg", quality: 75, fullPage: false })
       } else {
-        // Crop to where most cam viewers put the video (top-center, 16:9)
-        buf = await page.screenshot({ type: "jpeg", quality: 80, fullPage: false })
+        const handle = selector ? await page.$(selector) : null
+        if (handle) {
+          buf = await handle.screenshot({ type: "jpeg", quality: 80 })
+        } else {
+          // Selector didn't match any element — return null so the
+          // client-side selector chain advances to the next candidate.
+          return null
+        }
       }
     } finally {
       await ctx.close().catch(() => undefined)
@@ -156,6 +166,7 @@ export async function GET(req: NextRequest) {
   const qUrl = req.nextUrl.searchParams.get("url") || ""
   const selector = req.nextUrl.searchParams.get("selector") || null
   const waitMs = Math.min(8_000, Math.max(0, Number(req.nextUrl.searchParams.get("wait_ms") || 2000)))
+  const mode = (req.nextUrl.searchParams.get("mode") === "fullpage") ? "fullpage" : "element"
 
   let target: URL
   try { target = new URL(qUrl) } catch {
@@ -168,7 +179,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `host not allowlisted: ${target.hostname}` }, { status: 403 })
   }
 
-  const cacheKey = `${target.toString()}|${selector || ""}|${waitMs}`
+  const cacheKey = `${target.toString()}|${selector || ""}|${waitMs}|${mode}`
   const now = Date.now()
   const hit = cache.get(cacheKey)
   if (hit && now - hit.t < CACHE_TTL_MS) {
@@ -182,7 +193,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const buf = await snapshotUrl(target.toString(), selector, waitMs)
+  const buf = await snapshotUrl(target.toString(), selector, waitMs, mode as "element" | "fullpage")
   if (!buf) {
     return NextResponse.json({ error: "snapshot render failed" }, { status: 502 })
   }

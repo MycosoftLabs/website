@@ -165,38 +165,36 @@ function looksLikeVideoEmbed(url: string): boolean {
 // Provider categories where there's NO video element on the upstream
 // page at all (purely informational pages — CBP wait times, etc.).
 // These skip the snapshot attempt entirely and go straight to the
-// info card. Apr 20, 2026 v2: removed alertwildfire / surfline / hpwren
-// from this set — they DO have video elements on their viewer pages,
-// so the SnapshotProxyVideo headless renderer works for them.
-const INFO_ONLY_PROVIDERS = new Set([
-  "cbp",
-  "static-poe",
-])
+// Apr 21, 2026 (Morgan: "we will not have any open provider links no one
+// will be directed to leave crep all data will be within its widgets
+// live including video streams"). INFO_ONLY_PROVIDERS is now EMPTY —
+// every provider goes through the snapshot-chain fallback which tries
+// multiple selectors + a full-page screenshot before giving up. If every
+// attempt fails, we render a "stream unavailable" status tile (no
+// external link) and a map pin back to the marker.
+const INFO_ONLY_PROVIDERS = new Set<string>([])
 
-function ProviderInfoCard({ url, provider, name, kind }: { url: string; provider?: string; name?: string; kind?: string }) {
-  const config: Record<string, { emoji: string; label: string; cta: string; explanation: string }> = {
-    alertwildfire:  { emoji: "🔥", label: "ALERTCalifornia / ALERTWildfire", cta: "Open on ALERTCalifornia ↗", explanation: "Live wildfire stream — provider blocks embed. Open the official viewer to watch." },
-    surfline:       { emoji: "🌊", label: "Surfline cam",                   cta: "Open on Surfline ↗",          explanation: "Surfline cams require a session on surfline.com." },
-    cbp:            { emoji: "🛂", label: "CBP Border Wait Times",          cta: "Open CBP Wait Times ↗",       explanation: "US Customs and Border Protection live wait times. Live cameras at this POE are not publicly streamed." },
-    "static-poe":   { emoji: "🛂", label: "US-Mexico land port of entry",   cta: "Open CBP Wait Times ↗",       explanation: "Land border crossing — live wait time data only. Cameras at the crossing are not publicly streamed." },
-  }
-  const c = config[provider || ""] || { emoji: "📷", label: provider || "Source", cta: "Open provider ↗", explanation: "This source doesn't expose a live video stream — open the provider site to view." }
+// Apr 21, 2026: NEVER show an external-link card. If no video can be
+// resolved, render a compact "no stream" status tile inside CREP itself.
+// The user stays in CREP; no data ever lives outside the widget.
+function NoStreamStatusTile({ provider, name, kind }: { provider?: string; name?: string; kind?: string }) {
   return (
-    <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-3 p-4 text-center">
-      <div className="text-4xl">{c.emoji}</div>
-      <div className="text-xs text-white font-semibold">{c.label}</div>
-      <div className="text-[10px] text-gray-400 max-w-xs">{c.explanation}</div>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-cyan-700 hover:bg-cyan-500 text-white text-[11px] px-3 py-1.5 rounded font-semibold border border-cyan-400/40 transition-colors"
-      >
-        {c.cta}
-      </a>
+    <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-2 p-4 text-center">
+      <div className="text-3xl opacity-60">📷</div>
+      <div className="text-xs text-white/85 font-semibold uppercase tracking-wider">No live stream resolved</div>
+      <div className="text-[10px] text-cyan-300/70 max-w-xs">
+        All snapshot variants returned empty. Marker stays on map for location reference.
+      </div>
       {name ? <div className="text-[9px] text-cyan-400 font-mono mt-1">{name}</div> : null}
+      {provider ? <div className="text-[8px] text-white/40 font-mono">provider: {provider} · kind: {kind || "camera"}</div> : null}
     </div>
   )
+}
+
+// Back-compat shim so old call sites keep working without the external
+// link. Always returns the NoStreamStatusTile.
+function ProviderInfoCard({ provider, name, kind }: { url?: string; provider?: string; name?: string; kind?: string }) {
+  return <NoStreamStatusTile provider={provider} name={name} kind={kind} />
 }
 
 function IframeEmbed({ url, provider, name }: { url: string; provider?: string; name?: string }) {
@@ -245,10 +243,25 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
 // element on page, render error), gracefully falls back to the
 // ProviderInfoCard with external link.
 function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: string; name?: string }) {
-  // Apr 20, 2026 perf-3: skip refresh when document.hidden — no point
-  // re-hitting the headless renderer when no-one's watching.
+  // Apr 21, 2026 (Morgan: "any widget that falls back to This source
+  // doesn't expose a live video stream ... needs to be automatically
+  // checked for linked video stream and that video stream needs to be
+  // fit perfectly into widget").
+  //
+  // Selector-chain fallback — we try multiple CSS selectors in order,
+  // advancing to the next one when the current one returns 502 (no
+  // element found). Final fallback is `mode=fullpage` which screenshots
+  // the whole viewer page. Only after ALL attempts fail do we show the
+  // no-stream status tile.
+  const selectorChain = provider === "hpwren" ? ["img[src*='camera']", "img", "video", "canvas"]
+                      : provider === "windy" ? ["video", ".player-video", "canvas.leaflet-zoom-animated", "body"]
+                      : provider === "alertwildfire" ? ["video", "img", "canvas"]
+                      : provider === "surfline" ? ["video", "img[src*='surfline']"]
+                      : ["video", "img", "canvas"]
   const [t, setT] = useState(Date.now())
-  const [failed, setFailed] = useState(false)
+  const [selectorIdx, setSelectorIdx] = useState(0)
+  const [allFailed, setAllFailed] = useState(false)
+
   useEffect(() => {
     const id = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return
@@ -256,19 +269,25 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
     }, 8_000)
     return () => clearInterval(id)
   }, [])
-  useEffect(() => { setFailed(false) }, [url])
+  useEffect(() => { setSelectorIdx(0); setAllFailed(false) }, [url])
 
-  // Pick a CSS selector for the video element based on provider so the
-  // headless renderer focuses on the player not the chrome
-  const selector = provider === "alertwildfire" ? "video"
-                : provider === "surfline" ? "video"
-                : provider === "hpwren" ? "img"
-                : provider === "windy" ? "video, .player-video"
-                : "video"
-  const snapshotApi = `/api/eagle/cam-snapshot?url=${encodeURIComponent(url)}&selector=${encodeURIComponent(selector)}&_t=${t}`
+  const currentSelector = selectorChain[selectorIdx] || "body"
+  const isFullpage = selectorIdx >= selectorChain.length - 1 && currentSelector === "body"
+  const snapshotApi = `/api/eagle/cam-snapshot?url=${encodeURIComponent(url)}&selector=${encodeURIComponent(currentSelector)}${isFullpage ? "&mode=fullpage" : ""}&_t=${t}`
 
-  if (failed) {
-    return <ProviderInfoCard url={url} provider={provider} name={name} />
+  const onImgError = () => {
+    // Advance to next selector; if exhausted, show no-stream tile
+    if (selectorIdx < selectorChain.length - 1) {
+      console.warn(`[VideoWall] selector "${currentSelector}" failed → trying "${selectorChain[selectorIdx + 1]}"`)
+      setSelectorIdx(selectorIdx + 1)
+    } else {
+      console.warn(`[VideoWall] all ${selectorChain.length} selectors failed for ${provider}/${url}`)
+      setAllFailed(true)
+    }
+  }
+
+  if (allFailed) {
+    return <NoStreamStatusTile provider={provider} name={name} />
   }
   return (
     <div className="relative w-full h-full bg-black group">
@@ -277,20 +296,16 @@ function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: s
         src={snapshotApi}
         alt=""
         className="w-full h-full object-contain bg-black"
-        onError={() => setFailed(true)}
+        onError={onImgError}
       />
       <div className="absolute top-2 left-2 bg-black/70 text-cyan-300 text-[9px] px-1.5 py-0.5 rounded font-mono border border-cyan-500/30">
-        ◉ LIVE · headless render · refresh 8s
+        ◉ LIVE · headless render · sel={currentSelector} · refresh 8s
       </div>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-2 right-2 bg-black/60 hover:bg-cyan-700/80 text-cyan-200 hover:text-white text-[10px] px-2 py-1 rounded pointer-events-auto border border-cyan-500/40 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Open provider site"
-      >
-        Provider site ↗
-      </a>
+      {name ? (
+        <div className="absolute bottom-2 left-2 bg-black/60 text-cyan-200 text-[9px] px-2 py-1 rounded font-mono border border-cyan-500/30">
+          {name}
+        </div>
+      ) : null}
     </div>
   )
 }

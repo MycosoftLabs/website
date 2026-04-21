@@ -441,6 +441,19 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       try { return map.getStyle().layers.find((l: any) => l.type === "symbol")?.id } catch { return undefined }
     })()
 
+    // Apr 21, 2026 (Morgan: "no icons can overlap exactly that causes
+    // selection issues"). Deterministic sub-pixel jitter per id so two
+    // entities at exactly the same coord offset into tiny distinct
+    // MapLibre hit-test cells. ~1.5 m max offset — invisible visually
+    // at any zoom CREP renders at, but splits clicks apart.
+    const jitter = (id: string, lng: number, lat: number): [number, number] => {
+      let h = 0
+      for (let i = 0; i < (id || "").length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+      const dx = ((h & 0xff) / 255 - 0.5) * 0.00003  // ±~1.5 m in lng
+      const dy = (((h >> 8) & 0xff) / 255 - 0.5) * 0.00003
+      return [lng + dx, lat + dy]
+    }
+
     // ── OYSTER ANCHOR MARKER (MYCOSOFT/MYCODAO project site icon) ──
     if (data?.oyster && safeAddSource("oyster-anchor", {
       type: "geojson",
@@ -532,9 +545,16 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     }
 
     // ── CAMERAS ──
-    if (Array.isArray(data?.cameras) && data.cameras.length > 0 && safeAddSource("oyster-cameras", {
+    // Apr 21, 2026 (Morgan: "remove anything from map that doesnt have
+    // camera"). Filter to ONLY cameras with verified live stream —
+    // has_stream === true OR stream_url matching a known video pattern.
+    const liveCams = (Array.isArray(data?.cameras) ? data.cameras : []).filter((c: any) =>
+      c.has_stream === true ||
+      (typeof c.stream_url === "string" && /\.m3u8|surfline|earthcam|windy|skylinewebcams|cwwp2\.dot|hpwren|alertwildfire|nps\.gov|usgs/i.test(c.stream_url))
+    )
+    if (liveCams.length > 0 && safeAddSource("oyster-cameras", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.cameras.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+      data: { type: "FeatureCollection", features: liveCams.map((c: any) => { const [jx, jy] = jitter(c.id, c.lng, c.lat); return { type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-cameras-dot", type: "circle", source: "oyster-cameras", minzoom: 8,
@@ -657,9 +677,12 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     }
 
     // ── SENSORS (includes UCSD PFM + Scripps cross-border) ──
+    // Jittered to avoid click-occlusion against co-located dots (e.g.
+    // IB pier has surfline cam + EPA AQS + NDBC buoy + SDAPCD — each
+    // lands in its own hit-test cell now).
     if (Array.isArray(data?.sensors) && data.sensors.length > 0 && safeAddSource("oyster-sensors", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => ({ type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [s.lng, s.lat] } })) },
+      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => { const [jx, jy] = jitter(s.id, s.lng, s.lat); return { type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-sensors-dot", type: "circle", source: "oyster-sensors", minzoom: 7,
