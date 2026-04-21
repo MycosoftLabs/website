@@ -8324,23 +8324,26 @@ export default function CREPDashboardPage() {
               POWER PLANT DETAIL POPUP (Apr 2026)
               ═══════════════════════════════════════════════════════════════ */}
           {selectedPlant && (
+            // Click-away scrim (see infra widget above for rationale).
             <div
-              className="absolute z-[100] pointer-events-auto"
-              style={{
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
+              className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto"
+              onClick={() => setSelectedPlant(null)}
+              onKeyDown={(e) => { if (e.key === "Escape") setSelectedPlant(null) }}
+              role="dialog"
+              tabIndex={-1}
             >
-              <PlantPopup
-                plant={selectedPlant}
-                onClose={() => setSelectedPlant(null)}
-                onFlyTo={(lat, lng, zoom) => {
-                  mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
-                }}
-              />
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <PlantPopup
+                  plant={selectedPlant}
+                  onClose={() => setSelectedPlant(null)}
+                  onFlyTo={(lat, lng, zoom) => {
+                    mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 12, duration: 800 });
+                  }}
+                />
+              </div>
             </div>
           )}
 
@@ -8350,23 +8353,31 @@ export default function CREPDashboardPage() {
               plants, cell towers, datacenters, military, airports
               ═══════════════════════════════════════════════════════════════ */}
           {selectedInfraAsset && (
+            // Apr 20, 2026 (Morgan: "all widgets need click away just like
+            // buoy does, infra widgets power, cable, cell tower, ect dont
+            // click away"). Wrap with a fixed full-screen click-away
+            // scrim like the buoy popup uses. Scrim click or Escape key
+            // dismisses; clicks inside the widget still work via
+            // stopPropagation on the inner container.
             <div
-              className="absolute z-[100] pointer-events-auto"
-              style={{
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
+              className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto"
+              onClick={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
+              onKeyDown={(e) => { if (e.key === "Escape") { setSelectedInfraAsset(null); clearHighlight(mapRef); } }}
+              role="dialog"
+              tabIndex={-1}
             >
-              <InfraDetailWidget
-                asset={selectedInfraAsset}
-                onClose={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
-                onFlyTo={(lat, lng, zoom) => {
-                  mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 10, duration: 800 });
-                }}
-              />
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <InfraDetailWidget
+                  asset={selectedInfraAsset}
+                  onClose={() => { setSelectedInfraAsset(null); clearHighlight(mapRef); }}
+                  onFlyTo={(lat, lng, zoom) => {
+                    mapRef?.flyTo({ center: [lng, lat], zoom: zoom ?? 10, duration: 800 });
+                  }}
+                />
+              </div>
             </div>
           )}
 
