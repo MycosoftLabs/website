@@ -186,16 +186,19 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       try { return map.getStyle().layers.find((l: any) => l.type === "symbol")?.id } catch { return undefined }
     })()
 
-    // Apr 21, 2026 (Morgan: "no icons can overlap exactly that causes
-    // selection issues"). Deterministic id-hash → sub-pixel jitter.
-    // Goffs sensors + wilderness + climate + iNat co-located at same
-    // landmark (e.g. Mitchell Caverns = NPS landmark + RAWS weather +
-    // cave POI + tourism) each land in distinct hit-test cells.
+    // Apr 22, 2026 (Morgan: "icons overlaying eachother all over the map
+    // in goffs ... makes selection impossible and corrupted"). Previous
+    // 1.5 m jitter was invisible at z10-12 (sub-pixel). Bumped to ~65 m
+    // visual spread so e.g. Mitchell Caverns' 4 co-located dots (NPS HQ
+    // + RAWS weather + cave + tourism) visibly fan out. Applied to ALL
+    // Goffs categories below, not just sensors+cameras+tourism.
     const jitter = (id: string, lng: number, lat: number): [number, number] => {
       let h = 0
       for (let i = 0; i < (id || "").length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-      const dx = ((h & 0xff) / 255 - 0.5) * 0.00003
-      const dy = (((h >> 8) & 0xff) / 255 - 0.5) * 0.00003
+      const ux = ((h & 0xff) / 255 - 0.5)
+      const uy = (((h >> 8) & 0xff) / 255 - 0.5)
+      const dx = ux * 0.0006
+      const dy = uy * 0.0006
       return [lng + dx, lat + dy]
     }
 
@@ -299,11 +302,10 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       type: "geojson",
       data: {
         type: "FeatureCollection",
-        features: data.wilderness_pois.map((p: any) => ({
-          type: "Feature",
-          properties: { ...p },
-          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
-        })),
+        features: data.wilderness_pois.map((p: any) => {
+          const [jx, jy] = jitter(p.id, p.lng, p.lat)
+          return { type: "Feature", properties: { ...p }, geometry: { type: "Point", coordinates: [jx, jy] } }
+        }),
       },
     })) {
       safeAddLayer({
@@ -346,11 +348,10 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       type: "geojson",
       data: {
         type: "FeatureCollection",
-        features: data.climate_stations.map((s: any) => ({
-          type: "Feature",
-          properties: { ...s, observation_ts: s.observation?.ts || null, temp_c: s.observation?.temp_c ?? null },
-          geometry: { type: "Point", coordinates: [s.lng, s.lat] },
-        })),
+        features: data.climate_stations.map((s: any) => {
+          const [jx, jy] = jitter(s.id, s.lng, s.lat)
+          return { type: "Feature", properties: { ...s, observation_ts: s.observation?.ts || null, temp_c: s.observation?.temp_c ?? null }, geometry: { type: "Point", coordinates: [jx, jy] } }
+        }),
       },
     })) {
       safeAddLayer({
@@ -399,11 +400,10 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       type: "geojson",
       data: {
         type: "FeatureCollection",
-        features: data.inat_observations.map((o: any) => ({
-          type: "Feature",
-          properties: { ...o },
-          geometry: { type: "Point", coordinates: [o.lng, o.lat] },
-        })),
+        features: data.inat_observations.map((o: any) => {
+          const [jx, jy] = jitter(String(o.id || `${o.lat}-${o.lng}`), o.lng, o.lat)
+          return { type: "Feature", properties: { ...o }, geometry: { type: "Point", coordinates: [jx, jy] } }
+        }),
       },
     })) {
       safeAddLayer({

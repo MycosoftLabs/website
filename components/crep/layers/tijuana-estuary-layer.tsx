@@ -459,16 +459,24 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       try { return map.getStyle().layers.find((l: any) => l.type === "symbol")?.id } catch { return undefined }
     })()
 
-    // Apr 21, 2026 (Morgan: "no icons can overlap exactly that causes
-    // selection issues"). Deterministic sub-pixel jitter per id so two
-    // entities at exactly the same coord offset into tiny distinct
-    // MapLibre hit-test cells. ~1.5 m max offset — invisible visually
-    // at any zoom CREP renders at, but splits clicks apart.
+    // Apr 22, 2026 (Morgan: "icons overlaying eachother all over the map
+    // in goffs in san diego project oyster ... makes selection impossible
+    // and corrupted"). Previous 1.5 m jitter was invisible — at z12 a
+    // pixel ≈ 9.5 m, so sub-pixel offset collapsed to zero. Bumped to a
+    // VISUAL 40-80 m spread so co-located entities (IB Pier has ~6
+    // sensors at identical coords) visibly fan out into distinct dots.
+    // Deterministic per-id hash keeps layout stable across renders.
     const jitter = (id: string, lng: number, lat: number): [number, number] => {
       let h = 0
       for (let i = 0; i < (id || "").length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
-      const dx = ((h & 0xff) / 255 - 0.5) * 0.00003  // ±~1.5 m in lng
-      const dy = (((h >> 8) & 0xff) / 255 - 0.5) * 0.00003
+      // Use different bit windows for x and y to avoid diagonal clumping
+      const ux = ((h & 0xff) / 255 - 0.5)                    // -0.5 .. +0.5
+      const uy = (((h >> 8) & 0xff) / 255 - 0.5)
+      // ~0.0006° ≈ 65 m in lng, 65 m in lat — clearly pixel-separate
+      // at zoom 12 (~60 px apart), still tight enough to read as
+      // "clustered at this location" at zoom 15.
+      const dx = ux * 0.0006
+      const dy = uy * 0.0006
       return [lng + dx, lat + dy]
     }
 
@@ -588,7 +596,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── BROADCAST ──
     if (Array.isArray(data?.broadcast) && data.broadcast.length > 0 && safeAddSource("oyster-broadcast", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.broadcast.map((b: any) => ({ type: "Feature", properties: { ...b }, geometry: { type: "Point", coordinates: [b.lng, b.lat] } })) },
+      data: { type: "FeatureCollection", features: data.broadcast.map((b: any) => { const [jx, jy] = jitter(b.id, b.lng, b.lat); return { type: "Feature", properties: { ...b }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-broadcast-dot", type: "circle", source: "oyster-broadcast", minzoom: 7,
@@ -604,7 +612,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── CELL TOWERS ──
     if (Array.isArray(data?.cell_towers) && data.cell_towers.length > 0 && safeAddSource("oyster-cell", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.cell_towers.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+      data: { type: "FeatureCollection", features: data.cell_towers.map((c: any) => { const [jx, jy] = jitter(c.id, c.lng, c.lat); return { type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-cell-dot", type: "circle", source: "oyster-cell", minzoom: 8,
@@ -620,7 +628,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── POWER INFRASTRUCTURE ──
     if (Array.isArray(data?.power) && data.power.length > 0 && safeAddSource("oyster-power", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.power.map((p: any) => ({ type: "Feature", properties: { ...p }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })) },
+      data: { type: "FeatureCollection", features: data.power.map((p: any) => { const [jx, jy] = jitter(p.id, p.lng, p.lat); return { type: "Feature", properties: { ...p }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-power-dot", type: "circle", source: "oyster-power", minzoom: 7,
@@ -636,7 +644,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── RAILS ──
     if (Array.isArray(data?.rails) && data.rails.length > 0 && safeAddSource("oyster-rails", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.rails.map((r: any) => ({ type: "Feature", properties: { ...r }, geometry: { type: "Point", coordinates: [r.lng, r.lat] } })) },
+      data: { type: "FeatureCollection", features: data.rails.map((r: any) => { const [jx, jy] = jitter(r.id, r.lng, r.lat); return { type: "Feature", properties: { ...r }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-rails-dot", type: "circle", source: "oyster-rails", minzoom: 8,
@@ -651,7 +659,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── CAVES (sea caves / grottos) ──
     if (Array.isArray(data?.caves) && data.caves.length > 0 && safeAddSource("oyster-caves", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.caves.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+      data: { type: "FeatureCollection", features: data.caves.map((c: any) => { const [jx, jy] = jitter(c.id, c.lng, c.lat); return { type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-caves-dot", type: "circle", source: "oyster-caves", minzoom: 8,
@@ -666,7 +674,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── GOVERNMENT ──
     if (Array.isArray(data?.government) && data.government.length > 0 && safeAddSource("oyster-gov", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.government.map((g: any) => ({ type: "Feature", properties: { ...g }, geometry: { type: "Point", coordinates: [g.lng, g.lat] } })) },
+      data: { type: "FeatureCollection", features: data.government.map((g: any) => { const [jx, jy] = jitter(g.id, g.lng, g.lat); return { type: "Feature", properties: { ...g }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-gov-dot", type: "circle", source: "oyster-gov", minzoom: 7,
@@ -682,7 +690,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── TOURISM ──
     if (Array.isArray(data?.tourism) && data.tourism.length > 0 && safeAddSource("oyster-tourism", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => ({ type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } })) },
+      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => { const [jx, jy] = jitter(t.id, t.lng, t.lat); return { type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-tourism-dot", type: "circle", source: "oyster-tourism", minzoom: 8,
@@ -728,7 +736,7 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
     // ── iNaturalist observations ──
     if (Array.isArray(data?.inat_observations) && data.inat_observations.length > 0 && safeAddSource("oyster-inat", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.inat_observations.map((o: any) => ({ type: "Feature", properties: { ...o }, geometry: { type: "Point", coordinates: [o.lng, o.lat] } })) },
+      data: { type: "FeatureCollection", features: data.inat_observations.map((o: any) => { const [jx, jy] = jitter(String(o.id || `${o.lat}-${o.lng}`), o.lng, o.lat); return { type: "Feature", properties: { ...o }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "oyster-inat-dot", type: "circle", source: "oyster-inat", minzoom: 9,
