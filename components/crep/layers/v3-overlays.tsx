@@ -499,6 +499,10 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     for (const [kind, on] of kinds) {
       if (!on) continue
       const fetchPaint = async () => {
+        // Apr 20, 2026 perf: skip the fetch when the tab is backgrounded.
+        // Events tick every 60 s; no point hitting USGS/FIRMS/HPWREN while
+        // the user is on another tab. Next interval runs when they return.
+        if (typeof document !== "undefined" && document.hidden) return
         const items = await fetchEventsByType(kind)
         const fc = pointsToFC(items.map((x: any) => ({
           id: x.id || x.code,
@@ -559,6 +563,11 @@ export default function V3Overlays({ map, enabled, bbox }: Props) {
     const militaryShipOperators = /navy|coast guard|military|uscg|usn|royal navy|marine nationale/i
     const droneCallsigns = /^(FORTE|RANGER|PREDATOR|REAPER|GLOBAL HAWK|GRAY EAGLE|HERON|MALE|HUNTER)/i
     const tick = () => {
+      // Apr 20, 2026 perf: only derive military snapshots while tab is
+      // visible. Reading window.__crep_aircraft / __crep_vessels is cheap
+      // but building 2 FCs + setData across 2 MapLibre sources on every
+      // 30 s tick is wasted work when nobody's watching.
+      if (typeof document !== "undefined" && document.hidden) return
       const acs = (window as any).__crep_aircraft as any[] | undefined
       const vs = (window as any).__crep_vessels as any[] | undefined
       if (enabled.militaryAir && Array.isArray(acs)) {

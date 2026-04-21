@@ -27,6 +27,11 @@
 
 import { useEffect, useRef } from "react"
 import type { Map as MapLibreMap } from "maplibre-gl"
+import {
+  INFRA_LAYERS,
+  addInfraSourceWithFallback,
+  layerSpecForMode,
+} from "@/lib/crep/static-infra-loader"
 
 interface Props {
   map: MapLibreMap | null
@@ -252,6 +257,12 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
   }, [map, enabled.radioStations, bbox])
 
   // ─── 4. Global Power Plants ───────────────────────────────────────────
+  // Apr 20, 2026 perf (Morgan: "make all map load faster every single asset"):
+  // The raw power-plants-global.geojson is 16 MB / 34,936 features — a single
+  // full fetch parses into ~25 MB resident heap even at zoom 0 where none of
+  // the dots are visible. Switch to the pre-tiled PMTiles archive (~1-2 MB,
+  // range-requested per viewport) with GeoJSON fallback for dev boxes that
+  // haven't run gen-pmtiles.sh yet.
   useEffect(() => {
     if (!map || !enabled.powerPlantsG) return
     if (loadedRef.current.plants) return
@@ -259,35 +270,44 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
 
     idleLoad(async () => {
       try {
-        const res = await fetch("/data/crep/power-plants-global.geojson", { cache: "force-cache" })
-        if (!res.ok) return
-        const fc = await res.json()
-        if (!map.getSource("crep-plants-global")) {
-          map.addSource("crep-plants-global", { type: "geojson", data: fc })
-          map.addLayer({
-            id: "crep-plants-global-dot", type: "circle", source: "crep-plants-global",
-            minzoom: 3,
-            paint: {
-              "circle-radius": ["interpolate", ["linear"], ["get", "capacity_mw"],
-                0, 2, 100, 3, 500, 4.5, 2000, 7, 5000, 10],
-              "circle-color": [
-                "match", ["get", "fuel"],
-                "Coal", "#78350f",
-                "Gas", "#f97316",
-                "Oil", "#451a03",
-                "Nuclear", "#16a34a",
-                "Hydro", "#0ea5e9",
-                "Solar", "#facc15",
-                "Wind", "#22d3ee",
-                "Biomass", "#65a30d",
-                "Geothermal", "#f43f5e",
-                "#fbbf24",
-              ],
-              "circle-opacity": 0.85, "circle-stroke-width": 0.5, "circle-stroke-color": "#fff",
-            },
-          })
+        const cfg = INFRA_LAYERS.powerPlantsGlobal
+        const { mode } = await addInfraSourceWithFallback(map, cfg)
+        if (mode === "skipped") return
+
+        // Avoid double-adding if HMR re-runs this effect
+        if (map.getLayer("crep-plants-global-dot")) return
+
+        const paint = {
+          "circle-radius": ["interpolate", ["linear"], ["get", "capacity_mw"],
+            0, 2, 100, 3, 500, 4.5, 2000, 7, 5000, 10] as any,
+          "circle-color": [
+            "match", ["get", "fuel"],
+            "Coal", "#78350f",
+            "Gas", "#f97316",
+            "Oil", "#451a03",
+            "Nuclear", "#16a34a",
+            "Hydro", "#0ea5e9",
+            "Solar", "#facc15",
+            "Wind", "#22d3ee",
+            "Biomass", "#65a30d",
+            "Geothermal", "#f43f5e",
+            "#fbbf24",
+          ] as any,
+          "circle-opacity": 0.85,
+          "circle-stroke-width": 0.5,
+          "circle-stroke-color": "#fff",
         }
-        console.log(`[ProposalOverlays] power plants: ${fc.features.length} loaded`)
+
+        const { sourceLayer } = layerSpecForMode(mode, cfg)
+        map.addLayer({
+          id: "crep-plants-global-dot",
+          type: "circle",
+          source: cfg.sourceId,
+          ...(sourceLayer ? { "source-layer": sourceLayer } : {}),
+          minzoom: 3,
+          paint,
+        } as any)
+        console.log(`[ProposalOverlays] power plants: ${mode} source added`)
       } catch (e: any) { console.warn("[ProposalOverlays/plants]", e.message) }
     })
   }, [map, enabled.powerPlantsG])

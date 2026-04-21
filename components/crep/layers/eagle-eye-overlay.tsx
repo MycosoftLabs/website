@@ -99,6 +99,10 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     loadedRef.current.cams = true
 
     const fetchAndPaint = async () => {
+      // Apr 20, 2026 perf: cameras tick every 5 min. Don't hit the
+      // aggregator + re-setData on the crep-eagle-cams source while
+      // the tab is backgrounded. Next tick runs on return.
+      if (typeof document !== "undefined" && document.hidden) return
       try {
         const bboxParam = bbox ? `?bbox=${bbox.join(",")}&limit=10000` : "?limit=10000"
         const res = await fetch(`/api/eagle/sources${bboxParam}`)
@@ -251,6 +255,10 @@ export default function EagleEyeOverlay({ map, enabled, bbox }: Props) {
     loadedRef.current.events = true
 
     const fetchAndPaint = async () => {
+      // Apr 20, 2026 perf: events tick every 60 s and fire 4 parallel
+      // fetches (MINDEX + YouTube + Bluesky + Mastodon). Skip the whole
+      // fan-out while the tab is backgrounded.
+      if (typeof document !== "undefined" && document.hidden) return
       try {
         const bboxParam = bbox ? `&bbox=${bbox.join(",")}` : ""
         const bboxQ = bbox ? `?bbox=${bbox.join(",")}` : ""
