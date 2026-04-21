@@ -213,11 +213,11 @@ export function SatelliteMarker({ satellite, isSelected = false, onClick, onClos
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <div className="text-[8px] text-gray-600">LAT</div>
-                  <div className="text-white font-mono">{lat?.toFixed?.(2) ?? '—'}°</div>
+                  <div className="text-white font-mono">{lat?.toFixed?.(4) ?? '—'}°</div>
                 </div>
                 <div>
                   <div className="text-[8px] text-gray-600">LNG</div>
-                  <div className="text-white font-mono">{lng?.toFixed?.(2) ?? '—'}°</div>
+                  <div className="text-white font-mono">{lng?.toFixed?.(4) ?? '—'}°</div>
                 </div>
                 <div>
                   <div className="text-[8px] text-gray-600">ALT</div>

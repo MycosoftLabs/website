@@ -270,7 +270,7 @@ function FungalDetail({ observation, onClose }: { observation: FungalObservation
           <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
             <div className="text-[9px] text-gray-500 uppercase">Coords</div>
             <div className="text-[10px] text-cyan-400 font-mono leading-tight">
-              {typeof observation.latitude === 'number' ? observation.latitude.toFixed(3) : '—'}°, {typeof observation.longitude === 'number' ? observation.longitude.toFixed(3) : '—'}°
+              {typeof observation.latitude === 'number' ? observation.latitude.toFixed(6) : '—'}°, {typeof observation.longitude === 'number' ? observation.longitude.toFixed(6) : '—'}°
             </div>
           </div>
           <div className="bg-black/40 rounded p-1.5 border border-gray-700/50">
@@ -575,7 +575,7 @@ function AircraftDetail({ aircraft, onClose }: { aircraft: AircraftEntity; onClo
             {history?.icao24 && (
               <span><span className="text-gray-500">ICAO24:</span> <span className="text-white font-mono uppercase">{history.icao24}</span></span>
             )}
-            <span className="text-cyan-400 font-mono">{typeof latitude === 'number' ? latitude.toFixed(4) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(4) : '—'}°</span>
+            <span className="text-cyan-400 font-mono">{typeof latitude === 'number' ? latitude.toFixed(6) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(6) : '—'}°</span>
           </div>
         </div>
 
@@ -758,7 +758,7 @@ function VesselDetail({ vessel, onClose }: { vessel: VesselEntity; onClose: () =
             )}
             <span className="text-gray-500">Position</span>
             <span className="text-cyan-400 font-mono">
-              {typeof latitude === 'number' ? latitude.toFixed(5) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(5) : '—'}°
+              {typeof latitude === 'number' ? latitude.toFixed(6) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(6) : '—'}°
             </span>
           </div>
         </div>
@@ -992,7 +992,7 @@ function SatelliteDetail({ satellite, onClose }: { satellite: SatelliteEntity; o
             )}
             <span className="text-gray-500">Ground Track</span>
             <span className="text-cyan-400 font-mono">
-              {typeof latitude === 'number' ? latitude.toFixed(2) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(2) : '—'}°
+              {typeof latitude === 'number' ? latitude.toFixed(4) : '—'}°, {typeof longitude === 'number' ? longitude.toFixed(4) : '—'}°
             </span>
           </div>
         </div>

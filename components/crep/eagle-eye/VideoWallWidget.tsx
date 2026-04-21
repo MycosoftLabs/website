@@ -506,7 +506,7 @@ export default function VideoWallWidget() {
           <div className="min-w-0">
             <div className="text-sm font-bold text-white truncate">{feed.name}</div>
             <div className="text-[10px] text-cyan-300/80 uppercase tracking-wide truncate">
-              {feed.provider} · {feed.lat?.toFixed(3)}, {feed.lng?.toFixed(3)}
+              {feed.provider} · {feed.lat?.toFixed(6)}, {feed.lng?.toFixed(6)}
               {feed.confidence != null && feed.kind === "video_event" ? (
                 <span className="ml-2 text-yellow-400">confidence {(feed.confidence * 100).toFixed(0)}%</span>
               ) : null}
