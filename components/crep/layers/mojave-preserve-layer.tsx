@@ -44,6 +44,21 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
   const loadedRef = useRef(false)
   const [data, setData] = useState<any | null>(null)
   const fetchAttemptedRef = useRef(false)
+  // Apr 21, 2026 (Morgan: "nothing in goffs is loading"). React 18
+  // strict-mode double-mount was flipping a per-effect `let cancelled =
+  // false` → true via synthetic unmount BEFORE the 9 s fetch resolved.
+  // When data finally arrived, `if (!cancelled)` discarded it and
+  // setData never ran — console logged "data received" but component
+  // state never updated and the render effect never saw data=true.
+  //
+  // Fix: track mount with a ref that only flips on TRUE unmount (via
+  // a separate [] effect). The fetch-effect cleanup is removed — we
+  // check mountedRef inside the resolve instead.
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   // ─── Fetch Mojave aggregate once when any sub-toggle is on ─────────
   useEffect(() => {
@@ -60,7 +75,6 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     }
     if (fetchAttemptedRef.current) return
     fetchAttemptedRef.current = true
-    let cancelled = false
     console.log("[MojavePreserveLayer] fetching /api/crep/mojave ...")
     fetch(APPROX_BOUNDARY_PATH)
       .then((r) => {
@@ -69,10 +83,14 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       })
       .then((j) => {
         console.log("[MojavePreserveLayer] data received:", j ? `source=${j.source} wilderness=${j.wilderness_pois?.length} climate=${j.climate_stations?.length}` : "null")
-        if (!cancelled && j) setData(j)
+        // Only skip setData on a TRUE unmount — not strict-mode's
+        // synthetic cleanup. mountedRef stays true across that.
+        if (mountedRef.current && j) setData(j)
       })
       .catch((e) => { console.warn("[MojavePreserveLayer] fetch failed:", e?.message) })
-    return () => { cancelled = true }
+    // Intentionally no cleanup — strict-mode cleanup was aborting the
+    // first mount's fetch, and a re-run path is already guarded by
+    // fetchAttemptedRef.
   }, [enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness, enabled.mojaveClimate, enabled.mojaveINat])
 
   // ─── Render once data arrives ──────────────────────────────────────
