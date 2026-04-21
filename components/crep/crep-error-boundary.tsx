@@ -65,6 +65,48 @@ export class CREPErrorBoundary extends React.Component<
 
     this.setState({ errorInfo })
     this.props.onError?.(error, errorInfo)
+
+    // Apr 21, 2026 (Morgan: "flight data still crashing ... Loading chunk
+    // _app-pages-browser_components_crep_flight-tracker-widget_tsx failed").
+    // After converting a dynamic import to a static import, a stale
+    // browser-side webpack runtime manifest will keep trying to fetch
+    // the (now non-existent) chunk, timing out forever. Detect the
+    // ChunkLoadError case and do ONE forced hard reload to drop the
+    // stale manifest — after that the static bundle serves everything
+    // and the loop is broken. Use a session flag so we don't reload
+    // in an infinite cycle if the issue actually persists server-side.
+    const msg = error?.message || ""
+    const isChunkLoadError =
+      (error as any)?.name === "ChunkLoadError" ||
+      /Loading chunk .* failed/.test(msg) ||
+      /ChunkLoadError/.test(msg)
+    if (isChunkLoadError && typeof window !== "undefined") {
+      try {
+        const key = "crep-chunk-reload-attempted"
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, String(Date.now()))
+          console.warn(
+            `[CREP Error Boundary] ChunkLoadError in ${componentName} — forcing hard reload to drop stale webpack manifest`,
+          )
+          // Give the console one tick to flush, then bypass the HTTP
+          // cache by appending a cachebust query the browser can't
+          // serve from its disk cache.
+          setTimeout(() => {
+            const u = new URL(window.location.href)
+            u.searchParams.set("_crep_chunk_reload", String(Date.now()))
+            window.location.replace(u.toString())
+          }, 50)
+        } else {
+          // Already tried once this session — don't loop. Show the
+          // normal error UI and let the user decide what to do.
+          console.warn(
+            `[CREP Error Boundary] ChunkLoadError in ${componentName} AFTER a prior reload. Not reloading again.`,
+          )
+        }
+      } catch {
+        // sessionStorage denied → skip the reload, fall through to UI
+      }
+    }
   }
 
   handleRetry = (): void => {
