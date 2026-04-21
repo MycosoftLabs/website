@@ -53,6 +53,7 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       enabled.mojaveWilderness ||
       enabled.mojaveClimate ||
       enabled.mojaveINat
+    console.log("[MojavePreserveLayer] fetch effect fired, anyOn=", anyOn, "enabled=", enabled, "fetchAttempted=", fetchAttemptedRef.current)
     if (!anyOn) {
       fetchAttemptedRef.current = false
       return
@@ -60,17 +61,26 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     if (fetchAttemptedRef.current) return
     fetchAttemptedRef.current = true
     let cancelled = false
+    console.log("[MojavePreserveLayer] fetching /api/crep/mojave ...")
     fetch(APPROX_BOUNDARY_PATH)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled && j) setData(j) })
-      .catch(() => { /* ignore */ })
+      .then((r) => {
+        console.log("[MojavePreserveLayer] response status:", r.status)
+        return r.ok ? r.json() : null
+      })
+      .then((j) => {
+        console.log("[MojavePreserveLayer] data received:", j ? `source=${j.source} wilderness=${j.wilderness_pois?.length} climate=${j.climate_stations?.length}` : "null")
+        if (!cancelled && j) setData(j)
+      })
+      .catch((e) => { console.warn("[MojavePreserveLayer] fetch failed:", e?.message) })
     return () => { cancelled = true }
   }, [enabled.mojavePreserve, enabled.mojaveGoffs, enabled.mojaveWilderness, enabled.mojaveClimate, enabled.mojaveINat])
 
   // ─── Render once data arrives ──────────────────────────────────────
   useEffect(() => {
+    console.log("[MojavePreserveLayer] render effect fired, map=", !!map, "data=", !!data, "loadedRef=", loadedRef.current)
     if (!map || !data) return
     if (typeof map.getSource !== "function") return
+    console.log("[MojavePreserveLayer] beginning render — preserve boundary type:", data.preserve?.boundary_geom?.type, "wilderness:", data.wilderness_pois?.length)
 
     const allLayerIds = [
       "mojave-boundary-fill", "mojave-boundary-line",
