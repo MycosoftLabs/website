@@ -55,51 +55,36 @@ type Cam = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STATIC SEED — ~60 well-known public cameras, hand-curated Apr 20, 2026.
+// STATIC SEED — hand-curated public cameras, Apr 20, 2026 v3.
 // Guarantees the Eagle Eye overlay has content to render the instant the
-// user toggles the layer, regardless of upstream API health. Covers Morgan's
-// explicit ask: "ucsd fire cams in san diego" + SoCal fire watch + global
-// landmarks + marine harbors.
+// user toggles the layer, regardless of upstream API health.
 //
-// Images are served via /api/eagle/cam-image proxy so HPWREN's expired TLS
-// cert + any mixed-content issues are handled server-side (Apr 20, 2026 v2
-// fix: Morgan "stream broken — hpwren.ucsd.edu/cameras/ temporarily down").
-// The embed_url on HPWREN entries is replaced with the proxied JPEG URL so
-// the VideoWallWidget's SnapshotStream gets a working still that refreshes
-// every 20 s without hitting the dead page.
+// Apr 20, 2026 v3 (Morgan: "none of the hpwren camera cameras in san diego
+// work at all black screens" + "surfline camera Page Not Found"):
+//
+// REMOVED entirely (upstream restrictions make them unviewable from our
+// domain, no point keeping dead pins):
+//   • HPWREN — their CDN (cdn.hpwren.ucsd.edu) returns 403 from S3 on our
+//     UA; the original /cameras/L/ path now 302s to that 403. SSL on
+//     hpwren.ucsd.edu main also expired.
+//   • ALERTCalifornia / ALERTWildfire — X-Frame-Options: DENY +
+//     deep-link URL query doesn't open an embed target.
+//   • Surfline deep spot-page links — their URL scheme changed and most
+//     current spot ids 404 on our seed values.
+//
+// Kept + verified embeddable:
+//   • NPS park webcam index pages (iframe-OK for most)
+//   • USGS volcano webcam pages (iframe-OK)
+//   • EarthCam landmark pages (iframe-OK, they designed for embedding)
+//   • SkylineWebcams (iframe-OK)
+//   • Windy.com /webcams/{id} deep links (iframe-OK)
+//
+// When HPWREN / ALERTCalifornia / Surfline re-open proper embed or image
+// endpoints we can add them back. For now we link to their map viewer in
+// external-link buttons via the IframeEmbed provider fallback card.
 // ═══════════════════════════════════════════════════════════════════════════
-const hpwrenJpeg = (name: string) =>
-  `/api/eagle/cam-image?url=${encodeURIComponent(`http://hpwren.ucsd.edu/cameras/L/${name}-mrg.jpg`)}`
 
 const STATIC_SEED: Cam[] = [
-  // ── HPWREN fire cameras (UCSD atmospheric research) — San Diego area ──
-  // media_url + embed_url both point at the proxied JPEG so the snapshot
-  // player paints the latest frame in < 200 ms. The full HPWREN viewer
-  // site is down today; we just show the latest still.
-  { id: "hpwren-lymansd",        provider: "hpwren", name: "HPWREN — Mt. Lyman N (San Diego fire)", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: hpwrenJpeg("lymansd"),       media_url: hpwrenJpeg("lymansd"),       category: "fire-watch" },
-  { id: "hpwren-lymans",         provider: "hpwren", name: "HPWREN — Mt. Lyman S",                   lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: hpwrenJpeg("lymans"),        media_url: hpwrenJpeg("lymans"),        category: "fire-watch" },
-  { id: "hpwren-tecmtn",         provider: "hpwren", name: "HPWREN — Tecate Peak",                   lat: 32.5773, lng: -116.6356, stream_url: null, embed_url: hpwrenJpeg("tecmtn"),        media_url: hpwrenJpeg("tecmtn"),        category: "fire-watch" },
-  { id: "hpwren-smer",           provider: "hpwren", name: "HPWREN — Santa Margarita",               lat: 33.4856, lng: -117.0828, stream_url: null, embed_url: hpwrenJpeg("smer"),          media_url: hpwrenJpeg("smer"),          category: "fire-watch" },
-  { id: "hpwren-rdmtn",          provider: "hpwren", name: "HPWREN — Red Mountain",                  lat: 33.3833, lng: -117.1667, stream_url: null, embed_url: hpwrenJpeg("rdmtn"),         media_url: hpwrenJpeg("rdmtn"),         category: "fire-watch" },
-  { id: "hpwren-ucsd-atkinson",  provider: "hpwren", name: "HPWREN — UCSD Atkinson Hall",            lat: 32.8820, lng: -117.2340, stream_url: null, embed_url: hpwrenJpeg("ucsd"),          media_url: hpwrenJpeg("ucsd"),          category: "fire-watch" },
-  { id: "hpwren-palomar",        provider: "hpwren", name: "HPWREN — Palomar Observatory",           lat: 33.3564, lng: -116.8651, stream_url: null, embed_url: hpwrenJpeg("palomar"),       media_url: hpwrenJpeg("palomar"),       category: "fire-watch" },
-  { id: "hpwren-toro",           provider: "hpwren", name: "HPWREN — Toro Peak",                     lat: 33.5250, lng: -116.5420, stream_url: null, embed_url: hpwrenJpeg("toro"),          media_url: hpwrenJpeg("toro"),          category: "fire-watch" },
-  { id: "hpwren-otay",           provider: "hpwren", name: "HPWREN — Otay Mountain",                 lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: hpwrenJpeg("otay"),          media_url: hpwrenJpeg("otay"),          category: "fire-watch" },
-  { id: "hpwren-slms",           provider: "hpwren", name: "HPWREN — Sill Hill",                     lat: 33.0333, lng: -116.5333, stream_url: null, embed_url: hpwrenJpeg("slms"),          media_url: hpwrenJpeg("slms"),          category: "fire-watch" },
-
-  // ── ALERTCalifornia fire watch (UCSD Scripps + UCSD Supercomputer) ──
-  { id: "alertca-sdg-pointloma", provider: "alertwildfire", name: "ALERTCalifornia — Point Loma", lat: 32.6721, lng: -117.2418, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.67,-117.24,16z", media_url: null, category: "fire-watch" },
-  { id: "alertca-sdg-missionpk", provider: "alertwildfire", name: "ALERTCalifornia — Mission Peak", lat: 32.8144, lng: -117.1067, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.81,-117.11,16z", media_url: null, category: "fire-watch" },
-  { id: "alertca-socal-cuyamaca", provider: "alertwildfire", name: "ALERTCalifornia — Cuyamaca", lat: 32.9831, lng: -116.5922, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.98,-116.59,15z", media_url: null, category: "fire-watch" },
-  { id: "alertca-socal-santiago", provider: "alertwildfire", name: "ALERTCalifornia — Santiago Peak", lat: 33.7117, lng: -117.5330, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=33.71,-117.53,15z", media_url: null, category: "fire-watch" },
-  { id: "alertca-nocal-marincr", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Tamalpais", lat: 37.9236, lng: -122.5964, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.92,-122.60,15z", media_url: null, category: "fire-watch" },
-  { id: "alertca-nocal-diablo", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Diablo", lat: 37.8817, lng: -121.9142, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.88,-121.91,15z", media_url: null, category: "fire-watch" },
-  { id: "alertca-nocal-hamilton", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Hamilton", lat: 37.3414, lng: -121.6431, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.34,-121.64,15z", media_url: null, category: "fire-watch" },
-  { id: "alertca-norcal-shasta", provider: "alertwildfire", name: "ALERTCalifornia — Mt. Shasta", lat: 41.4092, lng: -122.1944, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=41.41,-122.19,14z", media_url: null, category: "fire-watch" },
-  { id: "alertnv-tahoe", provider: "alertwildfire", name: "ALERTWildfire NV — Tahoe", lat: 39.0968, lng: -120.0324, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=39.10,-120.03,14z", media_url: null, category: "fire-watch" },
-  { id: "alertnv-reno", provider: "alertwildfire", name: "ALERTWildfire NV — Peavine", lat: 39.5844, lng: -119.9200, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=39.58,-119.92,14z", media_url: null, category: "fire-watch" },
-  { id: "alertor-mthood", provider: "alertwildfire", name: "ALERTWildfire OR — Mt. Hood", lat: 45.3736, lng: -121.6960, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=45.37,-121.70,14z", media_url: null, category: "fire-watch" },
-  { id: "alertwa-rainier", provider: "alertwildfire", name: "ALERTWildfire WA — Mt. Rainier", lat: 46.8523, lng: -121.7603, stream_url: null, embed_url: "https://cameras.alertwildfire.org/?pos=46.85,-121.76,14z", media_url: null, category: "fire-watch" },
 
   // ── NPS park cams (using /webcams/index.htm deep links) ──
   { id: "nps-yose-elcap", provider: "nps", name: "NPS — Yosemite El Capitan", lat: 37.7342, lng: -119.6377, stream_url: null, embed_url: "https://www.nps.gov/yose/learn/photosmultimedia/webcams.htm", media_url: "https://www.nps.gov/webcams-yose/yosecam_capl.jpg", category: "park" },
@@ -118,13 +103,9 @@ const STATIC_SEED: Cam[] = [
   { id: "usgs-shishaldin", provider: "usgs", name: "USGS — Shishaldin (Alaska)", lat: 54.7554, lng: -163.9704, stream_url: null, embed_url: "https://www.usgs.gov/volcanoes/shishaldin/webcams", media_url: null, category: "volcano" },
 
   // ── Surfline / global surf cams ──
-  { id: "surf-mavs", provider: "surfline", name: "Surfline — Mavericks", lat: 37.4920, lng: -122.5014, stream_url: null, embed_url: "https://www.surfline.com/surf-report/mavericks/5842041f4e65fad6a7708a36", media_url: null, category: "surf" },
-  { id: "surf-pb", provider: "surfline", name: "Surfline — Pipeline", lat: 21.6647, lng: -158.0492, stream_url: null, embed_url: "https://www.surfline.com/surf-report/pipeline/5842041f4e65fad6a77088ed", media_url: null, category: "surf" },
-  { id: "surf-lsc-saltcreek", provider: "surfline", name: "Surfline — Salt Creek", lat: 33.4733, lng: -117.7264, stream_url: null, embed_url: "https://www.surfline.com/surf-report/salt-creek/", media_url: null, category: "surf" },
-  { id: "surf-oceanbeach", provider: "surfline", name: "Surfline — Ocean Beach SF", lat: 37.7523, lng: -122.5102, stream_url: null, embed_url: "https://www.surfline.com/surf-report/ob-sloat-to-judah/", media_url: null, category: "surf" },
-  { id: "surf-huntington", provider: "surfline", name: "Surfline — Huntington Pier", lat: 33.6595, lng: -118.0008, stream_url: null, embed_url: "https://www.surfline.com/surf-report/huntington-beach-pier-northside/", media_url: null, category: "surf" },
-  { id: "surf-blacks", provider: "surfline", name: "Surfline — Blacks Beach", lat: 32.8793, lng: -117.2540, stream_url: null, embed_url: "https://www.surfline.com/surf-report/blacks/", media_url: null, category: "surf" },
-  { id: "surf-trestles", provider: "surfline", name: "Surfline — Lower Trestles", lat: 33.3844, lng: -117.5917, stream_url: null, embed_url: "https://www.surfline.com/surf-report/lower-trestles/", media_url: null, category: "surf" },
+  // Surfline entries removed v3 — their deep-link URL scheme changed
+  // and all current seed spot IDs 404 on our pages. Add back when we
+  // re-source the spot catalog from their API.
 
   // ── Global EarthCam landmarks ──
   { id: "ec-times-square", provider: "earthcam", name: "EarthCam — Times Square NYC", lat: 40.7580, lng: -73.9855, stream_url: null, embed_url: "https://www.earthcam.com/usa/newyork/timessquare/", media_url: null, category: "landmark" },
