@@ -280,6 +280,7 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 // Renders Project Oyster perimeter + H₂S hotspot + river flow line +
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
+import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -5406,6 +5407,40 @@ export default function CREPDashboardPage() {
               import("maplibre-gl").then((ml) => registerPMTilesProtocol(ml.default));
               console.log("[CREP] Map loaded, reference captured for auto-zoom");
 
+              // Apr 20, 2026 (Morgan: "crep keeps reloading"). Diagnosed via
+              // headless browser: it's NOT actually reloading (1 navigation
+              // in 50 s), but MapLibre throws "Error: feature index out of
+              // bounds" 10× per cursor mousemove. Each one bubbles into
+              // Next.js dev's console-error interceptor → red Fast Refresh
+              // overlay → looks like a reload. Root cause is MapLibre
+              // querying a layer's feature index while we're updating that
+              // source's data via the rAF loop (aircraft / vessels every
+              // 200 ms).
+              //
+              // Suppress the noise: install a map-level error handler that
+              // swallows this specific error class (it's harmless — the
+              // hover query just returns nothing for that frame; next
+              // frame works). All other map errors still propagate.
+              try {
+                map.on("error", (e: any) => {
+                  const msg = e?.error?.message || String(e?.error || "")
+                  if (/feature index out of bounds/i.test(msg)) return
+                  console.warn("[MapLibre]", msg)
+                })
+                // Override the page-global window.onerror for this exact
+                // class so Next.js dev overlay doesn't react either.
+                if (typeof window !== "undefined") {
+                  const origOnError = window.onerror
+                  window.onerror = function (message, ...rest) {
+                    if (typeof message === "string" && /feature index out of bounds/i.test(message)) {
+                      return true // suppress
+                    }
+                    if (typeof origOnError === "function") return origOnError.call(this, message, ...rest)
+                    return false
+                  }
+                }
+              } catch { /* ignore */ }
+
               // ════════════════════════════════════════════════════════════
               // LIVE ENTITY LAYERS — aircraft, satellites, vessels
               // Created empty here, data pumped in by useEffect every 250ms.
@@ -8131,6 +8166,9 @@ export default function CREPDashboardPage() {
               estuaryMonitors:        layers.find(l => l.id === "tjEstuaryMonitors")?.enabled ?? true,
             }}
           />
+          {/* Tijuana station detail widget — listens for crep:tijuana:station-click
+              dispatched by TijuanaEstuaryLayer click handlers. */}
+          <TijuanaStationWidget />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
