@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 
 /**
  * Eagle Eye — Video source registry (permanent cameras) — Apr 20, 2026 v2
@@ -45,10 +45,15 @@ type VideoSource = {
   updated_at: string | null
 }
 
-// When MINDEX is under this count we fan out to live connectors too.
-// Covers the "empty MINDEX cold start" case while the Shinobi sync is
-// still being wired by Cursor.
-const MIN_SOURCES = 50
+// When MINDEX is COMPLETELY EMPTY for the bbox we fan out to live
+// connectors. Apr 20, 2026 v3 (Cursor shipped Track B #2+#4 ingest →
+// MINDEX now reliably has STATIC_SEED + Project Oyster + DOT-CCTV
+// rows): the previous threshold of 50 was triggering live fan-out for
+// every small-bbox query where MINDEX legitimately had <50 rows
+// (e.g. SD/TJ bbox returned 20 from MINDEX → fan-out still fired
+// adding latency for nothing). Drop to 1: only fall back when MINDEX
+// truly has no rows for this bbox at all (cold start / network split).
+const MIN_SOURCES = 1
 
 const MINDEX_BASE =
   process.env.MINDEX_API_URL ||
@@ -66,6 +71,49 @@ function authHeaders(): Record<string, string> {
   if (MINDEX_INTERNAL_TOKEN) return { "X-Internal-Token": MINDEX_INTERNAL_TOKEN }
   if (MINDEX_API_KEY) return { "X-API-Key": MINDEX_API_KEY }
   return {}
+}
+
+const BULK_UPSERT_CHUNK = 200
+
+/** Persist merged sources to MINDEX warm cache (idempotent upsert). */
+async function persistMergedSourcesToMindex(sources: VideoSource[]): Promise<void> {
+  if (!sources.length) return
+  if (!MINDEX_INTERNAL_TOKEN && !MINDEX_API_KEY) return
+
+  const payload = sources.map((s) => ({
+    id: s.id,
+    kind: s.kind,
+    provider: s.provider,
+    stable_location: s.stable_location,
+    lat: s.lat,
+    lng: s.lng,
+    location_confidence: s.location_confidence,
+    stream_url: s.stream_url,
+    embed_url: s.embed_url,
+    media_url: s.media_url,
+    source_status: s.source_status || "active",
+    permissions: s.permissions ?? {},
+    retention_policy: {},
+    provenance_method: "website_live_fanout",
+    privacy_class: "public",
+  }))
+
+  for (let i = 0; i < payload.length; i += BULK_UPSERT_CHUNK) {
+    const chunk = payload.slice(i, i + BULK_UPSERT_CHUNK)
+    try {
+      const res = await fetch(`${MINDEX_BASE}/api/mindex/eagle/video-sources/bulk-upsert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", ...authHeaders() },
+        body: JSON.stringify({ sources: chunk }),
+        signal: AbortSignal.timeout(90_000),
+      })
+      if (!res.ok) {
+        console.warn("[eagle/sources] bulk-upsert HTTP", res.status, await res.text().catch(() => ""))
+      }
+    } catch (e) {
+      console.warn("[eagle/sources] bulk-upsert failed", e)
+    }
+  }
 }
 
 async function fromMindex(
@@ -216,6 +264,14 @@ export async function GET(req: NextRequest) {
       }
       liveUsed = true
     }
+  }
+
+  // Warm MINDEX: after live fan-out, persist merged rows in the background (non-blocking).
+  if (liveUsed && sources.length > 0 && (MINDEX_INTERNAL_TOKEN || MINDEX_API_KEY)) {
+    const snapshot = sources.map((s) => ({ ...s }))
+    after(() => {
+      void persistMergedSourcesToMindex(snapshot)
+    })
   }
 
   // Filter by kind/provider if requested (MINDEX already filtered; live
