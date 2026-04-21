@@ -122,22 +122,30 @@ export default function Mapbox3DBuildings({ map, enabled3dBuildings, enabledSate
 
     try {
       if (!map.getSource("mapbox-satstreets-src")) {
-        // Route through /api/crep/tiles/satellite/mapbox-sat-streets/{z}/{x}/{y}
-        // which serves from the MINDEX weekly-refreshed tile cache first,
-        // falls back to Mapbox direct on miss, and async writes-back.
-        // Morgan (Apr 20, 2026): "i also want all of the latest mapbox and
-        // hd satelite imagry predownloaded into MINDEX on a weekly bases
-        // replacing old tiles so we always have fallback satelite data
-        // preloaded". The proxy route does the 3-tier resolution; Mapbox
-        // API token stays server-side for the write-back path. If the
-        // proxy itself is unreachable, fall back to direct Mapbox URL.
-        const cachedTileUrl = `/api/crep/tiles/satellite/mapbox-sat-streets/{z}/{x}/{y}.jpg`
-        const directTileUrl = MAPBOX_TOKEN
-          ? `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`
-          : null
+        // Tile URL strategy (Apr 20, 2026 v2):
+        // The `tiles` array in a MapLibre raster source is a ROUND-ROBIN
+        // pool (used for sharding across tile servers), NOT a fallback
+        // chain. Putting the proxy URL + direct Mapbox URL both in there
+        // splits tiles 50/50 — you get inconsistent cache warmth and
+        // half the tiles bypass the cache plumbing.
+        //
+        // So pick ONE. In prod (on VM 187 where MINDEX is on LAN), the
+        // proxy is fast and serves from the weekly cache → choose proxy.
+        // In dev (no MINDEX tile-cache service yet, or dev machine away
+        // from the LAN), the proxy's circuit breaker (60 s back-off on
+        // MINDEX miss, 500 ms probe timeout) means the proxy falls
+        // through to direct Mapbox upstream fast, so proxy-always is
+        // still fine.
+        //
+        // The proxy route handles all three tiers:
+        //   1. MINDEX cache (weekly-refreshed)
+        //   2. Upstream Mapbox (direct)
+        //   3. Async write-back to MINDEX for warming
+        // See app/api/crep/tiles/satellite/[basemap]/[z]/[x]/[y]/route.ts.
+        const proxyTileUrl = `/api/crep/tiles/satellite/mapbox-sat-streets/{z}/{x}/{y}.jpg`
         map.addSource("mapbox-satstreets-src", {
           type: "raster",
-          tiles: directTileUrl ? [cachedTileUrl, directTileUrl] : [cachedTileUrl],
+          tiles: [proxyTileUrl],
           tileSize: 256,
           attribution: "© Mapbox © OpenStreetMap © Maxar · MINDEX weekly cache",
           minzoom: 0,

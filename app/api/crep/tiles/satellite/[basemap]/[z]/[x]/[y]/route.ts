@@ -68,23 +68,46 @@ function isValidTileParam(v: string, max = 22): boolean {
   return Number.isFinite(n) && n >= 0 && n <= Math.pow(2, max)
 }
 
+// MINDEX availability cache — Apr 20, 2026 hotfix.
+// When the MINDEX tile-cache endpoint doesn't exist yet (Cursor is still
+// implementing it on VM 189), every tile request would hang for 3s
+// waiting on a 404/connection-refused. At 20-50 tiles per viewport, the
+// map effectively stopped loading (Morgan: "lots of satelite tiles
+// failing"). We probe MINDEX once, cache the result for 60 s, and skip
+// the probe while MINDEX is known-unreachable — the proxy just goes
+// straight to upstream. When the MINDEX endpoint lands, the next probe
+// after the 60 s window will detect it and cache hits resume.
+let mindexUnavailableUntil = 0
+const MINDEX_UNAVAILABLE_TTL_MS = 60_000 // 60 s back-off on failure
+const MINDEX_PROBE_TIMEOUT_MS = 500 // fast-fail so clients don't block
+
 async function tryMindexCache(basemap: string, z: string, x: string, y: string): Promise<Response | null> {
+  // Circuit breaker: if MINDEX was unreachable recently, skip entirely.
+  if (Date.now() < mindexUnavailableUntil) return null
   try {
     const res = await fetch(`${MINDEX_TILE_BASE}/${basemap}/${z}/${x}/${y}.jpg`, {
-      signal: AbortSignal.timeout(3_000),
+      signal: AbortSignal.timeout(MINDEX_PROBE_TIMEOUT_MS),
     })
+    if (res.status === 404) {
+      // 404 is a valid miss — MINDEX is reachable, the tile just isn't
+      // cached yet. Don't trip the circuit breaker.
+      return null
+    }
     if (res.ok && res.headers.get("content-length") !== "0") return res
     return null
   } catch {
+    // Network error / timeout / DNS fail → trip the breaker for 60 s so
+    // subsequent tile requests skip MINDEX entirely.
+    mindexUnavailableUntil = Date.now() + MINDEX_UNAVAILABLE_TTL_MS
     return null
   }
 }
 
 async function writeBackToMindex(basemap: string, z: string, x: string, y: string, body: ArrayBuffer): Promise<void> {
   // Fire-and-forget; don't block the client response on this.
-  // MINDEX exposes POST /api/mindex/tile-cache/{basemap}/{z}/{x}/{y}.jpg
-  // with raw image/jpeg body. 200 = stored, 202 = already present,
-  // 5xx = log and continue.
+  // Skip entirely if the MINDEX circuit breaker tripped recently —
+  // no point writing back to an endpoint that's not answering.
+  if (Date.now() < mindexUnavailableUntil) return
   try {
     const mindexWriteUrl = `${MINDEX_TILE_BASE}/${basemap}/${z}/${x}/${y}.jpg`
     await fetch(mindexWriteUrl, {
@@ -98,8 +121,12 @@ async function writeBackToMindex(basemap: string, z: string, x: string, y: strin
           : {}),
       },
       body,
-      signal: AbortSignal.timeout(5_000),
-    }).catch(() => undefined)
+      signal: AbortSignal.timeout(3_000),
+    }).catch(() => {
+      // Write-back failed → trip the breaker so subsequent tile requests
+      // skip the MINDEX round trip entirely until the endpoint is back.
+      mindexUnavailableUntil = Date.now() + MINDEX_UNAVAILABLE_TTL_MS
+    })
   } catch { /* ignore — best-effort cache warm */ }
 }
 
