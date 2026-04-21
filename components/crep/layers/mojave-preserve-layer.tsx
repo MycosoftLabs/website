@@ -569,22 +569,26 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
         ],
       },
     })) {
+      // Apr 21, 2026 (Morgan: "all projects having wierd heat map
+      // circles around projects that are fake and when zoomed out they
+      // are large"). Hard minzoom:9 so heatmaps only paint when user
+      // is actually zoomed to the preserve, not on the globe. Also
+      // capped radius much tighter so they don't balloon.
       safeAddLayer({
-        id: "mojave-heatmap-layer", type: "heatmap", source: "mojave-heatmap", minzoom: 2, maxzoom: 13,
+        id: "mojave-heatmap-layer", type: "heatmap", source: "mojave-heatmap", minzoom: 9, maxzoom: 14,
         paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 2, 0.7, 8, 1.4],
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 0.6],
+          "heatmap-intensity": 0.8,
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
             0,    "rgba(0, 0, 0, 0)",
-            0.15, "rgba(29, 78, 216, 0.35)",     // deep blue (aridity / cold)
-            0.35, "rgba(34, 197, 94, 0.55)",     // green (biodiversity)
-            0.55, "rgba(250, 204, 21, 0.70)",    // yellow
-            0.75, "rgba(249, 115, 22, 0.80)",    // orange (fire-risk medium)
-            0.95, "rgba(239, 68, 68, 0.90)",     // red (high-intensity)
+            0.25, "rgba(34, 197, 94, 0.35)",     // green (biodiversity, subtle)
+            0.55, "rgba(250, 204, 21, 0.45)",    // yellow
+            0.80, "rgba(249, 115, 22, 0.55)",    // orange (fire-risk medium)
+            0.95, "rgba(239, 68, 68, 0.65)",     // red (high)
           ],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 2, 22, 8, 60, 12, 90],
-          "heatmap-opacity": 0.75,
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 18, 12, 34, 14, 48],
+          "heatmap-opacity": 0.55,
         },
       }, beforeLabels)
     }

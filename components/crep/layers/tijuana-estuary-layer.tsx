@@ -515,13 +515,13 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       data: { type: "FeatureCollection", features: data.emit_plumes.map((e: any) => ({ type: "Feature", properties: { ...e }, geometry: { type: "Point", coordinates: [e.lng, e.lat] } })) },
     })) {
       safeAddLayer({
-        id: "oyster-emit-heatmap", type: "heatmap", source: "oyster-emit", minzoom: 3, maxzoom: 14,
+        id: "oyster-emit-heatmap", type: "heatmap", source: "oyster-emit", minzoom: 9, maxzoom: 15,
         paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
-          "heatmap-intensity": 1.2,
-          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.3, "rgba(249,115,22,0.4)", 0.7, "rgba(234,88,12,0.7)", 1, "rgba(194,65,12,0.9)"],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 30, 10, 80],
-          "heatmap-opacity": 0.75,
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 0.6],
+          "heatmap-intensity": 0.8,
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.3, "rgba(249,115,22,0.35)", 0.7, "rgba(234,88,12,0.55)", 1, "rgba(194,65,12,0.70)"],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 9, 14, 13, 30],
+          "heatmap-opacity": 0.55,
         },
       }, beforeLabels)
       safeAddLayer({
@@ -712,14 +712,19 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
         ],
       },
     })) {
+      // Apr 21, 2026 (Morgan: "wierd heat map circles around projects
+      // that are fake and when zoomed out they are large"). Hard
+      // minzoom:10 so the heatmap only paints when user is actually
+      // zoomed to the estuary, not on the world view. Radius capped
+      // tight so it doesn't balloon geographically.
       safeAddLayer({
-        id: "oyster-heatmap-layer", type: "heatmap", source: "oyster-heatmap", minzoom: 5, maxzoom: 14,
+        id: "oyster-heatmap-layer", type: "heatmap", source: "oyster-heatmap", minzoom: 10, maxzoom: 15,
         paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.8, 12, 1.5],
-          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.2, "rgba(34,197,94,0.30)", 0.45, "rgba(250,204,21,0.50)", 0.70, "rgba(249,115,22,0.70)", 0.92, "rgba(220,38,38,0.85)"],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 25, 12, 80],
-          "heatmap-opacity": 0.70,
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 0.55],
+          "heatmap-intensity": 0.7,
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.25, "rgba(34,197,94,0.25)", 0.50, "rgba(250,204,21,0.40)", 0.75, "rgba(249,115,22,0.55)", 0.95, "rgba(220,38,38,0.70)"],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 16, 13, 30, 15, 42],
+          "heatmap-opacity": 0.55,
         },
       }, beforeLabels)
     }
