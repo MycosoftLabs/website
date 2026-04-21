@@ -134,7 +134,40 @@ function WebRTCPlayer({ url }: { url: string }) {
   return <video ref={videoRef} className="w-full h-full bg-black" controls muted playsInline />
 }
 
-function IframeEmbed({ url }: { url: string }) {
+function IframeEmbed({ url, provider, name }: { url: string; provider?: string; name?: string }) {
+  // Apr 20, 2026 (Morgan: "one camera alertwildfire camera shows a IFRAME
+  // UCSD PAGE NOT A VIEDEO STREAM THATS WRONG"). ALERTWildfire /
+  // ALERTCalifornia / Surfline / many camera viewer sites set
+  // X-Frame-Options: DENY so iframing them loads their "refused to
+  // connect" error page. When we know the provider doesn't iframe
+  // cleanly, render a proper fallback card with an "Open on <provider>"
+  // button that opens the site in a new tab — fails gracefully without
+  // looking broken.
+  const NO_IFRAME = new Set(["alertwildfire", "surfline"])
+  if (provider && NO_IFRAME.has(provider)) {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-3 p-4 text-center">
+        <div className="text-4xl">{provider === "alertwildfire" ? "🔥" : "🌊"}</div>
+        <div className="text-xs text-white font-semibold">
+          {provider === "alertwildfire" ? "ALERTCalifornia / ALERTWildfire" : "Surfline"} cam
+        </div>
+        <div className="text-[10px] text-gray-400 max-w-xs">
+          {provider === "alertwildfire"
+            ? "Live ALERTWildfire streams require the provider's viewer page (no direct embed)."
+            : "Surfline cams require a session on surfline.com."}
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-cyan-700 hover:bg-cyan-500 text-white text-[11px] px-3 py-1.5 rounded font-semibold border border-cyan-400/40 transition-colors"
+        >
+          Open on {provider === "alertwildfire" ? "ALERTCalifornia" : "Surfline"} ↗
+        </a>
+        {name ? <div className="text-[9px] text-cyan-400 font-mono">{name}</div> : null}
+      </div>
+    )
+  }
   return (
     <iframe
       src={url}
@@ -153,22 +186,60 @@ function MjpegStream({ url }: { url: string }) {
   return <img src={url} alt="Live feed" className="w-full h-full object-contain bg-black" />
 }
 
-function SnapshotStream({ url, embedUrl }: { url: string; embedUrl?: string }) {
+function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedUrl?: string; provider?: string; name?: string }) {
   // Auto-refresh still JPEG every 20 s with cache-busting query. Covers
   // HPWREN / ALERTWildfire / USGS cams that publish a fresh image every
   // 2-5 min. The browser keeps the previous image painted while the new
-  // one loads — no flicker. Clicking opens the upstream player page
-  // (embed_url) in a new tab for the live player.
+  // one loads — no flicker.
+  //
+  // Apr 20, 2026 (Morgan: "SOME VIDEOS SHOW BROKEN LIVE SNAPSHOT TEXT
+  // WITH BROKEN LINK"). Added onError → fallback card so broken image
+  // URLs (expired cert, 404, host down) render a clean "image unavailable"
+  // card with a link to the provider site instead of the browser's raw
+  // broken-image icon + alt-text.
   const [t, setT] = useState(Date.now())
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     const id = setInterval(() => setT(Date.now()), 20_000)
     return () => clearInterval(id)
   }, [])
+  // Reset failure state when url changes (different cam selected)
+  useEffect(() => { setFailed(false) }, [url])
+
   const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
+
+  if (failed) {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-2 p-4 text-center">
+        <div className="text-3xl opacity-40">📷</div>
+        <div className="text-xs text-white font-semibold">Image unavailable</div>
+        <div className="text-[10px] text-gray-400 max-w-xs">
+          {provider ? `${provider} didn't serve a still frame — the source host may be offline or blocking our proxy.` : "Source host offline or blocking proxy."}
+        </div>
+        {embedUrl ? (
+          <a
+            href={embedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-cyan-700 hover:bg-cyan-500 text-white text-[11px] px-3 py-1.5 rounded font-semibold border border-cyan-400/40 transition-colors"
+          >
+            Open provider site ↗
+          </a>
+        ) : null}
+        {name ? <div className="text-[9px] text-cyan-400 font-mono">{name}</div> : null}
+      </div>
+    )
+  }
+
   return (
     <div className="relative w-full h-full bg-black group">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="Live snapshot" className="w-full h-full object-contain bg-black" />
+      <img
+        src={src}
+        alt=""
+        className="w-full h-full object-contain bg-black"
+        onError={() => setFailed(true)}
+      />
       {embedUrl && (
         <a
           href={embedUrl}
@@ -365,10 +436,10 @@ export default function VideoWallWidget() {
             switch (resolved.stream_type) {
               case "hls": return <HlsPlayer url={url} />
               case "webrtc": return <WebRTCPlayer url={url} />
-              case "iframe": return <IframeEmbed url={url} />
+              case "iframe": return <IframeEmbed url={url} provider={feed.provider} name={feed.name} />
               case "mjpeg": return <MjpegStream url={url} />
-              case "snapshot": return <SnapshotStream url={url} embedUrl={resolved.embed_url} />
-              default: return <IframeEmbed url={url} />
+              case "snapshot": return <SnapshotStream url={url} embedUrl={resolved.embed_url} provider={feed.provider} name={feed.name} />
+              default: return <IframeEmbed url={url} provider={feed.provider} name={feed.name} />
             }
           })()}
         </div>
