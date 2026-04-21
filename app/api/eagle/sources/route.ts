@@ -142,6 +142,10 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined): Pro
     // added data". 19 ports of entry across CA/AZ/NM/TX with live CBP
     // delay minutes per lane (POV / commercial / pedestrian).
     `${origin}/api/eagle/connectors/border-crossing${qp}`,
+    // Apr 20, 2026 — Webcamtaxi global landmark / beach / marine cams.
+    // Doc Phase 2 source. Hand-curated seed of pages whose iframe embeds
+    // are whitelisted in VideoWallWidget so they render as actual video.
+    `${origin}/api/eagle/connectors/webcamtaxi${qp}`,
   ]
   // Apr 20, 2026 hotfix (Morgan: "where are all the cameras icons and feeds
   // on crep add them now"). Probed: state-dot-cctv takes ~10 s on cold cache

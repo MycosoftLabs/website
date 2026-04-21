@@ -84,7 +84,36 @@ type Cam = {
 // external-link buttons via the IframeEmbed provider fallback card.
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Apr 20, 2026 v4 — re-introduce HPWREN + ALERTCalifornia entries that
+// route through the new /api/eagle/cam-snapshot headless render service.
+// Each entry's media_url points at the snapshot route which loads the
+// upstream viewer page in server-side Chromium and screenshots the video
+// element. SnapshotStream auto-refreshes every 20 s so Morgan sees a
+// near-live frame without iframing the (uniframable) viewer pages.
+const snapshotUrl = (viewerUrl: string, selector?: string) =>
+  `/api/eagle/cam-snapshot?url=${encodeURIComponent(viewerUrl)}${selector ? `&selector=${encodeURIComponent(selector)}` : ""}`
+
 const STATIC_SEED: Cam[] = [
+  // ── HPWREN fire cameras (UCSD) — headless-rendered snapshots ──
+  // Each entry uses the camera viewer at hpwren.ucsd.edu/cameras/X/{name}/
+  // and screenshots the video frame. ignoreHTTPSErrors:true on the snapshot
+  // service handles HPWREN's expired cert.
+  { id: "hpwren-lymansd",       provider: "hpwren", name: "HPWREN — Mt. Lyman N (San Diego)",  lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: snapshotUrl("https://hpwren.ucsd.edu/cameras/L/lymansd-mrg.jpg", "img"), category: "fire-watch" },
+  { id: "hpwren-lymans",        provider: "hpwren", name: "HPWREN — Mt. Lyman S",              lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: snapshotUrl("https://hpwren.ucsd.edu/cameras/L/lymans-mrg.jpg",  "img"), category: "fire-watch" },
+  { id: "hpwren-tecmtn",        provider: "hpwren", name: "HPWREN — Tecate Peak",              lat: 32.5773, lng: -116.6356, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: snapshotUrl("https://hpwren.ucsd.edu/cameras/L/tecmtn-mrg.jpg",  "img"), category: "fire-watch" },
+  { id: "hpwren-otay",          provider: "hpwren", name: "HPWREN — Otay Mountain",            lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: snapshotUrl("https://hpwren.ucsd.edu/cameras/L/otay-mrg.jpg",    "img"), category: "fire-watch" },
+  { id: "hpwren-palomar",       provider: "hpwren", name: "HPWREN — Palomar Observatory",      lat: 33.3564, lng: -116.8651, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: snapshotUrl("https://hpwren.ucsd.edu/cameras/L/palomar-mrg.jpg", "img"), category: "fire-watch" },
+
+  // ── ALERTCalifornia fire watch — headless-rendered video frames ──
+  // Each entry's snapshot URL loads the alertcalifornia.org viewer for
+  // that camera ID and screenshots the player. The selector "video"
+  // targets the actual <video> element inside their player.
+  { id: "alertca-cowles",       provider: "alertwildfire", name: "ALERTCalifornia — Mt. Cowles (San Diego)", lat: 32.8100, lng: -117.1100, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.81,-117.11,16z&id=Axis-Cowles", media_url: snapshotUrl("https://cameras.alertcalifornia.org/?pos=32.81,-117.11,16z&id=Axis-Cowles", "video"), category: "fire-watch" },
+  { id: "alertca-otay",         provider: "alertwildfire", name: "ALERTCalifornia — Otay (SD border)",       lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.60,-116.83,15z&id=Axis-Otay",   media_url: snapshotUrl("https://cameras.alertcalifornia.org/?pos=32.60,-116.83,15z&id=Axis-Otay",   "video"), category: "fire-watch" },
+  { id: "alertca-cuyamaca",     provider: "alertwildfire", name: "ALERTCalifornia — Cuyamaca",               lat: 32.9831, lng: -116.5922, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.98,-116.59,15z&id=Axis-Cuyamaca", media_url: snapshotUrl("https://cameras.alertcalifornia.org/?pos=32.98,-116.59,15z&id=Axis-Cuyamaca","video"), category: "fire-watch" },
+  { id: "alertca-santiago",     provider: "alertwildfire", name: "ALERTCalifornia — Santiago Peak",          lat: 33.7117, lng: -117.5330, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=33.71,-117.53,15z&id=Axis-Santiago", media_url: snapshotUrl("https://cameras.alertcalifornia.org/?pos=33.71,-117.53,15z&id=Axis-Santiago","video"), category: "fire-watch" },
+  { id: "alertca-diablo",       provider: "alertwildfire", name: "ALERTCalifornia — Mt. Diablo",             lat: 37.8817, lng: -121.9142, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=37.88,-121.91,15z&id=Axis-Diablo",  media_url: snapshotUrl("https://cameras.alertcalifornia.org/?pos=37.88,-121.91,15z&id=Axis-Diablo",  "video"), category: "fire-watch" },
+
 
   // ── NPS park cams (using /webcams/index.htm deep links) ──
   { id: "nps-yose-elcap", provider: "nps", name: "NPS — Yosemite El Capitan", lat: 37.7342, lng: -119.6377, stream_url: null, embed_url: "https://www.nps.gov/yose/learn/photosmultimedia/webcams.htm", media_url: "https://www.nps.gov/webcams-yose/yosecam_capl.jpg", category: "park" },

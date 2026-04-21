@@ -359,6 +359,10 @@ export default function VideoWallWidget() {
     if (!feed) { setResolved(null); return }
 
     const pickStreamType = (url: string): StreamType => {
+      // /api/eagle/cam-snapshot — our headless-rendered video frames
+      // from provider viewer pages (HPWREN, ALERTCalifornia, etc.).
+      // These return JPEG and should auto-refresh like other snapshots.
+      if (/\/api\/eagle\/cam-(snapshot|image)/i.test(url)) return "snapshot"
       if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)) return "snapshot"
       if (/\.m3u8(\?|$)/i.test(url)) return "hls"
       if (/\/whep(\?|$)|\/whep\//i.test(url)) return "webrtc"
