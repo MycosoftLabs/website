@@ -153,7 +153,16 @@ import { gridResolutionDegrees } from "@/lib/earth2/resolution-from-filter";
 import { toast } from "sonner";
 
 // OEI Real-time Data Widgets (lazy-loaded per tab)
-const SpaceWeatherWidget = dynamic(() => import("@/components/crep/space-weather-widget").then((m) => ({ default: m.SpaceWeatherWidget })), { ssr: false });
+// Apr 20, 2026 (Morgan: "the fuckling crep site keeps reloadiong wtf is is
+// doing"). Chunk-load timeouts on this dynamic import were the trigger:
+// dev-server compilation took longer than the webpack chunk-fetch deadline,
+// which threw ChunkLoadError → Next dev overlay auto-reloaded the page →
+// next load had to recompile → same timeout → infinite reload loop.
+// Switching to a static import folds it into the main chunk, no dynamic
+// chunk fetch, no timeout window, no reload trigger. The 329-line widget
+// adds negligible weight to the main bundle vs. the reload misery it
+// caused.
+import { SpaceWeatherWidget } from "@/components/crep/space-weather-widget";
 const FlightTrackerWidget = dynamic(() => import("@/components/crep/flight-tracker-widget").then((m) => ({ default: m.FlightTrackerWidget })), { ssr: false });
 const VesselTrackerWidget = dynamic(() => import("@/components/crep/vessel-tracker-widget").then((m) => ({ default: m.VesselTrackerWidget })), { ssr: false });
 const SatelliteTrackerWidget = dynamic(() => import("@/components/crep/satellite-tracker-widget").then((m) => ({ default: m.SatelliteTrackerWidget })), { ssr: false });
