@@ -412,6 +412,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -554,6 +555,9 @@ All notable changes to this project will be documented in this file.
 - *(crep)* State DOT CCTV connector (~8k cams) + STATIC_SEED +45 entries
 - *(crep)* Right-click waypoints + WS circuit breaker (stop crash)
 - *(crep)* Glass-morphism DeviceWidget — high-tech device dialog
+- *(crep)* Headless cam-snapshot service + Webcamtaxi + HPWREN/ALERTCA reseed
+- *(crep)* Eagle Eye timeline expansion — all video event categories
+- *(crep)* Tijuana Estuary / Project Oyster pollution showcase
 
 ### Fix
 
@@ -615,6 +619,11 @@ All notable changes to this project will be documented in this file.
 ### Performance
 
 - *(docker)* Segregate python services and switch to debian base to prevent c++ compilation [fast]
+- *(crep)* Visibility-throttle + setData diffing + Caltrans HLS direct
+- *(crep)* Visibility-throttle on cam snapshot pollers (perf-3 finish)
+- *(crep)* Visibility-throttle remaining 60s+ pollers (perf-3 closeout)
+- *(crep)* Preconnect + dns-prefetch hints for external map origins
+- *(crep)* MIN_SOURCES 50 → 1 — trust MINDEX warm cache
 
 ### Refactor
 
