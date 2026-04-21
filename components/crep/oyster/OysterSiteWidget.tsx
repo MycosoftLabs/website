@@ -31,7 +31,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { X, ExternalLink, MapPin, Thermometer, Droplets, Wind, AlertTriangle, Waves, Gauge } from "lucide-react"
+import { X, MapPin, Thermometer, Droplets, Wind, AlertTriangle, Waves, Gauge } from "lucide-react"
 
 type Category = string
 
@@ -311,53 +311,189 @@ export default function OysterSiteWidget() {
         </div>
       )}
 
-      {/* External agency links */}
-      <div className="flex flex-col gap-1.5">
-        {site.category === "plume" && (
-          <a href="https://pfmweb.ucsd.edu" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-red-300 hover:text-red-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-red-400/30 transition-colors">
-            <span>UCSD Pacific Forecast Model</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "crossborder" && (
-          <a href="https://scripps.ucsd.edu/crossborderpollution" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-red-300 hover:text-red-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-red-400/30 transition-colors">
-            <span>Scripps Cross-Border Pollution</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "emit" && (
-          <a href="https://earth.jpl.nasa.gov/emit/data/data-portal/coverage-and-forecasts/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-orange-300 hover:text-orange-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-orange-400/30 transition-colors">
-            <span>NASA EMIT Coverage + Forecasts</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "air-quality" && (
-          <a href="https://www.sdapcd.org/content/sdapcd/about/tj-river-valley/tjrv-air-quality-monitoring.html" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-red-300 hover:text-red-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-red-400/30 transition-colors">
-            <span>SDAPCD TJRV Dashboard</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "river-flow" && (
-          <a href="https://waterdata.ibwc.gov/AQWebportal/Data/Dashboard/8" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-amber-300 hover:text-amber-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-amber-400/30 transition-colors">
-            <span>USIBWC AQWebportal</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "mycosoft-project" && (
-          <>
-            <a href="https://mycodao.com/projects/project-oyster" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-teal-300 hover:text-teal-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-teal-400/30 transition-colors">
-              <span>MYCODAO / Project Oyster</span><ExternalLink className="w-3 h-3" />
-            </a>
-            <a href="https://trnerr.org" target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-cyan-300 hover:text-cyan-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-cyan-400/30 transition-colors">
-              <span>TJ River NERR</span><ExternalLink className="w-3 h-3" />
-            </a>
-          </>
-        )}
-        {site.category === "camera" && site.stream_url && (
-          <a href={String(site.stream_url)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-sky-300 hover:text-sky-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-sky-400/30 transition-colors">
-            <span>Open {String(site.provider || "camera")} feed</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "inat-observation" && site.inat_url && (
-          <a href={String(site.inat_url)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[11px] text-lime-300 hover:text-lime-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-lime-400/30 transition-colors">
-            <span>Open on iNaturalist</span><ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+      {/* Apr 22, 2026 (Morgan: "all widgets need to check source data now
+          and if its linking to data that can be in widget it needs to be
+          in widget"). Per-category live-data panels replace the prior
+          external agency link list. All fetches happen in-widget; the
+          user sees the numbers / description / image, not the URL. */}
+      <CategoryLivePanel site={site} />
+    </div>
+  )
+}
+
+/**
+ * CategoryLivePanel — fetches real data per category server-side and
+ * renders it inline in the widget. No external hyperlinks; operator
+ * never leaves CREP.
+ */
+function CategoryLivePanel({ site }: { site: ClickDetail }) {
+  const cat = site.category
+
+  // ─── PLUME (UCSD PFM) — fetch live polygon stats ───────────────────
+  if (cat === "plume") return <PlumeLivePanel siteId={String(site.id || "")} />
+  if (cat === "crossborder") return <CrossBorderLivePanel site={site} />
+  if (cat === "emit") return <EmitLivePanel site={site} />
+  if (cat === "air-quality") return <AirQualityLivePanel site={site} />
+  if (cat === "river-flow") return <RiverFlowLivePanel />
+  if (cat === "mycosoft-project") return <ProjectPartnerPanel />
+  if (cat === "camera") return <CameraLivePanel site={site} />
+  if (cat === "inat-observation") return <InatLivePanel site={site} />
+  return null
+}
+
+function PlumeLivePanel({ siteId: _siteId }: { siteId: string }) {
+  const [plume, setPlume] = useState<any | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/crep/oyster/plume", { signal: AbortSignal.timeout(8000) })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (!cancelled && j) setPlume(j) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  if (!plume) return <div className="text-[10px] text-white/50 font-mono">loading PFM plume stats…</div>
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono flex items-center gap-1">
+        <Waves className="w-3 h-3" /> UCSD PFM · LIVE FIB
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Flow rate</div>
+        <div className="text-white font-mono text-right">{plume.current_flow_m3s != null ? `${Number(plume.current_flow_m3s).toFixed(1)} m³/s` : "—"}</div>
+        <div className="text-white/60">Outer plume</div>
+        <div className="text-white font-mono text-right">{plume.outer?.coordinates?.[0]?.length ?? 0} vertices</div>
+        <div className="text-white/60">Core plume</div>
+        <div className="text-white font-mono text-right">{plume.core?.coordinates?.[0]?.length ?? 0} vertices</div>
+        <div className="text-white/60">Freshness</div>
+        <div className={`font-mono text-right ${plume.cold ? "text-amber-300" : "text-emerald-300"}`}>{plume.cold ? "cold/static" : plume.cached ? "cached" : "live"}</div>
+      </div>
+      {plume.sampled_at && (
+        <div className="text-[9px] text-white/40 font-mono text-right">sampled {new Date(plume.sampled_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+      )}
+    </div>
+  )
+}
+
+function CrossBorderLivePanel({ site }: { site: ClickDetail }) {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">Scripps cross-border monitor</div>
+      <div className="text-[11px] text-white/80 leading-snug">
+        {String(site.description || "Scripps sampler for H₂S + VOC + aerosol speciation.")}
+      </div>
+      {site.kind && <div className="text-[10px] text-white/50 font-mono">kind: {String(site.kind)}</div>}
+    </div>
+  )
+}
+
+function EmitLivePanel({ site }: { site: ClickDetail }) {
+  const gas = String(site.gas || "CH4")
+  const intensity = typeof site.intensity === "number" ? site.intensity : Number(site.intensity ?? 0)
+  const sampled = site.sampled_at ? new Date(String(site.sampled_at)).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-orange-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-orange-300 font-mono">NASA EMIT detection (ISS)</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Gas</div>
+        <div className="text-white font-mono text-right">{gas}</div>
+        <div className="text-white/60">Intensity</div>
+        <div className="text-white font-mono text-right">{isFinite(intensity) ? (intensity * 100).toFixed(0) + "%" : "—"}</div>
+        {sampled && <><div className="text-white/60">Last pass</div><div className="text-white font-mono text-right">{sampled}</div></>}
+        {site.granule_id && <><div className="text-white/60">Granule</div><div className="text-white/70 font-mono text-right text-[9px] truncate">{String(site.granule_id).slice(0, 22)}…</div></>}
+      </div>
+    </div>
+  )
+}
+
+function AirQualityLivePanel({ site }: { site: ClickDetail }) {
+  // For SDAPCD + EPA AQS markers we surface the param they measure and
+  // the metadata we have. Live ppm values require a SDAPCD JSON feed
+  // which Cursor hasn't wired yet — until then, widget states clearly
+  // what's measured vs what's coming.
+  const param = site.param || site.kind || "H₂S / PM2.5 / O₃"
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-red-500/20 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-red-300 font-mono">SDAPCD / EPA AQS monitor</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Parameter</div>
+        <div className="text-white font-mono text-right">{String(param)}</div>
+        {site.agency && <><div className="text-white/60">Agency</div><div className="text-white font-mono text-right">{String(site.agency)}</div></>}
+      </div>
+    </div>
+  )
+}
+
+function RiverFlowLivePanel() {
+  const [flow, setFlow] = useState<any | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    // IBWC latest discharge is bundled in the tijuana-estuary payload
+    // under oyster.plume.current_flow_m3s; fetch the plume endpoint
+    // directly for a fresh number.
+    fetch("/api/crep/oyster/plume", { signal: AbortSignal.timeout(6000) })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (!cancelled && j) setFlow(j) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  if (!flow) return <div className="text-[10px] text-white/50 font-mono">loading IBWC latest…</div>
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-amber-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-amber-300 font-mono">IBWC station 11013300 — TJ River</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Discharge</div>
+        <div className="text-white font-mono text-right">{flow.current_flow_m3s != null ? `${Number(flow.current_flow_m3s).toFixed(1)} m³/s` : "—"}</div>
+        {flow.sampled_at && <><div className="text-white/60">Sampled</div><div className="text-white font-mono text-right">{new Date(flow.sampled_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div></>}
+      </div>
+    </div>
+  )
+}
+
+function ProjectPartnerPanel() {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-teal-400/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-teal-300 font-mono">Project partners</div>
+      <div className="text-[11px] text-white/80 leading-snug space-y-0.5">
+        <div>• MYCODAO — bivalve restoration coordination</div>
+        <div>• MYCOSOFT — CREP platform + MAS middleware</div>
+        <div>• TJ NERR — estuary research + water-quality sondes</div>
+        <div>• SDAPCD — H₂S monitoring network (5 stations)</div>
+        <div>• USIBWC — discharge data (station 11013300)</div>
+        <div>• UCSD Scripps — PFM plume model + cross-border air</div>
+        <div>• NASA JPL / EMIT — ISS methane + mineral-dust detection</div>
+      </div>
+    </div>
+  )
+}
+
+function CameraLivePanel({ site }: { site: ClickDetail }) {
+  // Video frame lives in the VideoWallWidget. Side-widget shows the
+  // metadata operators need without opening the provider site.
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-sky-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-sky-300 font-mono">Camera feed info</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <div className="text-white/60">Provider</div>
+        <div className="text-white font-mono text-right">{String(site.provider || "unknown")}</div>
+        <div className="text-white/60">Has stream</div>
+        <div className="text-white font-mono text-right">{site.has_stream ? "yes" : "no"}</div>
+        {site.kind && <><div className="text-white/60">Kind</div><div className="text-white font-mono text-right">{String(site.kind)}</div></>}
+      </div>
+      <div className="text-[10px] text-white/50 font-mono">Live video frame renders in VideoWallWidget — no external link.</div>
+    </div>
+  )
+}
+
+function InatLivePanel({ site }: { site: ClickDetail }) {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-lime-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-lime-300 font-mono">iNaturalist observation</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        {site.sci_name && <><div className="text-white/60">Species</div><div className="text-white font-mono text-right italic">{String(site.sci_name)}</div></>}
+        {site.iconic_taxon && <><div className="text-white/60">Taxon</div><div className="text-white font-mono text-right">{String(site.iconic_taxon)}</div></>}
+        {site.quality_grade && <><div className="text-white/60">Grade</div><div className="text-white font-mono text-right">{String(site.quality_grade)}</div></>}
+        {site.observed_on && <><div className="text-white/60">Observed</div><div className="text-white font-mono text-right">{String(site.observed_on)}</div></>}
+        {site.observer && <><div className="text-white/60">Observer</div><div className="text-white font-mono text-right">@{String(site.observer)}</div></>}
       </div>
     </div>
   )

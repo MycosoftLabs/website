@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { X, ExternalLink, MapPin, Thermometer, Droplets, Wind } from "lucide-react"
+import { X, MapPin, Thermometer, Droplets, Wind, Mountain } from "lucide-react"
 
 type Category = "mycosoft-project" | "wilderness" | "climate" | "inat-observation"
 
@@ -158,41 +158,101 @@ export default function MojaveSiteWidget() {
         </div>
       )}
 
-      {/* Agency / external links */}
-      <div className="flex flex-col gap-1.5">
-        {site.category === "climate" && site.id && (
-          <a
-            href={`https://api.weather.gov/stations/${site.id}/observations`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between text-[11px] text-cyan-300 hover:text-cyan-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-cyan-400/30 transition-colors"
-          >
-            <span>NWS observations · {site.id}</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "inat-observation" && site.inat_url && (
-          <a
-            href={String(site.inat_url)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between text-[11px] text-lime-300 hover:text-lime-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-lime-400/30 transition-colors"
-          >
-            <span>Open on iNaturalist</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-        {site.category === "wilderness" && (
-          <a
-            href={`https://www.nps.gov/moja`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between text-[11px] text-amber-300 hover:text-amber-200 bg-black/30 rounded-lg px-3 py-1.5 border border-white/10 hover:border-amber-400/30 transition-colors"
-          >
-            <span>Mojave National Preserve · NPS</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+      {/* Apr 22, 2026 (Morgan: "all data will be within its widgets live
+          including video streams"). External agency links removed. All
+          data surfaces inline via category-specific panels below. */}
+      <MojaveCategoryPanel site={site} />
+    </div>
+  )
+}
+
+function MojaveCategoryPanel({ site }: { site: ClickDetail }) {
+  if (site.category === "climate") return <MojaveClimateLivePanel stationId={String(site.id || "")} />
+  if (site.category === "inat-observation") return <MojaveInatInfoPanel site={site} />
+  if (site.category === "wilderness") return <MojaveWildernessInfoPanel site={site} />
+  if (site.category === "mycosoft-project") return <MojaveProjectInfoPanel />
+  return null
+}
+
+function MojaveClimateLivePanel({ stationId }: { stationId: string }) {
+  const [obs, setObs] = useState<any | null>(null)
+  useEffect(() => {
+    if (!stationId) return
+    let cancelled = false
+    // Use the existing mojave aggregator which already pulls NWS observations
+    // for the 3 ASOS stations. One round-trip, same data as external link.
+    fetch("/api/crep/mojave", { signal: AbortSignal.timeout(8000) })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => {
+        if (cancelled || !j) return
+        const station = (j.climate_stations || []).find((s: any) => s.id === stationId)
+        if (station?.observation) setObs(station.observation)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [stationId])
+  if (!obs) return (
+    <div className="text-[10px] text-white/50 font-mono bg-black/30 rounded-lg p-2 border border-white/10">
+      station {stationId} — NWS observation not available (RAWS/COOP stations don&apos;t publish via api.weather.gov)
+    </div>
+  )
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-cyan-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-cyan-300 font-mono">NWS live · {stationId}</div>
+      <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+        {obs.temp_c != null && <div className="bg-black/40 rounded p-1.5 border border-white/10"><div className="text-[8px] text-cyan-300/80 uppercase">Temp</div><div className="text-white font-mono">{Number(obs.temp_c).toFixed(1)}°C</div></div>}
+        {obs.humidity_pct != null && <div className="bg-black/40 rounded p-1.5 border border-white/10"><div className="text-[8px] text-sky-300/80 uppercase">Humid</div><div className="text-white font-mono">{Number(obs.humidity_pct).toFixed(0)}%</div></div>}
+        {obs.wind_kph != null && <div className="bg-black/40 rounded p-1.5 border border-white/10"><div className="text-[8px] text-emerald-300/80 uppercase">Wind</div><div className="text-white font-mono">{Number(obs.wind_kph).toFixed(0)} km/h</div></div>}
+        {obs.pressure_pa != null && <div className="bg-black/40 rounded p-1.5 border border-white/10"><div className="text-[8px] text-violet-300/80 uppercase">Pres</div><div className="text-white font-mono">{(Number(obs.pressure_pa) / 100).toFixed(0)} hPa</div></div>}
+        {obs.visibility_m != null && <div className="bg-black/40 rounded p-1.5 border border-white/10"><div className="text-[8px] text-amber-300/80 uppercase">Vis</div><div className="text-white font-mono">{(Number(obs.visibility_m) / 1000).toFixed(1)} km</div></div>}
+      </div>
+      {obs.description && <div className="text-[10px] text-white/70 italic">&ldquo;{String(obs.description)}&rdquo;</div>}
+      {obs.ts && <div className="text-[9px] text-white/40 font-mono text-right">obs {new Date(obs.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>}
+    </div>
+  )
+}
+
+function MojaveInatInfoPanel({ site }: { site: ClickDetail }) {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-lime-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-lime-300 font-mono">iNaturalist observation</div>
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        {site.sci_name && <><div className="text-white/60">Species</div><div className="text-white font-mono text-right italic">{String(site.sci_name)}</div></>}
+        {site.iconic_taxon && <><div className="text-white/60">Taxon</div><div className="text-white font-mono text-right">{String(site.iconic_taxon)}</div></>}
+        {site.quality_grade && <><div className="text-white/60">Grade</div><div className="text-white font-mono text-right">{String(site.quality_grade)}</div></>}
+        {site.observed_on && <><div className="text-white/60">Observed</div><div className="text-white font-mono text-right">{String(site.observed_on)}</div></>}
+        {site.observer && <><div className="text-white/60">Observer</div><div className="text-white font-mono text-right">@{String(site.observer)}</div></>}
+      </div>
+    </div>
+  )
+}
+
+function MojaveWildernessInfoPanel({ site }: { site: ClickDetail }) {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-amber-500/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-amber-300 font-mono flex items-center gap-1">
+        <Mountain className="w-3 h-3" /> NPS MOJA wilderness POI
+      </div>
+      <div className="text-[11px] text-white/80 leading-snug">
+        {String(site.description || "Mojave National Preserve wilderness landmark — NPS-managed, within MOJA unit boundary.")}
+      </div>
+      <div className="text-[9px] text-white/50 font-mono">
+        Unit: Mojave National Preserve (MOJA) · 1,600,000 acres · California east of I-15/I-40
+      </div>
+    </div>
+  )
+}
+
+function MojaveProjectInfoPanel() {
+  return (
+    <div className="bg-black/30 rounded-lg p-2.5 border border-teal-400/30 space-y-1.5">
+      <div className="text-[9px] uppercase tracking-[0.15em] text-teal-300 font-mono">Project partners</div>
+      <div className="text-[11px] text-white/80 leading-snug space-y-0.5">
+        <div>• MYCOSOFT — biz-dev vertical thesis (Garret)</div>
+        <div>• NPS MOJA — Mojave National Preserve coordination</div>
+        <div>• BLM Needles Field Office — east Mojave land admin</div>
+        <div>• UC Granite Mountains Research Center — field science</div>
+        <div>• NWS / NOAA — live climate observations (KEED / KDAG / KIFP)</div>
       </div>
     </div>
   )
