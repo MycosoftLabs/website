@@ -279,6 +279,10 @@ export async function GET(request: NextRequest) {
       source: "cache",
       timestamp: new Date(buoyCache.timestamp).toISOString(),
       cached: true,
+    }, {
+      // Apr 20, 2026 perf: 5 min edge cache + 30 min SWR. NDBC publishes
+      // every 5-10 min so caching at the edge cuts our origin RPS dramatically.
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1800" },
     })
   }
 
@@ -332,6 +336,11 @@ export async function GET(request: NextRequest) {
       source: ndbcBuoys.length > 0 ? "ndbc" : "mindex",
       timestamp: new Date().toISOString(),
       cached: false,
+    }, {
+      // Apr 20, 2026 perf: 5 min edge cache + 30 min SWR. NDBC publishes
+      // every 5-10 min. Edge serves stale-while-revalidate so users
+      // never hit the slow NOAA upstream directly.
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=1800" },
     })
   } catch (error) {
     console.error("[Buoys] Error:", error)

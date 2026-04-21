@@ -235,7 +235,14 @@ export async function GET(request: Request) {
     })
     console.log(`[Satellites] Cache SET for legacy "${validCategory}" (TTL: ${cacheTtl / 1000}s)`)
 
-    return NextResponse.json(responseData)
+    // Apr 20, 2026 perf: Cloudflare/edge can serve cached for s-maxage,
+    // serve stale up to stale-while-revalidate. TLE positions don't
+    // change meaningfully on 60 s cadence (SGP4 is propagated client
+    // side from the same TLEs), so 60 s edge cache + 5 min SWR is
+    // safe + drops origin RPS by 10-50× across many clients.
+    return NextResponse.json(responseData, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    })
   } catch (error) {
     const errMsg = (error as Error).message
     const is429 = errMsg.includes("429") || errMsg.includes("rate limit")

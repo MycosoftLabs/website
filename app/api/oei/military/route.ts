@@ -579,6 +579,11 @@ export async function GET(request: NextRequest) {
         total: cached.length,
         facilities: cached,
         bbox: { south, north, west, east },
+      }, {
+        // Apr 20, 2026 perf: military bases are static infrastructure
+        // — change cadence is months/years. 1 hr edge cache + 6 hr SWR
+        // is conservative and cuts origin RPS to near zero.
+        headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=21600" },
       });
     }
 
@@ -605,6 +610,10 @@ export async function GET(request: NextRequest) {
         total: facilities.length,
         facilities,
         bbox: { south, north, west, east },
+      }, {
+        // Static-geojson source = bundled file, change cadence is per-deploy.
+        // 1 hr edge cache + 6 hr SWR.
+        headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=21600" },
       });
     }
 
