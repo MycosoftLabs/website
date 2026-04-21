@@ -113,14 +113,17 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
   // Render to MapLibre
   useEffect(() => {
     if (!map || !enabled || !auroraData) {
-      // Remove if disabled
-      if (map && addedRef.current) {
+      // Remove if disabled. Apr 20, 2026 (Morgan: TypeError: Cannot read
+      // properties of undefined (reading 'getLayer')). Add an extra
+      // function-shape guard so an HMR hot-reload that hands us a torn-
+      // down map (object exists but methods are gone) doesn't crash.
+      if (map && typeof map.getLayer === "function" && addedRef.current) {
         for (const [layer, source] of [
           [AURORA_LAYER_N, AURORA_SOURCE_N],
           [AURORA_LAYER_S, AURORA_SOURCE_S],
         ]) {
-          if (map.getLayer(layer)) try { map.removeLayer(layer); } catch {}
-          if (map.getSource(source)) try { map.removeSource(source); } catch {}
+          try { if (map.getLayer(layer)) map.removeLayer(layer); } catch {}
+          try { if (map.getSource(source)) map.removeSource(source); } catch {}
         }
         addedRef.current = false;
         revokeAllBlobUrls(); // source is gone, immediate revoke is safe
@@ -230,13 +233,15 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
 
     return () => {
       cancelled = true;
-      if (map && addedRef.current) {
+      // Same guard as the disable path above — torn-down maps lose
+      // their method bindings.
+      if (map && typeof map.getLayer === "function" && addedRef.current) {
         for (const [layer, source] of [
           [AURORA_LAYER_N, AURORA_SOURCE_N],
           [AURORA_LAYER_S, AURORA_SOURCE_S],
         ]) {
-          if (map.getLayer(layer)) try { map.removeLayer(layer); } catch {}
-          if (map.getSource(source)) try { map.removeSource(source); } catch {}
+          try { if (map.getLayer(layer)) map.removeLayer(layer); } catch {}
+          try { if (map.getSource(source)) map.removeSource(source); } catch {}
         }
         addedRef.current = false;
       }

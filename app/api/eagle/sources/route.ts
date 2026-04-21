@@ -137,10 +137,23 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined): Pro
     // from map". Fan-out fetches each DOT in parallel; bbox-filters
     // per-endpoint to keep the response size bounded.
     `${origin}/api/eagle/connectors/state-dot-cctv${qp}`,
+    // Apr 20, 2026 — US-MX southern border ports of entry + CBP live
+    // wait times. Morgan: "the tijuana boarder needs massive amount of
+    // added data". 19 ports of entry across CA/AZ/NM/TX with live CBP
+    // delay minutes per lane (POV / commercial / pedestrian).
+    `${origin}/api/eagle/connectors/border-crossing${qp}`,
   ]
+  // Apr 20, 2026 hotfix (Morgan: "where are all the cameras icons and feeds
+  // on crep add them now"). Probed: state-dot-cctv takes ~10 s on cold cache
+  // (12 Caltrans districts + WSDOT + FDOT + 511NY + TxDOT in parallel).
+  // 15 s timeout was borderline — when the route compile cache was cold the
+  // call frequently timed out and Caltrans D11 (200+ SD cams) never reached
+  // the overlay. Bumped to 35 s so we always wait for the slow connector.
+  // Each connector still has its own internal timeouts; this only widens
+  // our patience for them to respond.
   const responses = await Promise.all(
     endpoints.map((u) =>
-      fetch(u, { signal: AbortSignal.timeout(15_000) })
+      fetch(u, { signal: AbortSignal.timeout(35_000) })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
     ),
