@@ -630,6 +630,21 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
     }
     // Attach high-res land mask to clip bathymetry at ~10 m coastline
     // accuracy. Only fetched once; persists across bathymetry toggles.
+    //
+    // Apr 20, 2026 fix (Morgan: "satelite shows then goes away"):
+    // the 10 MB ne_10m_land.geojson takes 1-3 s to fetch. If sat imagery
+    // was attached FIRST (before the mask load completes), the mask used
+    // to insert with beforeId=firstRoad, which put it ABOVE sat imagery
+    // in the stack (MapLibre's addLayer inserts right BEFORE beforeId,
+    // so the more recent insert wins visually within the same slot).
+    // Result: sat imagery showed on first paint, then the mask landed
+    // and covered it on every land pixel.
+    //
+    // Fix: before inserting the mask, check if sat imagery is already
+    // attached. If yes, use its layer id as the beforeId so the mask
+    // slots BELOW it. Otherwise fall back to the supplied beforeId
+    // (first road), which is correct when bathymetry is the only
+    // thing that wants clipping.
     const attachLandMask = async (beforeId: string | undefined) => {
       if (map.getSource("crep-land-mask-10m")) return
       try {
@@ -647,6 +662,16 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
         }
         if (!data) return
         if (!map.getSource("crep-land-mask-10m")) {
+          // If sat imagery is already attached, slot the mask BELOW it
+          // so sat pixels still show on land. Otherwise use the
+          // supplied beforeId (= first road), which keeps the mask
+          // between bathymetry and the road lines.
+          let effectiveBeforeId = beforeId
+          try {
+            if (map.getLayer("crep-satimagery-raster")) {
+              effectiveBeforeId = "crep-satimagery-raster"
+            }
+          } catch { /* ignore */ }
           map.addSource("crep-land-mask-10m", { type: "geojson", data })
           map.addLayer({
             id: "crep-land-mask-10m-fill",
@@ -654,15 +679,15 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
             source: "crep-land-mask-10m",
             paint: {
               // Carto Dark Matter land tone (near-black with subtle blue).
-              // Sat imagery, when enabled, will render ABOVE this mask so
-              // the mask is only visible when the user has bathymetry on
-              // + sat imagery off.
+              // Sat imagery, when enabled, renders ABOVE this mask so
+              // the mask is only visible when bathymetry is on and sat
+              // imagery is off.
               "fill-color": "#08111f",
               "fill-opacity": 1.0,
               "fill-antialias": true,
             },
-          }, beforeId)
-          console.log(`[ProposalOverlays] land mask attached (NE 1:10m, beforeId=${beforeId || "TOP"})`)
+          }, effectiveBeforeId)
+          console.log(`[ProposalOverlays] land mask attached (NE 1:10m, beforeId=${effectiveBeforeId || "TOP"})`)
         }
       } catch (e: any) {
         console.warn("[ProposalOverlays/land-mask]", e.message)
@@ -679,7 +704,18 @@ export default function ProposalOverlays({ map, enabled, bbox }: Props) {
         // coastline). Sat imagery, if enabled, inserts on top of the
         // mask so aerial rooftops show on land. Roads + place labels
         // remain on top of everything for navigation reference.
-        const bathyBeforeId = findInsertionPointBeforeRoads()
+        //
+        // Apr 20, 2026 fix (Morgan: "satelite shows then goes away"):
+        // If the user toggles bathymetry on AFTER sat imagery is already
+        // attached, naïvely inserting bathymetry before the first road
+        // layer places it ABOVE sat (sat was added before firstRoad
+        // earlier; new bathy add with beforeId=firstRoad goes right
+        // before it in the stack). That wipes sat. Fix: if sat layer
+        // exists, slot bathymetry BELOW it so sat keeps rendering.
+        let bathyBeforeId = findInsertionPointBeforeRoads()
+        try {
+          if (map.getLayer("crep-satimagery-raster")) bathyBeforeId = "crep-satimagery-raster"
+        } catch { /* ignore */ }
         if (!map.getSource(srcId)) {
           // Apr 19, 2026 (Morgan: "modify those bathymetry topology to
           // show the highest quality newest ones in their respective
