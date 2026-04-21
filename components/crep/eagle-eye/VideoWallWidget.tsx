@@ -147,8 +147,41 @@ function IframeEmbed({ url }: { url: string }) {
 }
 
 function MjpegStream({ url }: { url: string }) {
+  // Continuous MJPEG multipart/x-mixed-replace — the browser decodes
+  // frames natively off a single long-lived <img>.
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt="Live feed" className="w-full h-full object-contain bg-black" />
+}
+
+function SnapshotStream({ url, embedUrl }: { url: string; embedUrl?: string }) {
+  // Auto-refresh still JPEG every 20 s with cache-busting query. Covers
+  // HPWREN / ALERTWildfire / USGS cams that publish a fresh image every
+  // 2-5 min. The browser keeps the previous image painted while the new
+  // one loads — no flicker. Clicking opens the upstream player page
+  // (embed_url) in a new tab for the live player.
+  const [t, setT] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setT(Date.now()), 20_000)
+    return () => clearInterval(id)
+  }, [])
+  const src = url.includes("?") ? `${url}&_t=${t}` : `${url}?_t=${t}`
+  return (
+    <div className="relative w-full h-full bg-black group">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="Live snapshot" className="w-full h-full object-contain bg-black" />
+      {embedUrl && (
+        <a
+          href={embedUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-2 right-2 bg-black/60 hover:bg-cyan-700/80 text-cyan-200 hover:text-white text-[10px] px-2 py-1 rounded pointer-events-auto border border-cyan-500/40 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Open full player"
+        >
+          Live player ↗
+        </a>
+      )}
+    </div>
+  )
 }
 
 export default function VideoWallWidget() {
@@ -160,11 +193,25 @@ export default function VideoWallWidget() {
 
   // Listen for camera + event clicks from EagleEyeOverlay
   useEffect(() => {
+    // Apr 20, 2026 fix (Morgan: "see camera icon but in widget no video
+    // resolving stream only needs to be instant load"). Previously only
+    // onEvent read d.embed_url; onCamera dropped it → every permanent
+    // camera click round-tripped to /api/eagle/stream/{id}, which 404'd
+    // for every STATIC_SEED camera because those aren't in MINDEX yet.
+    // Result: "Resolving stream…" stayed up indefinitely.
+    //
+    // Now both handlers pass through the direct stream_url / embed_url
+    // from the feature properties. EagleEyeOverlay already populates
+    // these on every source's GeoJSON feature (see eagle-eye-overlay.tsx
+    // properties mapping). If present, we skip the /stream lookup
+    // entirely and render instantly.
     const onCamera = (e: any) => {
       const d = e?.detail || {}
       setFeed({
         id: d.id, name: d.name || `${d.provider} camera`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "camera",
+        directEmbed: d.embed_url || d.stream_url || undefined,
+        thumbnail: d.media_url || d.thumbnail || undefined,
       })
     }
     const onEvent = (e: any) => {
@@ -172,7 +219,9 @@ export default function VideoWallWidget() {
       setFeed({
         id: d.id, name: d.title || d.name || `${d.provider} clip`, provider: d.provider,
         lat: d.lat, lng: d.lng, kind: "video_event",
-        directEmbed: d.embed_url, thumbnail: d.thumbnail, confidence: d.confidence,
+        directEmbed: d.embed_url || d.stream_url || undefined,
+        thumbnail: d.thumbnail || d.media_url || undefined,
+        confidence: d.confidence,
       })
     }
     window.addEventListener("crep:eagle:camera-click", onCamera as any)
@@ -183,17 +232,46 @@ export default function VideoWallWidget() {
     }
   }, [])
 
-  // Resolve stream URL when feed changes
+  // Resolve stream URL when feed changes. Priority order:
+  //   1. media_url ending in .jpg/.jpeg/.png → render as auto-refreshing
+  //      snapshot (instant load, perfect for HPWREN static cams)
+  //   2. directEmbed pointing to .m3u8 → HLS player (Shinobi / MediaMTX)
+  //   3. directEmbed pointing to WHEP endpoint → WebRTC (low-latency)
+  //   4. Any other directEmbed → iframe (EarthCam, Surfline, Twitch, etc.)
+  //   5. No direct URL → round-trip to /api/eagle/stream/{id}
   useEffect(() => {
     if (!feed) { setResolved(null); return }
-    // Ephemeral events: prefer directEmbed if already provided
+
+    const pickStreamType = (url: string): StreamType => {
+      if (/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)) return "snapshot"
+      if (/\.m3u8(\?|$)/i.test(url)) return "hls"
+      if (/\/whep(\?|$)|\/whep\//i.test(url)) return "webrtc"
+      return "iframe"
+    }
+
+    // Instant-load path: thumbnail snapshot wins over iframe because it
+    // starts rendering on the next paint with zero network spin-up. User
+    // can still click the iframe URL in a new tab if they want the
+    // full interactive player.
+    if (feed.thumbnail && /\.(jpe?g|png|webp|gif)(\?|$)/i.test(feed.thumbnail)) {
+      setResolved({
+        id: feed.id,
+        provider: feed.provider,
+        kind: feed.kind === "camera" ? "permanent" : "ephemeral",
+        stream_type: "snapshot",
+        stream_url: feed.thumbnail,
+        embed_url: feed.directEmbed,
+      })
+      return
+    }
     if (feed.directEmbed) {
       setResolved({
         id: feed.id,
         provider: feed.provider,
         kind: feed.kind === "camera" ? "permanent" : "ephemeral",
-        stream_type: "iframe",
+        stream_type: pickStreamType(feed.directEmbed),
         embed_url: feed.directEmbed,
+        stream_url: feed.directEmbed,
       })
       return
     }
@@ -202,7 +280,7 @@ export default function VideoWallWidget() {
       setResolved(r)
       setLoading(false)
     })
-  }, [feed?.id, feed?.directEmbed])
+  }, [feed?.id, feed?.directEmbed, feed?.thumbnail])
 
   if (!feed) return null
 
@@ -289,7 +367,7 @@ export default function VideoWallWidget() {
               case "webrtc": return <WebRTCPlayer url={url} />
               case "iframe": return <IframeEmbed url={url} />
               case "mjpeg": return <MjpegStream url={url} />
-              case "snapshot": return <MjpegStream url={url} />
+              case "snapshot": return <SnapshotStream url={url} embedUrl={resolved.embed_url} />
               default: return <IframeEmbed url={url} />
             }
           })()}
