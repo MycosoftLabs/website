@@ -245,10 +245,15 @@ function IframeEmbed({ url, provider, name }: { url: string; provider?: string; 
 // element on page, render error), gracefully falls back to the
 // ProviderInfoCard with external link.
 function SnapshotProxyVideo({ url, provider, name }: { url: string; provider?: string; name?: string }) {
+  // Apr 20, 2026 perf-3: skip refresh when document.hidden — no point
+  // re-hitting the headless renderer when no-one's watching.
   const [t, setT] = useState(Date.now())
   const [failed, setFailed] = useState(false)
   useEffect(() => {
-    const id = setInterval(() => setT(Date.now()), 8_000)
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      setT(Date.now())
+    }, 8_000)
     return () => clearInterval(id)
   }, [])
   useEffect(() => { setFailed(false) }, [url])
@@ -308,10 +313,16 @@ function SnapshotStream({ url, embedUrl, provider, name }: { url: string; embedU
   // URLs (expired cert, 404, host down) render a clean "image unavailable"
   // card with a link to the provider site instead of the browser's raw
   // broken-image icon + alt-text.
+  //
+  // Apr 20, 2026 perf-3: skip refresh interval when document.hidden so
+  // backgrounded widgets stop hammering the snapshot proxy.
   const [t, setT] = useState(Date.now())
   const [failed, setFailed] = useState(false)
   useEffect(() => {
-    const id = setInterval(() => setT(Date.now()), 20_000)
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      setT(Date.now())
+    }, 20_000)
     return () => clearInterval(id)
   }, [])
   // Reset failure state when url changes (different cam selected)
