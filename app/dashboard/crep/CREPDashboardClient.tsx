@@ -163,18 +163,26 @@ import { toast } from "sonner";
 // adds negligible weight to the main bundle vs. the reload misery it
 // caused.
 import { SpaceWeatherWidget } from "@/components/crep/space-weather-widget";
-const FlightTrackerWidget = dynamic(() => import("@/components/crep/flight-tracker-widget").then((m) => ({ default: m.FlightTrackerWidget })), { ssr: false });
-const VesselTrackerWidget = dynamic(() => import("@/components/crep/vessel-tracker-widget").then((m) => ({ default: m.VesselTrackerWidget })), { ssr: false });
-const SatelliteTrackerWidget = dynamic(() => import("@/components/crep/satellite-tracker-widget").then((m) => ({ default: m.SatelliteTrackerWidget })), { ssr: false });
+// Apr 21, 2026 (Morgan: "crep crashing ... Loading chunk _app-pages-browser_components_crep_flight-tracker-widget_tsx failed").
+// Same ChunkLoadError reload-loop pattern as SpaceWeatherWidget above:
+// dev-server chunk compilation exceeded webpack's fetch deadline → Next
+// error boundary auto-reloaded → recompile → timeout → forever. Flipping
+// all three CREP tracker widgets + the conservation demo + ground-station
+// widgets to static imports eliminates the dynamic chunk fetch and the
+// timeout window entirely. They all render unconditionally inside the
+// right-panel tabs anyway, so there's no benefit to the lazy split.
+import { FlightTrackerWidget } from "@/components/crep/flight-tracker-widget";
+import { VesselTrackerWidget } from "@/components/crep/vessel-tracker-widget";
+import { SatelliteTrackerWidget } from "@/components/crep/satellite-tracker-widget";
 
-// Conservation Demo Widgets (Feb 05, 2026) - lazy loaded
-const SmartFenceWidget = dynamic(() => import("@/components/crep/smart-fence-widget").then((m) => ({ default: m.SmartFenceWidget })), { ssr: false });
-const PresenceDetectionWidget = dynamic(() => import("@/components/crep/presence-detection-widget").then((m) => ({ default: m.PresenceDetectionWidget })), { ssr: false });
+// Conservation Demo Widgets (Feb 05, 2026) — static to avoid chunk timeouts
+import { SmartFenceWidget } from "@/components/crep/smart-fence-widget";
+import { PresenceDetectionWidget } from "@/components/crep/presence-detection-widget";
 
-// Ground Station Integration (Mar 2026) - lazy loaded
-const GSOverlayPanel = dynamic(() => import("@/components/crep/ground-station/GSOverlayPanel").then((m) => ({ default: m.GSOverlayPanel })), { ssr: false });
-const GSPassTimeline = dynamic(() => import("@/components/crep/ground-station/GSPassTimeline").then((m) => ({ default: m.GSPassTimeline })), { ssr: false });
-const GSSatelliteInfoPanel = dynamic(() => import("@/components/crep/ground-station/GSSatelliteInfoPanel").then((m) => ({ default: m.GSSatelliteInfoPanel })), { ssr: false });
+// Ground Station Integration (Mar 2026) — static to avoid chunk timeouts
+import { GSOverlayPanel } from "@/components/crep/ground-station/GSOverlayPanel";
+import { GSPassTimeline } from "@/components/crep/ground-station/GSPassTimeline";
+import { GSSatelliteInfoPanel } from "@/components/crep/ground-station/GSSatelliteInfoPanel";
 import type { FenceSegment } from "@/components/crep/smart-fence-widget";
 import type { PresenceReading } from "@/components/crep/presence-detection-widget";
 
