@@ -2294,9 +2294,9 @@ export default function CREPDashboardPage() {
     { id: "factoriesG", name: "Global Factories", category: "pollution", icon: <Factory className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#f97316", description: "Climate TRACE + OSM + GEM — bbox-scoped" },
     { id: "orbitalDebris", name: "Orbital Debris (Catalogued)", category: "infrastructure", icon: <Satellite className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#d946ef", description: "~22k tracked debris objects via CelesTrak + SatCat + analyst. OFF by default — 22k animated SGP4 dots alongside active satellites + everything else pushes the GPU into frame-drop territory." },
     { id: "debrisCloud", name: "Debris 1-10cm (Statistical)", category: "infrastructure", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.45, color: "#ec4899", description: "1.2M sub-catalog debris modeled via NASA ODPO ORDEM distribution — density cloud. OFF by default: rendering 1.2M deck.gl points + everything else crashes the browser. Enable explicitly when the orbital debris view is the focus." },
-    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX)" },
-    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: true, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — includes 69/115/138/230 kV feeders (Jamacha/Miguel/etc). Hardcoded via scripts/etl/crep/fetch-transmission-full.mjs." },
-    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: true, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally)" },
+    { id: "txLinesGlobal", name: "Global Transmission Lines", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#facc15", description: "Global HV grid (HIFLD US + OpenInfraMap + OSM + MINDEX) — 22,760 lines. OFF by default (Apr 21 2026 — Morgan OOM audit: loading this unconditionally burned 14 MB JSON into heap even when invisible)." },
+    { id: "txLinesFull", name: "Transmission Lines (ALL voltages)", category: "pollution", icon: <Zap className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#fbbf24", description: "Full HIFLD Electric Power Transmission + OSM — 52,244 lines incl. 69/115/138/230 kV feeders. OFF by default (Apr 21 2026 — Morgan OOM audit: 78 MB raw GeoJSON was the biggest single heap offender, hitting 3 GB cap in ~9 min)." },
+    { id: "dataCentersG", name: "Global Data Centers", category: "telecom", icon: <Server className="w-3 h-3" />, enabled: false, opacity: 0.85, color: "#7c3aed", description: "OSM + PeeringDB + MINDEX data-center facilities (~5–7k globally). OFF by default (Apr 21 2026 — part of OOM triage)." },
     { id: "cellTowersG", name: "Global Cell Towers", category: "telecom", icon: <Wifi className="w-3 h-3" />, enabled: false, opacity: 0.6, color: "#8b5cf6", description: "OpenCelliD (47M) + FCC ASR + OSM — bbox-scoped. OFF by default — even bbox-scoped, wide viewports return tens of thousands of markers which OOMs the browser when stacked with other infra layers. Toggle on when investigating telecom coverage." },
     { id: "bathymetry", name: "Ocean Bathymetry", category: "environment", icon: <Waves className="w-3 h-3" />, enabled: true, opacity: 0.45, color: "#0e7490", description: "GEBCO 2024 ocean depth shading (200 m resolution)" },
     { id: "topography", name: "Land Topography", category: "environment", icon: <Mountain className="w-3 h-3" />, enabled: true, opacity: 0.55, color: "#78350f", description: "AWS Terrain Tiles hillshade (30 m DEM, GPU-shaded via MapLibre native hillshade)" },
@@ -6702,6 +6702,11 @@ export default function CREPDashboardPage() {
                   if ((window as any).__crep_substations_loaded) return
                   if (!mapReady()) return
                   if (map.getZoom() < 3) return
+                  // Apr 21, 2026 (Morgan OOM audit): also gate on the
+                  // substations layer being enabled. Was loading 76 k
+                  // features + 12 MB GeoJSON even when invisible.
+                  const subsOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "substations")?.enabled ?? true
+                  if (!subsOn) return
                   ;(window as any).__crep_substations_loaded = true
                   idleLoad(loadSubstationsFetch)
                 }
@@ -6829,8 +6834,16 @@ export default function CREPDashboardPage() {
                 // ════════════════════════════════════════════════════════
                 // STATIC TRANSMISSION LINES — 22,760 US lines >=345kV.
                 // Deferred via idleLoad (declared above).
+                // Apr 21, 2026 (Morgan OOM audit): gate on txLinesGlobal
+                // enabled flag so invisible-by-default doesn't cost 14 MB
+                // of heap.
                 // ════════════════════════════════════════════════════════
                 idleLoad(async () => {
+                  const txOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesGlobal" || l.id === "txLinesFull")?.enabled ?? false
+                  if (!txOn) {
+                    console.log("[CREP/Static] txLines disabled — skipping 22k-line static load (14 MB)")
+                    return
+                  }
                   try {
                     const res = await fetch("/data/crep/transmission-lines-us-major.geojson", { cache: "default" });
                     if (!res.ok) return;
@@ -6892,6 +6905,9 @@ export default function CREPDashboardPage() {
                 // render-storm at world view), but PMTiles carries the
                 // pre-cluster from tippecanoe so z2–z3 is fast.
                 void (async () => {
+                  // Apr 21, 2026 OOM audit: gate on txLinesGlobal enabled.
+                  const txgOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesGlobal")?.enabled ?? false
+                  if (!txgOn) { console.log("[CREP/Infra] txLinesGlobal disabled — skipping"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionLines);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
@@ -6935,6 +6951,10 @@ export default function CREPDashboardPage() {
                 // the PMTiles / geojson file has been generated and shipped —
                 // addInfraSourceWithFallback gracefully skips when neither exists.
                 void (async () => {
+                  // Apr 21, 2026 OOM audit: gate on txLinesFull enabled.
+                  // This is the BIGGEST single offender — 52k lines / 78 MB.
+                  const txfOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "txLinesFull")?.enabled ?? false
+                  if (!txfOn) { console.log("[CREP/Infra] txLinesFull disabled — skipping 52k-line / 78MB load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.transmissionFull);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
@@ -7048,6 +7068,9 @@ export default function CREPDashboardPage() {
                 // Generated by scripts/etl/crep/fetch-datacenters-global.mjs.
                 // Falls through silently if the file hasn't been generated yet.
                 void (async () => {
+                  // Apr 21, 2026 OOM audit: gate on dataCentersG enabled.
+                  const dcOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "dataCentersG")?.enabled ?? false
+                  if (!dcOn) { console.log("[CREP/Infra] dataCentersG disabled — skipping 4k-feature load"); return }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.dataCentersGlobal);
                     if (result.mode !== "pmtiles" && result.mode !== "geojson") return;
@@ -7395,7 +7418,16 @@ export default function CREPDashboardPage() {
                   }
                 })();
 
+                // Apr 21, 2026 (Morgan OOM audit): cellTowersG default is
+                // `enabled: false` but the infra pipeline was loading
+                // 615 k features into heap anyway. Gate the addInfraSource
+                // call on the layer's actual enabled flag so OFF = 0 MB.
                 idleLoad(async () => {
+                  const cellTowersOn = (window as any).__crep_layers?.()?.find((l: any) => l.id === "cellTowersG")?.enabled ?? false;
+                  if (!cellTowersOn) {
+                    console.log("[CREP/Infra] cellTowersG disabled — skipping 615k-feature load");
+                    return;
+                  }
                   try {
                     const result = await addInfraSourceWithFallback(map, INFRA_LAYERS.cellTowersGlobal);
                     if (result.mode === "pmtiles" || result.mode === "geojson") {

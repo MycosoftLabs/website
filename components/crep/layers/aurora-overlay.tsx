@@ -88,16 +88,34 @@ export default function AuroraOverlay({ map, enabled = false, opacity = 0.5 }: A
   useEffect(() => {
     if (!enabled) return;
 
+    // Apr 21, 2026 (Morgan OOM audit): circuit-break after 3 consecutive
+    // failures. The aurora endpoint was failing constantly and spamming
+    // console + retrying on the full 5 min interval forever.
+    let consecutiveFailures = 0
+    const MAX_FAILURES = 3
+
     const fetchAurora = async () => {
+      if (consecutiveFailures >= MAX_FAILURES) {
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+        return
+      }
+      if (typeof document !== "undefined" && document.hidden) return
       try {
         const res = await fetch("/api/oei/space-weather/aurora", {
           signal: AbortSignal.timeout(15000),
         });
-        if (!res.ok) return;
+        if (!res.ok) { consecutiveFailures++; return }
         const data = await res.json();
+        consecutiveFailures = 0
         setAuroraData(data.aurora || null);
       } catch (e) {
-        console.warn("[CREP/Aurora] Failed to fetch aurora data:", e);
+        consecutiveFailures++
+        if (consecutiveFailures === 1 || consecutiveFailures >= MAX_FAILURES) {
+          console.warn(`[CREP/Aurora] fetch failed (${consecutiveFailures}/${MAX_FAILURES}):`, (e as Error)?.message);
+        }
+        if (consecutiveFailures >= MAX_FAILURES) {
+          console.warn(`[CREP/Aurora] circuit-broken after ${MAX_FAILURES} failures — giving up until re-enable.`)
+        }
       }
     };
 
