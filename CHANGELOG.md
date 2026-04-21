@@ -413,6 +413,7 @@ All notable changes to this project will be documented in this file.
 - Update changelog [skip ci]
 - Update changelog [skip ci]
 - Update changelog [skip ci]
+- Update changelog [skip ci]
 
 ### Features
 
@@ -624,6 +625,7 @@ All notable changes to this project will be documented in this file.
 - *(crep)* Visibility-throttle remaining 60s+ pollers (perf-3 closeout)
 - *(crep)* Preconnect + dns-prefetch hints for external map origins
 - *(crep)* MIN_SOURCES 50 → 1 — trust MINDEX warm cache
+- *(crep)* Land mask uses 1.6 MB NE_50m at low zoom (was 10 MB NE_10m)
 
 ### Refactor
 
