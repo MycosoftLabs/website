@@ -1972,10 +1972,18 @@ export default function CREPDashboardPage() {
     orbitTypes: [],
   });
   
+  // Apr 20, 2026 (Morgan: "fix and turn off sun filters its causing crep
+  // to reload over and over"). Every default-on space-weather filter
+  // here triggers an /api/oei/space-weather poll on mount, and the
+  // SpaceWeatherWidget + SunEarthImpactLayer subscribe to multiple of
+  // these. With several upstream NOAA / DONKI / SWPC endpoints flapping
+  // at once, the cascade was visibly stalling the dashboard. Default
+  // ALL space-weather toggles OFF — operator can re-enable from the
+  // Space Weather panel when they want them.
   const [spaceWeatherFilter, setSpaceWeatherFilter] = useState<SpaceWeatherFilter>({
-    showSolarFlares: true,
-    showCME: true,
-    showGeomagneticStorms: true,
+    showSolarFlares: false,
+    showCME: false,
+    showGeomagneticStorms: false,
     showRadiationBelts: false,
     showAuroraOval: false,
     showSolarWind: false,
