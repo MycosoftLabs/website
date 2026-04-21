@@ -45,6 +45,23 @@ interface Props {
     beachClosures?: boolean          // sewage-related closures
     navyTraining?: boolean           // Coronado / Silver Strand impact
     estuaryMonitors?: boolean        // TRNERR monitors
+    // Apr 21, 2026 v2 expansion (Morgan: "massive increase in data
+    // icons" + "we need real coverage here at project oyster"):
+    oysterAnchor?: boolean           // MYCOSOFT/MYCODAO project site icon
+    oysterCameras?: boolean          // Surfline/Caltrans/CBP/NOAA cams
+    oysterBroadcast?: boolean        // AM/FM/TV
+    oysterCell?: boolean             // cell towers
+    oysterPower?: boolean            // substations + plants
+    oysterNature?: boolean           // iNat observations
+    oysterRails?: boolean            // Blue Line trolley + Amtrak + BNSF
+    oysterCaves?: boolean            // sea caves + grottos
+    oysterGovernment?: boolean       // CBP/USN/NPS/NOAA/IBWC
+    oysterTourism?: boolean          // landmarks, beaches
+    oysterSensors?: boolean          // AQS/tide/streamflow/water-quality
+    oysterPlume?: boolean            // UCSD PFM sewage plume polygons
+    oysterEmit?: boolean             // NASA EMIT methane/dust plumes
+    oysterCrossBorder?: boolean      // Scripps cross-border samplers
+    oysterHeatmap?: boolean          // pollution + biodiversity + noise
   }
 }
 
@@ -378,6 +395,320 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
         if (src?.setData) src.setData(data.geojson)
       } catch { /* ignore */ }
     }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Apr 21, 2026 v2 expansion (Morgan: "we need real coverage here at
+    // project oyster" + "there needs to be a project oyster icon for
+    // mycosoft just like there is for project goffs"). 11 new sub-layer
+    // categories + PFM plume polygons + NASA EMIT plumes, all defensively
+    // guarded so a single failure doesn't cascade.
+    // ══════════════════════════════════════════════════════════════════
+    const safeAddSource = (id: string, spec: any) => {
+      try { if (map.getSource(id)) return true; map.addSource(id, spec); return true } catch (e: any) { console.warn(`[TijuanaEstuary/${id}]`, e?.message); return false }
+    }
+    const safeAddLayer = (spec: any, beforeId?: string) => {
+      try { if (map.getLayer(spec.id)) return true; map.addLayer(spec, beforeId); return true } catch (e: any) { console.warn(`[TijuanaEstuary/layer ${spec.id}]`, e?.message); return false }
+    }
+    const bindOnce = (layerId: string, category: string) => {
+      const key = `__crep_oyster_bound_${layerId}`
+      if ((window as any)[key]) return
+      ;(window as any)[key] = true
+      map.on("click", layerId, (e: any) => {
+        const p = e.features?.[0]?.properties || {}
+        const c = e.lngLat
+        try { window.dispatchEvent(new CustomEvent("crep:oyster:site-click", { detail: { category, ...p, lat: c?.lat, lng: c?.lng } })) } catch { /* ignore */ }
+      })
+      map.on("mouseenter", layerId, () => { try { map.getCanvas().style.cursor = "pointer" } catch {} })
+      map.on("mouseleave", layerId, () => { try { map.getCanvas().style.cursor = "" } catch {} })
+    }
+    const beforeLabels = (() => {
+      try { return map.getStyle().layers.find((l: any) => l.type === "symbol")?.id } catch { return undefined }
+    })()
+
+    // ── OYSTER ANCHOR MARKER (MYCOSOFT/MYCODAO project site icon) ──
+    if (data?.oyster && safeAddSource("oyster-anchor", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [{ type: "Feature", properties: { ...data.oyster }, geometry: { type: "Point", coordinates: [data.oyster.lng, data.oyster.lat] } }] },
+    })) {
+      safeAddLayer({
+        id: "oyster-anchor-halo", type: "circle", source: "oyster-anchor",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 18, 4, 22, 10, 28],
+          "circle-color": "#14b8a6",
+          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 1, 0.70, 4, 0.50, 10, 0.30],
+          "circle-blur": 0.45,
+        },
+      })
+      safeAddLayer({
+        id: "oyster-anchor-dot", type: "circle", source: "oyster-anchor",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 8, 5, 9, 10, 12],
+          "circle-color": "#5eead4",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2.5,
+          "circle-opacity": 1.0,
+        },
+      })
+      safeAddLayer({
+        id: "oyster-anchor-label", type: "symbol", source: "oyster-anchor", minzoom: 3,
+        layout: {
+          "text-field": "OYSTER · MYCODAO",
+          "text-size": ["interpolate", ["linear"], ["zoom"], 3, 11, 10, 14],
+          "text-offset": [0, 1.4],
+          "text-anchor": "top",
+          "text-allow-overlap": true,
+          "text-letter-spacing": 0.08,
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        } as any,
+        paint: { "text-color": "#ecfeff", "text-halo-color": "#0f766e", "text-halo-width": 2.2, "text-halo-blur": 0.3 },
+      })
+      bindOnce("oyster-anchor-dot", "mycosoft-project")
+    }
+
+    // ── UCSD PFM plume (outer + core fill polygons) ──
+    if (data?.plume?.outer && safeAddSource("oyster-plume-outer", {
+      type: "geojson",
+      data: { type: "Feature", properties: { kind: "outer", flow: data.plume.current_flow_m3s }, geometry: data.plume.outer },
+    })) {
+      safeAddLayer({
+        id: "oyster-plume-outer-fill", type: "fill", source: "oyster-plume-outer",
+        paint: { "fill-color": "#b91c1c", "fill-opacity": 0.18, "fill-antialias": true },
+      }, beforeLabels)
+      safeAddLayer({
+        id: "oyster-plume-outer-line", type: "line", source: "oyster-plume-outer",
+        paint: { "line-color": "#f87171", "line-width": 1.2, "line-opacity": 0.5, "line-dasharray": [4, 3] },
+      }, beforeLabels)
+    }
+    if (data?.plume?.core && safeAddSource("oyster-plume-core", {
+      type: "geojson",
+      data: { type: "Feature", properties: { kind: "core", flow: data.plume.current_flow_m3s }, geometry: data.plume.core },
+    })) {
+      safeAddLayer({
+        id: "oyster-plume-core-fill", type: "fill", source: "oyster-plume-core",
+        paint: { "fill-color": "#dc2626", "fill-opacity": 0.34, "fill-antialias": true },
+      }, beforeLabels)
+      safeAddLayer({
+        id: "oyster-plume-core-line", type: "line", source: "oyster-plume-core",
+        paint: { "line-color": "#ef4444", "line-width": 1.8, "line-opacity": 0.85 },
+      }, beforeLabels)
+    }
+
+    // ── NASA EMIT methane / dust plumes ──
+    if (Array.isArray(data?.emit_plumes) && data.emit_plumes.length > 0 && safeAddSource("oyster-emit", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.emit_plumes.map((e: any) => ({ type: "Feature", properties: { ...e }, geometry: { type: "Point", coordinates: [e.lng, e.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-emit-heatmap", type: "heatmap", source: "oyster-emit", minzoom: 3, maxzoom: 14,
+        paint: {
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+          "heatmap-intensity": 1.2,
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.3, "rgba(249,115,22,0.4)", 0.7, "rgba(234,88,12,0.7)", 1, "rgba(194,65,12,0.9)"],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 30, 10, 80],
+          "heatmap-opacity": 0.75,
+        },
+      }, beforeLabels)
+      safeAddLayer({
+        id: "oyster-emit-dot", type: "circle", source: "oyster-emit", minzoom: 5,
+        paint: { "circle-radius": 6, "circle-color": "#f97316", "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 },
+      })
+      bindOnce("oyster-emit-dot", "emit")
+    }
+
+    // ── CAMERAS ──
+    if (Array.isArray(data?.cameras) && data.cameras.length > 0 && safeAddSource("oyster-cameras", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.cameras.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-cameras-dot", type: "circle", source: "oyster-cameras", minzoom: 8,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 14, 7],
+          "circle-color": ["match", ["get", "provider"], "surfline", "#06b6d4", "caltrans", "#0ea5e9", "cbp", "#3b82f6", "noaa", "#22d3ee", "earthcam", "#8b5cf6", "windy", "#a855f7", "#67e8f9"],
+          "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("oyster-cameras-dot", "camera")
+    }
+
+    // ── BROADCAST ──
+    if (Array.isArray(data?.broadcast) && data.broadcast.length > 0 && safeAddSource("oyster-broadcast", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.broadcast.map((b: any) => ({ type: "Feature", properties: { ...b }, geometry: { type: "Point", coordinates: [b.lng, b.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-broadcast-dot", type: "circle", source: "oyster-broadcast", minzoom: 7,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 3, 14, 6],
+          "circle-color": ["match", ["get", "band"], "am", "#a855f7", "fm", "#8b5cf6", "tv", "#7c3aed", "#8b5cf6"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.2, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("oyster-broadcast-dot", "broadcast")
+    }
+
+    // ── CELL TOWERS ──
+    if (Array.isArray(data?.cell_towers) && data.cell_towers.length > 0 && safeAddSource("oyster-cell", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.cell_towers.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-cell-dot", type: "circle", source: "oyster-cell", minzoom: 8,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 6],
+          "circle-color": ["match", ["get", "carrier"], "Verizon", "#ef4444", "AT&T", "#3b82f6", "T-Mobile", "#ec4899", "FirstNet", "#22c55e", "DoD", "#f59e0b", "#a855f7"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.0, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("oyster-cell-dot", "cell")
+    }
+
+    // ── POWER INFRASTRUCTURE ──
+    if (Array.isArray(data?.power) && data.power.length > 0 && safeAddSource("oyster-power", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.power.map((p: any) => ({ type: "Feature", properties: { ...p }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-power-dot", type: "circle", source: "oyster-power", minzoom: 7,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["coalesce", ["get", "capacity_mw"], 0], 0, 4, 100, 5, 500, 7, 2000, 10],
+          "circle-color": ["match", ["get", "kind"], "solar", "#facc15", "gas", "#f97316", "gas-retired", "#78350f", "nuclear-retired", "#84cc16", "substation", "#fbbf24", "battery", "#a855f7", "#fbbf24"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("oyster-power-dot", "power")
+    }
+
+    // ── RAILS ──
+    if (Array.isArray(data?.rails) && data.rails.length > 0 && safeAddSource("oyster-rails", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.rails.map((r: any) => ({ type: "Feature", properties: { ...r }, geometry: { type: "Point", coordinates: [r.lng, r.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-rails-dot", type: "circle", source: "oyster-rails", minzoom: 8,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 14, 7],
+          "circle-color": "#a1a1aa", "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("oyster-rails-dot", "rail")
+    }
+
+    // ── CAVES (sea caves / grottos) ──
+    if (Array.isArray(data?.caves) && data.caves.length > 0 && safeAddSource("oyster-caves", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.caves.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-caves-dot", type: "circle", source: "oyster-caves", minzoom: 8,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 14, 7],
+          "circle-color": "#78350f", "circle-stroke-color": "#f59e0b", "circle-stroke-width": 1.4, "circle-opacity": 0.92,
+        },
+      })
+      bindOnce("oyster-caves-dot", "cave")
+    }
+
+    // ── GOVERNMENT ──
+    if (Array.isArray(data?.government) && data.government.length > 0 && safeAddSource("oyster-gov", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.government.map((g: any) => ({ type: "Feature", properties: { ...g }, geometry: { type: "Point", coordinates: [g.lng, g.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-gov-dot", type: "circle", source: "oyster-gov", minzoom: 7,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 4, 14, 7],
+          "circle-color": ["match", ["get", "agency"], "CBP", "#3b82f6", "USN", "#0284c7", "USCG", "#0891b2", "NPS", "#84cc16", "NOAA", "#14b8a6", "IBWC", "#f59e0b", "EPA", "#22c55e", "CDFW", "#84cc16", "CA SP", "#10b981", "#7dd3fc"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      bindOnce("oyster-gov-dot", "government")
+    }
+
+    // ── TOURISM ──
+    if (Array.isArray(data?.tourism) && data.tourism.length > 0 && safeAddSource("oyster-tourism", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => ({ type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-tourism-dot", type: "circle", source: "oyster-tourism", minzoom: 8,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 6],
+          "circle-color": "#f9a8d4", "circle-stroke-color": "#831843", "circle-stroke-width": 1.2, "circle-opacity": 0.9,
+        },
+      })
+      bindOnce("oyster-tourism-dot", "tourism")
+    }
+
+    // ── SENSORS (includes UCSD PFM + Scripps cross-border) ──
+    if (Array.isArray(data?.sensors) && data.sensors.length > 0 && safeAddSource("oyster-sensors", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => ({ type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [s.lng, s.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-sensors-dot", type: "circle", source: "oyster-sensors", minzoom: 7,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 4, 14, 7],
+          "circle-color": ["match", ["get", "kind"], "aqi", "#ef4444", "tide", "#0ea5e9", "streamflow", "#06b6d4", "waterquality", "#22d3ee", "oceanography", "#14b8a6", "plume", "#dc2626", "crossborder", "#b91c1c", "emit", "#f97316", "buoy", "#84cc16", "noise", "#a855f7", "light", "#fbbf24", "soil", "#78350f", "#06b6d4"],
+          "circle-stroke-color": "#0b1220", "circle-stroke-width": 1.4, "circle-opacity": 0.95,
+        },
+      })
+      // Click route: kind determines widget category (plume / crossborder / emit / etc)
+      const key = `__crep_oyster_bound_oyster-sensors-dot`
+      if (!(window as any)[key]) {
+        ;(window as any)[key] = true
+        map.on("click", "oyster-sensors-dot", (e: any) => {
+          const p = e.features?.[0]?.properties || {}
+          const c = e.lngLat
+          const cat = p.kind === "plume" ? "plume" : p.kind === "crossborder" ? "crossborder" : p.kind === "emit" ? "emit" : p.kind === "aqi" ? "air-quality" : "sensor"
+          try { window.dispatchEvent(new CustomEvent("crep:oyster:site-click", { detail: { category: cat, ...p, lat: c?.lat, lng: c?.lng } })) } catch { /* ignore */ }
+        })
+        map.on("mouseenter", "oyster-sensors-dot", () => { try { map.getCanvas().style.cursor = "pointer" } catch {} })
+        map.on("mouseleave", "oyster-sensors-dot", () => { try { map.getCanvas().style.cursor = "" } catch {} })
+      }
+    }
+
+    // ── iNaturalist observations ──
+    if (Array.isArray(data?.inat_observations) && data.inat_observations.length > 0 && safeAddSource("oyster-inat", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: data.inat_observations.map((o: any) => ({ type: "Feature", properties: { ...o }, geometry: { type: "Point", coordinates: [o.lng, o.lat] } })) },
+    })) {
+      safeAddLayer({
+        id: "oyster-inat-dot", type: "circle", source: "oyster-inat", minzoom: 9,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 14, 6],
+          "circle-color": ["match", ["get", "iconic_taxon"], "Plantae", "#84cc16", "Reptilia", "#eab308", "Aves", "#38bdf8", "Mammalia", "#f43f5e", "Insecta", "#a78bfa", "Mollusca", "#06b6d4", "Actinopterygii", "#22d3ee", "#22c55e"],
+          "circle-stroke-color": "#052e16", "circle-stroke-width": 0.8, "circle-opacity": 0.92,
+        },
+      })
+      bindOnce("oyster-inat-dot", "inat-observation")
+    }
+
+    // ── HEATMAPS (pollution + biodiversity + noise combined) ──
+    if (data?.heatmaps && safeAddSource("oyster-heatmap", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [
+          ...(data.heatmaps.pollution || []).map((p: any) => ({ type: "Feature", properties: { kind: "pollution", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+          ...(data.heatmaps.biodiversity || []).map((p: any) => ({ type: "Feature", properties: { kind: "biodiversity", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+          ...(data.heatmaps.noise || []).map((p: any) => ({ type: "Feature", properties: { kind: "noise", intensity: p.intensity, label: p.label }, geometry: { type: "Point", coordinates: [p.lng, p.lat] } })),
+        ],
+      },
+    })) {
+      safeAddLayer({
+        id: "oyster-heatmap-layer", type: "heatmap", source: "oyster-heatmap", minzoom: 5, maxzoom: 14,
+        paint: {
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "intensity"], 0, 0, 1, 1],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 5, 0.8, 12, 1.5],
+          "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.2, "rgba(34,197,94,0.30)", 0.45, "rgba(250,204,21,0.50)", 0.70, "rgba(249,115,22,0.70)", 0.92, "rgba(220,38,38,0.85)"],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 5, 25, 12, 80],
+          "heatmap-opacity": 0.70,
+        },
+      }, beforeLabels)
+    }
+
+    // Apply visibility toggles
     try {
       const setVis = (id: string, on: boolean) => {
         try { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none") } catch { /* ignore */ }
@@ -394,6 +725,27 @@ export default function TijuanaEstuaryLayer({ map, enabled }: Props) {
       setVis("tj-stations-beach",         enabled.beachClosures !== false)
       setVis("tj-stations-monitor",       enabled.estuaryMonitors !== false)
       setVis("tj-stations-labels",        true)
+      // v2 expansion visibility:
+      setVis("oyster-anchor-halo",        enabled.oysterAnchor !== false)
+      setVis("oyster-anchor-dot",         enabled.oysterAnchor !== false)
+      setVis("oyster-anchor-label",       enabled.oysterAnchor !== false)
+      setVis("oyster-plume-outer-fill",   !!enabled.oysterPlume)
+      setVis("oyster-plume-outer-line",   !!enabled.oysterPlume)
+      setVis("oyster-plume-core-fill",    !!enabled.oysterPlume)
+      setVis("oyster-plume-core-line",    !!enabled.oysterPlume)
+      setVis("oyster-emit-heatmap",       !!enabled.oysterEmit)
+      setVis("oyster-emit-dot",           !!enabled.oysterEmit)
+      setVis("oyster-cameras-dot",        !!enabled.oysterCameras)
+      setVis("oyster-broadcast-dot",      !!enabled.oysterBroadcast)
+      setVis("oyster-cell-dot",           !!enabled.oysterCell)
+      setVis("oyster-power-dot",          !!enabled.oysterPower)
+      setVis("oyster-rails-dot",          !!enabled.oysterRails)
+      setVis("oyster-caves-dot",          !!enabled.oysterCaves)
+      setVis("oyster-gov-dot",            !!enabled.oysterGovernment)
+      setVis("oyster-tourism-dot",        !!enabled.oysterTourism)
+      setVis("oyster-sensors-dot",        !!enabled.oysterSensors)
+      setVis("oyster-inat-dot",           !!enabled.oysterNature)
+      setVis("oyster-heatmap-layer",      !!enabled.oysterHeatmap)
     } catch { /* ignore */ }
   }, [map, data, enabled])
 

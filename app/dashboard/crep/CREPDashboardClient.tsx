@@ -289,6 +289,7 @@ import DeviceWidget from "@/components/crep/devices/DeviceWidget";
 // IBWC discharge station + beach closures + Navy training waters.
 import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 import TijuanaStationWidget from "@/components/crep/tijuana/TijuanaStationWidget";
+import OysterSiteWidget from "@/components/crep/oyster/OysterSiteWidget";
 // Mojave National Preserve + Goffs, CA (MYCOSOFT project site) — Apr 21, 2026
 // NPS boundary + wilderness POIs + ASOS/RAWS climate + iNat obs.
 import MojavePreserveLayer from "@/components/crep/layers/mojave-preserve-layer";
@@ -8352,11 +8353,32 @@ export default function CREPDashboardPage() {
               beachClosures:          layers.find(l => l.id === "tjBeachClosures")?.enabled ?? true,
               navyTraining:           layers.find(l => l.id === "tjNavyTraining")?.enabled ?? true,
               estuaryMonitors:        layers.find(l => l.id === "tjEstuaryMonitors")?.enabled ?? true,
+              // Apr 21, 2026 v2 expansion:
+              oysterAnchor:           layers.find(l => l.id === "tijuanaEstuary")?.enabled ?? true,
+              oysterCameras:          layers.find(l => l.id === "oysterCameras")?.enabled   ?? true,
+              oysterBroadcast:        layers.find(l => l.id === "oysterBroadcast")?.enabled ?? true,
+              oysterCell:             layers.find(l => l.id === "oysterCell")?.enabled      ?? true,
+              oysterPower:            layers.find(l => l.id === "oysterPower")?.enabled     ?? true,
+              oysterNature:           layers.find(l => l.id === "oysterNature")?.enabled    ?? true,
+              oysterRails:            layers.find(l => l.id === "oysterRails")?.enabled     ?? true,
+              oysterCaves:            layers.find(l => l.id === "oysterCaves")?.enabled     ?? true,
+              oysterGovernment:       layers.find(l => l.id === "oysterGovernment")?.enabled?? true,
+              oysterTourism:          layers.find(l => l.id === "oysterTourism")?.enabled   ?? true,
+              oysterSensors:          layers.find(l => l.id === "oysterSensors")?.enabled   ?? true,
+              oysterPlume:            layers.find(l => l.id === "oysterPlume")?.enabled     ?? true,
+              oysterEmit:             layers.find(l => l.id === "oysterEmit")?.enabled      ?? true,
+              oysterCrossBorder:      layers.find(l => l.id === "oysterCrossBorder")?.enabled ?? true,
+              oysterHeatmap:          layers.find(l => l.id === "oysterHeatmap")?.enabled   ?? true,
             }}
           />
-          {/* Tijuana station detail widget — listens for crep:tijuana:station-click
-              dispatched by TijuanaEstuaryLayer click handlers. */}
+          {/* Tijuana station detail widget — legacy crep:tijuana:station-click handler. */}
           <TijuanaStationWidget />
+          {/* Apr 21, 2026 v2 — OysterSiteWidget mirrors MojaveSiteWidget.
+              Listens for crep:oyster:site-click from the v2 anchor + 11
+              new sub-layer click handlers. Shows project thesis metadata
+              (owner: Morgan MYCODAO), UCSD PFM / Scripps / NASA EMIT
+              deep-links, and category-color-coded glass panels. */}
+          <OysterSiteWidget />
 
           {/* Mojave National Preserve + Goffs, CA (MYCOSOFT project) —
               Apr 21, 2026. NPS MOJA boundary + Goffs anchor marker +
