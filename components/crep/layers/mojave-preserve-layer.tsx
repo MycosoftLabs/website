@@ -179,6 +179,19 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
       try { return map.getStyle().layers.find((l: any) => l.type === "symbol")?.id } catch { return undefined }
     })()
 
+    // Apr 21, 2026 (Morgan: "no icons can overlap exactly that causes
+    // selection issues"). Deterministic id-hash → sub-pixel jitter.
+    // Goffs sensors + wilderness + climate + iNat co-located at same
+    // landmark (e.g. Mitchell Caverns = NPS landmark + RAWS weather +
+    // cave POI + tourism) each land in distinct hit-test cells.
+    const jitter = (id: string, lng: number, lat: number): [number, number] => {
+      let h = 0
+      for (let i = 0; i < (id || "").length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+      const dx = ((h & 0xff) / 255 - 0.5) * 0.00003
+      const dy = (((h >> 8) & 0xff) / 255 - 0.5) * 0.00003
+      return [lng + dx, lat + dy]
+    }
+
     // ── Boundary polygon (fill + dashed line) ──
     if (safeAddSource("mojave-boundary", {
       type: "geojson",
@@ -419,7 +432,7 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     // ── CAMERAS ──
     if (Array.isArray(data.cameras) && data.cameras.length > 0 && safeAddSource("mojave-cameras", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.cameras.map((c: any) => ({ type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [c.lng, c.lat] } })) },
+      data: { type: "FeatureCollection", features: data.cameras.map((c: any) => { const [jx, jy] = jitter(c.id, c.lng, c.lat); return { type: "Feature", properties: { ...c }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "mojave-cameras-dot", type: "circle", source: "mojave-cameras", minzoom: 4,
@@ -529,7 +542,7 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     // ── TOURISM ──
     if (Array.isArray(data.tourism) && data.tourism.length > 0 && safeAddSource("mojave-tourism", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => ({ type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } })) },
+      data: { type: "FeatureCollection", features: data.tourism.map((t: any) => { const [jx, jy] = jitter(t.id, t.lng, t.lat); return { type: "Feature", properties: { ...t }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "mojave-tourism-dot", type: "circle", source: "mojave-tourism", minzoom: 5,
@@ -544,7 +557,7 @@ export default function MojavePreserveLayer({ map, enabled }: Props) {
     // ── SENSORS ──
     if (Array.isArray(data.sensors) && data.sensors.length > 0 && safeAddSource("mojave-sensors", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => ({ type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [s.lng, s.lat] } })) },
+      data: { type: "FeatureCollection", features: data.sensors.map((s: any) => { const [jx, jy] = jitter(s.id, s.lng, s.lat); return { type: "Feature", properties: { ...s }, geometry: { type: "Point", coordinates: [jx, jy] } } }) },
     })) {
       safeAddLayer({
         id: "mojave-sensors-dot", type: "circle", source: "mojave-sensors", minzoom: 4,
