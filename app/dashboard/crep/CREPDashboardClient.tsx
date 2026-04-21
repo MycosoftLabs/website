@@ -275,6 +275,11 @@ import WaypointSystem from "@/components/crep/waypoints/WaypointSystem";
 // inline MarkerPopup with a beautiful floating high-tech dialog with
 // explicit GPS state surfacing + sparkline telemetry cards.
 import DeviceWidget from "@/components/crep/devices/DeviceWidget";
+// Tijuana Estuary / Project Oyster (MYCODAO + MYCOSOFT) — pollution +
+// environmental data showcase for the SD-MX border zone. Apr 20, 2026.
+// Renders Project Oyster perimeter + H₂S hotspot + river flow line +
+// IBWC discharge station + beach closures + Navy training waters.
+import TijuanaEstuaryLayer from "@/components/crep/layers/tijuana-estuary-layer";
 const ServicesPanelLive = dynamic(() => import("@/components/crep/panels/services-panel-live"), { ssr: false });
 import ViewportStats from "@/components/crep/stats/viewport-stats";
 import {
@@ -2260,6 +2265,19 @@ export default function CREPDashboardPage() {
     { id: "photorealistic3D", name: "Photorealistic 3D (Google / Cesium)", category: "environment", icon: <Building2 className="w-3 h-3" />, enabled: false, opacity: 1.0, color: "#f59e0b", description: "Photorealistic 3D city meshes via Google Map Tiles API (worldwide photogrammetry, same as Google Earth) with Cesium Ion fallback. Requires NEXT_PUBLIC_GOOGLE_MAP_TILES_API_KEY or NEXT_PUBLIC_CESIUM_ION_TOKEN. Best viewed with MapLibre globe projection at zoom ≥ 14. OFF by default — the Cesium Ion loader pulls GBs of 3D mesh data; enable explicitly at high zoom over a city." },
     { id: "realisticClouds", name: "Realistic Clouds (Earth-2 + Satellite)", category: "environment", icon: <Cloud className="w-3 h-3" />, enabled: false, opacity: 0.7, color: "#e2e8f0", description: "NASA GIBS MODIS satellite cloud texture + RainViewer radar composite + sun-angle shadow projection from /api/eagle/weather/multi. 3D volumetric path mounts in <ThreeDGlobeView> (next iter). Altitude on 3D, density on both. OFF by default (Morgan: too much on load) — stacked raster layers + 5-min weather poll add up. Toggle on when you want cloud cover in the view." },
     { id: "sunEarthImpact", name: "Sun→Earth Impact", category: "events", icon: <Sparkles className="w-3 h-3" />, enabled: false, opacity: 0.8, color: "#fbbf24", description: "Live solar flares, CME arrival, aurora ovals, sunspot→earthspot projection. Correlation lines to tropical cyclones (hypothesis overlay). OFF by default (Morgan: too much on load) — polls DONKI + NOAA SWPC + aurora oval APIs on mount. Toggle on when space-weather view is the focus." },
+
+    // ── PROJECT OYSTER (MYCODAO + MYCOSOFT) — Tijuana Estuary showcase ──
+    // Apr 20, 2026 (Morgan: "make layers filters for pollution and
+    // specifically a filter section for project oyster with all of these
+    // layers and a perimeter and hotspot of gasses water flows").
+    { id: "tijuanaEstuary",          name: "Project Oyster — Master toggle (Tijuana Estuary)", category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "Project Oyster (MYCODAO + MYCOSOFT) — federated pollution + environmental data layer for the Tijuana River Valley. Master switch for the perimeter, oyster sites, H₂S hotspot, river flow, beach closures, Navy training waters." },
+    { id: "projectOysterPerimeter",  name: "Project Oyster — Perimeter polygon",            category: "pollution", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#5eead4", description: "Operational zone polygon over the TJ Estuary + south Imperial Beach + slough. Teal dashed border, subtle fill." },
+    { id: "projectOysterSites",      name: "Project Oyster — Oyster restoration sites",     category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#14b8a6", description: "MYCODAO oyster reef deployment + monitoring sites for biofiltration of TJ River outflow. Source: mycodao.com/projects/project-oyster." },
+    { id: "h2sHotspot",              name: "H₂S hotspot (SDAPCD)",                          category: "pollution", icon: <Cloud className="w-3 h-3" />,  enabled: true,  opacity: 1.0, color: "#dc2626", description: "Hydrogen-sulfide air-quality heatmap from 5 SDAPCD monitor stations along the TJ border. PowerBI dashboard linked from the marker." },
+    { id: "tjRiverFlow",             name: "TJ River course + IBWC discharge",              category: "pollution", icon: <Waves className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#f59e0b", description: "Tijuana River course from Tecate to Pacific outflow + IBWC station 11013300 discharge data (12 mo bundled + live latest)." },
+    { id: "tjBeachClosures",         name: "Sewage beach closures (SD County DEH)",         category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#dc2626", description: "Imperial Beach (closed > 1000 days), Coronado intermittent, TJ Slough chronic." },
+    { id: "tjNavyTraining",          name: "Navy training waters affected (Coronado)",      category: "pollution", icon: <AlertTriangle className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#fbbf24", description: "NSWC Coronado, Silver Strand SEAL training swims, NAB Coronado — exposure to TJ River sewage plume per Aug 2025 Navy Times reporting." },
+    { id: "tjEstuaryMonitors",       name: "TJ NERR + estuary research monitors",           category: "pollution", icon: <Sparkles className="w-3 h-3" />, enabled: true,  opacity: 1.0, color: "#22d3ee", description: "Tijuana River National Estuarine Research Reserve facility + research monitors." },
   ]);
   
   // Event filter removed - groundFilter + spaceWeatherFilter drive event visibility
@@ -8087,6 +8105,24 @@ export default function CREPDashboardPage() {
               lat-lng / "what's here" lookup. Persists to localStorage +
               best-effort to MINDEX so waypoints survive across devices. */}
           <WaypointSystem map={mapRef} />
+
+          {/* Project Oyster (MYCODAO + MYCOSOFT) — Tijuana Estuary
+              pollution showcase (Apr 20, 2026). Federated overlay of
+              IBWC river discharge + SDAPCD H₂S hotspot + beach closures
+              + Navy training waters + oyster restoration sites. */}
+          <TijuanaEstuaryLayer
+            map={mapRef}
+            enabled={{
+              tijuanaEstuary:         layers.find(l => l.id === "tijuanaEstuary")?.enabled ?? true,
+              projectOysterPerimeter: layers.find(l => l.id === "projectOysterPerimeter")?.enabled ?? true,
+              projectOysterSites:     layers.find(l => l.id === "projectOysterSites")?.enabled ?? true,
+              h2sHotspot:             layers.find(l => l.id === "h2sHotspot")?.enabled ?? true,
+              riverFlow:              layers.find(l => l.id === "tjRiverFlow")?.enabled ?? true,
+              beachClosures:          layers.find(l => l.id === "tjBeachClosures")?.enabled ?? true,
+              navyTraining:           layers.find(l => l.id === "tjNavyTraining")?.enabled ?? true,
+              estuaryMonitors:        layers.find(l => l.id === "tjEstuaryMonitors")?.enabled ?? true,
+            }}
+          />
 
           {/* IM3 Data Center Atlas (PNNL) + EIA-860M generator atlas
               (Operating / Planned / Retired / Canceled). Apr 19, 2026 —
