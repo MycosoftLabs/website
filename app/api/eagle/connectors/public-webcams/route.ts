@@ -59,21 +59,33 @@ type Cam = {
 // Guarantees the Eagle Eye overlay has content to render the instant the
 // user toggles the layer, regardless of upstream API health. Covers Morgan's
 // explicit ask: "ucsd fire cams in san diego" + SoCal fire watch + global
-// landmarks + marine harbors. Links are public viewer URLs that open in
-// the VideoWallWidget iframe fallback.
+// landmarks + marine harbors.
+//
+// Images are served via /api/eagle/cam-image proxy so HPWREN's expired TLS
+// cert + any mixed-content issues are handled server-side (Apr 20, 2026 v2
+// fix: Morgan "stream broken — hpwren.ucsd.edu/cameras/ temporarily down").
+// The embed_url on HPWREN entries is replaced with the proxied JPEG URL so
+// the VideoWallWidget's SnapshotStream gets a working still that refreshes
+// every 20 s without hitting the dead page.
 // ═══════════════════════════════════════════════════════════════════════════
+const hpwrenJpeg = (name: string) =>
+  `/api/eagle/cam-image?url=${encodeURIComponent(`http://hpwren.ucsd.edu/cameras/L/${name}-mrg.jpg`)}`
+
 const STATIC_SEED: Cam[] = [
   // ── HPWREN fire cameras (UCSD atmospheric research) — San Diego area ──
-  { id: "hpwren-lymansd", provider: "hpwren", name: "HPWREN — Mt. Lyman N (San Diego fire)", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/lymansd-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-lymans", provider: "hpwren", name: "HPWREN — Mt. Lyman S", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/lymans-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-tecmtn", provider: "hpwren", name: "HPWREN — Tecate Peak", lat: 32.5773, lng: -116.6356, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/tecmtn-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-smer", provider: "hpwren", name: "HPWREN — Santa Margarita", lat: 33.4856, lng: -117.0828, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/smer-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-rdmtn", provider: "hpwren", name: "HPWREN — Red Mountain", lat: 33.3833, lng: -117.1667, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/rdmtn-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-ucsd-atkinson", provider: "hpwren", name: "HPWREN — UCSD Atkinson Hall", lat: 32.8820, lng: -117.2340, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/ucsd-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-palomar", provider: "hpwren", name: "HPWREN — Palomar Observatory", lat: 33.3564, lng: -116.8651, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/palomar-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-toro", provider: "hpwren", name: "HPWREN — Toro Peak", lat: 33.5250, lng: -116.5420, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/toro-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-otay", provider: "hpwren", name: "HPWREN — Otay Mountain", lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/otay-mrg.jpg", category: "fire-watch" },
-  { id: "hpwren-slms", provider: "hpwren", name: "HPWREN — Sill Hill", lat: 33.0333, lng: -116.5333, stream_url: null, embed_url: "https://hpwren.ucsd.edu/cameras/", media_url: "http://hpwren.ucsd.edu/cameras/L/slms-mrg.jpg", category: "fire-watch" },
+  // media_url + embed_url both point at the proxied JPEG so the snapshot
+  // player paints the latest frame in < 200 ms. The full HPWREN viewer
+  // site is down today; we just show the latest still.
+  { id: "hpwren-lymansd",        provider: "hpwren", name: "HPWREN — Mt. Lyman N (San Diego fire)", lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: hpwrenJpeg("lymansd"),       media_url: hpwrenJpeg("lymansd"),       category: "fire-watch" },
+  { id: "hpwren-lymans",         provider: "hpwren", name: "HPWREN — Mt. Lyman S",                   lat: 33.0475, lng: -116.5892, stream_url: null, embed_url: hpwrenJpeg("lymans"),        media_url: hpwrenJpeg("lymans"),        category: "fire-watch" },
+  { id: "hpwren-tecmtn",         provider: "hpwren", name: "HPWREN — Tecate Peak",                   lat: 32.5773, lng: -116.6356, stream_url: null, embed_url: hpwrenJpeg("tecmtn"),        media_url: hpwrenJpeg("tecmtn"),        category: "fire-watch" },
+  { id: "hpwren-smer",           provider: "hpwren", name: "HPWREN — Santa Margarita",               lat: 33.4856, lng: -117.0828, stream_url: null, embed_url: hpwrenJpeg("smer"),          media_url: hpwrenJpeg("smer"),          category: "fire-watch" },
+  { id: "hpwren-rdmtn",          provider: "hpwren", name: "HPWREN — Red Mountain",                  lat: 33.3833, lng: -117.1667, stream_url: null, embed_url: hpwrenJpeg("rdmtn"),         media_url: hpwrenJpeg("rdmtn"),         category: "fire-watch" },
+  { id: "hpwren-ucsd-atkinson",  provider: "hpwren", name: "HPWREN — UCSD Atkinson Hall",            lat: 32.8820, lng: -117.2340, stream_url: null, embed_url: hpwrenJpeg("ucsd"),          media_url: hpwrenJpeg("ucsd"),          category: "fire-watch" },
+  { id: "hpwren-palomar",        provider: "hpwren", name: "HPWREN — Palomar Observatory",           lat: 33.3564, lng: -116.8651, stream_url: null, embed_url: hpwrenJpeg("palomar"),       media_url: hpwrenJpeg("palomar"),       category: "fire-watch" },
+  { id: "hpwren-toro",           provider: "hpwren", name: "HPWREN — Toro Peak",                     lat: 33.5250, lng: -116.5420, stream_url: null, embed_url: hpwrenJpeg("toro"),          media_url: hpwrenJpeg("toro"),          category: "fire-watch" },
+  { id: "hpwren-otay",           provider: "hpwren", name: "HPWREN — Otay Mountain",                 lat: 32.5961, lng: -116.8342, stream_url: null, embed_url: hpwrenJpeg("otay"),          media_url: hpwrenJpeg("otay"),          category: "fire-watch" },
+  { id: "hpwren-slms",           provider: "hpwren", name: "HPWREN — Sill Hill",                     lat: 33.0333, lng: -116.5333, stream_url: null, embed_url: hpwrenJpeg("slms"),          media_url: hpwrenJpeg("slms"),          category: "fire-watch" },
 
   // ── ALERTCalifornia fire watch (UCSD Scripps + UCSD Supercomputer) ──
   { id: "alertca-sdg-pointloma", provider: "alertwildfire", name: "ALERTCalifornia — Point Loma", lat: 32.6721, lng: -117.2418, stream_url: null, embed_url: "https://cameras.alertcalifornia.org/?pos=32.67,-117.24,16z", media_url: null, category: "fire-watch" },
