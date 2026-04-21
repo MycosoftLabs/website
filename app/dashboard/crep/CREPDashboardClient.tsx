@@ -2373,8 +2373,11 @@ export default function CREPDashboardPage() {
     
     if (mounted) {
       checkEarth2Status();
-      // Check status every 60 seconds
-      const interval = setInterval(checkEarth2Status, 60000);
+      // Check status every 60 seconds — skip when document.hidden (perf-3).
+      const interval = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return
+        checkEarth2Status()
+      }, 60000)
       return () => clearInterval(interval);
     }
   }, [mounted]);
@@ -3007,7 +3010,11 @@ export default function CREPDashboardPage() {
       }
     };
     const t = setTimeout(refreshLiveEvents, LIVE_EVENTS_REFRESH_MS);
-    const interval = setInterval(refreshLiveEvents, LIVE_EVENTS_REFRESH_MS);
+    // Apr 20, 2026 perf-3: skip when document.hidden.
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      refreshLiveEvents()
+    }, LIVE_EVENTS_REFRESH_MS)
     return () => {
       clearTimeout(t);
       clearInterval(interval);
@@ -4364,8 +4371,17 @@ export default function CREPDashboardPage() {
       try { (window as any).__crep_live_stats = () => summary } catch { /* ignore */ }
       console.log("[CREP/diag live]", JSON.stringify(summary))
     }
-    const id = setInterval(diag, 10_000)
-    const first = setTimeout(diag, 3_000)
+    // Apr 20, 2026 perf: skip diag logging when document.hidden — keeps
+    // the 6 console.log/min off backgrounded tabs. The __crep_live_stats
+    // global getter still works for on-demand probes via console.
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      diag()
+    }, 10_000)
+    const first = setTimeout(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      diag()
+    }, 3_000)
     return () => { clearInterval(id); clearTimeout(first) }
   }, [aircraft.length, vessels.length, satellites.length, filteredAircraft.length, filteredVessels.length])
 
@@ -4736,7 +4752,11 @@ export default function CREPDashboardPage() {
       } catch { /* ignore — endpoint may not exist yet */ }
     };
     fetchAndPaint();
-    const poll = setInterval(fetchAndPaint, 30_000);
+    // Apr 20, 2026 perf-3: skip when document.hidden.
+    const poll = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      fetchAndPaint()
+    }, 30_000)
     return () => clearInterval(poll);
   }, [layers]);
 
