@@ -134,39 +134,84 @@ function WebRTCPlayer({ url }: { url: string }) {
   return <video ref={videoRef} className="w-full h-full bg-black" controls muted playsInline />
 }
 
+// URL whitelist — only these patterns are actual video player embeds we
+// know iframe cleanly. Everything else is treated as a website page and
+// gets the "no live stream" card instead of being iframed (Morgan
+// Apr 20, 2026: "all camera widgets must be audited none can show
+// iframes or website only video streams live").
+const VIDEO_EMBED_PATTERNS: RegExp[] = [
+  /earthcam\.com\/embed\//i,
+  /youtube\.com\/embed\//i,
+  /youtube\.com\/watch\?/i,
+  /youtu\.be\//i,
+  /player\.twitch\.tv/i,
+  /player\.vimeo\.com/i,
+  /windy\.com\/webcams\/\d+/i,                 // windy player URLs (webcam ID)
+  /skylinewebcams\.com\/.+\.html$/i,           // skyline /livecam/{slug}.html
+  /\.m3u8($|\?)/i,                             // direct HLS
+  /\/hls\//i,                                  // shinobi/mediamtx HLS path
+  /\/whep\//i,                                 // WebRTC WHEP
+  /\/mjpeg\//i,                                // shinobi MJPEG
+  /api\.windy\.com\/webcams.*player/i,         // windy webcam player iframe
+  /\.(jpe?g|png|webp|gif)(\?|$)/i,             // direct image (handled as snapshot really)
+  /cwwp2\.dot\.ca\.gov\/vm\/iframemap\.htm/i,  // caltrans cam iframe map
+  /webcamtaxi\.com.*embed/i,
+]
+
+function looksLikeVideoEmbed(url: string): boolean {
+  return VIDEO_EMBED_PATTERNS.some((re) => re.test(url))
+}
+
+// Provider categories where the embed is just an INFO page (not video)
+// → never iframe, show info card.
+const INFO_ONLY_PROVIDERS = new Set([
+  "alertwildfire",
+  "surfline",
+  "cbp",
+  "static-poe",
+])
+
+function ProviderInfoCard({ url, provider, name, kind }: { url: string; provider?: string; name?: string; kind?: string }) {
+  const config: Record<string, { emoji: string; label: string; cta: string; explanation: string }> = {
+    alertwildfire:  { emoji: "🔥", label: "ALERTCalifornia / ALERTWildfire", cta: "Open on ALERTCalifornia ↗", explanation: "Live wildfire stream — provider blocks embed. Open the official viewer to watch." },
+    surfline:       { emoji: "🌊", label: "Surfline cam",                   cta: "Open on Surfline ↗",          explanation: "Surfline cams require a session on surfline.com." },
+    cbp:            { emoji: "🛂", label: "CBP Border Wait Times",          cta: "Open CBP Wait Times ↗",       explanation: "US Customs and Border Protection live wait times. Live cameras at this POE are not publicly streamed." },
+    "static-poe":   { emoji: "🛂", label: "US-Mexico land port of entry",   cta: "Open CBP Wait Times ↗",       explanation: "Land border crossing — live wait time data only. Cameras at the crossing are not publicly streamed." },
+  }
+  const c = config[provider || ""] || { emoji: "📷", label: provider || "Source", cta: "Open provider ↗", explanation: "This source doesn't expose a live video stream — open the provider site to view." }
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-3 p-4 text-center">
+      <div className="text-4xl">{c.emoji}</div>
+      <div className="text-xs text-white font-semibold">{c.label}</div>
+      <div className="text-[10px] text-gray-400 max-w-xs">{c.explanation}</div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-cyan-700 hover:bg-cyan-500 text-white text-[11px] px-3 py-1.5 rounded font-semibold border border-cyan-400/40 transition-colors"
+      >
+        {c.cta}
+      </a>
+      {name ? <div className="text-[9px] text-cyan-400 font-mono mt-1">{name}</div> : null}
+    </div>
+  )
+}
+
 function IframeEmbed({ url, provider, name }: { url: string; provider?: string; name?: string }) {
-  // Apr 20, 2026 (Morgan: "one camera alertwildfire camera shows a IFRAME
-  // UCSD PAGE NOT A VIEDEO STREAM THATS WRONG"). ALERTWildfire /
-  // ALERTCalifornia / Surfline / many camera viewer sites set
-  // X-Frame-Options: DENY so iframing them loads their "refused to
-  // connect" error page. When we know the provider doesn't iframe
-  // cleanly, render a proper fallback card with an "Open on <provider>"
-  // button that opens the site in a new tab — fails gracefully without
-  // looking broken.
-  const NO_IFRAME = new Set(["alertwildfire", "surfline"])
-  if (provider && NO_IFRAME.has(provider)) {
-    return (
-      <div className="w-full h-full bg-gradient-to-br from-[#0a1628] to-[#061121] flex flex-col items-center justify-center gap-3 p-4 text-center">
-        <div className="text-4xl">{provider === "alertwildfire" ? "🔥" : "🌊"}</div>
-        <div className="text-xs text-white font-semibold">
-          {provider === "alertwildfire" ? "ALERTCalifornia / ALERTWildfire" : "Surfline"} cam
-        </div>
-        <div className="text-[10px] text-gray-400 max-w-xs">
-          {provider === "alertwildfire"
-            ? "Live ALERTWildfire streams require the provider's viewer page (no direct embed)."
-            : "Surfline cams require a session on surfline.com."}
-        </div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-cyan-700 hover:bg-cyan-500 text-white text-[11px] px-3 py-1.5 rounded font-semibold border border-cyan-400/40 transition-colors"
-        >
-          Open on {provider === "alertwildfire" ? "ALERTCalifornia" : "Surfline"} ↗
-        </a>
-        {name ? <div className="text-[9px] text-cyan-400 font-mono">{name}</div> : null}
-      </div>
-    )
+  // Apr 20, 2026 (Morgan: "all camera widgets must be audited none can
+  // show iframes or website only video streams live"). Two filters:
+  //   1. INFO_ONLY_PROVIDERS → known to never expose a live stream;
+  //      always show info card with external link.
+  //   2. URL pattern check → only iframe if URL matches a known video
+  //      player embed pattern (EarthCam /embed/, YouTube, Twitch,
+  //      Vimeo, Windy player, etc.). Anything else (including
+  //      provider viewer pages, info pages, marketing pages) gets the
+  //      "no live stream" info card.
+  if (provider && INFO_ONLY_PROVIDERS.has(provider)) {
+    return <ProviderInfoCard url={url} provider={provider} name={name} />
+  }
+  if (!looksLikeVideoEmbed(url)) {
+    return <ProviderInfoCard url={url} provider={provider} name={name} />
   }
   return (
     <iframe
