@@ -140,6 +140,70 @@ const STATIC_SEED: Cam[] = [
   // ── Windy seed cams for regions that Windy often gates behind paid tiers ──
   { id: "windy-pier39", provider: "windy", name: "Windy — SF Pier 39", lat: 37.8087, lng: -122.4098, stream_url: null, embed_url: "https://www.windy.com/webcams/1529174000?37.809,-122.410,13", media_url: null, category: "weather" },
   { id: "windy-santamonica", provider: "windy", name: "Windy — Santa Monica Pier", lat: 34.0094, lng: -118.4973, stream_url: null, embed_url: "https://www.windy.com/webcams/1529189000?34.010,-118.497,13", media_url: null, category: "weather" },
+
+  // ── SkylineWebcams.com global live HD cams ──
+  // Public iframe embeds; each cam has a /livecam/{slug}/ page that
+  // loads in the VideoWallWidget iframe player.
+  { id: "skyline-stpeters",   provider: "earthcam", name: "SkylineWebcams — St. Peter's Square",   lat: 41.9022, lng: 12.4533, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/san-pietro.html",                media_url: null, category: "landmark" },
+  { id: "skyline-trevi",      provider: "earthcam", name: "SkylineWebcams — Trevi Fountain",       lat: 41.9009, lng: 12.4833, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/italia/lazio/roma/fontana-di-trevi.html",        media_url: null, category: "landmark" },
+  { id: "skyline-acropolis",  provider: "earthcam", name: "SkylineWebcams — Acropolis Athens",     lat: 37.9715, lng: 23.7267, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/greece/attica/athens/acropolis.html",            media_url: null, category: "landmark" },
+  { id: "skyline-pyramid",    provider: "earthcam", name: "SkylineWebcams — Pyramids of Giza",     lat: 29.9792, lng: 31.1342, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/misr/egypt/giza/pyramid-of-giza.html",           media_url: null, category: "landmark" },
+  { id: "skyline-tajmahal",   provider: "earthcam", name: "SkylineWebcams — Taj Mahal",            lat: 27.1751, lng: 78.0421, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/india/uttar-pradesh/agra/taj-mahal.html",        media_url: null, category: "landmark" },
+  { id: "skyline-biggben",    provider: "earthcam", name: "SkylineWebcams — Big Ben London",       lat: 51.5007, lng: -0.1246, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/united-kingdom/england/london/big-ben.html",   media_url: null, category: "landmark" },
+  { id: "skyline-sagrada",    provider: "earthcam", name: "SkylineWebcams — Sagrada Familia",      lat: 41.4036, lng:  2.1744, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/espana/cataluna/barcelona/sagrada-familia.html", media_url: null, category: "landmark" },
+  { id: "skyline-venice-rialto", provider: "earthcam", name: "SkylineWebcams — Rialto Bridge",     lat: 45.4380, lng: 12.3358, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia/ponte-di-rialto.html",   media_url: null, category: "landmark" },
+  { id: "skyline-matterhorn", provider: "earthcam", name: "SkylineWebcams — Matterhorn Zermatt",   lat: 45.9763, lng:  7.6586, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/schweiz/wallis/zermatt/matterhorn-zermatt.html", media_url: null, category: "weather" },
+  { id: "skyline-mtfuji",     provider: "earthcam", name: "SkylineWebcams — Mt. Fuji",             lat: 35.3606, lng: 138.7274, stream_url: null, embed_url: "https://www.skylinewebcams.com/en/webcam/japan/yamanashi/fujikawaguchiko/mount-fuji.html", media_url: null, category: "weather" },
+
+  // ── Beach & coastal surf / sunrise cams (Skyline + direct feeds) ──
+  { id: "beach-kona",         provider: "earthcam", name: "Kona Hawaii beach cam",          lat: 19.6406, lng: -155.9969, stream_url: null, embed_url: "https://www.earthcam.com/usa/hawaii/bigisland/konacoast/", media_url: null, category: "beach" },
+  { id: "beach-bondi",        provider: "earthcam", name: "Bondi Beach Australia",          lat: -33.8908, lng: 151.2743, stream_url: null, embed_url: "https://www.earthcam.com/world/australia/bondibeach/",      media_url: null, category: "beach" },
+  { id: "beach-maui-kaanapali", provider: "earthcam", name: "Ka'anapali Beach Maui",        lat: 20.9220, lng: -156.6950, stream_url: null, embed_url: "https://www.earthcam.com/usa/hawaii/maui/kaanapali/",     media_url: null, category: "beach" },
+  { id: "beach-keywest",      provider: "earthcam", name: "Key West Sunset Pier",           lat: 24.5571, lng: -81.8073, stream_url: null, embed_url: "https://www.earthcam.com/usa/florida/keywest/",              media_url: null, category: "beach" },
+  { id: "beach-outer-banks",  provider: "earthcam", name: "Outer Banks NC",                 lat: 35.5582, lng: -75.4665, stream_url: null, embed_url: "https://www.earthcam.com/usa/northcarolina/outerbanks/",    media_url: null, category: "beach" },
+  { id: "beach-nag-head",     provider: "earthcam", name: "Nags Head NC",                   lat: 35.9568, lng: -75.6240, stream_url: null, embed_url: "https://www.earthcam.com/usa/northcarolina/nagshead/",      media_url: null, category: "beach" },
+  { id: "beach-jaws-maui",    provider: "earthcam", name: "Jaws (Pe'ahi) Maui big-wave",    lat: 20.9490, lng: -156.2930, stream_url: null, embed_url: "https://www.surfline.com/surf-report/jaws/",                 media_url: null, category: "surf" },
+
+  // ── Stadium / arena cams ──
+  { id: "stad-fenway",        provider: "earthcam", name: "Fenway Park Boston",             lat: 42.3467, lng: -71.0972, stream_url: null, embed_url: "https://www.earthcam.com/usa/massachusetts/boston/fenway/",  media_url: null, category: "stadium" },
+  { id: "stad-wrigley",       provider: "earthcam", name: "Wrigley Field Chicago",          lat: 41.9484, lng: -87.6553, stream_url: null, embed_url: "https://www.earthcam.com/usa/illinois/chicago/wrigleyfield/", media_url: null, category: "stadium" },
+  { id: "stad-rosebowl",      provider: "earthcam", name: "Rose Bowl Pasadena",             lat: 34.1613, lng: -118.1676, stream_url: null, embed_url: "https://www.earthcam.com/usa/california/pasadena/rosebowl/", media_url: null, category: "stadium" },
+
+  // ── Zoo / aquarium / wildlife cams (explore.org-hosted) ──
+  { id: "zoo-sdzoo-panda",    provider: "earthcam", name: "San Diego Zoo — Panda Cam",      lat: 32.7353, lng: -117.1490, stream_url: null, embed_url: "https://www.sandiegozoo.org/animals/panda",                    media_url: null, category: "wildlife" },
+  { id: "zoo-smithsonian-elephant", provider: "earthcam", name: "Smithsonian Elephant Cam", lat: 38.9296, lng: -77.0489, stream_url: null, embed_url: "https://nationalzoo.si.edu/webcams/elephant-cam",              media_url: null, category: "wildlife" },
+  { id: "aq-monterey-kelp",   provider: "earthcam", name: "Monterey Bay Aquarium — Kelp",   lat: 36.6184, lng: -121.9018, stream_url: null, embed_url: "https://www.montereybayaquarium.org/animals/live-cams/kelp-forest", media_url: null, category: "wildlife" },
+  { id: "wild-alaska-brooks", provider: "earthcam", name: "Katmai Bears Brooks Falls",      lat: 58.5567, lng: -155.7789, stream_url: null, embed_url: "https://explore.org/livecams/brown-bears/brown-bear-salmon-cam-brooks-falls", media_url: null, category: "wildlife" },
+  { id: "wild-african-watering", provider: "earthcam", name: "Africam — Nkorho Pan Kruger", lat: -24.3914, lng: 31.4900, stream_url: null, embed_url: "https://www.africam.com/wildlife/nkorho-pan-live-stream",       media_url: null, category: "wildlife" },
+
+  // ── Mountain resort / ski cams ──
+  { id: "ski-mammoth",        provider: "earthcam", name: "Mammoth Mountain — Main Lodge",  lat: 37.6304, lng: -119.0326, stream_url: null, embed_url: "https://www.mammothmountain.com/live-cams",                   media_url: null, category: "weather" },
+  { id: "ski-vail",           provider: "earthcam", name: "Vail Resort",                    lat: 39.6403, lng: -106.3742, stream_url: null, embed_url: "https://www.vail.com/the-mountain/about-the-mountain/mountain-cams.aspx", media_url: null, category: "weather" },
+  { id: "ski-tahoe-northstar", provider: "earthcam", name: "Northstar California",          lat: 39.2739, lng: -120.1216, stream_url: null, embed_url: "https://www.northstarcalifornia.com/the-mountain/cams.aspx",   media_url: null, category: "weather" },
+  { id: "ski-whistler",       provider: "earthcam", name: "Whistler Blackcomb BC",          lat: 50.1163, lng: -122.9574, stream_url: null, embed_url: "https://www.whistlerblackcomb.com/the-mountain/mountain-conditions/live-cams.aspx", media_url: null, category: "weather" },
+
+  // ── City / landmark misc ──
+  { id: "ec-vegas-strip",     provider: "earthcam", name: "EarthCam — Las Vegas Strip",     lat: 36.1099, lng: -115.1724, stream_url: null, embed_url: "https://www.earthcam.com/usa/nevada/lasvegas/",                media_url: null, category: "landmark" },
+  { id: "ec-chicago-river",   provider: "earthcam", name: "EarthCam — Chicago Riverwalk",   lat: 41.8881, lng: -87.6298, stream_url: null, embed_url: "https://www.earthcam.com/usa/illinois/chicago/",                 media_url: null, category: "landmark" },
+  { id: "ec-san-antonio-riverwalk", provider: "earthcam", name: "EarthCam — San Antonio Riverwalk", lat: 29.4229, lng: -98.4861, stream_url: null, embed_url: "https://www.earthcam.com/usa/texas/sanantonio/riverwalk/", media_url: null, category: "landmark" },
+  { id: "ec-atlantic-city",   provider: "earthcam", name: "EarthCam — Atlantic City Boardwalk", lat: 39.3643, lng: -74.4229, stream_url: null, embed_url: "https://www.earthcam.com/usa/newjersey/atlanticcity/",       media_url: null, category: "landmark" },
+  { id: "ec-napa-downtown",   provider: "earthcam", name: "EarthCam — Napa Downtown",       lat: 38.2975, lng: -122.2869, stream_url: null, embed_url: "https://www.earthcam.com/usa/california/napa/",                  media_url: null, category: "landmark" },
+
+  // ── Weather / mountain research (HPWREN-adjacent via MesoWest / RAWS) ──
+  { id: "weather-pikes",      provider: "earthcam", name: "Pikes Peak Summit",              lat: 38.8409, lng: -105.0423, stream_url: null, embed_url: "https://pikespeakwebcam.com/",                                   media_url: null, category: "weather" },
+  { id: "weather-denali",     provider: "earthcam", name: "Denali NP",                      lat: 63.3333, lng: -150.5000, stream_url: null, embed_url: "https://www.nps.gov/dena/learn/photosmultimedia/webcams.htm",    media_url: null, category: "weather" },
+  { id: "weather-rainier",    provider: "earthcam", name: "Mt. Rainier Paradise",           lat: 46.7866, lng: -121.7355, stream_url: null, embed_url: "https://www.nps.gov/mora/learn/photosmultimedia/webcams.htm",    media_url: null, category: "weather" },
+
+  // ── Aviation / airport cams ──
+  { id: "av-lax-live",        provider: "earthcam", name: "LAX tower cam (EarthCam)",       lat: 33.9416, lng: -118.4085, stream_url: null, embed_url: "https://www.earthcam.com/usa/california/losangeles/?cam=laxtower", media_url: null, category: "aviation" },
+  { id: "av-sfo-runway",      provider: "earthcam", name: "SFO runway view",                lat: 37.6213, lng: -122.3790, stream_url: null, embed_url: "https://www.flysfo.com/",                                         media_url: null, category: "aviation" },
+  { id: "av-jfk-approach",    provider: "earthcam", name: "JFK approach cam",               lat: 40.6413, lng: -73.7781, stream_url: null, embed_url: "https://www.jfkairport.com/",                                      media_url: null, category: "aviation" },
+
+  // ── Marine / port cams ──
+  { id: "port-rotterdam",     provider: "earthcam", name: "Port of Rotterdam",              lat: 51.9244, lng:  4.4777, stream_url: null, embed_url: "https://www.portofrotterdam.com/en",                               media_url: null, category: "marine" },
+  { id: "port-lalb",          provider: "earthcam", name: "Port of LA / Long Beach",        lat: 33.7406, lng: -118.2620, stream_url: null, embed_url: "https://www.portoflosangeles.org/",                               media_url: null, category: "marine" },
+  { id: "port-panama-canal",  provider: "earthcam", name: "Panama Canal — Miraflores",      lat:  8.9949, lng: -79.5914, stream_url: null, embed_url: "https://micanaldepanama.com/en/canal-history/panama-canal-live-cameras/", media_url: null, category: "marine" },
+  { id: "port-singapore-psa", provider: "earthcam", name: "PSA Singapore",                  lat:  1.2646, lng: 103.8210, stream_url: null, embed_url: "https://www.globalpsa.com/",                                       media_url: null, category: "marine" },
 ]
 
 // ─── Windy Webcams v3 ────────────────────────────────────────────────────

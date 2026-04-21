@@ -131,6 +131,12 @@ async function fromLiveConnectors(origin: string, bbox: string | undefined): Pro
     `${origin}/api/eagle/connectors/public-webcams${qp}`,
     `${origin}/api/eagle/connectors/traffic-511${qp}`,
     `${origin}/api/eagle/connectors/shinobi${qp}`,
+    // Apr 20, 2026 — state DOT CCTV networks (Caltrans + WSDOT + FDOT +
+    // 511NY + TxDOT) add ~8,000 cameras across CA/WA/FL/NY/TX. Morgan:
+    // "so many cctv streaming vodeo services web cams public cams missing
+    // from map". Fan-out fetches each DOT in parallel; bbox-filters
+    // per-endpoint to keep the response size bounded.
+    `${origin}/api/eagle/connectors/state-dot-cctv${qp}`,
   ]
   const responses = await Promise.all(
     endpoints.map((u) =>
