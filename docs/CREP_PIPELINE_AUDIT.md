@@ -14,14 +14,14 @@
 | **MAS health** | 192.168.0.188:8001/health | ✅ 200 | <20 ms |
 | MAS entity stream | 192.168.0.188:8001/api/entities/stream | ❌ 404 | — |
 | MAS /api/entities | 192.168.0.188:8001/api/entities | ❌ 404 | — |
-| **PersonaPlex bridge** | 192.168.0.188:8999/health | ❌ connection refused | — |
+| **PersonaPlex bridge** | 192.168.0.**241**:8999/health (Cursor-confirmed 2026-04-22 — NOT on 188) | ❓ not probed from dev box; voice stack on .241 | — |
 | **Shinobi** | 192.168.0.188:8080 | ✅ 200 | 23 ms |
 | MycoBrain /api path | 192.168.0.188:8080/api/mycobrain | ❌ 404 | — |
 
 **Findings:**
 - MINDEX core alive but no discoverable API surface (swagger disabled).
 - MAS up but the `/api/entities/stream` path doesn't exist at that location — either the service moved, the route is versioned, or the CREP client is pointing at wrong path.
-- PersonaPlex voice bridge is DOWN. Client-side circuit breaker catches this. Need Cursor to restart the personaplex container.
+- PersonaPlex voice bridge is on **192.168.0.241**, not 188 (Cursor confirmed 2026-04-22). Client-side CREPDashboardClient + useMapWebSocket connect to `ws://localhost:8999/ws/crep/commands` — this is the tunnel from dev box → 241. Circuit breaker handles outages. Cursor: confirm 241 voice stack status when it's time to re-enable voice.
 - Shinobi up but empty (no monitors configured — pending Cursor P0 sprint).
 
 **Action items** (in `CREP_P0_SHINOBI_SPRINT.md` Cursor checklist):

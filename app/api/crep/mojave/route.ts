@@ -299,6 +299,23 @@ async function fetchNwsObservation(icao: string): Promise<any | null> {
 }
 
 // ─── Recent iNaturalist observations in Goffs / Mojave bbox ─────────
+// Apr 21, 2026 (Morgan: "permanent preloaded things faster load of nature
+// data"). Prefer MINDEX preloaded cache; fall back to live iNat if empty.
+async function fetchINatGoffsPreloadedFirst(origin: string): Promise<any[]> {
+  try {
+    const r = await fetch(`${origin}/api/crep/nature/preloaded?project=goffs&limit=200`, {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (r.ok) {
+      const j = await r.json()
+      if (j?.cache_warm && Array.isArray(j?.observations) && j.observations.length > 0) {
+        return j.observations
+      }
+    }
+  } catch { /* fall through to live */ }
+  return fetchINatGoffs()
+}
+
 async function fetchINatGoffs(): Promise<any[]> {
   // Apr 21 update (Morgan: "live naturedata"). Widened from 50 to 200
   // observations and dropped the strict research_grade filter — now
@@ -360,12 +377,13 @@ async function fetchNpsBoundary(): Promise<GeoJSON.Polygon | GeoJSON.MultiPolygo
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const started = Date.now()
+  const origin = new URL(req.url).origin
 
   const [npsGeom, inatObs, ...obs] = await Promise.all([
     fetchNpsBoundary(),
-    fetchINatGoffs(),
+    fetchINatGoffsPreloadedFirst(origin),
     fetchNwsObservation("KEED"),
     fetchNwsObservation("KDAG"),
     fetchNwsObservation("KIFP"),

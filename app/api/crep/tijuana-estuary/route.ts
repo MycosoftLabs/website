@@ -227,7 +227,8 @@ export async function GET(req: NextRequest) {
   const tourism = TJ_OYSTER_TOURISM
   const sensors = TJ_OYSTER_SENSORS
   const heatmaps = TJ_OYSTER_HEATMAPS
-  const inatObs = await fetchINatOyster()
+  const origin = new URL(req.url).origin
+  const inatObs = await fetchINatOysterPreloadedFirst(origin)
 
   // Perimeter + thesis anchor for Project Oyster widget
   const oyster_anchor = PROJECT_OYSTER_ANCHOR
@@ -261,9 +262,31 @@ export async function GET(req: NextRequest) {
       sensors,
       heatmaps,
       inat_observations: inatObs,
-      // UCSD Pacific Forecast Model sewage plume + NASA EMIT + Scripps:
-      plume: TJ_OYSTER_PLUME,
-      emit_plumes: TJ_OYSTER_EMIT_PLUMES,
+      // UCSD Pacific Forecast Model sewage plume + NASA EMIT + Scripps.
+      // Apr 21, 2026: plume now fetched from /api/crep/oyster/plume which
+      // tries SCCOOS OPeNDAP → pfmweb.ucsd.edu scrape → static fallback.
+      plume: await (async () => {
+        // /oyster/plume uses stale-while-revalidate — always returns
+        // <50 ms with static/cached data, refreshes in background.
+        try {
+          const r = await fetch(`${origin}/api/crep/oyster/plume`, { signal: AbortSignal.timeout(3_000) })
+          if (r.ok) {
+            const j = await r.json()
+            if (j?.outer && j?.core) return j
+          }
+        } catch { /* fall through */ }
+        return TJ_OYSTER_PLUME
+      })(),
+      emit_plumes: await (async () => {
+        try {
+          const r = await fetch(`${origin}/api/crep/oyster/emit?days_back=14`, { signal: AbortSignal.timeout(5000) })
+          if (r.ok) {
+            const j = await r.json()
+            if (Array.isArray(j?.plumes) && j.plumes.length > 0) return j.plumes
+          }
+        } catch { /* fall through */ }
+        return TJ_OYSTER_EMIT_PLUMES
+      })(),
       sources_used: [
         "USIBWC AQWebportal (river discharge — 12 mo bundled + live latest)",
         "SD Air Pollution Control District (H₂S monitors — 5 sites)",
@@ -571,6 +594,24 @@ const TJ_OYSTER_HEATMAPS = {
     { lat: 32.5427, lng: -117.0295, intensity: 0.78, label: "San Ysidro POE idling vehicles" },
     { lat: 32.7157, lng: -117.1611, intensity: 0.62, label: "Downtown SD ambient" },
   ],
+}
+
+// Apr 21, 2026 (Morgan: "permanent preloaded things faster load of nature
+// data"). Prefer MINDEX preloaded cache if warmed; fall back to live
+// iNat only on empty cache. Dev: cache is empty until MAS cron runs.
+async function fetchINatOysterPreloadedFirst(origin: string): Promise<any[]> {
+  try {
+    const r = await fetch(`${origin}/api/crep/nature/preloaded?project=oyster&limit=200`, {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (r.ok) {
+      const j = await r.json()
+      if (j?.cache_warm && Array.isArray(j?.observations) && j.observations.length > 0) {
+        return j.observations
+      }
+    }
+  } catch { /* fall through to live */ }
+  return fetchINatOyster()
 }
 
 async function fetchINatOyster(): Promise<any[]> {
